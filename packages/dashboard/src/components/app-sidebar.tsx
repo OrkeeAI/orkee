@@ -17,6 +17,7 @@ import { NavMain } from "@/components/nav-main"
 import { NavProjects } from "@/components/nav-projects"
 import { NavUser } from "@/components/nav-user"
 import { TeamSwitcher } from "@/components/team-switcher"
+import { SidebarConnectionStatus } from "@/components/SidebarConnectionStatus"
 import {
   Sidebar,
   SidebarContent,
@@ -102,6 +103,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         <NavProjects projects={data.projects} />
       </SidebarContent>
       <SidebarFooter>
+        <SidebarConnectionStatus />
         <NavUser user={data.user} />
       </SidebarFooter>
       <SidebarRail />

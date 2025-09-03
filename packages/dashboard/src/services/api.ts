@@ -1,0 +1,65 @@
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+
+export interface ApiResponse<T> {
+  data: T;
+  error?: string;
+}
+
+export class ApiClient {
+  private baseURL: string;
+
+  constructor(baseURL: string = API_BASE_URL) {
+    this.baseURL = baseURL;
+  }
+
+  async get<T>(endpoint: string): Promise<ApiResponse<T>> {
+    try {
+      const response = await fetch(`${this.baseURL}${endpoint}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      return { data };
+    } catch (error) {
+      console.error(`API GET error for ${endpoint}:`, error);
+      return {
+        data: null as unknown as T,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      };
+    }
+  }
+
+  async post<T>(endpoint: string, body: unknown): Promise<ApiResponse<T>> {
+    try {
+      const response = await fetch(`${this.baseURL}${endpoint}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(body),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      return { data };
+    } catch (error) {
+      console.error(`API POST error for ${endpoint}:`, error);
+      return {
+        data: null as unknown as T,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      };
+    }
+  }
+}
+
+export const apiClient = new ApiClient();

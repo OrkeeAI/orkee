@@ -26,7 +26,7 @@ export function Breadcrumbs() {
       <BreadcrumbList>
         <BreadcrumbItem className="hidden md:block">
           <BreadcrumbLink asChild>
-            <Link to="/">Building Your Application</Link>
+            <Link to="/">Orkee Dashboard</Link>
           </BreadcrumbLink>
         </BreadcrumbItem>
         <BreadcrumbSeparator className="hidden md:block" />
