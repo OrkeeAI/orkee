@@ -1,0 +1,10 @@
+{
+  "name": "@orkee/cli",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "build": "cargo build --release",
+    "dev": "cargo run",
+    "test": "cargo test"
+  }
+}

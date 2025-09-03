@@ -1,0 +1,9 @@
+{
+  "name": "@orkee/docs",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "echo 'Docs dev server not configured yet'",
+    "build": "echo 'Docs build not configured yet'"
+  }
+}
