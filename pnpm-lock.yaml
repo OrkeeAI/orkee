@@ -12,11 +12,11 @@ importers:
         specifier: ^2.5.6
         version: 2.5.6
 
-  cli: {}
-
   docs: {}
 
-  web:
+  packages/cli: {}
+
+  packages/dashboard:
     dependencies:
       react:
         specifier: ^19.1.1
