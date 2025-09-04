@@ -69,12 +69,12 @@ export function ProjectEditDialog({ project, open, onOpenChange, onProjectUpdate
 
       const updateData: ProjectUpdateInput = {
         ...formData,
-        tags: tags.length > 0 ? tags : undefined,
-        // Convert empty strings to undefined for optional fields
-        description: formData.description?.trim() || undefined,
-        setupScript: formData.setupScript?.trim() || undefined,
-        devScript: formData.devScript?.trim() || undefined,
-        cleanupScript: formData.cleanupScript?.trim() || undefined,
+        tags: tags.length > 0 ? tags : [],
+        // Send empty strings for cleared fields so backend can properly clear them
+        description: formData.description?.trim() || '',
+        setupScript: formData.setupScript?.trim() || '',
+        devScript: formData.devScript?.trim() || '',
+        cleanupScript: formData.cleanupScript?.trim() || '',
       };
 
       await projectsService.updateProject(project.id, updateData);

@@ -73,26 +73,35 @@ async fn list_projects() -> Result<(), Box<dyn std::error::Error>> {
         .apply_modifier(UTF8_ROUND_CORNERS)
         .set_content_arrangement(ContentArrangement::Dynamic);
 
-    table.set_header(vec!["ID", "Name", "Status", "Priority", "Path"]);
+    table.set_header(vec!["ID", "Name", "Repository", "Status", "Priority", "Tags", "Created"]);
 
     for project in &projects {
-        let status_colored = match project.status {
-            ProjectStatus::Active => "Active".green().to_string(),
-            ProjectStatus::Archived => "Archived".yellow().to_string(),
+        let status_text = match project.status {
+            ProjectStatus::Active => "Active",
+            ProjectStatus::Archived => "Archived",
         };
 
-        let priority_colored = match project.priority {
-            Priority::High => "High".red().to_string(),
-            Priority::Medium => "Medium".yellow().to_string(),
-            Priority::Low => "Low".green().to_string(),
+        let priority_text = match project.priority {
+            Priority::High => "High",
+            Priority::Medium => "Medium", 
+            Priority::Low => "Low",
         };
+
+        let tags_text = match &project.tags {
+            Some(tags) if !tags.is_empty() => tags.join(", "),
+            _ => "—".to_string(),
+        };
+
+        let created_text = format_date(&project.created_at.to_rfc3339());
 
         table.add_row(vec![
             project.id.clone(),
             truncate(&project.name, 25),
-            status_colored,
-            priority_colored,
-            truncate(&project.project_root, 40),
+            extract_repo_name(&project.project_root),
+            status_text.to_string(),
+            priority_text.to_string(),
+            truncate(&tags_text, 20),
+            created_text,
         ]);
     }
 
@@ -336,6 +345,7 @@ async fn delete_project_cmd(id: &str, skip_confirmation: bool) -> Result<(), Box
 fn print_project_details(project: &Project) {
     println!("{:<15} {}", "ID:".cyan(), project.id);
     println!("{:<15} {}", "Name:".cyan(), project.name);
+    println!("{:<15} {}", "Repository:".cyan(), extract_repo_name(&project.project_root));
     println!("{:<15} {}", "Path:".cyan(), project.project_root);
     
     let status_colored = match project.status {
@@ -387,7 +397,7 @@ fn print_project_details(project: &Project) {
 
 fn format_date(date_str: &str) -> String {
     match chrono::DateTime::parse_from_rfc3339(date_str) {
-        Ok(dt) => dt.format("%Y-%m-%d %H:%M:%S").to_string(),
+        Ok(dt) => dt.format("%-m/%-d/%Y").to_string(),
         Err(_) => date_str.to_string(),
     }
 }
@@ -398,4 +408,51 @@ fn truncate(s: &str, max_len: usize) -> String {
     } else {
         format!("{}...", &s[..max_len.saturating_sub(3)])
     }
+}
+
+fn extract_repo_name(path: &str) -> String {
+    // Try to get Git remote origin URL
+    if let Ok(repo) = git2::Repository::open(path) {
+        if let Ok(remote) = repo.find_remote("origin") {
+            if let Some(url) = remote.url() {
+                return parse_git_url(url);
+            }
+        }
+    }
+    
+    // No Git repository or no remote origin
+    "No remote repository".to_string()
+}
+
+fn parse_git_url(url: &str) -> String {
+    // Handle GitHub SSH URLs: git@github.com:username/repo.git
+    if url.starts_with("git@github.com:") {
+        let without_prefix = url.strip_prefix("git@github.com:").unwrap_or(url);
+        let without_suffix = without_prefix.strip_suffix(".git").unwrap_or(without_prefix);
+        return without_suffix.to_string();
+    }
+    
+    // Handle GitHub HTTPS URLs: https://github.com/username/repo.git
+    if url.starts_with("https://github.com/") {
+        let without_prefix = url.strip_prefix("https://github.com/").unwrap_or(url);
+        let without_suffix = without_prefix.strip_suffix(".git").unwrap_or(without_prefix);
+        return without_suffix.to_string();
+    }
+    
+    // Handle other Git hosting services or generic URLs
+    if let Ok(parsed_url) = url::Url::parse(url) {
+        if let Some(path) = parsed_url.path().strip_prefix('/') {
+            let without_suffix = path.strip_suffix(".git").unwrap_or(path);
+            return without_suffix.to_string();
+        }
+    }
+    
+    // If all else fails, try to extract from the URL string
+    if let Some(start) = url.find('/').or_else(|| url.find(':')) {
+        let remaining = &url[start + 1..];
+        let without_suffix = remaining.strip_suffix(".git").unwrap_or(remaining);
+        return without_suffix.to_string();
+    }
+    
+    "Unknown".to_string()
 }

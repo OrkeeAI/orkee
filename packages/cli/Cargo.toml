@@ -13,6 +13,7 @@ tower = "0.4"
 dotenvy = "0.15"
 orkee-projects = { path = "../projects" }
 git2 = "0.18"
+url = "2.4"
 # CLI dependencies
 clap = { version = "4.0", features = ["derive"] }
 colored = "2.0"

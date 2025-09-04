@@ -107,11 +107,11 @@ pub async fn create_project(data: ProjectCreateInput) -> ManagerResult<Project> 
         id: generate_project_id(),
         name: data.name,
         project_root: data.project_root,
-        setup_script: data.setup_script,
-        dev_script: data.dev_script,
-        cleanup_script: data.cleanup_script,
-        tags: data.tags,
-        description: data.description,
+        setup_script: data.setup_script.and_then(|s| if s.trim().is_empty() { None } else { Some(s) }),
+        dev_script: data.dev_script.and_then(|s| if s.trim().is_empty() { None } else { Some(s) }),
+        cleanup_script: data.cleanup_script.and_then(|s| if s.trim().is_empty() { None } else { Some(s) }),
+        tags: data.tags.and_then(|t| if t.is_empty() { None } else { Some(t) }),
+        description: data.description.and_then(|d| if d.trim().is_empty() { None } else { Some(d) }),
         status: data.status.unwrap_or_default(),
         rank: data.rank.or(Some(max_rank + 1)),
         priority: data.priority.unwrap_or_default(),
@@ -177,19 +177,19 @@ pub async fn update_project(id: &str, updates: ProjectUpdateInput) -> ManagerRes
         project.project_root = project_root;
     }
     if let Some(setup_script) = updates.setup_script {
-        project.setup_script = Some(setup_script);
+        project.setup_script = if setup_script.trim().is_empty() { None } else { Some(setup_script) };
     }
     if let Some(dev_script) = updates.dev_script {
-        project.dev_script = Some(dev_script);
+        project.dev_script = if dev_script.trim().is_empty() { None } else { Some(dev_script) };
     }
     if let Some(cleanup_script) = updates.cleanup_script {
-        project.cleanup_script = Some(cleanup_script);
+        project.cleanup_script = if cleanup_script.trim().is_empty() { None } else { Some(cleanup_script) };
     }
     if let Some(tags) = updates.tags {
-        project.tags = Some(tags);
+        project.tags = if tags.is_empty() { None } else { Some(tags) };
     }
     if let Some(description) = updates.description {
-        project.description = Some(description);
+        project.description = if description.trim().is_empty() { None } else { Some(description) };
     }
     if let Some(status) = updates.status {
         project.status = status;
