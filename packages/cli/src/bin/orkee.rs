@@ -124,6 +124,7 @@ async fn start_tui(refresh_interval: u64) -> Result<(), Box<dyn std::error::Erro
         eprintln!("TUI application error: {}", e);
     }
     
-    Ok(())
+    // Force process exit to ensure we don't hang
+    std::process::exit(0);
 }
 

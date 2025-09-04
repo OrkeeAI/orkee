@@ -12,6 +12,7 @@ use ratatui::{backend::CrosstermBackend, Terminal};
 pub struct App {
     pub state: AppState,
     pub should_quit: bool,
+    event_sender: Option<tokio::sync::mpsc::UnboundedSender<AppEvent>>,
 }
 
 impl App {
@@ -19,6 +20,7 @@ impl App {
         Self {
             state: AppState::new(refresh_interval),
             should_quit: false,
+            event_sender: None,
         }
     }
     
@@ -35,6 +37,9 @@ impl App {
     
     pub async fn run(&mut self, terminal: &mut Terminal<CrosstermBackend<std::io::Stdout>>) -> Result<()> {
         let mut event_handler = EventHandler::new(250); // 250ms tick rate
+        
+        // Store the event sender for quit functionality
+        self.event_sender = Some(event_handler.sender().clone());
         
         // Load projects on startup
         if let Err(e) = self.load_projects().await {
@@ -85,6 +90,9 @@ impl App {
             }
         }
         
+        // Explicitly drop the event handler to ensure cleanup
+        drop(event_handler);
+        
         Ok(())
     }
     
@@ -118,7 +126,7 @@ impl App {
                     }
                     CtrlCAction::QuitApplication => {
                         // Quit the application
-                        self.should_quit = true;
+                        self.quit();
                     }
                 }
                 return Ok(());
@@ -128,7 +136,7 @@ impl App {
         // Handle Ctrl+D for immediate quit
         if let KeyCode::Char('d') = key {
             if modifiers.contains(KeyModifiers::CONTROL) {
-                self.should_quit = true;
+                self.quit();
                 return Ok(());
             }
         }
@@ -563,5 +571,10 @@ impl App {
     
     pub fn quit(&mut self) {
         self.should_quit = true;
+        
+        // Send quit event to break the event loop immediately
+        if let Some(sender) = &self.event_sender {
+            let _ = sender.send(AppEvent::Quit);
+        }
     }
 }
