@@ -176,7 +176,7 @@ impl<'a> Widget for InputWidget<'a> {
         let (display_text, text_style, should_show_cursor) = if self.input_buffer.is_empty() {
             (self.placeholder, Style::default().fg(Color::Gray), true)
         } else {
-            (self.input_buffer.content(), Style::default(), true)
+            (self.input_buffer.content(), Style::default().fg(Color::White), true)
         };
         
         let paragraph = Paragraph::new(display_text)
@@ -217,31 +217,22 @@ impl<'a> InputWidget<'a> {
             return;
         }
         
-        // Calculate cursor position based on content
-        let cursor_pos = self.input_buffer.cursor_position();
-        let _content_before_cursor = &self.input_buffer.content()[..cursor_pos];
-        
-        // Simple cursor positioning - for now just use display width
-        // This will work for single line, can be enhanced later for multi-line
+        // Simple cursor positioning - for single line input for now
         let cursor_display_col = self.input_buffer.cursor_display_column();
         
-        // For now, assume single line (can enhance for multi-line later)
-        let cursor_x = area.x + cursor_display_col;
+        // Position cursor at the end of the visible text or at cursor position
+        let cursor_x = area.x + cursor_display_col.min(area.width.saturating_sub(1));
         let cursor_y = area.y;
         
         // Only render cursor if it's within the display area
         if cursor_x < area.x + area.width && cursor_y < area.y + area.height {
             let cell = &mut buf[(cursor_x, cursor_y)];
             
-            // If there's a character at cursor position, reverse it
-            // Otherwise, show a block cursor
-            if cell.symbol() == " " || cell.symbol().is_empty() {
-                cell.set_char('█').set_style(Style::default().fg(Color::White));
-            } else {
-                cell.set_style(
-                    cell.style().add_modifier(Modifier::REVERSED)
-                );
-            }
+            // Always use reversed style for cursor to preserve the underlying character
+            // This way we don't overwrite text with a block character
+            cell.set_style(
+                cell.style().add_modifier(Modifier::REVERSED)
+            );
         }
     }
 }
