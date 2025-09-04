@@ -1,6 +1,6 @@
 # Orkee
 
-A CLI and dashboard for AI agent orchestration
+A CLI, TUI and dashboard for AI agent orchestration
 
 ## Features
 
