@@ -12,6 +12,9 @@ pub mod storage;
 pub mod types;
 pub mod validator;
 
+#[cfg(test)]
+pub mod test_utils;
+
 // Re-export main types
 pub use types::{
     GitRepositoryInfo, ManualSubtask, ManualTask, Priority, Project, ProjectCreateInput, ProjectStatus,

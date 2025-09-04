@@ -91,27 +91,7 @@ pub async fn path_exists(path: impl AsRef<Path>) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tempfile::TempDir;
-    use std::env;
-
-    async fn with_temp_home<F, Fut>(test: F) 
-    where
-        F: FnOnce() -> Fut,
-        Fut: std::future::Future<Output = ()>,
-    {
-        let temp_dir = TempDir::new().unwrap();
-        let original_home = env::var("HOME").ok();
-        
-        env::set_var("HOME", temp_dir.path());
-        
-        test().await;
-        
-        if let Some(home) = original_home {
-            env::set_var("HOME", home);
-        } else {
-            env::remove_var("HOME");
-        }
-    }
+    use crate::test_utils::test_helpers::with_temp_home;
 
     #[tokio::test]
     async fn test_ensure_projects_file() {
