@@ -429,4 +429,36 @@ mod tests {
         buffer.move_word_right();
         assert_eq!(buffer.cursor_position(), 12); // Before "test"
     }
+
+    #[test]
+    fn test_multiline_input() {
+        let mut buffer = InputBuffer::new();
+        
+        // Test basic newline insertion
+        buffer.insert_str("Line 1");
+        buffer.insert_char('\n');
+        buffer.insert_str("Line 2");
+        
+        // Content should be "Line 1\nLine 2" with cursor at end
+        assert_eq!(buffer.content(), "Line 1\nLine 2");
+        
+        // Move to different positions and test cursor positioning
+        buffer.move_to_start();
+        assert_eq!(buffer.cursor_line(80), 0);
+        assert_eq!(buffer.cursor_column_in_line(80), 0);
+        
+        // Test that we can insert newlines with Shift+Enter-like functionality  
+        buffer.move_to_end();
+        buffer.insert_char('\n');
+        buffer.insert_str("Line 3");
+        assert_eq!(buffer.content(), "Line 1\nLine 2\nLine 3");
+        
+        // Cursor should now be at end of Line 3
+        let mut temp_buffer = buffer.clone();
+        let lines = temp_buffer.get_display_lines(80);
+        assert_eq!(lines.len(), 3);
+        assert_eq!(lines[0], "Line 1");
+        assert_eq!(lines[1], "Line 2"); 
+        assert_eq!(lines[2], "Line 3");
+    }
 }

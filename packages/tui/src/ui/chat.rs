@@ -1,4 +1,4 @@
-use crate::state::AppState;
+use crate::state::{AppState, FocusArea};
 use crate::ui::widgets::{ChatWidget, InputWidget};
 use crate::ui::widgets::command_popup::{CommandPopupWidget, CommandHintWidget};
 use crate::ui::widgets::{MentionPopupWidget, calculate_mention_popup_area};
@@ -17,17 +17,19 @@ pub fn render(frame: &mut Frame, state: &AppState) {
         ])
         .split(area);
     
-    // Render chat messages
+    // Render chat messages with focus information
     let chat_widget = ChatWidget::new(state.messages())
         .scroll_offset(state.scroll_offset())
-        .show_timestamps(false);
+        .show_timestamps(false)
+        .focused(state.focus_area() == &FocusArea::Chat);
     
     frame.render_widget(chat_widget, chunks[0]);
     
-    // Render input area with real input buffer
+    // Render input area with focus information
     let input_widget = InputWidget::new(state.input_buffer(), state.input_mode())
         .history_position(state.input_history_position())
-        .placeholder("Type a message and press Enter...");
+        .placeholder("Type a message and press Enter...")
+        .focused(state.focus_area() == &FocusArea::Input);
     
     frame.render_widget(input_widget, chunks[1]);
     

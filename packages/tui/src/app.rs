@@ -1,4 +1,4 @@
-use crate::state::{AppState, EscapeAction};
+use crate::state::{AppState, EscapeAction, CtrlCAction};
 use crate::events::{EventHandler, AppEvent};
 use crate::ui;
 use crate::slash_command::SlashCommand;
@@ -80,24 +80,40 @@ impl App {
         let key = key_event.code;
         let modifiers = key_event.modifiers;
         
-        // Handle Ctrl+C to clear input buffer
+        // Handle Ctrl+C (clear input on first press, quit on double press)
         if let KeyCode::Char('c') = key {
             if modifiers.contains(KeyModifiers::CONTROL) {
-                // Clear input buffer but keep focus
-                self.state.input_buffer_mut().clear();
-                
-                // Exit any special modes but stay in input
-                if self.state.is_mention_mode() {
-                    self.state.exit_mention_mode();
-                } else if self.state.is_command_mode() {
-                    self.state.exit_command_mode();
-                } else if self.state.is_editing_message() {
-                    self.state.cancel_message_edit();
+                let action = self.state.handle_ctrl_c_key();
+                match action {
+                    CtrlCAction::ClearInput => {
+                        // Clear input buffer but keep focus
+                        self.state.input_buffer_mut().clear();
+                        
+                        // Exit any special modes but stay in input
+                        if self.state.is_mention_mode() {
+                            self.state.exit_mention_mode();
+                        } else if self.state.is_command_mode() {
+                            self.state.exit_command_mode();
+                        } else if self.state.is_editing_message() {
+                            self.state.cancel_message_edit();
+                        }
+                        
+                        // Cancel history navigation if active
+                        self.state.cancel_history_navigation();
+                    }
+                    CtrlCAction::QuitApplication => {
+                        // Quit the application
+                        self.should_quit = true;
+                    }
                 }
-                
-                // Cancel history navigation if active
-                self.state.cancel_history_navigation();
-                
+                return Ok(());
+            }
+        }
+
+        // Handle Ctrl+D for immediate quit
+        if let KeyCode::Char('d') = key {
+            if modifiers.contains(KeyModifiers::CONTROL) {
+                self.should_quit = true;
                 return Ok(());
             }
         }
@@ -106,9 +122,15 @@ impl App {
         match key {
             // Text input keys
             KeyCode::Char(c) => {
-                // Check for global shortcuts first (only if input buffer is empty and not in command mode)
-                if self.is_global_shortcut(c) && self.state.input_buffer().is_empty() && !self.state.is_command_mode() {
+                // Check for global shortcuts first (only if input buffer is empty, not in command mode, and input is focused)
+                if self.is_global_shortcut(c) && self.state.input_buffer().is_empty() && !self.state.is_command_mode() && self.state.is_input_focused() {
                     return self.handle_global_shortcut(c).await;
+                }
+                
+                // Only process text input if input area is focused (true Codex behavior)
+                if !self.state.is_input_focused() {
+                    // If chat is focused, ignore typing - only Tab switches focus
+                    return Ok(());
                 }
                 
                 // Add character to input buffer
@@ -139,6 +161,12 @@ impl App {
             
             // Input editing keys
             KeyCode::Backspace => {
+                // Only process if input area is focused
+                if !self.state.is_input_focused() {
+                    // If chat is focused, ignore backspace - only Tab switches focus
+                    return Ok(());
+                }
+                
                 self.state.input_buffer_mut().backspace();
                 
                 // Exit command mode if we deleted the '/' 
@@ -171,6 +199,12 @@ impl App {
                 }
             }
             KeyCode::Delete => {
+                // Only process if input area is focused
+                if !self.state.is_input_focused() {
+                    // If chat is focused, ignore delete - only Tab switches focus
+                    return Ok(());
+                }
+                
                 self.state.input_buffer_mut().delete_char();
                 
                 // Update command filter if in command mode
@@ -182,14 +216,26 @@ impl App {
                 }
             }
             
-            // Cursor movement keys
+            // Cursor movement keys (only work when input is focused)
             KeyCode::Left => {
+                if !self.state.is_input_focused() {
+                    // If chat is focused, ignore cursor movement - only Tab switches focus
+                    return Ok(());
+                }
                 self.state.input_buffer_mut().move_left();
             }
             KeyCode::Right => {
+                if !self.state.is_input_focused() {
+                    // If chat is focused, ignore cursor movement - only Tab switches focus
+                    return Ok(());
+                }
                 self.state.input_buffer_mut().move_right();
             }
             KeyCode::Home => {
+                if !self.state.is_input_focused() {
+                    // If chat is focused, ignore Home key - only Tab switches focus
+                    return Ok(());
+                }
                 if self.state.input_buffer().is_empty() {
                     // Scroll to bottom of chat if no input
                     self.state.scroll_to_bottom();
@@ -199,60 +245,80 @@ impl App {
                 }
             }
             KeyCode::End => {
+                if !self.state.is_input_focused() {
+                    // If chat is focused, ignore End key - only Tab switches focus
+                    return Ok(());
+                }
                 self.state.input_buffer_mut().move_to_end();
             }
             
-            // Up/Down navigation: Popups > Chat scrolling > History (only when input empty)
+            // Up/Down navigation: Popups > Focus-aware behavior
             KeyCode::Up => {
                 if self.state.is_mention_mode() {
-                    // Navigate mention popup
+                    // Navigate mention popup (always forces input focus)
                     self.state.mention_popup_up();
                 } else if self.state.is_command_mode() {
-                    // Navigate command popup
+                    // Navigate command popup (always forces input focus)
                     self.state.command_popup_up();
+                } else if self.state.is_chat_focused() {
+                    // Chat is focused - scroll chat content
+                    self.state.scroll_up();
                 } else if self.state.input_mode() == &InputMode::History {
-                    // Already in history mode, continue navigating
+                    // Input focused and already in history mode
                     if !self.state.navigate_history_previous() {
                         // No more history, scroll chat instead
                         self.state.scroll_up();
                     }
-                } else if self.state.input_buffer().is_empty() {
-                    // Empty input - try history navigation, otherwise scroll chat
+                } else if self.state.is_input_focused() && self.state.input_buffer().is_empty() {
+                    // Input focused with empty buffer - try history navigation
                     if !self.state.navigate_history_previous() {
+                        // No history available, scroll chat
                         self.state.scroll_up();
                     }
                 } else {
-                    // Input has content - scroll chat
+                    // Input focused with content - scroll chat
                     self.state.scroll_up();
                 }
             }
             KeyCode::Down => {
                 if self.state.is_mention_mode() {
-                    // Navigate mention popup
+                    // Navigate mention popup (always forces input focus)
                     self.state.mention_popup_down();
                 } else if self.state.is_command_mode() {
-                    // Navigate command popup
+                    // Navigate command popup (always forces input focus)
                     self.state.command_popup_down();
+                } else if self.state.is_chat_focused() {
+                    // Chat is focused - scroll chat content
+                    self.state.scroll_down();
                 } else if self.state.input_mode() == &InputMode::History {
-                    // Already in history mode, continue navigating
+                    // Input focused and in history mode
                     if !self.state.navigate_history_next() {
-                        // Reached end of history, scroll chat instead
+                        // Reached end of history, scroll chat
                         self.state.scroll_down();
                     }
                 } else {
-                    // Always scroll chat for Down arrow (history is typically Up-only)
+                    // Input focused - always scroll chat for Down
                     self.state.scroll_down();
                 }
             }
             
-            // Submit message or complete mention/command
+            // Submit message or complete mention/command (only when input focused)
             KeyCode::Enter => {
-                if self.state.is_mention_mode() {
-                    // Complete selected mention
+                if modifiers.contains(KeyModifiers::SHIFT) {
+                    // Shift+Enter - add newline without submitting
+                    if self.state.is_input_focused() {
+                        self.state.input_buffer_mut().insert_char('\n');
+                    }
+                } else if self.state.is_mention_mode() {
+                    // Complete selected mention (always works in mention mode)
                     if let Some(_completed_mention) = self.state.complete_selected_mention() {
                         // Mention was completed, continue typing
                     }
+                } else if !self.state.is_input_focused() {
+                    // If chat is focused, ignore Enter - only Tab switches focus
+                    return Ok(());
                 } else {
+                    // Input is focused - handle submission
                     self.handle_input_submission().await;
                 }
             }
@@ -287,7 +353,7 @@ impl App {
                 }
             }
             
-            // Tab for mention/command completion or screen switching
+            // Tab for focus cycling (Codex-style) or completion
             KeyCode::Tab => {
                 if self.state.is_mention_mode() {
                     // Complete selected mention
@@ -299,10 +365,10 @@ impl App {
                     if let Some(_completed_command) = self.state.complete_selected_command() {
                         // Command was completed, cursor is positioned for arguments if needed
                     }
-                } else if self.state.input_buffer().is_empty() {
-                    self.state.next_screen();
+                } else {
+                    // Cycle focus between chat and input areas (Codex behavior)
+                    self.state.cycle_focus();
                 }
-                // TODO: Could implement other tab completion here in future
             }
             
             // Other keys are ignored for now

@@ -23,8 +23,14 @@ pub struct AppState {
     last_escape_time: Option<Instant>,
     /// Timeout for double-escape detection (500ms)
     escape_timeout: Duration,
+    /// Track last Ctrl+C key press for double Ctrl+C quit detection
+    last_ctrl_c_time: Option<Instant>,
+    /// Timeout for double Ctrl+C detection (1000ms)
+    ctrl_c_timeout: Duration,
     /// ID of message currently being edited
     editing_message_id: Option<String>,
+    /// Current focus area (chat or input)
+    focus_area: FocusArea,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -33,6 +39,15 @@ pub enum Screen {
     Projects,
     Settings,
     Chat,
+}
+
+/// Focus areas within the chat interface
+#[derive(Debug, Clone, PartialEq)]
+pub enum FocusArea {
+    /// Focus on chat messages area (can scroll)
+    Chat,
+    /// Focus on input area (can type)
+    Input,
 }
 
 impl AppState {
@@ -51,7 +66,10 @@ impl AppState {
             mention_popup: None,
             last_escape_time: None,
             escape_timeout: Duration::from_millis(500),
+            last_ctrl_c_time: None,
+            ctrl_c_timeout: Duration::from_millis(1000),
             editing_message_id: None,
+            focus_area: FocusArea::Input, // Start with input focused
         };
         
         // Add welcome message
@@ -257,6 +275,7 @@ impl AppState {
     /// Enter command mode and show command popup
     pub fn enter_command_mode(&mut self) {
         self.input_mode = InputMode::Command;
+        self.focus_input(); // Force focus to input when entering command mode
         let mut popup = CommandPopup::new();
         
         // Get the command text (everything after the '/')
@@ -344,6 +363,7 @@ impl AppState {
     /// Enter mention mode and show mention popup
     pub fn enter_mention_mode(&mut self, mention_start_position: usize) {
         self.input_mode = InputMode::Search;
+        self.focus_input(); // Force focus to input when entering mention mode
         let popup = MentionPopup::from_projects(&self.projects, mention_start_position);
         self.mention_popup = Some(popup);
     }
@@ -467,6 +487,35 @@ impl AppState {
         self.last_escape_time = Some(now);
         EscapeAction::SingleEscape
     }
+
+    /// Handle Ctrl+C key press, detecting double press for quit
+    /// If input has text: first Ctrl+C clears it, then 2 more Ctrl+C presses quit
+    /// If input is empty: 2 Ctrl+C presses quit  
+    pub fn handle_ctrl_c_key(&mut self) -> CtrlCAction {
+        let now = Instant::now();
+        
+        // Check if input buffer has content
+        let input_is_empty = self.input_buffer.is_empty();
+        
+        if !input_is_empty {
+            // Input has text - always clear it and reset timer
+            self.last_ctrl_c_time = None;
+            return CtrlCAction::ClearInput;
+        }
+        
+        // Input is empty - track presses for quit detection
+        if let Some(last_time) = self.last_ctrl_c_time {
+            if now.duration_since(last_time) < self.ctrl_c_timeout {
+                // Second Ctrl+C on empty input within timeout - quit
+                self.last_ctrl_c_time = None;
+                return CtrlCAction::QuitApplication;
+            }
+        }
+        
+        // First Ctrl+C on empty input - start timer
+        self.last_ctrl_c_time = Some(now);
+        CtrlCAction::ClearInput
+    }
     
     /// Load the previous user message into the input buffer for editing
     pub fn load_previous_message_for_edit(&mut self) -> bool {
@@ -479,8 +528,9 @@ impl AppState {
             self.input_buffer.insert_str(&last_msg.content);
             self.input_buffer.move_to_end();
             
-            // Set visual mode indicator
+            // Set visual mode indicator and focus input
             self.input_mode = InputMode::Edit;
+            self.focus_input(); // Force focus to input when entering edit mode
             
             true
         } else {
@@ -505,6 +555,36 @@ impl AppState {
     pub fn editing_message_id(&self) -> Option<&String> {
         self.editing_message_id.as_ref()
     }
+    
+    // Focus management methods
+    
+    /// Cycle focus between chat and input areas
+    pub fn cycle_focus(&mut self) {
+        self.focus_area = match self.focus_area {
+            FocusArea::Chat => FocusArea::Input,
+            FocusArea::Input => FocusArea::Chat,
+        };
+    }
+    
+    /// Get the current focus area
+    pub fn focus_area(&self) -> &FocusArea {
+        &self.focus_area
+    }
+    
+    /// Check if chat area is focused
+    pub fn is_chat_focused(&self) -> bool {
+        self.focus_area == FocusArea::Chat
+    }
+    
+    /// Check if input area is focused
+    pub fn is_input_focused(&self) -> bool {
+        self.focus_area == FocusArea::Input
+    }
+    
+    /// Force focus to input area (used when entering input modes)
+    pub fn focus_input(&mut self) {
+        self.focus_area = FocusArea::Input;
+    }
 }
 
 /// Action to take when escape key is pressed
@@ -514,6 +594,15 @@ pub enum EscapeAction {
     SingleEscape,
     /// Double escape detected - edit previous message
     EditPreviousMessage,
+}
+
+/// Actions that can result from Ctrl+C key press
+#[derive(Debug, Clone, PartialEq)]
+pub enum CtrlCAction {
+    /// Single Ctrl+C - clear input buffer
+    ClearInput,
+    /// Double Ctrl+C detected - quit application
+    QuitApplication,
 }
 
 #[cfg(test)]
@@ -681,5 +770,167 @@ mod tests {
         // Should load the most recent user message
         assert!(state.load_previous_message_for_edit());
         assert_eq!(state.input_buffer.content(), "Third message");
+    }
+
+    #[test]
+    fn test_focus_cycling() {
+        let mut state = AppState::new(20);
+        
+        // Should start with input focused
+        assert_eq!(state.focus_area(), &FocusArea::Input);
+        assert!(state.is_input_focused());
+        assert!(!state.is_chat_focused());
+        
+        // Cycle focus to chat
+        state.cycle_focus();
+        assert_eq!(state.focus_area(), &FocusArea::Chat);
+        assert!(state.is_chat_focused());
+        assert!(!state.is_input_focused());
+        
+        // Cycle back to input
+        state.cycle_focus();
+        assert_eq!(state.focus_area(), &FocusArea::Input);
+        assert!(state.is_input_focused());
+        assert!(!state.is_chat_focused());
+    }
+
+    #[test]
+    fn test_special_modes_force_input_focus() {
+        let mut state = AppState::new(20);
+        
+        // Start with chat focused
+        state.cycle_focus(); // Now chat is focused
+        assert!(state.is_chat_focused());
+        
+        // Entering command mode should focus input
+        state.enter_command_mode();
+        assert!(state.is_input_focused());
+        
+        // Reset and test mention mode
+        state.exit_command_mode();
+        state.cycle_focus(); // Focus chat again
+        assert!(state.is_chat_focused());
+        
+        state.enter_mention_mode(0);
+        assert!(state.is_input_focused());
+        
+        // Reset and test edit mode
+        state.exit_mention_mode();
+        state.add_user_message("Test message".to_string());
+        state.cycle_focus(); // Focus chat
+        assert!(state.is_chat_focused());
+        
+        state.load_previous_message_for_edit();
+        assert!(state.is_input_focused());
+    }
+
+    #[test]
+    fn test_input_focus_requirement_for_typing() {
+        let mut state = AppState::new(20);
+        
+        // Start with input focused - typing should work normally
+        assert!(state.is_input_focused());
+        state.input_buffer.insert_char('h');
+        assert_eq!(state.input_buffer.content(), "h");
+        
+        // Switch to chat focus
+        state.cycle_focus();
+        assert!(state.is_chat_focused());
+        
+        // When chat is focused, there should be a way to simulate this behavior
+        // For now, we'll test the focus switching mechanism works
+        
+        // Verify that special modes always focus input
+        state.enter_command_mode();
+        assert!(state.is_input_focused()); // Command mode forces input focus
+        
+        state.exit_command_mode();
+        state.cycle_focus(); // Focus chat again
+        assert!(state.is_chat_focused());
+        
+        // Force focus back to input (simulating what happens when user types)
+        state.focus_input();
+        assert!(state.is_input_focused());
+    }
+
+    #[test]
+    fn test_single_ctrl_c_clears_input() {
+        let mut state = AppState::new(20);
+        
+        // Add some content to input buffer
+        state.input_buffer.insert_char('h');
+        state.input_buffer.insert_char('i');
+        assert_eq!(state.input_buffer.content(), "hi");
+        
+        // First Ctrl+C should clear input and reset timer (not start quit sequence)
+        let action = state.handle_ctrl_c_key();
+        assert_eq!(action, CtrlCAction::ClearInput);
+        assert!(state.last_ctrl_c_time.is_none()); // Timer reset when input had text
+    }
+    
+    #[test]
+    fn test_two_ctrl_c_quits_when_input_empty() {
+        let mut state = AppState::new(20);
+        
+        // Start with empty input
+        assert!(state.input_buffer.is_empty());
+        
+        // First Ctrl+C on empty input - starts quit sequence
+        let action1 = state.handle_ctrl_c_key();
+        assert_eq!(action1, CtrlCAction::ClearInput);
+        assert!(state.last_ctrl_c_time.is_some());
+        
+        // Second Ctrl+C within timeout - should quit since input was empty
+        let action2 = state.handle_ctrl_c_key();
+        assert_eq!(action2, CtrlCAction::QuitApplication);
+        assert!(state.last_ctrl_c_time.is_none()); // Should be reset
+    }
+    
+    #[test]
+    fn test_ctrl_c_with_text_requires_three_presses() {
+        let mut state = AppState::new(20);
+        
+        // Add content to input
+        state.input_buffer.insert_char('h');
+        assert!(!state.input_buffer.is_empty());
+        
+        // First Ctrl+C - clears input and resets timer
+        let action1 = state.handle_ctrl_c_key();
+        assert_eq!(action1, CtrlCAction::ClearInput);
+        assert!(state.last_ctrl_c_time.is_none()); // Timer should be reset
+        
+        // Now input is empty, simulate clearing it
+        state.input_buffer.clear();
+        assert!(state.input_buffer.is_empty());
+        
+        // Second Ctrl+C (first on empty input) - starts quit sequence
+        let action2 = state.handle_ctrl_c_key();
+        assert_eq!(action2, CtrlCAction::ClearInput);
+        assert!(state.last_ctrl_c_time.is_some()); // Timer should be set
+        
+        // Third Ctrl+C (second on empty input) - should quit
+        let action3 = state.handle_ctrl_c_key();
+        assert_eq!(action3, CtrlCAction::QuitApplication);
+        assert!(state.last_ctrl_c_time.is_none()); // Timer should be reset
+    }
+
+    #[test]
+    fn test_ctrl_c_timeout() {
+        let mut state = AppState::new(20);
+        state.ctrl_c_timeout = Duration::from_millis(10); // Very short timeout
+        
+        // Start with empty input
+        assert!(state.input_buffer.is_empty());
+        
+        // First Ctrl+C
+        let action1 = state.handle_ctrl_c_key();
+        assert_eq!(action1, CtrlCAction::ClearInput);
+        
+        // Wait longer than timeout
+        std::thread::sleep(Duration::from_millis(15));
+        
+        // Second Ctrl+C after timeout - should not quit
+        let action2 = state.handle_ctrl_c_key();
+        assert_eq!(action2, CtrlCAction::ClearInput); // Should be single again
     }
 }

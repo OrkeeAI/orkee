@@ -10,6 +10,7 @@ pub struct ChatWidget<'a> {
     messages: &'a [ChatMessage],
     scroll_offset: usize,
     show_timestamps: bool,
+    focused: bool,
 }
 
 impl<'a> ChatWidget<'a> {
@@ -19,6 +20,7 @@ impl<'a> ChatWidget<'a> {
             messages,
             scroll_offset: 0,
             show_timestamps: false,
+            focused: false,
         }
     }
     
@@ -31,6 +33,12 @@ impl<'a> ChatWidget<'a> {
     /// Enable or disable timestamp display
     pub fn show_timestamps(mut self, show: bool) -> Self {
         self.show_timestamps = show;
+        self
+    }
+    
+    /// Set whether this widget is focused
+    pub fn focused(mut self, focused: bool) -> Self {
+        self.focused = focused;
         self
     }
     
@@ -82,10 +90,16 @@ impl<'a> ChatWidget<'a> {
 
 impl<'a> Widget for ChatWidget<'a> {
     fn render(self, area: Rect, buf: &mut Buffer) {
+        let (title, border_color) = if self.focused {
+            ("Messages (↑/↓ to scroll, Tab to switch)", Color::Yellow)
+        } else {
+            ("Messages (Tab to focus)", Color::Gray)
+        };
+        
         let block = Block::default()
             .borders(Borders::ALL)
-            .title("Chat")
-            .border_style(Style::default().fg(Color::White));
+            .title(title)
+            .border_style(Style::default().fg(border_color));
         
         let inner = block.inner(area);
         
@@ -123,6 +137,7 @@ pub struct InputWidget<'a> {
     input_mode: &'a InputMode,
     history_position: Option<(usize, usize)>,
     placeholder: &'a str,
+    focused: bool,
 }
 
 impl<'a> InputWidget<'a> {
@@ -132,6 +147,7 @@ impl<'a> InputWidget<'a> {
             input_mode,
             history_position: None,
             placeholder: "Type a message...",
+            focused: false,
         }
     }
     
@@ -144,27 +160,35 @@ impl<'a> InputWidget<'a> {
         self.placeholder = placeholder;
         self
     }
+    
+    pub fn focused(mut self, focused: bool) -> Self {
+        self.focused = focused;
+        self
+    }
 }
 
 impl<'a> Widget for InputWidget<'a> {
     fn render(self, area: Rect, buf: &mut Buffer) {
-        // Create title based on input mode and history position
-        let title = match (self.input_mode, self.history_position) {
-            (InputMode::History, Some((current, total))) => {
+        // Create title based on input mode and focus state
+        let title = match (self.input_mode, self.history_position, self.focused) {
+            (InputMode::History, Some((current, total)), _) => {
                 format!("Input [History {}/{}]", current, total)
             }
-            (InputMode::Command, None) => "Input [Command Mode]".to_string(),
-            (InputMode::Search, None) => "Input [Search Mode]".to_string(),
-            (InputMode::Edit, None) => "Input [Editing Message - Enter to save, Esc to cancel]".to_string(),
+            (InputMode::Command, None, _) => "Input [Command Mode]".to_string(),
+            (InputMode::Search, None, _) => "Input [Search Mode]".to_string(),
+            (InputMode::Edit, None, _) => "Input [Editing Message - Enter to save, Esc to cancel]".to_string(),
+            (InputMode::Normal, None, true) => "Input (Enter=send, Shift+Enter=newline)".to_string(),
+            (_, _, true) => "Input".to_string(),
             _ => "Input".to_string(),
         };
         
-        let border_color = match self.input_mode {
-            InputMode::Normal => Color::White,
-            InputMode::History => Color::Yellow,
-            InputMode::Command => Color::Green,
-            InputMode::Search => Color::Blue,
-            InputMode::Edit => Color::Magenta,
+        let border_color = match (self.input_mode, self.focused) {
+            (InputMode::History, _) => Color::Yellow,
+            (InputMode::Command, _) => Color::Green,
+            (InputMode::Search, _) => Color::Blue,
+            (InputMode::Edit, _) => Color::Magenta,
+            (InputMode::Normal, true) => Color::White,
+            (InputMode::Normal, false) => Color::Gray,
         };
         
         let block = Block::default()
@@ -213,18 +237,19 @@ impl<'a> Widget for InputWidget<'a> {
 }
 
 impl<'a> InputWidget<'a> {
-    /// Render the cursor at the correct position
+    /// Render the cursor at the correct position (supports multiline)
     fn render_cursor(&self, area: Rect, buf: &mut Buffer) {
         if area.width == 0 || area.height == 0 {
             return;
         }
         
-        // Simple cursor positioning - for single line input for now
-        let cursor_display_col = self.input_buffer.cursor_display_column();
+        // Get multiline cursor position
+        let cursor_line = self.input_buffer.cursor_line(area.width);
+        let cursor_col = self.input_buffer.cursor_column_in_line(area.width);
         
-        // Position cursor at the end of the visible text or at cursor position
-        let cursor_x = area.x + cursor_display_col.min(area.width.saturating_sub(1));
-        let cursor_y = area.y;
+        // Calculate actual screen position
+        let cursor_x = area.x + cursor_col.min(area.width.saturating_sub(1));
+        let cursor_y = area.y + (cursor_line as u16).min(area.height.saturating_sub(1));
         
         // Only render cursor if it's within the display area
         if cursor_x < area.x + area.width && cursor_y < area.y + area.height {
