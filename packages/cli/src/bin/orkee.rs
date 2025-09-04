@@ -17,8 +17,8 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
-    /// Start the HTTP server
-    Server {
+    /// Start the dashboard server
+    Dashboard {
         #[arg(short, long, default_value = "4001")]
         port: u16,
         #[arg(long, default_value = "http://localhost:5173")]
@@ -44,7 +44,7 @@ async fn main() {
 
 async fn handle_command(command: Commands) -> Result<(), Box<dyn std::error::Error>> {
     match command {
-        Commands::Server { port, cors_origin } => {
+        Commands::Dashboard { port, cors_origin } => {
             start_server(port, cors_origin).await
         }
         Commands::Projects(projects_cmd) => {
