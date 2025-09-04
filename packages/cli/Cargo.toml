@@ -11,3 +11,15 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 tower = "0.4"
 dotenvy = "0.15"
+orkee-projects = { path = "../projects" }
+git2 = "0.18"
+# CLI dependencies
+clap = { version = "4.0", features = ["derive"] }
+colored = "2.0"
+comfy-table = "7.0"
+inquire = "0.7"
+chrono = "0.4"
+
+[[bin]]
+name = "orkee"
+path = "src/bin/orkee.rs"

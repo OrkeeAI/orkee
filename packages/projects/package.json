@@ -1,10 +1,10 @@
 {
-  "name": "@orkee/cli",
+  "name": "@orkee/projects",
   "version": "0.0.1",
   "private": true,
   "scripts": {
     "build": "cargo build --release",
-    "dev": "cargo run --bin orkee -- server",
+    "dev": "echo 'Projects library - no dev server needed. Run tests with: pnpm test'",
     "test": "cargo test"
   }
 }

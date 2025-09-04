@@ -1,0 +1,23 @@
+[package]
+name = "orkee-projects"
+version = "0.0.1"
+edition = "2021"
+description = "Project management library for Orkee"
+
+[dependencies]
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+chrono = { version = "0.4", features = ["serde"] }
+dirs = "5.0"
+rand = "0.8"
+hex = "0.4"
+axum = "0.7"
+tower = { version = "0.4", features = ["util"] }
+tracing = "0.1"
+thiserror = "2.0"
+tokio = { version = "1.0", features = ["fs"] }
+git2 = "0.18"
+
+[dev-dependencies]
+tempfile = "3.0"
+tokio-test = "0.4"
