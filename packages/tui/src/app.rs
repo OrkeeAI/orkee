@@ -1,4 +1,4 @@
-use crate::state::AppState;
+use crate::state::{AppState, EscapeAction};
 use crate::events::{EventHandler, AppEvent};
 use crate::ui;
 use crate::slash_command::SlashCommand;
@@ -215,17 +215,33 @@ impl App {
                 }
             }
             
-            // Cancel/escape
+            // Cancel/escape or double-escape for editing
             KeyCode::Esc => {
-                if self.state.is_mention_mode() {
-                    // Exit mention mode
-                    self.state.exit_mention_mode();
-                } else if self.state.is_command_mode() {
-                    // Exit command mode
-                    self.state.exit_command_mode();
-                } else if !self.state.cancel_history_navigation() {
-                    // If not canceling history, clear input buffer
-                    self.state.input_buffer_mut().clear();
+                // Handle double-escape detection first
+                match self.state.handle_escape_key() {
+                    EscapeAction::EditPreviousMessage => {
+                        // Double escape detected - load previous message for editing
+                        if !self.state.load_previous_message_for_edit() {
+                            // No previous message to edit
+                            self.state.add_system_message("No previous message to edit".to_string());
+                        }
+                    }
+                    EscapeAction::SingleEscape => {
+                        // Handle single escape based on current mode
+                        if self.state.is_editing_message() {
+                            // Cancel edit mode
+                            self.state.cancel_message_edit();
+                        } else if self.state.is_mention_mode() {
+                            // Exit mention mode
+                            self.state.exit_mention_mode();
+                        } else if self.state.is_command_mode() {
+                            // Exit command mode
+                            self.state.exit_command_mode();
+                        } else if !self.state.cancel_history_navigation() {
+                            // If not canceling history, clear input buffer
+                            self.state.input_buffer_mut().clear();
+                        }
+                    }
                 }
             }
             

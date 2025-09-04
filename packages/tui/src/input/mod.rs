@@ -15,6 +15,8 @@ pub enum InputMode {
     Search,
     /// When navigating input history
     History,
+    /// When editing a previous message (Phase 5)
+    Edit,
 }
 
 impl Default for InputMode {

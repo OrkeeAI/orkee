@@ -3,6 +3,7 @@ use crate::chat::{MessageHistory, ChatMessage};
 use crate::input::{InputBuffer, InputHistory, InputMode};
 use crate::command_popup::CommandPopup;
 use crate::mention_popup::MentionPopup;
+use std::time::{Duration, Instant};
 
 /// Application state management
 #[derive(Debug)]
@@ -18,6 +19,12 @@ pub struct AppState {
     pub input_mode: InputMode,
     pub command_popup: Option<CommandPopup>,
     pub mention_popup: Option<MentionPopup>,
+    /// Track last escape key press for double-escape detection
+    last_escape_time: Option<Instant>,
+    /// Timeout for double-escape detection (500ms)
+    escape_timeout: Duration,
+    /// ID of message currently being edited
+    editing_message_id: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -42,6 +49,9 @@ impl AppState {
             input_mode: InputMode::Normal,
             command_popup: None,
             mention_popup: None,
+            last_escape_time: None,
+            escape_timeout: Duration::from_millis(500),
+            editing_message_id: None,
         };
         
         // Add welcome message
@@ -115,17 +125,35 @@ impl AppState {
             return false;
         }
         
-        // Add to input history
-        self.input_history.add(content.clone());
-        
-        // Add as user message to chat
-        self.add_user_message(content);
+        if let Some(edit_id) = &self.editing_message_id.clone() {
+            // Replace the existing message content
+            if let Some(msg) = self.message_history.get_message_mut(&edit_id) {
+                msg.content = content.clone();
+                msg.mark_edited();
+                // Update timestamp to current time
+                msg.timestamp = chrono::Utc::now();
+            }
+            
+            // Add a system message to confirm edit
+            self.add_system_message("Message edited".to_string());
+            
+            // Clear edit mode
+            self.editing_message_id = None;
+            self.input_mode = InputMode::Normal;
+        } else {
+            // Normal message submission
+            // Add to input history
+            self.input_history.add(content.clone());
+            
+            // Add as user message to chat
+            self.add_user_message(content);
+            
+            // Reset to normal mode
+            self.input_mode = InputMode::Normal;
+        }
         
         // Clear the input buffer
         self.input_buffer.clear();
-        
-        // Reset to normal mode
-        self.input_mode = InputMode::Normal;
         
         // Auto-scroll to bottom to show new message
         self.scroll_to_bottom();
@@ -420,5 +448,238 @@ impl AppState {
         } else {
             false
         }
+    }
+    
+    // Message editing methods (Phase 5)
+    
+    /// Handle escape key press and detect double-escape
+    pub fn handle_escape_key(&mut self) -> EscapeAction {
+        let now = Instant::now();
+        
+        if let Some(last_time) = self.last_escape_time {
+            if now.duration_since(last_time) < self.escape_timeout {
+                // Double escape detected
+                self.last_escape_time = None;
+                return EscapeAction::EditPreviousMessage;
+            }
+        }
+        
+        self.last_escape_time = Some(now);
+        EscapeAction::SingleEscape
+    }
+    
+    /// Load the previous user message into the input buffer for editing
+    pub fn load_previous_message_for_edit(&mut self) -> bool {
+        if let Some(last_msg) = self.message_history.last_user_message() {
+            // Store the message ID we're editing
+            self.editing_message_id = Some(last_msg.id.clone());
+            
+            // Load content into input buffer
+            self.input_buffer.clear();
+            self.input_buffer.insert_str(&last_msg.content);
+            self.input_buffer.move_to_end();
+            
+            // Set visual mode indicator
+            self.input_mode = InputMode::Edit;
+            
+            true
+        } else {
+            false
+        }
+    }
+    
+    /// Cancel editing and restore normal input
+    pub fn cancel_message_edit(&mut self) {
+        self.editing_message_id = None;
+        self.input_mode = InputMode::Normal;
+        self.input_buffer.clear();
+        self.last_escape_time = None; // Reset escape timing
+    }
+    
+    /// Check if currently editing a message
+    pub fn is_editing_message(&self) -> bool {
+        self.editing_message_id.is_some()
+    }
+    
+    /// Get the ID of the message being edited
+    pub fn editing_message_id(&self) -> Option<&String> {
+        self.editing_message_id.as_ref()
+    }
+}
+
+/// Action to take when escape key is pressed
+#[derive(Debug, Clone, PartialEq)]
+pub enum EscapeAction {
+    /// Single escape - normal escape behavior
+    SingleEscape,
+    /// Double escape detected - edit previous message
+    EditPreviousMessage,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::chat::MessageAuthor;
+    use std::thread;
+    use std::time::Duration;
+
+    #[test]
+    fn test_single_escape_detection() {
+        let mut state = AppState::new(20);
+        
+        let action = state.handle_escape_key();
+        assert_eq!(action, EscapeAction::SingleEscape);
+        assert!(state.last_escape_time.is_some());
+    }
+
+    #[test]
+    fn test_double_escape_detection() {
+        let mut state = AppState::new(20);
+        
+        // First escape
+        let action1 = state.handle_escape_key();
+        assert_eq!(action1, EscapeAction::SingleEscape);
+        
+        // Second escape within timeout
+        let action2 = state.handle_escape_key();
+        assert_eq!(action2, EscapeAction::EditPreviousMessage);
+        assert!(state.last_escape_time.is_none()); // Should be reset
+    }
+
+    #[test]
+    fn test_escape_timeout() {
+        let mut state = AppState::new(20);
+        state.escape_timeout = Duration::from_millis(10); // Very short timeout
+        
+        // First escape
+        let action1 = state.handle_escape_key();
+        assert_eq!(action1, EscapeAction::SingleEscape);
+        
+        // Wait for timeout
+        thread::sleep(Duration::from_millis(20));
+        
+        // Second escape after timeout
+        let action2 = state.handle_escape_key();
+        assert_eq!(action2, EscapeAction::SingleEscape); // Should be single again
+    }
+
+    #[test]
+    fn test_load_previous_message_for_edit() {
+        let mut state = AppState::new(20);
+        
+        // Add a user message
+        state.add_user_message("Test message".to_string());
+        
+        // Should successfully load message for edit
+        assert!(state.load_previous_message_for_edit());
+        assert_eq!(state.input_mode, InputMode::Edit);
+        assert_eq!(state.input_buffer.content(), "Test message");
+        assert!(state.is_editing_message());
+    }
+
+    #[test]
+    fn test_load_previous_message_for_edit_no_messages() {
+        let mut state = AppState::new(20);
+        
+        // Should fail to load message when no user messages exist
+        assert!(!state.load_previous_message_for_edit());
+        assert_eq!(state.input_mode, InputMode::Normal);
+        assert!(!state.is_editing_message());
+    }
+
+    #[test]
+    fn test_cancel_message_edit() {
+        let mut state = AppState::new(20);
+        
+        // Add a message and enter edit mode
+        state.add_user_message("Test message".to_string());
+        state.load_previous_message_for_edit();
+        
+        assert!(state.is_editing_message());
+        assert_eq!(state.input_mode, InputMode::Edit);
+        
+        // Cancel edit
+        state.cancel_message_edit();
+        
+        assert!(!state.is_editing_message());
+        assert_eq!(state.input_mode, InputMode::Normal);
+        assert!(state.input_buffer.is_empty());
+    }
+
+    #[test]
+    fn test_submit_edited_message() {
+        let mut state = AppState::new(20);
+        
+        // Add original message
+        let original_msg = state.add_user_message("Original message".to_string());
+        let msg_id = original_msg.id.clone();
+        
+        // Enter edit mode
+        state.load_previous_message_for_edit();
+        
+        // Change the message
+        state.input_buffer.clear();
+        state.input_buffer.insert_str("Edited message");
+        
+        // Submit the edit
+        assert!(state.submit_current_input());
+        
+        // Verify message was updated
+        let updated_msg = state.message_history.get_message(&msg_id).unwrap();
+        assert_eq!(updated_msg.content, "Edited message");
+        assert!(updated_msg.edited);
+        
+        // Verify we're out of edit mode
+        assert!(!state.is_editing_message());
+        assert_eq!(state.input_mode, InputMode::Normal);
+        
+        // Verify system confirmation message was added
+        let last_msg = state.message_history.last_message().unwrap();
+        assert_eq!(last_msg.content, "Message edited");
+        assert_eq!(last_msg.author, MessageAuthor::System);
+    }
+
+    #[test]
+    fn test_submit_normal_message_not_in_edit_mode() {
+        let mut state = AppState::new(20);
+        
+        // Add normal message without being in edit mode
+        state.input_buffer.insert_str("Normal message");
+        
+        let messages_before = state.message_history.len();
+        assert!(state.submit_current_input());
+        
+        // Should add new message, not edit existing
+        assert_eq!(state.message_history.len(), messages_before + 1);
+        let last_msg = state.message_history.last_message().unwrap();
+        assert_eq!(last_msg.content, "Normal message");
+        assert!(!last_msg.edited);
+    }
+
+    #[test] 
+    fn test_edit_mode_with_system_messages() {
+        let mut state = AppState::new(20);
+        
+        // Add system message and user message
+        state.add_system_message("System message".to_string());
+        state.add_user_message("User message".to_string());
+        
+        // Should load the user message, not the system message
+        assert!(state.load_previous_message_for_edit());
+        assert_eq!(state.input_buffer.content(), "User message");
+    }
+
+    #[test]
+    fn test_multiple_user_messages_edit_latest() {
+        let mut state = AppState::new(20);
+        
+        // Add multiple user messages
+        state.add_user_message("First message".to_string());
+        state.add_user_message("Second message".to_string());
+        state.add_user_message("Third message".to_string());
+        
+        // Should load the most recent user message
+        assert!(state.load_previous_message_for_edit());
+        assert_eq!(state.input_buffer.content(), "Third message");
     }
 }

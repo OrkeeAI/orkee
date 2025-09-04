@@ -155,6 +155,7 @@ impl<'a> Widget for InputWidget<'a> {
             }
             (InputMode::Command, None) => "Input [Command Mode]".to_string(),
             (InputMode::Search, None) => "Input [Search Mode]".to_string(),
+            (InputMode::Edit, None) => "Input [Editing Message - Enter to save, Esc to cancel]".to_string(),
             _ => "Input".to_string(),
         };
         
@@ -163,6 +164,7 @@ impl<'a> Widget for InputWidget<'a> {
             InputMode::History => Color::Yellow,
             InputMode::Command => Color::Green,
             InputMode::Search => Color::Blue,
+            InputMode::Edit => Color::Magenta,
         };
         
         let block = Block::default()
