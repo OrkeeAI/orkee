@@ -15,3 +15,4 @@ clap = { version = "4.0", features = ["derive"] }
 orkee-projects = { path = "../projects" }
 chrono = "0.4"
 anyhow = "1.0"
+uuid = { version = "1.0", features = ["v4"] }

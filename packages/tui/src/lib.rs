@@ -4,6 +4,7 @@
 //! AI agent orchestration platform, built with ratatui.
 
 pub mod app;
+pub mod chat;
 pub mod events;
 pub mod state;
 pub mod ui;

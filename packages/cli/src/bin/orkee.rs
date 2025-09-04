@@ -102,7 +102,7 @@ async fn start_tui(refresh_interval: u64) -> Result<(), Box<dyn std::error::Erro
     let mut terminal = ratatui::Terminal::new(backend)?;
     
     // Run the application with proper cleanup
-    let result = run_tui_app(&mut terminal, &mut app).await;
+    let result = app.run(&mut terminal).await;
     
     // Always restore terminal, even if there was an error
     let cleanup_result = (|| -> Result<(), Box<dyn std::error::Error>> {
@@ -127,72 +127,3 @@ async fn start_tui(refresh_interval: u64) -> Result<(), Box<dyn std::error::Erro
     Ok(())
 }
 
-async fn run_tui_app<B: ratatui::backend::Backend>(
-    terminal: &mut ratatui::Terminal<B>, 
-    app: &mut orkee_tui::App
-) -> Result<(), Box<dyn std::error::Error>> {
-    use orkee_tui::events::{EventHandler, AppEvent};
-    use crossterm::event::KeyCode;
-    
-    let mut event_handler = EventHandler::new(250); // 250ms tick rate
-    
-    // Load initial projects data
-    if let Err(e) = app.load_projects().await {
-        eprintln!("Warning: Failed to load projects: {}", e);
-        // Continue anyway with empty project list
-    }
-    
-    loop {
-        // Render the UI
-        terminal.draw(|frame| {
-            orkee_tui::ui::render(frame, &app.state);
-        })?;
-        
-        // Handle events
-        if let Some(event) = event_handler.next().await {
-            match event {
-                AppEvent::Key(key) => {
-                    match key.code {
-                        KeyCode::Char('q') => {
-                            app.quit();
-                            break;
-                        }
-                        KeyCode::Char('d') => {
-                            app.state.current_screen = orkee_tui::state::Screen::Dashboard;
-                        }
-                        KeyCode::Char('p') => {
-                            app.state.current_screen = orkee_tui::state::Screen::Projects;
-                        }
-                        KeyCode::Char('s') => {
-                            app.state.current_screen = orkee_tui::state::Screen::Settings;
-                        }
-                        KeyCode::Tab => {
-                            app.state.next_screen();
-                        }
-                        _ => {}
-                    }
-                }
-                AppEvent::Tick => {
-                    // Periodic tasks (could be used for auto-refresh)
-                }
-                AppEvent::Refresh => {
-                    // Refresh data from local storage
-                    if let Err(e) = app.load_projects().await {
-                        eprintln!("Warning: Failed to refresh projects: {}", e);
-                        // Continue with existing project list
-                    }
-                }
-                AppEvent::Quit => {
-                    app.quit();
-                    break;
-                }
-            }
-        }
-        
-        if app.should_quit {
-            break;
-        }
-    }
-    
-    Ok(())
-}
