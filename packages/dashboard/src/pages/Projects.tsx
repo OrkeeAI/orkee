@@ -197,7 +197,7 @@ export function Projects() {
 
   // Filter and sort projects
   const filteredAndSortedProjects = useMemo(() => {
-    let filtered = projects.filter(project => 
+    const filtered = projects.filter(project => 
       project.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       project.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       project.tags?.some(tag => tag.toLowerCase().includes(searchTerm.toLowerCase())) ||
@@ -214,7 +214,7 @@ export function Projects() {
           return (priorityOrder[b.priority as keyof typeof priorityOrder] || 0) - 
                  (priorityOrder[a.priority as keyof typeof priorityOrder] || 0);
         case 'rank':
-        default:
+        default: {
           // Use rank if available, otherwise sort by priority then date
           if (a.rank !== undefined && b.rank !== undefined) {
             return a.rank - b.rank;
@@ -223,6 +223,7 @@ export function Projects() {
                               (priorityOrder[a.priority as keyof typeof priorityOrder] || 0);
           if (priorityDiff !== 0) return priorityDiff;
           return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
+        }
       }
     });
 

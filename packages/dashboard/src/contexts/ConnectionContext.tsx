@@ -29,8 +29,6 @@ export function ConnectionProvider({ children }: ConnectionProviderProps) {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    let intervalId: number;
-
     const performHealthCheck = async () => {
       setConnectionState('connecting');
       setError(null);
@@ -56,7 +54,7 @@ export function ConnectionProvider({ children }: ConnectionProviderProps) {
     performHealthCheck();
 
     // Set up polling every 20 seconds
-    intervalId = setInterval(performHealthCheck, 20000);
+    const intervalId = setInterval(performHealthCheck, 20000);
 
     return () => {
       if (intervalId) {
