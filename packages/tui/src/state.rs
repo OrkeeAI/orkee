@@ -2,6 +2,7 @@ use orkee_projects::Project;
 use crate::chat::{MessageHistory, ChatMessage};
 use crate::input::{InputBuffer, InputHistory, InputMode};
 use crate::command_popup::CommandPopup;
+use crate::mention_popup::MentionPopup;
 
 /// Application state management
 #[derive(Debug)]
@@ -16,6 +17,7 @@ pub struct AppState {
     pub input_history: InputHistory,
     pub input_mode: InputMode,
     pub command_popup: Option<CommandPopup>,
+    pub mention_popup: Option<MentionPopup>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -39,6 +41,7 @@ impl AppState {
             input_history: InputHistory::new(),
             input_mode: InputMode::Normal,
             command_popup: None,
+            mention_popup: None,
         };
         
         // Add welcome message
@@ -306,5 +309,116 @@ impl AppState {
     /// Get reference to command popup for UI rendering
     pub fn command_popup(&self) -> Option<&CommandPopup> {
         self.command_popup.as_ref()
+    }
+    
+    // Mention popup methods
+    
+    /// Enter mention mode and show mention popup
+    pub fn enter_mention_mode(&mut self, mention_start_position: usize) {
+        self.input_mode = InputMode::Search;
+        let popup = MentionPopup::from_projects(&self.projects, mention_start_position);
+        self.mention_popup = Some(popup);
+    }
+    
+    /// Exit mention mode and hide mention popup
+    pub fn exit_mention_mode(&mut self) {
+        if self.input_mode == InputMode::Search {
+            self.input_mode = InputMode::Normal;
+            self.mention_popup = None;
+        }
+    }
+    
+    /// Check if currently in mention mode
+    pub fn is_mention_mode(&self) -> bool {
+        self.input_mode == InputMode::Search
+    }
+    
+    /// Update mention popup filter when typing in mention mode
+    pub fn update_mention_filter(&mut self) {
+        if let Some(ref mut popup) = self.mention_popup {
+            let input_content = self.input_buffer.content();
+            let mention_start = popup.mention_start_position();
+            
+            // Extract the text after @ for filtering
+            if mention_start < input_content.len() {
+                let mention_text = &input_content[mention_start + 1..]; // +1 to skip @
+                popup.update_filter(mention_text);
+            } else {
+                popup.update_filter("");
+            }
+        }
+    }
+    
+    /// Navigate mention popup up
+    pub fn mention_popup_up(&mut self) -> bool {
+        if let Some(ref mut popup) = self.mention_popup {
+            popup.move_up();
+            true
+        } else {
+            false
+        }
+    }
+    
+    /// Navigate mention popup down
+    pub fn mention_popup_down(&mut self) -> bool {
+        if let Some(ref mut popup) = self.mention_popup {
+            popup.move_down();
+            true
+        } else {
+            false
+        }
+    }
+    
+    /// Complete the currently selected mention
+    pub fn complete_selected_mention(&mut self) -> Option<String> {
+        if let Some(ref popup) = self.mention_popup {
+            if let Some(item) = popup.selected_item() {
+                let insertion_text = item.insertion_text();
+                let current_cursor = self.input_buffer.cursor_position();
+                let (start, end) = popup.replacement_range(current_cursor);
+                
+                // Replace the @ and following text with the selected item
+                let content = self.input_buffer.content().to_string();
+                let before = &content[..start];
+                let after = &content[end..];
+                let new_content = format!("{}{}{}", before, insertion_text, after);
+                let new_cursor_pos = before.len() + insertion_text.len();
+                
+                // Update the buffer
+                self.input_buffer.clear();
+                self.input_buffer.insert_str(&new_content);
+                
+                // Position cursor after the inserted text
+                self.input_buffer.set_cursor_position(new_cursor_pos);
+                
+                // Exit mention mode
+                self.exit_mention_mode();
+                
+                return Some(insertion_text);
+            }
+        }
+        None
+    }
+    
+    /// Get reference to mention popup for UI rendering
+    pub fn mention_popup(&self) -> Option<&MentionPopup> {
+        self.mention_popup.as_ref()
+    }
+    
+    /// Check if the character at the given position should trigger mention mode
+    /// Returns true if @ is preceded by whitespace or is at the start
+    pub fn should_trigger_mention(&self, position: usize) -> bool {
+        let content = self.input_buffer.content();
+        
+        if position == 0 {
+            return true; // @ at start of input
+        }
+        
+        // Check if previous character is whitespace
+        if let Some(prev_char) = content.chars().nth(position - 1) {
+            prev_char.is_whitespace()
+        } else {
+            false
+        }
     }
 }

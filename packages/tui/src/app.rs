@@ -96,6 +96,20 @@ impl App {
                     // Update command filter as we type
                     self.state.update_command_filter();
                 }
+                
+                // Check if we just typed '@' and should enter mention mode
+                if c == '@' && !self.state.is_mention_mode() && !self.state.is_command_mode() {
+                    let cursor_pos = self.state.input_buffer().cursor_position();
+                    let char_pos = cursor_pos - c.len_utf8(); // Position where @ was inserted
+                    
+                    // Only trigger mention mode if @ is at start or preceded by whitespace
+                    if self.state.should_trigger_mention(char_pos) {
+                        self.state.enter_mention_mode(char_pos);
+                    }
+                } else if self.state.is_mention_mode() {
+                    // Update mention filter as we type
+                    self.state.update_mention_filter();
+                }
             }
             
             // Input editing keys
@@ -111,6 +125,24 @@ impl App {
                         // Update filter as we delete characters
                         self.state.update_command_filter();
                     }
+                } else if self.state.is_mention_mode() {
+                    // Check if we deleted the @ or if cursor moved before the mention start
+                    let content = self.state.input_buffer().content();
+                    let cursor_pos = self.state.input_buffer().cursor_position();
+                    
+                    if let Some(popup) = self.state.mention_popup() {
+                        let mention_start = popup.mention_start_position();
+                        
+                        // Exit mention mode if we deleted the @ or cursor is before it
+                        if mention_start >= content.len() || 
+                           cursor_pos < mention_start ||
+                           !content.chars().nth(mention_start).map_or(false, |c| c == '@') {
+                            self.state.exit_mention_mode();
+                        } else {
+                            // Update mention filter as we delete characters
+                            self.state.update_mention_filter();
+                        }
+                    }
                 }
             }
             KeyCode::Delete => {
@@ -119,6 +151,9 @@ impl App {
                 // Update command filter if in command mode
                 if self.state.is_command_mode() {
                     self.state.update_command_filter();
+                } else if self.state.is_mention_mode() {
+                    // Update mention filter if in mention mode
+                    self.state.update_mention_filter();
                 }
             }
             
@@ -142,9 +177,12 @@ impl App {
                 self.state.input_buffer_mut().move_to_end();
             }
             
-            // Up/Down navigation: Command popup > History > Chat scrolling
+            // Up/Down navigation: Mention popup > Command popup > History > Chat scrolling
             KeyCode::Up => {
-                if self.state.is_command_mode() {
+                if self.state.is_mention_mode() {
+                    // Navigate mention popup
+                    self.state.mention_popup_up();
+                } else if self.state.is_command_mode() {
                     // Navigate command popup
                     self.state.command_popup_up();
                 } else if !self.state.navigate_history_previous() {
@@ -153,7 +191,10 @@ impl App {
                 }
             }
             KeyCode::Down => {
-                if self.state.is_command_mode() {
+                if self.state.is_mention_mode() {
+                    // Navigate mention popup
+                    self.state.mention_popup_down();
+                } else if self.state.is_command_mode() {
                     // Navigate command popup
                     self.state.command_popup_down();
                 } else if !self.state.navigate_history_next() {
@@ -162,14 +203,24 @@ impl App {
                 }
             }
             
-            // Submit message
+            // Submit message or complete mention/command
             KeyCode::Enter => {
-                self.handle_input_submission().await;
+                if self.state.is_mention_mode() {
+                    // Complete selected mention
+                    if let Some(_completed_mention) = self.state.complete_selected_mention() {
+                        // Mention was completed, continue typing
+                    }
+                } else {
+                    self.handle_input_submission().await;
+                }
             }
             
             // Cancel/escape
             KeyCode::Esc => {
-                if self.state.is_command_mode() {
+                if self.state.is_mention_mode() {
+                    // Exit mention mode
+                    self.state.exit_mention_mode();
+                } else if self.state.is_command_mode() {
                     // Exit command mode
                     self.state.exit_command_mode();
                 } else if !self.state.cancel_history_navigation() {
@@ -178,9 +229,14 @@ impl App {
                 }
             }
             
-            // Tab for command completion or screen switching
+            // Tab for mention/command completion or screen switching
             KeyCode::Tab => {
-                if self.state.is_command_mode() {
+                if self.state.is_mention_mode() {
+                    // Complete selected mention
+                    if let Some(_completed_mention) = self.state.complete_selected_mention() {
+                        // Mention was completed, continue typing
+                    }
+                } else if self.state.is_command_mode() {
                     // Complete selected command
                     if let Some(_completed_command) = self.state.complete_selected_command() {
                         // Command was completed, cursor is positioned for arguments if needed

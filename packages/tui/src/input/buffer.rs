@@ -172,6 +172,12 @@ impl InputBuffer {
         self.preferred_column = None;
     }
     
+    /// Set cursor position to a specific byte position (clamped to valid range)
+    pub fn set_cursor_position(&mut self, position: usize) {
+        self.cursor_position = position.min(self.content.len());
+        self.preferred_column = None;
+    }
+    
     /// Move cursor to the beginning of the previous word
     pub fn move_word_left(&mut self) -> bool {
         if self.cursor_position == 0 {

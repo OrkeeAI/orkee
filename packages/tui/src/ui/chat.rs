@@ -1,6 +1,7 @@
 use crate::state::AppState;
 use crate::ui::widgets::{ChatWidget, InputWidget};
 use crate::ui::widgets::command_popup::{CommandPopupWidget, CommandHintWidget};
+use crate::ui::widgets::{MentionPopupWidget, calculate_mention_popup_area};
 use ratatui::prelude::*;
 
 /// Render the chat interface
@@ -33,6 +34,11 @@ pub fn render(frame: &mut Frame, state: &AppState) {
     // Render command popup overlay if in command mode
     if let Some(command_popup) = state.command_popup() {
         render_command_popup_overlay(frame, command_popup, chunks[1]);
+    }
+    
+    // Render mention popup overlay if in mention mode
+    if let Some(mention_popup) = state.mention_popup() {
+        render_mention_popup_overlay(frame, mention_popup, chunks[1]);
     }
 }
 
@@ -94,5 +100,36 @@ fn render_command_popup_overlay(frame: &mut Frame, popup: &crate::command_popup:
         };
         let hint_widget = CommandHintWidget::new(popup);
         frame.render_widget(hint_widget, hint_area);
+    }
+}
+
+/// Render the mention popup as an overlay above the input area
+fn render_mention_popup_overlay(frame: &mut Frame, popup: &crate::mention_popup::MentionPopup, input_area: Rect) {
+    let area = frame.area();
+    
+    // Calculate popup position using the helper function
+    let popup_area = calculate_mention_popup_area(area, popup);
+    
+    // Adjust if popup would overlap with input area or go off screen
+    let final_popup_area = if popup_area.y + popup_area.height > input_area.y {
+        // Popup would overlap with input, position it above with safe margin
+        let safe_height = input_area.y.saturating_sub(area.y + 1); // +1 for margin
+        let adjusted_height = popup_area.height.min(safe_height);
+        
+        Rect {
+            x: popup_area.x,
+            y: input_area.y.saturating_sub(adjusted_height + 1),
+            width: popup_area.width,
+            height: adjusted_height,
+        }
+    } else {
+        popup_area
+    };
+    
+    // Only render if we have space
+    if final_popup_area.height >= 3 { // Need at least space for borders + 1 item
+        let max_items = final_popup_area.height.saturating_sub(2); // -2 for borders
+        let popup_widget = MentionPopupWidget::new(popup).max_rows(max_items);
+        frame.render_widget(popup_widget, final_popup_area);
     }
 }

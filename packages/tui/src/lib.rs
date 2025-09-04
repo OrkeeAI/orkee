@@ -8,6 +8,7 @@ pub mod chat;
 pub mod command_popup;
 pub mod events;
 pub mod input;
+pub mod mention_popup;
 pub mod slash_command;
 pub mod state;
 pub mod ui;
