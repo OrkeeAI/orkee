@@ -4,10 +4,11 @@ A CLI and dashboard for AI agent orchestration
 
 ## Features
 
-- 🤖 **Agent Management** - Deploy and manage AI agents across different environments
-- 📊 **Real-time Dashboard** - Monitor agent performance and activity
-- 🔧 **CLI Interface** - Command-line tools for agent configuration and control
-- 🔗 **Orchestration** - Coordinate multiple agents for complex workflows
+- 🤖 **AI Agent Orchestration** - Deploy and manage AI agents across different environments
+- 📊 **Real-time Dashboard** - Web-based interface for monitoring and management
+- 🖥️ **Terminal Interface** - Rich TUI for interactive command-line workflows
+- 🔧 **CLI Tools** - Command-line interface for configuration and control
+- 🔗 **Workflow Coordination** - Orchestrate complex multi-agent workflows
 
 ## Project Structure
 
@@ -16,11 +17,24 @@ This is a Turborepo monorepo containing:
 ```
 orkee/
 ├── packages/
-│   ├── dashboard/    # React/Vite dashboard application
-│   └── cli/          # Rust CLI application
+│   ├── cli/          # Rust Axum HTTP server providing REST API endpoints  
+│   ├── dashboard/    # React SPA with Vite, Shadcn/ui, and Tailwind CSS
+│   ├── tui/          # Ratatui-based standalone terminal interface
+│   └── projects/     # Shared Rust library for core functionality (used by CLI and TUI)
 ├── docs/             # Documentation site
 └── README.md
 ```
+
+## Architecture
+
+Orkee provides multiple interfaces for AI agent orchestration:
+
+- **CLI Server** - REST API backend running on port 4001
+- **Dashboard** - React web interface on port 5173 (connects to CLI server)
+- **TUI** - Standalone terminal interface with rich interactive features
+- **Shared Libraries** - Common functionality across all interfaces
+
+The **Dashboard** requires the CLI server to be running. The **TUI** works independently.
 
 ## Installation
 
@@ -38,14 +52,22 @@ turbo build
 ## Quick Start
 
 ```bash
-# Initialize a new agent project
-orkee init my-agent
+# Install dependencies
+pnpm install
 
-# Start the dashboard
-orkee dashboard
+# Start both CLI server and dashboard in development
+turbo dev
 
-# Deploy an agent
-orkee deploy ./my-agent
+# Or start components individually:
+
+# Launch the web dashboard (requires CLI server)
+cargo run --bin orkee -- dashboard
+
+# Launch the terminal interface (standalone)
+cargo run --bin orkee -- tui
+
+# Explore CLI capabilities
+cargo run --bin orkee -- --help
 ```
 
 ## Documentation
@@ -86,10 +108,22 @@ turbo test
 # Lint all packages
 turbo lint
 
-# Work on specific applications
-turbo dev --filter=@orkee/dashboard  # Dashboard only
-turbo dev --filter=@orkee/cli        # CLI development only
-turbo build --filter=@orkee/dashboard # Build dashboard only
+# Work on specific packages
+turbo dev --filter=@orkee/dashboard    # Dashboard only
+turbo dev --filter=@orkee/cli          # CLI only
+turbo build --filter=@orkee/dashboard  # Build dashboard only
+
+# CLI-specific commands (run from packages/cli/)
+cargo run --bin orkee -- dashboard           # Start API server (port 4001)
+cargo run --bin orkee -- tui                 # Launch TUI interface
+cargo run --bin orkee -- projects list       # Example command (see --help for all)
+cargo run --bin orkee -- --help              # See all available commands
+cargo test                                   # Run Rust tests
+
+# Dashboard-specific commands (run from packages/dashboard/)
+pnpm dev          # Start Vite dev server (port 5173)
+pnpm build        # Production build
+pnpm lint         # Run ESLint
 ```
 
 ### Project Commands
