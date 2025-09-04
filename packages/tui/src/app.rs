@@ -90,9 +90,6 @@ impl App {
             }
         }
         
-        // Explicitly drop the event handler to ensure cleanup
-        drop(event_handler);
-        
         Ok(())
     }
     
