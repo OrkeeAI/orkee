@@ -13,11 +13,12 @@ pub enum SlashCommand {
     Clear,
     /// List all projects
     Projects,
-    /// Switch to a specific project
-    #[strum(serialize = "project")]
-    Project,
     /// Show current application status
     Status,
+    /// Switch to dashboard screen
+    Dashboard,
+    /// Switch to settings screen  
+    Settings,
 }
 
 impl SlashCommand {
@@ -27,9 +28,10 @@ impl SlashCommand {
             Self::Help => "Show available commands and usage information",
             Self::Quit => "Exit the application",
             Self::Clear => "Clear the chat history",
-            Self::Projects => "List all available projects",
-            Self::Project => "Switch to a specific project",
+            Self::Projects => "Open interactive projects screen",
             Self::Status => "Show current application status and information",
+            Self::Dashboard => "Switch to dashboard screen",
+            Self::Settings => "Switch to settings screen",
         }
     }
     
@@ -40,14 +42,15 @@ impl SlashCommand {
             Self::Quit => "/quit",
             Self::Clear => "/clear", 
             Self::Projects => "/projects",
-            Self::Project => "/project <name>",
             Self::Status => "/status",
+            Self::Dashboard => "/dashboard",
+            Self::Settings => "/settings",
         }
     }
     
     /// Check if the command requires arguments
     pub fn requires_args(&self) -> bool {
-        matches!(self, Self::Project)
+        false // No commands require arguments anymore
     }
     
     /// Check if command is available during active task execution
@@ -89,10 +92,7 @@ impl SlashCommand {
         
         // Validate arguments
         match command {
-            Self::Project if args.is_empty() => {
-                Err("Project command requires a project name. Usage: /project <name>".to_string())
-            }
-            Self::Help | Self::Quit | Self::Clear | Self::Projects | Self::Status if !args.is_empty() => {
+            Self::Help | Self::Quit | Self::Clear | Self::Projects | Self::Status | Self::Dashboard | Self::Settings if !args.is_empty() => {
                 Err(format!("Command /{} does not accept arguments", command.as_ref()))
             }
             _ => Ok((command, args))

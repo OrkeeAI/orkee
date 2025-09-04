@@ -13,6 +13,7 @@ pub fn render(frame: &mut Frame, state: &AppState) {
         crate::state::Screen::Chat => chat::render(frame, state),
         crate::state::Screen::Dashboard => dashboard::render(frame, state),
         crate::state::Screen::Projects => projects::render(frame, state),
+        crate::state::Screen::ProjectDetail => projects::render_detail(frame, state),
         crate::state::Screen::Settings => {
             // TODO: Implement settings screen
             let block = Block::default()

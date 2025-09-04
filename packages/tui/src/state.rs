@@ -37,6 +37,7 @@ pub struct AppState {
 pub enum Screen {
     Dashboard,
     Projects,
+    ProjectDetail,
     Settings,
     Chat,
 }
@@ -79,12 +80,85 @@ impl AppState {
     
     pub fn set_projects(&mut self, projects: Vec<Project>) {
         self.projects = projects;
+        // Reset selection if projects changed and current selection is invalid
+        if let Some(selected) = self.selected_project {
+            if selected >= self.projects.len() {
+                self.selected_project = if self.projects.is_empty() { None } else { Some(0) };
+            }
+        }
+    }
+    
+    /// Navigate to previous project in list
+    pub fn select_previous_project(&mut self) -> bool {
+        if self.projects.is_empty() {
+            return false;
+        }
+        
+        match self.selected_project {
+            None => {
+                self.selected_project = Some(self.projects.len() - 1);
+                true
+            }
+            Some(0) => {
+                self.selected_project = Some(self.projects.len() - 1);
+                true
+            }
+            Some(index) => {
+                self.selected_project = Some(index - 1);
+                true
+            }
+        }
+    }
+    
+    /// Navigate to next project in list
+    pub fn select_next_project(&mut self) -> bool {
+        if self.projects.is_empty() {
+            return false;
+        }
+        
+        match self.selected_project {
+            None => {
+                self.selected_project = Some(0);
+                true
+            }
+            Some(index) if index + 1 >= self.projects.len() => {
+                self.selected_project = Some(0);
+                true
+            }
+            Some(index) => {
+                self.selected_project = Some(index + 1);
+                true
+            }
+        }
+    }
+    
+    /// Get the currently selected project
+    pub fn get_selected_project(&self) -> Option<&Project> {
+        self.selected_project.and_then(|index| self.projects.get(index))
+    }
+    
+    /// View details of the selected project
+    pub fn view_selected_project_details(&mut self) -> bool {
+        if self.selected_project.is_some() && !self.projects.is_empty() {
+            self.current_screen = Screen::ProjectDetail;
+            true
+        } else {
+            false
+        }
+    }
+    
+    /// Return to projects list from detail view
+    pub fn return_to_projects_list(&mut self) {
+        if self.current_screen == Screen::ProjectDetail {
+            self.current_screen = Screen::Projects;
+        }
     }
     
     pub fn next_screen(&mut self) {
         self.current_screen = match self.current_screen {
             Screen::Dashboard => Screen::Projects,
             Screen::Projects => Screen::Settings, 
+            Screen::ProjectDetail => Screen::Projects, // Return to projects list
             Screen::Settings => Screen::Chat,
             Screen::Chat => Screen::Dashboard,
         }

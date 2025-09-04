@@ -142,6 +142,50 @@ impl App {
         match key {
             // Text input keys
             KeyCode::Char(c) => {
+                // Handle navigation shortcuts only on NON-CHAT screens
+                if !self.state.is_command_mode() && !self.state.is_mention_mode() && 
+                   self.state.current_screen != crate::state::Screen::Chat {
+                    match (c, &self.state.current_screen) {
+                        ('d', &crate::state::Screen::Projects | &crate::state::Screen::ProjectDetail) => {
+                            // Delete project on projects screen
+                            if let Some(project) = self.state.get_selected_project() {
+                                self.state.add_system_message(format!("🗑️ **Delete Project: {}**\n\n💡 *Project deletion with confirmation coming in Phase 4! For now, use the CLI: `orkee projects delete {}`*", project.name, project.id));
+                            } else {
+                                self.state.add_system_message("❌ **No project selected**\n\nNavigate to projects screen and select a project first.".to_string());
+                            }
+                            return Ok(());
+                        }
+                        ('n', _) => {
+                            self.state.current_screen = crate::state::Screen::Projects;
+                            self.state.add_system_message("📁 **New Project**\n\n💡 *Project creation form coming in Phase 2! For now, use the CLI: `orkee projects add`*".to_string());
+                            return Ok(());
+                        }
+                        ('e', &crate::state::Screen::Projects | &crate::state::Screen::ProjectDetail) => {
+                            if let Some(project) = self.state.get_selected_project() {
+                                self.state.add_system_message(format!("✏️ **Edit Project: {}**\n\n💡 *Project editing form coming in Phase 3! For now, use the CLI: `orkee projects edit {}`*", project.name, project.id));
+                            } else {
+                                self.state.add_system_message("❌ **No project selected**\n\nNavigate to projects screen and select a project first.".to_string());
+                            }
+                            return Ok(());
+                        }
+                        ('q', _) => {
+                            // Allow quit from any screen
+                            self.quit();
+                            return Ok(());
+                        }
+                        _ => {
+                            // Not a navigation shortcut on this screen, continue with normal text input
+                        }
+                    }
+                }
+                
+                // Allow quit from chat screen too (but only if input is empty)
+                if c == 'q' && !self.state.is_command_mode() && !self.state.is_mention_mode() && 
+                   self.state.input_buffer().is_empty() && self.state.current_screen == crate::state::Screen::Chat {
+                    self.quit();
+                    return Ok(());
+                }
+                
                 // Transform Ctrl+J (Shift+Enter in many terminals) to newline character
                 let char_to_insert = if c == 'j' && modifiers.contains(KeyModifiers::CONTROL) && self.state.is_input_focused() {
                     '\n' // Replace 'j' with newline for Shift+Enter
@@ -149,10 +193,7 @@ impl App {
                     c // Use original character
                 };
                 
-                // Check for global shortcuts first (only if input buffer is empty, not in command mode, and input is focused)
-                if self.is_global_shortcut(char_to_insert) && self.state.input_buffer().is_empty() && !self.state.is_command_mode() && self.state.is_input_focused() {
-                    return self.handle_global_shortcut(char_to_insert).await;
-                }
+                // Global shortcuts are now handled above in the navigation logic
                 
                 // Only process text input if input area is focused (true Codex behavior)
                 if !self.state.is_input_focused() {
@@ -279,7 +320,7 @@ impl App {
                 self.state.input_buffer_mut().move_to_end();
             }
             
-            // Up/Down navigation: Popups > Focus-aware behavior
+            // Up/Down navigation: Popups > Projects > Default scroll behavior (unless chat focused)
             KeyCode::Up => {
                 if self.state.is_mention_mode() {
                     // Navigate mention popup (always forces input focus)
@@ -287,23 +328,26 @@ impl App {
                 } else if self.state.is_command_mode() {
                     // Navigate command popup (always forces input focus)
                     self.state.command_popup_up();
+                } else if self.state.current_screen == crate::state::Screen::Projects {
+                    // Projects screen - navigate project list
+                    self.state.select_previous_project();
                 } else if self.state.is_chat_focused() {
-                    // Chat is focused - scroll chat content
-                    self.state.scroll_up();
+                    // Chat is focused - do NOT scroll, maybe select individual messages in future
+                    // For now, do nothing when chat area has focus
                 } else if self.state.input_mode() == &InputMode::History {
-                    // Input focused and already in history mode
+                    // Input focused and in history mode - try history navigation first
                     if !self.state.navigate_history_previous() {
-                        // No more history, scroll chat instead
+                        // No more history, scroll chat messages as fallback
                         self.state.scroll_up();
                     }
                 } else if self.state.is_input_focused() && self.state.input_buffer().is_empty() {
-                    // Input focused with empty buffer - try history navigation
+                    // Input focused with empty buffer - try history navigation first
                     if !self.state.navigate_history_previous() {
-                        // No history available, scroll chat
+                        // No history available, scroll chat messages
                         self.state.scroll_up();
                     }
                 } else {
-                    // Input focused with content - scroll chat
+                    // Default behavior: scroll chat messages
                     self.state.scroll_up();
                 }
             }
@@ -314,17 +358,20 @@ impl App {
                 } else if self.state.is_command_mode() {
                     // Navigate command popup (always forces input focus)
                     self.state.command_popup_down();
+                } else if self.state.current_screen == crate::state::Screen::Projects {
+                    // Projects screen - navigate project list
+                    self.state.select_next_project();
                 } else if self.state.is_chat_focused() {
-                    // Chat is focused - scroll chat content
-                    self.state.scroll_down();
+                    // Chat is focused - do NOT scroll, maybe select individual messages in future
+                    // For now, do nothing when chat area has focus
                 } else if self.state.input_mode() == &InputMode::History {
                     // Input focused and in history mode
                     if !self.state.navigate_history_next() {
-                        // Reached end of history, scroll chat
+                        // Reached end of history, scroll chat messages
                         self.state.scroll_down();
                     }
                 } else {
-                    // Input focused - always scroll chat for Down
+                    // Default behavior: scroll chat messages
                     self.state.scroll_down();
                 }
             }
@@ -341,6 +388,9 @@ impl App {
                     if let Some(_completed_mention) = self.state.complete_selected_mention() {
                         // Mention was completed, continue typing
                     }
+                } else if self.state.current_screen == crate::state::Screen::Projects {
+                    // Projects screen - view selected project details
+                    self.state.view_selected_project_details();
                 } else if !self.state.is_input_focused() {
                     // If chat is focused, ignore Enter - only Tab switches focus
                     return Ok(());
@@ -372,6 +422,12 @@ impl App {
                         } else if self.state.is_command_mode() {
                             // Exit command mode
                             self.state.exit_command_mode();
+                        } else if self.state.current_screen == crate::state::Screen::ProjectDetail {
+                            // Return to projects list from detail view
+                            self.state.return_to_projects_list();
+                        } else if self.state.current_screen == crate::state::Screen::Projects {
+                            // Return to chat from projects list
+                            self.state.current_screen = crate::state::Screen::Chat;
                         } else if !self.state.cancel_history_navigation() {
                             // If not canceling history, clear input buffer
                             self.state.input_buffer_mut().clear();
@@ -405,65 +461,6 @@ impl App {
         Ok(())
     }
     
-    /// Check if a character is a global shortcut
-    fn is_global_shortcut(&self, c: char) -> bool {
-        matches!(c, 'q' | 'h' | 'd' | 'p' | 's')
-    }
-    
-    /// Handle global shortcuts (only when input buffer is empty)
-    async fn handle_global_shortcut(&mut self, c: char) -> Result<()> {
-        match c {
-            'q' => {
-                self.quit();
-            }
-            'h' => {
-                // Show help message
-                let content = "📚 **Help - Orkee TUI (Phase 2)**\n\n**Text Input:**\n- Type to enter text\n- `Enter` - Submit message\n- `↑/↓` - Navigate input history (when input empty)\n- `Esc` - Clear input or cancel history\n\n**Cursor Movement:**\n- `←/→` - Move cursor\n- `Home/End` - Start/end of input\n- `Ctrl+←/→` - Word movement (coming soon)\n\n**Navigation:**\n- `Tab` - Switch screens (when input empty)\n- `↑/↓` - Scroll messages (when not in history)\n\n**Commands (only when input empty):**\n- `d` - Show dashboard\n- `p` - List projects\n- `s` - Show settings\n- `h` - This help\n- `q` - Quit\n\n💡 *Slash commands coming in Phase 3!*".to_string();
-                self.state.add_system_message(content);
-            }
-            'd' => {
-                // Show dashboard info as chat message
-                let content = format!(
-                    "📊 **Dashboard Status**\n\nProjects: {}\nCurrent Screen: {:?}\nRefresh Interval: {}s\nInput Mode: {:?}\n\n💡 *Now with input system! Type a message to try it.*",
-                    self.state.projects.len(),
-                    self.state.current_screen,
-                    self.state.refresh_interval,
-                    self.state.input_mode()
-                );
-                self.state.add_system_message(content);
-            }
-            'p' => {
-                // Show projects as chat message
-                if self.state.projects.is_empty() {
-                    self.state.add_system_message("📁 **Projects**\n\nNo projects found.\n\n💡 *Tip: Use the CLI to add projects: `orkee projects add`*".to_string());
-                } else {
-                    let mut content = String::from("📁 **Projects**\n\n");
-                    for (i, project) in self.state.projects.iter().enumerate() {
-                        let status = format!("{:?}", project.status).to_lowercase();
-                        content.push_str(&format!("{}. **{}** ({})\n", i + 1, project.name, status));
-                        if let Some(description) = &project.description {
-                            if !description.is_empty() {
-                                content.push_str(&format!("   └─ {}\n", description));
-                            }
-                        }
-                        content.push_str(&format!("   📂 {}\n\n", project.project_root));
-                    }
-                    self.state.add_system_message(content);
-                }
-            }
-            's' => {
-                // Show settings info as chat message
-                let content = format!("⚙️ **Settings**\n\nRefresh Interval: {}s\nCurrent Theme: Dark\nInput Buffer Length: {} chars\nInput History: {} entries\n\n💡 *Settings management coming in future phases*", 
-                    self.state.refresh_interval,
-                    self.state.input_buffer().len(),
-                    self.state.input_history.len()
-                );
-                self.state.add_system_message(content);
-            }
-            _ => {}
-        }
-        Ok(())
-    }
     
     /// Handle input submission (Enter key)
     async fn handle_input_submission(&mut self) {
@@ -493,7 +490,7 @@ impl App {
         
         // Parse the command from input
         match SlashCommand::parse_from_input(&input_content) {
-            Ok((command, args)) => {
+            Ok((command, _args)) => {
                 // Clear input buffer and exit command mode
                 self.state.input_buffer_mut().clear();
                 self.state.exit_command_mode();
@@ -501,7 +498,7 @@ impl App {
                 // Execute the command
                 match command {
                     SlashCommand::Help => {
-                        let content = "📚 **Help - Orkee TUI (Phase 3)**\n\n**Slash Commands:**\n- `/help` - Show this help\n- `/quit` - Exit the application\n- `/clear` - Clear chat history\n- `/projects` - List all projects\n- `/project <name>` - Switch to a project\n- `/status` - Show application status\n\n**Navigation:**\n- Type `/` to open command popup\n- `↑↓` - Navigate commands\n- `Tab/Enter` - Complete/execute command\n- `Esc` - Cancel command mode\n\n**Text Input:**\n- `Enter` - Submit message\n- `↑↓` - Navigate input history (when input empty)\n- `Esc` - Clear input or cancel\n\n**Other:**\n- `Tab` - Switch screens (when input empty)\n- `q` - Quick quit (when input empty)".to_string();
+                        let content = "📚 **Help - Orkee TUI (Enhanced)**\n\n**Slash Commands:**\n- `/help` - Show this help\n- `/quit` - Exit the application\n- `/clear` - Clear chat history\n- `/projects` - Open interactive projects screen\n- `/dashboard` - Switch to dashboard screen\n- `/settings` - Switch to settings screen\n- `/status` - Show application status\n\n**Projects Screen Navigation:**\n- `↑↓` - Navigate project list\n- `Enter` - View project details\n- `Esc` - Return to chat (or projects list from details)\n- `n` - New project • `e` - Edit • `d` - Delete\n\n**Command System:**\n- Type `/` to open command popup\n- `↑↓` - Navigate commands\n- `Tab/Enter` - Complete/execute command\n- `Esc` - Cancel command mode\n\n**Text Input:**\n- `Enter` - Submit message\n- `↑↓` - Navigate input history (when input empty)\n- `Tab` - Switch focus (chat ↔ input)\n- `q` - Quick quit (when input empty)".to_string();
                         self.state.add_system_message(content);
                     }
                     SlashCommand::Quit => {
@@ -514,36 +511,15 @@ impl App {
                         self.state.add_system_message("🧹 Chat history cleared.".to_string());
                     }
                     SlashCommand::Projects => {
-                        // Show projects as before, but refreshed
+                        // Switch to interactive projects screen
                         if let Err(e) = self.load_projects().await {
                             self.state.add_system_message(format!("⚠️ Failed to load projects: {}", e));
-                        } else if self.state.projects.is_empty() {
-                            self.state.add_system_message("📁 **Projects**\n\nNo projects found.\n\n💡 *Tip: Use the CLI to add projects: `orkee projects add`*".to_string());
                         } else {
-                            let mut content = String::from("📁 **Projects** (Refreshed)\n\n");
-                            for (i, project) in self.state.projects.iter().enumerate() {
-                                let status = format!("{:?}", project.status).to_lowercase();
-                                content.push_str(&format!("{}. **{}** ({})\n", i + 1, project.name, status));
-                                if let Some(description) = &project.description {
-                                    if !description.is_empty() {
-                                        content.push_str(&format!("   └─ {}\n", description));
-                                    }
-                                }
-                                content.push_str(&format!("   📂 {}\n\n", project.project_root));
+                            self.state.current_screen = crate::state::Screen::Projects;
+                            // Ensure we have a selection if there are projects
+                            if !self.state.projects.is_empty() && self.state.selected_project.is_none() {
+                                self.state.selected_project = Some(0);
                             }
-                            self.state.add_system_message(content);
-                        }
-                    }
-                    SlashCommand::Project => {
-                        if let Some(project_name) = args.first() {
-                            // Find project by name
-                            if let Some(project) = self.state.projects.iter().find(|p| p.name == *project_name) {
-                                self.state.add_system_message(format!("📂 **Switched to project: {}**\n\n**Path:** {}\n**Status:** {:?}\n\n💡 *Project switching functionality coming soon!*", project.name, project.project_root, project.status));
-                            } else {
-                                self.state.add_system_message(format!("❌ **Project not found:** {}\n\n💡 *Use `/projects` to see available projects*", project_name));
-                            }
-                        } else {
-                            self.state.add_system_message("❌ **Missing project name**\n\nUsage: `/project <name>`\n\n💡 *Use `/projects` to see available projects*".to_string());
                         }
                     }
                     SlashCommand::Status => {
@@ -554,6 +530,14 @@ impl App {
                             self.state.refresh_interval
                         );
                         self.state.add_system_message(content);
+                    }
+                    SlashCommand::Dashboard => {
+                        // Switch to dashboard screen
+                        self.state.current_screen = crate::state::Screen::Dashboard;
+                    }
+                    SlashCommand::Settings => {
+                        // Switch to settings screen
+                        self.state.current_screen = crate::state::Screen::Settings;
                     }
                 }
             }
