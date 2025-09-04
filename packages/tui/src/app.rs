@@ -1,6 +1,7 @@
 use crate::state::AppState;
 use crate::events::{EventHandler, AppEvent};
 use crate::ui;
+use crate::slash_command::SlashCommand;
 use anyhow::Result;
 use crossterm::event::{KeyCode, KeyEventKind};
 use orkee_projects::get_all_projects;
@@ -80,21 +81,45 @@ impl App {
         match key {
             // Text input keys
             KeyCode::Char(c) => {
-                // Check for global shortcuts first
-                if self.is_global_shortcut(c) && self.state.input_buffer().is_empty() {
+                // Check for global shortcuts first (only if input buffer is empty and not in command mode)
+                if self.is_global_shortcut(c) && self.state.input_buffer().is_empty() && !self.state.is_command_mode() {
                     return self.handle_global_shortcut(c).await;
                 }
                 
-                // Otherwise, add to input buffer
+                // Add character to input buffer
                 self.state.input_buffer_mut().insert_char(c);
+                
+                // Check if we just typed '/' and should enter command mode
+                if c == '/' && self.state.input_buffer().content() == "/" && !self.state.is_command_mode() {
+                    self.state.enter_command_mode();
+                } else if self.state.is_command_mode() {
+                    // Update command filter as we type
+                    self.state.update_command_filter();
+                }
             }
             
             // Input editing keys
             KeyCode::Backspace => {
                 self.state.input_buffer_mut().backspace();
+                
+                // Exit command mode if we deleted the '/' 
+                if self.state.is_command_mode() {
+                    let content = self.state.input_buffer().content();
+                    if !content.starts_with('/') {
+                        self.state.exit_command_mode();
+                    } else {
+                        // Update filter as we delete characters
+                        self.state.update_command_filter();
+                    }
+                }
             }
             KeyCode::Delete => {
                 self.state.input_buffer_mut().delete_char();
+                
+                // Update command filter if in command mode
+                if self.state.is_command_mode() {
+                    self.state.update_command_filter();
+                }
             }
             
             // Cursor movement keys
@@ -117,15 +142,21 @@ impl App {
                 self.state.input_buffer_mut().move_to_end();
             }
             
-            // History navigation
+            // Up/Down navigation: Command popup > History > Chat scrolling
             KeyCode::Up => {
-                if !self.state.navigate_history_previous() {
+                if self.state.is_command_mode() {
+                    // Navigate command popup
+                    self.state.command_popup_up();
+                } else if !self.state.navigate_history_previous() {
                     // If not in history mode or empty history, scroll chat
                     self.state.scroll_up();
                 }
             }
             KeyCode::Down => {
-                if !self.state.navigate_history_next() {
+                if self.state.is_command_mode() {
+                    // Navigate command popup
+                    self.state.command_popup_down();
+                } else if !self.state.navigate_history_next() {
                     // If not in history mode, scroll chat
                     self.state.scroll_down();
                 }
@@ -138,19 +169,26 @@ impl App {
             
             // Cancel/escape
             KeyCode::Esc => {
-                if !self.state.cancel_history_navigation() {
+                if self.state.is_command_mode() {
+                    // Exit command mode
+                    self.state.exit_command_mode();
+                } else if !self.state.cancel_history_navigation() {
                     // If not canceling history, clear input buffer
                     self.state.input_buffer_mut().clear();
                 }
             }
             
-            // Tab for screen switching (only if input is empty)
+            // Tab for command completion or screen switching
             KeyCode::Tab => {
-                if self.state.input_buffer().is_empty() {
+                if self.state.is_command_mode() {
+                    // Complete selected command
+                    if let Some(_completed_command) = self.state.complete_selected_command() {
+                        // Command was completed, cursor is positioned for arguments if needed
+                    }
+                } else if self.state.input_buffer().is_empty() {
                     self.state.next_screen();
-                } else {
-                    // TODO: Could implement tab completion here in future
                 }
+                // TODO: Could implement other tab completion here in future
             }
             
             // Other keys are ignored for now
@@ -222,9 +260,102 @@ impl App {
     
     /// Handle input submission (Enter key)
     async fn handle_input_submission(&mut self) {
-        if self.state.submit_current_input() {
-            // Message was submitted successfully
-            // In future phases, this is where we'd process commands or send to server
+        if self.state.is_command_mode() {
+            // In command mode, complete the selected command or execute if already complete
+            let input_content = self.state.input_buffer().content().to_string();
+            
+            if let Some(_completed_command) = self.state.complete_selected_command() {
+                // Command was completed, check if it needs execution
+                if !input_content.contains('<') {
+                    // No argument placeholders, execute the command
+                    self.execute_slash_command().await;
+                }
+            } else {
+                // No command selected, try to execute what we have
+                self.execute_slash_command().await;
+            }
+        } else if self.state.submit_current_input() {
+            // Normal message submission
+            // In future phases, this is where we'd send to server
+        }
+    }
+    
+    /// Execute a slash command from the input buffer
+    async fn execute_slash_command(&mut self) {
+        let input_content = self.state.input_buffer().content().to_string();
+        
+        // Parse the command from input
+        match SlashCommand::parse_from_input(&input_content) {
+            Ok((command, args)) => {
+                // Clear input buffer and exit command mode
+                self.state.input_buffer_mut().clear();
+                self.state.exit_command_mode();
+                
+                // Execute the command
+                match command {
+                    SlashCommand::Help => {
+                        let content = "📚 **Help - Orkee TUI (Phase 3)**\n\n**Slash Commands:**\n- `/help` - Show this help\n- `/quit` - Exit the application\n- `/clear` - Clear chat history\n- `/projects` - List all projects\n- `/project <name>` - Switch to a project\n- `/status` - Show application status\n\n**Navigation:**\n- Type `/` to open command popup\n- `↑↓` - Navigate commands\n- `Tab/Enter` - Complete/execute command\n- `Esc` - Cancel command mode\n\n**Text Input:**\n- `Enter` - Submit message\n- `↑↓` - Navigate input history (when input empty)\n- `Esc` - Clear input or cancel\n\n**Other:**\n- `Tab` - Switch screens (when input empty)\n- `q` - Quick quit (when input empty)".to_string();
+                        self.state.add_system_message(content);
+                    }
+                    SlashCommand::Quit => {
+                        self.state.add_system_message("👋 Goodbye! Exiting Orkee TUI...".to_string());
+                        self.quit();
+                    }
+                    SlashCommand::Clear => {
+                        // Clear message history but keep welcome message
+                        self.state.message_history.clear();
+                        self.state.add_system_message("🧹 Chat history cleared.".to_string());
+                    }
+                    SlashCommand::Projects => {
+                        // Show projects as before, but refreshed
+                        if let Err(e) = self.load_projects().await {
+                            self.state.add_system_message(format!("⚠️ Failed to load projects: {}", e));
+                        } else if self.state.projects.is_empty() {
+                            self.state.add_system_message("📁 **Projects**\n\nNo projects found.\n\n💡 *Tip: Use the CLI to add projects: `orkee projects add`*".to_string());
+                        } else {
+                            let mut content = String::from("📁 **Projects** (Refreshed)\n\n");
+                            for (i, project) in self.state.projects.iter().enumerate() {
+                                let status = format!("{:?}", project.status).to_lowercase();
+                                content.push_str(&format!("{}. **{}** ({})\n", i + 1, project.name, status));
+                                if let Some(description) = &project.description {
+                                    if !description.is_empty() {
+                                        content.push_str(&format!("   └─ {}\n", description));
+                                    }
+                                }
+                                content.push_str(&format!("   📂 {}\n\n", project.project_root));
+                            }
+                            self.state.add_system_message(content);
+                        }
+                    }
+                    SlashCommand::Project => {
+                        if let Some(project_name) = args.first() {
+                            // Find project by name
+                            if let Some(project) = self.state.projects.iter().find(|p| p.name == *project_name) {
+                                self.state.add_system_message(format!("📂 **Switched to project: {}**\n\n**Path:** {}\n**Status:** {:?}\n\n💡 *Project switching functionality coming soon!*", project.name, project.project_root, project.status));
+                            } else {
+                                self.state.add_system_message(format!("❌ **Project not found:** {}\n\n💡 *Use `/projects` to see available projects*", project_name));
+                            }
+                        } else {
+                            self.state.add_system_message("❌ **Missing project name**\n\nUsage: `/project <name>`\n\n💡 *Use `/projects` to see available projects*".to_string());
+                        }
+                    }
+                    SlashCommand::Status => {
+                        let content = format!("📊 **Application Status**\n\n**Projects:** {} loaded\n**Current Screen:** {:?}\n**Input Mode:** {:?}\n**Refresh Interval:** {}s\n**Command System:** ✅ Active (Phase 3)\n\n**Features:**\n- ✅ Slash commands with popup\n- ✅ Fuzzy command matching\n- ✅ Input history navigation\n- ✅ Chat message system\n\n💡 *All systems operational!*", 
+                            self.state.projects.len(),
+                            self.state.current_screen,
+                            self.state.input_mode(),
+                            self.state.refresh_interval
+                        );
+                        self.state.add_system_message(content);
+                    }
+                }
+            }
+            Err(error) => {
+                // Show error message and clear input
+                self.state.add_system_message(format!("❌ **Command Error:** {}\n\n💡 *Type `/help` for available commands*", error));
+                self.state.input_buffer_mut().clear();
+                self.state.exit_command_mode();
+            }
         }
     }
     

@@ -1,5 +1,6 @@
 use crate::state::AppState;
 use crate::ui::widgets::{ChatWidget, InputWidget};
+use crate::ui::widgets::command_popup::{CommandPopupWidget, CommandHintWidget};
 use ratatui::prelude::*;
 
 /// Render the chat interface
@@ -28,4 +29,70 @@ pub fn render(frame: &mut Frame, state: &AppState) {
         .placeholder("Type a message and press Enter...");
     
     frame.render_widget(input_widget, chunks[1]);
+    
+    // Render command popup overlay if in command mode
+    if let Some(command_popup) = state.command_popup() {
+        render_command_popup_overlay(frame, command_popup, chunks[1]);
+    }
+}
+
+/// Render the command popup as an overlay above the input area
+fn render_command_popup_overlay(frame: &mut Frame, popup: &crate::command_popup::CommandPopup, input_area: Rect) {
+    let area = frame.area();
+    
+    // Calculate popup position (above the input area)
+    let popup_height = (popup.result_count() as u16).min(8).max(1) + 2; // +2 for borders
+    let popup_width = area.width.saturating_sub(4).min(80); // Leave some margin
+    
+    // Position popup above input area
+    let popup_y = input_area.y.saturating_sub(popup_height + 1); // +1 for spacing
+    let popup_x = area.x + 2; // Small left margin
+    
+    let popup_area = Rect {
+        x: popup_x,
+        y: popup_y,
+        width: popup_width,
+        height: popup_height,
+    };
+    
+    // Ensure popup doesn't go off screen
+    if popup_y < area.y {
+        // If no room above, show below input
+        let below_popup_area = Rect {
+            x: popup_x,
+            y: input_area.y + input_area.height + 1,
+            width: popup_width,
+            height: popup_height.min(area.height.saturating_sub(input_area.y + input_area.height + 1)),
+        };
+        
+        let popup_widget = CommandPopupWidget::new(popup).max_rows(popup_height.saturating_sub(2));
+        frame.render_widget(popup_widget, below_popup_area);
+        
+        // Render hint below the popup if there's room
+        let hint_y = below_popup_area.y + below_popup_area.height;
+        if hint_y < area.y + area.height {
+            let hint_area = Rect {
+                x: popup_x,
+                y: hint_y,
+                width: popup_width,
+                height: 1,
+            };
+            let hint_widget = CommandHintWidget::new(popup);
+            frame.render_widget(hint_widget, hint_area);
+        }
+    } else {
+        // Standard position above input
+        let popup_widget = CommandPopupWidget::new(popup).max_rows(popup_height.saturating_sub(2));
+        frame.render_widget(popup_widget, popup_area);
+        
+        // Render hint below the popup
+        let hint_area = Rect {
+            x: popup_x,
+            y: popup_area.y + popup_area.height,
+            width: popup_width,
+            height: 1,
+        };
+        let hint_widget = CommandHintWidget::new(popup);
+        frame.render_widget(hint_widget, hint_area);
+    }
 }

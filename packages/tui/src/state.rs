@@ -1,9 +1,10 @@
 use orkee_projects::Project;
 use crate::chat::{MessageHistory, ChatMessage};
 use crate::input::{InputBuffer, InputHistory, InputMode};
+use crate::command_popup::CommandPopup;
 
 /// Application state management
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct AppState {
     pub projects: Vec<Project>,
     pub selected_project: Option<usize>,
@@ -14,6 +15,7 @@ pub struct AppState {
     pub input_buffer: InputBuffer,
     pub input_history: InputHistory,
     pub input_mode: InputMode,
+    pub command_popup: Option<CommandPopup>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -36,6 +38,7 @@ impl AppState {
             input_buffer: InputBuffer::new(),
             input_history: InputHistory::new(),
             input_mode: InputMode::Normal,
+            command_popup: None,
         };
         
         // Add welcome message
@@ -218,5 +221,90 @@ impl AppState {
         } else {
             None
         }
+    }
+    
+    /// Enter command mode and show command popup
+    pub fn enter_command_mode(&mut self) {
+        self.input_mode = InputMode::Command;
+        let mut popup = CommandPopup::new();
+        
+        // Get the command text (everything after the '/')
+        let input_content = self.input_buffer.content();
+        let command_text = input_content.strip_prefix('/').unwrap_or("");
+        popup.update_filter(command_text);
+        
+        self.command_popup = Some(popup);
+    }
+    
+    /// Exit command mode and hide command popup
+    pub fn exit_command_mode(&mut self) {
+        if self.input_mode == InputMode::Command {
+            self.input_mode = InputMode::Normal;
+            self.command_popup = None;
+        }
+    }
+    
+    /// Check if currently in command mode
+    pub fn is_command_mode(&self) -> bool {
+        self.input_mode == InputMode::Command
+    }
+    
+    /// Update command popup filter when typing in command mode
+    pub fn update_command_filter(&mut self) {
+        if let Some(ref mut popup) = self.command_popup {
+            let input_content = self.input_buffer.content();
+            let command_text = input_content.strip_prefix('/').unwrap_or("");
+            popup.update_filter(command_text);
+        }
+    }
+    
+    /// Navigate command popup up
+    pub fn command_popup_up(&mut self) -> bool {
+        if let Some(ref mut popup) = self.command_popup {
+            popup.move_up();
+            true
+        } else {
+            false
+        }
+    }
+    
+    /// Navigate command popup down  
+    pub fn command_popup_down(&mut self) -> bool {
+        if let Some(ref mut popup) = self.command_popup {
+            popup.move_down();
+            true
+        } else {
+            false
+        }
+    }
+    
+    /// Complete the currently selected command
+    pub fn complete_selected_command(&mut self) -> Option<String> {
+        if let Some(ref popup) = self.command_popup {
+            if let Some(item) = popup.selected_item() {
+                let usage = item.usage.clone();
+                
+                // Clear input buffer and insert the full command usage
+                self.input_buffer.clear();
+                self.input_buffer.insert_str(&usage);
+                
+                // If command doesn't require args, we can exit command mode immediately
+                if !item.command.requires_args() {
+                    self.exit_command_mode();
+                    return Some(usage);
+                } else {
+                    // Keep in command mode for argument entry, but hide popup
+                    self.command_popup = None;
+                }
+                
+                return Some(usage);
+            }
+        }
+        None
+    }
+    
+    /// Get reference to command popup for UI rendering
+    pub fn command_popup(&self) -> Option<&CommandPopup> {
+        self.command_popup.as_ref()
     }
 }
