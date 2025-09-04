@@ -1,12 +1,11 @@
-use serde_json::Value;
+use orkee_projects::Project;
 
 /// Application state management
 #[derive(Debug, Clone)]
 pub struct AppState {
-    pub projects: Vec<Value>,
+    pub projects: Vec<Project>,
     pub selected_project: Option<usize>,
     pub current_screen: Screen,
-    pub connection_status: ConnectionStatus,
     pub refresh_interval: u64,
 }
 
@@ -17,25 +16,17 @@ pub enum Screen {
     Settings,
 }
 
-#[derive(Debug, Clone, PartialEq)]
-pub enum ConnectionStatus {
-    Connected,
-    Disconnected,
-    Connecting,
-}
-
 impl AppState {
     pub fn new(refresh_interval: u64) -> Self {
         Self {
             projects: Vec::new(),
             selected_project: None,
             current_screen: Screen::Dashboard,
-            connection_status: ConnectionStatus::Disconnected,
             refresh_interval,
         }
     }
     
-    pub fn set_projects(&mut self, projects: Vec<Value>) {
+    pub fn set_projects(&mut self, projects: Vec<Project>) {
         self.projects = projects;
     }
     
@@ -45,9 +36,5 @@ impl AppState {
             Screen::Projects => Screen::Settings,
             Screen::Settings => Screen::Dashboard,
         }
-    }
-    
-    pub fn set_connection_status(&mut self, status: ConnectionStatus) {
-        self.connection_status = status;
     }
 }

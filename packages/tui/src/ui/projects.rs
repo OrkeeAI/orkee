@@ -19,12 +19,8 @@ pub fn render(frame: &mut Frame, state: &AppState) {
             .iter()
             .enumerate()
             .map(|(i, project)| {
-                let name = project.get("name")
-                    .and_then(|v| v.as_str())
-                    .unwrap_or("Unknown");
-                let status = project.get("status")
-                    .and_then(|v| v.as_str())
-                    .unwrap_or("unknown");
+                let name = &project.name;
+                let status = format!("{:?}", project.status).to_lowercase();
                     
                 let content = format!("{} ({})", name, status);
                 if Some(i) == state.selected_project {

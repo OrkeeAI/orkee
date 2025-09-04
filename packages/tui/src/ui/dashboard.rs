@@ -11,8 +11,7 @@ pub fn render(frame: &mut Frame, state: &AppState) {
         .borders(Borders::ALL);
     
     let content = format!(
-        "Connection Status: {:?}\nProjects: {}\n\nPress 'p' for Projects, 's' for Settings, 'q' to quit",
-        state.connection_status,
+        "Projects: {}\n\nPress 'p' for Projects, 's' for Settings, 'q' to quit",
         state.projects.len()
     );
     
