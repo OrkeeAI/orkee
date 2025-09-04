@@ -8,12 +8,23 @@ use ratatui::prelude::*;
 pub fn render(frame: &mut Frame, state: &AppState) {
     let area = frame.area();
     
-    // Create layout with chat area and input area
+    // Calculate dynamic input height based on content
+    let input_content = state.input_buffer().content();
+    let input_lines = if input_content.is_empty() {
+        1 // At least 1 line for empty input
+    } else {
+        // Count newlines + 1 for the proper line count (lines().count() doesn't count trailing newlines correctly)
+        let newline_count = input_content.chars().filter(|&c| c == '\n').count();
+        (newline_count + 1).max(1) // At least 1 line, +1 because newlines create additional lines
+    };
+    let input_height = (input_lines as u16).min(10) + 2; // +2 for borders, max 10 lines of content
+    
+    // Create layout with chat area and dynamic input area
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Min(5),         // Chat area (takes most space)
-            Constraint::Length(3),      // Input area (fixed height)
+            Constraint::Min(5),                    // Chat area (takes most space)
+            Constraint::Length(input_height),      // Input area (dynamic height)
         ])
         .split(area);
     

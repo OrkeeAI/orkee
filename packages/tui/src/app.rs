@@ -50,24 +50,37 @@ impl App {
             
             // Handle events
             if let Some(event) = event_handler.next().await {
-                match event {
+                let should_redraw = match event {
                     AppEvent::Key(key_event) => {
                         if key_event.kind == KeyEventKind::Press {
                             self.handle_key_event(key_event).await?;
+                            true // Redraw immediately after key events
+                        } else {
+                            false
                         }
                     }
                     AppEvent::Tick => {
                         // Handle periodic tasks
+                        false // Tick doesn't need immediate redraw
                     }
                     AppEvent::Refresh => {
                         // Handle refresh requests
                         if let Err(e) = self.load_projects().await {
                             self.state.add_system_message(format!("Failed to refresh projects: {}", e));
                         }
+                        true // Redraw after refresh
                     }
                     AppEvent::Quit => {
                         self.quit();
+                        false
                     }
+                };
+                
+                // Immediate redraw for input events
+                if should_redraw {
+                    terminal.draw(|frame| {
+                        ui::render(frame, &self.state);
+                    })?;
                 }
             }
         }
@@ -79,6 +92,8 @@ impl App {
     async fn handle_key_event(&mut self, key_event: KeyEvent) -> Result<()> {
         let key = key_event.code;
         let modifiers = key_event.modifiers;
+        
+        
         
         // Handle Ctrl+C (clear input on first press, quit on double press)
         if let KeyCode::Char('c') = key {
@@ -122,9 +137,16 @@ impl App {
         match key {
             // Text input keys
             KeyCode::Char(c) => {
+                // Transform Ctrl+J (Shift+Enter in many terminals) to newline character
+                let char_to_insert = if c == 'j' && modifiers.contains(KeyModifiers::CONTROL) && self.state.is_input_focused() {
+                    '\n' // Replace 'j' with newline for Shift+Enter
+                } else {
+                    c // Use original character
+                };
+                
                 // Check for global shortcuts first (only if input buffer is empty, not in command mode, and input is focused)
-                if self.is_global_shortcut(c) && self.state.input_buffer().is_empty() && !self.state.is_command_mode() && self.state.is_input_focused() {
-                    return self.handle_global_shortcut(c).await;
+                if self.is_global_shortcut(char_to_insert) && self.state.input_buffer().is_empty() && !self.state.is_command_mode() && self.state.is_input_focused() {
+                    return self.handle_global_shortcut(char_to_insert).await;
                 }
                 
                 // Only process text input if input area is focused (true Codex behavior)
@@ -133,10 +155,10 @@ impl App {
                     return Ok(());
                 }
                 
-                // Add character to input buffer
-                self.state.input_buffer_mut().insert_char(c);
+                // Add character to input buffer (might be newline if it was Ctrl+J)
+                self.state.input_buffer_mut().insert_char(char_to_insert);
                 
-                // Check if we just typed '/' and should enter command mode
+                // Check if we just typed '/' and should enter command mode (use original char, not transformed)
                 if c == '/' && self.state.input_buffer().content() == "/" && !self.state.is_command_mode() {
                     self.state.enter_command_mode();
                 } else if self.state.is_command_mode() {
@@ -144,7 +166,7 @@ impl App {
                     self.state.update_command_filter();
                 }
                 
-                // Check if we just typed '@' and should enter mention mode
+                // Check if we just typed '@' and should enter mention mode (use original char, not transformed)
                 if c == '@' && !self.state.is_mention_mode() && !self.state.is_command_mode() {
                     let cursor_pos = self.state.input_buffer().cursor_position();
                     let char_pos = cursor_pos - c.len_utf8(); // Position where @ was inserted

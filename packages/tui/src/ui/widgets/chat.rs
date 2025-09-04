@@ -169,7 +169,7 @@ impl<'a> InputWidget<'a> {
 
 impl<'a> Widget for InputWidget<'a> {
     fn render(self, area: Rect, buf: &mut Buffer) {
-        // Create title based on input mode and focus state
+        // Create title based on input mode and focus state  
         let title = match (self.input_mode, self.history_position, self.focused) {
             (InputMode::History, Some((current, total)), _) => {
                 format!("Input [History {}/{}]", current, total)
@@ -177,9 +177,8 @@ impl<'a> Widget for InputWidget<'a> {
             (InputMode::Command, None, _) => "Input [Command Mode]".to_string(),
             (InputMode::Search, None, _) => "Input [Search Mode]".to_string(),
             (InputMode::Edit, None, _) => "Input [Editing Message - Enter to save, Esc to cancel]".to_string(),
-            (InputMode::Normal, None, true) => "Input (Enter=send, Shift+Enter=newline)".to_string(),
-            (_, _, true) => "Input".to_string(),
-            _ => "Input".to_string(),
+            (InputMode::Normal, None, _) => "".to_string(), // No title for normal mode
+            (_, _, _) => "".to_string(), // No title by default
         };
         
         let border_color = match (self.input_mode, self.focused) {
@@ -218,17 +217,17 @@ impl<'a> Widget for InputWidget<'a> {
             self.render_cursor(inner, buf);
         }
         
-        // Show input stats in bottom right if there's content
-        if !self.input_buffer.is_empty() {
-            let stats = format!("{}c", self.input_buffer.len());
-            let stats_x = area.x + area.width.saturating_sub(stats.len() as u16 + 1);
-            let stats_y = area.y + area.height - 1;
+        // Show help text in bottom right when focused
+        if self.focused && matches!(self.input_mode, InputMode::Normal) {
+            let help_text = "Enter to send | Shift+Enter for newline | Ctrl+D to quit";
+            let help_x = area.x + area.width.saturating_sub(help_text.len() as u16 + 1);
+            let help_y = area.y + area.height - 1;
             
-            if stats_x > area.x && stats_y >= area.y {
-                for (i, ch) in stats.chars().enumerate() {
-                    let x = stats_x + i as u16;
+            if help_x > area.x && help_y >= area.y {
+                for (i, ch) in help_text.chars().enumerate() {
+                    let x = help_x + i as u16;
                     if x < area.x + area.width {
-                        buf[(x, stats_y)].set_char(ch).set_style(Style::default().fg(Color::DarkGray));
+                        buf[(x, help_y)].set_char(ch).set_style(Style::default().fg(border_color));
                     }
                 }
             }

@@ -266,43 +266,25 @@ impl InputBuffer {
     }
     
     /// Find which line the cursor is on (0-indexed)
-    pub fn cursor_line(&self, max_width: u16) -> usize {
-        // Create a temporary copy for line calculation to avoid borrow issues
-        let mut temp_buffer = self.clone();
-        let lines = temp_buffer.get_display_lines(max_width);
-        let mut current_pos = 0;
-        
-        for (line_idx, line) in lines.iter().enumerate() {
-            let line_end = current_pos + line.len();
-            if self.cursor_position <= line_end {
-                return line_idx;
-            }
-            current_pos = line_end + 1; // +1 for newline
-        }
-        
-        lines.len().saturating_sub(1)
+    pub fn cursor_line(&self, _max_width: u16) -> usize {
+        // Simple approach: count newlines before cursor position
+        let text_before_cursor = &self.content[..self.cursor_position];
+        text_before_cursor.chars().filter(|&c| c == '\n').count()
     }
     
     /// Get the cursor position within its current line
-    pub fn cursor_column_in_line(&self, max_width: u16) -> u16 {
-        let cursor_line = self.cursor_line(max_width);
-        let mut temp_buffer = self.clone();
-        let lines = temp_buffer.get_display_lines(max_width);
+    pub fn cursor_column_in_line(&self, _max_width: u16) -> u16 {
+        // Simple approach: find the last newline before cursor, measure width after it
+        let text_before_cursor = &self.content[..self.cursor_position];
         
-        if cursor_line >= lines.len() {
-            return 0;
+        if let Some(last_newline_pos) = text_before_cursor.rfind('\n') {
+            // Get text after the last newline
+            let line_text = &text_before_cursor[last_newline_pos + 1..];
+            line_text.width() as u16
+        } else {
+            // No newline before cursor, so we're on the first line
+            text_before_cursor.width() as u16
         }
-        
-        let mut current_pos = 0;
-        for (line_idx, line) in lines.iter().enumerate() {
-            if line_idx == cursor_line {
-                let cursor_in_line = self.cursor_position.saturating_sub(current_pos);
-                return line[..cursor_in_line.min(line.len())].width() as u16;
-            }
-            current_pos += line.len() + 1; // +1 for newline
-        }
-        
-        0
     }
     
     /// Private method to invalidate the lines cache
@@ -317,8 +299,18 @@ impl InputBuffer {
         if self.content.is_empty() {
             lines.push(String::new());
         } else {
-            // Simple line breaking - can be enhanced later
-            for line in self.content.lines() {
+            // Split on newlines, but preserve empty lines (unlike .lines() which drops them)
+            let content_lines: Vec<&str> = if self.content.ends_with('\n') {
+                // If content ends with newline, we need to add an empty line at the end
+                let mut split_lines: Vec<&str> = self.content.split('\n').collect();
+                split_lines.pop(); // Remove the last empty element that split creates
+                split_lines.push(""); // Add back an empty line for the trailing newline
+                split_lines
+            } else {
+                self.content.split('\n').collect()
+            };
+            
+            for line in content_lines {
                 if line.width() <= max_width as usize {
                     lines.push(line.to_string());
                 } else {
@@ -460,5 +452,34 @@ mod tests {
         assert_eq!(lines[0], "Line 1");
         assert_eq!(lines[1], "Line 2"); 
         assert_eq!(lines[2], "Line 3");
+    }
+    
+    #[test]
+    fn test_cursor_positioning_with_newlines() {
+        let mut buffer = InputBuffer::new();
+        
+        // Test with just a newline at the start
+        buffer.insert_char('\n');
+        assert_eq!(buffer.content(), "\n");
+        assert_eq!(buffer.cursor_position(), 1); // After the newline
+        assert_eq!(buffer.cursor_line(80), 1); // Second line (0-indexed)
+        assert_eq!(buffer.cursor_column_in_line(80), 0); // At start of second line
+        
+        // Add text after the newline
+        buffer.insert_str("hello");
+        assert_eq!(buffer.content(), "\nhello");
+        assert_eq!(buffer.cursor_line(80), 1); // Still second line
+        assert_eq!(buffer.cursor_column_in_line(80), 5); // After "hello"
+        
+        // Add another newline
+        buffer.insert_char('\n');
+        assert_eq!(buffer.content(), "\nhello\n");
+        assert_eq!(buffer.cursor_line(80), 2); // Third line
+        assert_eq!(buffer.cursor_column_in_line(80), 0); // At start of third line
+        
+        // Test cursor positioning in the middle
+        buffer.set_cursor_position(3); // After "\nhe"
+        assert_eq!(buffer.cursor_line(80), 1); // Second line
+        assert_eq!(buffer.cursor_column_in_line(80), 2); // After "he"
     }
 }
