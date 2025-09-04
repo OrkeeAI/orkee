@@ -141,6 +141,7 @@ mod tests {
             task_source: None,
             manual_tasks: None,
             mcp_servers: None,
+            git_repository: None,
         }
     }
 
