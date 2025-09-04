@@ -22,9 +22,10 @@ pub fn render(frame: &mut Frame, state: &AppState) {
     
     frame.render_widget(chat_widget, chunks[0]);
     
-    // Render input area (placeholder for now)
-    let input_widget = InputWidget::new("")
-        .placeholder("Type a message... (Input handling coming in Phase 2)");
+    // Render input area with real input buffer
+    let input_widget = InputWidget::new(state.input_buffer(), state.input_mode())
+        .history_position(state.input_history_position())
+        .placeholder("Type a message and press Enter...");
     
     frame.render_widget(input_widget, chunks[1]);
 }

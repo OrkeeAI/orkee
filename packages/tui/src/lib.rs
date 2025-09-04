@@ -6,6 +6,7 @@
 pub mod app;
 pub mod chat;
 pub mod events;
+pub mod input;
 pub mod state;
 pub mod ui;
 

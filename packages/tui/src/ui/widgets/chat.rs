@@ -3,6 +3,7 @@ use ratatui::{
     widgets::{Block, Borders, Paragraph, Wrap},
 };
 use crate::chat::{ChatMessage, MessageAuthor};
+use crate::input::{InputBuffer, InputMode};
 
 /// Chat widget for displaying message history
 pub struct ChatWidget<'a> {
@@ -116,24 +117,26 @@ impl<'a> Widget for ChatWidget<'a> {
     }
 }
 
-/// Simple input widget for chat input
+/// Enhanced input widget that works with InputBuffer
 pub struct InputWidget<'a> {
-    input: &'a str,
-    cursor_pos: usize,
+    input_buffer: &'a InputBuffer,
+    input_mode: &'a InputMode,
+    history_position: Option<(usize, usize)>,
     placeholder: &'a str,
 }
 
 impl<'a> InputWidget<'a> {
-    pub fn new(input: &'a str) -> Self {
+    pub fn new(input_buffer: &'a InputBuffer, input_mode: &'a InputMode) -> Self {
         Self {
-            input,
-            cursor_pos: input.len(),
+            input_buffer,
+            input_mode,
+            history_position: None,
             placeholder: "Type a message...",
         }
     }
     
-    pub fn cursor_pos(mut self, pos: usize) -> Self {
-        self.cursor_pos = pos.min(self.input.len());
+    pub fn history_position(mut self, position: Option<(usize, usize)>) -> Self {
+        self.history_position = position;
         self
     }
     
@@ -145,38 +148,98 @@ impl<'a> InputWidget<'a> {
 
 impl<'a> Widget for InputWidget<'a> {
     fn render(self, area: Rect, buf: &mut Buffer) {
+        // Create title based on input mode and history position
+        let title = match (self.input_mode, self.history_position) {
+            (InputMode::History, Some((current, total))) => {
+                format!("Input [History {}/{}]", current, total)
+            }
+            (InputMode::Command, None) => "Input [Command Mode]".to_string(),
+            (InputMode::Search, None) => "Input [Search Mode]".to_string(),
+            _ => "Input".to_string(),
+        };
+        
+        let border_color = match self.input_mode {
+            InputMode::Normal => Color::White,
+            InputMode::History => Color::Yellow,
+            InputMode::Command => Color::Green,
+            InputMode::Search => Color::Blue,
+        };
+        
         let block = Block::default()
             .borders(Borders::ALL)
-            .title("Input")
-            .border_style(Style::default().fg(Color::White));
+            .title(title)
+            .border_style(Style::default().fg(border_color));
         
         let inner = block.inner(area);
         
-        let display_text = if self.input.is_empty() {
-            self.placeholder
+        // Determine what to display
+        let (display_text, text_style, should_show_cursor) = if self.input_buffer.is_empty() {
+            (self.placeholder, Style::default().fg(Color::Gray), true)
         } else {
-            self.input
-        };
-        
-        let style = if self.input.is_empty() {
-            Style::default().fg(Color::Gray)
-        } else {
-            Style::default()
+            (self.input_buffer.content(), Style::default(), true)
         };
         
         let paragraph = Paragraph::new(display_text)
-            .style(style)
+            .style(text_style)
             .wrap(Wrap { trim: false });
         
+        // Render the block and content
         block.render(area, buf);
         paragraph.render(inner, buf);
         
-        // Show cursor if there's input
-        if !self.input.is_empty() && self.cursor_pos <= self.input.len() {
-            let cursor_x = inner.x + self.cursor_pos as u16;
-            if cursor_x < inner.x + inner.width {
-                buf[(cursor_x, inner.y)].set_style(
-                    Style::default().add_modifier(Modifier::REVERSED)
+        // Render cursor if appropriate
+        if should_show_cursor {
+            self.render_cursor(inner, buf);
+        }
+        
+        // Show input stats in bottom right if there's content
+        if !self.input_buffer.is_empty() {
+            let stats = format!("{}c", self.input_buffer.len());
+            let stats_x = area.x + area.width.saturating_sub(stats.len() as u16 + 1);
+            let stats_y = area.y + area.height - 1;
+            
+            if stats_x > area.x && stats_y >= area.y {
+                for (i, ch) in stats.chars().enumerate() {
+                    let x = stats_x + i as u16;
+                    if x < area.x + area.width {
+                        buf[(x, stats_y)].set_char(ch).set_style(Style::default().fg(Color::DarkGray));
+                    }
+                }
+            }
+        }
+    }
+}
+
+impl<'a> InputWidget<'a> {
+    /// Render the cursor at the correct position
+    fn render_cursor(&self, area: Rect, buf: &mut Buffer) {
+        if area.width == 0 || area.height == 0 {
+            return;
+        }
+        
+        // Calculate cursor position based on content
+        let cursor_pos = self.input_buffer.cursor_position();
+        let _content_before_cursor = &self.input_buffer.content()[..cursor_pos];
+        
+        // Simple cursor positioning - for now just use display width
+        // This will work for single line, can be enhanced later for multi-line
+        let cursor_display_col = self.input_buffer.cursor_display_column();
+        
+        // For now, assume single line (can enhance for multi-line later)
+        let cursor_x = area.x + cursor_display_col;
+        let cursor_y = area.y;
+        
+        // Only render cursor if it's within the display area
+        if cursor_x < area.x + area.width && cursor_y < area.y + area.height {
+            let cell = &mut buf[(cursor_x, cursor_y)];
+            
+            // If there's a character at cursor position, reverse it
+            // Otherwise, show a block cursor
+            if cell.symbol() == " " || cell.symbol().is_empty() {
+                cell.set_char('█').set_style(Style::default().fg(Color::White));
+            } else {
+                cell.set_style(
+                    cell.style().add_modifier(Modifier::REVERSED)
                 );
             }
         }

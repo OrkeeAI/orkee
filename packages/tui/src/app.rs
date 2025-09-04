@@ -75,33 +75,119 @@ impl App {
     
     /// Handle keyboard input
     async fn handle_key_event(&mut self, key: KeyCode) -> Result<()> {
+        
+        // Handle input-related keys when in input modes or with modifiers
         match key {
-            KeyCode::Char('q') => {
-                self.quit();
+            // Text input keys
+            KeyCode::Char(c) => {
+                // Check for global shortcuts first
+                if self.is_global_shortcut(c) && self.state.input_buffer().is_empty() {
+                    return self.handle_global_shortcut(c).await;
+                }
+                
+                // Otherwise, add to input buffer
+                self.state.input_buffer_mut().insert_char(c);
             }
-            KeyCode::Tab => {
-                self.state.next_screen();
+            
+            // Input editing keys
+            KeyCode::Backspace => {
+                self.state.input_buffer_mut().backspace();
             }
-            KeyCode::Up => {
-                self.state.scroll_up();
+            KeyCode::Delete => {
+                self.state.input_buffer_mut().delete_char();
             }
-            KeyCode::Down => {
-                self.state.scroll_down();
+            
+            // Cursor movement keys
+            KeyCode::Left => {
+                self.state.input_buffer_mut().move_left();
+            }
+            KeyCode::Right => {
+                self.state.input_buffer_mut().move_right();
             }
             KeyCode::Home => {
-                self.state.scroll_to_bottom();
+                if self.state.input_buffer().is_empty() {
+                    // Scroll to bottom of chat if no input
+                    self.state.scroll_to_bottom();
+                } else {
+                    // Move cursor to start of input
+                    self.state.input_buffer_mut().move_to_start();
+                }
             }
-            KeyCode::Char('d') => {
+            KeyCode::End => {
+                self.state.input_buffer_mut().move_to_end();
+            }
+            
+            // History navigation
+            KeyCode::Up => {
+                if !self.state.navigate_history_previous() {
+                    // If not in history mode or empty history, scroll chat
+                    self.state.scroll_up();
+                }
+            }
+            KeyCode::Down => {
+                if !self.state.navigate_history_next() {
+                    // If not in history mode, scroll chat
+                    self.state.scroll_down();
+                }
+            }
+            
+            // Submit message
+            KeyCode::Enter => {
+                self.handle_input_submission().await;
+            }
+            
+            // Cancel/escape
+            KeyCode::Esc => {
+                if !self.state.cancel_history_navigation() {
+                    // If not canceling history, clear input buffer
+                    self.state.input_buffer_mut().clear();
+                }
+            }
+            
+            // Tab for screen switching (only if input is empty)
+            KeyCode::Tab => {
+                if self.state.input_buffer().is_empty() {
+                    self.state.next_screen();
+                } else {
+                    // TODO: Could implement tab completion here in future
+                }
+            }
+            
+            // Other keys are ignored for now
+            _ => {}
+        }
+        
+        Ok(())
+    }
+    
+    /// Check if a character is a global shortcut
+    fn is_global_shortcut(&self, c: char) -> bool {
+        matches!(c, 'q' | 'h' | 'd' | 'p' | 's')
+    }
+    
+    /// Handle global shortcuts (only when input buffer is empty)
+    async fn handle_global_shortcut(&mut self, c: char) -> Result<()> {
+        match c {
+            'q' => {
+                self.quit();
+            }
+            'h' => {
+                // Show help message
+                let content = "📚 **Help - Orkee TUI (Phase 2)**\n\n**Text Input:**\n- Type to enter text\n- `Enter` - Submit message\n- `↑/↓` - Navigate input history (when input empty)\n- `Esc` - Clear input or cancel history\n\n**Cursor Movement:**\n- `←/→` - Move cursor\n- `Home/End` - Start/end of input\n- `Ctrl+←/→` - Word movement (coming soon)\n\n**Navigation:**\n- `Tab` - Switch screens (when input empty)\n- `↑/↓` - Scroll messages (when not in history)\n\n**Commands (only when input empty):**\n- `d` - Show dashboard\n- `p` - List projects\n- `s` - Show settings\n- `h` - This help\n- `q` - Quit\n\n💡 *Slash commands coming in Phase 3!*".to_string();
+                self.state.add_system_message(content);
+            }
+            'd' => {
                 // Show dashboard info as chat message
                 let content = format!(
-                    "📊 **Dashboard Status**\n\nProjects: {}\nCurrent Screen: {:?}\nRefresh Interval: {}s\n\n💡 *Tip: Press 'p' for projects, 's' for settings, 'q' to quit*",
+                    "📊 **Dashboard Status**\n\nProjects: {}\nCurrent Screen: {:?}\nRefresh Interval: {}s\nInput Mode: {:?}\n\n💡 *Now with input system! Type a message to try it.*",
                     self.state.projects.len(),
                     self.state.current_screen,
-                    self.state.refresh_interval
+                    self.state.refresh_interval,
+                    self.state.input_mode()
                 );
                 self.state.add_system_message(content);
             }
-            KeyCode::Char('p') => {
+            'p' => {
                 // Show projects as chat message
                 if self.state.projects.is_empty() {
                     self.state.add_system_message("📁 **Projects**\n\nNo projects found.\n\n💡 *Tip: Use the CLI to add projects: `orkee projects add`*".to_string());
@@ -120,25 +206,26 @@ impl App {
                     self.state.add_system_message(content);
                 }
             }
-            KeyCode::Char('s') => {
+            's' => {
                 // Show settings info as chat message
-                let content = format!("⚙️ **Settings**\n\nRefresh Interval: {}s\nCurrent Theme: Dark\n\n💡 *Settings management coming in future phases*", self.state.refresh_interval);
+                let content = format!("⚙️ **Settings**\n\nRefresh Interval: {}s\nCurrent Theme: Dark\nInput Buffer Length: {} chars\nInput History: {} entries\n\n💡 *Settings management coming in future phases*", 
+                    self.state.refresh_interval,
+                    self.state.input_buffer().len(),
+                    self.state.input_history.len()
+                );
                 self.state.add_system_message(content);
             }
-            KeyCode::Char('h') => {
-                // Show help message
-                let content = "📚 **Help - Orkee TUI**\n\n**Navigation:**\n- `Tab` - Switch between screens\n- `↑/↓` - Scroll messages\n- `Home` - Jump to bottom\n\n**Commands:**\n- `d` - Show dashboard info\n- `p` - List projects\n- `s` - Show settings\n- `h` - Show this help\n- `q` - Quit application\n\n💡 *Phase 2 will add proper input handling and slash commands*".to_string();
-                self.state.add_system_message(content);
-            }
-            KeyCode::Char('c') if crossterm::event::KeyModifiers::CONTROL.intersects(crossterm::event::KeyModifiers::CONTROL) => {
-                self.quit();
-            }
-            _ => {
-                // For Phase 1, we'll just ignore other keys
-                // Input handling will come in Phase 2
-            }
+            _ => {}
         }
         Ok(())
+    }
+    
+    /// Handle input submission (Enter key)
+    async fn handle_input_submission(&mut self) {
+        if self.state.submit_current_input() {
+            // Message was submitted successfully
+            // In future phases, this is where we'd process commands or send to server
+        }
     }
     
     pub fn quit(&mut self) {

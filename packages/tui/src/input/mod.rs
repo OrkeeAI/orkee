@@ -1,0 +1,24 @@
+pub mod buffer;
+pub mod history;
+
+pub use buffer::InputBuffer;
+pub use history::InputHistory;
+
+/// Input modes for the TUI
+#[derive(Debug, Clone, PartialEq)]
+pub enum InputMode {
+    /// Normal typing mode
+    Normal,
+    /// After typing '/' - command mode (Phase 3)
+    Command,
+    /// After typing '@' - search mode (Phase 4)  
+    Search,
+    /// When navigating input history
+    History,
+}
+
+impl Default for InputMode {
+    fn default() -> Self {
+        Self::Normal
+    }
+}

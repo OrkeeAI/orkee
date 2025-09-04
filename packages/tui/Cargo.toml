@@ -16,3 +16,5 @@ orkee-projects = { path = "../projects" }
 chrono = "0.4"
 anyhow = "1.0"
 uuid = { version = "1.0", features = ["v4"] }
+unicode-segmentation = "1.10"
+unicode-width = "0.1"
