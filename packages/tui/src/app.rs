@@ -2,8 +2,9 @@ use crate::state::{AppState, EscapeAction};
 use crate::events::{EventHandler, AppEvent};
 use crate::ui;
 use crate::slash_command::SlashCommand;
+use crate::input::InputMode;
 use anyhow::Result;
-use crossterm::event::{KeyCode, KeyEventKind};
+use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 use orkee_projects::get_all_projects;
 use ratatui::{backend::CrosstermBackend, Terminal};
 
@@ -52,7 +53,7 @@ impl App {
                 match event {
                     AppEvent::Key(key_event) => {
                         if key_event.kind == KeyEventKind::Press {
-                            self.handle_key_event(key_event.code).await?;
+                            self.handle_key_event(key_event).await?;
                         }
                     }
                     AppEvent::Tick => {
@@ -75,7 +76,31 @@ impl App {
     }
     
     /// Handle keyboard input
-    async fn handle_key_event(&mut self, key: KeyCode) -> Result<()> {
+    async fn handle_key_event(&mut self, key_event: KeyEvent) -> Result<()> {
+        let key = key_event.code;
+        let modifiers = key_event.modifiers;
+        
+        // Handle Ctrl+C to clear input buffer
+        if let KeyCode::Char('c') = key {
+            if modifiers.contains(KeyModifiers::CONTROL) {
+                // Clear input buffer but keep focus
+                self.state.input_buffer_mut().clear();
+                
+                // Exit any special modes but stay in input
+                if self.state.is_mention_mode() {
+                    self.state.exit_mention_mode();
+                } else if self.state.is_command_mode() {
+                    self.state.exit_command_mode();
+                } else if self.state.is_editing_message() {
+                    self.state.cancel_message_edit();
+                }
+                
+                // Cancel history navigation if active
+                self.state.cancel_history_navigation();
+                
+                return Ok(());
+            }
+        }
         
         // Handle input-related keys when in input modes or with modifiers
         match key {
@@ -177,7 +202,7 @@ impl App {
                 self.state.input_buffer_mut().move_to_end();
             }
             
-            // Up/Down navigation: Mention popup > Command popup > History > Chat scrolling
+            // Up/Down navigation: Popups > Chat scrolling > History (only when input empty)
             KeyCode::Up => {
                 if self.state.is_mention_mode() {
                     // Navigate mention popup
@@ -185,8 +210,19 @@ impl App {
                 } else if self.state.is_command_mode() {
                     // Navigate command popup
                     self.state.command_popup_up();
-                } else if !self.state.navigate_history_previous() {
-                    // If not in history mode or empty history, scroll chat
+                } else if self.state.input_mode() == &InputMode::History {
+                    // Already in history mode, continue navigating
+                    if !self.state.navigate_history_previous() {
+                        // No more history, scroll chat instead
+                        self.state.scroll_up();
+                    }
+                } else if self.state.input_buffer().is_empty() {
+                    // Empty input - try history navigation, otherwise scroll chat
+                    if !self.state.navigate_history_previous() {
+                        self.state.scroll_up();
+                    }
+                } else {
+                    // Input has content - scroll chat
                     self.state.scroll_up();
                 }
             }
@@ -197,8 +233,14 @@ impl App {
                 } else if self.state.is_command_mode() {
                     // Navigate command popup
                     self.state.command_popup_down();
-                } else if !self.state.navigate_history_next() {
-                    // If not in history mode, scroll chat
+                } else if self.state.input_mode() == &InputMode::History {
+                    // Already in history mode, continue navigating
+                    if !self.state.navigate_history_next() {
+                        // Reached end of history, scroll chat instead
+                        self.state.scroll_down();
+                    }
+                } else {
+                    // Always scroll chat for Down arrow (history is typically Up-only)
                     self.state.scroll_down();
                 }
             }
