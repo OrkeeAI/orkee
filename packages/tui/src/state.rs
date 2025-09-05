@@ -1,10 +1,11 @@
-use orkee_projects::{Project, ProjectCreateInput, ProjectUpdateInput, ProjectStatus, Priority, create_project, update_project};
+use orkee_projects::{Project, ProjectCreateInput, ProjectUpdateInput, ProjectStatus, Priority, create_project, update_project, delete_project};
 use crate::chat::{MessageHistory, ChatMessage};
 use crate::input::{InputBuffer, InputHistory, InputMode};
 use crate::command_popup::CommandPopup;
 use crate::mention_popup::MentionPopup;
 use crate::ui::widgets::{FormWidget, FormField, FormStep};
 use crate::ui::widgets::form::FieldValue;
+use crate::ui::widgets::dialog::{ConfirmationDialog, DialogResult};
 use tui_input::Input;
 use tui_textarea::TextArea;
 use std::time::{Duration, Instant};
@@ -25,6 +26,10 @@ pub struct AppState {
     pub mention_popup: Option<MentionPopup>,
     /// Form state for project creation/editing
     pub form_state: Option<FormState>,
+    /// Confirmation dialog for destructive actions
+    pub confirmation_dialog: Option<ConfirmationDialog>,
+    /// Pending action waiting for confirmation
+    pub pending_action: Option<PendingAction>,
     /// Track last escape key press for double-escape detection
     last_escape_time: Option<Instant>,
     /// Timeout for double-escape detection (500ms)
@@ -76,6 +81,13 @@ pub enum FormMode {
     Edit(String),
 }
 
+/// Actions that require user confirmation
+#[derive(Debug, Clone, PartialEq)]
+pub enum PendingAction {
+    /// Delete a project by ID
+    DeleteProject(String),
+}
+
 impl AppState {
     pub fn new(refresh_interval: u64) -> Self {
         let mut state = Self {
@@ -91,6 +103,8 @@ impl AppState {
             command_popup: None,
             mention_popup: None,
             form_state: None,
+            confirmation_dialog: None,
+            pending_action: None,
             last_escape_time: None,
             escape_timeout: Duration::from_millis(500),
             last_ctrl_c_time: None,
@@ -1408,6 +1422,118 @@ pub enum EscapeAction {
     SingleEscape,
     /// Double escape detected - edit previous message
     EditPreviousMessage,
+}
+
+impl AppState {
+    /// Dialog handling methods
+    
+    /// Show a delete confirmation dialog for the given project ID
+    pub fn show_delete_confirmation(&mut self, project_id: String) {
+        if let Some(project) = self.projects.iter().find(|p| p.id == project_id) {
+            let dialog = ConfirmationDialog::new(
+                "Delete Project".to_string(),
+                "Are you sure you want to delete this project?".to_string(),
+            )
+            .dangerous()
+            .with_buttons("Delete".to_string(), "Cancel".to_string())
+            .with_details(format!(
+                "Name: \"{}\"\nPath: {}",
+                project.name, project.project_root
+            ));
+
+            self.confirmation_dialog = Some(dialog);
+            self.pending_action = Some(PendingAction::DeleteProject(project_id));
+        }
+    }
+
+    /// Handle key input for the confirmation dialog
+    pub fn handle_dialog_key(&mut self, key: crossterm::event::KeyCode) -> Option<DialogResult> {
+        if let Some(dialog) = &mut self.confirmation_dialog {
+            let result = dialog.handle_key(key);
+            match result {
+                DialogResult::Confirmed | DialogResult::Cancelled => {
+                    Some(result)
+                }
+                DialogResult::Pending => Some(result),
+            }
+        } else {
+            None
+        }
+    }
+
+    /// Cancel the current confirmation dialog
+    pub fn cancel_confirmation_dialog(&mut self) {
+        self.confirmation_dialog = None;
+        self.pending_action = None;
+    }
+
+    /// Check if a confirmation dialog is currently shown
+    pub fn is_showing_confirmation_dialog(&self) -> bool {
+        self.confirmation_dialog.is_some()
+    }
+
+    /// Confirm the pending action and execute it
+    pub async fn confirm_pending_action(&mut self) -> Result<(), String> {
+        if let Some(action) = self.pending_action.take() {
+            self.confirmation_dialog = None;
+            
+            match action {
+                PendingAction::DeleteProject(project_id) => {
+                    self.delete_project_by_id(project_id).await
+                }
+            }
+        } else {
+            Err("No pending action to confirm".to_string())
+        }
+    }
+
+    /// Delete a project by ID
+    pub async fn delete_project_by_id(&mut self, project_id: String) -> Result<(), String> {
+        // Find the project name for the success message
+        let project_name = self.projects.iter()
+            .find(|p| p.id == project_id)
+            .map(|p| p.name.clone())
+            .unwrap_or_else(|| "Unknown".to_string());
+
+        // Call the delete function from the projects library
+        match delete_project(&project_id).await {
+            Ok(true) => {
+                // Project was deleted successfully
+                // Refresh the projects list
+                match orkee_projects::get_all_projects().await {
+                    Ok(updated_projects) => {
+                        self.set_projects(updated_projects);
+                        self.add_system_message(format!("✅ **Project Deleted**\n\nSuccessfully deleted project \"{}\".", project_name));
+                        
+                        // Clear selection if the deleted project was selected
+                        if let Some(selected_idx) = self.selected_project {
+                            if selected_idx >= self.projects.len() {
+                                // If the selected index is now out of bounds, clear or adjust selection
+                                self.selected_project = if self.projects.is_empty() {
+                                    None
+                                } else {
+                                    Some(self.projects.len().saturating_sub(1))
+                                };
+                            }
+                        }
+                        
+                        Ok(())
+                    }
+                    Err(e) => {
+                        Err(format!("Project deleted but failed to refresh list: {}", e))
+                    }
+                }
+            }
+            Ok(false) => {
+                // Project was not found (already deleted?)
+                Err(format!("Project \"{}\" was not found (may have been already deleted)", project_name))
+            }
+            Err(e) => {
+                // Delete operation failed
+                Err(format!("Failed to delete project \"{}\": {}", project_name, e))
+            }
+        }
+    }
 }
 
 /// Actions that can result from Ctrl+C key press

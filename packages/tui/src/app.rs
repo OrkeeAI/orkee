@@ -104,6 +104,36 @@ impl App {
             self.state.add_system_message(format!("🔧 DEBUG: Key event - Code: {:?}, Modifiers: {:?}", key, modifiers));
         }
         
+        // Handle dialog keys first (highest priority when dialog is shown)
+        if self.state.is_showing_confirmation_dialog() {
+            if let Some(result) = self.state.handle_dialog_key(key) {
+                match result {
+                    crate::ui::widgets::DialogResult::Confirmed => {
+                        // User confirmed the action - execute it
+                        match self.state.confirm_pending_action().await {
+                            Ok(_) => {
+                                // Action completed successfully - dialog is already closed
+                            }
+                            Err(error_msg) => {
+                                // Action failed - show error and close dialog
+                                self.state.cancel_confirmation_dialog();
+                                self.state.add_system_message(format!("❌ **Error**\n\n{}", error_msg));
+                            }
+                        }
+                    }
+                    crate::ui::widgets::DialogResult::Cancelled => {
+                        // User cancelled - just close the dialog
+                        self.state.cancel_confirmation_dialog();
+                    }
+                    crate::ui::widgets::DialogResult::Pending => {
+                        // Dialog is still waiting for input, do nothing
+                    }
+                }
+            }
+            // When dialog is shown, don't process any other keys
+            return Ok(());
+        }
+        
         // Handle Ctrl+C (clear input on first press, quit on double press)
         if let KeyCode::Char('c') = key {
             if modifiers.contains(KeyModifiers::CONTROL) {
@@ -153,7 +183,9 @@ impl App {
                         ('d', &crate::state::Screen::Projects | &crate::state::Screen::ProjectDetail) => {
                             // Delete project on projects screen
                             if let Some(project) = self.state.get_selected_project() {
-                                self.state.add_system_message(format!("🗑️ **Delete Project: {}**\n\n💡 *Project deletion with confirmation coming in Phase 4! For now, use the CLI: `orkee projects delete {}`*", project.name, project.id));
+                                // Show delete confirmation dialog
+                                let project_id = project.id.clone();
+                                self.state.show_delete_confirmation(project_id);
                             } else {
                                 self.state.add_system_message("❌ **No project selected**\n\nNavigate to projects screen and select a project first.".to_string());
                             }
