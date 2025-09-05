@@ -89,15 +89,34 @@ pub fn render_with_area(frame: &mut Frame, state: &AppState, area: Rect) {
                     ])
                 ];
                 
-                // Add project path in a subtle way
-                if let Some(path_part) = project.project_root.split('/').last() {
-                    if path_part != name {
-                        lines.push(Line::from(vec![
-                            Span::raw("   "),
-                            Span::styled(format!("📂 {}", path_part), Style::default().fg(Color::DarkGray).add_modifier(Modifier::ITALIC)),
-                        ]));
-                    }
+                // Add git repository info if available
+                if let Some(git_info) = &project.git_repository {
+                    lines.push(Line::from(vec![
+                        Span::raw("   "),
+                        Span::styled("🔗", Style::default().fg(Color::Blue)),
+                        Span::raw(" "),
+                        Span::styled(
+                            format!("{}/{}", git_info.owner, git_info.repo),
+                            Style::default().fg(Color::Blue).add_modifier(Modifier::ITALIC)
+                        ),
+                    ]));
+                } else {
+                    lines.push(Line::from(vec![
+                        Span::raw("   "),
+                        Span::styled("📂 No remote repository", Style::default().fg(Color::DarkGray).add_modifier(Modifier::ITALIC)),
+                    ]));
                 }
+                
+                // Add project root path
+                lines.push(Line::from(vec![
+                    Span::raw("   "),
+                    Span::styled("📂", Style::default().fg(Color::DarkGray)),
+                    Span::raw(" "),
+                    Span::styled(
+                        &project.project_root,
+                        Style::default().fg(Color::DarkGray)
+                    ),
+                ]));
                 
                 // Add description if present
                 if let Some(description) = &project.description {
