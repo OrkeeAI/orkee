@@ -69,9 +69,15 @@ fn parse_github_url(url: &str) -> Option<(String, String)> {
         if parts.len() == 2 {
             return Some((parts[0].to_string(), parts[1].to_string()));
         }
-    } else if url.starts_with("https://github.com/") {
-        // HTTPS format: https://github.com/owner/repo.git or https://github.com/owner/repo
-        let path = url.strip_prefix("https://github.com/")?;
+    } else if url.contains("github.com/") {
+        // HTTPS format with or without username:
+        // https://github.com/owner/repo.git
+        // https://github.com/owner/repo
+        // https://username@github.com/owner/repo.git
+        
+        // Find the position of "github.com/" and extract everything after it
+        let github_pos = url.find("github.com/").map(|pos| pos + "github.com/".len())?;
+        let path = &url[github_pos..];
         let path = path.strip_suffix(".git").unwrap_or(path);
         let parts: Vec<&str> = path.split('/').collect();
         if parts.len() >= 2 {
@@ -97,6 +103,12 @@ mod tests {
         assert_eq!(
             parse_github_url("https://github.com/joedanz/vibekit"),
             Some(("joedanz".to_string(), "vibekit".to_string()))
+        );
+        
+        // Test HTTPS URLs with username
+        assert_eq!(
+            parse_github_url("https://joedanz@github.com/joedanz/vibe-kanban.git"),
+            Some(("joedanz".to_string(), "vibe-kanban".to_string()))
         );
         
         // Test SSH URLs

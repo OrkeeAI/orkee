@@ -4,7 +4,7 @@ use comfy_table::{Table, presets::UTF8_FULL, modifiers::UTF8_ROUND_CORNERS, Cont
 use inquire::{Text, Select, Confirm};
 use orkee_projects::{
     get_all_projects, get_project, create_project, update_project, delete_project,
-    ProjectCreateInput, ProjectUpdateInput, Project, ProjectStatus, Priority,
+    refresh_all_git_info, ProjectCreateInput, ProjectUpdateInput, Project, ProjectStatus, Priority,
 };
 
 #[derive(Subcommand)]
@@ -41,6 +41,8 @@ pub enum ProjectsCommands {
         #[arg(short, long)]
         yes: bool,
     },
+    /// Refresh git repository information for all projects
+    RefreshGit,
 }
 
 pub async fn handle_projects_command(command: ProjectsCommands) -> Result<(), Box<dyn std::error::Error>> {
@@ -52,6 +54,7 @@ pub async fn handle_projects_command(command: ProjectsCommands) -> Result<(), Bo
         }
         ProjectsCommands::Edit { id } => edit_project(&id).await,
         ProjectsCommands::Delete { id, yes } => delete_project_cmd(&id, yes).await,
+        ProjectsCommands::RefreshGit => refresh_git_info().await,
     }
 }
 
@@ -422,6 +425,27 @@ fn extract_repo_name(path: &str) -> String {
     
     // No Git repository or no remote origin
     "No remote repository".to_string()
+}
+
+async fn refresh_git_info() -> Result<(), Box<dyn std::error::Error>> {
+    println!("{}", "🔄 Refreshing Git Repository Information".blue().bold());
+    println!();
+    
+    match refresh_all_git_info().await {
+        Ok(count) => {
+            if count > 0 {
+                println!("{}", format!("✅ Successfully updated git info for {} project(s)", count).green());
+            } else {
+                println!("{}", "ℹ️  All projects already have up-to-date git repository information".yellow());
+            }
+        }
+        Err(e) => {
+            eprintln!("{}", format!("❌ Failed to refresh git info: {}", e).red());
+            return Err(e.into());
+        }
+    }
+    
+    Ok(())
 }
 
 fn parse_git_url(url: &str) -> String {

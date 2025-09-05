@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use std::fmt;
 
 /// Git repository information
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct GitRepositoryInfo {
     pub owner: String,
     pub repo: String,
