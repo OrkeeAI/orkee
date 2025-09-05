@@ -866,7 +866,7 @@ impl FormField {
             required,
             validator: None,
             placeholder: None,
-            help_text: None,
+            help_text: Some("Enter/↓/Tab to continue, ↑ to go back".to_string()),
         }
     }
 
@@ -882,7 +882,7 @@ impl FormField {
             required,
             validator: None,
             placeholder: Some("/path/to/project".to_string()),
-            help_text: Some("Enter the full path to the project directory".to_string()),
+            help_text: Some("Enter the full path to the project directory • Enter/↓/Tab to continue, ↑ to go back".to_string()),
         }
     }
 
@@ -900,7 +900,7 @@ impl FormField {
             required,
             validator: None,
             placeholder: Some("Enter description...".to_string()),
-            help_text: Some("Use Shift+Enter for new lines, Enter/↓/Tab to continue".to_string()),
+            help_text: Some("Use Shift+Enter for new lines, Enter/↓/Tab to continue, ↑ to go back".to_string()),
         }
     }
 
@@ -919,7 +919,7 @@ impl FormField {
             required,
             validator: None,
             placeholder: None,
-            help_text: Some("Use ↑↓ arrow keys to select, Enter/↓/Tab to continue".to_string()),
+            help_text: Some("Use ↑↓ arrow keys to select, Enter/↓/Tab to continue, ↑ to go back".to_string()),
         }
     }
 
@@ -935,7 +935,7 @@ impl FormField {
             required,
             validator: None,
             placeholder: Some("tag1, tag2, tag3".to_string()),
-            help_text: Some("Separate tags with commas".to_string()),
+            help_text: Some("Separate tags with commas • Enter/↓/Tab to continue, ↑ to go back".to_string()),
         }
     }
 
