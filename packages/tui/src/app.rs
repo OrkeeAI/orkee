@@ -962,7 +962,7 @@ impl App {
                 // Execute the command
                 match command {
                     SlashCommand::Help => {
-                        let content = "📚 **Help - Orkee TUI (Enhanced)**\n\n**Slash Commands:**\n- `/help` - Show this help\n- `/quit` - Exit the application\n- `/clear` - Clear chat history\n- `/projects` - Open interactive projects screen\n- `/dashboard` - Switch to dashboard screen\n- `/settings` - Switch to settings screen\n- `/status` - Show application status\n\n**Projects Screen Navigation:**\n- `↑↓` - Navigate project list\n- `Enter` - View project details\n- `Esc` - Return to chat (or projects list from details)\n- `n` - New project • `e` - Edit • `d` - Delete\n\n**Command System:**\n- Type `/` to open command popup\n- `↑↓` - Navigate commands\n- `Tab/Enter` - Complete/execute command\n- `Esc` - Cancel command mode\n\n**Text Input:**\n- `Enter` - Submit message\n- `↑↓` - Navigate input history (when input empty)\n- `Tab` - Switch focus (chat ↔ input)\n- `q` - Quick quit (when input empty)".to_string();
+                        let content = "📚 **Help - Orkee TUI**\n\n**Slash Commands:**\n- `/help` - Show this help\n- `/quit` - Exit the application\n- `/clear` - Clear chat history\n- `/projects` - Open interactive projects screen\n- `/status` - Show application status\n\n**Projects Screen Navigation:**\n- `↑↓` - Navigate project list\n- `Enter` - View project details\n- `Esc` - Return to chat (or projects list from details)\n- `n` - New project • `e` - Edit • `d` - Delete\n\n**Command System:**\n- Type `/` to open command popup\n- `↑↓` - Navigate commands\n- `Tab/Enter` - Complete/execute command\n- `Esc` - Cancel command mode\n\n**Text Input:**\n- `Enter` - Submit message\n- `↑↓` - Navigate input history (when input empty)\n- `Tab` - Switch focus (chat ↔ input)\n- `q` - Quick quit (when input empty)".to_string();
                         self.state.add_system_message(content);
                     }
                     SlashCommand::Quit => {
@@ -994,14 +994,6 @@ impl App {
                             self.state.refresh_interval
                         );
                         self.state.add_system_message(content);
-                    }
-                    SlashCommand::Dashboard => {
-                        // Switch to dashboard screen
-                        self.state.current_screen = crate::state::Screen::Dashboard;
-                    }
-                    SlashCommand::Settings => {
-                        // Switch to settings screen
-                        self.state.current_screen = crate::state::Screen::Settings;
                     }
                 }
             }

@@ -1,11 +1,9 @@
 pub mod widgets;
 pub mod chat;
-pub mod dashboard;
 pub mod projects;
 
 use crate::state::AppState;
 use ratatui::prelude::*;
-use ratatui::widgets::{Block, Borders};
 use ratatui::layout::{Constraint, Direction, Layout};
 use widgets::{ConfirmationDialogWidget, StatusBarWidget};
 
@@ -26,7 +24,6 @@ pub fn render(frame: &mut Frame, state: &AppState) {
     // Render the main screen content
     match state.current_screen {
         crate::state::Screen::Chat => chat::render_with_area(frame, state, main_area),
-        crate::state::Screen::Dashboard => dashboard::render_with_area(frame, state, main_area),
         crate::state::Screen::Projects => {
             if state.is_form_mode() {
                 projects::render_form_with_area(frame, state, main_area);
@@ -35,13 +32,6 @@ pub fn render(frame: &mut Frame, state: &AppState) {
             }
         }
         crate::state::Screen::ProjectDetail => projects::render_detail_with_area(frame, state, main_area),
-        crate::state::Screen::Settings => {
-            // TODO: Implement settings screen
-            let block = Block::default()
-                .title("Settings")
-                .borders(Borders::ALL);
-            frame.render_widget(block, main_area);
-        }
     }
 
     // Render status bar at bottom

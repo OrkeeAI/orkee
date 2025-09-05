@@ -15,10 +15,6 @@ pub enum SlashCommand {
     Projects,
     /// Show current application status
     Status,
-    /// Switch to dashboard screen
-    Dashboard,
-    /// Switch to settings screen  
-    Settings,
 }
 
 impl SlashCommand {
@@ -30,8 +26,6 @@ impl SlashCommand {
             Self::Clear => "Clear the chat history",
             Self::Projects => "Open interactive projects screen",
             Self::Status => "Show current application status and information",
-            Self::Dashboard => "Switch to dashboard screen",
-            Self::Settings => "Switch to settings screen",
         }
     }
     
@@ -43,8 +37,6 @@ impl SlashCommand {
             Self::Clear => "/clear", 
             Self::Projects => "/projects",
             Self::Status => "/status",
-            Self::Dashboard => "/dashboard",
-            Self::Settings => "/settings",
         }
     }
     
@@ -92,7 +84,7 @@ impl SlashCommand {
         
         // Validate arguments
         match command {
-            Self::Help | Self::Quit | Self::Clear | Self::Projects | Self::Status | Self::Dashboard | Self::Settings if !args.is_empty() => {
+            Self::Help | Self::Quit | Self::Clear | Self::Projects | Self::Status if !args.is_empty() => {
                 Err(format!("Command /{} does not accept arguments", command.as_ref()))
             }
             _ => Ok((command, args))

@@ -45,7 +45,6 @@ impl<'a> StatusBarWidget<'a> {
     fn get_navigation_breadcrumb(&self) -> String {
         match &self.state.current_screen {
             &Screen::Chat => " Chat".to_string(),
-            &Screen::Dashboard => " Dashboard".to_string(),
             &Screen::Projects => {
                 if self.state.is_form_mode() {
                     match &self.state.form_state {
@@ -81,7 +80,6 @@ impl<'a> StatusBarWidget<'a> {
                     " Project Detail".to_string()
                 }
             }
-            &Screen::Settings => " Settings".to_string(),
         }
     }
 
@@ -117,8 +115,6 @@ impl<'a> StatusBarWidget<'a> {
                 }
             }
             (&Screen::ProjectDetail, _) => "e: Edit • d: Delete • Esc: Back to List • Tab: Navigate".to_string(),
-            (&Screen::Dashboard, _) => "Tab: Navigate • q: Quit".to_string(),
-            (&Screen::Settings, _) => "Tab: Navigate • q: Quit".to_string(),
         }
     }
 

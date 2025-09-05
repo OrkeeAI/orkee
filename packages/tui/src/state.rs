@@ -57,10 +57,8 @@ pub struct AppState {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Screen {
-    Dashboard,
     Projects,
     ProjectDetail,
-    Settings,
     Chat,
 }
 
@@ -227,11 +225,9 @@ impl AppState {
     pub fn next_screen(&mut self) {
         self.push_current_screen_to_history();
         self.current_screen = match self.current_screen {
-            Screen::Dashboard => Screen::Projects,
-            Screen::Projects => Screen::Settings, 
+            Screen::Projects => Screen::Chat, 
             Screen::ProjectDetail => Screen::Projects, // Return to projects list
-            Screen::Settings => Screen::Chat,
-            Screen::Chat => Screen::Dashboard,
+            Screen::Chat => Screen::Projects,
         };
         self.update_project_context();
     }
@@ -278,7 +274,6 @@ impl AppState {
     fn screen_display_name(&self, screen: &Screen) -> String {
         match screen {
             Screen::Chat => "Chat".to_string(),
-            Screen::Dashboard => "Dashboard".to_string(), 
             Screen::Projects => "Projects".to_string(),
             Screen::ProjectDetail => {
                 if let Some(ref context) = self.current_project_context {
@@ -287,7 +282,6 @@ impl AppState {
                     "Project Detail".to_string()
                 }
             }
-            Screen::Settings => "Settings".to_string(),
         }
     }
 
