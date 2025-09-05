@@ -30,6 +30,10 @@ pub struct AppState {
     pub confirmation_dialog: Option<ConfirmationDialog>,
     /// Pending action waiting for confirmation
     pub pending_action: Option<PendingAction>,
+    /// Navigation history for breadcrumb display
+    pub navigation_history: Vec<Screen>,
+    /// Current project context when on project-related screens
+    pub current_project_context: Option<ProjectContext>,
     /// Track last escape key press for double-escape detection
     last_escape_time: Option<Instant>,
     /// Timeout for double-escape detection (500ms)
@@ -88,6 +92,17 @@ pub enum PendingAction {
     DeleteProject(String),
 }
 
+/// Project context information for enhanced navigation
+#[derive(Debug, Clone, PartialEq)]
+pub struct ProjectContext {
+    /// ID of the current project
+    pub project_id: String,
+    /// Name of the current project for display
+    pub project_name: String,
+    /// Path of the current project
+    pub project_path: String,
+}
+
 impl AppState {
     pub fn new(refresh_interval: u64) -> Self {
         let mut state = Self {
@@ -105,6 +120,8 @@ impl AppState {
             form_state: None,
             confirmation_dialog: None,
             pending_action: None,
+            navigation_history: Vec::new(),
+            current_project_context: None,
             last_escape_time: None,
             escape_timeout: Duration::from_millis(500),
             last_ctrl_c_time: None,
@@ -180,7 +197,9 @@ impl AppState {
     /// View details of the selected project
     pub fn view_selected_project_details(&mut self) -> bool {
         if self.selected_project.is_some() && !self.projects.is_empty() {
+            self.push_current_screen_to_history();
             self.current_screen = Screen::ProjectDetail;
+            self.update_project_context();
             true
         } else {
             false
@@ -191,16 +210,105 @@ impl AppState {
     pub fn return_to_projects_list(&mut self) {
         if self.current_screen == Screen::ProjectDetail {
             self.current_screen = Screen::Projects;
+            self.update_project_context();
         }
     }
     
     pub fn next_screen(&mut self) {
+        self.push_current_screen_to_history();
         self.current_screen = match self.current_screen {
             Screen::Dashboard => Screen::Projects,
             Screen::Projects => Screen::Settings, 
             Screen::ProjectDetail => Screen::Projects, // Return to projects list
             Screen::Settings => Screen::Chat,
             Screen::Chat => Screen::Dashboard,
+        };
+        self.update_project_context();
+    }
+
+    /// Push current screen to navigation history (for breadcrumb display)
+    pub fn push_current_screen_to_history(&mut self) {
+        // Only push if it's different from the last screen to avoid duplicates
+        if self.navigation_history.last() != Some(&self.current_screen) {
+            self.navigation_history.push(self.current_screen.clone());
+            
+            // Limit history size to prevent unlimited growth
+            if self.navigation_history.len() > 10 {
+                self.navigation_history.remove(0);
+            }
+        }
+    }
+
+    /// Get navigation breadcrumb path as a string
+    pub fn get_breadcrumb_path(&self) -> String {
+        if self.navigation_history.is_empty() {
+            self.screen_display_name(&self.current_screen)
+        } else {
+            let mut path = Vec::new();
+            
+            // Add history items (but limit to last 3 for readability)
+            let start_idx = if self.navigation_history.len() > 3 {
+                self.navigation_history.len() - 3
+            } else {
+                0
+            };
+            
+            for screen in &self.navigation_history[start_idx..] {
+                path.push(self.screen_display_name(screen));
+            }
+            
+            // Add current screen
+            path.push(self.screen_display_name(&self.current_screen));
+            
+            path.join(" › ")
+        }
+    }
+
+    /// Get display name for a screen
+    fn screen_display_name(&self, screen: &Screen) -> String {
+        match screen {
+            Screen::Chat => "Chat".to_string(),
+            Screen::Dashboard => "Dashboard".to_string(), 
+            Screen::Projects => "Projects".to_string(),
+            Screen::ProjectDetail => {
+                if let Some(ref context) = self.current_project_context {
+                    context.project_name.clone()
+                } else {
+                    "Project Detail".to_string()
+                }
+            }
+            Screen::Settings => "Settings".to_string(),
+        }
+    }
+
+    /// Update project context based on current screen and selected project
+    pub fn update_project_context(&mut self) {
+        match self.current_screen {
+            Screen::Projects | Screen::ProjectDetail => {
+                if let Some(project) = self.get_selected_project() {
+                    self.current_project_context = Some(ProjectContext {
+                        project_id: project.id.clone(),
+                        project_name: project.name.clone(),
+                        project_path: project.project_root.clone(),
+                    });
+                } else {
+                    self.current_project_context = None;
+                }
+            }
+            _ => {
+                self.current_project_context = None;
+            }
+        }
+    }
+
+    /// Navigate back to previous screen if history exists
+    pub fn navigate_back(&mut self) -> bool {
+        if let Some(previous_screen) = self.navigation_history.pop() {
+            self.current_screen = previous_screen;
+            self.update_project_context();
+            true
+        } else {
+            false
         }
     }
     

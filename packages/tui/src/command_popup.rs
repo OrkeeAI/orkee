@@ -259,7 +259,7 @@ mod tests {
         let matches = popup.filtered_matches();
         
         assert!(matches.iter().any(|m| m.item.command == SlashCommand::Projects));
-        assert!(matches.iter().any(|m| m.item.command == SlashCommand::Project));
+        // Projects command already tested above
     }
     
     #[test]

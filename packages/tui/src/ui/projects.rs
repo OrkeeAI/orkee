@@ -5,7 +5,11 @@ use ratatui::layout::{Layout, Direction, Constraint};
 
 /// Render the projects screen
 pub fn render(frame: &mut Frame, state: &AppState) {
-    let area = frame.area();
+    render_with_area(frame, state, frame.area());
+}
+
+/// Render the projects screen with specific area
+pub fn render_with_area(frame: &mut Frame, state: &AppState, area: Rect) {
     
     if state.projects.is_empty() {
         let block = Block::default()
@@ -94,7 +98,11 @@ pub fn render(frame: &mut Frame, state: &AppState) {
 
 /// Render the project detail screen
 pub fn render_detail(frame: &mut Frame, state: &AppState) {
-    let area = frame.area();
+    render_detail_with_area(frame, state, frame.area());
+}
+
+/// Render the project detail screen with specific area
+pub fn render_detail_with_area(frame: &mut Frame, state: &AppState, area: Rect) {
     
     if let Some(project) = state.get_selected_project() {
         let title = format!("Project Details: {} - Esc Back • e Edit • d Delete", project.name);
@@ -234,7 +242,11 @@ pub fn render_detail(frame: &mut Frame, state: &AppState) {
 
 /// Render the project creation form
 pub fn render_form(frame: &mut Frame, state: &AppState) {
-    let area = frame.area();
+    render_form_with_area(frame, state, frame.area());
+}
+
+/// Render the project creation form with specific area
+pub fn render_form_with_area(frame: &mut Frame, state: &AppState, area: Rect) {
     
     if let Some(form) = state.form() {
         // Check if there are recent system messages to display (errors or success)

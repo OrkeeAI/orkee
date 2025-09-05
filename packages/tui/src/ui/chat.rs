@@ -6,7 +6,11 @@ use ratatui::prelude::*;
 
 /// Render the chat interface
 pub fn render(frame: &mut Frame, state: &AppState) {
-    let area = frame.area();
+    render_with_area(frame, state, frame.area());
+}
+
+/// Render the chat interface with specific area
+pub fn render_with_area(frame: &mut Frame, state: &AppState, area: Rect) {
     
     // Calculate dynamic input height based on content
     let input_content = state.input_buffer().content();

@@ -4,7 +4,11 @@ use ratatui::widgets::{Block, Borders, Paragraph};
 
 /// Render the dashboard screen
 pub fn render(frame: &mut Frame, state: &AppState) {
-    let area = frame.area();
+    render_with_area(frame, state, frame.area());
+}
+
+/// Render the dashboard screen with specific area
+pub fn render_with_area(frame: &mut Frame, state: &AppState, area: Rect) {
     
     let block = Block::default()
         .title("Orkee Dashboard")

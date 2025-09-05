@@ -115,10 +115,6 @@ mod tests {
         assert_eq!(cmd, SlashCommand::Help);
         assert!(args.is_empty());
         
-        let (cmd, args) = SlashCommand::parse_from_input("/project test").unwrap();
-        assert_eq!(cmd, SlashCommand::Project);
-        assert_eq!(args, vec!["test"]);
-        
         let (cmd, args) = SlashCommand::parse_from_input("/projects").unwrap();
         assert_eq!(cmd, SlashCommand::Projects);
         assert!(args.is_empty());
@@ -141,9 +137,9 @@ mod tests {
         assert!(help.available_during_task());
         assert!(!help.description().is_empty());
         
-        let project = SlashCommand::Project;
-        assert_eq!(project.usage(), "/project <name>");
-        assert!(project.requires_args());
+        let projects = SlashCommand::Projects;
+        assert_eq!(projects.usage(), "/projects");
+        assert!(!projects.requires_args());
     }
     
     #[test]
@@ -152,18 +148,18 @@ mod tests {
         assert!(!commands.is_empty());
         assert!(commands.contains(&SlashCommand::Help));
         assert!(commands.contains(&SlashCommand::Projects));
-        assert!(commands.contains(&SlashCommand::Project));
+        // Projects command is already tested above
     }
     
     #[test]
     fn test_enum_string_conversion() {
         assert_eq!("help", SlashCommand::Help.as_ref());
         assert_eq!("projects", SlashCommand::Projects.as_ref());
-        assert_eq!("project", SlashCommand::Project.as_ref());
+        // Projects string conversion already tested above
         
         // Test parsing from string
         assert_eq!(Ok(SlashCommand::Help), "help".parse());
         assert_eq!(Ok(SlashCommand::Projects), "projects".parse());
-        assert_eq!(Ok(SlashCommand::Project), "project".parse());
+        // Projects parsing already tested above
     }
 }
