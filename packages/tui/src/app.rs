@@ -1,4 +1,4 @@
-use crate::state::{AppState, EscapeAction, CtrlCAction};
+use crate::state::{AppState, EscapeAction, CtrlCAction, Screen};
 use crate::events::{EventHandler, AppEvent};
 use crate::ui;
 use crate::slash_command::SlashCommand;
@@ -256,6 +256,22 @@ impl App {
                     }
                 }
                 
+                // Handle Shift+F (open search popup) - Project search
+                if c == 'F' && modifiers.contains(KeyModifiers::SHIFT) {
+                    if matches!(self.state.current_screen, Screen::Projects | Screen::ProjectDetail) {
+                        if self.state.is_search_mode() {
+                            // Close search if already open
+                            self.state.close_search();
+                            self.state.input_mode = InputMode::Normal;
+                        } else {
+                            // Open search popup
+                            self.state.open_project_search();
+                            self.state.input_mode = InputMode::ProjectSearch;
+                        }
+                        return Ok(());
+                    }
+                }
+                
                 // Global shortcuts are now handled above in the navigation logic
                 
                 // Only process text input if input area is focused (true Codex behavior)
@@ -277,6 +293,13 @@ impl App {
                         }
                     }
                     // Note: Review step has no input fields, so we don't send keys to form widget
+                } else if self.state.input_mode == InputMode::ProjectSearch {
+                    // Project search mode - route input to search popup
+                    if let Some(ref mut search_popup) = self.state.search_popup {
+                        search_popup.handle_char(c);
+                        // Update search results immediately
+                        self.state.update_search();
+                    }
                 } else {
                     // Normal mode - add character to input buffer
                     self.state.input_buffer_mut().insert_char(c);
@@ -320,6 +343,13 @@ impl App {
                     let event = crossterm::event::Event::Key(crossterm_event);
                     if let Some(form) = self.state.form_mut() {
                         form.handle_input(&event);
+                    }
+                } else if self.state.input_mode == InputMode::ProjectSearch {
+                    // Project search mode - route backspace to search popup
+                    if let Some(ref mut search_popup) = self.state.search_popup {
+                        search_popup.handle_backspace();
+                        // Update search results immediately
+                        self.state.update_search();
                     }
                 } else {
                     self.state.input_buffer_mut().backspace();
@@ -438,6 +468,11 @@ impl App {
                 } else if self.state.is_command_mode() {
                     // Navigate command popup (always forces input focus)
                     self.state.command_popup_up();
+                } else if self.state.input_mode == InputMode::ProjectSearch {
+                    // Navigate search results up
+                    if let Some(ref mut search_popup) = self.state.search_popup {
+                        search_popup.select_previous();
+                    }
                 } else if self.state.is_form_mode() {
                     // Form mode - try to let form widget handle it first (for Selection fields)
                     let crossterm_event = crossterm::event::KeyEvent::new(key, modifiers);
@@ -481,6 +516,11 @@ impl App {
                 } else if self.state.is_command_mode() {
                     // Navigate command popup (always forces input focus)
                     self.state.command_popup_down();
+                } else if self.state.input_mode == InputMode::ProjectSearch {
+                    // Navigate search results down
+                    if let Some(ref mut search_popup) = self.state.search_popup {
+                        search_popup.select_next();
+                    }
                 } else if self.state.is_form_mode() {
                     // Form mode - try to let form widget handle it first (for Selection fields)
                     let crossterm_event = crossterm::event::KeyEvent::new(key, modifiers);
@@ -558,6 +598,14 @@ impl App {
                     if let Some(_completed_mention) = self.state.complete_selected_mention() {
                         // Mention was completed, continue typing
                     }
+                } else if self.state.input_mode == InputMode::ProjectSearch {
+                    // Select project from search results
+                    if let Some(_project_index) = self.state.select_search_result() {
+                        // Navigate to project detail view
+                        if matches!(self.state.current_screen, Screen::Projects) {
+                            self.state.view_selected_project_details();
+                        }
+                    }
                 } else if self.state.current_screen == crate::state::Screen::Projects && !self.state.is_form_mode() {
                     // Projects screen - view selected project details
                     self.state.view_selected_project_details();
@@ -600,6 +648,10 @@ impl App {
                         } else if self.state.is_command_mode() {
                             // Exit command mode
                             self.state.exit_command_mode();
+                        } else if self.state.input_mode == InputMode::ProjectSearch {
+                            // Close search popup and return to normal mode
+                            self.state.close_search();
+                            self.state.input_mode = InputMode::Normal;
                         } else if self.state.current_screen == crate::state::Screen::ProjectDetail {
                             // Return to projects list from detail view
                             self.state.return_to_projects_list();
@@ -642,6 +694,13 @@ impl App {
                     // Complete selected command
                     if let Some(_completed_command) = self.state.complete_selected_command() {
                         // Command was completed, cursor is positioned for arguments if needed
+                    }
+                } else if self.state.input_mode == InputMode::ProjectSearch {
+                    // Cycle search modes in search popup (Text -> Status -> Priority -> Tags)
+                    if let Some(ref mut search_popup) = self.state.search_popup {
+                        search_popup.cycle_search_mode();
+                        // Update search results based on new mode
+                        self.state.update_search();
                     }
                 } else {
                     // Cycle focus between chat and input areas (Codex behavior)

@@ -37,6 +37,7 @@ impl<'a> StatusBarWidget<'a> {
             InputMode::History => Some(("HISTORY".to_string(), Style::default().fg(Color::Blue).add_modifier(Modifier::BOLD))),
             InputMode::Edit => Some(("EDIT".to_string(), Style::default().fg(Color::Green).add_modifier(Modifier::BOLD))),
             InputMode::Form => Some(("FORM".to_string(), Style::default().fg(Color::Red).add_modifier(Modifier::BOLD))),
+            InputMode::ProjectSearch => Some(("SEARCH".to_string(), Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD))),
         }
     }
 

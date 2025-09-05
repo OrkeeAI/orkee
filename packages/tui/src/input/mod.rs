@@ -19,6 +19,8 @@ pub enum InputMode {
     Edit,
     /// When navigating form fields
     Form,
+    /// When searching and filtering projects (Phase 6)
+    ProjectSearch,
 }
 
 impl Default for InputMode {

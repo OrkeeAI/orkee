@@ -1,4 +1,5 @@
 use crate::state::AppState;
+use crate::ui::widgets::{SearchPopupWidget, calculate_search_popup_area};
 use ratatui::prelude::*;
 use ratatui::widgets::{Block, Borders, List, ListItem, ListState, Paragraph, Wrap};
 use ratatui::layout::{Layout, Direction, Constraint};
@@ -10,29 +11,66 @@ pub fn render(frame: &mut Frame, state: &AppState) {
 
 /// Render the projects screen with specific area
 pub fn render_with_area(frame: &mut Frame, state: &AppState, area: Rect) {
+    // Determine which projects to display (filtered or all)
+    let (projects_to_display, _display_mode) = if state.search_active {
+        let filtered = state.get_filtered_projects();
+        (filtered, "filtered")
+    } else {
+        (state.projects.iter().collect(), "all")
+    };
     
-    if state.projects.is_empty() {
+    if projects_to_display.is_empty() {
+        let title = if state.search_active {
+            "Projects - No matching projects found"
+        } else {
+            "Projects - No projects found"
+        };
+        
         let block = Block::default()
-            .title("Projects - No projects found")
+            .title(title)
             .title_style(Style::default().fg(Color::Yellow))
             .borders(Borders::ALL);
             
-        let help_text = "No projects found.\n\nKeyboard shortcuts:\n• 'n' - Create new project\n• 'd' - Dashboard\n• 's' - Settings\n• 'q' - Quit";
+        let help_text = if state.search_active {
+            "No projects match your search criteria.\n\nKeyboard shortcuts:\n• Shift+F - Modify search\n• Esc - Clear search\n• 'n' - Create new project"
+        } else {
+            "No projects found.\n\nKeyboard shortcuts:\n• 'n' - Create new project\n• Shift+F - Search projects\n• 'd' - Dashboard\n• 's' - Settings\n• 'q' - Quit"
+        };
+        
         let paragraph = Paragraph::new(help_text)
             .block(block)
             .style(Style::default().fg(Color::Gray));
         frame.render_widget(paragraph, area);
     } else {
-        let title = format!("Projects ({}) - ↑↓ Navigate • Enter Details • Esc Back to Chat • n New • e Edit • d Delete", state.projects.len());
+        // Build title with search indication
+        let base_count = if state.search_active {
+            format!("{}/{}", projects_to_display.len(), state.projects.len())
+        } else {
+            state.projects.len().to_string()
+        };
+        
+        let search_indicator = if state.search_active {
+            " [FILTERED]"
+        } else if state.search_popup.is_some() {
+            " [SEARCH]"
+        } else {
+            ""
+        };
+        
+        let title = format!(
+            "Projects ({}{}) - ↑↓ Navigate • Enter Details • Shift+F Search • n New • e Edit • d Delete", 
+            base_count, search_indicator
+        );
+        
         let block = Block::default()
             .title(title)
             .title_style(Style::default().fg(Color::Green))
             .borders(Borders::ALL);
             
-        let items: Vec<ListItem> = state.projects
+        let items: Vec<ListItem> = projects_to_display
             .iter()
             .enumerate()
-            .map(|(_i, project)| {
+            .map(|(_list_index, project)| {
                 let name = &project.name;
                 let status = format!("{:?}", project.status).to_lowercase();
                 let status_color = match status.as_str() {
@@ -81,7 +119,22 @@ pub fn render_with_area(frame: &mut Frame, state: &AppState, area: Rect) {
             .collect();
             
         let mut list_state = ListState::default();
-        list_state.select(state.selected_project);
+        
+        // Handle selection for filtered vs unfiltered lists
+        if state.search_active {
+            // When search is active, we need to map the global selection to the filtered list
+            if let Some(selected_global_index) = state.selected_project {
+                // Find the position of the selected project in the filtered list
+                if let Some(filtered_indices) = state.get_filtered_indices() {
+                    let filtered_selection = filtered_indices.iter()
+                        .position(|&index| index == selected_global_index);
+                    list_state.select(filtered_selection);
+                }
+            }
+        } else {
+            // Normal mode - use global selection directly
+            list_state.select(state.selected_project);
+        }
         
         let list = List::new(items)
             .block(block)
@@ -93,6 +146,14 @@ pub fn render_with_area(frame: &mut Frame, state: &AppState, area: Rect) {
             .highlight_symbol(">> ");
             
         frame.render_stateful_widget(list, area, &mut list_state);
+    }
+    
+    // Render search popup overlay if it's open
+    if let Some(ref search_popup) = state.search_popup {
+        let popup_area = calculate_search_popup_area(area);
+        let search_widget = SearchPopupWidget::new(search_popup)
+            .show_help(true);
+        frame.render_widget(search_widget, popup_area);
     }
 }
 

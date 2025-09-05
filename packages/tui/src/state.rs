@@ -3,6 +3,7 @@ use crate::chat::{MessageHistory, ChatMessage};
 use crate::input::{InputBuffer, InputHistory, InputMode};
 use crate::command_popup::CommandPopup;
 use crate::mention_popup::MentionPopup;
+use crate::search_popup::SearchPopup;
 use crate::ui::widgets::{FormWidget, FormField, FormStep};
 use crate::ui::widgets::form::FieldValue;
 use crate::ui::widgets::dialog::{ConfirmationDialog, DialogResult};
@@ -34,6 +35,12 @@ pub struct AppState {
     pub navigation_history: Vec<Screen>,
     /// Current project context when on project-related screens
     pub current_project_context: Option<ProjectContext>,
+    /// Search popup for project filtering and searching
+    pub search_popup: Option<SearchPopup>,
+    /// Cache of filtered project indices when search is active
+    pub filtered_project_indices: Option<Vec<usize>>,
+    /// Whether search filter is currently active
+    pub search_active: bool,
     /// Track last escape key press for double-escape detection
     last_escape_time: Option<Instant>,
     /// Timeout for double-escape detection (500ms)
@@ -122,6 +129,9 @@ impl AppState {
             pending_action: None,
             navigation_history: Vec::new(),
             current_project_context: None,
+            search_popup: None,
+            filtered_project_indices: None,
+            search_active: false,
             last_escape_time: None,
             escape_timeout: Duration::from_millis(500),
             last_ctrl_c_time: None,
@@ -1641,6 +1651,107 @@ impl AppState {
                 Err(format!("Failed to delete project \"{}\": {}", project_name, e))
             }
         }
+    }
+
+    // === Search Methods ===
+
+    /// Open project search popup
+    pub fn open_project_search(&mut self) {
+        if matches!(self.current_screen, Screen::Projects | Screen::ProjectDetail) {
+            self.search_popup = Some(SearchPopup::new());
+            self.search_active = false; // Will be set true when search is applied
+        }
+    }
+
+    /// Close search popup and clear search state
+    pub fn close_search(&mut self) {
+        self.search_popup = None;
+        self.filtered_project_indices = None;
+        self.search_active = false;
+    }
+
+    /// Check if search popup is currently open
+    pub fn is_search_mode(&self) -> bool {
+        self.search_popup.is_some()
+    }
+
+    /// Update search results based on current search criteria
+    pub fn update_search(&mut self) {
+        if let Some(ref mut search_popup) = self.search_popup {
+            search_popup.update_search(&self.projects);
+            
+            // Update filtered indices and search active flag
+            let results = search_popup.filtered_results();
+            if !results.is_empty() || search_popup.has_active_filters() || !search_popup.search_query().is_empty() {
+                self.filtered_project_indices = Some(
+                    results.iter().map(|r| r.project_index).collect()
+                );
+                self.search_active = true;
+            } else {
+                self.filtered_project_indices = None;
+                self.search_active = false;
+            }
+        }
+    }
+
+    /// Get filtered projects (for display when search is active)
+    pub fn get_filtered_projects(&self) -> Vec<&Project> {
+        if let Some(ref indices) = self.filtered_project_indices {
+            indices.iter()
+                .filter_map(|&i| self.projects.get(i))
+                .collect()
+        } else {
+            self.projects.iter().collect()
+        }
+    }
+
+    /// Get filtered project indices
+    pub fn get_filtered_indices(&self) -> Option<&Vec<usize>> {
+        self.filtered_project_indices.as_ref()
+    }
+
+    /// Select a project from search results
+    pub fn select_search_result(&mut self) -> Option<usize> {
+        if let Some(ref search_popup) = self.search_popup {
+            if let Some(selected_match) = search_popup.selected_result() {
+                let project_index = selected_match.project_index;
+                
+                // Close search
+                self.close_search();
+                
+                // Set selection to the chosen project
+                self.selected_project = Some(project_index);
+                
+                return Some(project_index);
+            }
+        }
+        None
+    }
+
+    /// Apply current search filters to projects (for quick access)
+    pub fn apply_search_filters(&mut self) {
+        if self.search_popup.is_some() {
+            self.update_search();
+        }
+    }
+
+    /// Clear search without closing popup (reset to show all)
+    pub fn reset_search(&mut self) {
+        if let Some(ref mut search_popup) = self.search_popup {
+            search_popup.reset();
+            self.filtered_project_indices = None;
+            self.search_active = false;
+        }
+    }
+
+    /// Get search query for display
+    pub fn get_search_query(&self) -> Option<&str> {
+        self.search_popup.as_ref().map(|s| s.search_query())
+    }
+
+    /// Check if any search filters are active
+    pub fn has_active_search_filters(&self) -> bool {
+        self.search_popup.as_ref().map_or(false, |s| s.has_active_filters())
     }
 }
 
