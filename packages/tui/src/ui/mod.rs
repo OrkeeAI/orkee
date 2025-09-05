@@ -12,7 +12,13 @@ pub fn render(frame: &mut Frame, state: &AppState) {
     match state.current_screen {
         crate::state::Screen::Chat => chat::render(frame, state),
         crate::state::Screen::Dashboard => dashboard::render(frame, state),
-        crate::state::Screen::Projects => projects::render(frame, state),
+        crate::state::Screen::Projects => {
+            if state.is_form_mode() {
+                projects::render_form(frame, state);
+            } else {
+                projects::render(frame, state);
+            }
+        }
         crate::state::Screen::ProjectDetail => projects::render_detail(frame, state),
         crate::state::Screen::Settings => {
             // TODO: Implement settings screen

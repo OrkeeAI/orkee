@@ -1,6 +1,7 @@
 use crate::state::AppState;
 use ratatui::prelude::*;
-use ratatui::widgets::{Block, Borders, List, ListItem, ListState, Paragraph};
+use ratatui::widgets::{Block, Borders, List, ListItem, ListState, Paragraph, Wrap};
+use ratatui::layout::{Layout, Direction, Constraint};
 
 /// Render the projects screen
 pub fn render(frame: &mut Frame, state: &AppState) {
@@ -228,5 +229,59 @@ pub fn render_detail(frame: &mut Frame, state: &AppState) {
             .block(block)
             .style(Style::default().fg(Color::Gray));
         frame.render_widget(paragraph, area);
+    }
+}
+
+/// Render the project creation form
+pub fn render_form(frame: &mut Frame, state: &AppState) {
+    let area = frame.area();
+    
+    if let Some(form) = state.form() {
+        // Check if there are recent system messages to display (errors or success)
+        let recent_system_message = state.message_history.messages()
+            .iter()
+            .rev()
+            .take(3) // Check last 3 messages
+            .find(|msg| (msg.content.contains("❌") || msg.content.contains("✅")) && msg.author == crate::chat::MessageAuthor::System)
+            .map(|msg| (msg.content.clone(), msg.content.contains("❌")));
+        
+        if let Some((message, is_error)) = recent_system_message {
+            // Split area to show form and notification message
+            let chunks = Layout::default()
+                .direction(Direction::Vertical)
+                .constraints([
+                    Constraint::Min(10), // Form area
+                    Constraint::Length(6), // Message area
+                ])
+                .split(area);
+            
+            // Render form in top area
+            form.render(frame, chunks[0]);
+            
+            // Render notification message in bottom area
+            let (title, border_color) = if is_error {
+                ("⚠️ Error", Color::Red)
+            } else {
+                ("✅ Success", Color::Green)
+            };
+            
+            let message_block = Block::default()
+                .title(title)
+                .borders(Borders::ALL)
+                .border_style(Style::default().fg(border_color));
+            
+            let message_paragraph = Paragraph::new(message)
+                .block(message_block)
+                .style(Style::default().fg(Color::White))
+                .wrap(Wrap { trim: true });
+            
+            frame.render_widget(message_paragraph, chunks[1]);
+        } else {
+            // No notification message - render form normally
+            form.render(frame, area);
+        }
+    } else {
+        // Fallback to regular projects view if no form
+        render(frame, state);
     }
 }

@@ -186,6 +186,7 @@ impl<'a> Widget for InputWidget<'a> {
             (InputMode::Command, _) => Color::Green,
             (InputMode::Search, _) => Color::Blue,
             (InputMode::Edit, _) => Color::Magenta,
+            (InputMode::Form, _) => Color::Cyan,
             (InputMode::Normal, true) => Color::White,
             (InputMode::Normal, false) => Color::Gray,
         };

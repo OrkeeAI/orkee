@@ -57,6 +57,7 @@ impl App {
             if let Some(event) = event_handler.next().await {
                 let should_redraw = match event {
                     AppEvent::Key(key_event) => {
+                        
                         if key_event.kind == KeyEventKind::Press {
                             self.handle_key_event(key_event).await?;
                             true // Redraw immediately after key events
@@ -98,7 +99,10 @@ impl App {
         let key = key_event.code;
         let modifiers = key_event.modifiers;
         
-        
+        // DEBUG: Trace all key events to see if Enter is being processed
+        if self.state.is_form_mode() {
+            self.state.add_system_message(format!("🔧 DEBUG: Key event - Code: {:?}, Modifiers: {:?}", key, modifiers));
+        }
         
         // Handle Ctrl+C (clear input on first press, quit on double press)
         if let KeyCode::Char('c') = key {
@@ -142,9 +146,9 @@ impl App {
         match key {
             // Text input keys
             KeyCode::Char(c) => {
-                // Handle navigation shortcuts only on NON-CHAT screens
+                // Handle navigation shortcuts only when NOT in special modes
                 if !self.state.is_command_mode() && !self.state.is_mention_mode() && 
-                   self.state.current_screen != crate::state::Screen::Chat {
+                   !self.state.is_form_mode() && self.state.current_screen != crate::state::Screen::Chat {
                     match (c, &self.state.current_screen) {
                         ('d', &crate::state::Screen::Projects | &crate::state::Screen::ProjectDetail) => {
                             // Delete project on projects screen
@@ -155,9 +159,14 @@ impl App {
                             }
                             return Ok(());
                         }
+                        ('n', &crate::state::Screen::Projects) => {
+                            // Start project creation form
+                            self.state.start_project_creation();
+                            return Ok(());
+                        }
                         ('n', _) => {
                             self.state.current_screen = crate::state::Screen::Projects;
-                            self.state.add_system_message("📁 **New Project**\n\n💡 *Project creation form coming in Phase 2! For now, use the CLI: `orkee projects add`*".to_string());
+                            self.state.add_system_message("📁 **Switch to Projects Screen**\n\nPress 'n' again from the projects screen to create a new project.".to_string());
                             return Ok(());
                         }
                         ('e', &crate::state::Screen::Projects | &crate::state::Screen::ProjectDetail) => {
@@ -179,30 +188,65 @@ impl App {
                     }
                 }
                 
-                // Allow quit from chat screen too (but only if input is empty)
+                // Allow quit from chat screen too (but only if input is empty and not in form mode)
                 if c == 'q' && !self.state.is_command_mode() && !self.state.is_mention_mode() && 
-                   self.state.input_buffer().is_empty() && self.state.current_screen == crate::state::Screen::Chat {
+                   !self.state.is_form_mode() && self.state.input_buffer().is_empty() && 
+                   self.state.current_screen == crate::state::Screen::Chat {
                     self.quit();
                     return Ok(());
                 }
                 
-                // Transform Ctrl+J (Shift+Enter in many terminals) to newline character
-                let char_to_insert = if c == 'j' && modifiers.contains(KeyModifiers::CONTROL) && self.state.is_input_focused() {
-                    '\n' // Replace 'j' with newline for Shift+Enter
-                } else {
-                    c // Use original character
-                };
+                // Handle Ctrl+J (Shift+Enter in many terminals) specially
+                if c == 'j' && modifiers.contains(KeyModifiers::CONTROL) {
+                    if self.state.is_form_mode() {
+                        // Form mode - handle Shift+Enter for multiline fields
+                        if self.state.form_current_field_is_multiline() {
+                            if let Some(form) = self.state.form_mut() {
+                                form.insert_newline();
+                            }
+                        }
+                        return Ok(());
+                    } else if self.state.is_input_focused() {
+                        // Chat input - add newline
+                        self.state.input_buffer_mut().insert_char('\n');
+                        return Ok(());
+                    }
+                }
+                
+                // Handle Shift+C (cancel form) - BEFORE routing to form widget
+                if c == 'C' && modifiers.contains(KeyModifiers::SHIFT) {
+                    if self.state.is_form_mode() {
+                        // Cancel form and return to projects list
+                        self.state.cancel_form();
+                        return Ok(());
+                    }
+                }
                 
                 // Global shortcuts are now handled above in the navigation logic
                 
                 // Only process text input if input area is focused (true Codex behavior)
-                if !self.state.is_input_focused() {
+                // EXCEPT in form mode where we handle input directly
+                if !self.state.is_input_focused() && !self.state.is_form_mode() {
                     // If chat is focused, ignore typing - only Tab switches focus
                     return Ok(());
                 }
                 
-                // Add character to input buffer (might be newline if it was Ctrl+J)
-                self.state.input_buffer_mut().insert_char(char_to_insert);
+                // Handle input based on mode
+                if self.state.is_form_mode() {
+                    // For review step, don't route keys to form widget since there are no fields
+                    if !self.state.form_is_review_step() {
+                        // Form mode - route input to form widget only if not on review step
+                        let crossterm_event = crossterm::event::KeyEvent::new(key, modifiers);
+                        let event = crossterm::event::Event::Key(crossterm_event);
+                        if let Some(form) = self.state.form_mut() {
+                            form.handle_input(&event);
+                        }
+                    }
+                    // Note: Review step has no input fields, so we don't send keys to form widget
+                } else {
+                    // Normal mode - add character to input buffer
+                    self.state.input_buffer_mut().insert_char(c);
+                }
                 
                 // Check if we just typed '/' and should enter command mode (use original char, not transformed)
                 if c == '/' && self.state.input_buffer().content() == "/" && !self.state.is_command_mode() {
@@ -230,12 +274,22 @@ impl App {
             // Input editing keys
             KeyCode::Backspace => {
                 // Only process if input area is focused
-                if !self.state.is_input_focused() {
+                // EXCEPT in form mode where we handle input directly
+                if !self.state.is_input_focused() && !self.state.is_form_mode() {
                     // If chat is focused, ignore backspace - only Tab switches focus
                     return Ok(());
                 }
                 
-                self.state.input_buffer_mut().backspace();
+                if self.state.is_form_mode() {
+                    // Form mode - route backspace to form widget
+                    let crossterm_event = crossterm::event::KeyEvent::new(key, modifiers);
+                    let event = crossterm::event::Event::Key(crossterm_event);
+                    if let Some(form) = self.state.form_mut() {
+                        form.handle_input(&event);
+                    }
+                } else {
+                    self.state.input_buffer_mut().backspace();
+                }
                 
                 // Exit command mode if we deleted the '/' 
                 if self.state.is_command_mode() {
@@ -268,12 +322,22 @@ impl App {
             }
             KeyCode::Delete => {
                 // Only process if input area is focused
-                if !self.state.is_input_focused() {
+                // EXCEPT in form mode where we handle input directly
+                if !self.state.is_input_focused() && !self.state.is_form_mode() {
                     // If chat is focused, ignore delete - only Tab switches focus
                     return Ok(());
                 }
                 
-                self.state.input_buffer_mut().delete_char();
+                if self.state.is_form_mode() {
+                    // Form mode - route delete to form widget
+                    let crossterm_event = crossterm::event::KeyEvent::new(key, modifiers);
+                    let event = crossterm::event::Event::Key(crossterm_event);
+                    if let Some(form) = self.state.form_mut() {
+                        form.handle_input(&event);
+                    }
+                } else {
+                    self.state.input_buffer_mut().delete_char();
+                }
                 
                 // Update command filter if in command mode
                 if self.state.is_command_mode() {
@@ -284,43 +348,55 @@ impl App {
                 }
             }
             
-            // Cursor movement keys (only work when input is focused)
+            // Cursor movement keys (only work when input is focused or in form mode)
             KeyCode::Left => {
-                if !self.state.is_input_focused() {
+                if !self.state.is_input_focused() && !self.state.is_form_mode() {
                     // If chat is focused, ignore cursor movement - only Tab switches focus
                     return Ok(());
                 }
-                self.state.input_buffer_mut().move_left();
+                if !self.state.is_form_mode() {
+                    self.state.input_buffer_mut().move_left();
+                }
+                // TODO: Add cursor movement within form fields if needed
             }
             KeyCode::Right => {
-                if !self.state.is_input_focused() {
+                if !self.state.is_input_focused() && !self.state.is_form_mode() {
                     // If chat is focused, ignore cursor movement - only Tab switches focus
                     return Ok(());
                 }
-                self.state.input_buffer_mut().move_right();
+                if !self.state.is_form_mode() {
+                    self.state.input_buffer_mut().move_right();
+                }
+                // TODO: Add cursor movement within form fields if needed
             }
             KeyCode::Home => {
-                if !self.state.is_input_focused() {
+                if !self.state.is_input_focused() && !self.state.is_form_mode() {
                     // If chat is focused, ignore Home key - only Tab switches focus
                     return Ok(());
                 }
-                if self.state.input_buffer().is_empty() {
-                    // Scroll to bottom of chat if no input
-                    self.state.scroll_to_bottom();
-                } else {
-                    // Move cursor to start of input
-                    self.state.input_buffer_mut().move_to_start();
+                if !self.state.is_form_mode() {
+                    if self.state.input_buffer().is_empty() {
+                        // Scroll to bottom of chat if no input
+                        self.state.scroll_to_bottom();
+                    } else {
+                        // Move cursor to start of input
+                        self.state.input_buffer_mut().move_to_start();
+                    }
                 }
+                // TODO: Add cursor movement within form fields if needed
             }
             KeyCode::End => {
-                if !self.state.is_input_focused() {
+                if !self.state.is_input_focused() && !self.state.is_form_mode() {
                     // If chat is focused, ignore End key - only Tab switches focus
                     return Ok(());
                 }
-                self.state.input_buffer_mut().move_to_end();
+                if !self.state.is_form_mode() {
+                    self.state.input_buffer_mut().move_to_end();
+                }
+                // TODO: Add cursor movement within form fields if needed
             }
             
-            // Up/Down navigation: Popups > Projects > Default scroll behavior (unless chat focused)
+            // Up/Down navigation: Popups > Form fields > Projects > Default scroll behavior (unless chat focused)
             KeyCode::Up => {
                 if self.state.is_mention_mode() {
                     // Navigate mention popup (always forces input focus)
@@ -328,6 +404,19 @@ impl App {
                 } else if self.state.is_command_mode() {
                     // Navigate command popup (always forces input focus)
                     self.state.command_popup_up();
+                } else if self.state.is_form_mode() {
+                    // Form mode - try to let form widget handle it first (for Selection fields)
+                    let crossterm_event = crossterm::event::KeyEvent::new(key, modifiers);
+                    let event = crossterm::event::Event::Key(crossterm_event);
+                    let mut handled = false;
+                    if let Some(form) = self.state.form_mut() {
+                        handled = form.handle_input(&event);
+                    }
+                    
+                    // If form widget didn't handle it, use it for field navigation
+                    if !handled {
+                        self.handle_form_navigation(false).await;
+                    }
                 } else if self.state.current_screen == crate::state::Screen::Projects {
                     // Projects screen - navigate project list
                     self.state.select_previous_project();
@@ -358,6 +447,19 @@ impl App {
                 } else if self.state.is_command_mode() {
                     // Navigate command popup (always forces input focus)
                     self.state.command_popup_down();
+                } else if self.state.is_form_mode() {
+                    // Form mode - try to let form widget handle it first (for Selection fields)
+                    let crossterm_event = crossterm::event::KeyEvent::new(key, modifiers);
+                    let event = crossterm::event::Event::Key(crossterm_event);
+                    let mut handled = false;
+                    if let Some(form) = self.state.form_mut() {
+                        handled = form.handle_input(&event);
+                    }
+                    
+                    // If form widget didn't handle it, use it for field navigation (forward)
+                    if !handled {
+                        self.handle_form_navigation(true).await;
+                    }
                 } else if self.state.current_screen == crate::state::Screen::Projects {
                     // Projects screen - navigate project list
                     self.state.select_next_project();
@@ -379,19 +481,53 @@ impl App {
             // Submit message or complete mention/command (only when input focused)
             KeyCode::Enter => {
                 if modifiers.contains(KeyModifiers::SHIFT) {
-                    // Shift+Enter - add newline without submitting
-                    if self.state.is_input_focused() {
+                    // Shift+Enter - add newline in multiline fields only
+                    if self.state.is_form_mode() {
+                        // Form mode - handle Shift+Enter specially for multiline fields
+                        if self.state.form_current_field_is_multiline() {
+                            // Direct newline insertion like chat input
+                            if let Some(form) = self.state.form_mut() {
+                                form.insert_newline();
+                            }
+                        }
+                    } else if self.state.is_input_focused() {
                         self.state.input_buffer_mut().insert_char('\n');
+                    }
+                } else if self.state.is_form_mode() {
+                    // Form mode - Enter always advances to next field or submits
+                    if self.state.form_is_review_step() {
+                        // On review step, Enter should always submit
+                        if self.state.form_can_submit() {
+                            match self.state.submit_form().await {
+                                Ok(_) => {
+                                    // Success - form was submitted
+                                }
+                                Err(error_msg) => {
+                                    // Show error message
+                                    self.state.add_system_message(error_msg);
+                                }
+                            }
+                        } else {
+                            self.state.add_system_message("❌ **Form Incomplete**\n\nPlease fill in all required fields before submitting.".to_string());
+                        }
+                    } else {
+                        // Not on review step - use normal navigation
+                        if !self.handle_form_navigation(true).await {
+                            // Form validation failed or not ready for submission
+                            if !self.state.form_can_submit() {
+                                self.state.add_system_message("❌ **Form Incomplete**\n\nPlease fill in all required fields before submitting.".to_string());
+                            }
+                        }
                     }
                 } else if self.state.is_mention_mode() {
                     // Complete selected mention (always works in mention mode)
                     if let Some(_completed_mention) = self.state.complete_selected_mention() {
                         // Mention was completed, continue typing
                     }
-                } else if self.state.current_screen == crate::state::Screen::Projects {
+                } else if self.state.current_screen == crate::state::Screen::Projects && !self.state.is_form_mode() {
                     // Projects screen - view selected project details
                     self.state.view_selected_project_details();
-                } else if !self.state.is_input_focused() {
+                } else if !self.state.is_input_focused() && !self.state.is_form_mode() {
                     // If chat is focused, ignore Enter - only Tab switches focus
                     return Ok(());
                 } else {
@@ -413,7 +549,15 @@ impl App {
                     }
                     EscapeAction::SingleEscape => {
                         // Handle single escape based on current mode
-                        if self.state.is_editing_message() {
+                        if self.state.is_form_mode() {
+                            if self.state.form_is_review_step() {
+                                // On review step: go back to edit instead of cancelling
+                                self.state.form_previous_step();
+                            } else {
+                                // Cancel form and return to projects list
+                                self.state.cancel_form();
+                            }
+                        } else if self.state.is_editing_message() {
                             // Cancel edit mode
                             self.state.cancel_message_edit();
                         } else if self.state.is_mention_mode() {
@@ -436,9 +580,26 @@ impl App {
                 }
             }
             
-            // Tab for focus cycling (Codex-style) or completion
+            // Tab for focus cycling (Codex-style) or completion or form navigation
             KeyCode::Tab => {
-                if self.state.is_mention_mode() {
+                if modifiers.contains(KeyModifiers::SHIFT) {
+                    // Shift+Tab - previous field in form or focus cycling
+                    if self.state.is_form_mode() {
+                        // Special handling for review step or normal field navigation
+                        self.handle_form_navigation(false).await;
+                    } else {
+                        // Reverse cycle focus for shift+tab (not typically used but consistent)
+                        self.state.cycle_focus();
+                    }
+                } else if self.state.is_form_mode() {
+                    // Tab in form mode - try to advance to next field or submit
+                    if !self.handle_form_navigation(true).await {
+                        // Form validation failed or not ready for submission
+                        if !self.state.form_can_submit() {
+                            self.state.add_system_message("❌ **Form Incomplete**\n\nPlease fill in all required fields before submitting.".to_string());
+                        }
+                    }
+                } else if self.state.is_mention_mode() {
                     // Complete selected mention
                     if let Some(_completed_mention) = self.state.complete_selected_mention() {
                         // Mention was completed, continue typing
@@ -482,6 +643,79 @@ impl App {
             // Normal message submission
             // In future phases, this is where we'd send to server
         }
+    }
+    
+    /// Centralized form navigation logic
+    async fn handle_form_navigation(&mut self, try_advance: bool) -> bool {
+        // Special handling for review step
+        if self.state.form_is_review_step() {
+            if try_advance {
+                // Enter/Tab/Down on review step should submit the form
+                if self.state.form_can_submit() {
+                    match self.state.submit_form().await {
+                        Ok(_) => {
+                            // Success message already added by submit_form
+                            return true;
+                        }
+                        Err(error_msg) => {
+                            // Show error message
+                            self.state.add_system_message(error_msg);
+                            return false;
+                        }
+                    }
+                } else {
+                    self.state.add_system_message("❌ **Form Incomplete**\n\nPlease fill in all required fields before submitting.".to_string());
+                    return false;
+                }
+            } else {
+                // Up arrow/Shift+Tab on review step should not do anything
+                // Use Escape to go back to edit
+                return false;
+            }
+        }
+        
+        if try_advance {
+            // Forward navigation - validate current field first
+            if !self.state.form_validate_current_field() {
+                // Validation failed, stay on current field
+                return false;
+            }
+            
+            // Try to move to next field
+            if self.state.form_next_field() {
+                // Successfully moved to next field
+                return true;
+            }
+        } else {
+            // Backward navigation - don't validate current field, allow going back
+            if self.state.form_previous_field() {
+                // Successfully moved to previous field
+                // Validate the new current field (where we moved to)
+                self.state.form_validate_current_field();
+                return true;
+            } else {
+                // At first field - don't do anything special
+                return false;
+            }
+        }
+        
+        // Either not trying to advance, or on last field - try to submit if form is complete
+        if self.state.form_can_submit() {
+            match self.state.submit_form().await {
+                Ok(_) => {
+                    // Success message already added by submit_form
+                    return true;
+                }
+                Err(error_msg) => {
+                    // Show error message
+                    self.state.add_system_message(error_msg);
+                    return false;
+                }
+            }
+        }
+        
+        // Form is not ready for submission
+        false
     }
     
     /// Execute a slash command from the input buffer

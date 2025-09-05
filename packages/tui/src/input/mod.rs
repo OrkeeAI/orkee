@@ -17,6 +17,8 @@ pub enum InputMode {
     History,
     /// When editing a previous message (Phase 5)
     Edit,
+    /// When navigating form fields
+    Form,
 }
 
 impl Default for InputMode {

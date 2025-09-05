@@ -1114,6 +1114,8 @@ dependencies = [
  "strum 0.25.0",
  "strum_macros 0.25.3",
  "tokio",
+ "tui-input",
+ "tui-textarea",
  "unicode-segmentation",
  "unicode-width",
  "uuid",
@@ -1705,6 +1707,27 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b9d12581f227e93f094d3af2ae690a574abb8a2b9b7a96e7cfe9647b2b617678"
 dependencies = [
  "once_cell",
+]
+
+[[package]]
+name = "tui-input"
+version = "0.9.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9b02e86628a225c39b2602863f244a01668184149928ceb410e47a8022d7597e"
+dependencies = [
+ "crossterm 0.27.0",
+ "unicode-width",
+]
+
+[[package]]
+name = "tui-textarea"
+version = "0.6.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "29c07084342a575cea919eea996b9658a358c800b03d435df581c1d7c60e065a"
+dependencies = [
+ "crossterm 0.28.1",
+ "ratatui",
+ "unicode-width",
 ]
 
 [[package]]
