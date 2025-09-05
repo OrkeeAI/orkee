@@ -40,14 +40,14 @@ impl<'a> Widget for SearchPopupWidget<'a> {
         // Calculate layout areas
         let layout_constraints = if self.show_help {
             vec![
-                Constraint::Length(3), // Search input area
+                Constraint::Length(4), // Search input area (2 lines for status/priority/tags)
                 Constraint::Length(2), // Filters area  
                 Constraint::Min(5),    // Results area
                 Constraint::Length(2), // Help text area
             ]
         } else {
             vec![
-                Constraint::Length(3), // Search input area
+                Constraint::Length(4), // Search input area (2 lines for status/priority/tags)
                 Constraint::Length(2), // Filters area
                 Constraint::Min(5),    // Results area
             ]
@@ -92,30 +92,156 @@ impl<'a> Widget for SearchPopupWidget<'a> {
 impl<'a> SearchPopupWidget<'a> {
     /// Render the search input field
     fn render_search_input(&self, area: Rect, buf: &mut Buffer) {
-        let query = self.popup.search_query();
-        let mode_text = match self.popup.search_mode() {
-            SearchMode::Text => "",
-            SearchMode::Status => " [Status Mode]",
-            SearchMode::Priority => " [Priority Mode]",
-            SearchMode::Tags => " [Tags Mode]",
-        };
+        match self.popup.search_mode() {
+            SearchMode::Text => {
+                self.render_text_search_input(area, buf);
+            }
+            SearchMode::Status => {
+                self.render_status_selection(area, buf);
+            }
+            SearchMode::Priority => {
+                self.render_priority_selection(area, buf);
+            }
+            SearchMode::Tags => {
+                self.render_tags_input(area, buf);
+            }
+        }
+    }
 
-        let search_text = format!("Search: {}{}", query, mode_text);
+    /// Render text search input
+    fn render_text_search_input(&self, area: Rect, buf: &mut Buffer) {
+        let query = self.popup.search_query();
+        let search_text = format!("Search: {}", query);
         let input_paragraph = Paragraph::new(search_text)
             .style(Style::default().fg(Color::White))
             .wrap(Wrap { trim: true });
 
         input_paragraph.render(area, buf);
 
-        // Render cursor if in text mode
-        if matches!(self.popup.search_mode(), SearchMode::Text) {
-            let cursor_x = area.x + "Search: ".len() as u16 + query.len() as u16;
-            if cursor_x < area.x + area.width && area.y < buf.area().bottom() {
-                buf[(cursor_x, area.y)].set_style(
+        // Render cursor
+        let cursor_x = area.x + "Search: ".len() as u16 + query.len() as u16;
+        if cursor_x < area.x + area.width && area.y < buf.area().bottom() {
+            buf[(cursor_x, area.y)].set_style(
+                Style::default().bg(Color::White).fg(Color::Black)
+            );
+        }
+    }
+
+    /// Render status selection radio buttons
+    fn render_status_selection(&self, area: Rect, buf: &mut Buffer) {
+        let current_status = self.popup.get_status_filter();
+        
+        let line1 = "Status Filter: (1/a=Active  2/r=Archived  0/c=Clear)";
+        let line2 = self.format_status_options(current_status);
+        
+        // Render first line (instructions)
+        if area.height > 0 {
+            let instr_paragraph = Paragraph::new(line1)
+                .style(Style::default().fg(Color::Gray))
+                .wrap(Wrap { trim: true });
+            let instr_area = Rect { x: area.x, y: area.y, width: area.width, height: 1 };
+            instr_paragraph.render(instr_area, buf);
+        }
+        
+        // Render second line (options)
+        if area.height > 1 {
+            let options_paragraph = Paragraph::new(line2)
+                .style(Style::default().fg(Color::White))
+                .wrap(Wrap { trim: true });
+            let options_area = Rect { x: area.x, y: area.y + 1, width: area.width, height: 1 };
+            options_paragraph.render(options_area, buf);
+        }
+    }
+
+    /// Render priority selection radio buttons
+    fn render_priority_selection(&self, area: Rect, buf: &mut Buffer) {
+        let current_priority = self.popup.get_priority_filter();
+        
+        let line1 = "Priority Filter: (1/h=High  2/m=Medium  3/l=Low  0/c=Clear)";
+        let line2 = self.format_priority_options(current_priority);
+        
+        // Render first line (instructions)
+        if area.height > 0 {
+            let instr_paragraph = Paragraph::new(line1)
+                .style(Style::default().fg(Color::Gray))
+                .wrap(Wrap { trim: true });
+            let instr_area = Rect { x: area.x, y: area.y, width: area.width, height: 1 };
+            instr_paragraph.render(instr_area, buf);
+        }
+        
+        // Render second line (options)
+        if area.height > 1 {
+            let options_paragraph = Paragraph::new(line2)
+                .style(Style::default().fg(Color::White))
+                .wrap(Wrap { trim: true });
+            let options_area = Rect { x: area.x, y: area.y + 1, width: area.width, height: 1 };
+            options_paragraph.render(options_area, buf);
+        }
+    }
+
+    /// Render tags input with existing tag chips
+    fn render_tags_input(&self, area: Rect, buf: &mut Buffer) {
+        let query = self.popup.search_query();
+        let tag_filters = self.popup.get_tag_filters();
+        
+        // Line 1: Existing tag filters as chips
+        let chips_line = if tag_filters.is_empty() {
+            "Tag Filters: (none)".to_string()
+        } else {
+            let chips = tag_filters.iter()
+                .map(|tag| format!("[{} ×]", tag))
+                .collect::<Vec<_>>()
+                .join(" ");
+            format!("Tag Filters: {}", chips)
+        };
+        
+        // Line 2: Current input
+        let input_line = format!("Add Tag: {}", query);
+        
+        // Render chips line
+        if area.height > 0 {
+            let chips_paragraph = Paragraph::new(chips_line)
+                .style(Style::default().fg(Color::Yellow))
+                .wrap(Wrap { trim: true });
+            let chips_area = Rect { x: area.x, y: area.y, width: area.width, height: 1 };
+            chips_paragraph.render(chips_area, buf);
+        }
+        
+        // Render input line  
+        if area.height > 1 {
+            let input_paragraph = Paragraph::new(input_line)
+                .style(Style::default().fg(Color::White))
+                .wrap(Wrap { trim: true });
+            let input_area = Rect { x: area.x, y: area.y + 1, width: area.width, height: 1 };
+            input_paragraph.render(input_area, buf);
+            
+            // Render cursor
+            let cursor_x = area.x + "Add Tag: ".len() as u16 + query.len() as u16;
+            if cursor_x < area.x + area.width && area.y + 1 < buf.area().bottom() {
+                buf[(cursor_x, area.y + 1)].set_style(
                     Style::default().bg(Color::White).fg(Color::Black)
                 );
             }
         }
+    }
+
+    /// Format status options with radio button indicators
+    fn format_status_options(&self, current_status: &Option<orkee_projects::ProjectStatus>) -> String {
+        let active_indicator = if matches!(current_status, Some(orkee_projects::ProjectStatus::Active)) { "●" } else { "○" };
+        let archived_indicator = if matches!(current_status, Some(orkee_projects::ProjectStatus::Archived)) { "●" } else { "○" };
+        let all_indicator = if current_status.is_none() { "●" } else { "○" };
+        
+        format!("{} Active    {} Archived    {} All", active_indicator, archived_indicator, all_indicator)
+    }
+
+    /// Format priority options with radio button indicators
+    fn format_priority_options(&self, current_priority: &Option<orkee_projects::Priority>) -> String {
+        let high_indicator = if matches!(current_priority, Some(orkee_projects::Priority::High)) { "●" } else { "○" };
+        let medium_indicator = if matches!(current_priority, Some(orkee_projects::Priority::Medium)) { "●" } else { "○" };
+        let low_indicator = if matches!(current_priority, Some(orkee_projects::Priority::Low)) { "●" } else { "○" };
+        let all_indicator = if current_priority.is_none() { "●" } else { "○" };
+        
+        format!("{} High    {} Medium    {} Low    {} All", high_indicator, medium_indicator, low_indicator, all_indicator)
     }
 
     /// Render active filters

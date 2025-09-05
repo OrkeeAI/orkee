@@ -294,11 +294,92 @@ impl App {
                     }
                     // Note: Review step has no input fields, so we don't send keys to form widget
                 } else if self.state.input_mode == InputMode::ProjectSearch {
-                    // Project search mode - route input to search popup
+                    // Project search mode - handle input based on current search mode
                     if let Some(ref mut search_popup) = self.state.search_popup {
-                        search_popup.handle_char(c);
-                        // Update search results immediately
-                        self.state.update_search();
+                        match search_popup.search_mode() {
+                            crate::search_popup::SearchMode::Text => {
+                                // Text mode - normal character input
+                                search_popup.handle_char(c);
+                            }
+                            crate::search_popup::SearchMode::Status => {
+                                // Status filter mode - handle status selection keys
+                                match c {
+                                    '1' | 'a' => {
+                                        search_popup.toggle_status_filter(Some(orkee_projects::ProjectStatus::Active));
+                                    }
+                                    '2' | 'r' => {
+                                        search_popup.toggle_status_filter(Some(orkee_projects::ProjectStatus::Archived));
+                                    }
+                                    '0' | 'c' => {
+                                        search_popup.toggle_status_filter(None);
+                                    }
+                                    ' ' => {
+                                        // Space key - cycle through status options
+                                        let current_status = search_popup.get_status_filter();
+                                        let next_status = match current_status {
+                                            None => Some(orkee_projects::ProjectStatus::Active),
+                                            Some(orkee_projects::ProjectStatus::Active) => Some(orkee_projects::ProjectStatus::Archived),
+                                            Some(orkee_projects::ProjectStatus::Archived) => None,
+                                        };
+                                        search_popup.toggle_status_filter(next_status);
+                                    }
+                                    _ => {
+                                        // Other keys - ignore in status mode
+                                    }
+                                }
+                            }
+                            crate::search_popup::SearchMode::Priority => {
+                                // Priority filter mode - handle priority selection keys
+                                match c {
+                                    '1' | 'h' => {
+                                        search_popup.toggle_priority_filter(Some(orkee_projects::Priority::High));
+                                    }
+                                    '2' | 'm' => {
+                                        search_popup.toggle_priority_filter(Some(orkee_projects::Priority::Medium));
+                                    }
+                                    '3' | 'l' => {
+                                        search_popup.toggle_priority_filter(Some(orkee_projects::Priority::Low));
+                                    }
+                                    '0' | 'c' => {
+                                        search_popup.toggle_priority_filter(None);
+                                    }
+                                    ' ' => {
+                                        // Space key - cycle through priority options
+                                        let current_priority = search_popup.get_priority_filter();
+                                        let next_priority = match current_priority {
+                                            None => Some(orkee_projects::Priority::High),
+                                            Some(orkee_projects::Priority::High) => Some(orkee_projects::Priority::Medium),
+                                            Some(orkee_projects::Priority::Medium) => Some(orkee_projects::Priority::Low),
+                                            Some(orkee_projects::Priority::Low) => None,
+                                        };
+                                        search_popup.toggle_priority_filter(next_priority);
+                                    }
+                                    _ => {
+                                        // Other keys - ignore in priority mode
+                                    }
+                                }
+                            }
+                            crate::search_popup::SearchMode::Tags => {
+                                // Tags mode - normal character input for tag entry
+                                search_popup.handle_char(c);
+                            }
+                        }
+                        // Text input and tag input use debounced updates (handled in invalidate_cache)
+                        // Filter changes use immediate updates
+                        match search_popup.search_mode() {
+                            crate::search_popup::SearchMode::Status | 
+                            crate::search_popup::SearchMode::Priority => {
+                                // Filter changes - immediate update
+                                search_popup.force_search_update(&self.state.projects);
+                            }
+                            _ => {
+                                // Text/tag input - debounced update already requested
+                                // Check if enough time has passed for debounced update
+                                if search_popup.should_update_search() {
+                                    self.state.update_search();
+                                }
+                            }
+                        }
                     }
                 } else {
                     // Normal mode - add character to input buffer
@@ -345,11 +426,50 @@ impl App {
                         form.handle_input(&event);
                     }
                 } else if self.state.input_mode == InputMode::ProjectSearch {
-                    // Project search mode - route backspace to search popup
+                    // Project search mode - handle backspace based on current search mode
                     if let Some(ref mut search_popup) = self.state.search_popup {
-                        search_popup.handle_backspace();
-                        // Update search results immediately
-                        self.state.update_search();
+                        match search_popup.search_mode() {
+                            crate::search_popup::SearchMode::Text => {
+                                // Text mode - normal backspace handling
+                                search_popup.handle_backspace();
+                            }
+                            crate::search_popup::SearchMode::Status => {
+                                // Status mode - clear current status filter
+                                search_popup.toggle_status_filter(None);
+                            }
+                            crate::search_popup::SearchMode::Priority => {
+                                // Priority mode - clear current priority filter
+                                search_popup.toggle_priority_filter(None);
+                            }
+                            crate::search_popup::SearchMode::Tags => {
+                                // Tags mode - handle backspace in tag input or remove last tag
+                                if search_popup.search_query().is_empty() {
+                                    // If input is empty, remove last tag filter
+                                    let tag_filters = search_popup.get_tag_filters().clone();
+                                    if let Some(last_tag) = tag_filters.last() {
+                                        let last_tag = last_tag.clone();
+                                        search_popup.remove_tag_filter(&last_tag);
+                                    }
+                                } else {
+                                    // If input is not empty, normal backspace
+                                    search_popup.handle_backspace();
+                                }
+                            }
+                        }
+                        // Handle debounced vs immediate updates for backspace
+                        match search_popup.search_mode() {
+                            crate::search_popup::SearchMode::Status | 
+                            crate::search_popup::SearchMode::Priority => {
+                                // Filter changes - immediate update
+                                search_popup.force_search_update(&self.state.projects);
+                            }
+                            _ => {
+                                // Text/tag input - debounced update already requested
+                                if search_popup.should_update_search() {
+                                    self.state.update_search();
+                                }
+                            }
+                        }
                     }
                 } else {
                     self.state.input_buffer_mut().backspace();
@@ -599,11 +719,28 @@ impl App {
                         // Mention was completed, continue typing
                     }
                 } else if self.state.input_mode == InputMode::ProjectSearch {
-                    // Select project from search results
-                    if let Some(_project_index) = self.state.select_search_result() {
-                        // Navigate to project detail view
-                        if matches!(self.state.current_screen, Screen::Projects) {
-                            self.state.view_selected_project_details();
+                    // Handle Enter based on current search mode
+                    if let Some(ref mut search_popup) = self.state.search_popup {
+                        match search_popup.search_mode() {
+                            crate::search_popup::SearchMode::Tags => {
+                                // Tags mode - add current text as a tag filter if not empty
+                                let current_query = search_popup.search_query().trim().to_string();
+                                if !current_query.is_empty() {
+                                    search_popup.add_tag_filter(current_query);
+                                    search_popup.clear_input();
+                                    // Tag addition should update immediately
+                                    search_popup.force_search_update(&self.state.projects);
+                                }
+                            }
+                            _ => {
+                                // Other modes - select project from search results
+                                if let Some(_project_index) = self.state.select_search_result() {
+                                    // Navigate to project detail view
+                                    if matches!(self.state.current_screen, Screen::Projects) {
+                                        self.state.view_selected_project_details();
+                                    }
+                                }
+                            }
                         }
                     }
                 } else if self.state.current_screen == crate::state::Screen::Projects && !self.state.is_form_mode() {
@@ -699,8 +836,8 @@ impl App {
                     // Cycle search modes in search popup (Text -> Status -> Priority -> Tags)
                     if let Some(ref mut search_popup) = self.state.search_popup {
                         search_popup.cycle_search_mode();
-                        // Update search results based on new mode
-                        self.state.update_search();
+                        // Mode changes should update immediately
+                        search_popup.force_search_update(&self.state.projects);
                     }
                 } else {
                     // Cycle focus between chat and input areas (Codex behavior)

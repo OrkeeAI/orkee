@@ -2,6 +2,7 @@ use orkee_projects::{Project, ProjectStatus, Priority};
 use fuzzy_matcher::FuzzyMatcher;
 use fuzzy_matcher::skim::SkimMatcherV2;
 use tui_input::Input;
+use std::time::{Duration, Instant};
 
 /// Which field was matched during search
 #[derive(Debug, Clone, PartialEq)]
@@ -64,6 +65,12 @@ pub struct SearchPopup {
     last_search_query: String,
     /// Whether to use cached results
     use_cache: bool,
+    /// Last time search was updated for debouncing
+    last_update_time: Option<Instant>,
+    /// Debounce duration to prevent excessive search updates
+    debounce_duration: Duration,
+    /// Pending search update flag
+    pending_update: bool,
 }
 
 impl std::fmt::Debug for SearchPopup {
@@ -77,6 +84,8 @@ impl std::fmt::Debug for SearchPopup {
             .field("filtered_results", &self.filtered_results.len())
             .field("selected_index", &self.selected_index)
             .field("max_display_items", &self.max_display_items)
+            .field("debounce_duration", &self.debounce_duration)
+            .field("pending_update", &self.pending_update)
             .finish()
     }
 }
@@ -102,6 +111,9 @@ impl SearchPopup {
             max_display_items: 10,
             last_search_query: String::new(),
             use_cache: false,
+            last_update_time: None,
+            debounce_duration: Duration::from_millis(100), // 100ms debounce
+            pending_update: false,
         }
     }
 
@@ -205,15 +217,60 @@ impl SearchPopup {
         self.invalidate_cache();
     }
 
+    /// Get current status filter
+    pub fn get_status_filter(&self) -> &Option<ProjectStatus> {
+        &self.filter_status
+    }
+
+    /// Get current priority filter  
+    pub fn get_priority_filter(&self) -> &Option<Priority> {
+        &self.filter_priority
+    }
+
+    /// Get current tag filters
+    pub fn get_tag_filters(&self) -> &Vec<String> {
+        &self.filter_tags
+    }
+
+    /// Request a search update (may be debounced)
+    pub fn request_search_update(&mut self) {
+        self.pending_update = true;
+        self.last_update_time = Some(Instant::now());
+    }
+
+    /// Check if enough time has passed to perform the search update
+    pub fn should_update_search(&self) -> bool {
+        if !self.pending_update {
+            return false;
+        }
+        
+        if let Some(last_time) = self.last_update_time {
+            Instant::now().duration_since(last_time) >= self.debounce_duration
+        } else {
+            true
+        }
+    }
+
     /// Update search results based on current query and filters
     pub fn update_search(&mut self, projects: &[Project]) {
         let current_query = self.search_input.value().to_string();
         
-        // Use cache if query hasn't changed
-        if self.use_cache && current_query == self.last_search_query {
+        // Use cache if query hasn't changed and no pending update
+        if self.use_cache && current_query == self.last_search_query && !self.pending_update {
             return;
         }
         
+        self.perform_search_update(projects, current_query);
+    }
+
+    /// Force immediate search update (bypass debouncing)
+    pub fn force_search_update(&mut self, projects: &[Project]) {
+        let current_query = self.search_input.value().to_string();
+        self.perform_search_update(projects, current_query);
+    }
+
+    /// Perform the actual search update
+    fn perform_search_update(&mut self, projects: &[Project], current_query: String) {
         self.filtered_results.clear();
         self.selected_index = 0;
         
@@ -232,6 +289,7 @@ impl SearchPopup {
         
         self.last_search_query = current_query;
         self.use_cache = true;
+        self.pending_update = false;
     }
 
     /// Check if a project matches current search criteria
@@ -395,6 +453,7 @@ impl SearchPopup {
     /// Invalidate cache to force refresh on next update
     fn invalidate_cache(&mut self) {
         self.use_cache = false;
+        self.request_search_update();
     }
 
     /// Handle character input
