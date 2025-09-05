@@ -14,6 +14,7 @@ pub struct FormWidget {
     pub current_field: usize,
     pub validation_errors: HashMap<String, String>,
     pub title: String,
+    pub is_edit_mode: bool,
 }
 
 /// A single step in a multi-step form
@@ -132,6 +133,19 @@ impl FormWidget {
             current_field: 0,
             validation_errors: HashMap::new(),
             title,
+            is_edit_mode: false,
+        }
+    }
+
+    /// Create a new multi-step form widget for editing
+    pub fn new_for_edit(title: String) -> Self {
+        Self {
+            steps: Vec::new(),
+            current_step: 0,
+            current_field: 0,
+            validation_errors: HashMap::new(),
+            title,
+            is_edit_mode: true,
         }
     }
 
@@ -512,7 +526,12 @@ impl FormWidget {
         }
         
         summary_lines.push("".to_string());
-        summary_lines.push("✅ Ready to create project? Press Enter to confirm, Esc to go back, or Shift+C to cancel.".to_string());
+        let action_text = if self.is_edit_mode {
+            "✅ Ready to update project? Press Enter to confirm, Esc to go back, or Shift+C to cancel."
+        } else {
+            "✅ Ready to create project? Press Enter to confirm, Esc to go back, or Shift+C to cancel."
+        };
+        summary_lines.push(action_text.to_string());
         
         // Create a paragraph with all the summary text
         let summary_text = summary_lines.join("\n");
@@ -826,15 +845,19 @@ impl FormWidget {
     /// Render help text at the bottom of the form
     fn render_help_text(&self, frame: &mut Frame, area: Rect) {
         let help_text = if self.is_review_step() {
-            "Enter: Confirm & Add Project • Esc: Back to Edit • Shift+C: Cancel"
+            if self.is_edit_mode {
+                "Enter: Confirm & Update Project • Esc: Back to Edit • Shift+C: Cancel"
+            } else {
+                "Enter: Confirm & Add Project • Esc: Back to Edit • Shift+C: Cancel"
+            }
         } else if self.current_field_is_multiline() {
             if self.is_current_step_complete() {
-                "Enter/↓/Tab: Submit • ↑/Shift+Tab: Previous • Shift+Enter: New Line • Esc: Cancel"
+                "Enter/↓/Tab: Continue • ↑/Shift+Tab: Previous • Shift+Enter: New Line • Esc: Cancel"
             } else {
                 "Enter/↓/Tab: Next • ↑/Shift+Tab: Previous • Shift+Enter: New Line • Esc: Cancel"
             }
         } else if self.is_current_step_complete() {
-            "Enter/↓/Tab: Submit • ↑/Shift+Tab: Previous • Esc: Cancel"
+            "Enter/↓/Tab: Continue • ↑/Shift+Tab: Previous • Esc: Cancel"
         } else {
             "Enter/↓/Tab: Next • ↑/Shift+Tab: Previous • Esc: Cancel"
         };

@@ -1,9 +1,12 @@
-use orkee_projects::{Project, ProjectCreateInput, ProjectStatus, Priority, create_project};
+use orkee_projects::{Project, ProjectCreateInput, ProjectUpdateInput, ProjectStatus, Priority, create_project, update_project};
 use crate::chat::{MessageHistory, ChatMessage};
 use crate::input::{InputBuffer, InputHistory, InputMode};
 use crate::command_popup::CommandPopup;
 use crate::mention_popup::MentionPopup;
 use crate::ui::widgets::{FormWidget, FormField, FormStep};
+use crate::ui::widgets::form::FieldValue;
+use tui_input::Input;
+use tui_textarea::TextArea;
 use std::time::{Duration, Instant};
 
 /// Application state management
@@ -756,6 +759,185 @@ impl AppState {
         self.focus_input();
     }
 
+    /// Start editing an existing project with the form
+    pub fn start_project_edit(&mut self, project_id: String) {
+        // Find the project to edit
+        if let Some(project) = self.projects.iter().find(|p| p.id == project_id) {
+            let form = self.create_edit_form(project);
+            
+            self.form_state = Some(FormState {
+                form,
+                step: 1,
+                total_steps: 4,
+                can_submit: false,
+                form_mode: FormMode::Edit(project_id),
+            });
+
+            self.input_mode = InputMode::Form;
+            self.current_screen = Screen::Projects; // Show form on projects screen
+            self.focus_input();
+        }
+    }
+
+    /// Create a pre-populated form for editing an existing project
+    fn create_edit_form(&self, project: &Project) -> FormWidget {
+        let mut form = FormWidget::new_for_edit(format!("Edit Project: {}", project.name));
+
+        // Step 1: Basic Information
+        let mut step1 = FormStep::new("Basic Information".to_string());
+        
+        // Pre-populate name field
+        let name_input = Input::default().with_value(project.name.clone());
+        let name_field = FormField {
+            name: "name".to_string(),
+            label: "Project Name".to_string(),
+            field_value: FieldValue::SingleLine(name_input),
+            field_type: crate::ui::widgets::FieldType::Text,
+            required: true,
+            validator: Some(Self::validate_project_name_static),
+            placeholder: None,
+            help_text: Some("Enter/↓/Tab to continue, ↑ to go back".to_string()),
+        };
+        step1.add_field(name_field);
+        
+        // Pre-populate path field
+        let path_input = Input::default().with_value(project.project_root.clone());
+        let path_field = FormField {
+            name: "path".to_string(),
+            label: "Project Path".to_string(),
+            field_value: FieldValue::SingleLine(path_input),
+            field_type: crate::ui::widgets::FieldType::Path,
+            required: true,
+            validator: Some(Self::validate_project_path_static),
+            placeholder: Some("/path/to/project".to_string()),
+            help_text: Some("Enter the full path to the project directory • Enter/↓/Tab to continue, ↑ to go back".to_string()),
+        };
+        step1.add_field(path_field);
+        
+        // Pre-populate description field
+        let mut desc_textarea = if let Some(ref description) = project.description {
+            TextArea::new(vec![description.clone()])
+        } else {
+            TextArea::default()
+        };
+        desc_textarea.set_cursor_line_style(ratatui::style::Style::default());
+        let desc_field = FormField {
+            name: "description".to_string(),
+            label: "Description".to_string(),
+            field_value: FieldValue::MultiLine(desc_textarea),
+            field_type: crate::ui::widgets::FieldType::MultilineText,
+            required: false,
+            validator: None,
+            placeholder: Some("Enter description...".to_string()),
+            help_text: Some("Use Shift+Enter for new lines, Enter/↓/Tab to continue, ↑ to go back".to_string()),
+        };
+        step1.add_field(desc_field);
+        form.add_step(step1);
+
+        // Step 2: Configuration (Status, Priority, Tags)
+        let mut step2 = FormStep::new("Configuration".to_string());
+        
+        // Pre-populate status field
+        let status_options = vec!["active".to_string(), "archived".to_string()];
+        let status_selected = match project.status {
+            ProjectStatus::Active => 0,
+            ProjectStatus::Archived => 1,
+        };
+        let mut status_field = FormField::selection("status".to_string(), "Status".to_string(), status_options, false);
+        if let FieldValue::Selection { selected, .. } = &mut status_field.field_value {
+            *selected = status_selected;
+        }
+        step2.add_field(status_field);
+        
+        // Pre-populate priority field
+        let priority_options = vec!["high".to_string(), "medium".to_string(), "low".to_string()];
+        let priority_selected = match project.priority {
+            Priority::High => 0,
+            Priority::Medium => 1,
+            Priority::Low => 2,
+        };
+        let mut priority_field = FormField::selection("priority".to_string(), "Priority".to_string(), priority_options, false);
+        if let FieldValue::Selection { ref mut selected, .. } = &mut priority_field.field_value {
+            *selected = priority_selected;
+        }
+        step2.add_field(priority_field);
+        
+        // Pre-populate tags field
+        let tags_string = if let Some(ref tags) = project.tags {
+            tags.join(", ")
+        } else {
+            String::new()
+        };
+        let tags_input = Input::default().with_value(tags_string);
+        let tags_field = FormField {
+            name: "tags".to_string(),
+            label: "Tags".to_string(),
+            field_value: FieldValue::SingleLine(tags_input),
+            field_type: crate::ui::widgets::FieldType::Tags,
+            required: false,
+            validator: None,
+            placeholder: Some("tag1, tag2, tag3".to_string()),
+            help_text: Some("Separate tags with commas • Enter/↓/Tab to continue, ↑ to go back".to_string()),
+        };
+        step2.add_field(tags_field);
+        form.add_step(step2);
+
+        // Step 3: Scripts
+        let mut step3 = FormStep::new("Scripts".to_string());
+        
+        // Pre-populate setup script
+        let setup_value = project.setup_script.as_deref().unwrap_or("");
+        let setup_input = Input::default().with_value(setup_value.to_string());
+        let setup_field = FormField {
+            name: "setup_script".to_string(),
+            label: "Setup Script".to_string(),
+            field_value: FieldValue::SingleLine(setup_input),
+            field_type: crate::ui::widgets::FieldType::Text,
+            required: false,
+            validator: None,
+            placeholder: Some("npm install".to_string()),
+            help_text: Some("Command to run when setting up the project".to_string()),
+        };
+        step3.add_field(setup_field);
+        
+        // Pre-populate dev script
+        let dev_value = project.dev_script.as_deref().unwrap_or("");
+        let dev_input = Input::default().with_value(dev_value.to_string());
+        let dev_field = FormField {
+            name: "dev_script".to_string(),
+            label: "Development Script".to_string(),
+            field_value: FieldValue::SingleLine(dev_input),
+            field_type: crate::ui::widgets::FieldType::Text,
+            required: false,
+            validator: None,
+            placeholder: Some("npm run dev".to_string()),
+            help_text: Some("Command to start development server".to_string()),
+        };
+        step3.add_field(dev_field);
+        
+        // Pre-populate cleanup script
+        let cleanup_value = project.cleanup_script.as_deref().unwrap_or("");
+        let cleanup_input = Input::default().with_value(cleanup_value.to_string());
+        let cleanup_field = FormField {
+            name: "cleanup_script".to_string(),
+            label: "Cleanup Script".to_string(),
+            field_value: FieldValue::SingleLine(cleanup_input),
+            field_type: crate::ui::widgets::FieldType::Text,
+            required: false,
+            validator: None,
+            placeholder: Some("npm run clean".to_string()),
+            help_text: Some("Command to clean up project artifacts".to_string()),
+        };
+        step3.add_field(cleanup_field);
+        form.add_step(step3);
+
+        // Step 4: Review & Confirmation
+        let step4 = FormStep::new("Review & Confirm".to_string());
+        form.add_step(step4);
+
+        form
+    }
+
     /// Get mutable reference to current form
     pub fn form_mut(&mut self) -> Option<&mut FormWidget> {
         self.form_state.as_mut().map(|fs| &mut fs.form)
@@ -1029,31 +1211,192 @@ impl AppState {
         None
     }
 
-    /// Submit the form and create project
-    pub async fn submit_form(&mut self) -> Result<(), String> {
-        if let Some(project_input) = self.form_to_project_create_input() {
-            match create_project(project_input).await {
-                Ok(project) => {
-                    // Project created successfully
-                    self.add_system_message(format!("✅ **Project Created Successfully**\n\n📁 **{}** has been created at `{}`", project.name, project.project_root));
-                    
-                    // Refresh projects list
-                    if let Ok(projects) = orkee_projects::get_all_projects().await {
-                        self.set_projects(projects);
+    /// Convert form data to ProjectUpdateInput for editing
+    fn form_to_project_update_input(&self) -> Option<ProjectUpdateInput> {
+        if let Some(ref form_state) = self.form_state {
+            if let FormMode::Edit(_) = form_state.form_mode {
+                let form = &form_state.form;
+                
+                // Extract values from form fields
+                let mut name = None;
+                let mut project_root = None;
+                let mut description = None;
+                let mut status = None;
+                let mut priority = None;
+                let mut tags = None;
+                let mut setup_script = None;
+                let mut dev_script = None;
+                let mut cleanup_script = None;
+                
+                // Iterate through all steps and fields
+                for step in &form.steps {
+                    for field in &step.fields {
+                        match field.name.as_str() {
+                            "name" => {
+                                let field_value = field.field_value.value();
+                                if !field_value.trim().is_empty() {
+                                    name = Some(field_value.trim().to_string());
+                                }
+                            }
+                            "path" => {
+                                let field_value = field.field_value.value();
+                                if !field_value.trim().is_empty() {
+                                    project_root = Some(field_value.trim().to_string());
+                                }
+                            }
+                            "description" => {
+                                let field_value = field.field_value.value();
+                                // Include description even if empty (allows clearing)
+                                description = Some(field_value);
+                            }
+                            "status" => {
+                                let status_value = field.field_value.value();
+                                if !status_value.trim().is_empty() {
+                                    status = match status_value.trim().to_lowercase().as_str() {
+                                        "active" => Some(ProjectStatus::Active),
+                                        "archived" => Some(ProjectStatus::Archived),
+                                        _ => None,
+                                    };
+                                }
+                            }
+                            "priority" => {
+                                let priority_value = field.field_value.value();
+                                if !priority_value.trim().is_empty() {
+                                    priority = match priority_value.trim().to_lowercase().as_str() {
+                                        "high" => Some(Priority::High),
+                                        "medium" => Some(Priority::Medium),
+                                        "low" => Some(Priority::Low),
+                                        _ => None,
+                                    };
+                                }
+                            }
+                            "tags" => {
+                                let tags_value = field.field_value.value();
+                                if !tags_value.trim().is_empty() {
+                                    let tag_list: Vec<String> = tags_value
+                                        .split(',')
+                                        .map(|s| s.trim().to_string())
+                                        .filter(|s| !s.is_empty())
+                                        .collect();
+                                    tags = Some(tag_list);
+                                } else {
+                                    // Empty tags field means clear all tags
+                                    tags = Some(Vec::new());
+                                }
+                            }
+                            "setup_script" => {
+                                let script_value = field.field_value.value();
+                                // Include script even if empty (allows clearing)
+                                setup_script = Some(if script_value.trim().is_empty() {
+                                    String::new()
+                                } else {
+                                    script_value
+                                });
+                            }
+                            "dev_script" => {
+                                let script_value = field.field_value.value();
+                                // Include script even if empty (allows clearing)
+                                dev_script = Some(if script_value.trim().is_empty() {
+                                    String::new()
+                                } else {
+                                    script_value
+                                });
+                            }
+                            "cleanup_script" => {
+                                let script_value = field.field_value.value();
+                                // Include script even if empty (allows clearing)
+                                cleanup_script = Some(if script_value.trim().is_empty() {
+                                    String::new()
+                                } else {
+                                    script_value
+                                });
+                            }
+                            _ => {}
+                        }
                     }
-                    
-                    // Cancel form and return to projects list
-                    self.cancel_form();
-                    
-                    Ok(())
                 }
-                Err(e) => {
-                    let error_msg = format!("❌ **Failed to Create Project**\n\n{}", e);
-                    Err(error_msg)
+                
+                return Some(ProjectUpdateInput {
+                    name,
+                    project_root,
+                    description,
+                    status,
+                    priority,
+                    setup_script,
+                    dev_script,
+                    cleanup_script,
+                    tags,
+                    rank: None,
+                    task_source: None,
+                    manual_tasks: None,
+                    mcp_servers: None,
+                });
+            }
+        }
+        None
+    }
+
+    /// Submit the form and create or update project
+    pub async fn submit_form(&mut self) -> Result<(), String> {
+        if let Some(ref form_state) = self.form_state {
+            match &form_state.form_mode {
+                FormMode::Create => {
+                    // Handle project creation
+                    if let Some(project_input) = self.form_to_project_create_input() {
+                        match create_project(project_input).await {
+                            Ok(project) => {
+                                // Project created successfully
+                                self.add_system_message(format!("✅ **Project Created Successfully**\n\n📁 **{}** has been created at `{}`", project.name, project.project_root));
+                                
+                                // Refresh projects list
+                                if let Ok(projects) = orkee_projects::get_all_projects().await {
+                                    self.set_projects(projects);
+                                }
+                                
+                                // Cancel form and return to projects list
+                                self.cancel_form();
+                                
+                                Ok(())
+                            }
+                            Err(e) => {
+                                let error_msg = format!("❌ **Failed to Create Project**\n\n{}", e);
+                                Err(error_msg)
+                            }
+                        }
+                    } else {
+                        Err("❌ **Invalid Form Data**\n\nPlease fill in all required fields.".to_string())
+                    }
+                }
+                FormMode::Edit(project_id) => {
+                    // Handle project update
+                    if let Some(project_update) = self.form_to_project_update_input() {
+                        match update_project(&project_id, project_update).await {
+                            Ok(project) => {
+                                // Project updated successfully
+                                self.add_system_message(format!("✅ **Project Updated Successfully**\n\n📁 **{}** has been updated", project.name));
+                                
+                                // Refresh projects list
+                                if let Ok(projects) = orkee_projects::get_all_projects().await {
+                                    self.set_projects(projects);
+                                }
+                                
+                                // Cancel form and return to projects list
+                                self.cancel_form();
+                                
+                                Ok(())
+                            }
+                            Err(e) => {
+                                let error_msg = format!("❌ **Failed to Update Project**\n\n{}", e);
+                                Err(error_msg)
+                            }
+                        }
+                    } else {
+                        Err("❌ **Invalid Form Data**\n\nPlease check your input and try again.".to_string())
+                    }
                 }
             }
         } else {
-            Err("❌ **Invalid Form Data**\n\nPlease fill in all required fields.".to_string())
+            Err("❌ **No Form Data**\n\nForm is not initialized.".to_string())
         }
     }
 }

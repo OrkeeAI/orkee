@@ -171,7 +171,9 @@ impl App {
                         }
                         ('e', &crate::state::Screen::Projects | &crate::state::Screen::ProjectDetail) => {
                             if let Some(project) = self.state.get_selected_project() {
-                                self.state.add_system_message(format!("✏️ **Edit Project: {}**\n\n💡 *Project editing form coming in Phase 3! For now, use the CLI: `orkee projects edit {}`*", project.name, project.id));
+                                // Start project editing form
+                                let project_id = project.id.clone();
+                                self.state.start_project_edit(project_id);
                             } else {
                                 self.state.add_system_message("❌ **No project selected**\n\nNavigate to projects screen and select a project first.".to_string());
                             }
