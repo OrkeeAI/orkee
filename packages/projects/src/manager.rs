@@ -239,31 +239,6 @@ pub async fn delete_project(id: &str) -> ManagerResult<bool> {
     }
 }
 
-/// Refreshes git repository information for all projects
-/// This is useful for migrating existing projects to include git info
-pub async fn refresh_all_git_info() -> ManagerResult<usize> {
-    let mut config = read_projects_config().await?;
-    let mut updated_count = 0;
-    
-    for project in config.projects.values_mut() {
-        let new_git_info = get_git_repository_info(&project.project_root);
-        
-        // Only update if git info has changed or was missing
-        if project.git_repository != new_git_info {
-            project.git_repository = new_git_info;
-            project.updated_at = Utc::now();
-            updated_count += 1;
-            info!("Updated git info for project '{}' (ID: {})", project.name, project.id);
-        }
-    }
-    
-    if updated_count > 0 {
-        write_projects_config(&config).await?;
-        info!("Refreshed git repository info for {} projects", updated_count);
-    }
-    
-    Ok(updated_count)
-}
 
 /// Projects manager struct for compatibility with existing code
 pub struct ProjectsManager;

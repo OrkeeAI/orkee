@@ -24,7 +24,7 @@ pub use types::{
 // Re-export manager functions
 pub use manager::{
     create_project, delete_project, get_all_projects, get_project, get_project_by_name,
-    get_project_by_path, refresh_all_git_info, update_project, ManagerError, ManagerResult, ProjectsManager,
+    get_project_by_path, update_project, ManagerError, ManagerResult, ProjectsManager,
 };
 
 // Re-export storage functions
