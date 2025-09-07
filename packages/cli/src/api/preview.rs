@@ -9,7 +9,7 @@ use orkee_preview::{
         ApiResponse, ServerLogsResponse, ServerStatusResponse,
         StartServerRequest, StartServerResponse,
     },
-    SimplePreviewManager, ServerInfo,
+    PreviewManager, ServerInfo,
 };
 use orkee_projects::manager::ProjectsManager;
 use serde::Deserialize;
@@ -19,7 +19,7 @@ use tracing::{error, info};
 /// Shared state for preview endpoints
 #[derive(Clone)]
 pub struct PreviewState {
-    pub preview_manager: Arc<SimplePreviewManager>,
+    pub preview_manager: Arc<PreviewManager>,
     pub project_manager: Arc<ProjectsManager>,
 }
 

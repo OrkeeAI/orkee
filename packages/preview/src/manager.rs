@@ -1,784 +1,784 @@
-use crate::{
-    detector::ProjectDetector,
-    static_server::{StaticServer, StaticServerConfig},
-    types::{
-        DevServerConfig, DevServerInstance, DevServerLog, DevServerStatus, LogType, PreviewError,
-        PreviewResult, ProjectType, ServerLockData,
-    },
-};
-use chrono::{DateTime, Utc};
-use std::{
-    collections::HashMap,
-    path::{Path, PathBuf},
-    process::Stdio,
-    sync::Arc,
-    time::Duration,
-};
-use tokio::{
-    fs,
-    io::{AsyncBufReadExt, BufReader},
-    net::TcpListener,
-    process::{Child, Command},
-    sync::{Mutex, RwLock},
-    task::JoinHandle,
-    time::{interval, sleep},
-};
-use tracing::{debug, error, info, warn};
+use crate::types::*;
+use chrono::Utc;
+use std::collections::HashMap;
+use std::collections::hash_map::DefaultHasher;
+use std::hash::{Hash, Hasher};
+use std::path::PathBuf;
+use std::process::Stdio;
+use tokio::process::Command;
+use tokio::sync::RwLock;
+use tokio::fs;
+use std::sync::Arc;
+use tracing::{info, warn, error};
 use uuid::Uuid;
+use tokio::process::Child;
+use tokio::io::{AsyncBufReadExt, BufReader};
+use std::collections::VecDeque;
+use serde_json;
 
-/// Manages development server instances across projects
-pub struct DevServerManager {
-    /// Active server instances by project ID
-    pub active_servers: Arc<RwLock<HashMap<String, DevServerInstance>>>,
-    /// Running processes by project ID
-    processes: Arc<Mutex<HashMap<String, Child>>>,
-    /// Server logs by project ID
-    logs: Arc<RwLock<HashMap<String, Vec<DevServerLog>>>>,
-    /// Background tasks by project ID
-    background_tasks: Arc<tokio::sync::Mutex<HashMap<String, JoinHandle<()>>>>,
-    /// Lock directory path
-    lock_dir: PathBuf,
+/// Result of spawning a server with metadata
+#[derive(Debug)]
+pub struct SpawnResult {
+    pub child: Child,
+    pub command: String,
+    pub framework: String,
 }
 
-impl DevServerManager {
-    /// Create a new DevServerManager instance
-    pub fn new() -> PreviewResult<Self> {
-        let home_dir = std::env::var("HOME")
-            .or_else(|_| std::env::var("USERPROFILE"))
-            .unwrap_or_else(|_| ".".to_string());
-        let lock_dir = PathBuf::from(home_dir).join(".orkee").join("preview-locks");
-        
-        // Ensure lock directory exists
-        if let Err(e) = std::fs::create_dir_all(&lock_dir) {
-            eprintln!("Warning: Failed to create lock directory {}: {}", lock_dir.display(), e);
-        }
+/// Crash-resistant preview server manager
+#[derive(Clone)]
+pub struct PreviewManager {
+    active_servers: Arc<RwLock<HashMap<String, ServerInfo>>>,
+    server_logs: Arc<RwLock<HashMap<String, VecDeque<DevServerLog>>>>,
+}
 
-        Ok(Self {
+/// Minimal server information with process handle
+#[derive(Debug)]
+pub struct ServerInfo {
+    pub id: Uuid,
+    pub project_id: String,
+    pub port: u16,
+    pub pid: Option<u32>,
+    pub status: DevServerStatus,
+    pub preview_url: Option<String>,
+    pub child: Option<Arc<RwLock<Child>>>,
+    pub actual_command: Option<String>,
+    pub framework_name: Option<String>,
+}
+
+impl Clone for ServerInfo {
+    fn clone(&self) -> Self {
+        ServerInfo {
+            id: self.id,
+            project_id: self.project_id.clone(),
+            port: self.port,
+            pid: self.pid,
+            status: self.status.clone(),
+            preview_url: self.preview_url.clone(),
+            child: None, // Don't clone the child process handle
+            actual_command: self.actual_command.clone(),
+            framework_name: self.framework_name.clone(),
+        }
+    }
+}
+
+impl PreviewManager {
+    /// Create a new preview manager
+    pub fn new() -> Self {
+        Self {
             active_servers: Arc::new(RwLock::new(HashMap::new())),
-            processes: Arc::new(Mutex::new(HashMap::new())),
-            logs: Arc::new(RwLock::new(HashMap::new())),
-            background_tasks: Arc::new(tokio::sync::Mutex::new(HashMap::new())),
-            lock_dir,
-        })
+            server_logs: Arc::new(RwLock::new(HashMap::new())),
+        }
     }
 
-    /// Start a development server for a project
-    pub async fn start_dev_server(
-        &self,
-        project_id: String,
-        project_root: PathBuf,
-        custom_port: Option<u16>,
-    ) -> PreviewResult<DevServerInstance> {
-        info!(
-            "Starting dev server for project: {} at {}",
-            project_id,
-            project_root.display()
-        );
+    /// Create a new manager and recover existing servers from lock files
+    pub async fn new_with_recovery() -> Self {
+        let manager = Self::new();
+        
+        // Recover existing servers from lock files
+        if let Err(e) = manager.recover_servers().await {
+            warn!("Failed to recover servers: {}", e);
+        }
+        
+        manager
+    }
 
-        // Check for existing server from lock file
-        if let Some(existing) = self.get_existing_server_lock(&project_id).await? {
-            info!("Found existing server from lock file: {}", project_id);
-            let mut servers = self.active_servers.write().await;
-            servers.insert(project_id.clone(), existing.clone());
-            return Ok(existing);
+    /// Add a log entry for a project
+    async fn add_log(&self, project_id: &str, log_type: LogType, message: String) {
+        let log_entry = DevServerLog {
+            timestamp: Utc::now(),
+            log_type,
+            message,
+        };
+
+        let mut logs = self.server_logs.write().await;
+        let project_logs = logs.entry(project_id.to_string()).or_insert_with(VecDeque::new);
+        
+        // Add the log entry
+        project_logs.push_back(log_entry);
+        
+        // Keep only the last 1000 entries to prevent memory issues
+        if project_logs.len() > 1000 {
+            project_logs.pop_front();
+        }
+    }
+
+    /// Get logs for a project
+    pub async fn get_server_logs(&self, project_id: &str, since: Option<chrono::DateTime<Utc>>, limit: Option<usize>) -> Vec<DevServerLog> {
+        let logs = self.server_logs.read().await;
+        
+        if let Some(project_logs) = logs.get(project_id) {
+            let mut filtered_logs: Vec<DevServerLog> = if let Some(since_time) = since {
+                project_logs.iter()
+                    .filter(|log| log.timestamp > since_time)
+                    .cloned()
+                    .collect()
+            } else {
+                project_logs.iter().cloned().collect()
+            };
+            
+            // Apply limit if specified
+            if let Some(max_count) = limit {
+                if filtered_logs.len() > max_count {
+                    filtered_logs = filtered_logs.into_iter().rev().take(max_count).rev().collect();
+                }
+            }
+            
+            filtered_logs
+        } else {
+            Vec::new()
+        }
+    }
+
+    /// Clear logs for a project
+    pub async fn clear_server_logs(&self, project_id: &str) {
+        let mut logs = self.server_logs.write().await;
+        logs.remove(project_id);
+        info!("Cleared logs for project: {}", project_id);
+    }
+
+    /// Extract port from server log line if detected
+    fn extract_port_from_log(&self, line: &str) -> Option<u16> {
+        // Common patterns for dev server port detection
+        let patterns = [
+            r"Local:\s+http://localhost:(\d+)",  // Vite: "Local:   http://localhost:5174/"
+            r"Local server:\s+http://localhost:(\d+)", // Some frameworks
+            r"Running at http://localhost:(\d+)", // Express/other servers
+            r"Server ready at http://localhost:(\d+)", // Next.js dev
+            r"server running on port (\d+)", // Express: "Express server running on port 8476"
+            r"📍 http://localhost:(\d+)", // Express with emoji: "📍 http://localhost:8476"
+            r"🚀.*port (\d+)", // Express startup: "🚀 Express server running on port 8476"
+            r"ready - started server on.*:(\d+)", // Next.js: "ready - started server on 0.0.0.0:3000"
+            r"http://localhost:(\d+)", // Generic http://localhost pattern
+            r"localhost:(\d+)", // Generic localhost pattern
+        ];
+        
+        for pattern in &patterns {
+            if let Ok(regex) = regex::Regex::new(pattern) {
+                if let Some(captures) = regex.captures(line) {
+                    if let Some(port_match) = captures.get(1) {
+                        if let Ok(port) = port_match.as_str().parse::<u16>() {
+                            return Some(port);
+                        }
+                    }
+                }
+            }
+        }
+        None
+    }
+
+    /// Check if a log line is a successful HTTP access log (not an error)
+    fn is_successful_http_log(&self, line: &str) -> bool {
+        // Pattern for HTTP access logs: IP - - [timestamp] "METHOD path HTTP/version" status -
+        // Example: ::1 - - [07/Sep/2025 12:25:39] "GET / HTTP/1.1" 200 -
+        let http_log_pattern = r#"^[:\w\.-]+ - - \[[^\]]+\] "[A-Z]+ [^"]+ HTTP/[\d\.]+" (\d{3}) -"#;
+        
+        if let Ok(regex) = regex::Regex::new(http_log_pattern) {
+            if let Some(captures) = regex.captures(line) {
+                if let Some(status_match) = captures.get(1) {
+                    if let Ok(status_code) = status_match.as_str().parse::<u16>() {
+                        // HTTP status codes 200-399 are success/redirect (not errors)
+                        return status_code >= 200 && status_code < 400;
+                    }
+                }
+            }
+        }
+        
+        false
+    }
+
+    /// Update server with detected port
+    async fn update_server_port(&self, project_id: &str, new_port: u16) {
+        let mut servers = self.active_servers.write().await;
+        if let Some(server_info) = servers.get_mut(project_id) {
+            if server_info.port != new_port {
+                info!("Detected port change for project {}: {} -> {}", project_id, server_info.port, new_port);
+                server_info.port = new_port;
+                server_info.preview_url = Some(format!("http://localhost:{}", new_port));
+                self.add_log(project_id, LogType::System, 
+                    format!("Updated preview URL to http://localhost:{}", new_port)).await;
+            }
+        }
+    }
+
+    /// Capture logs from a spawned process
+    async fn capture_process_logs(&self, project_id: String, mut child: Child) {
+        let project_id_clone = project_id.clone();
+        let manager = self.clone();
+        
+        // Get stdout handle
+        if let Some(stdout) = child.stdout.take() {
+            let project_id_stdout = project_id_clone.clone();
+            let manager_stdout = manager.clone();
+            tokio::spawn(async move {
+                let reader = BufReader::new(stdout);
+                let mut lines = reader.lines();
+                while let Ok(Some(line)) = lines.next_line().await {
+                    // Check for port detection in the log line
+                    if let Some(detected_port) = manager_stdout.extract_port_from_log(&line) {
+                        manager_stdout.update_server_port(&project_id_stdout, detected_port).await;
+                    }
+                    manager_stdout.add_log(&project_id_stdout, LogType::Stdout, line).await;
+                }
+            });
         }
 
-        // Check if server is already running in memory
+        // Get stderr handle
+        if let Some(stderr) = child.stderr.take() {
+            let project_id_stderr = project_id_clone.clone();
+            let manager_stderr = manager.clone();
+            tokio::spawn(async move {
+                let reader = BufReader::new(stderr);
+                let mut lines = reader.lines();
+                while let Ok(Some(line)) = lines.next_line().await {
+                    // Check for port detection in the log line (some servers log to stderr)
+                    if let Some(detected_port) = manager_stderr.extract_port_from_log(&line) {
+                        manager_stderr.update_server_port(&project_id_stderr, detected_port).await;
+                    }
+                    
+                    // Filter out successful HTTP access logs from being marked as STDERR
+                    let log_type = if manager_stderr.is_successful_http_log(&line) {
+                        LogType::System  // HTTP access logs are informational, not errors
+                    } else {
+                        LogType::Stderr  // Real errors stay as STDERR
+                    };
+                    
+                    manager_stderr.add_log(&project_id_stderr, log_type, line).await;
+                }
+            });
+        }
+    }
+
+    /// Start a preview server for a project
+    pub async fn start_server(&self, project_id: String, project_root: PathBuf) -> PreviewResult<ServerInfo> {
+        info!("Starting preview server for: {}", project_id);
+
+        // Check if server already exists
         {
             let servers = self.active_servers.read().await;
             if let Some(existing) = servers.get(&project_id) {
                 if existing.status == DevServerStatus::Running {
-                    info!("Server already running: {}", project_id);
+                    info!("Server already running for project: {}", project_id);
                     return Ok(existing.clone());
                 }
             }
         }
 
-        // Detect project configuration
-        let detection = ProjectDetector::detect_project(&project_root).await?;
-        debug!("Project detection result: {:?}", detection);
-
-        // Find available port
-        let port = if let Some(custom) = custom_port {
-            if !Self::is_port_available(custom).await? {
-                return Err(PreviewError::PortInUse { port: custom });
-            }
-            custom
-        } else {
-            Self::find_available_port(detection.port).await?
-        };
-
-        // Create server configuration
-        let config = DevServerConfig {
-            project_type: detection.project_type,
-            dev_command: detection.dev_command,
-            port,
-            package_manager: detection.package_manager,
-            framework: detection.framework,
-        };
-
-        // Create server instance
-        let instance = DevServerInstance {
+        // Find available port using project-based allocation (8000-8999 range)
+        let port = self.find_available_port(&project_id).await?;
+        
+        // Create server info
+        let server_info = ServerInfo {
             id: Uuid::new_v4(),
             project_id: project_id.clone(),
-            config,
-            status: DevServerStatus::Starting,
-            preview_url: Some(format!("http://127.0.0.1:{}", port)),
-            started_at: Some(Utc::now()),
-            last_activity: Some(Utc::now()),
-            error: None,
+            port,
             pid: None,
+            status: DevServerStatus::Starting,
+            preview_url: Some(format!("http://localhost:{}", port)),
+            child: None,
+            actual_command: None,
+            framework_name: None,
         };
 
-        // Store instance and initialize logs
-        {
-            let mut servers = self.active_servers.write().await;
-            servers.insert(project_id.clone(), instance.clone());
-        }
-        {
-            let mut logs = self.logs.write().await;
-            logs.insert(project_id.clone(), Vec::new());
-        }
+        // Try to start the server
+        match self.spawn_server(&server_info, &project_root).await {
+            Ok(spawn_result) => {
+                let pid = spawn_result.child.id();
+                
+                // Start capturing logs from the process
+                let project_id_for_logs = project_id.clone();
+                let manager_for_logs = self.clone();
+                tokio::spawn(async move {
+                    manager_for_logs.capture_process_logs(project_id_for_logs, spawn_result.child).await;
+                });
 
-        // Start the server process
-        let mut instance = instance;
-        match self
-            .spawn_dev_server(&mut instance, &project_root)
-            .await
-        {
-            Ok(_) => {
-                instance.status = DevServerStatus::Running;
-                instance.last_activity = Some(Utc::now());
+                let mut updated_info = server_info;
+                updated_info.pid = pid;
+                updated_info.status = DevServerStatus::Running;
+                updated_info.actual_command = Some(spawn_result.command);
+                updated_info.framework_name = Some(spawn_result.framework);
 
-                // Update stored instance
+                // Store the server info
                 {
                     let mut servers = self.active_servers.write().await;
-                    servers.insert(project_id.clone(), instance.clone());
+                    servers.insert(project_id.clone(), updated_info.clone());
                 }
 
-                // Create lock file
-                if let Err(e) = self.create_server_lock(&project_id, &instance, &project_root).await {
-                    warn!("Failed to create server lock: {}", e);
+                // Create lock file for persistence
+                if let Err(e) = self.create_lock_file(&updated_info, &project_root).await {
+                    warn!("Failed to create lock file for project {}: {}", project_id, e);
                 }
 
-                info!(
-                    "Dev server started successfully: {} on port {}",
-                    project_id, instance.config.port
-                );
-                Ok(instance)
+                info!("Successfully started server for project: {} on port {}", project_id, port);
+                Ok(updated_info)
             }
             Err(e) => {
-                instance.status = DevServerStatus::Error;
-                instance.error = Some(e.to_string());
-
-                // Update stored instance
+                error!("Failed to start server for project {}: {}", project_id, e);
+                
+                let mut error_info = server_info;
+                error_info.status = DevServerStatus::Error;
+                
+                // Store the error state
                 {
                     let mut servers = self.active_servers.write().await;
-                    servers.insert(project_id.clone(), instance.clone());
+                    servers.insert(project_id, error_info.clone());
                 }
-
+                
                 Err(e)
             }
         }
     }
 
-    /// Stop a development server
-    pub async fn stop_dev_server(&self, project_id: &str) -> PreviewResult<()> {
-        info!("Stopping dev server: {}", project_id);
+    /// Stop a preview server
+    pub async fn stop_server(&self, project_id: &str) -> PreviewResult<()> {
+        info!("Stopping server for project: {}", project_id);
 
-        // Update status to stopping
-        {
-            let mut servers = self.active_servers.write().await;
-            if let Some(instance) = servers.get_mut(project_id) {
-                instance.status = DevServerStatus::Stopping;
-            }
-        }
-
-        // Kill background tasks
-        {
-            let mut tasks = self.background_tasks.lock().await;
-            if let Some(task) = tasks.remove(project_id) {
-                task.abort();
-            }
-        }
-
-        // Kill the process
-        let child_opt = {
-            let mut processes = self.processes.lock().await;
-            processes.remove(project_id)
+        let server_info = {
+            let servers = self.active_servers.read().await;
+            servers.get(project_id).cloned()
         };
-        
-        if let Some(mut child) = child_opt {
-            if let Err(e) = child.kill().await {
-                warn!("Failed to kill process for {}: {}", project_id, e);
+
+        if let Some(info) = server_info {
+            // Add stop log
+            self.add_log(project_id, LogType::System, 
+                format!("Stopping server with PID: {:?}", info.pid)).await;
+
+            if let Some(pid) = info.pid {
+                // Try to kill the process
+                self.kill_process(pid).await?;
             }
-        }
-
-        // Update status and remove from active servers
-        {
-            let mut servers = self.active_servers.write().await;
-            if let Some(mut instance) = servers.remove(project_id) {
-                instance.status = DevServerStatus::Stopped;
-                self.add_log(
-                    project_id,
-                    LogType::System,
-                    "Server stopped by user request",
-                )
-                .await;
+            
+            // Remove from active servers
+            {
+                let mut servers = self.active_servers.write().await;
+                servers.remove(project_id);
             }
+            
+            // Remove lock file
+            if let Err(e) = self.remove_lock_file(project_id).await {
+                warn!("Failed to remove lock file for project {}: {}", project_id, e);
+            }
+            
+            info!("Successfully stopped server for project: {}", project_id);
         }
 
-        // Remove lock file
-        if let Err(e) = self.remove_server_lock(project_id).await {
-            debug!("Failed to remove server lock: {}", e);
-        }
-
-        info!("Dev server stopped: {}", project_id);
         Ok(())
     }
 
     /// Get server status
-    pub async fn get_server_status(&self, project_id: &str) -> Option<DevServerInstance> {
-        // First check memory
-        {
-            let servers = self.active_servers.read().await;
-            if let Some(instance) = servers.get(project_id) {
-                return Some(instance.clone());
-            }
+    pub async fn get_server_status(&self, project_id: &str) -> Option<ServerInfo> {
+        let servers = self.active_servers.read().await;
+        servers.get(project_id).cloned()
+    }
+
+    /// List all active servers
+    pub async fn list_servers(&self) -> Vec<ServerInfo> {
+        let servers = self.active_servers.read().await;
+        servers.values().cloned().collect()
+    }
+
+    /// Get preferred port for a project (consistent across restarts)
+    fn get_preferred_port(&self, project_id: &str) -> u16 {
+        let mut hasher = DefaultHasher::new();
+        project_id.hash(&mut hasher);
+        let hash = hasher.finish();
+        8000 + (hash % 1000) as u16
+    }
+
+    /// Find an available port starting from project's preferred port in range 8000-8999
+    async fn find_available_port(&self, project_id: &str) -> PreviewResult<u16> {
+        let preferred = self.get_preferred_port(project_id);
+        
+        // Try preferred port first
+        if self.is_port_available(preferred).await {
+            info!("Using preferred port {} for project {}", preferred, project_id);
+            return Ok(preferred);
         }
-
-        // Check lock file
-        if let Ok(Some(instance)) = self.get_existing_server_lock(project_id).await {
-            // Add to memory for future calls
-            let mut servers = self.active_servers.write().await;
-            servers.insert(project_id.to_string(), instance.clone());
-            return Some(instance);
-        }
-
-        None
-    }
-
-    /// Get server logs
-    pub async fn get_server_logs(
-        &self,
-        project_id: &str,
-        since: Option<DateTime<Utc>>,
-        limit: Option<usize>,
-    ) -> Vec<DevServerLog> {
-        let logs = self.logs.read().await;
-        let project_logs = logs.get(project_id).cloned().unwrap_or_default();
-
-        let filtered_logs = if let Some(since_time) = since {
-            project_logs
-                .into_iter()
-                .filter(|log| log.timestamp >= since_time)
-                .collect()
-        } else {
-            project_logs
-        };
-
-        if let Some(limit) = limit {
-            filtered_logs.into_iter().take(limit).collect()
-        } else {
-            filtered_logs
-        }
-    }
-
-    /// Clear logs for a project
-    pub async fn clear_logs(&self, project_id: &str) {
-        let mut logs = self.logs.write().await;
-        logs.insert(project_id.to_string(), Vec::new());
-        info!("Cleared logs for project: {}", project_id);
-    }
-
-    /// Update server activity timestamp
-    pub async fn update_activity(&self, project_id: &str) {
-        let mut servers = self.active_servers.write().await;
-        if let Some(instance) = servers.get_mut(project_id) {
-            instance.last_activity = Some(Utc::now());
-            debug!("Updated activity for project: {}", project_id);
-        }
-    }
-
-    /// Spawn the development server process
-    async fn spawn_dev_server(
-        &self,
-        instance: &mut DevServerInstance,
-        project_root: &Path,
-    ) -> PreviewResult<()> {
-        let project_id = instance.project_id.clone();
-        let config = &instance.config;
-
-        self.add_log(
-            &project_id,
-            LogType::System,
-            &format!(
-                "Starting {} server on port {}",
-                config.framework.as_ref().map(|f| f.name.as_str()).unwrap_or("development"),
-                config.port
-            ),
-        )
-        .await;
-
-        match config.project_type {
-            ProjectType::Static => {
-                self.spawn_static_server(instance, project_root).await
-            }
-            ProjectType::Python => {
-                self.spawn_python_server(instance, project_root).await
-            }
-            _ => {
-                self.spawn_nodejs_server(instance, project_root).await
-            }
-        }
-    }
-
-    /// Spawn a static file server
-    async fn spawn_static_server(
-        &self,
-        instance: &mut DevServerInstance,
-        project_root: &Path,
-    ) -> PreviewResult<()> {
-        let project_id = instance.project_id.clone();
-        let config = StaticServerConfig::new(project_root.to_path_buf(), instance.config.port);
-
-        // Start static server in background
-        let server = StaticServer::new(config);
-        let task_handle = tokio::spawn(async move {
-            if let Err(e) = server.start().await {
-                error!("Static server error: {}", e);
-            }
-        });
-
-        // Store the task handle
-        {
-            let mut tasks = self.background_tasks.lock().await;
-            tasks.insert(project_id.clone(), task_handle);
-        }
-
-        // Wait a moment for the server to start
-        sleep(Duration::from_millis(500)).await;
-
-        self.add_log(
-            &project_id,
-            LogType::System,
-            "Static file server started successfully",
-        )
-        .await;
-
-        Ok(())
-    }
-
-    /// Spawn a Python HTTP server
-    async fn spawn_python_server(
-        &self,
-        instance: &mut DevServerInstance,
-        project_root: &Path,
-    ) -> PreviewResult<()> {
-        let mut cmd = Command::new("python3");
-        cmd.args(["-m", "http.server", &instance.config.port.to_string()])
-            .current_dir(project_root)
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .stdin(Stdio::null());
-
-        self.spawn_process(instance, cmd).await
-    }
-
-    /// Spawn a Node.js development server
-    async fn spawn_nodejs_server(
-        &self,
-        instance: &mut DevServerInstance,
-        project_root: &Path,
-    ) -> PreviewResult<()> {
-        let (command, args) = self.parse_dev_command(&instance.config.dev_command);
-
-        let mut cmd = Command::new(&command);
-        cmd.args(&args)
-            .current_dir(project_root)
-            .env("PORT", instance.config.port.to_string())
-            .env("HOST", "0.0.0.0")
-            .env("BROWSER", "none")
-            .env("NODE_ENV", "development")
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .stdin(Stdio::null());
-
-        self.spawn_process(instance, cmd).await
-    }
-
-    /// Spawn and manage a process
-    async fn spawn_process(
-        &self,
-        instance: &mut DevServerInstance,
-        mut cmd: Command,
-    ) -> PreviewResult<()> {
-        let project_id = instance.project_id.clone();
-
-        self.add_log(
-            &project_id,
-            LogType::System,
-            &format!("Command: {:?}", cmd.as_std()),
-        )
-        .await;
-
-        let child = cmd.spawn().map_err(|e| PreviewError::ProcessStartFailed {
-            reason: e.to_string(),
-        })?;
-
-        instance.pid = child.id();
-
-        // Store the child process
-        {
-            let mut processes = self.processes.lock().await;
-            processes.insert(project_id.clone(), child);
-        }
-
-        // Start log streaming tasks
-        if let Some(child) = self.processes.lock().await.get_mut(&project_id) {
-            if let Some(stdout) = child.stdout.take() {
-                self.start_log_stream(project_id.clone(), LogType::Stdout, stdout)
-                    .await;
-            }
-
-            if let Some(stderr) = child.stderr.take() {
-                self.start_log_stream(project_id.clone(), LogType::Stderr, stderr)
-                    .await;
-            }
-        }
-
-        self.add_log(
-            &project_id,
-            LogType::System,
-            &format!("Process spawned with PID: {:?}", instance.pid),
-        )
-        .await;
-
-        Ok(())
-    }
-
-    /// Start streaming logs from a process output
-    async fn start_log_stream<R>(&self, project_id: String, log_type: LogType, reader: R)
-    where
-        R: tokio::io::AsyncRead + Send + Unpin + 'static,
-    {
-        let logs = self.logs.clone();
-        let active_servers = self.active_servers.clone();
-
-        tokio::spawn(async move {
-            let mut lines = BufReader::new(reader).lines();
-            while let Ok(Some(line)) = lines.next_line().await {
-                let log_entry = DevServerLog {
-                    timestamp: Utc::now(),
-                    log_type: log_type.clone(),
-                    message: line.trim().to_string(),
-                };
-
-                // Store log
-                {
-                    let mut logs_guard = logs.write().await;
-                    if let Some(project_logs) = logs_guard.get_mut(&project_id) {
-                        project_logs.push(log_entry);
-
-                        // Keep only last 1000 entries
-                        if project_logs.len() > 1000 {
-                            project_logs.drain(0..project_logs.len() - 1000);
-                        }
-                    }
-                }
-
-                // Update activity
-                {
-                    let mut servers = active_servers.write().await;
-                    if let Some(instance) = servers.get_mut(&project_id) {
-                        instance.last_activity = Some(Utc::now());
-                    }
-                }
-            }
-        });
-    }
-
-    /// Parse a development command into command and arguments
-    fn parse_dev_command(&self, dev_command: &str) -> (String, Vec<String>) {
-        let parts: Vec<&str> = dev_command.split_whitespace().collect();
-        if parts.is_empty() {
-            ("echo".to_string(), vec!["No command specified".to_string()])
-        } else {
-            (parts[0].to_string(), parts[1..].iter().map(|s| s.to_string()).collect())
-        }
-    }
-
-    /// Check if a port is available
-    async fn is_port_available(port: u16) -> PreviewResult<bool> {
-        match TcpListener::bind(format!("127.0.0.1:{}", port)).await {
-            Ok(_) => Ok(true),
-            Err(_) => Ok(false),
-        }
-    }
-
-    /// Find an available port starting from the preferred port
-    async fn find_available_port(preferred_port: u16) -> PreviewResult<u16> {
-        for i in 0..50 {
-            let port = preferred_port.saturating_add(i);
-            if port == u16::MAX {
-                // Reached maximum port value
-                break;
-            }
-            if Self::is_port_available(port).await? {
+        
+        // Scan range 8000-8999 starting from preferred
+        for offset in 1..1000 {
+            let port = 8000 + ((preferred - 8000 + offset) % 1000);
+            if self.is_port_available(port).await {
+                info!("Using alternative port {} for project {} (preferred {} was taken)", port, project_id, preferred);
                 return Ok(port);
             }
         }
-        Err(PreviewError::PortInUse {
-            port: preferred_port,
+        
+        error!("No available ports in range 8000-8999 for project {}", project_id);
+        Err(PreviewError::PortInUse { port: preferred })
+    }
+
+    /// Check if port is available
+    async fn is_port_available(&self, port: u16) -> bool {
+        std::net::TcpListener::bind(("127.0.0.1", port)).is_ok()
+    }
+
+    /// Spawn a server process based on project type
+    async fn spawn_server(&self, server_info: &ServerInfo, project_root: &PathBuf) -> PreviewResult<SpawnResult> {
+        // Check for package.json first - if it has dev scripts, prefer dev commands
+        if project_root.join("package.json").exists() {
+            // Try development commands for Node.js projects
+            self.spawn_dev_command(server_info, project_root).await
+        } else if project_root.join("index.html").exists() {
+            // Simple static file server for pure HTML projects
+            self.spawn_static_server(server_info, project_root).await
+        } else {
+            // For other projects, try common dev commands as fallback
+            self.spawn_dev_command(server_info, project_root).await
+        }
+    }
+
+    /// Spawn a simple static file server
+    async fn spawn_static_server(&self, server_info: &ServerInfo, project_root: &PathBuf) -> PreviewResult<SpawnResult> {
+        // Use Python's built-in HTTP server as it's reliable and simple
+        let mut cmd = Command::new("python3");
+        cmd.args(["-m", "http.server", &server_info.port.to_string()])
+            .current_dir(project_root)
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .stdin(Stdio::null());
+
+        // Add initial log
+        self.add_log(&server_info.project_id, LogType::System, 
+            format!("Starting static HTTP server on port {} in {}", server_info.port, project_root.display())).await;
+
+        match cmd.spawn() {
+            Ok(child) => {
+                let pid = child.id();
+                info!("Spawned static server with PID: {:?}", pid);
+                self.add_log(&server_info.project_id, LogType::System, 
+                    format!("Static server started successfully with PID: {:?}", pid)).await;
+                Ok(SpawnResult {
+                    child,
+                    command: "python3 -m http.server".to_string(),
+                    framework: "Static HTTP Server".to_string(),
+                })
+            }
+            Err(e) => {
+                error!("Failed to spawn static server: {}", e);
+                self.add_log(&server_info.project_id, LogType::System, 
+                    format!("Failed to start static server: {}", e)).await;
+                Err(PreviewError::ProcessSpawnError {
+                    command: "python3 -m http.server".to_string(),
+                    error: e.to_string(),
+                })
+            }
+        }
+    }
+
+    /// Check if a package.json script exists
+    async fn has_npm_script(&self, project_root: &PathBuf, script_name: &str) -> bool {
+        let package_json_path = project_root.join("package.json");
+        if let Ok(content) = fs::read_to_string(package_json_path).await {
+            if let Ok(package_json) = serde_json::from_str::<serde_json::Value>(&content) {
+                return package_json
+                    .get("scripts")
+                    .and_then(|scripts| scripts.get(script_name))
+                    .is_some();
+            }
+        }
+        false
+    }
+
+    /// Detect framework based on command and project files
+    async fn detect_framework(&self, command: &str, project_root: &PathBuf) -> String {
+        // Check command first
+        if command.contains("vite") || command.contains("npm run dev") && self.has_dependency(project_root, "vite").await {
+            return "Vite".to_string();
+        }
+        if command.contains("next") || self.has_dependency(project_root, "next").await {
+            return "Next.js".to_string();
+        }
+        if command.contains("react-scripts") || self.has_dependency(project_root, "react-scripts").await {
+            return "Create React App".to_string();
+        }
+        if command.contains("vue") || self.has_dependency(project_root, "vue").await {
+            return "Vue".to_string();
+        }
+        if command.contains("angular") || command.contains("ng serve") {
+            return "Angular".to_string();
+        }
+        if command.contains("python") {
+            return "Python HTTP Server".to_string();
+        }
+        
+        // Default
+        "Development Server".to_string()
+    }
+
+    /// Check if project has a dependency in package.json
+    async fn has_dependency(&self, project_root: &PathBuf, dep_name: &str) -> bool {
+        let package_json_path = project_root.join("package.json");
+        if let Ok(content) = fs::read_to_string(package_json_path).await {
+            if let Ok(package_json) = serde_json::from_str::<serde_json::Value>(&content) {
+                // Check dependencies and devDependencies
+                for deps_key in ["dependencies", "devDependencies"] {
+                    if let Some(deps) = package_json.get(deps_key).and_then(|d| d.as_object()) {
+                        if deps.contains_key(dep_name) {
+                            return true;
+                        }
+                    }
+                }
+            }
+        }
+        false
+    }
+
+    /// Spawn a development command
+    async fn spawn_dev_command(&self, server_info: &ServerInfo, project_root: &PathBuf) -> PreviewResult<SpawnResult> {
+        let port_str = server_info.port.to_string();
+        
+        // Add initial log
+        self.add_log(&server_info.project_id, LogType::System, 
+            format!("Attempting to start development server on port {} in {}", server_info.port, project_root.display())).await;
+
+        // Check for npm/yarn scripts first if package.json exists
+        let mut commands = Vec::new();
+        
+        if project_root.join("package.json").exists() {
+            // Check for common dev scripts in order of preference
+            if self.has_npm_script(project_root, "dev").await {
+                commands.push(("npm", vec!["run", "dev"]));
+            }
+            if self.has_npm_script(project_root, "start").await {
+                commands.push(("npm", vec!["start"]));
+            }
+            // Add yarn alternatives if npm scripts exist
+            if self.has_npm_script(project_root, "dev").await {
+                commands.push(("yarn", vec!["dev"]));
+            }
+        }
+        
+        // Add fallback commands
+        commands.push(("python3", vec!["-m", "http.server", port_str.as_str()]));
+
+        for (cmd, args) in &commands {
+            let mut command = Command::new(cmd);
+            command
+                .args(args)
+                .current_dir(project_root)
+                .env("PORT", server_info.port.to_string())
+                .stdout(Stdio::piped())
+                .stderr(Stdio::piped())
+                .stdin(Stdio::null());
+
+            self.add_log(&server_info.project_id, LogType::System, 
+                format!("Trying command: {} {}", cmd, args.join(" "))).await;
+
+            if let Ok(child) = command.spawn() {
+                let pid = child.id();
+                info!("Spawned dev server with command '{}' and PID: {:?}", cmd, pid);
+                
+                let command_str = format!("{} {}", cmd, args.join(" "));
+                let framework = self.detect_framework(&command_str, project_root).await;
+                
+                self.add_log(&server_info.project_id, LogType::System, 
+                    format!("Development server started successfully with command '{}' and PID: {:?}", cmd, pid)).await;
+                
+                return Ok(SpawnResult {
+                    child,
+                    command: command_str,
+                    framework,
+                });
+            }
+        }
+
+        self.add_log(&server_info.project_id, LogType::System, 
+            "No suitable development server command found".to_string()).await;
+
+        Err(PreviewError::ProcessSpawnError {
+            command: "No suitable dev command found".to_string(),
+            error: "Could not start any development server".to_string(),
         })
     }
 
-    /// Add a log entry
-    async fn add_log(&self, project_id: &str, log_type: LogType, message: &str) {
-        let log_entry = DevServerLog {
-            timestamp: Utc::now(),
-            log_type,
-            message: message.to_string(),
-        };
-
-        let mut logs = self.logs.write().await;
-        if let Some(project_logs) = logs.get_mut(project_id) {
-            project_logs.push(log_entry);
-
-            // Keep only last 1000 entries
-            if project_logs.len() > 1000 {
-                project_logs.drain(0..project_logs.len() - 1000);
-            }
-        }
-    }
-
-    /// Get lock file path for a project
-    fn get_lock_file_path(&self, project_id: &str) -> PathBuf {
-        self.lock_dir.join(format!("{}.json", project_id))
-    }
-
-    /// Get existing server lock from file
-    async fn get_existing_server_lock(
-        &self,
-        project_id: &str,
-    ) -> PreviewResult<Option<DevServerInstance>> {
-        let lock_file = self.get_lock_file_path(project_id);
-
-        if !lock_file.exists() {
-            return Ok(None);
-        }
-
-        let lock_data = match fs::read_to_string(&lock_file).await {
-            Ok(data) => data,
-            Err(_) => return Ok(None),
-        };
-
-        let lock: ServerLockData = match serde_json::from_str(&lock_data) {
-            Ok(lock) => lock,
-            Err(_) => {
-                // Invalid lock file, remove it
-                let _ = fs::remove_file(&lock_file).await;
-                return Ok(None);
-            }
-        };
-
-        // Check if process is still running
-        if !Self::is_process_running(lock.pid) {
-            // Stale lock file, remove it
-            let _ = fs::remove_file(&lock_file).await;
-            return Ok(None);
-        }
-
-        // Reconstruct instance from lock data
-        let instance = DevServerInstance {
-            id: Uuid::new_v4(),
-            project_id: lock.project_id,
-            config: DevServerConfig {
-                project_type: ProjectType::Unknown, // We don't store this in lock
-                dev_command: "unknown".to_string(),
-                port: lock.port,
-                package_manager: crate::types::PackageManager::Npm,
-                framework: None,
-            },
-            status: DevServerStatus::Running,
-            preview_url: Some(lock.preview_url),
-            started_at: Some(lock.started_at),
-            last_activity: Some(Utc::now()),
-            error: None,
-            pid: Some(lock.pid),
-        };
-
-        Ok(Some(instance))
-    }
-
-    /// Create server lock file
-    async fn create_server_lock(
-        &self,
-        project_id: &str,
-        instance: &DevServerInstance,
-        project_root: &PathBuf,
-    ) -> PreviewResult<()> {
-        // Ensure lock directory exists
-        fs::create_dir_all(&self.lock_dir).await?;
-
-        let lock_data = ServerLockData {
-            project_id: project_id.to_string(),
-            pid: instance.pid.unwrap_or(0),
-            port: instance.config.port,
-            started_at: instance.started_at.unwrap_or(Utc::now()),
-            preview_url: instance.preview_url.clone().unwrap_or_default(),
-            project_root: project_root.to_string_lossy().to_string(),
-        };
-
-        let lock_file = self.get_lock_file_path(project_id);
-        let lock_json = serde_json::to_string_pretty(&lock_data)?;
-        fs::write(lock_file, lock_json).await?;
-
-        debug!("Created server lock for project: {}", project_id);
-        Ok(())
-    }
-
-    /// Remove server lock file
-    async fn remove_server_lock(&self, project_id: &str) -> PreviewResult<()> {
-        let lock_file = self.get_lock_file_path(project_id);
-        if lock_file.exists() {
-            fs::remove_file(lock_file).await?;
-            debug!("Removed server lock for project: {}", project_id);
-        }
-        Ok(())
-    }
-
-    /// Check if a process is running by PID
-    fn is_process_running(pid: u32) -> bool {
+    /// Kill a process by PID
+    async fn kill_process(&self, pid: u32) -> PreviewResult<()> {
         #[cfg(unix)]
         {
             use nix::sys::signal::{kill, Signal};
             use nix::unistd::Pid;
-            match kill(Pid::from_raw(pid as i32), Signal::SIGTERM) {
-                Ok(_) => true,
-                Err(nix::errno::Errno::ESRCH) => false, // Process not found
-                Err(_) => true, // Process exists but we can't signal it (permission denied, etc.)
+
+            let pid = Pid::from_raw(pid as i32);
+            match kill(pid, Signal::SIGTERM) {
+                Ok(_) => {
+                    info!("Successfully killed process with PID: {}", pid);
+                    Ok(())
+                }
+                Err(e) => {
+                    warn!("Failed to kill process with PID {}: {}", pid, e);
+                    Err(PreviewError::ProcessKillError {
+                        pid: pid.as_raw() as u32,
+                        error: e.to_string(),
+                    })
+                }
             }
         }
-
-        #[cfg(windows)]
+        
+        #[cfg(not(unix))]
         {
-            // On Windows, we'd need to use winapi to check process existence
-            // For now, assume process exists if we can't verify
+            // On non-Unix systems, we can't easily kill processes
+            warn!("Process killing not implemented for this platform");
+            Ok(())
+        }
+    }
+
+    // === PERSISTENCE METHODS ===
+
+    /// Get lock file path for a project
+    fn get_lock_file_path(&self, project_id: &str) -> PathBuf {
+        let home = std::env::var("HOME").unwrap_or_else(|_| ".".to_string());
+        PathBuf::from(home)
+            .join(".orkee")
+            .join("preview-locks")
+            .join(format!("{}.json", project_id))
+    }
+
+    /// Check if a process is running (Unix only)
+    fn is_process_running(&self, pid: u32) -> bool {
+        #[cfg(unix)]
+        {
+            use nix::sys::signal::{kill, Signal};
+            use nix::unistd::Pid;
+            
+            // Signal 0 checks if process exists without actually sending a signal
+            match kill(Pid::from_raw(pid as i32), Some(Signal::SIGCONT)) {
+                Ok(_) => true,
+                Err(_) => false,
+            }
+        }
+        
+        #[cfg(not(unix))]
+        {
+            // On Windows, assume process is running (safer default)
+            warn!("Process checking not implemented for this platform, assuming PID {} is running", pid);
             true
         }
     }
 
-    /// Start cleanup task for idle servers
-    pub fn start_cleanup_task(&self) -> JoinHandle<()> {
-        let active_servers = self.active_servers.clone();
-        let manager = self.clone();
-
-        tokio::spawn(async move {
-            let mut interval = interval(Duration::from_secs(600)); // 10 minutes
-
-            loop {
-                interval.tick().await;
-
-                let now = Utc::now();
-                let idle_threshold = Duration::from_secs(3600); // 1 hour
-
-                let servers_to_cleanup: Vec<String> = {
-                    let servers = active_servers.read().await;
-                    servers
-                        .iter()
-                        .filter_map(|(project_id, instance)| {
-                            if let Some(last_activity) = instance.last_activity {
-                                let idle_duration = now.signed_duration_since(last_activity);
-                                if idle_duration.num_seconds() as u64 > idle_threshold.as_secs() {
-                                    Some(project_id.clone())
-                                } else {
-                                    None
-                                }
-                            } else {
-                                None
-                            }
-                        })
-                        .collect()
-                };
-
-                for project_id in servers_to_cleanup {
-                    info!("Cleaning up idle server: {}", project_id);
-                    if let Err(e) = manager.stop_dev_server(&project_id).await {
-                        warn!("Failed to cleanup idle server {}: {}", project_id, e);
-                    }
-                }
-            }
-        })
-    }
-
-    /// Shutdown all servers
-    pub async fn shutdown(&self) -> PreviewResult<()> {
-        info!("Shutting down all dev servers");
-
-        let project_ids: Vec<String> = {
-            let servers = self.active_servers.read().await;
-            servers.keys().cloned().collect()
+    /// Create lock file when starting server
+    async fn create_lock_file(&self, server_info: &ServerInfo, project_root: &PathBuf) -> PreviewResult<()> {
+        let lock_data = ServerLockData {
+            project_id: server_info.project_id.clone(),
+            pid: server_info.pid.unwrap_or(0),
+            port: server_info.port,
+            started_at: Utc::now(),
+            preview_url: server_info.preview_url.clone().unwrap_or_default(),
+            project_root: project_root.to_string_lossy().to_string(),
         };
 
-        for project_id in project_ids {
-            if let Err(e) = self.stop_dev_server(&project_id).await {
-                warn!("Failed to stop server during shutdown {}: {}", project_id, e);
+        let lock_path = self.get_lock_file_path(&server_info.project_id);
+        let lock_json = serde_json::to_string_pretty(&lock_data)
+            .map_err(|e| PreviewError::IoError(std::io::Error::new(std::io::ErrorKind::Other, e)))?;
+
+        // Ensure directory exists
+        if let Some(parent) = lock_path.parent() {
+            fs::create_dir_all(parent).await
+                .map_err(|e| PreviewError::IoError(e))?;
+        }
+
+        fs::write(&lock_path, lock_json).await
+            .map_err(|e| PreviewError::IoError(e))?;
+        
+        info!("Created lock file for project: {} at {:?}", server_info.project_id, lock_path);
+        Ok(())
+    }
+
+    /// Remove lock file when stopping server
+    async fn remove_lock_file(&self, project_id: &str) -> PreviewResult<()> {
+        let lock_path = self.get_lock_file_path(project_id);
+        if lock_path.exists() {
+            fs::remove_file(&lock_path).await
+                .map_err(|e| PreviewError::IoError(e))?;
+            info!("Removed lock file for project: {}", project_id);
+        }
+        Ok(())
+    }
+
+    /// Recover servers from lock files on startup
+    pub async fn recover_servers(&self) -> PreviewResult<()> {
+        let lock_dir = PathBuf::from(std::env::var("HOME").unwrap_or_else(|_| ".".to_string()))
+            .join(".orkee")
+            .join("preview-locks");
+
+        // Create directory if it doesn't exist
+        if let Err(e) = fs::create_dir_all(&lock_dir).await {
+            warn!("Failed to create lock directory: {}", e);
+            return Ok(());
+        }
+
+        // Read all lock files
+        let mut entries = match fs::read_dir(&lock_dir).await {
+            Ok(entries) => entries,
+            Err(e) => {
+                warn!("Failed to read lock directory: {}", e);
+                return Ok(());
+            }
+        };
+
+        let mut recovered_count = 0;
+        while let Ok(Some(entry)) = entries.next_entry().await {
+            let path = entry.path();
+            if path.extension() == Some(std::ffi::OsStr::new("json")) {
+                if self.recover_single_server(path).await.is_ok() {
+                    recovered_count += 1;
+                }
             }
         }
 
-        info!("All dev servers shut down");
+        if recovered_count > 0 {
+            info!("Recovered {} preview servers from lock files", recovered_count);
+        }
+        
         Ok(())
     }
-}
 
-impl Clone for DevServerManager {
-    fn clone(&self) -> Self {
-        Self {
-            active_servers: self.active_servers.clone(),
-            processes: self.processes.clone(),
-            logs: self.logs.clone(),
-            background_tasks: self.background_tasks.clone(),
-            lock_dir: self.lock_dir.clone(),
+    /// Recover a single server from lock file
+    async fn recover_single_server(&self, lock_path: PathBuf) -> PreviewResult<()> {
+        let content = match fs::read_to_string(&lock_path).await {
+            Ok(content) => content,
+            Err(e) => {
+                warn!("Failed to read lock file {:?}: {}", lock_path, e);
+                return Err(PreviewError::IoError(e));
+            }
+        };
+
+        let lock_data: ServerLockData = match serde_json::from_str(&content) {
+            Ok(data) => data,
+            Err(e) => {
+                warn!("Invalid lock file {:?}, removing: {}", lock_path, e);
+                let _ = fs::remove_file(&lock_path).await;
+                return Err(PreviewError::IoError(std::io::Error::new(std::io::ErrorKind::InvalidData, e)));
+            }
+        };
+
+        // Check if process is still running
+        if self.is_process_running(lock_data.pid) {
+            // Restore to active_servers
+            let server_info = ServerInfo {
+                id: Uuid::new_v4(),
+                project_id: lock_data.project_id.clone(),
+                port: lock_data.port,
+                pid: Some(lock_data.pid),
+                status: DevServerStatus::Running,
+                preview_url: Some(lock_data.preview_url),
+                child: None,
+                actual_command: None,
+                framework_name: None,
+            };
+
+            let mut servers = self.active_servers.write().await;
+            servers.insert(lock_data.project_id.clone(), server_info);
+
+            info!("Recovered running server for project: {} on port {}", lock_data.project_id, lock_data.port);
+        } else {
+            // Stale lock, remove it
+            if let Err(e) = fs::remove_file(&lock_path).await {
+                warn!("Failed to remove stale lock file {:?}: {}", lock_path, e);
+            } else {
+                info!("Removed stale lock for project: {}", lock_data.project_id);
+            }
         }
-    }
-}
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use tempfile::TempDir;
-
-    #[tokio::test]
-    async fn test_manager_creation() {
-        let manager = DevServerManager::new().unwrap();
-        assert!(manager.lock_dir.to_string_lossy().contains(".orkee"));
-    }
-
-    #[tokio::test]
-    async fn test_port_availability() {
-        // Test with a likely available port
-        let available = DevServerManager::is_port_available(0).await.unwrap();
-        assert!(available);
-    }
-
-    #[tokio::test]
-    async fn test_find_available_port() {
-        let port = DevServerManager::find_available_port(3000).await.unwrap();
-        assert!(port >= 3000);
-        assert!(port <= 3050);
-    }
-
-    #[tokio::test]
-    async fn test_parse_dev_command() {
-        let manager = DevServerManager::new().unwrap();
-
-        let (cmd, args) = manager.parse_dev_command("npm run dev");
-        assert_eq!(cmd, "npm");
-        assert_eq!(args, vec!["run", "dev"]);
-
-        let (cmd, args) = manager.parse_dev_command("node server.js");
-        assert_eq!(cmd, "node");
-        assert_eq!(args, vec!["server.js"]);
+        Ok(())
     }
 }
