@@ -1,8 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Play, Square, Terminal, Monitor, RefreshCw, ExternalLink, AlertCircle } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
+import { AlertCircle } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { previewService, DevServerInstance } from '@/services/preview';
 import { PreviewFrame } from './PreviewFrame';
@@ -140,20 +137,6 @@ export function PreviewPanel({ projectId, projectName }: PreviewPanelProps) {
     }
   }, [serverInstance?.status, showTerminalModal, terminalAutoOpened]);
 
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'running':
-        return <Badge variant="default" className="bg-green-100 text-green-800">Running</Badge>;
-      case 'starting':
-        return <Badge variant="default" className="bg-blue-100 text-blue-800">Starting</Badge>;
-      case 'stopping':
-        return <Badge variant="default" className="bg-yellow-100 text-yellow-800">Stopping</Badge>;
-      case 'error':
-        return <Badge variant="destructive">Error</Badge>;
-      default:
-        return <Badge variant="secondary">Stopped</Badge>;
-    }
-  };
 
   const isRunning = serverInstance?.status === 'running';
   const isStarting = serverInstance?.status === 'starting';

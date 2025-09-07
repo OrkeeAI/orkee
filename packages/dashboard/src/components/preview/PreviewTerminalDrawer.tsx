@@ -2,7 +2,6 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { Terminal, Download, Trash2, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
-import { Alert, AlertDescription } from '@/components/ui/alert';
 import { previewService, DevServerLog } from '@/services/preview';
 
 interface PreviewTerminalDrawerProps {
@@ -106,6 +105,7 @@ export function PreviewTerminalDrawer({ projectId, projectName, open, onOpenChan
 
   // Format log message with ANSI colors (basic implementation)
   const formatLogMessage = (message: string) => {
+    // eslint-disable-next-line no-control-regex
     return message.replace(/\u001b\[[0-9;]*m/g, '');
   };
 
