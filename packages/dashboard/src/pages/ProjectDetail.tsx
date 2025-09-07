@@ -16,7 +16,8 @@ import {
   Info,
   AlertTriangle,
   Trash2,
-  Github
+  Github,
+  Play
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -25,6 +26,7 @@ import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ProjectEditDialog } from '@/components/ProjectEditDialog';
 import { ProjectDeleteDialog } from '@/components/ProjectDeleteDialog';
+import { PreviewPanel } from '@/components/preview';
 import { projectsService, Project } from '@/services/projects';
 
 export function ProjectDetail() {
@@ -171,10 +173,14 @@ export function ProjectDetail() {
 
       {/* Tabbed Content */}
       <Tabs defaultValue="overview" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-2">
+        <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="overview" className="flex items-center gap-2">
             <Info className="h-4 w-4" />
             Overview
+          </TabsTrigger>
+          <TabsTrigger value="preview" className="flex items-center gap-2">
+            <Play className="h-4 w-4" />
+            Preview
           </TabsTrigger>
           <TabsTrigger value="settings" className="flex items-center gap-2">
             <Settings className="h-4 w-4" />
@@ -368,6 +374,10 @@ export function ProjectDetail() {
               </div>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="preview" className="space-y-4">
+          <PreviewPanel projectId={project.id} projectName={project.name} />
         </TabsContent>
 
         <TabsContent value="settings" className="space-y-4">

@@ -20,7 +20,7 @@ pub async fn run_server() -> Result<(), Box<dyn std::error::Error>> {
         .allow_headers(Any);
 
     // Create the router with CORS
-    let app = api::create_router()
+    let app = api::create_router().await
         .layer(cors);
 
     // Create socket address

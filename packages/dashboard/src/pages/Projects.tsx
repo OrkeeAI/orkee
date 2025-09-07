@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { FolderOpen, Plus, Edit, Trash2, Search, LayoutGrid, List, GripVertical, GitBranch } from 'lucide-react';
 import {
   DndContext,
@@ -27,9 +28,11 @@ import { ProjectCreateDialog } from '@/components/ProjectCreateDialog';
 import { ProjectEditDialog } from '@/components/ProjectEditDialog';
 import { ProjectDeleteDialog } from '@/components/ProjectDeleteDialog';
 import { projectsService, Project } from '@/services/projects';
+import { previewService } from '@/services/api';
 
 type ViewType = 'card' | 'list';
 type SortType = 'rank' | 'priority' | 'alpha';
+type StatusFilter = 'active' | 'archived';
 
 // Helper function to get git repository info
 const getRepositoryInfo = (project: Project): { owner: string; repo: string } | null => {
@@ -52,9 +55,10 @@ interface SortableRowProps {
   onView: (project: Project) => void;
   formatDate: (dateString: string) => string;
   getPriorityColor: (priority: string) => string;
+  isDevServerRunning: (project: Project) => boolean;
 }
 
-function SortableRow({ project, onEdit, onDelete, onView, formatDate, getPriorityColor }: SortableRowProps) {
+function SortableRow({ project, onEdit, onDelete, onView, formatDate, getPriorityColor, isDevServerRunning }: SortableRowProps) {
   const {
     attributes,
     listeners,
@@ -113,14 +117,16 @@ function SortableRow({ project, onEdit, onDelete, onView, formatDate, getPriorit
         </div>
       </td>
       <td className="py-3 px-2 sm:px-4">
-        <div className="flex items-center gap-1 sm:gap-2">
+        <div className="flex items-center justify-center">
           <div className={`w-2 h-2 rounded-full ${
-            project.status === 'active' ? 'bg-green-500' : 'bg-gray-500'
+            isDevServerRunning(project) ? 'bg-green-500' : 'bg-gray-400'
           }`} />
-          <Badge className={`${getPriorityColor(project.priority)} text-xs`} variant="secondary">
-            {project.priority}
-          </Badge>
         </div>
+      </td>
+      <td className="py-3 px-2 sm:px-4">
+        <Badge className={`${getPriorityColor(project.priority)} text-xs`} variant="secondary">
+          {project.priority}
+        </Badge>
       </td>
       <td className="py-3 px-2 sm:px-4 hidden lg:table-cell">
         {project.tags && project.tags.length > 0 ? (
@@ -170,6 +176,7 @@ export function Projects() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [activeServers, setActiveServers] = useState<Set<string>>(new Set());
   
   // Dialog states
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
@@ -181,6 +188,7 @@ export function Projects() {
   const [searchTerm, setSearchTerm] = useState('');
   const [sortBy, setSortBy] = useState<SortType>('rank');
   const [viewType, setViewType] = useState<ViewType>('list');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('active');
 
   // Drag and drop sensors
   const sensors = useSensors(
@@ -203,13 +211,30 @@ export function Projects() {
     }
   };
 
+  const loadActiveServers = async () => {
+    try {
+      const activeServerIds = await previewService.getActiveServers();
+      setActiveServers(new Set(activeServerIds));
+    } catch (err) {
+      console.error('Failed to load active servers:', err);
+    }
+  };
+
+  // Calculate project counts by status
+  const projectCounts = useMemo(() => {
+    const active = projects.filter(project => project.status === 'active').length;
+    const archived = projects.filter(project => project.status === 'archived').length;
+    return { active, archived };
+  }, [projects]);
+
   // Filter and sort projects
   const filteredAndSortedProjects = useMemo(() => {
     const filtered = projects.filter(project => 
-      project.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      project.status === statusFilter &&
+      (project.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       project.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       project.tags?.some(tag => tag.toLowerCase().includes(searchTerm.toLowerCase())) ||
-      project.projectRoot.toLowerCase().includes(searchTerm.toLowerCase())
+      project.projectRoot.toLowerCase().includes(searchTerm.toLowerCase()))
     );
 
     const priorityOrder = { high: 3, medium: 2, low: 1 };
@@ -236,10 +261,16 @@ export function Projects() {
     });
 
     return filtered;
-  }, [projects, searchTerm, sortBy]);
+  }, [projects, searchTerm, sortBy, statusFilter]);
 
   useEffect(() => {
     loadProjects();
+    loadActiveServers();
+    
+    // Set up periodic refresh for active servers every 20 seconds
+    const interval = setInterval(loadActiveServers, 20000);
+    
+    return () => clearInterval(interval);
   }, []);
 
   const handleViewProject = (project: Project) => {
@@ -319,6 +350,10 @@ export function Projects() {
       case 'low': return 'bg-green-100 text-green-800';
       default: return 'bg-gray-100 text-gray-800';
     }
+  };
+
+  const isDevServerRunning = (project: Project) => {
+    return activeServers.has(project.id);
   };
 
   if (loading) {
@@ -423,154 +458,167 @@ export function Projects() {
         </div>
       )}
 
-      {filteredAndSortedProjects.length === 0 ? (
-        projects.length === 0 ? (
-          <div className="text-center py-12">
-            <FolderOpen className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-muted-foreground mb-2">No projects found</h3>
-            <p className="text-sm text-muted-foreground mb-4">
-              Get started by creating your first project.
-            </p>
-            <Button onClick={() => setCreateDialogOpen(true)}>
-              <Plus className="mr-2 h-4 w-4" />
-              Create Project
-            </Button>
-          </div>
-        ) : (
-          <div className="text-center py-12">
-            <Search className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-muted-foreground mb-2">No projects match your search</h3>
-            <p className="text-sm text-muted-foreground mb-4">
-              Try adjusting your search terms or filters.
-            </p>
-          </div>
-        )
-      ) : (
-        viewType === 'list' ? (
-          <div className="bg-white rounded-lg border overflow-x-auto">
-            <table className="w-full min-w-full">
-              <thead className="border-b bg-muted/30">
-                <tr>
-                  <th className="py-3 px-2 sm:px-4 text-left font-medium">Name</th>
-                  <th className="py-3 px-2 sm:px-4 text-left font-medium hidden md:table-cell">Repository</th>
-                  <th className="py-3 px-2 sm:px-4 text-left font-medium">Status</th>
-                  <th className="py-3 px-2 sm:px-4 text-left font-medium hidden lg:table-cell">Tags</th>
-                  <th className="py-3 px-2 sm:px-4 text-left font-medium hidden xl:table-cell">Created</th>
-                  <th className="py-3 px-2 sm:px-4 text-left font-medium">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                <DndContext
-                  sensors={sensors}
-                  collisionDetection={closestCenter}
-                  onDragEnd={handleDragEnd}
-                >
-                  <SortableContext
-                    items={filteredAndSortedProjects.map(p => p.id)}
-                    strategy={verticalListSortingStrategy}
-                  >
-                    {filteredAndSortedProjects.map((project) => (
-                      <SortableRow
-                        key={project.id}
-                        project={project}
-                        onEdit={handleEditProject}
-                        onDelete={handleDeleteProject}
-                        onView={handleViewProject}
-                        formatDate={formatDate}
-                        getPriorityColor={getPriorityColor}
-                      />
-                    ))}
-                  </SortableContext>
-                </DndContext>
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {filteredAndSortedProjects.map((project) => (
-              <div key={project.id} className="rounded-lg border p-4 sm:p-6 hover:shadow-md transition-shadow">
-                <div className="flex items-start justify-between mb-3">
-                  <div className="flex items-center gap-2 flex-1">
-                    <FolderOpen className="h-5 w-5 text-primary flex-shrink-0" />
-                    <h3 className="font-semibold truncate">{project.name}</h3>
-                  </div>
-                  <div className="flex gap-1 ml-2">
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => handleEditProject(project)}
-                      className="h-8 w-8 p-0"
-                    >
-                      <Edit className="h-3 w-3" />
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => handleDeleteProject(project)}
-                      className="h-8 w-8 p-0 text-red-600 hover:text-red-700"
-                    >
-                      <Trash2 className="h-3 w-3" />
-                    </Button>
-                  </div>
-                </div>
-                
-                {project.description && (
-                  <p className="text-sm text-muted-foreground mb-4 line-clamp-2">
-                    {project.description}
-                  </p>
-                )}
-                
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <div className={`w-2 h-2 rounded-full ${
-                        project.status === 'active' ? 'bg-green-500' : 'bg-gray-500'
-                      }`} />
-                      <span className="text-sm capitalize">{project.status}</span>
-                    </div>
-                    <Badge className={getPriorityColor(project.priority)}>
-                      {project.priority}
-                    </Badge>
-                  </div>
-                  
-                  {project.tags && project.tags.length > 0 && (
-                    <div className="flex flex-wrap gap-1">
-                      {project.tags.slice(0, 3).map((tag, index) => (
-                        <Badge key={index} variant="outline" className="text-xs">
-                          {tag}
-                        </Badge>
-                      ))}
-                      {project.tags.length > 3 && (
-                        <Badge variant="outline" className="text-xs">
-                          +{project.tags.length - 3}
-                        </Badge>
-                      )}
-                    </div>
-                  )}
-                  
-                  <div className="text-xs text-muted-foreground pt-2 border-t">
-                    <div>Created: {formatDate(project.createdAt)}</div>
-                    {(() => {
-                      const repoInfo = getRepositoryInfo(project);
-                      if (repoInfo) {
-                        return <div className="flex items-center gap-1">
-                          <GitBranch className="h-3 w-3" />
-                          <span>{repoInfo.owner}/{repoInfo.repo}</span>
-                        </div>;
-                      }
-                      return null;
-                    })()}
-                    <div className="flex items-center gap-1 truncate">
-                      <FolderOpen className="h-3 w-3 flex-shrink-0" />
-                      <span className="truncate">{project.projectRoot}</span>
-                    </div>
-                  </div>
-                </div>
+      <Tabs value={statusFilter} onValueChange={(value) => setStatusFilter(value as StatusFilter)}>
+        <TabsList className="grid w-full grid-cols-2 max-w-md">
+          <TabsTrigger value="active">Active ({projectCounts.active})</TabsTrigger>
+          <TabsTrigger value="archived">Archived ({projectCounts.archived})</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value={statusFilter} className="mt-6">
+          {filteredAndSortedProjects.length === 0 ? (
+            projects.length === 0 ? (
+              <div className="text-center py-12">
+                <FolderOpen className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-muted-foreground mb-2">No projects found</h3>
+                <p className="text-sm text-muted-foreground mb-4">
+                  Get started by creating your first project.
+                </p>
+                <Button onClick={() => setCreateDialogOpen(true)}>
+                  <Plus className="mr-2 h-4 w-4" />
+                  Create Project
+                </Button>
               </div>
-            ))}
-          </div>
-        )
-      )}
+            ) : (
+              <div className="text-center py-12">
+                <Search className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-muted-foreground mb-2">
+                  No {statusFilter} projects match your search
+                </h3>
+                <p className="text-sm text-muted-foreground mb-4">
+                  Try adjusting your search terms or switch to the {statusFilter === 'active' ? 'archived' : 'active'} tab.
+                </p>
+              </div>
+            )
+          ) : (
+            viewType === 'list' ? (
+              <DndContext
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                onDragEnd={handleDragEnd}
+              >
+                <div className="bg-white rounded-lg border overflow-x-auto">
+                  <table className="w-full min-w-full">
+                    <thead className="border-b bg-muted/30">
+                      <tr>
+                        <th className="py-3 px-2 sm:px-4 text-left font-medium">Name</th>
+                        <th className="py-3 px-2 sm:px-4 text-left font-medium hidden md:table-cell">Repository</th>
+                        <th className="py-3 px-2 sm:px-4 text-left font-medium">Dev</th>
+                        <th className="py-3 px-2 sm:px-4 text-left font-medium">Priority</th>
+                        <th className="py-3 px-2 sm:px-4 text-left font-medium hidden lg:table-cell">Tags</th>
+                        <th className="py-3 px-2 sm:px-4 text-left font-medium hidden xl:table-cell">Created</th>
+                        <th className="py-3 px-2 sm:px-4 text-left font-medium">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <SortableContext
+                        items={filteredAndSortedProjects.map(p => p.id)}
+                        strategy={verticalListSortingStrategy}
+                      >
+                        {filteredAndSortedProjects.map((project) => (
+                          <SortableRow
+                            key={project.id}
+                            project={project}
+                            onEdit={handleEditProject}
+                            onDelete={handleDeleteProject}
+                            onView={handleViewProject}
+                            formatDate={formatDate}
+                            getPriorityColor={getPriorityColor}
+                            isDevServerRunning={isDevServerRunning}
+                          />
+                        ))}
+                      </SortableContext>
+                    </tbody>
+                  </table>
+                </div>
+              </DndContext>
+            ) : (
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {filteredAndSortedProjects.map((project) => (
+                  <div key={project.id} className="rounded-lg border p-4 sm:p-6 hover:shadow-md transition-shadow">
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="flex items-center gap-2 flex-1">
+                        <FolderOpen className="h-5 w-5 text-primary flex-shrink-0" />
+                        <h3 className="font-semibold truncate">{project.name}</h3>
+                      </div>
+                      <div className="flex gap-1 ml-2">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => handleEditProject(project)}
+                          className="h-8 w-8 p-0"
+                        >
+                          <Edit className="h-3 w-3" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => handleDeleteProject(project)}
+                          className="h-8 w-8 p-0 text-red-600 hover:text-red-700"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    </div>
+                    
+                    {project.description && (
+                      <p className="text-sm text-muted-foreground mb-4 line-clamp-2">
+                        {project.description}
+                      </p>
+                    )}
+                    
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <div className={`w-2 h-2 rounded-full ${
+                            isDevServerRunning(project) ? 'bg-green-500' : 'bg-gray-400'
+                          }`} />
+                          <span className="text-sm">Dev Server</span>
+                        </div>
+                        <Badge className={getPriorityColor(project.priority)}>
+                          {project.priority}
+                        </Badge>
+                      </div>
+                      
+                      {project.tags && project.tags.length > 0 && (
+                        <div className="flex flex-wrap gap-1">
+                          {project.tags.slice(0, 3).map((tag, index) => (
+                            <Badge key={index} variant="outline" className="text-xs">
+                              {tag}
+                            </Badge>
+                          ))}
+                          {project.tags.length > 3 && (
+                            <Badge variant="outline" className="text-xs">
+                              +{project.tags.length - 3}
+                            </Badge>
+                          )}
+                        </div>
+                      )}
+                      
+                      <div className="text-xs text-muted-foreground pt-2 border-t">
+                        <div>Created: {formatDate(project.createdAt)}</div>
+                        {(() => {
+                          const repoInfo = getRepositoryInfo(project);
+                          if (repoInfo) {
+                            return <div className="flex items-center gap-1">
+                              <GitBranch className="h-3 w-3" />
+                              <span>{repoInfo.owner}/{repoInfo.repo}</span>
+                            </div>;
+                          }
+                          return null;
+                        })()}
+                        <div className="flex items-center gap-1 truncate">
+                          <FolderOpen className="h-3 w-3 flex-shrink-0" />
+                          <span className="truncate">{project.projectRoot}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )
+          )}
+        </TabsContent>
+      </Tabs>
 
       <ProjectCreateDialog
         open={createDialogOpen}

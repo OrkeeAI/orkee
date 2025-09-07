@@ -63,3 +63,25 @@ export class ApiClient {
 }
 
 export const apiClient = new ApiClient();
+
+export interface PreviewApiResponse<T> {
+  success: boolean;
+  data: T;
+  error?: string;
+}
+
+export const previewService = {
+  async getActiveServers(): Promise<string[]> {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/preview/servers`);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      const result: PreviewApiResponse<string[]> = await response.json();
+      return result.success ? result.data : [];
+    } catch (error) {
+      console.error('Failed to fetch active servers:', error);
+      return [];
+    }
+  }
+};
