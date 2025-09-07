@@ -31,14 +31,18 @@ impl EventHandler {
                     .checked_sub(last_tick.elapsed())
                     .unwrap_or_else(|| Duration::from_secs(0));
                     
-                if event::poll(timeout).unwrap() {
-                    match event::read().unwrap() {
-                        Event::Key(key) => {
-                            if key.kind == event::KeyEventKind::Press {
-                                let _ = _sender.send(AppEvent::Key(key));
+                if let Ok(has_event) = event::poll(timeout) {
+                    if has_event {
+                        if let Ok(event) = event::read() {
+                            match event {
+                                Event::Key(key) => {
+                                    if key.kind == event::KeyEventKind::Press {
+                                        let _ = _sender.send(AppEvent::Key(key));
+                                    }
+                                }
+                                _ => {}
                             }
                         }
-                        _ => {}
                     }
                 }
                 

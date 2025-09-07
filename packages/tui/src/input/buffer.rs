@@ -262,7 +262,8 @@ impl InputBuffer {
             self.recalculate_lines(max_width);
         }
         
-        self.lines_cache.as_ref().unwrap()
+        // Safe to use unwrap_or_default here since we just recalculated if needed
+        self.lines_cache.as_ref().map(|v| v.as_slice()).unwrap_or(&[])
     }
     
     /// Find which line the cursor is on (0-indexed)

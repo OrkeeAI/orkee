@@ -42,21 +42,24 @@ impl MessageHistory {
     pub fn add_user_message(&mut self, content: impl Into<String>) -> &ChatMessage {
         let message = ChatMessage::user(content);
         self.add_message(message);
-        self.messages.last().unwrap()
+        // Safe: we just added a message, so last() will always be Some
+        self.messages.last().expect("Message was just added")
     }
     
     /// Add a system message
     pub fn add_system_message(&mut self, content: impl Into<String>) -> &ChatMessage {
         let message = ChatMessage::system(content);
         self.add_message(message);
-        self.messages.last().unwrap()
+        // Safe: we just added a message, so last() will always be Some
+        self.messages.last().expect("Message was just added")
     }
     
     /// Add an assistant message
     pub fn add_assistant_message(&mut self, content: impl Into<String>) -> &ChatMessage {
         let message = ChatMessage::assistant(content);
         self.add_message(message);
-        self.messages.last().unwrap()
+        // Safe: we just added a message, so last() will always be Some
+        self.messages.last().expect("Message was just added")
     }
     
     /// Get all messages

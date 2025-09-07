@@ -719,8 +719,8 @@ impl FormWidget {
                 
                 // Create a paragraph with the input value
                 let input_value = input.value();
-                let display_value = if input_value.is_empty() && field.placeholder.is_some() {
-                    field.placeholder.as_ref().unwrap()
+                let display_value = if input_value.is_empty() {
+                    field.placeholder.as_ref().map(|s| s.as_str()).unwrap_or(input_value)
                 } else {
                     input_value
                 };
@@ -810,11 +810,13 @@ impl FormWidget {
             let error_paragraph = Paragraph::new(error_text)
                 .style(Style::default().fg(Color::Red));
             frame.render_widget(error_paragraph, error_area);
-        } else if is_current && field.help_text.is_some() {
-            let help_text = format!("💡 {}", field.help_text.as_ref().unwrap());
-            let help_paragraph = Paragraph::new(help_text)
-                .style(Style::default().fg(Color::Gray));
-            frame.render_widget(help_paragraph, error_area);
+        } else if is_current {
+            if let Some(ref help) = field.help_text {
+                let help_text = format!("💡 {}", help);
+                let help_paragraph = Paragraph::new(help_text)
+                    .style(Style::default().fg(Color::Gray));
+                frame.render_widget(help_paragraph, error_area);
+            }
         }
     }
 
