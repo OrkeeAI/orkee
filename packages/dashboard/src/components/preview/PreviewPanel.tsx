@@ -19,6 +19,7 @@ export function PreviewPanel({ projectId, projectName }: PreviewPanelProps) {
   const [error, setError] = useState<string | null>(null);
   const [showTerminalModal, setShowTerminalModal] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [terminalAutoOpened, setTerminalAutoOpened] = useState(false);
   const isAggressivePollingRef = useRef(false);
 
   // Poll for server status
@@ -47,6 +48,7 @@ export function PreviewPanel({ projectId, projectName }: PreviewPanelProps) {
       
       // Auto-open terminal to show startup logs
       setShowTerminalModal(true);
+      setTerminalAutoOpened(true);
       
       const instance = await previewService.startServer(projectId, customPort);
       setServerInstance(instance);
@@ -99,6 +101,7 @@ export function PreviewPanel({ projectId, projectName }: PreviewPanelProps) {
       await previewService.stopServer(projectId);
       setServerInstance(null);
       setShowTerminalModal(false);
+      setTerminalAutoOpened(false);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to stop server';
       setError(errorMessage);
@@ -124,7 +127,18 @@ export function PreviewPanel({ projectId, projectName }: PreviewPanelProps) {
     return () => clearInterval(interval);
   }, [checkServerStatus]);
 
-  // Note: Terminal stays open until manually closed by user
+  // Auto-close terminal when server finishes starting (only if auto-opened)
+  useEffect(() => {
+    if (serverInstance?.status === 'running' && showTerminalModal && terminalAutoOpened) {
+      // Wait a moment to let users see the success message, then close
+      const timer = setTimeout(() => {
+        setShowTerminalModal(false);
+        setTerminalAutoOpened(false);
+      }, 3000); // 3 seconds delay
+
+      return () => clearTimeout(timer);
+    }
+  }, [serverInstance?.status, showTerminalModal, terminalAutoOpened]);
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -152,121 +166,6 @@ export function PreviewPanel({ projectId, projectName }: PreviewPanelProps) {
 
   return (
     <div className="space-y-4">
-      {/* Control Panel */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle className="text-lg font-semibold">Development Preview</CardTitle>
-              <CardDescription>
-                Preview {projectName} with a live development server
-              </CardDescription>
-            </div>
-            <div className="flex items-center gap-2">
-              {serverInstance && getStatusBadge(serverInstance.status)}
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-col sm:flex-row gap-2">
-            {!isRunning ? (
-              <Button 
-                onClick={() => handleStartServer()} 
-                disabled={isLoading || isStarting}
-                className="flex-1 sm:flex-none"
-              >
-                {isStarting ? (
-                  <>
-                    <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-                    Starting...
-                  </>
-                ) : (
-                  <>
-                    <Play className="mr-2 h-4 w-4" />
-                    Start Preview
-                  </>
-                )}
-              </Button>
-            ) : (
-              <>
-                <Button 
-                  onClick={handleStopServer} 
-                  variant="destructive"
-                  disabled={isLoading || isStopping}
-                  className="flex-1 sm:flex-none"
-                >
-                  {isStopping ? (
-                    <>
-                      <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-                      Stopping...
-                    </>
-                  ) : (
-                    <>
-                      <Square className="mr-2 h-4 w-4" />
-                      Stop Preview
-                    </>
-                  )}
-                </Button>
-                <Button 
-                  onClick={handleRefreshPreview}
-                  variant="outline"
-                  className="flex-1 sm:flex-none"
-                >
-                  <RefreshCw className="mr-2 h-4 w-4" />
-                  Refresh
-                </Button>
-                {serverInstance.preview_url && (
-                  <Button 
-                    onClick={() => window.open(serverInstance.preview_url, '_blank')}
-                    variant="outline"
-                    className="flex-1 sm:flex-none"
-                  >
-                    <ExternalLink className="mr-2 h-4 w-4" />
-                    Open in New Tab
-                  </Button>
-                )}
-              </>
-            )}
-            
-            {serverInstance && (
-              <Button 
-                onClick={() => setShowTerminalModal(true)}
-                variant="outline"
-                className="flex-1 sm:flex-none"
-              >
-                <Terminal className="mr-2 h-4 w-4" />
-                Show Terminal
-              </Button>
-            )}
-          </div>
-
-          {/* Server Info */}
-          {serverInstance && (
-            <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-              <div>
-                <span className="font-medium">Status:</span>
-                <div className="mt-1">{getStatusBadge(serverInstance.status)}</div>
-              </div>
-              {serverInstance.config.framework && (
-                <div>
-                  <span className="font-medium">Framework:</span>
-                  <div className="mt-1 text-muted-foreground">
-                    {serverInstance.config.framework.name}
-                    {serverInstance.config.framework.version && ` v${serverInstance.config.framework.version}`}
-                  </div>
-                </div>
-              )}
-              {serverInstance.config.port && (
-                <div>
-                  <span className="font-medium">Port:</span>
-                  <div className="mt-1 text-muted-foreground">{serverInstance.config.port}</div>
-                </div>
-              )}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
       {/* Error Alert */}
       {hasError && (
         <Alert variant="destructive">
@@ -285,38 +184,25 @@ export function PreviewPanel({ projectId, projectName }: PreviewPanelProps) {
         onOpenChange={setShowTerminalModal}
       />
 
-      {/* Preview Frame */}
-      {isRunning && serverInstance?.preview_url ? (
-        <PreviewFrame 
-          url={serverInstance.preview_url}
-          projectName={projectName}
-          refreshKey={refreshKey}
-        />
-      ) : !serverInstance ? (
-        <Card>
-          <CardContent className="py-12">
-            <div className="text-center">
-              <Play className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-              <h3 className="text-lg font-medium mb-2">Preview Not Running</h3>
-              <p className="text-muted-foreground mb-4">
-                Start the dev server to see a live preview of your application.
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-      ) : (
-        <Card>
-          <CardContent className="py-12">
-            <div className="text-center">
-              <Monitor className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-              <h3 className="text-lg font-medium mb-2">Starting Preview Server</h3>
-              <p className="text-muted-foreground">
-                Please wait while the development server starts...
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+      {/* Consolidated Preview Frame with Server Controls */}
+      <PreviewFrame 
+        url={serverInstance?.preview_url || ''}
+        projectName={projectName}
+        refreshKey={refreshKey}
+        serverStatus={serverInstance?.status}
+        serverFramework={serverInstance?.config.framework?.name}
+        serverPort={serverInstance?.config.port}
+        isLoading={isLoading}
+        isStarting={isStarting}
+        isStopping={isStopping}
+        onStartServer={() => handleStartServer()}
+        onStopServer={handleStopServer}
+        onRefreshPreview={handleRefreshPreview}
+        onShowTerminal={() => {
+          setShowTerminalModal(true);
+          setTerminalAutoOpened(false); // Mark as manually opened
+        }}
+      />
     </div>
   );
 }

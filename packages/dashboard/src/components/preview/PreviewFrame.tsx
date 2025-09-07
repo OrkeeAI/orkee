@@ -1,13 +1,24 @@
 import { useState, useEffect } from 'react';
-import { Monitor, Tablet, Smartphone, RefreshCw, AlertCircle, ExternalLink, Maximize2, X } from 'lucide-react';
+import { Monitor, Tablet, Smartphone, RefreshCw, AlertCircle, ExternalLink, Maximize2, X, Play, Square, Terminal } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
 
 interface PreviewFrameProps {
   url: string;
   projectName: string;
   refreshKey?: number;
+  serverStatus?: string;
+  serverFramework?: string;
+  serverPort?: number;
+  isLoading?: boolean;
+  isStarting?: boolean;
+  isStopping?: boolean;
+  onStartServer?: () => void;
+  onStopServer?: () => void;
+  onRefreshPreview?: () => void;
+  onShowTerminal?: () => void;
 }
 
 type DeviceType = 'desktop' | 'tablet' | 'mobile';
@@ -33,7 +44,21 @@ const deviceConfigs = {
   },
 } as const;
 
-export function PreviewFrame({ url, projectName, refreshKey = 0 }: PreviewFrameProps) {
+export function PreviewFrame({ 
+  url, 
+  projectName, 
+  refreshKey = 0,
+  serverStatus,
+  serverFramework,
+  serverPort,
+  isLoading: serverLoading = false,
+  isStarting = false,
+  isStopping = false,
+  onStartServer,
+  onStopServer,
+  onRefreshPreview,
+  onShowTerminal,
+}: PreviewFrameProps) {
   const [selectedDevice, setSelectedDevice] = useState<DeviceType>('desktop');
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
@@ -111,58 +136,163 @@ export function PreviewFrame({ url, projectName, refreshKey = 0 }: PreviewFrameP
     }
   }, [isFullscreen]);
 
+  // Helper function to get status badge
+  const getStatusBadge = (status?: string) => {
+    if (!status) return null;
+    switch (status) {
+      case 'running':
+        return <Badge variant="default" className="bg-green-100 text-green-800">Running</Badge>;
+      case 'starting':
+        return <Badge variant="default" className="bg-blue-100 text-blue-800">Starting</Badge>;
+      case 'stopping':
+        return <Badge variant="default" className="bg-yellow-100 text-yellow-800">Stopping</Badge>;
+      case 'error':
+        return <Badge variant="destructive">Error</Badge>;
+      default:
+        return <Badge variant="secondary">Stopped</Badge>;
+    }
+  };
+
   const currentConfig = deviceConfigs[selectedDevice];
+  const isRunning = serverStatus === 'running';
 
   return (
     <>
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
-            <CardTitle className="text-lg font-semibold">
-              Application Preview
-            </CardTitle>
-          <div className="flex items-center gap-2">
-            {/* Device Size Selector */}
-            <div className="flex items-center border rounded-md p-1">
-              {Object.entries(deviceConfigs).map(([device, config]) => {
-                const IconComponent = config.icon;
-                return (
-                  <Button
-                    key={device}
-                    variant={selectedDevice === device ? "default" : "ghost"}
-                    size="sm"
-                    className="px-2 py-1"
-                    onClick={() => setSelectedDevice(device as DeviceType)}
-                  >
-                    <IconComponent className="h-4 w-4" />
-                    <span className="sr-only">{config.name}</span>
-                  </Button>
-                );
-              })}
+            <div className="flex items-center gap-4">
+              <CardTitle className="text-lg font-semibold">
+                Development Preview
+              </CardTitle>
+              {getStatusBadge(serverStatus)}
+              {serverFramework && (
+                <span className="text-sm text-muted-foreground">
+                  {serverFramework} • Port {serverPort}
+                </span>
+              )}
             </div>
-            
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setIsFullscreen(true)}
-            >
-              <Maximize2 className="mr-2 h-4 w-4" />
-              Full
-            </Button>
-            
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => window.open(url, '_blank')}
-            >
-              <ExternalLink className="mr-2 h-4 w-4" />
-              Open
-            </Button>
+            <div className="flex items-center gap-2">
+              {/* Device Size Selector */}
+              <div className="flex items-center border rounded-md p-1">
+                {Object.entries(deviceConfigs).map(([device, config]) => {
+                  const IconComponent = config.icon;
+                  return (
+                    <Button
+                      key={device}
+                      variant={selectedDevice === device ? "default" : "ghost"}
+                      size="sm"
+                      className="px-2 py-1"
+                      onClick={() => setSelectedDevice(device as DeviceType)}
+                    >
+                      <IconComponent className="h-4 w-4" />
+                      <span className="sr-only">{config.name}</span>
+                    </Button>
+                  );
+                })}
+              </div>
+              
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setIsFullscreen(true)}
+              >
+                <Maximize2 className="mr-2 h-4 w-4" />
+                Full
+              </Button>
+              
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => window.open(url, '_blank')}
+              >
+                <ExternalLink className="mr-2 h-4 w-4" />
+                Open
+              </Button>
+            </div>
           </div>
-        </div>
-      </CardHeader>
+          
+          {/* Server Controls Row */}
+          <div className="flex flex-col sm:flex-row gap-2 mt-4">
+            {!isRunning ? (
+              <Button 
+                onClick={onStartServer} 
+                disabled={serverLoading || isStarting}
+                className="flex-1 sm:flex-none"
+              >
+                {isStarting ? (
+                  <>
+                    <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                    Starting...
+                  </>
+                ) : (
+                  <>
+                    <Play className="mr-2 h-4 w-4" />
+                    Start Preview
+                  </>
+                )}
+              </Button>
+            ) : (
+              <>
+                <Button 
+                  onClick={onStopServer} 
+                  variant="destructive"
+                  disabled={serverLoading || isStopping}
+                  className="flex-1 sm:flex-none"
+                >
+                  {isStopping ? (
+                    <>
+                      <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                      Stopping...
+                    </>
+                  ) : (
+                    <>
+                      <Square className="mr-2 h-4 w-4" />
+                      Stop Preview
+                    </>
+                  )}
+                </Button>
+                <Button 
+                  onClick={onRefreshPreview}
+                  variant="outline"
+                  className="flex-1 sm:flex-none"
+                >
+                  <RefreshCw className="mr-2 h-4 w-4" />
+                  Refresh
+                </Button>
+              </>
+            )}
+            
+            {onShowTerminal && (
+              <Button 
+                onClick={onShowTerminal}
+                variant="outline"
+                className="flex-1 sm:flex-none"
+              >
+                <Terminal className="mr-2 h-4 w-4" />
+                Show Terminal
+              </Button>
+            )}
+          </div>
+        </CardHeader>
       <CardContent>
-        {hasError ? (
+        {!isRunning && !isStarting ? (
+          <div className="text-center py-12">
+            <Play className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+            <h3 className="text-lg font-medium mb-2">Preview Not Running</h3>
+            <p className="text-muted-foreground mb-4">
+              Start the dev server to see a live preview of your application.
+            </p>
+          </div>
+        ) : isStarting ? (
+          <div className="text-center py-12">
+            <Monitor className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+            <h3 className="text-lg font-medium mb-2">Starting Preview Server</h3>
+            <p className="text-muted-foreground">
+              Please wait while the development server starts...
+            </p>
+          </div>
+        ) : hasError ? (
           <Alert variant="destructive">
             <AlertCircle className="h-4 w-4" />
             <AlertDescription>
@@ -229,24 +359,26 @@ export function PreviewFrame({ url, projectName, refreshKey = 0 }: PreviewFrameP
             </div>
 
             {/* URL Info */}
-            <div className="mt-4 p-3 bg-muted rounded-md">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium">Preview URL:</span>
-                  <code className="text-sm bg-background px-2 py-1 rounded border">
-                    {url}
-                  </code>
+            {url && (
+              <div className="mt-4 p-3 bg-muted rounded-md">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium">Preview URL:</span>
+                    <code className="text-sm bg-background px-2 py-1 rounded border">
+                      {url}
+                    </code>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => navigator.clipboard.writeText(url)}
+                    className="text-xs"
+                  >
+                    Copy
+                  </Button>
                 </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => navigator.clipboard.writeText(url)}
-                  className="text-xs"
-                >
-                  Copy
-                </Button>
               </div>
-            </div>
+            )}
           </div>
         )}
       </CardContent>
