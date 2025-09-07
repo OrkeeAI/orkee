@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "orkee": {
+      "command": "/path/to/orkee/packages/mcp-server/target/release/orkee-mcp",
+      "args": ["--mcp"],
+      "env": {}
+    }
+  }
+}

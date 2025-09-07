@@ -1,0 +1,11 @@
+{
+  "name": "@orkee/mcp-server",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "build": "cargo build --release",
+    "dev": "cargo run --bin orkee-mcp",
+    "dev:http": "cargo run --bin orkee-mcp -- --transport http-stream --port 8080",
+    "test": "cargo test"
+  }
+}
