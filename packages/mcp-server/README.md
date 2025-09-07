@@ -42,8 +42,8 @@ cargo build --release
 ### Command Line Usage
 
 ```bash
-# Start MCP server (for Claude Desktop integration)
-./target/release/orkee-mcp --mcp
+# Start MCP server (default behavior, for Claude Desktop integration)
+./target/release/orkee-mcp
 
 # Show available tools
 ./target/release/orkee-mcp --tools
@@ -71,7 +71,7 @@ Add the following to your Claude Desktop configuration file:
   "mcpServers": {
     "orkee": {
       "command": "/absolute/path/to/orkee/packages/mcp-server/target/release/orkee-mcp",
-      "args": ["--mcp"],
+      "args": [],
       "env": {}
     }
   }
@@ -96,13 +96,13 @@ In Claude Desktop, you should be able to:
 
 ```bash
 # Test initialization
-echo '{"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"protocolVersion": "2024-11-05", "capabilities": {}, "clientInfo": {"name": "test-client", "version": "1.0"}}}' | ./target/release/orkee-mcp --mcp
+echo '{"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"protocolVersion": "2024-11-05", "capabilities": {}, "clientInfo": {"name": "test-client", "version": "1.0"}}}' | ./target/release/orkee-mcp
 
 # Test tools listing
-echo '{"jsonrpc": "2.0", "id": 2, "method": "tools/list"}' | ./target/release/orkee-mcp --mcp
+echo '{"jsonrpc": "2.0", "id": 2, "method": "tools/list"}' | ./target/release/orkee-mcp
 
 # Test project listing
-echo '{"jsonrpc": "2.0", "id": 3, "method": "tools/call", "params": {"name": "projects", "arguments": {"action": "list", "status": "all"}}}' | ./target/release/orkee-mcp --mcp
+echo '{"jsonrpc": "2.0", "id": 3, "method": "tools/call", "params": {"name": "projects", "arguments": {"action": "list", "status": "all"}}}' | ./target/release/orkee-mcp
 ```
 
 ## Implementation Details
@@ -157,7 +157,7 @@ cargo check
 cargo test
 
 # Development mode
-cargo run --bin orkee-mcp -- --mcp
+cargo run --bin orkee-mcp
 ```
 
 ## License

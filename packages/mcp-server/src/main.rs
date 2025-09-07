@@ -20,7 +20,7 @@ use tools::{tools_list, tools_call};
 #[command(about = "Orkee MCP Server - Model Context Protocol server for project management")]
 #[command(version)]
 struct Cli {
-    #[arg(long, help = "Enable MCP server mode")]
+    #[arg(long, help = "Enable MCP server mode (default behavior)")]
     mcp: bool,
     #[arg(long, help = "Display available tools")]
     tools: bool,
@@ -115,10 +115,7 @@ async fn main() -> Result<()> {
         return Ok(());
     }
 
-    if !cli.mcp {
-        println!("Use --mcp to start MCP server, or --tools/--resources/--prompts to list capabilities");
-        return Ok(());
-    }
+    // Default behavior is to start MCP server unless showing capabilities
 
     // Set up signal handling for graceful shutdown
     let running = Arc::new(AtomicBool::new(true));
