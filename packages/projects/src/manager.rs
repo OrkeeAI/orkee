@@ -167,7 +167,8 @@ pub async fn update_project(id: &str, updates: ProjectUpdateInput) -> ManagerRes
     }
     
     // Now we can safely get the mutable reference and apply updates
-    let project = config.projects.get_mut(id).unwrap(); // Safe because we checked existence above
+    let project = config.projects.get_mut(id)
+        .ok_or_else(|| ManagerError::NotFound(id.to_string()))?;
     
     // Apply updates
     if let Some(name) = updates.name {

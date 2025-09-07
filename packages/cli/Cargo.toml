@@ -13,6 +13,8 @@ reqwest = { version = "0.12", features = ["json"] }
 tower = "0.4"
 dotenvy = "0.15"
 tracing = "0.1"
+thiserror = "2.0"
+anyhow = "1.0"
 orkee-projects = { path = "../projects" }
 orkee-preview = { path = "../preview" }
 orkee-tui = { path = "../tui" }
@@ -30,3 +32,14 @@ chrono = "0.4"
 [[bin]]
 name = "orkee"
 path = "src/bin/orkee.rs"
+
+[dev-dependencies]
+rstest = "0.18"
+mockall = "0.12"
+wiremock = "0.6"
+test-case = "3.1"
+pretty_assertions = "1.4"
+tempfile = "3.8"
+tokio-test = "0.4"
+axum-test = "15.0"
+futures = "0.3"

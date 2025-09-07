@@ -2,8 +2,11 @@ use axum::http::Method;
 use tower_http::cors::{Any, CorsLayer};
 use std::net::SocketAddr;
 
-mod api;
-mod config;
+pub mod api;
+pub mod config;
+
+#[cfg(test)]
+mod tests;
 
 use config::Config;
 
@@ -11,7 +14,7 @@ pub async fn run_server() -> Result<(), Box<dyn std::error::Error>> {
     // Load .env file
     dotenvy::dotenv().ok();
     
-    let config = Config::from_env();
+    let config = Config::from_env()?;
     
     // Create CORS layer
     let cors = CorsLayer::new()

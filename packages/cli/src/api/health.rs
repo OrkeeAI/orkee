@@ -5,8 +5,8 @@ use std::time::{SystemTime, UNIX_EPOCH};
 pub async fn health_check() -> Result<Json<Value>> {
     let timestamp = SystemTime::now()
         .duration_since(UNIX_EPOCH)
-        .unwrap()
-        .as_secs();
+        .map(|d| d.as_secs())
+        .unwrap_or(0); // Fallback to 0 if system time is somehow before UNIX_EPOCH
 
     Ok(Json(json!({
         "status": "healthy",
@@ -19,8 +19,8 @@ pub async fn health_check() -> Result<Json<Value>> {
 pub async fn status_check() -> Result<Json<Value>> {
     let timestamp = SystemTime::now()
         .duration_since(UNIX_EPOCH)
-        .unwrap()
-        .as_secs();
+        .map(|d| d.as_secs())
+        .unwrap_or(0); // Fallback to 0 if system time is somehow before UNIX_EPOCH
     
     // This would contain more detailed system information in a real implementation
     Ok(Json(json!({
