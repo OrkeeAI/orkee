@@ -20,7 +20,8 @@ import {
 } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { DirectorySelector } from '@/components/DirectorySelector';
-import { projectsService, Project, ProjectUpdateInput, ProjectStatus, Priority } from '@/services/projects';
+import { Check } from 'lucide-react';
+import { projectsService, Project, ProjectUpdateInput, ProjectStatus, Priority, TaskSource } from '@/services/projects';
 
 interface ProjectEditDialogProps {
   project: Project | null;
@@ -34,6 +35,40 @@ export function ProjectEditDialog({ project, open, onOpenChange, onProjectUpdate
   const [tagsInput, setTagsInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [hasTaskmaster, setHasTaskmaster] = useState(false);
+  const [checkingTaskmaster, setCheckingTaskmaster] = useState(false);
+
+  // Check for taskmaster folder
+  const checkTaskmasterFolder = async (projectRoot: string) => {
+    if (!projectRoot) return;
+    
+    setCheckingTaskmaster(true);
+    try {
+      const response = await fetch('/api/projects/check-taskmaster', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ projectRoot }),
+      });
+      
+      if (response.ok) {
+        const result = await response.json();
+        if (result.success) {
+          setHasTaskmaster(result.data.hasTaskmaster);
+          // Update the form data with detected task source
+          setFormData(prev => ({
+            ...prev,
+            taskSource: result.data.taskSource as TaskSource
+          }));
+        }
+      }
+    } catch (error) {
+      console.error('Failed to check taskmaster folder:', error);
+    } finally {
+      setCheckingTaskmaster(false);
+    }
+  };
 
   // Populate form when project changes
   useEffect(() => {
@@ -47,9 +82,13 @@ export function ProjectEditDialog({ project, open, onOpenChange, onProjectUpdate
         setupScript: project.setupScript || '',
         devScript: project.devScript || '',
         cleanupScript: project.cleanupScript || '',
+        taskSource: project.taskSource,
       });
       setTagsInput(project.tags?.join(', ') || '');
       setError(null);
+      
+      // Check for taskmaster folder when project loads
+      checkTaskmasterFolder(project.projectRoot);
     }
   }, [project]);
 
@@ -129,7 +168,13 @@ export function ProjectEditDialog({ project, open, onOpenChange, onProjectUpdate
                   id="projectRoot"
                   label="Project Root Path"
                   value={formData.projectRoot || ''}
-                  onChange={(value) => setFormData({ ...formData, projectRoot: value })}
+                  onChange={(value) => {
+                    setFormData({ ...formData, projectRoot: value });
+                    // Check for taskmaster folder when path changes
+                    if (value) {
+                      checkTaskmasterFolder(value);
+                    }
+                  }}
                   placeholder="/path/to/project"
                   required
                 />
@@ -178,6 +223,43 @@ export function ProjectEditDialog({ project, open, onOpenChange, onProjectUpdate
                       </SelectContent>
                     </Select>
                   </div>
+                </div>
+
+                <div className="grid gap-2">
+                  <Label>Task Management</Label>
+                  <Select
+                    value={formData.taskSource || 'manual'}
+                    onValueChange={(value: TaskSource) => setFormData({ ...formData, taskSource: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select task source" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="taskmaster">Taskmaster (.taskmaster folder)</SelectItem>
+                      <SelectItem value="manual">Manual Tasks</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  
+                  {checkingTaskmaster && (
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                      Checking for .taskmaster folder...
+                    </div>
+                  )}
+                  
+                  {!checkingTaskmaster && hasTaskmaster && (
+                    <div className="flex items-center gap-2 text-sm text-green-600">
+                      <Check className="h-4 w-4" />
+                      .taskmaster folder detected
+                    </div>
+                  )}
+                  
+                  <p className="text-xs text-muted-foreground">
+                    {formData.taskSource === 'taskmaster' 
+                      ? 'Tasks will be read from the Taskmaster configuration file'
+                      : 'Tasks will be managed manually within this application'
+                    }
+                  </p>
                 </div>
 
                 <div className="grid gap-2">

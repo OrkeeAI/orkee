@@ -15,4 +15,5 @@ pub fn create_projects_router() -> Router {
         .route("/:id", delete(handlers::delete_project))
         .route("/by-name/:name", get(handlers::get_project_by_name))
         .route("/by-path", post(handlers::get_project_by_path))
+        .route("/check-taskmaster", post(handlers::check_taskmaster))
 }

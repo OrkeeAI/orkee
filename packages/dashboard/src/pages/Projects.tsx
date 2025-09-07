@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -48,11 +49,12 @@ interface SortableRowProps {
   project: Project;
   onEdit: (project: Project) => void;
   onDelete: (project: Project) => void;
+  onView: (project: Project) => void;
   formatDate: (dateString: string) => string;
   getPriorityColor: (priority: string) => string;
 }
 
-function SortableRow({ project, onEdit, onDelete, formatDate, getPriorityColor }: SortableRowProps) {
+function SortableRow({ project, onEdit, onDelete, onView, formatDate, getPriorityColor }: SortableRowProps) {
   const {
     attributes,
     listeners,
@@ -80,7 +82,12 @@ function SortableRow({ project, onEdit, onDelete, formatDate, getPriorityColor }
             <GripVertical className="h-4 w-4 text-muted-foreground" />
           </button>
           <FolderOpen className="h-4 w-4 text-primary" />
-          <span className="font-medium text-sm sm:text-base truncate">{project.name}</span>
+          <button 
+            onClick={() => onView(project)}
+            className="font-medium text-sm sm:text-base truncate hover:text-primary transition-colors text-left"
+          >
+            {project.name}
+          </button>
         </div>
       </td>
       <td className="py-3 px-2 sm:px-4 hidden md:table-cell">
@@ -159,6 +166,7 @@ function SortableRow({ project, onEdit, onDelete, formatDate, getPriorityColor }
 }
 
 export function Projects() {
+  const navigate = useNavigate();
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -233,6 +241,10 @@ export function Projects() {
   useEffect(() => {
     loadProjects();
   }, []);
+
+  const handleViewProject = (project: Project) => {
+    navigate(`/projects/${project.id}`);
+  };
 
   const handleEditProject = (project: Project) => {
     setSelectedProject(project);
@@ -463,6 +475,7 @@ export function Projects() {
                         project={project}
                         onEdit={handleEditProject}
                         onDelete={handleDeleteProject}
+                        onView={handleViewProject}
                         formatDate={formatDate}
                         getPriorityColor={getPriorityColor}
                       />

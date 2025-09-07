@@ -50,6 +50,22 @@ pub struct GetProjectByPathRequest {
     project_root: String,
 }
 
+/// Request body for checking taskmaster folder
+#[derive(Deserialize)]
+pub struct CheckTaskmasterRequest {
+    #[serde(rename = "projectRoot")]
+    project_root: String,
+}
+
+/// Response for taskmaster check
+#[derive(Serialize)]
+pub struct CheckTaskmasterResponse {
+    #[serde(rename = "hasTaskmaster")]
+    has_taskmaster: bool,
+    #[serde(rename = "taskSource")]
+    task_source: String,
+}
+
 /// Convert manager errors to HTTP responses
 impl IntoResponse for ManagerError {
     fn into_response(self) -> axum::response::Response {
@@ -211,6 +227,24 @@ pub async fn delete_project(Path(id): Path<String>) -> impl IntoResponse {
             e.into_response()
         }
     }
+}
+
+/// Check if project has .taskmaster folder
+pub async fn check_taskmaster(Json(request): Json<CheckTaskmasterRequest>) -> impl IntoResponse {
+    info!("Checking taskmaster folder for: {}", request.project_root);
+    
+    let taskmaster_path = std::path::Path::new(&request.project_root).join(".taskmaster");
+    let has_taskmaster = taskmaster_path.exists() && taskmaster_path.is_dir();
+    
+    let response = CheckTaskmasterResponse {
+        has_taskmaster,
+        task_source: if has_taskmaster { "taskmaster".to_string() } else { "manual".to_string() },
+    };
+    
+    info!("Taskmaster check result for {}: has_taskmaster={}, task_source={}", 
+          request.project_root, response.has_taskmaster, response.task_source);
+    
+    (StatusCode::OK, ResponseJson(ApiResponse::success(response))).into_response()
 }
 
 #[cfg(test)]
