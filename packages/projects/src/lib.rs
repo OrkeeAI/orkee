@@ -25,19 +25,26 @@ pub use types::{
 pub use manager::{
     create_project, delete_project, get_all_projects, get_project, get_project_by_name,
     get_project_by_path, update_project, ManagerError, ManagerResult, ProjectsManager,
+    initialize_storage, get_storage_manager,
 };
 
-// Re-export storage functions
+// Re-export storage types and traits
 pub use storage::{
-    ensure_projects_file, path_exists, read_projects_config, write_projects_config, StorageError,
-    StorageResult,
+    ProjectStorage, StorageConfig, StorageProvider, CloudProvider, StorageError,
+    StorageResult, StorageInfo, StorageCapabilities, ProjectFilter,
+    factory::{StorageFactory, StorageManager, StorageStats, ProjectStorageExt},
+    // Legacy JSON storage functions for backward compatibility
+    ensure_projects_file, path_exists, read_projects_config, write_projects_config,
 };
 
 // Re-export validator functions
 pub use validator::{
-    generate_project_id, truncate, validate_project_data, validate_project_update,
+    truncate, validate_project_data, validate_project_update,
     ValidationError,
 };
+
+// Re-export storage utility functions
+pub use storage::generate_project_id;
 
 // Re-export formatter functions
 pub use formatter::{format_project_details, format_projects_table};

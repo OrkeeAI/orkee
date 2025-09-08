@@ -1,10 +1,11 @@
-use crate::storage::{read_projects_config, write_projects_config, StorageError};
-use crate::types::{Project, ProjectCreateInput, ProjectUpdateInput};
-use crate::validator::{generate_project_id, validate_project_data, validate_project_update, ValidationError};
+use crate::storage::{StorageError, ProjectStorage, factory::{StorageManager, ProjectStorageExt}};
+use crate::types::{Project, ProjectCreateInput, ProjectUpdateInput, ProjectStatus};
+use crate::validator::{validate_project_data, validate_project_update, ValidationError};
 use crate::git_utils::get_git_repository_info;
-use chrono::Utc;
+use std::sync::Arc;
+use tokio::sync::OnceCell;
 use thiserror::Error;
-use tracing::{debug, info};
+use tracing::{debug, info, warn};
 
 /// Manager errors
 #[derive(Error, Debug)]
@@ -21,27 +22,48 @@ pub enum ManagerError {
     DuplicatePath(String),
 }
 
+
+/// Global storage manager instance
+static STORAGE_MANAGER: OnceCell<Arc<StorageManager>> = OnceCell::const_new();
+
+/// Initialize the global storage manager
+pub async fn initialize_storage() -> ManagerResult<()> {
+    let storage_manager = Arc::new(StorageManager::default().await?);
+    STORAGE_MANAGER.set(storage_manager)
+        .map_err(|_| ManagerError::Storage(StorageError::Database("Storage already initialized".to_string())))?;
+    info!("Storage manager initialized successfully");
+    Ok(())
+}
+
+/// Get the global storage manager instance
+pub async fn get_storage_manager() -> ManagerResult<Arc<StorageManager>> {
+    match STORAGE_MANAGER.get() {
+        Some(manager) => Ok(manager.clone()),
+        None => {
+            warn!("Storage manager not initialized, initializing now");
+            initialize_storage().await?;
+            Ok(STORAGE_MANAGER.get().unwrap().clone())
+        }
+    }
+}
+
+/// Populate git repository information for projects
+fn populate_git_info(projects: &mut Vec<Project>) {
+    for project in projects {
+        project.git_repository = get_git_repository_info(&project.project_root);
+    }
+}
+
 pub type ManagerResult<T> = Result<T, ManagerError>;
 
 /// Gets all projects
 pub async fn get_all_projects() -> ManagerResult<Vec<Project>> {
-    let config = read_projects_config().await?;
-    let mut projects: Vec<_> = config.projects.into_values().collect();
+    let storage_manager = get_storage_manager().await?;
+    let storage = storage_manager.storage();
+    let mut projects = storage.list_projects().await?;
     
     // Populate git repository information for each project
-    for project in &mut projects {
-        project.git_repository = get_git_repository_info(&project.project_root);
-    }
-    
-    // Sort by rank (ascending) and then by name
-    projects.sort_by(|a, b| {
-        match (a.rank, b.rank) {
-            (Some(rank_a), Some(rank_b)) => rank_a.cmp(&rank_b),
-            (Some(_), None) => std::cmp::Ordering::Less,
-            (None, Some(_)) => std::cmp::Ordering::Greater,
-            (None, None) => a.name.cmp(&b.name),
-        }
-    });
+    populate_git_info(&mut projects);
     
     debug!("Retrieved {} projects", projects.len());
     Ok(projects)
@@ -49,8 +71,9 @@ pub async fn get_all_projects() -> ManagerResult<Vec<Project>> {
 
 /// Gets a project by ID
 pub async fn get_project(id: &str) -> ManagerResult<Option<Project>> {
-    let config = read_projects_config().await?;
-    let mut project = config.projects.get(id).cloned();
+    let storage_manager = get_storage_manager().await?;
+    let storage = storage_manager.storage();
+    let mut project = storage.get_project(id).await?;
     
     // Populate git repository information if project exists
     if let Some(ref mut proj) = project {
@@ -62,14 +85,30 @@ pub async fn get_project(id: &str) -> ManagerResult<Option<Project>> {
 
 /// Gets a project by name
 pub async fn get_project_by_name(name: &str) -> ManagerResult<Option<Project>> {
-    let projects = get_all_projects().await?;
-    Ok(projects.into_iter().find(|p| p.name == name))
+    let storage_manager = get_storage_manager().await?;
+    let storage = storage_manager.storage();
+    let mut project = storage.get_project_by_name(name).await?;
+    
+    // Populate git repository information if project exists
+    if let Some(ref mut proj) = project {
+        proj.git_repository = get_git_repository_info(&proj.project_root);
+    }
+    
+    Ok(project)
 }
 
 /// Gets a project by project root path
 pub async fn get_project_by_path(project_root: &str) -> ManagerResult<Option<Project>> {
-    let projects = get_all_projects().await?;
-    Ok(projects.into_iter().find(|p| p.project_root == project_root))
+    let storage_manager = get_storage_manager().await?;
+    let storage = storage_manager.storage();
+    let mut project = storage.get_project_by_path(project_root).await?;
+    
+    // Populate git repository information if project exists
+    if let Some(ref mut proj) = project {
+        proj.git_repository = get_git_repository_info(&proj.project_root);
+    }
+    
+    Ok(project)
 }
 
 /// Creates a new project
@@ -80,51 +119,14 @@ pub async fn create_project(data: ProjectCreateInput) -> ManagerResult<Project> 
         return Err(ManagerError::Validation(validation_errors));
     }
     
-    let mut config = read_projects_config().await?;
+    let storage_manager = get_storage_manager().await?;
+    let storage = storage_manager.storage();
     
-    // Check for duplicate name
-    if let Some(_) = config.projects.values().find(|p| p.name == data.name) {
-        return Err(ManagerError::DuplicateName(data.name));
-    }
+    // Create project using storage layer (handles duplicate checks)
+    let mut project = storage.create_project(data).await?;
     
-    // Check for duplicate path
-    if let Some(_) = config.projects.values().find(|p| p.project_root == data.project_root) {
-        return Err(ManagerError::DuplicatePath(data.project_root));
-    }
-    
-    let now = Utc::now();
-    
-    // Get git repository info before moving data
-    let git_repository = get_git_repository_info(&data.project_root);
-    
-    // Calculate rank for new project (add to end)
-    let max_rank = config.projects.values()
-        .map(|p| p.rank.unwrap_or(0))
-        .max()
-        .unwrap_or(0);
-    
-    let project = Project {
-        id: generate_project_id(),
-        name: data.name,
-        project_root: data.project_root,
-        setup_script: data.setup_script.and_then(|s| if s.trim().is_empty() { None } else { Some(s) }),
-        dev_script: data.dev_script.and_then(|s| if s.trim().is_empty() { None } else { Some(s) }),
-        cleanup_script: data.cleanup_script.and_then(|s| if s.trim().is_empty() { None } else { Some(s) }),
-        tags: data.tags.and_then(|t| if t.is_empty() { None } else { Some(t) }),
-        description: data.description.and_then(|d| if d.trim().is_empty() { None } else { Some(d) }),
-        status: data.status.unwrap_or_default(),
-        rank: data.rank.or(Some(max_rank + 1)),
-        priority: data.priority.unwrap_or_default(),
-        task_source: data.task_source,
-        manual_tasks: data.manual_tasks,
-        mcp_servers: data.mcp_servers,
-        git_repository,
-        created_at: now,
-        updated_at: now,
-    };
-    
-    config.projects.insert(project.id.clone(), project.clone());
-    write_projects_config(&config).await?;
+    // Populate git repository information
+    project.git_repository = get_git_repository_info(&project.project_root);
     
     info!("Created project '{}' with ID {}", project.name, project.id);
     Ok(project)
@@ -132,107 +134,33 @@ pub async fn create_project(data: ProjectCreateInput) -> ManagerResult<Project> 
 
 /// Updates an existing project
 pub async fn update_project(id: &str, updates: ProjectUpdateInput) -> ManagerResult<Project> {
-    let mut config = read_projects_config().await?;
-    
-    // Check if project exists first
-    if !config.projects.contains_key(id) {
-        return Err(ManagerError::NotFound(id.to_string()));
-    }
-    
     // Validate the updates
     let validation_errors = validate_project_update(&updates, false).await;
     if !validation_errors.is_empty() {
         return Err(ManagerError::Validation(validation_errors));
     }
     
-    // Get current project for comparison (clone to avoid borrowing issues)
-    let current_project = config.projects[id].clone();
+    let storage_manager = get_storage_manager().await?;
+    let storage = storage_manager.storage();
     
-    // Check for duplicate name if name is being changed
-    if let Some(ref new_name) = updates.name {
-        if new_name != &current_project.name {
-            if let Some(_) = config.projects.values().find(|p| p.name == *new_name && p.id != id) {
-                return Err(ManagerError::DuplicateName(new_name.clone()));
-            }
-        }
-    }
-    
-    // Check for duplicate path if path is being changed
-    if let Some(ref new_path) = updates.project_root {
-        if new_path != &current_project.project_root {
-            if let Some(_) = config.projects.values().find(|p| p.project_root == *new_path && p.id != id) {
-                return Err(ManagerError::DuplicatePath(new_path.clone()));
-            }
-        }
-    }
-    
-    // Now we can safely get the mutable reference and apply updates
-    let project = config.projects.get_mut(id)
-        .ok_or_else(|| ManagerError::NotFound(id.to_string()))?;
-    
-    // Apply updates
-    if let Some(name) = updates.name {
-        project.name = name;
-    }
-    if let Some(project_root) = updates.project_root {
-        project.project_root = project_root.clone();
-        // Update git repository info when project root changes
-        project.git_repository = get_git_repository_info(&project_root);
-    }
-    if let Some(setup_script) = updates.setup_script {
-        project.setup_script = if setup_script.trim().is_empty() { None } else { Some(setup_script) };
-    }
-    if let Some(dev_script) = updates.dev_script {
-        project.dev_script = if dev_script.trim().is_empty() { None } else { Some(dev_script) };
-    }
-    if let Some(cleanup_script) = updates.cleanup_script {
-        project.cleanup_script = if cleanup_script.trim().is_empty() { None } else { Some(cleanup_script) };
-    }
-    if let Some(tags) = updates.tags {
-        project.tags = if tags.is_empty() { None } else { Some(tags) };
-    }
-    if let Some(description) = updates.description {
-        project.description = if description.trim().is_empty() { None } else { Some(description) };
-    }
-    if let Some(status) = updates.status {
-        project.status = status;
-    }
-    if let Some(rank) = updates.rank {
-        project.rank = Some(rank);
-    }
-    if let Some(priority) = updates.priority {
-        project.priority = priority;
-    }
-    if let Some(task_source) = updates.task_source {
-        project.task_source = Some(task_source);
-    }
-    if let Some(manual_tasks) = updates.manual_tasks {
-        project.manual_tasks = Some(manual_tasks);
-    }
-    if let Some(mcp_servers) = updates.mcp_servers {
-        project.mcp_servers = Some(mcp_servers);
-    }
+    // Update project using storage layer (handles duplicate checks)
+    let mut project = storage.update_project(id, updates).await?;
     
     // Always refresh git repository info to ensure it's current
     project.git_repository = get_git_repository_info(&project.project_root);
     
-    project.updated_at = Utc::now();
-    
-    // Clone the updated project before writing to avoid borrowing issues
-    let updated_project = project.clone();
-    
-    write_projects_config(&config).await?;
-    
-    info!("Updated project '{}' (ID: {})", updated_project.name, updated_project.id);
-    Ok(updated_project)
+    info!("Updated project '{}' (ID: {})", project.name, project.id);
+    Ok(project)
 }
 
 /// Deletes a project
 pub async fn delete_project(id: &str) -> ManagerResult<bool> {
-    let mut config = read_projects_config().await?;
+    let storage_manager = get_storage_manager().await?;
+    let storage = storage_manager.storage();
     
-    if let Some(project) = config.projects.remove(id) {
-        write_projects_config(&config).await?;
+    // Get project info before deletion for logging
+    if let Some(project) = storage.get_project(id).await? {
+        storage.delete_project(id).await?;
         info!("Deleted project '{}' (ID: {})", project.name, project.id);
         Ok(true)
     } else {
@@ -242,39 +170,126 @@ pub async fn delete_project(id: &str) -> ManagerResult<bool> {
 
 
 /// Projects manager struct for compatibility with existing code
-pub struct ProjectsManager;
+pub struct ProjectsManager {
+    storage_manager: Arc<StorageManager>,
+}
 
 impl ProjectsManager {
-    pub fn new() -> Self {
-        ProjectsManager
+    /// Create a new ProjectsManager with default storage
+    pub async fn new() -> ManagerResult<Self> {
+        let storage_manager = get_storage_manager().await?;
+        Ok(Self { storage_manager })
+    }
+    
+    /// Create a new ProjectsManager with custom storage
+    pub fn with_storage(storage_manager: Arc<StorageManager>) -> Self {
+        Self { storage_manager }
     }
     
     pub async fn list_projects(&self) -> ManagerResult<Vec<Project>> {
-        get_all_projects().await
+        let storage = self.storage_manager.storage();
+        let mut projects = storage.list_projects().await?;
+        populate_git_info(&mut projects);
+        Ok(projects)
     }
     
     pub async fn get_project(&self, id: &str) -> ManagerResult<Option<Project>> {
-        get_project(id).await
+        let storage = self.storage_manager.storage();
+        let mut project = storage.get_project(id).await?;
+        if let Some(ref mut proj) = project {
+            proj.git_repository = get_git_repository_info(&proj.project_root);
+        }
+        Ok(project)
     }
     
     pub async fn get_project_by_name(&self, name: &str) -> ManagerResult<Option<Project>> {
-        get_project_by_name(name).await
+        let storage = self.storage_manager.storage();
+        let mut project = storage.get_project_by_name(name).await?;
+        if let Some(ref mut proj) = project {
+            proj.git_repository = get_git_repository_info(&proj.project_root);
+        }
+        Ok(project)
     }
     
     pub async fn get_project_by_path(&self, project_root: &str) -> ManagerResult<Option<Project>> {
-        get_project_by_path(project_root).await
+        let storage = self.storage_manager.storage();
+        let mut project = storage.get_project_by_path(project_root).await?;
+        if let Some(ref mut proj) = project {
+            proj.git_repository = get_git_repository_info(&proj.project_root);
+        }
+        Ok(project)
     }
     
     pub async fn create_project(&self, data: ProjectCreateInput) -> ManagerResult<Project> {
-        create_project(data).await
+        // Validate the input
+        let validation_errors = validate_project_data(&data, true).await;
+        if !validation_errors.is_empty() {
+            return Err(ManagerError::Validation(validation_errors));
+        }
+        
+        let storage = self.storage_manager.storage();
+        let mut project = storage.create_project(data).await?;
+        project.git_repository = get_git_repository_info(&project.project_root);
+        
+        info!("Created project '{}' with ID {}", project.name, project.id);
+        Ok(project)
     }
     
     pub async fn update_project(&self, id: &str, updates: ProjectUpdateInput) -> ManagerResult<Project> {
-        update_project(id, updates).await
+        // Validate the updates
+        let validation_errors = validate_project_update(&updates, false).await;
+        if !validation_errors.is_empty() {
+            return Err(ManagerError::Validation(validation_errors));
+        }
+        
+        let storage = self.storage_manager.storage();
+        let mut project = storage.update_project(id, updates).await?;
+        project.git_repository = get_git_repository_info(&project.project_root);
+        
+        info!("Updated project '{}' (ID: {})", project.name, project.id);
+        Ok(project)
     }
     
     pub async fn delete_project(&self, id: &str) -> ManagerResult<bool> {
-        delete_project(id).await
+        let storage = self.storage_manager.storage();
+        
+        if let Some(project) = storage.get_project(id).await? {
+            storage.delete_project(id).await?;
+            info!("Deleted project '{}' (ID: {})", project.name, project.id);
+            Ok(true)
+        } else {
+            Ok(false)
+        }
+    }
+    
+    /// Search projects with text query
+    pub async fn search_projects(&self, query: &str) -> ManagerResult<Vec<Project>> {
+        let storage = self.storage_manager.storage();
+        let mut projects = storage.search_projects(query).await?;
+        populate_git_info(&mut projects);
+        Ok(projects)
+    }
+    
+    /// List projects with filters
+    pub async fn list_projects_with_filter(&self, filter: crate::storage::ProjectFilter) -> ManagerResult<Vec<Project>> {
+        let storage = self.storage_manager.storage();
+        let mut projects = storage.list_projects_with_filter(filter).await?;
+        populate_git_info(&mut projects);
+        Ok(projects)
+    }
+    
+    /// Get active projects only
+    pub async fn list_active_projects(&self) -> ManagerResult<Vec<Project>> {
+        let filter = crate::storage::ProjectFilter {
+            status: Some(ProjectStatus::Active),
+            ..Default::default()
+        };
+        self.list_projects_with_filter(filter).await
+    }
+    
+    /// Get storage statistics
+    pub async fn get_storage_stats(&self) -> ManagerResult<crate::storage::factory::StorageStats> {
+        self.storage_manager.get_stats().await.map_err(ManagerError::Storage)
     }
 }
 

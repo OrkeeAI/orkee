@@ -1,6 +1,5 @@
 use crate::storage::path_exists;
 use crate::types::{ProjectCreateInput, ProjectUpdateInput};
-use rand::Rng;
 
 /// Validation errors for project data
 #[derive(Debug, Clone)]
@@ -96,12 +95,6 @@ pub async fn validate_project_update(
     errors
 }
 
-/// Generates a unique 8-character hexadecimal project ID
-pub fn generate_project_id() -> String {
-    let mut rng = rand::thread_rng();
-    let bytes: [u8; 4] = rng.gen();
-    hex::encode(bytes)
-}
 
 /// Truncates a string to a maximum length with ellipsis
 pub fn truncate(text: &str, max_length: usize) -> String {
@@ -116,6 +109,7 @@ pub fn truncate(text: &str, max_length: usize) -> String {
 mod tests {
     use super::*;
     use crate::types::ProjectStatus;
+    use crate::storage::generate_project_id;
 
     #[tokio::test]
     async fn test_validate_project_data_valid() {
