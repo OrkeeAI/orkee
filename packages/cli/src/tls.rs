@@ -378,7 +378,7 @@ mod tests {
         
         // Generate and load certificate
         manager.generate_self_signed_certificate().await.unwrap();
-        let rustls_config = manager.load_certificates().await.unwrap();
+        let _rustls_config = manager.load_certificates().await.unwrap();
         
         // Verify we got a valid configuration
         // If we got here without error, the certificate loading was successful
@@ -402,7 +402,7 @@ mod tests {
         let manager = TlsManager::new(config);
         
         // Initialize TLS (should auto-generate certificates)
-        let rustls_config = manager.initialize().await.unwrap();
+        let _rustls_config = manager.initialize().await.unwrap();
         
         // Verify certificates were created
         assert!(cert_path.exists());

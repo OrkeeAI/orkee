@@ -185,9 +185,7 @@ mod tests {
     use super::*;
     use axum::{
         body::Body,
-        http::{Request, StatusCode},
-        middleware,
-        response::Response,
+        http::Request,
         routing::get,
         Router,
     };

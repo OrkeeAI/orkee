@@ -200,8 +200,6 @@ fn calculate_retry_after(limiter: &RateLimiter<NotKeyed, InMemoryState, DefaultC
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::time::Duration;
-    use tokio::time;
     
     #[test]
     fn test_endpoint_categorization() {
@@ -230,8 +228,8 @@ mod tests {
         
         // Get limiters for different paths
         let health_limiter = layer.get_limiter_for_path("/api/health");
-        let browse_limiter = layer.get_limiter_for_path("/api/browse-directories");
-        let projects_limiter = layer.get_limiter_for_path("/api/projects");
+        let _browse_limiter = layer.get_limiter_for_path("/api/browse-directories");
+        let _projects_limiter = layer.get_limiter_for_path("/api/projects");
         
         // They should be different instances for different categories
         // but same for same categories

@@ -158,8 +158,7 @@ fn build_redirect_url(
 mod tests {
     use super::*;
     use axum::{
-        body::Body,
-        http::{Request, Method, HeaderMap, HeaderValue},
+        http::{HeaderMap, HeaderValue},
     };
     
     #[test]

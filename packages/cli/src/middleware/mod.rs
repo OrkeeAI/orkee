@@ -59,7 +59,7 @@ fn handle_panic(err: Box<dyn std::any::Any + Send + 'static>) -> Response {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use axum::{http::StatusCode, response::IntoResponse};
+    use axum::{http::StatusCode};
     use serde_json::Value;
     
     #[tokio::test]
