@@ -1,0 +1,270 @@
+# Development Docker Compose Configuration
+# Optimized for development with hot reload and debugging
+
+version: '3.8'
+
+services:
+  # Orkee development service
+  orkee-dev:
+    build:
+      context: ../../
+      dockerfile: deployment/docker/Dockerfile.dev
+      args:
+        - BUILDKIT_INLINE_CACHE=1
+    image: orkee:dev
+    container_name: orkee-dev
+    restart: unless-stopped
+    
+    # Network configuration
+    networks:
+      - orkee-dev
+    
+    # Port exposure
+    ports:
+      - "4001:4001"  # Main application port
+      - "4000:4000"  # HTTP redirect port
+      - "5173:5173"  # Vite dev server (dashboard)
+      - "8080:8080"  # Debug/admin port
+    
+    # Environment configuration
+    environment:
+      # Development settings
+      - NODE_ENV=development
+      - RUST_LOG=debug
+      - RUST_BACKTRACE=full
+      - DEBUG=true
+      
+      # Server configuration
+      - PORT=4001
+      
+      # TLS configuration (disabled for development)
+      - TLS_ENABLED=false
+      - AUTO_GENERATE_CERT=true
+      
+      # Security settings (relaxed for development)
+      - SECURITY_HEADERS_ENABLED=true
+      - ENABLE_HSTS=false
+      - RATE_LIMIT_ENABLED=true
+      
+      # CORS configuration (permissive for development)
+      - CORS_ORIGIN=http://localhost:5173
+      - CORS_ALLOW_ANY_LOCALHOST=true
+      
+      # Directory browsing (relaxed for development)
+      - BROWSE_SANDBOX_MODE=relaxed
+      - ALLOWED_BROWSE_PATHS=/app,/tmp
+      
+      # Rate limiting (generous for development)
+      - RATE_LIMIT_GLOBAL_RPM=300
+      - RATE_LIMIT_HEALTH_RPM=600
+      - RATE_LIMIT_BROWSE_RPM=100
+      - RATE_LIMIT_PROJECTS_RPM=200
+      - RATE_LIMIT_BURST_SIZE=50
+    
+    # Volume mounts for development
+    volumes:
+      # Source code (for hot reload)
+      - ../../packages:/app/packages:cached
+      - ../../Cargo.toml:/app/Cargo.toml:ro
+      - ../../Cargo.lock:/app/Cargo.lock:ro
+      - ../../package.json:/app/package.json:ro
+      - ../../pnpm-lock.yaml:/app/pnpm-lock.yaml:ro
+      - ../../turbo.json:/app/turbo.json:ro
+      
+      # Data persistence
+      - orkee-dev-data:/app/data
+      - orkee-dev-certs:/app/certs
+      - orkee-dev-logs:/app/logs
+      
+      # Cargo cache (for faster builds)
+      - cargo-cache:/usr/local/cargo/registry
+      - cargo-git:/usr/local/cargo/git
+      - target-cache:/app/target
+      
+      # Node modules cache
+      - node-modules-cache:/app/node_modules
+    
+    # Working directory
+    working_dir: /app
+    
+    # Health check
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4001/api/health"]
+      interval: 10s
+      timeout: 5s
+      start_period: 30s
+      retries: 5
+    
+    # Logging configuration
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "1"
+        labels: "service=orkee-dev,environment=development"
+    
+    # Development-specific settings
+    stdin_open: true   # Keep STDIN open for interactive debugging
+    tty: true         # Allocate a pseudo-TTY for colored output
+    
+    # Labels
+    labels:
+      - "com.docker.compose.service=orkee-dev"
+      - "com.docker.compose.version=dev"
+      - "environment=development"
+
+  # Dashboard development service (separate for hot reload)
+  dashboard-dev:
+    build:
+      context: ../../
+      dockerfile: deployment/docker/Dockerfile.dev
+    image: orkee:dev
+    container_name: orkee-dashboard-dev
+    restart: unless-stopped
+    
+    # Network configuration
+    networks:
+      - orkee-dev
+    
+    # Port exposure
+    ports:
+      - "5173:5173"  # Vite dev server
+    
+    # Environment configuration
+    environment:
+      - NODE_ENV=development
+      - VITE_API_URL=http://localhost:4001
+      - VITE_HMR_HOST=localhost
+      - DEBUG=true
+    
+    # Volume mounts
+    volumes:
+      # Dashboard source code
+      - ../../packages/dashboard:/app/packages/dashboard:cached
+      - ../../package.json:/app/package.json:ro
+      - ../../pnpm-lock.yaml:/app/pnpm-lock.yaml:ro
+      - ../../turbo.json:/app/turbo.json:ro
+      
+      # Node modules cache
+      - dashboard-node-modules:/app/packages/dashboard/node_modules
+      - node-modules-cache:/app/node_modules
+    
+    # Working directory
+    working_dir: /app
+    
+    # Command override for dashboard development
+    command: ["pnpm", "dev", "--filter=@orkee/dashboard", "--host", "0.0.0.0"]
+    
+    # Depends on the main Orkee service
+    depends_on:
+      orkee-dev:
+        condition: service_healthy
+    
+    # Health check
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5173"]
+      interval: 10s
+      timeout: 5s
+      start_period: 20s
+      retries: 3
+    
+    # Development settings
+    stdin_open: true
+    tty: true
+    
+    # Labels
+    labels:
+      - "com.docker.compose.service=dashboard-dev"
+      - "environment=development"
+
+  # Optional: Database for development (uncomment if needed)
+  # postgres-dev:
+  #   image: postgres:15-alpine
+  #   container_name: orkee-postgres-dev
+  #   restart: unless-stopped
+  #   
+  #   networks:
+  #     - orkee-dev
+  #   
+  #   ports:
+  #     - "5432:5432"
+  #   
+  #   environment:
+  #     - POSTGRES_DB=orkee_dev
+  #     - POSTGRES_USER=orkee
+  #     - POSTGRES_PASSWORD=orkee_dev_password
+  #   
+  #   volumes:
+  #     - postgres-dev-data:/var/lib/postgresql/data
+  #     - ./sql/init:/docker-entrypoint-initdb.d:ro
+  #   
+  #   healthcheck:
+  #     test: ["CMD-SHELL", "pg_isready -U orkee"]
+  #     interval: 10s
+  #     timeout: 5s
+  #     retries: 5
+  #   
+  #   labels:
+  #     - "com.docker.compose.service=postgres-dev"
+  #     - "environment=development"
+
+  # Optional: Redis for caching (uncomment if needed)
+  # redis-dev:
+  #   image: redis:7-alpine
+  #   container_name: orkee-redis-dev
+  #   restart: unless-stopped
+  #   
+  #   networks:
+  #     - orkee-dev
+  #   
+  #   ports:
+  #     - "6379:6379"
+  #   
+  #   command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+  #   
+  #   volumes:
+  #     - redis-dev-data:/data
+  #   
+  #   healthcheck:
+  #     test: ["CMD", "redis-cli", "ping"]
+  #     interval: 10s
+  #     timeout: 3s
+  #     retries: 5
+  #   
+  #   labels:
+  #     - "com.docker.compose.service=redis-dev"
+  #     - "environment=development"
+
+# Network configuration
+networks:
+  orkee-dev:
+    driver: bridge
+    name: orkee-dev-network
+
+# Volume configuration
+volumes:
+  # Application data
+  orkee-dev-data:
+    driver: local
+  orkee-dev-certs:
+    driver: local
+  orkee-dev-logs:
+    driver: local
+  
+  # Build caches for performance
+  cargo-cache:
+    driver: local
+  cargo-git:
+    driver: local
+  target-cache:
+    driver: local
+  node-modules-cache:
+    driver: local
+  dashboard-node-modules:
+    driver: local
+  
+  # Optional service data
+  # postgres-dev-data:
+  #   driver: local
+  # redis-dev-data:
+  #   driver: local

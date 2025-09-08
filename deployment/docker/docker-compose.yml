@@ -1,0 +1,273 @@
+# Production Docker Compose Configuration
+# This sets up Orkee with optional Nginx reverse proxy
+
+version: '3.8'
+
+services:
+  # Orkee main application
+  orkee:
+    build:
+      context: ../../
+      dockerfile: deployment/docker/Dockerfile
+      args:
+        - BUILDKIT_INLINE_CACHE=1
+    image: orkee:latest
+    container_name: orkee-app
+    restart: unless-stopped
+    
+    # Network configuration
+    networks:
+      - orkee-internal
+    
+    # Port exposure (comment out if using nginx)
+    ports:
+      - "4001:4001"  # HTTPS/HTTP main port
+      - "4000:4000"  # HTTP redirect port (when TLS enabled)
+    
+    # Environment configuration
+    environment:
+      # Server configuration
+      - PORT=4001
+      - RUST_LOG=info
+      - RUST_BACKTRACE=1
+      
+      # TLS configuration
+      - TLS_ENABLED=true
+      - AUTO_GENERATE_CERT=true
+      - TLS_CERT_PATH=/var/lib/orkee/certs/cert.pem
+      - TLS_KEY_PATH=/var/lib/orkee/certs/key.pem
+      
+      # Security settings
+      - SECURITY_HEADERS_ENABLED=true
+      - ENABLE_HSTS=true
+      - RATE_LIMIT_ENABLED=true
+      
+      # CORS configuration
+      - CORS_ORIGIN=https://your-domain.com
+      - CORS_ALLOW_ANY_LOCALHOST=false
+      
+      # Directory browsing security
+      - BROWSE_SANDBOX_MODE=strict
+      - ALLOWED_BROWSE_PATHS=/var/lib/orkee/data
+      
+      # Rate limiting
+      - RATE_LIMIT_GLOBAL_RPM=100
+      - RATE_LIMIT_HEALTH_RPM=60
+      - RATE_LIMIT_BROWSE_RPM=20
+      - RATE_LIMIT_PROJECTS_RPM=30
+      - RATE_LIMIT_BURST_SIZE=10
+    
+    # Volume mounts for persistent data
+    volumes:
+      - orkee-data:/var/lib/orkee/data
+      - orkee-certs:/var/lib/orkee/certs
+      - orkee-logs:/var/lib/orkee/logs
+      
+      # Optional: Mount custom certificates
+      # - ./certs/cert.pem:/var/lib/orkee/certs/cert.pem:ro
+      # - ./certs/key.pem:/var/lib/orkee/certs/key.pem:ro
+      
+      # Optional: Mount configuration
+      # - ./config/production.env:/etc/orkee/production.env:ro
+    
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 256M
+      restart_policy:
+        condition: unless-stopped
+        delay: 10s
+        max_attempts: 3
+        window: 60s
+    
+    # Health check
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4001/api/health"]
+      interval: 30s
+      timeout: 10s
+      start_period: 30s
+      retries: 3
+    
+    # Logging configuration
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+        labels: "service=orkee,environment=production"
+    
+    # Security options
+    security_opt:
+      - no-new-privileges:true
+    
+    # User and group
+    user: "1000:1000"  # Adjust to match your system user
+    
+    # Labels for container management
+    labels:
+      - "com.docker.compose.service=orkee"
+      - "com.docker.compose.version=1.0"
+      - "maintainer=orkee-team"
+
+  # Nginx reverse proxy (optional - comment out if not using)
+  nginx:
+    image: nginx:alpine
+    container_name: orkee-nginx
+    restart: unless-stopped
+    
+    # Port exposure
+    ports:
+      - "80:80"    # HTTP
+      - "443:443"  # HTTPS
+    
+    # Network configuration
+    networks:
+      - orkee-internal
+      - default
+    
+    # Volume mounts
+    volumes:
+      # Nginx configuration
+      - ./nginx/orkee-ssl.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./nginx/snippets:/etc/nginx/snippets:ro
+      
+      # SSL certificates (Let's Encrypt)
+      - letsencrypt-certs:/etc/letsencrypt:ro
+      - letsencrypt-www:/var/www/certbot:ro
+      
+      # Logs
+      - nginx-logs:/var/log/nginx
+      
+      # Optional: Static assets
+      # - orkee-dashboard:/usr/share/orkee/dashboard:ro
+    
+    # Environment variables
+    environment:
+      - NGINX_HOST=your-domain.com
+      - NGINX_PORT=443
+    
+    # Dependencies
+    depends_on:
+      orkee:
+        condition: service_healthy
+    
+    # Health check
+    healthcheck:
+      test: ["CMD", "nginx", "-t"]
+      interval: 30s
+      timeout: 10s
+      start_period: 10s
+      retries: 3
+    
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+        reservations:
+          cpus: '0.1'
+          memory: 64M
+    
+    # Logging
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+        labels: "service=nginx,environment=production"
+    
+    # Labels
+    labels:
+      - "com.docker.compose.service=nginx"
+      - "traefik.enable=true"
+      - "traefik.http.routers.orkee.rule=Host(`your-domain.com`)"
+      - "traefik.http.routers.orkee.tls=true"
+
+  # Certbot for Let's Encrypt (optional)
+  certbot:
+    image: certbot/certbot
+    container_name: orkee-certbot
+    
+    volumes:
+      - letsencrypt-certs:/etc/letsencrypt
+      - letsencrypt-www:/var/www/certbot
+    
+    # Run once and exit (for certificate generation)
+    profiles:
+      - tools
+    
+    command: >
+      certonly --webroot --webroot-path=/var/www/certbot
+      --email your-email@example.com
+      --agree-tos --no-eff-email
+      -d your-domain.com
+    
+    depends_on:
+      - nginx
+
+# Network configuration
+networks:
+  orkee-internal:
+    driver: bridge
+    internal: false  # Set to true for internal-only network
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+          gateway: 172.20.0.1
+
+# Volume configuration
+volumes:
+  # Orkee application data
+  orkee-data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${DATA_DIR:-./data}
+  
+  orkee-certs:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${CERTS_DIR:-./certs}
+  
+  orkee-logs:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${LOGS_DIR:-./logs}
+  
+  # Nginx logs
+  nginx-logs:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${NGINX_LOGS_DIR:-./nginx-logs}
+  
+  # Let's Encrypt certificates
+  letsencrypt-certs:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${LETSENCRYPT_DIR:-./letsencrypt}
+  
+  letsencrypt-www:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${LETSENCRYPT_WWW_DIR:-./letsencrypt-www}
+  
+  # Optional: Dashboard assets
+  orkee-dashboard:
+    driver: local

@@ -1,0 +1,85 @@
+# Orkee AI Agent Orchestration - Systemd Service
+# Copy to /etc/systemd/system/orkee.service
+
+[Unit]
+Description=Orkee AI Agent Orchestration Platform
+Documentation=https://github.com/yourusername/orkee
+After=network.target
+Wants=network.target
+
+# Dependencies (uncomment if using external services)
+# After=postgresql.service redis.service
+# Wants=postgresql.service redis.service
+
+[Service]
+Type=simple
+User=orkee
+Group=orkee
+WorkingDirectory=/var/lib/orkee
+
+# Main executable
+ExecStart=/usr/local/bin/orkee dashboard
+ExecReload=/bin/kill -HUP $MAINPID
+
+# Environment configuration
+EnvironmentFile=-/etc/orkee/production.env
+Environment=RUST_LOG=info
+
+# Process management
+Restart=always
+RestartSec=10
+KillMode=mixed
+KillSignal=SIGTERM
+TimeoutStopSec=30
+
+# Security settings - Hardening
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/orkee
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictRealtime=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+MemoryDenyWriteExecute=true
+
+# File system protections
+ProtectHostname=true
+ProtectClock=true
+ProtectKernelLogs=true
+PrivateUsers=true
+RemoveIPC=true
+LockPersonality=true
+RestrictNamespaces=true
+SystemCallArchitectures=native
+
+# Resource limits
+LimitNOFILE=65536
+LimitNPROC=4096
+LimitCORE=0
+
+# Memory limits (adjust based on your needs)
+MemoryLimit=2G
+MemoryHigh=1G
+
+# Task limits
+TasksMax=4096
+
+# Logging configuration
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=orkee
+SyslogLevel=info
+
+# Logging rate limiting
+RateLimitIntervalSec=10s
+RateLimitBurst=100
+
+[Install]
+WantedBy=multi-user.target
+
+# Multi-user target ensures the service starts in both 
+# graphical and non-graphical multi-user environments

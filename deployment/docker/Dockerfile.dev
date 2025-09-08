@@ -1,0 +1,80 @@
+# Development Dockerfile
+# Optimized for development with hot reload and debugging tools
+
+FROM rust:1.70-slim
+
+# Install system dependencies and development tools
+RUN apt-get update && apt-get install -y \
+    pkg-config \
+    libssl-dev \
+    ca-certificates \
+    curl \
+    git \
+    build-essential \
+    gdb \
+    valgrind \
+    strace \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Node.js and pnpm
+RUN curl -fsSL https://deb.nodesource.com/setup_18.x | bash - && \
+    apt-get install -y nodejs && \
+    npm install -g pnpm@^10.15.1
+
+# Install Rust development tools
+RUN rustup component add rustfmt clippy && \
+    cargo install cargo-watch cargo-audit cargo-outdated
+
+# Create non-root user for development
+RUN groupadd -r orkee && useradd -r -g orkee -d /app -s /bin/bash -m orkee && \
+    usermod -a -G sudo orkee
+
+# Set up application directory
+RUN mkdir -p /app/{data,certs,logs} && \
+    chown -R orkee:orkee /app
+
+USER orkee
+WORKDIR /app
+
+# Copy package files for dependency caching
+COPY --chown=orkee:orkee package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY --chown=orkee:orkee packages/dashboard/package.json ./packages/dashboard/
+COPY --chown=orkee:orkee turbo.json ./
+
+# Install Node.js dependencies
+RUN pnpm install --frozen-lockfile
+
+# Copy Rust manifests for dependency caching
+COPY --chown=orkee:orkee Cargo.toml Cargo.lock ./
+COPY --chown=orkee:orkee packages/cli/Cargo.toml ./packages/cli/
+COPY --chown=orkee:orkee packages/projects/Cargo.toml ./packages/projects/
+COPY --chown=orkee:orkee packages/tui/Cargo.toml ./packages/tui/
+COPY --chown=orkee:orkee packages/preview/Cargo.toml ./packages/preview/
+
+# Pre-build Rust dependencies (cache layer)
+RUN mkdir -p packages/cli/src packages/projects/src packages/tui/src packages/preview/src && \
+    echo "fn main() {}" > packages/cli/src/main.rs && \
+    echo "fn main() {}" > packages/projects/src/lib.rs && \
+    echo "fn main() {}" > packages/tui/src/lib.rs && \
+    echo "fn main() {}" > packages/preview/src/lib.rs && \
+    cd packages/cli && cargo build && \
+    rm -rf src target/debug/deps/orkee* target/debug/orkee*
+
+# Expose ports
+EXPOSE 4001 4000 5173 8080
+
+# Environment defaults for development
+ENV RUST_LOG=debug \
+    RUST_BACKTRACE=full \
+    PORT=4001 \
+    TLS_ENABLED=false \
+    AUTO_GENERATE_CERT=true \
+    CORS_ALLOW_ANY_LOCALHOST=true \
+    BROWSE_SANDBOX_MODE=relaxed
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
+  CMD curl -f http://localhost:4001/api/health || exit 1
+
+# Default command runs the development server with hot reload
+CMD ["cargo", "watch", "--workdir", "packages/cli", "-x", "run --bin orkee -- dashboard"]
