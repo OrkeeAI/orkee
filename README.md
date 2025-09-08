@@ -44,7 +44,7 @@ The **Dashboard** requires the CLI server to be running. The **TUI** works indep
 npm install -g orkee
 
 # Or install from source
-git clone https://github.com/yourusername/orkee.git
+git clone https://github.com/OrkeeAI/orkee.git
 cd orkee
 pnpm install
 turbo build
@@ -103,7 +103,7 @@ cargo run --bin orkee -- dashboard
 ### Development Setup
 
 ```bash
-git clone https://github.com/yourusername/orkee.git
+git clone https://github.com/OrkeeAI/orkee.git
 cd orkee
 pnpm install
 ```
@@ -159,8 +159,8 @@ We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) f
 ## Support
 
 - 📖 [Documentation](https://orkee.dev/docs)
-- 💬 [Discussions](https://github.com/yourusername/orkee/discussions)
-- 🐛 [Issues](https://github.com/yourusername/orkee/issues)
+- 💬 [Discussions](https://github.com/OrkeeAI/orkee/discussions)
+- 🐛 [Issues](https://github.com/OrkeeAI/orkee/issues)
 
 ---
 

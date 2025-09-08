@@ -13,7 +13,7 @@ version = "0.0.1"
 edition = "2021"
 authors = ["Orkee Team"]
 license = "MIT"
-repository = "https://github.com/yourusername/orkee"
+repository = "https://github.com/OrkeeAI/orkee"
 
 [workspace.dependencies]
 tokio = { version = "1", features = ["full"] }

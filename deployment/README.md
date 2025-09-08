@@ -72,7 +72,7 @@ Follow the detailed [Production Environment Setup](#production-environment-setup
 
 ```bash
 # Clone repository
-git clone https://github.com/yourusername/orkee.git
+git clone https://github.com/OrkeeAI/orkee.git
 cd orkee
 
 # Install dependencies
