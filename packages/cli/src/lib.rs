@@ -31,7 +31,7 @@ fn validate_cors_origin(origin: &str) -> Result<AllowOrigin, Box<dyn std::error:
     ];
 
     // Check if origin is in allowed list
-    if !ALLOWED_ORIGINS.contains(&origin.as_ref()) {
+    if !ALLOWED_ORIGINS.contains(&origin) {
         return Err(format!(
             "Invalid CORS origin: {}. Only localhost origins are allowed",
             origin

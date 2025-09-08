@@ -15,6 +15,15 @@ use tracing::{debug, warn};
 
 use crate::error::AppError;
 
+/// Type alias for a rate limiter
+type RateLimiterType = RateLimiter<NotKeyed, InMemoryState, DefaultClock, NoOpMiddleware>;
+
+/// Type alias for a rate limiter instance
+type RateLimiterInstance = Arc<RateLimiterType>;
+
+/// Type alias for the rate limiter storage
+type RateLimiterStorage = Arc<Mutex<HashMap<String, RateLimiterInstance>>>;
+
 /// Rate limiting configuration for different endpoint categories
 #[derive(Debug, Clone)]
 pub struct RateLimitConfig {
@@ -45,14 +54,7 @@ impl Default for RateLimitConfig {
 #[derive(Clone)]
 pub struct RateLimitLayer {
     config: RateLimitConfig,
-    limiters: Arc<
-        Mutex<
-            HashMap<
-                String,
-                Arc<RateLimiter<NotKeyed, InMemoryState, DefaultClock, NoOpMiddleware>>,
-            >,
-        >,
-    >,
+    limiters: RateLimiterStorage,
 }
 
 impl RateLimitLayer {
@@ -67,7 +69,7 @@ impl RateLimitLayer {
     fn get_limiter_for_path(
         &self,
         path: &str,
-    ) -> Arc<RateLimiter<NotKeyed, InMemoryState, DefaultClock, NoOpMiddleware>> {
+    ) -> RateLimiterInstance {
         let category = categorize_endpoint(path);
         let rpm = match category {
             EndpointCategory::Health => self.config.health_rpm,
@@ -192,7 +194,7 @@ pub async fn rate_limit_middleware(
 
 /// Calculate how long the client should wait before retrying
 fn calculate_retry_after(
-    limiter: &RateLimiter<NotKeyed, InMemoryState, DefaultClock, NoOpMiddleware>,
+    limiter: &RateLimiterType,
 ) -> u64 {
     // Try to get the earliest time when a slot will be available
     match limiter.check() {

@@ -100,7 +100,7 @@ impl PathValidator {
 
         // Build blocked paths list
         let mut blocked_paths: Vec<PathBuf> =
-            SYSTEM_BLOCKED.iter().map(|p| PathBuf::from(p)).collect();
+            SYSTEM_BLOCKED.iter().map(PathBuf::from).collect();
 
         // Add user-specific blocked paths
         if !home_dir.is_empty() {
@@ -157,10 +157,7 @@ impl PathValidator {
 
     pub fn would_allow_subdirectory(&self, path: &Path) -> bool {
         // Quick check if a subdirectory would be allowed without full validation
-        match self.validate_path(&path.to_string_lossy()) {
-            Ok(_) => true,
-            Err(_) => false,
-        }
+        self.validate_path(&path.to_string_lossy()).is_ok()
     }
 
     fn expand_path_static(path: &str, home_dir: &str) -> Result<PathBuf, ValidationError> {

@@ -59,7 +59,7 @@ pub async fn browse_directories(
             return Ok(ResponseJson(BrowseDirectoriesResponse {
                 success: false,
                 data: None,
-                error: Some(format!("Access denied: Path is restricted")),
+                error: Some("Access denied: Path is restricted".to_string()),
             }));
         }
         Err(ValidationError::PathTraversal) => {

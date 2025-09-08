@@ -395,7 +395,6 @@ mod tests {
         // Verify we got a valid configuration
         // If we got here without error, the certificate loading was successful
         // RustlsConfig doesn't expose much for testing, but successful creation means certificates are valid
-        assert!(true); // This test passes if we get here without panicking
     }
 
     #[tokio::test]
@@ -422,7 +421,6 @@ mod tests {
 
         // Verify configuration is valid
         // If we got here without error, the TLS initialization was successful
-        assert!(true); // This test passes if we get here without panicking
     }
 
     #[tokio::test]
