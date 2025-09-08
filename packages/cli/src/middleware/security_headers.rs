@@ -15,7 +15,7 @@ impl SecurityHeadersLayer {
     pub fn new() -> Self {
         Self { enable_hsts: false }
     }
-    
+
     /// Enable HSTS (only use when HTTPS is properly configured)
     pub fn with_hsts(mut self) -> Self {
         self.enable_hsts = true;
@@ -83,19 +83,16 @@ where
 {
     type Output = Result<Response<ResBody>, E>;
 
-    fn poll(
-        self: std::pin::Pin<&mut Self>,
-        cx: &mut Context<'_>,
-    ) -> Poll<Self::Output> {
+    fn poll(self: std::pin::Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let this = self.project();
         let response = std::task::ready!(this.future.poll(cx))?;
-        
+
         let mut response = response;
         let headers = response.headers_mut();
-        
+
         // Essential security headers for all responses
         add_security_headers(headers, *this.enable_hsts);
-        
+
         Poll::Ready(Ok(response))
     }
 }
@@ -105,27 +102,24 @@ fn add_security_headers(headers: &mut axum::http::HeaderMap, enable_hsts: bool) 
     // Prevent MIME type sniffing
     headers.insert(
         "x-content-type-options",
-        HeaderValue::from_static("nosniff")
+        HeaderValue::from_static("nosniff"),
     );
-    
+
     // Prevent clickjacking
-    headers.insert(
-        "x-frame-options", 
-        HeaderValue::from_static("DENY")
-    );
-    
+    headers.insert("x-frame-options", HeaderValue::from_static("DENY"));
+
     // XSS protection (legacy but still useful)
     headers.insert(
         "x-xss-protection",
-        HeaderValue::from_static("1; mode=block")
+        HeaderValue::from_static("1; mode=block"),
     );
-    
+
     // Referrer policy
     headers.insert(
         "referrer-policy",
-        HeaderValue::from_static("strict-origin-when-cross-origin")
+        HeaderValue::from_static("strict-origin-when-cross-origin"),
     );
-    
+
     // Content Security Policy - restrictive but allows development
     let csp = "default-src 'self'; \
                script-src 'self' 'unsafe-inline' 'unsafe-eval'; \
@@ -136,12 +130,13 @@ fn add_security_headers(headers: &mut axum::http::HeaderMap, enable_hsts: bool) 
                object-src 'none'; \
                base-uri 'self'; \
                form-action 'self'";
-    
+
     headers.insert(
         "content-security-policy",
-        HeaderValue::from_str(csp).unwrap_or_else(|_| HeaderValue::from_static("default-src 'self'"))
+        HeaderValue::from_str(csp)
+            .unwrap_or_else(|_| HeaderValue::from_static("default-src 'self'")),
     );
-    
+
     // Permissions Policy - disable potentially dangerous features
     let permissions_policy = "geolocation=(), \
                              microphone=(), \
@@ -151,21 +146,22 @@ fn add_security_headers(headers: &mut axum::http::HeaderMap, enable_hsts: bool) 
                              magnetometer=(), \
                              gyroscope=(), \
                              accelerometer=()";
-    
+
     headers.insert(
         "permissions-policy",
-        HeaderValue::from_str(permissions_policy)
-            .unwrap_or_else(|_| HeaderValue::from_static("geolocation=(), microphone=(), camera=()"))
+        HeaderValue::from_str(permissions_policy).unwrap_or_else(|_| {
+            HeaderValue::from_static("geolocation=(), microphone=(), camera=()")
+        }),
     );
-    
+
     // HSTS - only enable when HTTPS is properly configured
     if enable_hsts {
         headers.insert(
             "strict-transport-security",
-            HeaderValue::from_static("max-age=31536000; includeSubDomains; preload")
+            HeaderValue::from_static("max-age=31536000; includeSubDomains; preload"),
         );
     }
-    
+
     // Remove server information leakage
     headers.remove("server");
 }
@@ -183,85 +179,82 @@ pub async fn add_security_headers_middleware(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use axum::{
-        body::Body,
-        http::Request,
-        routing::get,
-        Router,
-    };
+    use axum::{body::Body, http::Request, routing::get, Router};
     use tower::ServiceExt;
-    
+
     async fn test_handler() -> &'static str {
         "Hello, World!"
     }
-    
+
     #[tokio::test]
     async fn test_security_headers_applied() {
         let app = Router::new()
             .route("/test", get(test_handler))
             .layer(SecurityHeadersLayer::new());
-        
-        let request = Request::builder()
-            .uri("/test")
-            .body(Body::empty())
-            .unwrap();
-        
+
+        let request = Request::builder().uri("/test").body(Body::empty()).unwrap();
+
         let response = app.oneshot(request).await.unwrap();
         let headers = response.headers();
-        
+
         // Check all security headers are present
         assert_eq!(headers.get("x-content-type-options").unwrap(), "nosniff");
         assert_eq!(headers.get("x-frame-options").unwrap(), "DENY");
         assert_eq!(headers.get("x-xss-protection").unwrap(), "1; mode=block");
-        assert_eq!(headers.get("referrer-policy").unwrap(), "strict-origin-when-cross-origin");
-        
+        assert_eq!(
+            headers.get("referrer-policy").unwrap(),
+            "strict-origin-when-cross-origin"
+        );
+
         // CSP should be present
         assert!(headers.get("content-security-policy").is_some());
-        let csp = headers.get("content-security-policy").unwrap().to_str().unwrap();
+        let csp = headers
+            .get("content-security-policy")
+            .unwrap()
+            .to_str()
+            .unwrap();
         assert!(csp.contains("default-src 'self'"));
-        
+
         // Permissions policy should be present
         assert!(headers.get("permissions-policy").is_some());
-        
+
         // Server header should be removed (if it was there)
         assert!(headers.get("server").is_none());
     }
-    
+
     #[tokio::test]
     async fn test_hsts_header_when_enabled() {
         let app = Router::new()
             .route("/test", get(test_handler))
             .layer(SecurityHeadersLayer::new().with_hsts());
-        
-        let request = Request::builder()
-            .uri("/test")
-            .body(Body::empty())
-            .unwrap();
-        
+
+        let request = Request::builder().uri("/test").body(Body::empty()).unwrap();
+
         let response = app.oneshot(request).await.unwrap();
         let headers = response.headers();
-        
+
         // HSTS should be present when explicitly enabled
         assert!(headers.get("strict-transport-security").is_some());
-        let hsts = headers.get("strict-transport-security").unwrap().to_str().unwrap();
+        let hsts = headers
+            .get("strict-transport-security")
+            .unwrap()
+            .to_str()
+            .unwrap();
         assert!(hsts.contains("max-age=31536000"));
         assert!(hsts.contains("includeSubDomains"));
     }
-    
+
     #[tokio::test]
     async fn test_no_hsts_header_by_default() {
         let app = Router::new()
             .route("/test", get(test_handler))
             .layer(SecurityHeadersLayer::new());
-        
-        let request = Request::builder()
-            .uri("/test")
-            .body(Body::empty())
-            .unwrap();
-        
+
+        let request = Request::builder().uri("/test").body(Body::empty()).unwrap();
+
         let response = app.oneshot(request).await.unwrap();
         let headers = response.headers();
-        
+
         // HSTS should NOT be present by default (for local development)
         assert!(headers.get("strict-transport-security").is_none());
     }

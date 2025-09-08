@@ -2,7 +2,7 @@ use axum::{extract::Json, http::StatusCode, response::Json as ResponseJson, Exte
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::{fs, sync::Arc};
-use tracing::{debug, warn, info};
+use tracing::{debug, info, warn};
 
 use crate::api::path_validator::{PathValidator, ValidationError};
 
@@ -64,7 +64,14 @@ pub async fn browse_directories(
         }
         Err(ValidationError::PathTraversal) => {
             warn!("Path traversal attempt detected: {}", target_path);
-            log_directory_access(None, &target_path, None, false, Some("path_traversal"), None);
+            log_directory_access(
+                None,
+                &target_path,
+                None,
+                false,
+                Some("path_traversal"),
+                None,
+            );
             return Ok(ResponseJson(BrowseDirectoriesResponse {
                 success: false,
                 data: None,
@@ -73,7 +80,14 @@ pub async fn browse_directories(
         }
         Err(ValidationError::NotInAllowedPaths) => {
             warn!("Access to non-allowed path: {}", target_path);
-            log_directory_access(None, &target_path, None, false, Some("not_in_allowed_paths"), None);
+            log_directory_access(
+                None,
+                &target_path,
+                None,
+                false,
+                Some("not_in_allowed_paths"),
+                None,
+            );
             return Ok(ResponseJson(BrowseDirectoriesResponse {
                 success: false,
                 data: None,
@@ -82,7 +96,14 @@ pub async fn browse_directories(
         }
         Err(ValidationError::SensitiveDirectory(dir)) => {
             warn!("Access to sensitive directory blocked: {}", dir);
-            log_directory_access(None, &target_path, None, false, Some("sensitive_directory"), None);
+            log_directory_access(
+                None,
+                &target_path,
+                None,
+                false,
+                Some("sensitive_directory"),
+                None,
+            );
             return Ok(ResponseJson(BrowseDirectoriesResponse {
                 success: false,
                 data: None,
@@ -90,7 +111,14 @@ pub async fn browse_directories(
             }));
         }
         Err(ValidationError::PathDoesNotExist) => {
-            log_directory_access(None, &target_path, None, false, Some("path_does_not_exist"), None);
+            log_directory_access(
+                None,
+                &target_path,
+                None,
+                false,
+                Some("path_does_not_exist"),
+                None,
+            );
             return Ok(ResponseJson(BrowseDirectoriesResponse {
                 success: false,
                 data: None,
@@ -99,7 +127,14 @@ pub async fn browse_directories(
         }
         Err(e) => {
             warn!("Path validation failed: {:?}", e);
-            log_directory_access(None, &target_path, None, false, Some("validation_failed"), None);
+            log_directory_access(
+                None,
+                &target_path,
+                None,
+                false,
+                Some("validation_failed"),
+                None,
+            );
             return Ok(ResponseJson(BrowseDirectoriesResponse {
                 success: false,
                 data: None,
@@ -123,7 +158,7 @@ pub async fn browse_directories(
         Ok(entries) => {
             for entry in entries.flatten() {
                 let entry_path = entry.path();
-                
+
                 // Only include directories
                 if entry_path.is_dir() {
                     if let Some(name) = entry.file_name().to_str() {
@@ -145,14 +180,18 @@ pub async fn browse_directories(
             }
         }
         Err(e) => {
-            warn!("Failed to read directory {}: {}", validated_path.display(), e);
+            warn!(
+                "Failed to read directory {}: {}",
+                validated_path.display(),
+                e
+            );
             log_directory_access(
-                None, 
-                &target_path, 
-                Some(&validated_path.to_string_lossy()), 
-                false, 
-                Some("read_permission_denied"), 
-                None
+                None,
+                &target_path,
+                Some(&validated_path.to_string_lossy()),
+                false,
+                Some("read_permission_denied"),
+                None,
             );
             return Ok(ResponseJson(BrowseDirectoriesResponse {
                 success: false,
@@ -166,7 +205,7 @@ pub async fn browse_directories(
     directories.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
 
     let current_path_str = validated_path.to_string_lossy().to_string();
-    
+
     // Build response with restricted parent navigation
     let parent_path = if let Some(parent) = validated_path.parent() {
         // Only allow parent if it's also in allowed paths
@@ -174,7 +213,7 @@ pub async fn browse_directories(
             Ok(p) => {
                 debug!("Parent path allowed: {}", p.display());
                 Some(p.to_string_lossy().to_string())
-            },
+            }
             Err(_) => {
                 debug!("Parent path blocked, not providing parent navigation");
                 None
@@ -183,7 +222,7 @@ pub async fn browse_directories(
     } else {
         None
     };
-    
+
     let is_root = parent_path.is_none();
 
     let data = DirectoryData {
@@ -196,12 +235,12 @@ pub async fn browse_directories(
 
     // Log successful directory access
     log_directory_access(
-        None, 
-        &target_path, 
-        Some(&current_path_str), 
-        true, 
-        None, 
-        Some(directories.len())
+        None,
+        &target_path,
+        Some(&current_path_str),
+        true,
+        None,
+        Some(directories.len()),
     );
 
     Ok(ResponseJson(BrowseDirectoriesResponse {
@@ -231,7 +270,7 @@ fn log_directory_access(
         "entries_count": entries_count,
         "source": "directory_browser"
     });
-    
+
     // Use structured logging with audit flag
     if allowed {
         info!(audit = true, directory_access = %log_entry, "Directory access granted");
@@ -243,12 +282,36 @@ fn log_directory_access(
 
 fn is_system_directory(name: &str) -> bool {
     const SYSTEM_DIRS: &[&str] = &[
-        "System", "Windows", "Program Files", "Program Files (x86)", "ProgramData",
-        "usr", "var", "opt", "etc", "proc", "sys", "bin", "sbin",
-        "boot", "dev", "mnt", "media", "root", "run", "tmp",
-        "Applications", "Library", "System", "Volumes", // macOS
-        "node_modules", "__pycache__", ".git", ".svn", ".hg", // Development
+        "System",
+        "Windows",
+        "Program Files",
+        "Program Files (x86)",
+        "ProgramData",
+        "usr",
+        "var",
+        "opt",
+        "etc",
+        "proc",
+        "sys",
+        "bin",
+        "sbin",
+        "boot",
+        "dev",
+        "mnt",
+        "media",
+        "root",
+        "run",
+        "tmp",
+        "Applications",
+        "Library",
+        "System",
+        "Volumes", // macOS
+        "node_modules",
+        "__pycache__",
+        ".git",
+        ".svn",
+        ".hg", // Development
     ];
-    
+
     SYSTEM_DIRS.contains(&name)
 }

@@ -319,10 +319,7 @@ impl SearchPopup {
             .fuzzy_indices(&project.name.to_lowercase(), &query.to_lowercase())
         {
             let weighted_score = (score as f64 * 1.0) as i64; // Weight 1.0 for name
-            if best_match
-                .as_ref()
-                .is_none_or(|m| weighted_score > m.score)
-            {
+            if best_match.as_ref().is_none_or(|m| weighted_score > m.score) {
                 best_match = Some(ProjectMatch {
                     project_index: index,
                     project: project.clone(),
@@ -339,10 +336,7 @@ impl SearchPopup {
             .fuzzy_indices(&project.project_root.to_lowercase(), &query.to_lowercase())
         {
             let weighted_score = (score as f64 * 0.6) as i64; // Weight 0.6 for path
-            if best_match
-                .as_ref()
-                .is_none_or(|m| weighted_score > m.score)
-            {
+            if best_match.as_ref().is_none_or(|m| weighted_score > m.score) {
                 best_match = Some(ProjectMatch {
                     project_index: index,
                     project: project.clone(),
@@ -360,10 +354,7 @@ impl SearchPopup {
                 .fuzzy_indices(&description.to_lowercase(), &query.to_lowercase())
             {
                 let weighted_score = (score as f64 * 0.4) as i64; // Weight 0.4 for description
-                if best_match
-                    .as_ref()
-                    .is_none_or(|m| weighted_score > m.score)
-                {
+                if best_match.as_ref().is_none_or(|m| weighted_score > m.score) {
                     best_match = Some(ProjectMatch {
                         project_index: index,
                         project: project.clone(),
@@ -383,10 +374,7 @@ impl SearchPopup {
                     .fuzzy_indices(&tag.to_lowercase(), &query.to_lowercase())
                 {
                     let weighted_score = (score as f64 * 0.8) as i64; // Weight 0.8 for tags
-                    if best_match
-                        .as_ref()
-                        .is_none_or(|m| weighted_score > m.score)
-                    {
+                    if best_match.as_ref().is_none_or(|m| weighted_score > m.score) {
                         best_match = Some(ProjectMatch {
                             project_index: index,
                             project: project.clone(),

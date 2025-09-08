@@ -5,14 +5,14 @@ use axum::{
 
 pub mod directories;
 pub mod health;
-pub mod preview;
 pub mod path_validator;
+pub mod preview;
 
 pub async fn create_router() -> Router {
-    use preview::PreviewState;
-    use path_validator::PathValidator;
-    use std::sync::Arc;
     use crate::config::Config;
+    use path_validator::PathValidator;
+    use preview::PreviewState;
+    use std::sync::Arc;
 
     // Create path validator from config
     let config = Config::from_env().expect("Failed to load config for PathValidator");

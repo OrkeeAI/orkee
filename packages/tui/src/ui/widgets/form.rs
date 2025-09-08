@@ -642,7 +642,8 @@ impl FormWidget {
         let mut end_field = 0;
 
         // Start from current field and work outward to ensure current field is always visible
-        for (relative_i, &field_height) in field_heights.iter().enumerate().skip(self.current_field) {
+        for (relative_i, &field_height) in field_heights.iter().enumerate().skip(self.current_field)
+        {
             if total_height + field_height <= available_height {
                 total_height += field_height;
                 end_field = relative_i + 1;
@@ -780,9 +781,7 @@ impl FormWidget {
                 // Create a paragraph with the input value
                 let input_value = input.value();
                 let display_value = if input_value.is_empty() {
-                    field
-                        .placeholder.as_deref()
-                        .unwrap_or(input_value)
+                    field.placeholder.as_deref().unwrap_or(input_value)
                 } else {
                     input_value
                 };

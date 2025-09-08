@@ -1,9 +1,4 @@
-use axum::{
-    extract::ConnectInfo,
-    http::Request,
-    middleware::Next,
-    response::Response,
-};
+use axum::{extract::ConnectInfo, http::Request, middleware::Next, response::Response};
 use governor::{
     clock::DefaultClock,
     middleware::NoOpMiddleware,
@@ -24,12 +19,12 @@ use crate::error::AppError;
 #[derive(Debug, Clone)]
 pub struct RateLimitConfig {
     pub enabled: bool,
-    pub health_rpm: u32,        // Health endpoints
-    pub browse_rpm: u32,        // Directory browsing
-    pub projects_rpm: u32,      // Project CRUD
-    pub preview_rpm: u32,       // Preview operations
-    pub global_rpm: u32,        // Global fallback
-    pub burst_size: u32,        // Burst size multiplier
+    pub health_rpm: u32,   // Health endpoints
+    pub browse_rpm: u32,   // Directory browsing
+    pub projects_rpm: u32, // Project CRUD
+    pub preview_rpm: u32,  // Preview operations
+    pub global_rpm: u32,   // Global fallback
+    pub burst_size: u32,   // Burst size multiplier
 }
 
 impl Default for RateLimitConfig {
@@ -50,7 +45,14 @@ impl Default for RateLimitConfig {
 #[derive(Clone)]
 pub struct RateLimitLayer {
     config: RateLimitConfig,
-    limiters: Arc<Mutex<HashMap<String, Arc<RateLimiter<NotKeyed, InMemoryState, DefaultClock, NoOpMiddleware>>>>>,
+    limiters: Arc<
+        Mutex<
+            HashMap<
+                String,
+                Arc<RateLimiter<NotKeyed, InMemoryState, DefaultClock, NoOpMiddleware>>,
+            >,
+        >,
+    >,
 }
 
 impl RateLimitLayer {
@@ -60,9 +62,12 @@ impl RateLimitLayer {
             limiters: Arc::new(Mutex::new(HashMap::new())),
         }
     }
-    
+
     /// Get or create rate limiter for specific endpoint category
-    fn get_limiter_for_path(&self, path: &str) -> Arc<RateLimiter<NotKeyed, InMemoryState, DefaultClock, NoOpMiddleware>> {
+    fn get_limiter_for_path(
+        &self,
+        path: &str,
+    ) -> Arc<RateLimiter<NotKeyed, InMemoryState, DefaultClock, NoOpMiddleware>> {
         let category = categorize_endpoint(path);
         let rpm = match category {
             EndpointCategory::Health => self.config.health_rpm,
@@ -71,29 +76,30 @@ impl RateLimitLayer {
             EndpointCategory::Preview => self.config.preview_rpm,
             EndpointCategory::Other => self.config.global_rpm,
         };
-        
+
         let mut limiters = self.limiters.lock().unwrap();
         let key = format!("{}:{}", category.as_str(), rpm);
-        
+
         if let Some(limiter) = limiters.get(&key) {
             limiter.clone()
         } else {
-            let quota = Quota::per_minute(
-                NonZeroU32::new(rpm).unwrap_or(NonZeroU32::new(30).unwrap())
-            ).allow_burst(
-                NonZeroU32::new(rpm * self.config.burst_size / 10).unwrap_or(NonZeroU32::new(5).unwrap())
-            );
-            
+            let quota =
+                Quota::per_minute(NonZeroU32::new(rpm).unwrap_or(NonZeroU32::new(30).unwrap()))
+                    .allow_burst(
+                        NonZeroU32::new(rpm * self.config.burst_size / 10)
+                            .unwrap_or(NonZeroU32::new(5).unwrap()),
+                    );
+
             let limiter = Arc::new(RateLimiter::direct(quota));
             limiters.insert(key, limiter.clone());
-            
+
             debug!(
                 endpoint_category = %category.as_str(),
                 rpm = %rpm,
                 burst = %(rpm * self.config.burst_size / 10),
                 "Created rate limiter for endpoint category"
             );
-            
+
             limiter
         }
     }
@@ -114,7 +120,7 @@ impl EndpointCategory {
         match self {
             EndpointCategory::Health => "health",
             EndpointCategory::Browse => "browse",
-            EndpointCategory::Projects => "projects", 
+            EndpointCategory::Projects => "projects",
             EndpointCategory::Preview => "preview",
             EndpointCategory::Other => "other",
         }
@@ -143,20 +149,21 @@ pub async fn rate_limit_middleware(
     next: Next,
 ) -> Result<Response, AppError> {
     // Extract the rate limit layer from request extensions
-    let layer = request.extensions()
+    let layer = request
+        .extensions()
         .get::<RateLimitLayer>()
         .cloned()
         .unwrap_or_else(|| RateLimitLayer::new(RateLimitConfig::default()));
-    
+
     // Skip rate limiting if disabled
     if !layer.config.enabled {
         return Ok(next.run(request).await);
     }
-    
+
     let path = request.uri().path();
     let limiter = layer.get_limiter_for_path(path);
     let ip = addr.ip();
-    
+
     // Check rate limit
     match limiter.check() {
         Ok(_) => {
@@ -174,17 +181,19 @@ pub async fn rate_limit_middleware(
                 audit = true,
                 "Rate limit exceeded"
             );
-            
+
             // Calculate retry-after based on limiter state
             let retry_after = calculate_retry_after(&limiter);
-            
+
             Err(AppError::RateLimitExceeded { retry_after })
         }
     }
 }
 
 /// Calculate how long the client should wait before retrying
-fn calculate_retry_after(limiter: &RateLimiter<NotKeyed, InMemoryState, DefaultClock, NoOpMiddleware>) -> u64 {
+fn calculate_retry_after(
+    limiter: &RateLimiter<NotKeyed, InMemoryState, DefaultClock, NoOpMiddleware>,
+) -> u64 {
     // Try to get the earliest time when a slot will be available
     match limiter.check() {
         Ok(_) => 1, // Should be available now, but return 1 second as minimum
@@ -196,22 +205,42 @@ fn calculate_retry_after(limiter: &RateLimiter<NotKeyed, InMemoryState, DefaultC
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_endpoint_categorization() {
-        assert!(matches!(categorize_endpoint("/api/health"), EndpointCategory::Health));
-        assert!(matches!(categorize_endpoint("/api/status"), EndpointCategory::Health));
-        assert!(matches!(categorize_endpoint("/api/browse-directories"), EndpointCategory::Browse));
-        assert!(matches!(categorize_endpoint("/api/projects"), EndpointCategory::Projects));
-        assert!(matches!(categorize_endpoint("/api/projects/123"), EndpointCategory::Projects));
-        assert!(matches!(categorize_endpoint("/api/preview/servers"), EndpointCategory::Preview));
-        assert!(matches!(categorize_endpoint("/api/other"), EndpointCategory::Other));
+        assert!(matches!(
+            categorize_endpoint("/api/health"),
+            EndpointCategory::Health
+        ));
+        assert!(matches!(
+            categorize_endpoint("/api/status"),
+            EndpointCategory::Health
+        ));
+        assert!(matches!(
+            categorize_endpoint("/api/browse-directories"),
+            EndpointCategory::Browse
+        ));
+        assert!(matches!(
+            categorize_endpoint("/api/projects"),
+            EndpointCategory::Projects
+        ));
+        assert!(matches!(
+            categorize_endpoint("/api/projects/123"),
+            EndpointCategory::Projects
+        ));
+        assert!(matches!(
+            categorize_endpoint("/api/preview/servers"),
+            EndpointCategory::Preview
+        ));
+        assert!(matches!(
+            categorize_endpoint("/api/other"),
+            EndpointCategory::Other
+        ));
     }
-    
+
     #[tokio::test]
     async fn test_rate_limiter_creation() {
         let config = RateLimitConfig {
@@ -223,33 +252,33 @@ mod tests {
             global_rpm: 30,
             burst_size: 5,
         };
-        
+
         let layer = RateLimitLayer::new(config);
-        
+
         // Get limiters for different paths
         let health_limiter = layer.get_limiter_for_path("/api/health");
         let _browse_limiter = layer.get_limiter_for_path("/api/browse-directories");
         let _projects_limiter = layer.get_limiter_for_path("/api/projects");
-        
+
         // They should be different instances for different categories
         // but same for same categories
         let health_limiter2 = layer.get_limiter_for_path("/api/status");
         assert!(Arc::ptr_eq(&health_limiter, &health_limiter2));
     }
-    
-    #[tokio::test] 
+
+    #[tokio::test]
     async fn test_rate_limit_enforcement() {
         let quota = Quota::per_minute(NonZeroU32::new(2).unwrap());
         let limiter = RateLimiter::direct(quota);
-        
+
         // First two requests should succeed
         assert!(limiter.check().is_ok());
         assert!(limiter.check().is_ok());
-        
+
         // Third request should fail (rate limited)
         assert!(limiter.check().is_err());
     }
-    
+
     #[test]
     fn test_config_defaults() {
         let config = RateLimitConfig::default();

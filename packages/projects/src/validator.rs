@@ -16,7 +16,7 @@ const TAG_PATTERN: &str = r"^[a-zA-Z0-9_\-]+$";
 const DANGEROUS_COMMANDS: &[&str] = &[
     "rm -rf /",
     "rm -rf /*",
-    ":(){ :|:& };:",  // Fork bomb
+    ":(){ :|:& };:", // Fork bomb
     "dd if=/dev/zero",
     "mkfs.",
     "format ",
@@ -41,26 +41,26 @@ impl ValidationError {
 }
 
 use regex::Regex;
-use std::path::{Path, Component};
+use std::path::{Component, Path};
 
 fn validate_name(name: &str) -> Result<(), ValidationError> {
     // Check length
     if name.len() > MAX_NAME_LENGTH {
         return Err(ValidationError::new(
             "name",
-            format!("Name too long (max {} characters)", MAX_NAME_LENGTH)
+            format!("Name too long (max {} characters)", MAX_NAME_LENGTH),
         ));
     }
-    
+
     // Check pattern
     let re = Regex::new(NAME_PATTERN).unwrap();
     if !re.is_match(name) {
         return Err(ValidationError::new(
             "name",
-            "Name must contain only letters, numbers, hyphens, underscores, and spaces"
+            "Name must contain only letters, numbers, hyphens, underscores, and spaces",
         ));
     }
-    
+
     Ok(())
 }
 
@@ -69,19 +69,19 @@ fn validate_path_safety(path_str: &str) -> Result<(), ValidationError> {
     if path_str.len() > MAX_PATH_LENGTH {
         return Err(ValidationError::new(
             "projectRoot",
-            format!("Path too long (max {} characters)", MAX_PATH_LENGTH)
+            format!("Path too long (max {} characters)", MAX_PATH_LENGTH),
         ));
     }
-    
+
     let path = Path::new(path_str);
-    
+
     // Check for path traversal attempts
     for component in path.components() {
         match component {
             Component::ParentDir => {
                 return Err(ValidationError::new(
                     "projectRoot",
-                    "Path cannot contain '..' (parent directory references)"
+                    "Path cannot contain '..' (parent directory references)",
                 ));
             }
             Component::Normal(os_str) => {
@@ -90,7 +90,7 @@ fn validate_path_safety(path_str: &str) -> Result<(), ValidationError> {
                     if s.starts_with('.') && s != "." {
                         return Err(ValidationError::new(
                             "projectRoot",
-                            "Path cannot contain hidden directories"
+                            "Path cannot contain hidden directories",
                         ));
                     }
                 }
@@ -98,35 +98,45 @@ fn validate_path_safety(path_str: &str) -> Result<(), ValidationError> {
             _ => {}
         }
     }
-    
+
     // Block access to sensitive system directories
     const BLOCKED_PATHS: &[&str] = &[
-        "/etc", "/sys", "/proc", "/dev", "/boot",
-        "/usr/bin", "/usr/sbin", "/bin", "/sbin",
-        "~/.ssh", "~/.aws", "~/.gnupg", "~/.config/git",
+        "/etc",
+        "/sys",
+        "/proc",
+        "/dev",
+        "/boot",
+        "/usr/bin",
+        "/usr/sbin",
+        "/bin",
+        "/sbin",
+        "~/.ssh",
+        "~/.aws",
+        "~/.gnupg",
+        "~/.config/git",
     ];
-    
+
     let normalized_path = if path_str.starts_with("~/") {
         path_str.replace("~", &std::env::var("HOME").unwrap_or_default())
     } else {
         path_str.to_string()
     };
-    
+
     for blocked in BLOCKED_PATHS {
         let blocked_expanded = if blocked.starts_with("~/") {
             blocked.replace("~", &std::env::var("HOME").unwrap_or_default())
         } else {
             blocked.to_string()
         };
-        
+
         if normalized_path.starts_with(&blocked_expanded) {
             return Err(ValidationError::new(
                 "projectRoot",
-                format!("Access to {} is not allowed", blocked)
+                format!("Access to {} is not allowed", blocked),
             ));
         }
     }
-    
+
     Ok(())
 }
 
@@ -135,35 +145,37 @@ fn validate_script(script: &str, field_name: &str) -> Result<(), ValidationError
     if script.len() > MAX_SCRIPT_LENGTH {
         return Err(ValidationError::new(
             field_name,
-            format!("Script too long (max {} characters)", MAX_SCRIPT_LENGTH)
+            format!("Script too long (max {} characters)", MAX_SCRIPT_LENGTH),
         ));
     }
-    
+
     // Check for dangerous commands
     let script_lower = script.to_lowercase();
     for dangerous in DANGEROUS_COMMANDS {
         if script_lower.contains(&dangerous.to_lowercase()) {
             return Err(ValidationError::new(
                 field_name,
-                format!("Script contains potentially dangerous command: {}", dangerous)
+                format!(
+                    "Script contains potentially dangerous command: {}",
+                    dangerous
+                ),
             ));
         }
     }
-    
+
     // Check for shell injection patterns
-    const INJECTION_PATTERNS: &[&str] = &[
-        "$(", "${", "`", "&&", "||", ";", "|", ">", "<", ">>", "<<",
-    ];
-    
+    const INJECTION_PATTERNS: &[&str] =
+        &["$(", "${", "`", "&&", "||", ";", "|", ">", "<", ">>", "<<"];
+
     for pattern in INJECTION_PATTERNS {
         if script.contains(pattern) {
             return Err(ValidationError::new(
                 field_name,
-                format!("Script contains potentially dangerous pattern: {}", pattern)
+                format!("Script contains potentially dangerous pattern: {}", pattern),
             ));
         }
     }
-    
+
     Ok(())
 }
 
@@ -173,14 +185,14 @@ pub async fn validate_project_data(
     allow_nonexistent_path: bool,
 ) -> Vec<ValidationError> {
     let mut errors = Vec::new();
-    
+
     // Validate name (required)
     if data.name.trim().is_empty() {
         errors.push(ValidationError::new("name", "Project name is required"));
     } else if let Err(e) = validate_name(&data.name) {
         errors.push(e);
     }
-    
+
     // Validate project root (required)
     if data.project_root.trim().is_empty() {
         errors.push(ValidationError::new(
@@ -192,7 +204,7 @@ pub async fn validate_project_data(
         if let Err(e) = validate_path_safety(&data.project_root) {
             errors.push(e);
         }
-        
+
         // Check if path exists (if required)
         if !allow_nonexistent_path && !path_exists(&data.project_root).await {
             errors.push(ValidationError::new(
@@ -201,44 +213,47 @@ pub async fn validate_project_data(
             ));
         }
     }
-    
+
     // Validate description if present
     if let Some(ref description) = data.description {
         if description.len() > MAX_DESCRIPTION_LENGTH {
             errors.push(ValidationError::new(
                 "description",
-                format!("Description too long (max {} characters)", MAX_DESCRIPTION_LENGTH)
+                format!(
+                    "Description too long (max {} characters)",
+                    MAX_DESCRIPTION_LENGTH
+                ),
             ));
         }
-        
+
         // Check for HTML/script injection
         if description.contains("<script") || description.contains("javascript:") {
             errors.push(ValidationError::new(
                 "description",
-                "Description cannot contain script tags or javascript"
+                "Description cannot contain script tags or javascript",
             ));
         }
     }
-    
+
     // Validate scripts if present
     if let Some(ref script) = data.setup_script {
         if let Err(e) = validate_script(script, "setup_script") {
             errors.push(e);
         }
     }
-    
+
     if let Some(ref script) = data.dev_script {
         if let Err(e) = validate_script(script, "dev_script") {
             errors.push(e);
         }
     }
-    
+
     if let Some(ref script) = data.cleanup_script {
         if let Err(e) = validate_script(script, "cleanup_script") {
             errors.push(e);
         }
     }
-    
+
     // Validate tags if present
     if let Some(ref tags) = data.tags {
         let tag_re = Regex::new(TAG_PATTERN).unwrap();
@@ -250,18 +265,18 @@ pub async fn validate_project_data(
             if tag.len() > MAX_TAG_LENGTH {
                 errors.push(ValidationError::new(
                     "tags",
-                    format!("Tag '{}' too long (max {} characters)", tag, MAX_TAG_LENGTH)
+                    format!("Tag '{}' too long (max {} characters)", tag, MAX_TAG_LENGTH),
                 ));
             }
             if !tag_re.is_match(tag) {
                 errors.push(ValidationError::new(
                     "tags",
-                    format!("Tag '{}' contains invalid characters", tag)
+                    format!("Tag '{}' contains invalid characters", tag),
                 ));
             }
         }
     }
-    
+
     errors
 }
 
@@ -293,7 +308,7 @@ pub async fn validate_project_update(
             if let Err(e) = validate_path_safety(project_root) {
                 errors.push(e);
             }
-            
+
             // Check if path exists (if required)
             if !allow_nonexistent_path && !path_exists(project_root).await {
                 errors.push(ValidationError::new(
@@ -309,15 +324,18 @@ pub async fn validate_project_update(
         if description.len() > MAX_DESCRIPTION_LENGTH {
             errors.push(ValidationError::new(
                 "description",
-                format!("Description too long (max {} characters)", MAX_DESCRIPTION_LENGTH)
+                format!(
+                    "Description too long (max {} characters)",
+                    MAX_DESCRIPTION_LENGTH
+                ),
             ));
         }
-        
+
         // Check for HTML/script injection
         if description.contains("<script") || description.contains("javascript:") {
             errors.push(ValidationError::new(
                 "description",
-                "Description cannot contain script tags or javascript"
+                "Description cannot contain script tags or javascript",
             ));
         }
     }
@@ -328,13 +346,13 @@ pub async fn validate_project_update(
             errors.push(e);
         }
     }
-    
+
     if let Some(ref script) = data.dev_script {
         if let Err(e) = validate_script(script, "dev_script") {
             errors.push(e);
         }
     }
-    
+
     if let Some(ref script) = data.cleanup_script {
         if let Err(e) = validate_script(script, "cleanup_script") {
             errors.push(e);
@@ -352,13 +370,13 @@ pub async fn validate_project_update(
             if tag.len() > MAX_TAG_LENGTH {
                 errors.push(ValidationError::new(
                     "tags",
-                    format!("Tag '{}' too long (max {} characters)", tag, MAX_TAG_LENGTH)
+                    format!("Tag '{}' too long (max {} characters)", tag, MAX_TAG_LENGTH),
                 ));
             }
             if !tag_re.is_match(tag) {
                 errors.push(ValidationError::new(
                     "tags",
-                    format!("Tag '{}' contains invalid characters", tag)
+                    format!("Tag '{}' contains invalid characters", tag),
                 ));
             }
         }

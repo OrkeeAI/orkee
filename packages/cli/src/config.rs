@@ -1,9 +1,9 @@
+use crate::middleware::RateLimitConfig;
+use crate::tls::TlsConfig;
 use std::env;
 use std::num::ParseIntError;
 use std::str::FromStr;
 use thiserror::Error;
-use crate::middleware::RateLimitConfig;
-use crate::tls::TlsConfig;
 
 #[derive(Error, Debug)]
 pub enum ConfigError {
@@ -42,13 +42,13 @@ pub struct Config {
     pub cors_allow_any_localhost: bool,
     pub allowed_browse_paths: Vec<String>,
     pub browse_sandbox_mode: SandboxMode,
-    
+
     // Middleware configuration
     pub rate_limit: RateLimitConfig,
     pub security_headers_enabled: bool,
     pub enable_hsts: bool,
     pub enable_request_id: bool,
-    
+
     // TLS configuration
     pub tls: TlsConfig,
 }
@@ -137,17 +137,27 @@ impl Config {
             .unwrap_or_else(|_| "false".to_string())
             .parse::<bool>()
             .unwrap_or(false);
-            
+
         let default_cert_dir = crate::tls::TlsManager::default_cert_dir();
-        
+
         let tls_cert_path = env::var("TLS_CERT_PATH")
-            .unwrap_or_else(|_| default_cert_dir.join("cert.pem").to_string_lossy().to_string())
+            .unwrap_or_else(|_| {
+                default_cert_dir
+                    .join("cert.pem")
+                    .to_string_lossy()
+                    .to_string()
+            })
             .into();
-            
+
         let tls_key_path = env::var("TLS_KEY_PATH")
-            .unwrap_or_else(|_| default_cert_dir.join("key.pem").to_string_lossy().to_string())
+            .unwrap_or_else(|_| {
+                default_cert_dir
+                    .join("key.pem")
+                    .to_string_lossy()
+                    .to_string()
+            })
             .into();
-            
+
         let auto_generate_cert = env::var("AUTO_GENERATE_CERT")
             .unwrap_or_else(|_| "true".to_string())
             .parse::<bool>()
@@ -160,8 +170,8 @@ impl Config {
             auto_generate: auto_generate_cert,
         };
 
-        Ok(Config { 
-            port, 
+        Ok(Config {
+            port,
             cors_origin,
             cors_allow_any_localhost,
             allowed_browse_paths,
