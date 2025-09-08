@@ -187,8 +187,8 @@ impl CloudSyncStateManager {
         match record {
             Some(row) => Ok(Some(CloudSyncState {
                 id: row.id,
-                provider_name: row.provider_name,
-                provider_type: row.provider_type,
+                provider_name: row.provider_name.unwrap_or_default(),
+                provider_type: row.provider_type.unwrap_or_default(),
                 enabled: row.enabled.unwrap_or(false),
                 last_sync_at: row.last_sync_at.and_then(|s| DateTime::parse_from_rfc3339(&s).ok().map(|dt| dt.with_timezone(&Utc))),
                 last_successful_sync_at: row.last_successful_sync_at.and_then(|s| DateTime::parse_from_rfc3339(&s).ok().map(|dt| dt.with_timezone(&Utc))),
@@ -260,6 +260,12 @@ impl CloudSyncStateManager {
         &self,
         snapshot: &CloudSnapshot,
     ) -> StorageResult<()> {
+        let created_at_rfc3339 = snapshot.created_at.to_rfc3339();
+        let last_accessed_at_rfc3339 = snapshot.last_accessed_at.map(|dt| dt.to_rfc3339());
+        let uploaded_at_rfc3339 = snapshot.uploaded_at.map(|dt| dt.to_rfc3339());
+        let last_downloaded_at_rfc3339 = snapshot.last_downloaded_at.map(|dt| dt.to_rfc3339());
+        let deletion_scheduled_at_rfc3339 = snapshot.deletion_scheduled_at.map(|dt| dt.to_rfc3339());
+        
         sqlx::query!(
             r#"
             INSERT INTO cloud_snapshots (
@@ -279,15 +285,15 @@ impl CloudSyncStateManager {
                 tags_json = excluded.tags_json
             "#,
             snapshot.id, snapshot.provider_name, snapshot.snapshot_id,
-            snapshot.created_at.to_rfc3339(), snapshot.size_bytes, snapshot.compressed_size_bytes,
+            created_at_rfc3339, snapshot.size_bytes, snapshot.compressed_size_bytes,
             snapshot.project_count, snapshot.version, snapshot.checksum, snapshot.encrypted,
             snapshot.storage_path, snapshot.etag,
-            snapshot.last_accessed_at.map(|dt| dt.to_rfc3339()),
-            snapshot.uploaded_at.map(|dt| dt.to_rfc3339()),
+            last_accessed_at_rfc3339,
+            uploaded_at_rfc3339,
             snapshot.download_count,
-            snapshot.last_downloaded_at.map(|dt| dt.to_rfc3339()),
+            last_downloaded_at_rfc3339,
             snapshot.locally_deleted,
-            snapshot.deletion_scheduled_at.map(|dt| dt.to_rfc3339()),
+            deletion_scheduled_at_rfc3339,
             snapshot.metadata_json, snapshot.tags_json
         )
         .execute(&self.pool)
@@ -319,7 +325,7 @@ impl CloudSyncStateManager {
         let mut snapshots = Vec::new();
         for row in records {
             snapshots.push(CloudSnapshot {
-                id: row.id,
+                id: row.id.unwrap_or_default(),
                 provider_name: row.provider_name,
                 snapshot_id: row.snapshot_id,
                 created_at: DateTime::parse_from_rfc3339(&row.created_at).unwrap().with_timezone(&Utc),
@@ -359,6 +365,7 @@ impl CloudSyncStateManager {
         duration_seconds: Option<i64>,
     ) -> StorageResult<i64> {
         let now = Utc::now();
+        let now_rfc3339 = now.to_rfc3339();
         
         let result = sqlx::query!(
             r#"
@@ -368,7 +375,7 @@ impl CloudSyncStateManager {
                 error_message, duration_seconds, initiated_by
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'system')
             "#,
-            provider_name, operation_type, operation_id, now.to_rfc3339(),
+            provider_name, operation_type, operation_id, now_rfc3339,
             snapshot_id, projects_affected, bytes_transferred, status,
             error_message, duration_seconds
         )
@@ -391,6 +398,7 @@ impl CloudSyncStateManager {
         remote_version: Option<i64>,
     ) -> StorageResult<i64> {
         let now = Utc::now();
+        let now_rfc3339 = now.to_rfc3339();
         
         let result = sqlx::query!(
             r#"
@@ -399,7 +407,7 @@ impl CloudSyncStateManager {
                 local_value, remote_value, local_version, remote_version, resolution_status
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')
             "#,
-            provider_name, snapshot_id, project_id, now.to_rfc3339(), conflict_type,
+            provider_name, snapshot_id, project_id, now_rfc3339, conflict_type,
             local_value, remote_value, local_version, remote_version
         )
         .execute(&self.pool)
@@ -424,7 +432,7 @@ impl CloudSyncStateManager {
         let mut conflicts = Vec::new();
         for row in records {
             conflicts.push(SyncConflict {
-                id: row.id,
+                id: row.id.unwrap_or(0),
                 provider_name: row.provider_name,
                 snapshot_id: row.snapshot_id,
                 project_id: row.project_id,
@@ -434,7 +442,7 @@ impl CloudSyncStateManager {
                 remote_value: row.remote_value,
                 local_version: row.local_version,
                 remote_version: row.remote_version,
-                resolution_status: row.resolution_status,
+                resolution_status: row.resolution_status.unwrap_or_default(),
                 resolution_strategy: row.resolution_strategy,
                 resolved_at: row.resolved_at.and_then(|s| DateTime::parse_from_rfc3339(&s).ok().map(|dt| dt.with_timezone(&Utc))),
                 resolved_by: row.resolved_by,
@@ -471,14 +479,14 @@ impl CloudSyncStateManager {
         let mut summaries = Vec::new();
         for row in records {
             summaries.push(SyncHealthSummary {
-                provider_name: row.provider_name,
-                provider_type: row.provider_type,
+                provider_name: row.provider_name.unwrap_or_default(),
+                provider_type: row.provider_type.unwrap_or_default(),
                 enabled: row.enabled.unwrap_or(false),
                 auto_sync_enabled: row.auto_sync_enabled.unwrap_or(false),
                 last_successful_sync_at: row.last_successful_sync_at.and_then(|s| DateTime::parse_from_rfc3339(&s).ok().map(|dt| dt.with_timezone(&Utc))),
                 error_count: row.error_count.unwrap_or(0),
-                snapshot_count: row.snapshot_count.unwrap_or(0),
-                pending_conflicts: row.pending_conflicts.unwrap_or(0),
+                snapshot_count: row.snapshot_count,
+                pending_conflicts: row.pending_conflicts,
                 latest_snapshot_at: row.latest_snapshot_at.and_then(|s| DateTime::parse_from_rfc3339(&s).ok().map(|dt| dt.with_timezone(&Utc))),
             });
         }

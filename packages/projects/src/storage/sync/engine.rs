@@ -507,7 +507,8 @@ impl SyncEngineFactory {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::storage::sqlite::{SqliteStorage, SqliteConfig};
+    use crate::storage::sqlite::SqliteStorage;
+    use crate::storage::{StorageConfig, StorageProvider};
     use mockall::{mock, predicate::*};
     use std::collections::HashMap;
     use tempfile::TempDir;
@@ -536,9 +537,12 @@ mod tests {
         let temp_dir = TempDir::new().unwrap();
         let db_path = temp_dir.path().join("test.db");
         
-        let config = SqliteConfig {
-            database_url: format!("sqlite://{}?mode=rwc", db_path.display()),
+        let config = StorageConfig {
+            provider: StorageProvider::Sqlite { path: db_path },
+            enable_wal: true,
+            enable_fts: false,
             max_connections: 1,
+            busy_timeout_seconds: 30,
         };
         
         let storage = Arc::new(SqliteStorage::new(config).await.unwrap());
@@ -563,9 +567,12 @@ mod tests {
         let temp_dir = TempDir::new().unwrap();
         let db_path = temp_dir.path().join("test.db");
         
-        let config = SqliteConfig {
-            database_url: format!("sqlite://{}?mode=rwc", db_path.display()),
+        let config = StorageConfig {
+            provider: StorageProvider::Sqlite { path: db_path },
+            enable_wal: true,
+            enable_fts: false,
             max_connections: 1,
+            busy_timeout_seconds: 30,
         };
         
         let storage = Arc::new(SqliteStorage::new(config).await.unwrap());

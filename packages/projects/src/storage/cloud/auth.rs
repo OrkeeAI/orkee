@@ -1,4 +1,4 @@
-use super::{CloudCredentials, CloudError, CloudResult};
+use super::{CloudCredentials, CloudError, CloudResult, CloudProvider};
 use chrono::{DateTime, Utc};
 use keyring::Entry;
 use serde::{Deserialize, Serialize};
@@ -48,7 +48,7 @@ impl CredentialStore {
             .map_err(|e| CloudError::Configuration(format!("Failed to access keyring: {}", e)))?;
 
         entry
-            .delete_password()
+            .delete_credential()
             .map_err(|e| CloudError::Configuration(format!("Failed to remove credentials: {}", e)))?;
 
         tracing::info!("Credentials removed successfully for provider: {}", provider);
@@ -174,7 +174,7 @@ impl CredentialProvider {
             "r2" => {
                 // Cloudflare R2 uses S3-compatible API
                 let mut creds = EnvironmentCredentialProvider::get_aws_credentials(None)
-                    .or_else(|_| {
+                    .or_else(|_| -> CloudResult<CloudCredentials> {
                         // Try R2-specific env vars
                         let access_key_id = std::env::var("R2_ACCESS_KEY_ID")
                             .map_err(|_| CloudError::Authentication("R2_ACCESS_KEY_ID not found".to_string()))?;

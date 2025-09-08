@@ -45,7 +45,7 @@ argon2 = "0.5"
 keyring = "3.6"
 
 # Network & Utilities
-backoff = "0.4"
+backoff = { version = "0.4", features = ["tokio"] }
 bytes = "1.5"
 mime = "0.3"
 toml = "0.8"

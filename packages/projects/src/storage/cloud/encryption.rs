@@ -111,8 +111,8 @@ impl EncryptionKeyManager {
             argon2::Version::V0x13,
             argon2::Params::new(
                 self.config.key_derivation.memory_cost,
-                NonZeroU32::new(self.config.key_derivation.iterations).unwrap(),
-                NonZeroU32::new(self.config.key_derivation.parallelism).unwrap(),
+                self.config.key_derivation.iterations,
+                self.config.key_derivation.parallelism,
                 Some(32), // 32-byte output for AES-256
             ).map_err(|e| CloudError::Encryption(format!("Invalid Argon2 params: {}", e)))?,
         );
@@ -121,7 +121,8 @@ impl EncryptionKeyManager {
             .hash_password(passphrase.as_bytes(), &salt_string)
             .map_err(|e| CloudError::Encryption(format!("Failed to hash password: {}", e)))?;
 
-        let key_bytes = password_hash.hash.unwrap().as_bytes();
+        let hash_binding = password_hash.hash.unwrap();
+        let key_bytes = hash_binding.as_bytes();
         Ok((key_bytes.to_vec(), salt))
     }
 
@@ -605,7 +606,7 @@ mod tests {
     #[test]
     fn test_encrypted_snapshot_manager() {
         let config = EncryptionConfig::default();
-        let mut manager = EncryptedSnapshotManager::new(config);
+        let manager = EncryptedSnapshotManager::new(config);
         
         let data = b"Test snapshot data for encryption";
         let passphrase = "test_passphrase";

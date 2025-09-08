@@ -62,7 +62,7 @@ impl ProviderConfig {
     pub fn new_r2(name: String, bucket: String, account_id: String) -> Self {
         let mut settings = HashMap::new();
         settings.insert("bucket".to_string(), bucket);
-        settings.insert("account_id".to_string(), account_id);
+        settings.insert("account_id".to_string(), account_id.clone());
         settings.insert("region".to_string(), "auto".to_string());
         settings.insert("endpoint".to_string(), format!("https://{}.r2.cloudflarestorage.com", account_id));
 
@@ -483,7 +483,7 @@ mod tests {
 
     #[test]
     fn test_config_validation() {
-        let mut config = CloudConfig::default();
+        let config = CloudConfig::default();
         let manager = CloudConfigManager {
             config_path: PathBuf::new(),
             config,
@@ -493,7 +493,7 @@ mod tests {
         assert!(manager.validate().is_ok());
         
         // Should fail when enabled with no providers
-        let mut manager = CloudConfigManager {
+        let manager = CloudConfigManager {
             config_path: PathBuf::new(),
             config: CloudConfig { enabled: true, ..Default::default() },
         };

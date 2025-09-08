@@ -30,6 +30,8 @@ pub enum CloudError {
     Serialization(#[from] serde_json::Error),
     #[error("IO error: {0}")]
     Io(#[from] std::io::Error),
+    #[error("AWS SDK build error: {0}")]
+    AwsBuildError(String),
     #[error("Invalid metadata")]
     InvalidMetadata,
     #[error("Quota exceeded")]
@@ -39,6 +41,13 @@ pub enum CloudError {
 }
 
 pub type CloudResult<T> = Result<T, CloudError>;
+
+// Implement From for AWS SDK BuildError
+impl From<aws_sdk_s3::error::BuildError> for CloudError {
+    fn from(error: aws_sdk_s3::error::BuildError) -> Self {
+        CloudError::AwsBuildError(error.to_string())
+    }
+}
 
 /// Authentication token for cloud operations
 #[derive(Debug, Clone)]
@@ -105,7 +114,7 @@ pub struct SnapshotInfo {
 }
 
 /// Credentials for authenticating with cloud providers
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum CloudCredentials {
     /// AWS-style access key and secret
     AwsCredentials {

@@ -2,6 +2,8 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
+use super::SnapshotId;
+
 /// Progress information for upload/download operations
 #[derive(Debug, Clone)]
 pub struct ProgressInfo {
@@ -307,7 +309,7 @@ mod tests {
 
         let completed = SyncResult::completed(
             Utc::now() - chrono::Duration::seconds(30),
-            super::SnapshotId("test".to_string()),
+            SnapshotId("test".to_string()),
             1024,
             5,
         );

@@ -247,35 +247,46 @@ impl CloudProvider for S3Provider {
             tags.push(Tag::builder().key(k).value(v).build()?);
         }
 
-        let put_object = client
-            .put_object()
-            .bucket(&self.bucket)
-            .key(&key)
-            .body(Bytes::from(data.to_vec()).into())
-            .content_type("application/octet-stream")
-            .set_metadata(Some(s3_metadata));
+        // Prepare data for closure
+        let data_bytes = Bytes::from(data.to_vec());
+        let bucket = self.bucket.clone();
+        let storage_class_opt = options.storage_class.clone();
+        
+        self.with_retry(|| {
+            let data_bytes = data_bytes.clone();
+            let bucket = bucket.clone();
+            let key = key.clone();
+            let s3_metadata = s3_metadata.clone();
+            let storage_class_opt = storage_class_opt.clone();
+            let client = client.clone();
+            
+            async move {
+                let mut put_object = client
+                    .put_object()
+                    .bucket(&bucket)
+                    .key(&key)
+                    .body(data_bytes.into())
+                    .content_type("application/octet-stream")
+                    .set_metadata(Some(s3_metadata));
 
-        // Add storage class if specified
-        let put_object = if let Some(storage_class) = &options.storage_class {
-            use aws_sdk_s3::types::StorageClass;
-            let sc = match storage_class.as_str() {
-                "STANDARD_IA" => StorageClass::StandardIa,
-                "ONEZONE_IA" => StorageClass::OnezoneIa,
-                "GLACIER" => StorageClass::Glacier,
-                "DEEP_ARCHIVE" => StorageClass::DeepArchive,
-                _ => StorageClass::Standard,
-            };
-            put_object.storage_class(sc)
-        } else {
-            put_object
-        };
+                // Add storage class if specified
+                if let Some(storage_class) = &storage_class_opt {
+                    use aws_sdk_s3::types::StorageClass;
+                    let sc = match storage_class.as_str() {
+                        "STANDARD_IA" => StorageClass::StandardIa,
+                        "ONEZONE_IA" => StorageClass::OnezoneIa,
+                        "GLACIER" => StorageClass::Glacier,
+                        "DEEP_ARCHIVE" => StorageClass::DeepArchive,
+                        _ => StorageClass::Standard,
+                    };
+                    put_object = put_object.storage_class(sc);
+                }
 
-        self.with_retry(|| async {
-            put_object
-                .clone()
-                .send()
-                .await
-                .map_err(|e| CloudError::Provider(format!("Failed to upload snapshot: {}", e)))
+                put_object
+                    .send()
+                    .await
+                    .map_err(|e| CloudError::Provider(format!("Failed to upload snapshot: {}", e)))
+            }
         })
         .await?;
 
@@ -394,9 +405,8 @@ impl CloudProvider for S3Provider {
 
         let mut snapshots = Vec::new();
         
-        if let Some(contents) = result.contents() {
-            for object in contents {
-                if let Some(info) = self.object_to_snapshot_info(&client, object).await? {
+        for object in result.contents() {
+            if let Some(info) = self.object_to_snapshot_info(&client, object).await? {
                     // Apply date filters
                     if let Some(after) = options.created_after {
                         if info.metadata.created_at < after {
@@ -420,7 +430,6 @@ impl CloudProvider for S3Provider {
                     snapshots.push(info);
                 }
             }
-        }
 
         // Sort by creation date (newest first)
         snapshots.sort_by(|a, b| b.metadata.created_at.cmp(&a.metadata.created_at));
@@ -536,9 +545,8 @@ impl CloudProvider for S3Provider {
         let mut oldest: Option<DateTime<Utc>> = None;
         let mut newest: Option<DateTime<Utc>> = None;
 
-        if let Some(contents) = result.contents() {
-            for object in contents {
-                if let Some(key) = object.key() {
+        for object in result.contents() {
+            if let Some(key) = object.key() {
                     if self.parse_snapshot_id(key).is_some() {
                         snapshot_count += 1;
                         total_size += object.size().unwrap_or(0) as u64;
@@ -571,7 +579,6 @@ impl CloudProvider for S3Provider {
                     }
                 }
             }
-        }
 
         Ok(StorageUsage {
             total_size_bytes: total_size,
@@ -629,18 +636,14 @@ impl S3Provider {
             .await
             .map_err(|e| CloudError::Provider(format!("Failed to get object tags: {}", e)))?;
 
-        if let Some(tag_set) = result.tag_set() {
-            for (filter_key, filter_value) in filter_tags {
-                let found = tag_set.iter().any(|tag| {
+        for (filter_key, filter_value) in filter_tags {
+            let found = result.tag_set().iter().any(|tag| {
                     tag.key().unwrap_or_default() == filter_key &&
                     tag.value().unwrap_or_default() == filter_value
                 });
-                if !found {
-                    return Ok(false);
-                }
+            if !found {
+                return Ok(false);
             }
-        } else if !filter_tags.is_empty() {
-            return Ok(false);
         }
 
         Ok(true)
