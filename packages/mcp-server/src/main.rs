@@ -13,7 +13,7 @@ mod mcp;
 mod tools;
 
 use mcp::*;
-use tools::{tools_list, tools_call};
+use tools::{tools_call, tools_list};
 
 #[derive(Parser)]
 #[command(name = "orkee-mcp")]
@@ -88,7 +88,7 @@ async fn handle_rpc_request(method: &str, params: Option<Value>) -> Result<Value
             let result = tools_call(request).await?;
             Ok(serde_json::to_value(result)?)
         }
-        _ => Err(anyhow::anyhow!("Unknown method: {}", method))
+        _ => Err(anyhow::anyhow!("Unknown method: {}", method)),
     }
 }
 
@@ -120,7 +120,7 @@ async fn main() -> Result<()> {
     // Set up signal handling for graceful shutdown
     let running = Arc::new(AtomicBool::new(true));
     let r = running.clone();
-    
+
     thread::spawn(move || {
         let mut signals = Signals::new(&[SIGINT]).unwrap();
         for _ in signals.forever() {
@@ -149,7 +149,9 @@ async fn main() -> Result<()> {
 
         if let Some(method) = request.get("method").and_then(|m| m.as_str()) {
             match method {
-                "notifications/initialized" | "notifications/cancelled" | "notifications/progress" => {
+                "notifications/initialized"
+                | "notifications/cancelled"
+                | "notifications/progress" => {
                     // Notifications don't require responses
                     continue;
                 }

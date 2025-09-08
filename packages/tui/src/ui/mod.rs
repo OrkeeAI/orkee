@@ -1,10 +1,10 @@
-pub mod widgets;
 pub mod chat;
 pub mod projects;
+pub mod widgets;
 
 use crate::state::AppState;
-use ratatui::prelude::*;
 use ratatui::layout::{Constraint, Direction, Layout};
+use ratatui::prelude::*;
 use widgets::{ConfirmationDialogWidget, StatusBarWidget};
 
 /// Main UI rendering function
@@ -13,7 +13,7 @@ pub fn render(frame: &mut Frame, state: &AppState) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Min(3), // Main content area (flexible)
+            Constraint::Min(3),    // Main content area (flexible)
             Constraint::Length(1), // Status bar (fixed height)
         ])
         .split(frame.area());
@@ -31,7 +31,9 @@ pub fn render(frame: &mut Frame, state: &AppState) {
                 projects::render_with_area(frame, state, main_area);
             }
         }
-        crate::state::Screen::ProjectDetail => projects::render_detail_with_area(frame, state, main_area),
+        crate::state::Screen::ProjectDetail => {
+            projects::render_detail_with_area(frame, state, main_area)
+        }
     }
 
     // Render status bar at bottom

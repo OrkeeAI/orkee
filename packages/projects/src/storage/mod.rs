@@ -1,14 +1,16 @@
+use crate::types::{
+    Priority, Project, ProjectCreateInput, ProjectStatus, ProjectUpdateInput, TaskSource,
+};
 use async_trait::async_trait;
-use crate::types::{Project, ProjectCreateInput, ProjectUpdateInput, ProjectStatus, Priority, TaskSource};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use thiserror::Error;
 
 // Re-export modules
-pub mod sqlite;
 pub mod factory;
 pub mod legacy;
+pub mod sqlite;
 
 /// Storage errors
 #[derive(Error, Debug)]
@@ -50,8 +52,8 @@ pub struct StorageConfig {
 impl Default for StorageConfig {
     fn default() -> Self {
         Self {
-            provider: StorageProvider::Sqlite { 
-                path: crate::constants::orkee_dir().join("orkee.db") 
+            provider: StorageProvider::Sqlite {
+                path: crate::constants::orkee_dir().join("orkee.db"),
             },
             enable_wal: true,
             enable_fts: true,
@@ -63,8 +65,13 @@ impl Default for StorageConfig {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum StorageProvider {
-    Sqlite { path: PathBuf },
-    Cloud { provider: CloudProvider, local_cache: PathBuf },
+    Sqlite {
+        path: PathBuf,
+    },
+    Cloud {
+        provider: CloudProvider,
+        local_cache: PathBuf,
+    },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -78,7 +85,7 @@ pub enum CloudProvider {
 pub trait ProjectStorage: Send + Sync {
     // Initialization
     async fn initialize(&self) -> StorageResult<()>;
-    
+
     // Core CRUD operations
     async fn create_project(&self, input: ProjectCreateInput) -> StorageResult<Project>;
     async fn get_project(&self, id: &str) -> StorageResult<Option<Project>>;
@@ -87,15 +94,19 @@ pub trait ProjectStorage: Send + Sync {
     async fn list_projects(&self) -> StorageResult<Vec<Project>>;
     async fn update_project(&self, id: &str, input: ProjectUpdateInput) -> StorageResult<Project>;
     async fn delete_project(&self, id: &str) -> StorageResult<()>;
-    
+
     // Advanced queries
-    async fn list_projects_with_filter(&self, filter: ProjectFilter) -> StorageResult<Vec<Project>>;
+    async fn list_projects_with_filter(&self, filter: ProjectFilter)
+        -> StorageResult<Vec<Project>>;
     async fn search_projects(&self, query: &str) -> StorageResult<Vec<Project>>;
-    async fn bulk_update(&self, updates: Vec<(String, ProjectUpdateInput)>) -> StorageResult<Vec<Project>>;
-    
+    async fn bulk_update(
+        &self,
+        updates: Vec<(String, ProjectUpdateInput)>,
+    ) -> StorageResult<Vec<Project>>;
+
     // Storage information
     async fn get_storage_info(&self) -> StorageResult<StorageInfo>;
-    
+
     // Cloud sync operations (for future use)
     async fn export_snapshot(&self) -> StorageResult<Vec<u8>>;
     async fn import_snapshot(&self, data: &[u8]) -> StorageResult<ImportResult>;
@@ -167,22 +178,28 @@ pub struct DatabaseSnapshot {
 
 /// Utility functions for compression
 pub fn compress_data(data: &[u8]) -> StorageResult<Vec<u8>> {
-    use std::io::Write;
     use flate2::write::GzEncoder;
     use flate2::Compression;
-    
+    use std::io::Write;
+
     let mut encoder = GzEncoder::new(Vec::new(), Compression::default());
-    encoder.write_all(data).map_err(|e| StorageError::Compression(e.to_string()))?;
-    encoder.finish().map_err(|e| StorageError::Compression(e.to_string()))
+    encoder
+        .write_all(data)
+        .map_err(|e| StorageError::Compression(e.to_string()))?;
+    encoder
+        .finish()
+        .map_err(|e| StorageError::Compression(e.to_string()))
 }
 
 pub fn decompress_data(data: &[u8]) -> StorageResult<Vec<u8>> {
-    use std::io::Read;
     use flate2::read::GzDecoder;
-    
+    use std::io::Read;
+
     let mut decoder = GzDecoder::new(data);
     let mut decompressed = Vec::new();
-    decoder.read_to_end(&mut decompressed).map_err(|e| StorageError::Compression(e.to_string()))?;
+    decoder
+        .read_to_end(&mut decompressed)
+        .map_err(|e| StorageError::Compression(e.to_string()))?;
     Ok(decompressed)
 }
 
@@ -193,6 +210,4 @@ pub fn generate_project_id() -> String {
 }
 
 // Re-export legacy JSON storage functions for backward compatibility
-pub use legacy::{
-    ensure_projects_file, path_exists, read_projects_config, write_projects_config,
-};
+pub use legacy::{ensure_projects_file, path_exists, read_projects_config, write_projects_config};

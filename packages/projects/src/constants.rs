@@ -1,5 +1,5 @@
-use std::path::PathBuf;
 use std::env;
+use std::path::PathBuf;
 
 /// Current version of the projects configuration format
 pub const PROJECTS_VERSION: &str = "1.0.0";

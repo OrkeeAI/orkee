@@ -1,8 +1,8 @@
-use orkee_projects::{Project, ProjectStatus, Priority};
-use fuzzy_matcher::FuzzyMatcher;
 use fuzzy_matcher::skim::SkimMatcherV2;
-use tui_input::Input;
+use fuzzy_matcher::FuzzyMatcher;
+use orkee_projects::{Priority, Project, ProjectStatus};
 use std::time::{Duration, Instant};
+use tui_input::Input;
 
 /// Which field was matched during search
 #[derive(Debug, Clone, PartialEq)]
@@ -160,27 +160,27 @@ impl SearchPopup {
     /// Get active filters as display strings
     pub fn active_filters(&self) -> Vec<String> {
         let mut filters = Vec::new();
-        
+
         if let Some(status) = &self.filter_status {
             filters.push(format!("Status: {:?}", status));
         }
-        
+
         if let Some(priority) = &self.filter_priority {
             filters.push(format!("Priority: {:?}", priority));
         }
-        
+
         if !self.filter_tags.is_empty() {
             filters.push(format!("Tags: {}", self.filter_tags.join(", ")));
         }
-        
+
         filters
     }
 
     /// Check if any filters are active
     pub fn has_active_filters(&self) -> bool {
-        self.filter_status.is_some() || 
-        self.filter_priority.is_some() || 
-        !self.filter_tags.is_empty()
+        self.filter_status.is_some()
+            || self.filter_priority.is_some()
+            || !self.filter_tags.is_empty()
     }
 
     /// Toggle status filter
@@ -243,7 +243,7 @@ impl SearchPopup {
         if !self.pending_update {
             return false;
         }
-        
+
         if let Some(last_time) = self.last_update_time {
             Instant::now().duration_since(last_time) >= self.debounce_duration
         } else {
@@ -254,12 +254,12 @@ impl SearchPopup {
     /// Update search results based on current query and filters
     pub fn update_search(&mut self, projects: &[Project]) {
         let current_query = self.search_input.value().to_string();
-        
+
         // Use cache if query hasn't changed and no pending update
         if self.use_cache && current_query == self.last_search_query && !self.pending_update {
             return;
         }
-        
+
         self.perform_search_update(projects, current_query);
     }
 
@@ -273,20 +273,20 @@ impl SearchPopup {
     fn perform_search_update(&mut self, projects: &[Project], current_query: String) {
         self.filtered_results.clear();
         self.selected_index = 0;
-        
+
         // Apply text search and filters
         for (index, project) in projects.iter().enumerate() {
             if let Some(project_match) = self.match_project(index, project, &current_query) {
                 self.filtered_results.push(project_match);
             }
         }
-        
+
         // Sort by score (best matches first)
         self.filtered_results.sort_by(|a, b| b.score.cmp(&a.score));
-        
+
         // Limit to max display items for performance
         self.filtered_results.truncate(self.max_display_items * 2);
-        
+
         self.last_search_query = current_query;
         self.use_cache = true;
         self.pending_update = false;
@@ -312,11 +312,17 @@ impl SearchPopup {
 
         // Try fuzzy matching on different fields with weights
         let mut best_match: Option<ProjectMatch> = None;
-        
+
         // Search project name (highest weight)
-        if let Some((score, indices)) = self.matcher.fuzzy_indices(&project.name.to_lowercase(), &query.to_lowercase()) {
+        if let Some((score, indices)) = self
+            .matcher
+            .fuzzy_indices(&project.name.to_lowercase(), &query.to_lowercase())
+        {
             let weighted_score = (score as f64 * 1.0) as i64; // Weight 1.0 for name
-            if best_match.as_ref().map_or(true, |m| weighted_score > m.score) {
+            if best_match
+                .as_ref()
+                .map_or(true, |m| weighted_score > m.score)
+            {
                 best_match = Some(ProjectMatch {
                     project_index: index,
                     project: project.clone(),
@@ -328,9 +334,15 @@ impl SearchPopup {
         }
 
         // Search project path (medium weight)
-        if let Some((score, indices)) = self.matcher.fuzzy_indices(&project.project_root.to_lowercase(), &query.to_lowercase()) {
+        if let Some((score, indices)) = self
+            .matcher
+            .fuzzy_indices(&project.project_root.to_lowercase(), &query.to_lowercase())
+        {
             let weighted_score = (score as f64 * 0.6) as i64; // Weight 0.6 for path
-            if best_match.as_ref().map_or(true, |m| weighted_score > m.score) {
+            if best_match
+                .as_ref()
+                .map_or(true, |m| weighted_score > m.score)
+            {
                 best_match = Some(ProjectMatch {
                     project_index: index,
                     project: project.clone(),
@@ -343,9 +355,15 @@ impl SearchPopup {
 
         // Search project description (lower weight)
         if let Some(description) = &project.description {
-            if let Some((score, indices)) = self.matcher.fuzzy_indices(&description.to_lowercase(), &query.to_lowercase()) {
+            if let Some((score, indices)) = self
+                .matcher
+                .fuzzy_indices(&description.to_lowercase(), &query.to_lowercase())
+            {
                 let weighted_score = (score as f64 * 0.4) as i64; // Weight 0.4 for description
-                if best_match.as_ref().map_or(true, |m| weighted_score > m.score) {
+                if best_match
+                    .as_ref()
+                    .map_or(true, |m| weighted_score > m.score)
+                {
                     best_match = Some(ProjectMatch {
                         project_index: index,
                         project: project.clone(),
@@ -360,9 +378,15 @@ impl SearchPopup {
         // Search tags (high weight)
         if let Some(tags) = &project.tags {
             for tag in tags {
-                if let Some((score, indices)) = self.matcher.fuzzy_indices(&tag.to_lowercase(), &query.to_lowercase()) {
+                if let Some((score, indices)) = self
+                    .matcher
+                    .fuzzy_indices(&tag.to_lowercase(), &query.to_lowercase())
+                {
                     let weighted_score = (score as f64 * 0.8) as i64; // Weight 0.8 for tags
-                    if best_match.as_ref().map_or(true, |m| weighted_score > m.score) {
+                    if best_match
+                        .as_ref()
+                        .map_or(true, |m| weighted_score > m.score)
+                    {
                         best_match = Some(ProjectMatch {
                             project_index: index,
                             project: project.clone(),
@@ -397,7 +421,9 @@ impl SearchPopup {
         // Tag filters (project must have at least one of the filter tags)
         if !self.filter_tags.is_empty() {
             if let Some(project_tags) = &project.tags {
-                let has_matching_tag = self.filter_tags.iter()
+                let has_matching_tag = self
+                    .filter_tags
+                    .iter()
                     .any(|filter_tag| project_tags.contains(filter_tag));
                 if !has_matching_tag {
                     return false;
@@ -458,19 +484,22 @@ impl SearchPopup {
 
     /// Handle character input
     pub fn handle_char(&mut self, c: char) {
-        self.search_input.handle(tui_input::InputRequest::InsertChar(c));
+        self.search_input
+            .handle(tui_input::InputRequest::InsertChar(c));
         self.invalidate_cache();
     }
 
     /// Handle backspace
     pub fn handle_backspace(&mut self) {
-        self.search_input.handle(tui_input::InputRequest::DeletePrevChar);
+        self.search_input
+            .handle(tui_input::InputRequest::DeletePrevChar);
         self.invalidate_cache();
     }
 
     /// Handle delete
     pub fn handle_delete(&mut self) {
-        self.search_input.handle(tui_input::InputRequest::DeleteNextChar);
+        self.search_input
+            .handle(tui_input::InputRequest::DeleteNextChar);
         self.invalidate_cache();
     }
 

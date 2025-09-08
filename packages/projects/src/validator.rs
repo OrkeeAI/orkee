@@ -30,7 +30,10 @@ pub async fn validate_project_data(
     }
 
     if data.project_root.trim().is_empty() {
-        errors.push(ValidationError::new("projectRoot", "Project root path is required"));
+        errors.push(ValidationError::new(
+            "projectRoot",
+            "Project root path is required",
+        ));
     }
 
     // Validate project root exists if required
@@ -73,7 +76,10 @@ pub async fn validate_project_update(
     // Validate project root if provided
     if let Some(ref project_root) = data.project_root {
         if project_root.trim().is_empty() {
-            errors.push(ValidationError::new("projectRoot", "Project root path cannot be empty"));
+            errors.push(ValidationError::new(
+                "projectRoot",
+                "Project root path cannot be empty",
+            ));
         } else if !allow_nonexistent_path && !path_exists(project_root).await {
             errors.push(ValidationError::new(
                 "projectRoot",
@@ -95,7 +101,6 @@ pub async fn validate_project_update(
     errors
 }
 
-
 /// Truncates a string to a maximum length with ellipsis
 pub fn truncate(text: &str, max_length: usize) -> String {
     if text.len() <= max_length {
@@ -108,8 +113,8 @@ pub fn truncate(text: &str, max_length: usize) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::types::ProjectStatus;
     use crate::storage::generate_project_id;
+    use crate::types::ProjectStatus;
 
     #[tokio::test]
     async fn test_validate_project_data_valid() {
@@ -183,12 +188,12 @@ mod tests {
     fn test_generate_project_id() {
         let id1 = generate_project_id();
         let id2 = generate_project_id();
-        
+
         // UUIDs are 36 characters long
         assert_eq!(id1.len(), 36);
         assert_eq!(id2.len(), 36);
         assert_ne!(id1, id2);
-        
+
         // Should be valid UUID format (with dashes)
         assert!(id1.chars().all(|c| c.is_ascii_hexdigit() || c == '-'));
         assert!(id2.chars().all(|c| c.is_ascii_hexdigit() || c == '-'));

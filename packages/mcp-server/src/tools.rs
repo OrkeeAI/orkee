@@ -4,8 +4,8 @@ use serde_json::{json, Value};
 use std::collections::HashMap;
 
 use orkee_projects::{
-    get_all_projects, get_project, create_project, update_project, delete_project,
-    ProjectCreateInput, ProjectUpdateInput, Priority, ProjectStatus,
+    create_project, delete_project, get_all_projects, get_project, update_project, Priority,
+    ProjectCreateInput, ProjectStatus, ProjectUpdateInput,
 };
 
 // MCP Tool Types
@@ -113,43 +113,73 @@ pub struct ProjectManageRequest {
 // Tool handlers
 pub async fn tools_list(_request: Option<ListToolsRequest>) -> Result<ListToolsResult> {
     let mut properties = HashMap::new();
-    
+
     // Projects tool schema
-    properties.insert("action".to_string(), ToolInputSchemaProperty {
-        type_name: Some("string".to_string()),
-        description: Some("Action to perform: list, get, or search".to_string()),
-        enum_values: Some(vec!["list".to_string(), "get".to_string(), "search".to_string()]),
-    });
-    
-    properties.insert("id".to_string(), ToolInputSchemaProperty {
-        type_name: Some("string".to_string()),
-        description: Some("Project ID for get action".to_string()),
-        enum_values: None,
-    });
-    
-    properties.insert("query".to_string(), ToolInputSchemaProperty {
-        type_name: Some("string".to_string()),
-        description: Some("Search query for search action".to_string()),
-        enum_values: None,
-    });
+    properties.insert(
+        "action".to_string(),
+        ToolInputSchemaProperty {
+            type_name: Some("string".to_string()),
+            description: Some("Action to perform: list, get, or search".to_string()),
+            enum_values: Some(vec![
+                "list".to_string(),
+                "get".to_string(),
+                "search".to_string(),
+            ]),
+        },
+    );
 
-    properties.insert("status".to_string(), ToolInputSchemaProperty {
-        type_name: Some("string".to_string()),
-        description: Some("Filter by project status".to_string()),
-        enum_values: Some(vec!["active".to_string(), "archived".to_string(), "all".to_string()]),
-    });
+    properties.insert(
+        "id".to_string(),
+        ToolInputSchemaProperty {
+            type_name: Some("string".to_string()),
+            description: Some("Project ID for get action".to_string()),
+            enum_values: None,
+        },
+    );
 
-    properties.insert("priority".to_string(), ToolInputSchemaProperty {
-        type_name: Some("string".to_string()),
-        description: Some("Filter by project priority".to_string()),
-        enum_values: Some(vec!["high".to_string(), "medium".to_string(), "low".to_string()]),
-    });
+    properties.insert(
+        "query".to_string(),
+        ToolInputSchemaProperty {
+            type_name: Some("string".to_string()),
+            description: Some("Search query for search action".to_string()),
+            enum_values: None,
+        },
+    );
 
-    properties.insert("has_git".to_string(), ToolInputSchemaProperty {
-        type_name: Some("boolean".to_string()),
-        description: Some("Filter by git repository presence".to_string()),
-        enum_values: None,
-    });
+    properties.insert(
+        "status".to_string(),
+        ToolInputSchemaProperty {
+            type_name: Some("string".to_string()),
+            description: Some("Filter by project status".to_string()),
+            enum_values: Some(vec![
+                "active".to_string(),
+                "archived".to_string(),
+                "all".to_string(),
+            ]),
+        },
+    );
+
+    properties.insert(
+        "priority".to_string(),
+        ToolInputSchemaProperty {
+            type_name: Some("string".to_string()),
+            description: Some("Filter by project priority".to_string()),
+            enum_values: Some(vec![
+                "high".to_string(),
+                "medium".to_string(),
+                "low".to_string(),
+            ]),
+        },
+    );
+
+    properties.insert(
+        "has_git".to_string(),
+        ToolInputSchemaProperty {
+            type_name: Some("boolean".to_string()),
+            description: Some("Filter by git repository presence".to_string()),
+            enum_values: None,
+        },
+    );
 
     let projects_tool = Tool {
         name: "projects".to_string(),
@@ -163,35 +193,54 @@ pub async fn tools_list(_request: Option<ListToolsRequest>) -> Result<ListToolsR
 
     // Project manage tool schema
     let mut manage_properties = HashMap::new();
-    manage_properties.insert("action".to_string(), ToolInputSchemaProperty {
-        type_name: Some("string".to_string()),
-        description: Some("Action to perform: create, update, or delete".to_string()),
-        enum_values: Some(vec!["create".to_string(), "update".to_string(), "delete".to_string()]),
-    });
+    manage_properties.insert(
+        "action".to_string(),
+        ToolInputSchemaProperty {
+            type_name: Some("string".to_string()),
+            description: Some("Action to perform: create, update, or delete".to_string()),
+            enum_values: Some(vec![
+                "create".to_string(),
+                "update".to_string(),
+                "delete".to_string(),
+            ]),
+        },
+    );
 
-    manage_properties.insert("id".to_string(), ToolInputSchemaProperty {
-        type_name: Some("string".to_string()),
-        description: Some("Project ID for update/delete actions".to_string()),
-        enum_values: None,
-    });
+    manage_properties.insert(
+        "id".to_string(),
+        ToolInputSchemaProperty {
+            type_name: Some("string".to_string()),
+            description: Some("Project ID for update/delete actions".to_string()),
+            enum_values: None,
+        },
+    );
 
-    manage_properties.insert("name".to_string(), ToolInputSchemaProperty {
-        type_name: Some("string".to_string()),
-        description: Some("Project name".to_string()),
-        enum_values: None,
-    });
+    manage_properties.insert(
+        "name".to_string(),
+        ToolInputSchemaProperty {
+            type_name: Some("string".to_string()),
+            description: Some("Project name".to_string()),
+            enum_values: None,
+        },
+    );
 
-    manage_properties.insert("projectRoot".to_string(), ToolInputSchemaProperty {
-        type_name: Some("string".to_string()),
-        description: Some("Absolute path to project root directory".to_string()),
-        enum_values: None,
-    });
+    manage_properties.insert(
+        "projectRoot".to_string(),
+        ToolInputSchemaProperty {
+            type_name: Some("string".to_string()),
+            description: Some("Absolute path to project root directory".to_string()),
+            enum_values: None,
+        },
+    );
 
-    manage_properties.insert("description".to_string(), ToolInputSchemaProperty {
-        type_name: Some("string".to_string()),
-        description: Some("Project description".to_string()),
-        enum_values: None,
-    });
+    manage_properties.insert(
+        "description".to_string(),
+        ToolInputSchemaProperty {
+            type_name: Some("string".to_string()),
+            description: Some("Project description".to_string()),
+            enum_values: None,
+        },
+    );
 
     let project_manage_tool = Tool {
         name: "project_manage".to_string(),
@@ -213,11 +262,12 @@ pub async fn tools_list(_request: Option<ListToolsRequest>) -> Result<ListToolsR
 
 pub async fn tools_call(request: Option<CallToolRequest>) -> Result<CallToolResult> {
     let call_request = request.ok_or_else(|| anyhow!("Missing tool call request"))?;
-    
+
     match call_request.name.as_str() {
         "projects" => {
             let args: ProjectsRequest = if let Some(arguments) = call_request.arguments {
-                serde_json::from_value(arguments).map_err(|e| anyhow!("Failed to parse arguments: {}", e))?
+                serde_json::from_value(arguments)
+                    .map_err(|e| anyhow!("Failed to parse arguments: {}", e))?
             } else {
                 ProjectsRequest {
                     action: "list".to_string(),
@@ -229,7 +279,7 @@ pub async fn tools_call(request: Option<CallToolRequest>) -> Result<CallToolResu
                     has_git: None,
                 }
             };
-            
+
             let result = execute_projects_tool(args).await;
             Ok(CallToolResult {
                 content: vec![ToolContent {
@@ -241,7 +291,8 @@ pub async fn tools_call(request: Option<CallToolRequest>) -> Result<CallToolResu
         }
         "project_manage" => {
             let args: ProjectManageRequest = if let Some(arguments) = call_request.arguments {
-                serde_json::from_value(arguments).map_err(|e| anyhow!("Failed to parse arguments: {}", e))?
+                serde_json::from_value(arguments)
+                    .map_err(|e| anyhow!("Failed to parse arguments: {}", e))?
             } else {
                 return Ok(CallToolResult {
                     content: vec![ToolContent {
@@ -251,7 +302,7 @@ pub async fn tools_call(request: Option<CallToolRequest>) -> Result<CallToolResu
                     is_error: Some(true),
                 });
             };
-            
+
             let result = execute_project_manage_tool(args).await;
             Ok(CallToolResult {
                 content: vec![ToolContent {
@@ -261,15 +312,13 @@ pub async fn tools_call(request: Option<CallToolRequest>) -> Result<CallToolResu
                 is_error: None,
             })
         }
-        _ => {
-            Ok(CallToolResult {
-                content: vec![ToolContent {
-                    content_type: "text".to_string(),
-                    text: format!("Unknown tool: {}", call_request.name),
-                }],
-                is_error: Some(true),
-            })
-        }
+        _ => Ok(CallToolResult {
+            content: vec![ToolContent {
+                content_type: "text".to_string(),
+                text: format!("Unknown tool: {}", call_request.name),
+            }],
+            is_error: Some(true),
+        }),
     }
 }
 
@@ -324,16 +373,17 @@ async fn execute_projects_tool(request: ProjectsRequest) -> String {
                             projects.retain(|p| {
                                 // Search in project name and description
                                 let name_match = p.name.to_lowercase().contains(&query_lower);
-                                let desc_match = p.description
+                                let desc_match = p
+                                    .description
                                     .as_ref()
                                     .map(|d| d.to_lowercase().contains(&query_lower))
                                     .unwrap_or(false);
-                                
+
                                 // Search in git repository info
                                 let git_match = if let Some(ref git) = p.git_repository {
-                                    git.owner.to_lowercase().contains(&query_lower) ||
-                                    git.repo.to_lowercase().contains(&query_lower) ||
-                                    git.url.to_lowercase().contains(&query_lower)
+                                    git.owner.to_lowercase().contains(&query_lower)
+                                        || git.repo.to_lowercase().contains(&query_lower)
+                                        || git.url.to_lowercase().contains(&query_lower)
                                 } else {
                                     false
                                 };
@@ -366,7 +416,9 @@ async fn execute_projects_tool(request: ProjectsRequest) -> String {
                                     Priority::Medium
                                 }
                             };
-                            if priority_str != "all" && ["high", "medium", "low"].contains(&priority_str.as_str()) {
+                            if priority_str != "all"
+                                && ["high", "medium", "low"].contains(&priority_str.as_str())
+                            {
                                 projects.retain(|p| p.priority == priority_filter);
                             }
                         }
@@ -381,14 +433,10 @@ async fn execute_projects_tool(request: ProjectsRequest) -> String {
                         json!({ "error": format!("Serialization error: {}", e) }).to_string()
                     })
                 }
-                Err(e) => {
-                    json!({ "error": format!("Failed to get projects: {}", e) }).to_string()
-                }
+                Err(e) => json!({ "error": format!("Failed to get projects: {}", e) }).to_string(),
             }
         }
-        _ => {
-            json!({ "error": format!("Invalid action: {}", request.action) }).to_string()
-        }
+        _ => json!({ "error": format!("Invalid action: {}", request.action) }).to_string(),
     }
 }
 
@@ -481,7 +529,8 @@ async fn execute_project_manage_tool(request: ProjectManageRequest) -> String {
                     }
                 }
             } else {
-                json!({ "success": false, "error": "ID is required for updating a project" }).to_string()
+                json!({ "success": false, "error": "ID is required for updating a project" })
+                    .to_string()
             }
         }
         "delete" => {
@@ -501,11 +550,11 @@ async fn execute_project_manage_tool(request: ProjectManageRequest) -> String {
                     }
                 }
             } else {
-                json!({ "success": false, "error": "ID is required for deleting a project" }).to_string()
+                json!({ "success": false, "error": "ID is required for deleting a project" })
+                    .to_string()
             }
         }
-        _ => {
-            json!({ "success": false, "error": format!("Invalid action: {}", request.action) }).to_string()
-        }
+        _ => json!({ "success": false, "error": format!("Invalid action: {}", request.action) })
+            .to_string(),
     }
 }

@@ -1,6 +1,6 @@
 //! Orkee Preview - Development server preview system
-//! 
-//! This crate provides functionality for managing development servers 
+//!
+//! This crate provides functionality for managing development servers
 //! for various project types with crash-resistant operation.
 
 pub mod manager;
@@ -9,10 +9,10 @@ pub mod types;
 // Re-export key types and functions for easier use
 pub use manager::{PreviewManager, ServerInfo};
 pub use types::{
-    ApiResponse, DevServerConfig, DevServerInstance, DevServerLog, DevServerStatus,
-    Framework, LogType, PackageManager, PreviewError, PreviewResult,
-    ProjectDetectionResult, ProjectType, ServerLockData, StartServerRequest,
-    StartServerResponse, ServerStatusResponse, ServerLogsRequest, ServerLogsResponse,
+    ApiResponse, DevServerConfig, DevServerInstance, DevServerLog, DevServerStatus, Framework,
+    LogType, PackageManager, PreviewError, PreviewResult, ProjectDetectionResult, ProjectType,
+    ServerLockData, ServerLogsRequest, ServerLogsResponse, ServerStatusResponse,
+    StartServerRequest, StartServerResponse,
 };
 
 /// Initialize the preview service with a crash-resistant manager

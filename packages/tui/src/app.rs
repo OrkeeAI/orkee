@@ -1,8 +1,8 @@
-use crate::state::{AppState, EscapeAction, CtrlCAction, Screen};
-use crate::events::{EventHandler, AppEvent};
-use crate::ui;
-use crate::slash_command::SlashCommand;
+use crate::events::{AppEvent, EventHandler};
 use crate::input::InputMode;
+use crate::slash_command::SlashCommand;
+use crate::state::{AppState, CtrlCAction, EscapeAction, Screen};
+use crate::ui;
 use anyhow::Result;
 use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 use orkee_projects::get_all_projects;
@@ -23,7 +23,7 @@ impl App {
             event_sender: None,
         }
     }
-    
+
     /// Load projects from local storage
     pub async fn load_projects(&mut self) -> Result<()> {
         match get_all_projects().await {
@@ -31,33 +31,36 @@ impl App {
                 self.state.set_projects(projects);
                 Ok(())
             }
-            Err(e) => Err(anyhow::anyhow!("Failed to load projects: {}", e))
+            Err(e) => Err(anyhow::anyhow!("Failed to load projects: {}", e)),
         }
     }
-    
-    pub async fn run(&mut self, terminal: &mut Terminal<CrosstermBackend<std::io::Stdout>>) -> Result<()> {
+
+    pub async fn run(
+        &mut self,
+        terminal: &mut Terminal<CrosstermBackend<std::io::Stdout>>,
+    ) -> Result<()> {
         let mut event_handler = EventHandler::new(250); // 250ms tick rate
-        
+
         // Store the event sender for quit functionality
         self.event_sender = Some(event_handler.sender().clone());
-        
+
         // Load projects on startup
         if let Err(e) = self.load_projects().await {
-            self.state.add_system_message(format!("Warning: Failed to load projects: {}", e));
+            self.state
+                .add_system_message(format!("Warning: Failed to load projects: {}", e));
         }
-        
+
         // Main event loop
         while !self.should_quit {
             // Render the UI
             terminal.draw(|frame| {
                 ui::render(frame, &self.state);
             })?;
-            
+
             // Handle events
             if let Some(event) = event_handler.next().await {
                 let should_redraw = match event {
                     AppEvent::Key(key_event) => {
-                        
                         if key_event.kind == KeyEventKind::Press {
                             self.handle_key_event(key_event).await?;
                             true // Redraw immediately after key events
@@ -72,7 +75,8 @@ impl App {
                     AppEvent::Refresh => {
                         // Handle refresh requests
                         if let Err(e) = self.load_projects().await {
-                            self.state.add_system_message(format!("Failed to refresh projects: {}", e));
+                            self.state
+                                .add_system_message(format!("Failed to refresh projects: {}", e));
                         }
                         true // Redraw after refresh
                     }
@@ -81,7 +85,7 @@ impl App {
                         false
                     }
                 };
-                
+
                 // Immediate redraw for input events
                 if should_redraw {
                     terminal.draw(|frame| {
@@ -90,20 +94,23 @@ impl App {
                 }
             }
         }
-        
+
         Ok(())
     }
-    
+
     /// Handle keyboard input
     async fn handle_key_event(&mut self, key_event: KeyEvent) -> Result<()> {
         let key = key_event.code;
         let modifiers = key_event.modifiers;
-        
+
         // DEBUG: Trace all key events to see if Enter is being processed
         if self.state.is_form_mode() {
-            self.state.add_system_message(format!("🔧 DEBUG: Key event - Code: {:?}, Modifiers: {:?}", key, modifiers));
+            self.state.add_system_message(format!(
+                "🔧 DEBUG: Key event - Code: {:?}, Modifiers: {:?}",
+                key, modifiers
+            ));
         }
-        
+
         // Handle dialog keys first (highest priority when dialog is shown)
         if self.state.is_showing_confirmation_dialog() {
             if let Some(result) = self.state.handle_dialog_key(key) {
@@ -117,7 +124,8 @@ impl App {
                             Err(error_msg) => {
                                 // Action failed - show error and close dialog
                                 self.state.cancel_confirmation_dialog();
-                                self.state.add_system_message(format!("❌ **Error**\n\n{}", error_msg));
+                                self.state
+                                    .add_system_message(format!("❌ **Error**\n\n{}", error_msg));
                             }
                         }
                     }
@@ -133,7 +141,7 @@ impl App {
             // When dialog is shown, don't process any other keys
             return Ok(());
         }
-        
+
         // Handle Ctrl+C (clear input on first press, quit on double press)
         if let KeyCode::Char('c') = key {
             if modifiers.contains(KeyModifiers::CONTROL) {
@@ -142,7 +150,7 @@ impl App {
                     CtrlCAction::ClearInput => {
                         // Clear input buffer but keep focus
                         self.state.input_buffer_mut().clear();
-                        
+
                         // Exit any special modes but stay in input
                         if self.state.is_mention_mode() {
                             self.state.exit_mention_mode();
@@ -151,7 +159,7 @@ impl App {
                         } else if self.state.is_editing_message() {
                             self.state.cancel_message_edit();
                         }
-                        
+
                         // Cancel history navigation if active
                         self.state.cancel_history_navigation();
                     }
@@ -171,16 +179,22 @@ impl App {
                 return Ok(());
             }
         }
-        
+
         // Handle input-related keys when in input modes or with modifiers
         match key {
             // Text input keys
             KeyCode::Char(c) => {
                 // Handle navigation shortcuts only when NOT in special modes
-                if !self.state.is_command_mode() && !self.state.is_mention_mode() && 
-                   !self.state.is_form_mode() && self.state.current_screen != crate::state::Screen::Chat {
+                if !self.state.is_command_mode()
+                    && !self.state.is_mention_mode()
+                    && !self.state.is_form_mode()
+                    && self.state.current_screen != crate::state::Screen::Chat
+                {
                     match (c, &self.state.current_screen) {
-                        ('d', &crate::state::Screen::Projects | &crate::state::Screen::ProjectDetail) => {
+                        (
+                            'd',
+                            &crate::state::Screen::Projects | &crate::state::Screen::ProjectDetail,
+                        ) => {
                             // Delete project on projects screen
                             if let Some(project) = self.state.get_selected_project() {
                                 // Show delete confirmation dialog
@@ -201,7 +215,10 @@ impl App {
                             self.state.add_system_message("📁 **Switch to Projects Screen**\n\nPress 'n' again from the projects screen to create a new project.".to_string());
                             return Ok(());
                         }
-                        ('e', &crate::state::Screen::Projects | &crate::state::Screen::ProjectDetail) => {
+                        (
+                            'e',
+                            &crate::state::Screen::Projects | &crate::state::Screen::ProjectDetail,
+                        ) => {
                             if let Some(project) = self.state.get_selected_project() {
                                 // Start project editing form
                                 let project_id = project.id.clone();
@@ -221,15 +238,19 @@ impl App {
                         }
                     }
                 }
-                
+
                 // Allow quit from chat screen too (but only if input is empty and not in form mode)
-                if c == 'q' && !self.state.is_command_mode() && !self.state.is_mention_mode() && 
-                   !self.state.is_form_mode() && self.state.input_buffer().is_empty() && 
-                   self.state.current_screen == crate::state::Screen::Chat {
+                if c == 'q'
+                    && !self.state.is_command_mode()
+                    && !self.state.is_mention_mode()
+                    && !self.state.is_form_mode()
+                    && self.state.input_buffer().is_empty()
+                    && self.state.current_screen == crate::state::Screen::Chat
+                {
                     self.quit();
                     return Ok(());
                 }
-                
+
                 // Handle Ctrl+J (Shift+Enter in many terminals) specially
                 if c == 'j' && modifiers.contains(KeyModifiers::CONTROL) {
                     if self.state.is_form_mode() {
@@ -246,7 +267,7 @@ impl App {
                         return Ok(());
                     }
                 }
-                
+
                 // Handle Shift+C (cancel form) - BEFORE routing to form widget
                 if c == 'C' && modifiers.contains(KeyModifiers::SHIFT) {
                     if self.state.is_form_mode() {
@@ -255,10 +276,13 @@ impl App {
                         return Ok(());
                     }
                 }
-                
+
                 // Handle Shift+F (open search popup) - Project search
                 if c == 'F' && modifiers.contains(KeyModifiers::SHIFT) {
-                    if matches!(self.state.current_screen, Screen::Projects | Screen::ProjectDetail) {
+                    if matches!(
+                        self.state.current_screen,
+                        Screen::Projects | Screen::ProjectDetail
+                    ) {
                         if self.state.is_search_mode() {
                             // Close search if already open
                             self.state.close_search();
@@ -271,16 +295,16 @@ impl App {
                         return Ok(());
                     }
                 }
-                
+
                 // Global shortcuts are now handled above in the navigation logic
-                
+
                 // Only process text input if input area is focused (true Codex behavior)
                 // EXCEPT in form mode where we handle input directly
                 if !self.state.is_input_focused() && !self.state.is_form_mode() {
                     // If chat is focused, ignore typing - only Tab switches focus
                     return Ok(());
                 }
-                
+
                 // Handle input based on mode
                 if self.state.is_form_mode() {
                     // For review step, don't route keys to form widget since there are no fields
@@ -305,10 +329,14 @@ impl App {
                                 // Status filter mode - handle status selection keys
                                 match c {
                                     '1' | 'a' => {
-                                        search_popup.toggle_status_filter(Some(orkee_projects::ProjectStatus::Active));
+                                        search_popup.toggle_status_filter(Some(
+                                            orkee_projects::ProjectStatus::Active,
+                                        ));
                                     }
                                     '2' | 'r' => {
-                                        search_popup.toggle_status_filter(Some(orkee_projects::ProjectStatus::Archived));
+                                        search_popup.toggle_status_filter(Some(
+                                            orkee_projects::ProjectStatus::Archived,
+                                        ));
                                     }
                                     '0' | 'c' => {
                                         search_popup.toggle_status_filter(None);
@@ -318,7 +346,9 @@ impl App {
                                         let current_status = search_popup.get_status_filter();
                                         let next_status = match current_status {
                                             None => Some(orkee_projects::ProjectStatus::Active),
-                                            Some(orkee_projects::ProjectStatus::Active) => Some(orkee_projects::ProjectStatus::Archived),
+                                            Some(orkee_projects::ProjectStatus::Active) => {
+                                                Some(orkee_projects::ProjectStatus::Archived)
+                                            }
                                             Some(orkee_projects::ProjectStatus::Archived) => None,
                                         };
                                         search_popup.toggle_status_filter(next_status);
@@ -332,13 +362,19 @@ impl App {
                                 // Priority filter mode - handle priority selection keys
                                 match c {
                                     '1' | 'h' => {
-                                        search_popup.toggle_priority_filter(Some(orkee_projects::Priority::High));
+                                        search_popup.toggle_priority_filter(Some(
+                                            orkee_projects::Priority::High,
+                                        ));
                                     }
                                     '2' | 'm' => {
-                                        search_popup.toggle_priority_filter(Some(orkee_projects::Priority::Medium));
+                                        search_popup.toggle_priority_filter(Some(
+                                            orkee_projects::Priority::Medium,
+                                        ));
                                     }
                                     '3' | 'l' => {
-                                        search_popup.toggle_priority_filter(Some(orkee_projects::Priority::Low));
+                                        search_popup.toggle_priority_filter(Some(
+                                            orkee_projects::Priority::Low,
+                                        ));
                                     }
                                     '0' | 'c' => {
                                         search_popup.toggle_priority_filter(None);
@@ -348,8 +384,12 @@ impl App {
                                         let current_priority = search_popup.get_priority_filter();
                                         let next_priority = match current_priority {
                                             None => Some(orkee_projects::Priority::High),
-                                            Some(orkee_projects::Priority::High) => Some(orkee_projects::Priority::Medium),
-                                            Some(orkee_projects::Priority::Medium) => Some(orkee_projects::Priority::Low),
+                                            Some(orkee_projects::Priority::High) => {
+                                                Some(orkee_projects::Priority::Medium)
+                                            }
+                                            Some(orkee_projects::Priority::Medium) => {
+                                                Some(orkee_projects::Priority::Low)
+                                            }
                                             Some(orkee_projects::Priority::Low) => None,
                                         };
                                         search_popup.toggle_priority_filter(next_priority);
@@ -367,8 +407,8 @@ impl App {
                         // Text input and tag input use debounced updates (handled in invalidate_cache)
                         // Filter changes use immediate updates
                         match search_popup.search_mode() {
-                            crate::search_popup::SearchMode::Status | 
-                            crate::search_popup::SearchMode::Priority => {
+                            crate::search_popup::SearchMode::Status
+                            | crate::search_popup::SearchMode::Priority => {
                                 // Filter changes - immediate update
                                 search_popup.force_search_update(&self.state.projects);
                             }
@@ -385,20 +425,23 @@ impl App {
                     // Normal mode - add character to input buffer
                     self.state.input_buffer_mut().insert_char(c);
                 }
-                
+
                 // Check if we just typed '/' and should enter command mode (use original char, not transformed)
-                if c == '/' && self.state.input_buffer().content() == "/" && !self.state.is_command_mode() {
+                if c == '/'
+                    && self.state.input_buffer().content() == "/"
+                    && !self.state.is_command_mode()
+                {
                     self.state.enter_command_mode();
                 } else if self.state.is_command_mode() {
                     // Update command filter as we type
                     self.state.update_command_filter();
                 }
-                
+
                 // Check if we just typed '@' and should enter mention mode (use original char, not transformed)
                 if c == '@' && !self.state.is_mention_mode() && !self.state.is_command_mode() {
                     let cursor_pos = self.state.input_buffer().cursor_position();
                     let char_pos = cursor_pos - c.len_utf8(); // Position where @ was inserted
-                    
+
                     // Only trigger mention mode if @ is at start or preceded by whitespace
                     if self.state.should_trigger_mention(char_pos) {
                         self.state.enter_mention_mode(char_pos);
@@ -408,7 +451,7 @@ impl App {
                     self.state.update_mention_filter();
                 }
             }
-            
+
             // Input editing keys
             KeyCode::Backspace => {
                 // Only process if input area is focused
@@ -417,7 +460,7 @@ impl App {
                     // If chat is focused, ignore backspace - only Tab switches focus
                     return Ok(());
                 }
-                
+
                 if self.state.is_form_mode() {
                     // Form mode - route backspace to form widget
                     let crossterm_event = crossterm::event::KeyEvent::new(key, modifiers);
@@ -458,8 +501,8 @@ impl App {
                         }
                         // Handle debounced vs immediate updates for backspace
                         match search_popup.search_mode() {
-                            crate::search_popup::SearchMode::Status | 
-                            crate::search_popup::SearchMode::Priority => {
+                            crate::search_popup::SearchMode::Status
+                            | crate::search_popup::SearchMode::Priority => {
                                 // Filter changes - immediate update
                                 search_popup.force_search_update(&self.state.projects);
                             }
@@ -474,8 +517,8 @@ impl App {
                 } else {
                     self.state.input_buffer_mut().backspace();
                 }
-                
-                // Exit command mode if we deleted the '/' 
+
+                // Exit command mode if we deleted the '/'
                 if self.state.is_command_mode() {
                     let content = self.state.input_buffer().content();
                     if !content.starts_with('/') {
@@ -488,14 +531,18 @@ impl App {
                     // Check if we deleted the @ or if cursor moved before the mention start
                     let content = self.state.input_buffer().content();
                     let cursor_pos = self.state.input_buffer().cursor_position();
-                    
+
                     if let Some(popup) = self.state.mention_popup() {
                         let mention_start = popup.mention_start_position();
-                        
+
                         // Exit mention mode if we deleted the @ or cursor is before it
-                        if mention_start >= content.len() || 
-                           cursor_pos < mention_start ||
-                           !content.chars().nth(mention_start).map_or(false, |c| c == '@') {
+                        if mention_start >= content.len()
+                            || cursor_pos < mention_start
+                            || !content
+                                .chars()
+                                .nth(mention_start)
+                                .map_or(false, |c| c == '@')
+                        {
                             self.state.exit_mention_mode();
                         } else {
                             // Update mention filter as we delete characters
@@ -511,7 +558,7 @@ impl App {
                     // If chat is focused, ignore delete - only Tab switches focus
                     return Ok(());
                 }
-                
+
                 if self.state.is_form_mode() {
                     // Form mode - route delete to form widget
                     let crossterm_event = crossterm::event::KeyEvent::new(key, modifiers);
@@ -522,7 +569,7 @@ impl App {
                 } else {
                     self.state.input_buffer_mut().delete_char();
                 }
-                
+
                 // Update command filter if in command mode
                 if self.state.is_command_mode() {
                     self.state.update_command_filter();
@@ -531,7 +578,7 @@ impl App {
                     self.state.update_mention_filter();
                 }
             }
-            
+
             // Cursor movement keys (only work when input is focused or in form mode)
             KeyCode::Left => {
                 if !self.state.is_input_focused() && !self.state.is_form_mode() {
@@ -579,7 +626,7 @@ impl App {
                 }
                 // TODO: Add cursor movement within form fields if needed
             }
-            
+
             // Up/Down navigation: Popups > Form fields > Projects > Default scroll behavior (unless chat focused)
             KeyCode::Up => {
                 if self.state.is_mention_mode() {
@@ -601,7 +648,7 @@ impl App {
                     if let Some(form) = self.state.form_mut() {
                         handled = form.handle_input(&event);
                     }
-                    
+
                     // If form widget didn't handle it, use it for field navigation
                     if !handled {
                         self.handle_form_navigation(false).await;
@@ -649,7 +696,7 @@ impl App {
                     if let Some(form) = self.state.form_mut() {
                         handled = form.handle_input(&event);
                     }
-                    
+
                     // If form widget didn't handle it, use it for field navigation (forward)
                     if !handled {
                         self.handle_form_navigation(true).await;
@@ -671,7 +718,7 @@ impl App {
                     self.state.scroll_down();
                 }
             }
-            
+
             // Submit message or complete mention/command (only when input focused)
             KeyCode::Enter => {
                 if modifiers.contains(KeyModifiers::SHIFT) {
@@ -743,7 +790,9 @@ impl App {
                             }
                         }
                     }
-                } else if self.state.current_screen == crate::state::Screen::Projects && !self.state.is_form_mode() {
+                } else if self.state.current_screen == crate::state::Screen::Projects
+                    && !self.state.is_form_mode()
+                {
                     // Projects screen - view selected project details
                     self.state.view_selected_project_details();
                 } else if !self.state.is_input_focused() && !self.state.is_form_mode() {
@@ -754,7 +803,7 @@ impl App {
                     self.handle_input_submission().await;
                 }
             }
-            
+
             // Cancel/escape or double-escape for editing
             KeyCode::Esc => {
                 // Handle double-escape detection first
@@ -763,7 +812,8 @@ impl App {
                         // Double escape detected - load previous message for editing
                         if !self.state.load_previous_message_for_edit() {
                             // No previous message to edit
-                            self.state.add_system_message("No previous message to edit".to_string());
+                            self.state
+                                .add_system_message("No previous message to edit".to_string());
                         }
                     }
                     EscapeAction::SingleEscape => {
@@ -802,7 +852,7 @@ impl App {
                     }
                 }
             }
-            
+
             // Tab for focus cycling (Codex-style) or completion or form navigation
             KeyCode::Tab => {
                 if modifiers.contains(KeyModifiers::SHIFT) {
@@ -844,21 +894,20 @@ impl App {
                     self.state.cycle_focus();
                 }
             }
-            
+
             // Other keys are ignored for now
             _ => {}
         }
-        
+
         Ok(())
     }
-    
-    
+
     /// Handle input submission (Enter key)
     async fn handle_input_submission(&mut self) {
         if self.state.is_command_mode() {
             // In command mode, complete the selected command or execute if already complete
             let input_content = self.state.input_buffer().content().to_string();
-            
+
             if let Some(_completed_command) = self.state.complete_selected_command() {
                 // Command was completed, check if it needs execution
                 if !input_content.contains('<') {
@@ -874,7 +923,7 @@ impl App {
             // In future phases, this is where we'd send to server
         }
     }
-    
+
     /// Centralized form navigation logic
     async fn handle_form_navigation(&mut self, try_advance: bool) -> bool {
         // Special handling for review step
@@ -903,14 +952,14 @@ impl App {
                 return false;
             }
         }
-        
+
         if try_advance {
             // Forward navigation - validate current field first
             if !self.state.form_validate_current_field() {
                 // Validation failed, stay on current field
                 return false;
             }
-            
+
             // Try to move to next field
             if self.state.form_next_field() {
                 // Successfully moved to next field
@@ -928,7 +977,7 @@ impl App {
                 return false;
             }
         }
-        
+
         // Either not trying to advance, or on last field - try to submit if form is complete
         if self.state.form_can_submit() {
             match self.state.submit_form().await {
@@ -943,22 +992,22 @@ impl App {
                 }
             }
         }
-        
+
         // Form is not ready for submission
         false
     }
-    
+
     /// Execute a slash command from the input buffer
     async fn execute_slash_command(&mut self) {
         let input_content = self.state.input_buffer().content().to_string();
-        
+
         // Parse the command from input
         match SlashCommand::parse_from_input(&input_content) {
             Ok((command, _args)) => {
                 // Clear input buffer and exit command mode
                 self.state.input_buffer_mut().clear();
                 self.state.exit_command_mode();
-                
+
                 // Execute the command
                 match command {
                     SlashCommand::Help => {
@@ -966,22 +1015,27 @@ impl App {
                         self.state.add_system_message(content);
                     }
                     SlashCommand::Quit => {
-                        self.state.add_system_message("👋 Goodbye! Exiting Orkee TUI...".to_string());
+                        self.state
+                            .add_system_message("👋 Goodbye! Exiting Orkee TUI...".to_string());
                         self.quit();
                     }
                     SlashCommand::Clear => {
                         // Clear message history but keep welcome message
                         self.state.message_history.clear();
-                        self.state.add_system_message("🧹 Chat history cleared.".to_string());
+                        self.state
+                            .add_system_message("🧹 Chat history cleared.".to_string());
                     }
                     SlashCommand::Projects => {
                         // Switch to interactive projects screen
                         if let Err(e) = self.load_projects().await {
-                            self.state.add_system_message(format!("⚠️ Failed to load projects: {}", e));
+                            self.state
+                                .add_system_message(format!("⚠️ Failed to load projects: {}", e));
                         } else {
                             self.state.current_screen = crate::state::Screen::Projects;
                             // Ensure we have a selection if there are projects
-                            if !self.state.projects.is_empty() && self.state.selected_project.is_none() {
+                            if !self.state.projects.is_empty()
+                                && self.state.selected_project.is_none()
+                            {
                                 self.state.selected_project = Some(0);
                             }
                         }
@@ -999,16 +1053,19 @@ impl App {
             }
             Err(error) => {
                 // Show error message and clear input
-                self.state.add_system_message(format!("❌ **Command Error:** {}\n\n💡 *Type `/help` for available commands*", error));
+                self.state.add_system_message(format!(
+                    "❌ **Command Error:** {}\n\n💡 *Type `/help` for available commands*",
+                    error
+                ));
                 self.state.input_buffer_mut().clear();
                 self.state.exit_command_mode();
             }
         }
     }
-    
+
     pub fn quit(&mut self) {
         self.should_quit = true;
-        
+
         // Send quit event to break the event loop immediately
         if let Some(sender) = &self.event_sender {
             let _ = sender.send(AppEvent::Quit);

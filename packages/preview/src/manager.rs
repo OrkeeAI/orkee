@@ -1,20 +1,20 @@
 use crate::types::*;
 use chrono::Utc;
-use std::collections::HashMap;
+use serde_json;
 use std::collections::hash_map::DefaultHasher;
+use std::collections::HashMap;
+use std::collections::VecDeque;
 use std::hash::{Hash, Hasher};
 use std::path::PathBuf;
 use std::process::Stdio;
+use std::sync::Arc;
+use tokio::fs;
+use tokio::io::{AsyncBufReadExt, BufReader};
+use tokio::process::Child;
 use tokio::process::Command;
 use tokio::sync::RwLock;
-use tokio::fs;
-use std::sync::Arc;
-use tracing::{info, warn, error};
+use tracing::{error, info, warn};
 use uuid::Uuid;
-use tokio::process::Child;
-use tokio::io::{AsyncBufReadExt, BufReader};
-use std::collections::VecDeque;
-use serde_json;
 
 /// Result of spawning a server with metadata
 #[derive(Debug)]
@@ -73,12 +73,12 @@ impl PreviewManager {
     /// Create a new manager and recover existing servers from lock files
     pub async fn new_with_recovery() -> Self {
         let manager = Self::new();
-        
+
         // Recover existing servers from lock files
         if let Err(e) = manager.recover_servers().await {
             warn!("Failed to recover servers: {}", e);
         }
-        
+
         manager
     }
 
@@ -91,11 +91,13 @@ impl PreviewManager {
         };
 
         let mut logs = self.server_logs.write().await;
-        let project_logs = logs.entry(project_id.to_string()).or_insert_with(VecDeque::new);
-        
+        let project_logs = logs
+            .entry(project_id.to_string())
+            .or_insert_with(VecDeque::new);
+
         // Add the log entry
         project_logs.push_back(log_entry);
-        
+
         // Keep only the last 1000 entries to prevent memory issues
         if project_logs.len() > 1000 {
             project_logs.pop_front();
@@ -103,26 +105,37 @@ impl PreviewManager {
     }
 
     /// Get logs for a project
-    pub async fn get_server_logs(&self, project_id: &str, since: Option<chrono::DateTime<Utc>>, limit: Option<usize>) -> Vec<DevServerLog> {
+    pub async fn get_server_logs(
+        &self,
+        project_id: &str,
+        since: Option<chrono::DateTime<Utc>>,
+        limit: Option<usize>,
+    ) -> Vec<DevServerLog> {
         let logs = self.server_logs.read().await;
-        
+
         if let Some(project_logs) = logs.get(project_id) {
             let mut filtered_logs: Vec<DevServerLog> = if let Some(since_time) = since {
-                project_logs.iter()
+                project_logs
+                    .iter()
                     .filter(|log| log.timestamp > since_time)
                     .cloned()
                     .collect()
             } else {
                 project_logs.iter().cloned().collect()
             };
-            
+
             // Apply limit if specified
             if let Some(max_count) = limit {
                 if filtered_logs.len() > max_count {
-                    filtered_logs = filtered_logs.into_iter().rev().take(max_count).rev().collect();
+                    filtered_logs = filtered_logs
+                        .into_iter()
+                        .rev()
+                        .take(max_count)
+                        .rev()
+                        .collect();
                 }
             }
-            
+
             filtered_logs
         } else {
             Vec::new()
@@ -140,18 +153,18 @@ impl PreviewManager {
     fn extract_port_from_log(&self, line: &str) -> Option<u16> {
         // Common patterns for dev server port detection
         let patterns = [
-            r"Local:\s+http://localhost:(\d+)",  // Vite: "Local:   http://localhost:5174/"
+            r"Local:\s+http://localhost:(\d+)", // Vite: "Local:   http://localhost:5174/"
             r"Local server:\s+http://localhost:(\d+)", // Some frameworks
             r"Running at http://localhost:(\d+)", // Express/other servers
             r"Server ready at http://localhost:(\d+)", // Next.js dev
-            r"server running on port (\d+)", // Express: "Express server running on port 8476"
-            r"📍 http://localhost:(\d+)", // Express with emoji: "📍 http://localhost:8476"
+            r"server running on port (\d+)",    // Express: "Express server running on port 8476"
+            r"📍 http://localhost:(\d+)",       // Express with emoji: "📍 http://localhost:8476"
             r"🚀.*port (\d+)", // Express startup: "🚀 Express server running on port 8476"
             r"ready - started server on.*:(\d+)", // Next.js: "ready - started server on 0.0.0.0:3000"
-            r"http://localhost:(\d+)", // Generic http://localhost pattern
-            r"localhost:(\d+)", // Generic localhost pattern
+            r"http://localhost:(\d+)",            // Generic http://localhost pattern
+            r"localhost:(\d+)",                   // Generic localhost pattern
         ];
-        
+
         for pattern in &patterns {
             if let Ok(regex) = regex::Regex::new(pattern) {
                 if let Some(captures) = regex.captures(line) {
@@ -171,7 +184,7 @@ impl PreviewManager {
         // Pattern for HTTP access logs: IP - - [timestamp] "METHOD path HTTP/version" status -
         // Example: ::1 - - [07/Sep/2025 12:25:39] "GET / HTTP/1.1" 200 -
         let http_log_pattern = r#"^[:\w\.-]+ - - \[[^\]]+\] "[A-Z]+ [^"]+ HTTP/[\d\.]+" (\d{3}) -"#;
-        
+
         if let Ok(regex) = regex::Regex::new(http_log_pattern) {
             if let Some(captures) = regex.captures(line) {
                 if let Some(status_match) = captures.get(1) {
@@ -182,7 +195,7 @@ impl PreviewManager {
                 }
             }
         }
-        
+
         false
     }
 
@@ -191,11 +204,18 @@ impl PreviewManager {
         let mut servers = self.active_servers.write().await;
         if let Some(server_info) = servers.get_mut(project_id) {
             if server_info.port != new_port {
-                info!("Detected port change for project {}: {} -> {}", project_id, server_info.port, new_port);
+                info!(
+                    "Detected port change for project {}: {} -> {}",
+                    project_id, server_info.port, new_port
+                );
                 server_info.port = new_port;
                 server_info.preview_url = Some(format!("http://localhost:{}", new_port));
-                self.add_log(project_id, LogType::System, 
-                    format!("Updated preview URL to http://localhost:{}", new_port)).await;
+                self.add_log(
+                    project_id,
+                    LogType::System,
+                    format!("Updated preview URL to http://localhost:{}", new_port),
+                )
+                .await;
             }
         }
     }
@@ -204,7 +224,7 @@ impl PreviewManager {
     async fn capture_process_logs(&self, project_id: String, mut child: Child) {
         let project_id_clone = project_id.clone();
         let manager = self.clone();
-        
+
         // Get stdout handle
         if let Some(stdout) = child.stdout.take() {
             let project_id_stdout = project_id_clone.clone();
@@ -215,9 +235,13 @@ impl PreviewManager {
                 while let Ok(Some(line)) = lines.next_line().await {
                     // Check for port detection in the log line
                     if let Some(detected_port) = manager_stdout.extract_port_from_log(&line) {
-                        manager_stdout.update_server_port(&project_id_stdout, detected_port).await;
+                        manager_stdout
+                            .update_server_port(&project_id_stdout, detected_port)
+                            .await;
                     }
-                    manager_stdout.add_log(&project_id_stdout, LogType::Stdout, line).await;
+                    manager_stdout
+                        .add_log(&project_id_stdout, LogType::Stdout, line)
+                        .await;
                 }
             });
         }
@@ -232,24 +256,32 @@ impl PreviewManager {
                 while let Ok(Some(line)) = lines.next_line().await {
                     // Check for port detection in the log line (some servers log to stderr)
                     if let Some(detected_port) = manager_stderr.extract_port_from_log(&line) {
-                        manager_stderr.update_server_port(&project_id_stderr, detected_port).await;
+                        manager_stderr
+                            .update_server_port(&project_id_stderr, detected_port)
+                            .await;
                     }
-                    
+
                     // Filter out successful HTTP access logs from being marked as STDERR
                     let log_type = if manager_stderr.is_successful_http_log(&line) {
-                        LogType::System  // HTTP access logs are informational, not errors
+                        LogType::System // HTTP access logs are informational, not errors
                     } else {
-                        LogType::Stderr  // Real errors stay as STDERR
+                        LogType::Stderr // Real errors stay as STDERR
                     };
-                    
-                    manager_stderr.add_log(&project_id_stderr, log_type, line).await;
+
+                    manager_stderr
+                        .add_log(&project_id_stderr, log_type, line)
+                        .await;
                 }
             });
         }
     }
 
     /// Start a preview server for a project
-    pub async fn start_server(&self, project_id: String, project_root: PathBuf) -> PreviewResult<ServerInfo> {
+    pub async fn start_server(
+        &self,
+        project_id: String,
+        project_root: PathBuf,
+    ) -> PreviewResult<ServerInfo> {
         info!("Starting preview server for: {}", project_id);
 
         // Check if server already exists
@@ -265,7 +297,7 @@ impl PreviewManager {
 
         // Find available port using project-based allocation (8000-8999 range)
         let port = self.find_available_port(&project_id).await?;
-        
+
         // Create server info
         let server_info = ServerInfo {
             id: Uuid::new_v4(),
@@ -283,12 +315,14 @@ impl PreviewManager {
         match self.spawn_server(&server_info, &project_root).await {
             Ok(spawn_result) => {
                 let pid = spawn_result.child.id();
-                
+
                 // Start capturing logs from the process
                 let project_id_for_logs = project_id.clone();
                 let manager_for_logs = self.clone();
                 tokio::spawn(async move {
-                    manager_for_logs.capture_process_logs(project_id_for_logs, spawn_result.child).await;
+                    manager_for_logs
+                        .capture_process_logs(project_id_for_logs, spawn_result.child)
+                        .await;
                 });
 
                 let mut updated_info = server_info;
@@ -305,24 +339,30 @@ impl PreviewManager {
 
                 // Create lock file for persistence
                 if let Err(e) = self.create_lock_file(&updated_info, &project_root).await {
-                    warn!("Failed to create lock file for project {}: {}", project_id, e);
+                    warn!(
+                        "Failed to create lock file for project {}: {}",
+                        project_id, e
+                    );
                 }
 
-                info!("Successfully started server for project: {} on port {}", project_id, port);
+                info!(
+                    "Successfully started server for project: {} on port {}",
+                    project_id, port
+                );
                 Ok(updated_info)
             }
             Err(e) => {
                 error!("Failed to start server for project {}: {}", project_id, e);
-                
+
                 let mut error_info = server_info;
                 error_info.status = DevServerStatus::Error;
-                
+
                 // Store the error state
                 {
                     let mut servers = self.active_servers.write().await;
                     servers.insert(project_id, error_info.clone());
                 }
-                
+
                 Err(e)
             }
         }
@@ -339,25 +379,32 @@ impl PreviewManager {
 
         if let Some(info) = server_info {
             // Add stop log
-            self.add_log(project_id, LogType::System, 
-                format!("Stopping server with PID: {:?}", info.pid)).await;
+            self.add_log(
+                project_id,
+                LogType::System,
+                format!("Stopping server with PID: {:?}", info.pid),
+            )
+            .await;
 
             if let Some(pid) = info.pid {
                 // Try to kill the process
                 self.kill_process(pid).await?;
             }
-            
+
             // Remove from active servers
             {
                 let mut servers = self.active_servers.write().await;
                 servers.remove(project_id);
             }
-            
+
             // Remove lock file
             if let Err(e) = self.remove_lock_file(project_id).await {
-                warn!("Failed to remove lock file for project {}: {}", project_id, e);
+                warn!(
+                    "Failed to remove lock file for project {}: {}",
+                    project_id, e
+                );
             }
-            
+
             info!("Successfully stopped server for project: {}", project_id);
         }
 
@@ -387,23 +434,32 @@ impl PreviewManager {
     /// Find an available port starting from project's preferred port in range 8000-8999
     async fn find_available_port(&self, project_id: &str) -> PreviewResult<u16> {
         let preferred = self.get_preferred_port(project_id);
-        
+
         // Try preferred port first
         if self.is_port_available(preferred).await {
-            info!("Using preferred port {} for project {}", preferred, project_id);
+            info!(
+                "Using preferred port {} for project {}",
+                preferred, project_id
+            );
             return Ok(preferred);
         }
-        
+
         // Scan range 8000-8999 starting from preferred
         for offset in 1..1000 {
             let port = 8000 + ((preferred - 8000 + offset) % 1000);
             if self.is_port_available(port).await {
-                info!("Using alternative port {} for project {} (preferred {} was taken)", port, project_id, preferred);
+                info!(
+                    "Using alternative port {} for project {} (preferred {} was taken)",
+                    port, project_id, preferred
+                );
                 return Ok(port);
             }
         }
-        
-        error!("No available ports in range 8000-8999 for project {}", project_id);
+
+        error!(
+            "No available ports in range 8000-8999 for project {}",
+            project_id
+        );
         Err(PreviewError::PortInUse { port: preferred })
     }
 
@@ -413,7 +469,11 @@ impl PreviewManager {
     }
 
     /// Spawn a server process based on project type
-    async fn spawn_server(&self, server_info: &ServerInfo, project_root: &PathBuf) -> PreviewResult<SpawnResult> {
+    async fn spawn_server(
+        &self,
+        server_info: &ServerInfo,
+        project_root: &PathBuf,
+    ) -> PreviewResult<SpawnResult> {
         // Check for package.json first - if it has dev scripts, prefer dev commands
         if project_root.join("package.json").exists() {
             // Try development commands for Node.js projects
@@ -428,7 +488,11 @@ impl PreviewManager {
     }
 
     /// Spawn a simple static file server
-    async fn spawn_static_server(&self, server_info: &ServerInfo, project_root: &PathBuf) -> PreviewResult<SpawnResult> {
+    async fn spawn_static_server(
+        &self,
+        server_info: &ServerInfo,
+        project_root: &PathBuf,
+    ) -> PreviewResult<SpawnResult> {
         // Use Python's built-in HTTP server as it's reliable and simple
         let mut cmd = Command::new("python3");
         cmd.args(["-m", "http.server", &server_info.port.to_string()])
@@ -438,15 +502,27 @@ impl PreviewManager {
             .stdin(Stdio::null());
 
         // Add initial log
-        self.add_log(&server_info.project_id, LogType::System, 
-            format!("Starting static HTTP server on port {} in {}", server_info.port, project_root.display())).await;
+        self.add_log(
+            &server_info.project_id,
+            LogType::System,
+            format!(
+                "Starting static HTTP server on port {} in {}",
+                server_info.port,
+                project_root.display()
+            ),
+        )
+        .await;
 
         match cmd.spawn() {
             Ok(child) => {
                 let pid = child.id();
                 info!("Spawned static server with PID: {:?}", pid);
-                self.add_log(&server_info.project_id, LogType::System, 
-                    format!("Static server started successfully with PID: {:?}", pid)).await;
+                self.add_log(
+                    &server_info.project_id,
+                    LogType::System,
+                    format!("Static server started successfully with PID: {:?}", pid),
+                )
+                .await;
                 Ok(SpawnResult {
                     child,
                     command: "python3 -m http.server".to_string(),
@@ -455,8 +531,12 @@ impl PreviewManager {
             }
             Err(e) => {
                 error!("Failed to spawn static server: {}", e);
-                self.add_log(&server_info.project_id, LogType::System, 
-                    format!("Failed to start static server: {}", e)).await;
+                self.add_log(
+                    &server_info.project_id,
+                    LogType::System,
+                    format!("Failed to start static server: {}", e),
+                )
+                .await;
                 Err(PreviewError::ProcessSpawnError {
                     command: "python3 -m http.server".to_string(),
                     error: e.to_string(),
@@ -482,13 +562,17 @@ impl PreviewManager {
     /// Detect framework based on command and project files
     async fn detect_framework(&self, command: &str, project_root: &PathBuf) -> String {
         // Check command first
-        if command.contains("vite") || command.contains("npm run dev") && self.has_dependency(project_root, "vite").await {
+        if command.contains("vite")
+            || command.contains("npm run dev") && self.has_dependency(project_root, "vite").await
+        {
             return "Vite".to_string();
         }
         if command.contains("next") || self.has_dependency(project_root, "next").await {
             return "Next.js".to_string();
         }
-        if command.contains("react-scripts") || self.has_dependency(project_root, "react-scripts").await {
+        if command.contains("react-scripts")
+            || self.has_dependency(project_root, "react-scripts").await
+        {
             return "Create React App".to_string();
         }
         if command.contains("vue") || self.has_dependency(project_root, "vue").await {
@@ -500,7 +584,7 @@ impl PreviewManager {
         if command.contains("python") {
             return "Python HTTP Server".to_string();
         }
-        
+
         // Default
         "Development Server".to_string()
     }
@@ -524,16 +608,28 @@ impl PreviewManager {
     }
 
     /// Spawn a development command
-    async fn spawn_dev_command(&self, server_info: &ServerInfo, project_root: &PathBuf) -> PreviewResult<SpawnResult> {
+    async fn spawn_dev_command(
+        &self,
+        server_info: &ServerInfo,
+        project_root: &PathBuf,
+    ) -> PreviewResult<SpawnResult> {
         let port_str = server_info.port.to_string();
-        
+
         // Add initial log
-        self.add_log(&server_info.project_id, LogType::System, 
-            format!("Attempting to start development server on port {} in {}", server_info.port, project_root.display())).await;
+        self.add_log(
+            &server_info.project_id,
+            LogType::System,
+            format!(
+                "Attempting to start development server on port {} in {}",
+                server_info.port,
+                project_root.display()
+            ),
+        )
+        .await;
 
         // Check for npm/yarn scripts first if package.json exists
         let mut commands = Vec::new();
-        
+
         if project_root.join("package.json").exists() {
             // Check for common dev scripts in order of preference
             if self.has_npm_script(project_root, "dev").await {
@@ -547,7 +643,7 @@ impl PreviewManager {
                 commands.push(("yarn", vec!["dev"]));
             }
         }
-        
+
         // Add fallback commands
         commands.push(("python3", vec!["-m", "http.server", port_str.as_str()]));
 
@@ -561,19 +657,33 @@ impl PreviewManager {
                 .stderr(Stdio::piped())
                 .stdin(Stdio::null());
 
-            self.add_log(&server_info.project_id, LogType::System, 
-                format!("Trying command: {} {}", cmd, args.join(" "))).await;
+            self.add_log(
+                &server_info.project_id,
+                LogType::System,
+                format!("Trying command: {} {}", cmd, args.join(" ")),
+            )
+            .await;
 
             if let Ok(child) = command.spawn() {
                 let pid = child.id();
-                info!("Spawned dev server with command '{}' and PID: {:?}", cmd, pid);
-                
+                info!(
+                    "Spawned dev server with command '{}' and PID: {:?}",
+                    cmd, pid
+                );
+
                 let command_str = format!("{} {}", cmd, args.join(" "));
                 let framework = self.detect_framework(&command_str, project_root).await;
-                
-                self.add_log(&server_info.project_id, LogType::System, 
-                    format!("Development server started successfully with command '{}' and PID: {:?}", cmd, pid)).await;
-                
+
+                self.add_log(
+                    &server_info.project_id,
+                    LogType::System,
+                    format!(
+                        "Development server started successfully with command '{}' and PID: {:?}",
+                        cmd, pid
+                    ),
+                )
+                .await;
+
                 return Ok(SpawnResult {
                     child,
                     command: command_str,
@@ -582,8 +692,12 @@ impl PreviewManager {
             }
         }
 
-        self.add_log(&server_info.project_id, LogType::System, 
-            "No suitable development server command found".to_string()).await;
+        self.add_log(
+            &server_info.project_id,
+            LogType::System,
+            "No suitable development server command found".to_string(),
+        )
+        .await;
 
         Err(PreviewError::ProcessSpawnError {
             command: "No suitable dev command found".to_string(),
@@ -613,7 +727,7 @@ impl PreviewManager {
                 }
             }
         }
-        
+
         #[cfg(not(unix))]
         {
             // On non-Unix systems, we can't easily kill processes
@@ -639,24 +753,31 @@ impl PreviewManager {
         {
             use nix::sys::signal::{kill, Signal};
             use nix::unistd::Pid;
-            
+
             // Signal 0 checks if process exists without actually sending a signal
             match kill(Pid::from_raw(pid as i32), Some(Signal::SIGCONT)) {
                 Ok(_) => true,
                 Err(_) => false,
             }
         }
-        
+
         #[cfg(not(unix))]
         {
             // On Windows, assume process is running (safer default)
-            warn!("Process checking not implemented for this platform, assuming PID {} is running", pid);
+            warn!(
+                "Process checking not implemented for this platform, assuming PID {} is running",
+                pid
+            );
             true
         }
     }
 
     /// Create lock file when starting server
-    async fn create_lock_file(&self, server_info: &ServerInfo, project_root: &PathBuf) -> PreviewResult<()> {
+    async fn create_lock_file(
+        &self,
+        server_info: &ServerInfo,
+        project_root: &PathBuf,
+    ) -> PreviewResult<()> {
         let lock_data = ServerLockData {
             project_id: server_info.project_id.clone(),
             pid: server_info.pid.unwrap_or(0),
@@ -667,19 +788,25 @@ impl PreviewManager {
         };
 
         let lock_path = self.get_lock_file_path(&server_info.project_id);
-        let lock_json = serde_json::to_string_pretty(&lock_data)
-            .map_err(|e| PreviewError::IoError(std::io::Error::new(std::io::ErrorKind::Other, e)))?;
+        let lock_json = serde_json::to_string_pretty(&lock_data).map_err(|e| {
+            PreviewError::IoError(std::io::Error::new(std::io::ErrorKind::Other, e))
+        })?;
 
         // Ensure directory exists
         if let Some(parent) = lock_path.parent() {
-            fs::create_dir_all(parent).await
+            fs::create_dir_all(parent)
+                .await
                 .map_err(|e| PreviewError::IoError(e))?;
         }
 
-        fs::write(&lock_path, lock_json).await
+        fs::write(&lock_path, lock_json)
+            .await
             .map_err(|e| PreviewError::IoError(e))?;
-        
-        info!("Created lock file for project: {} at {:?}", server_info.project_id, lock_path);
+
+        info!(
+            "Created lock file for project: {} at {:?}",
+            server_info.project_id, lock_path
+        );
         Ok(())
     }
 
@@ -687,7 +814,8 @@ impl PreviewManager {
     async fn remove_lock_file(&self, project_id: &str) -> PreviewResult<()> {
         let lock_path = self.get_lock_file_path(project_id);
         if lock_path.exists() {
-            fs::remove_file(&lock_path).await
+            fs::remove_file(&lock_path)
+                .await
                 .map_err(|e| PreviewError::IoError(e))?;
             info!("Removed lock file for project: {}", project_id);
         }
@@ -726,9 +854,12 @@ impl PreviewManager {
         }
 
         if recovered_count > 0 {
-            info!("Recovered {} preview servers from lock files", recovered_count);
+            info!(
+                "Recovered {} preview servers from lock files",
+                recovered_count
+            );
         }
-        
+
         Ok(())
     }
 
@@ -747,7 +878,10 @@ impl PreviewManager {
             Err(e) => {
                 warn!("Invalid lock file {:?}, removing: {}", lock_path, e);
                 let _ = fs::remove_file(&lock_path).await;
-                return Err(PreviewError::IoError(std::io::Error::new(std::io::ErrorKind::InvalidData, e)));
+                return Err(PreviewError::IoError(std::io::Error::new(
+                    std::io::ErrorKind::InvalidData,
+                    e,
+                )));
             }
         };
 
@@ -769,7 +903,10 @@ impl PreviewManager {
             let mut servers = self.active_servers.write().await;
             servers.insert(lock_data.project_id.clone(), server_info);
 
-            info!("Recovered running server for project: {} on port {}", lock_data.project_id, lock_data.port);
+            info!(
+                "Recovered running server for project: {} on port {}",
+                lock_data.project_id, lock_data.port
+            );
         } else {
             // Stale lock, remove it
             if let Err(e) = fs::remove_file(&lock_path).await {

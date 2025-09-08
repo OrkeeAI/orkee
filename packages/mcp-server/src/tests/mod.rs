@@ -9,9 +9,9 @@ mod integration_tests;
 
 #[cfg(test)]
 pub mod test_helpers {
-    use orkee_projects::{initialize_storage, get_storage_manager};
-    use std::sync::{Once, Mutex};
+    use orkee_projects::{get_storage_manager, initialize_storage};
     use std::env;
+    use std::sync::{Mutex, Once};
 
     static INIT: Once = Once::new();
     static TEST_LOCK: Mutex<()> = Mutex::new(());
@@ -21,17 +21,17 @@ pub mod test_helpers {
     pub async fn setup_test_storage() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         // Use a global test lock to ensure tests run sequentially to avoid database conflicts
         let _guard = TEST_LOCK.lock().unwrap();
-        
+
         INIT.call_once(|| {
             // Set up a unique test database location to avoid conflicts
             let test_dir = env::temp_dir().join(format!("orkee_test_{}", std::process::id()));
             std::fs::create_dir_all(&test_dir).ok();
             env::set_var("HOME", test_dir);
         });
-        
+
         // Always try to initialize storage - it will only actually initialize once
         match initialize_storage().await {
-            Ok(_) => {},
+            Ok(_) => {}
             Err(e) => {
                 // If already initialized, that's fine
                 if !e.to_string().contains("already initialized") {
@@ -43,7 +43,7 @@ pub mod test_helpers {
         // Clean up any existing data to isolate tests
         if let Ok(storage_manager) = get_storage_manager().await {
             let storage = storage_manager.storage();
-            
+
             // Get all projects and delete them to clean the state
             if let Ok(projects) = storage.list_projects().await {
                 for project in projects {

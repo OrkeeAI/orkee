@@ -1,17 +1,18 @@
 use async_trait::async_trait;
-use sqlx::sqlite::{SqlitePool, SqlitePoolOptions, SqliteRow};
-use sqlx::{Row, migrate::MigrateDatabase};
 use chrono::{DateTime, Utc};
 use serde_json;
+use sqlx::sqlite::{SqlitePool, SqlitePoolOptions, SqliteRow};
+use sqlx::{migrate::MigrateDatabase, Row};
 use tracing::{debug, info, warn};
 
 use super::{
-    ProjectStorage, StorageResult, StorageError, StorageConfig, StorageProvider, 
-    ProjectFilter, StorageInfo, StorageCapabilities, ImportResult, 
-    ImportConflict, ConflictType, DatabaseSnapshot, compress_data, decompress_data,
-    generate_project_id
+    compress_data, decompress_data, generate_project_id, ConflictType, DatabaseSnapshot,
+    ImportConflict, ImportResult, ProjectFilter, ProjectStorage, StorageCapabilities,
+    StorageConfig, StorageError, StorageInfo, StorageProvider, StorageResult,
 };
-use crate::types::{Project, ProjectCreateInput, ProjectUpdateInput, ProjectStatus, Priority, TaskSource};
+use crate::types::{
+    Priority, Project, ProjectCreateInput, ProjectStatus, ProjectUpdateInput, TaskSource,
+};
 
 /// SQLite implementation of ProjectStorage
 pub struct SqliteStorage {
@@ -29,17 +30,19 @@ impl SqliteStorage {
 
         // Ensure parent directory exists
         if let Some(parent) = database_path.parent() {
-            std::fs::create_dir_all(parent)
-                .map_err(|e| StorageError::Io(e))?;
+            std::fs::create_dir_all(parent).map_err(|e| StorageError::Io(e))?;
         }
 
         let database_url = format!("sqlite:{}", database_path.display());
-        
+
         // Create database if it doesn't exist
-        if !sqlx::Sqlite::database_exists(&database_url).await
-            .map_err(|e| StorageError::Sqlx(e))? {
+        if !sqlx::Sqlite::database_exists(&database_url)
+            .await
+            .map_err(|e| StorageError::Sqlx(e))?
+        {
             debug!("Creating database at: {}", database_url);
-            sqlx::Sqlite::create_database(&database_url).await
+            sqlx::Sqlite::create_database(&database_url)
+                .await
                 .map_err(|e| StorageError::Sqlx(e))?;
         }
 
@@ -198,7 +201,7 @@ impl SqliteStorage {
 impl ProjectStorage for SqliteStorage {
     async fn initialize(&self) -> StorageResult<()> {
         info!("Initializing SQLite storage with migrations");
-        
+
         // Run migrations
         sqlx::migrate!("./migrations")
             .run(&self.pool)
@@ -218,10 +221,22 @@ impl ProjectStorage for SqliteStorage {
     async fn create_project(&self, input: ProjectCreateInput) -> StorageResult<Project> {
         let id = generate_project_id();
         let now = Utc::now();
-        
-        let tags_json = input.tags.as_ref().map(|t| serde_json::to_string(t)).transpose()?;
-        let manual_tasks_json = input.manual_tasks.as_ref().map(|t| serde_json::to_string(t)).transpose()?;
-        let mcp_servers_json = input.mcp_servers.as_ref().map(|t| serde_json::to_string(t)).transpose()?;
+
+        let tags_json = input
+            .tags
+            .as_ref()
+            .map(|t| serde_json::to_string(t))
+            .transpose()?;
+        let manual_tasks_json = input
+            .manual_tasks
+            .as_ref()
+            .map(|t| serde_json::to_string(t))
+            .transpose()?;
+        let mcp_servers_json = input
+            .mcp_servers
+            .as_ref()
+            .map(|t| serde_json::to_string(t))
+            .transpose()?;
 
         let status_str = Self::status_to_string(&input.status.unwrap_or(ProjectStatus::Active));
         let priority_str = Self::priority_to_string(&input.priority.unwrap_or(Priority::Medium));
@@ -259,11 +274,12 @@ impl ProjectStorage for SqliteStorage {
             Ok(_) => {
                 debug!("Created project '{}' with ID {}", input.name, id);
                 self.get_project(&id).await?.ok_or(StorageError::NotFound)
-            },
+            }
             Err(sqlx::Error::Database(db_err)) => {
                 // SQLite UNIQUE constraint violation
                 if let Some(code) = db_err.code() {
-                    if code == "2067" || code == "1555" { // SQLITE_CONSTRAINT_UNIQUE
+                    if code == "2067" || code == "1555" {
+                        // SQLITE_CONSTRAINT_UNIQUE
                         let message = db_err.message();
                         if message.contains("name") {
                             return Err(StorageError::DuplicateName(input.name));
@@ -273,8 +289,8 @@ impl ProjectStorage for SqliteStorage {
                     }
                 }
                 Err(StorageError::Sqlx(sqlx::Error::Database(db_err)))
-            },
-            Err(e) => Err(StorageError::Sqlx(e))
+            }
+            Err(e) => Err(StorageError::Sqlx(e)),
         }
     }
 
@@ -326,7 +342,7 @@ impl ProjectStorage for SqliteStorage {
                 CASE WHEN rank IS NULL THEN 1 ELSE 0 END,
                 rank ASC,
                 name ASC
-            "#
+            "#,
         )
         .fetch_all(&self.pool)
         .await
@@ -451,22 +467,27 @@ impl ProjectStorage for SqliteStorage {
                 }
                 debug!("Updated project with ID {}", id);
                 self.get_project(id).await?.ok_or(StorageError::NotFound)
-            },
+            }
             Err(sqlx::Error::Database(db_err)) => {
                 // SQLite UNIQUE constraint violation
                 if let Some(code) = db_err.code() {
-                    if code == "2067" || code == "1555" { // SQLITE_CONSTRAINT_UNIQUE
+                    if code == "2067" || code == "1555" {
+                        // SQLITE_CONSTRAINT_UNIQUE
                         let message = db_err.message();
                         if message.contains("name") {
-                            return Err(StorageError::DuplicateName(input.name.unwrap_or_default()));
+                            return Err(StorageError::DuplicateName(
+                                input.name.unwrap_or_default(),
+                            ));
                         } else if message.contains("project_root") {
-                            return Err(StorageError::DuplicatePath(input.project_root.unwrap_or_default()));
+                            return Err(StorageError::DuplicatePath(
+                                input.project_root.unwrap_or_default(),
+                            ));
                         }
                     }
                 }
                 Err(StorageError::Sqlx(sqlx::Error::Database(db_err)))
-            },
-            Err(e) => Err(StorageError::Sqlx(e))
+            }
+            Err(e) => Err(StorageError::Sqlx(e)),
         }
     }
 
@@ -485,7 +506,10 @@ impl ProjectStorage for SqliteStorage {
         Ok(())
     }
 
-    async fn list_projects_with_filter(&self, filter: ProjectFilter) -> StorageResult<Vec<Project>> {
+    async fn list_projects_with_filter(
+        &self,
+        filter: ProjectFilter,
+    ) -> StorageResult<Vec<Project>> {
         let mut where_conditions = vec!["status != 'deleted'"];
         let mut query_params: Vec<String> = Vec::new();
 
@@ -510,8 +534,14 @@ impl ProjectStorage for SqliteStorage {
         }
 
         let where_clause = where_conditions.join(" AND ");
-        let limit_clause = filter.limit.map(|l| format!(" LIMIT {}", l)).unwrap_or_default();
-        let offset_clause = filter.offset.map(|o| format!(" OFFSET {}", o)).unwrap_or_default();
+        let limit_clause = filter
+            .limit
+            .map(|l| format!(" LIMIT {}", l))
+            .unwrap_or_default();
+        let offset_clause = filter
+            .offset
+            .map(|o| format!(" OFFSET {}", o))
+            .unwrap_or_default();
 
         let query_str = format!(
             r#"
@@ -531,7 +561,10 @@ impl ProjectStorage for SqliteStorage {
             query = query.bind(param);
         }
 
-        let rows = query.fetch_all(&self.pool).await.map_err(|e| StorageError::Sqlx(e))?;
+        let rows = query
+            .fetch_all(&self.pool)
+            .await
+            .map_err(|e| StorageError::Sqlx(e))?;
 
         let mut projects = Vec::new();
         for row in rows {
@@ -553,7 +586,7 @@ impl ProjectStorage for SqliteStorage {
                     CASE WHEN rank IS NULL THEN 1 ELSE 0 END,
                     rank ASC,
                     name ASC
-                "#
+                "#,
             )
             .bind(format!("%{}%", query))
             .bind(format!("%{}%", query))
@@ -577,7 +610,7 @@ impl ProjectStorage for SqliteStorage {
             WHERE projects_fts MATCH ?
             AND p.status != 'deleted'
             ORDER BY fts.rank
-            "#
+            "#,
         )
         .bind(query)
         .fetch_all(&self.pool)
@@ -589,11 +622,18 @@ impl ProjectStorage for SqliteStorage {
             projects.push(self.row_to_project(&row)?);
         }
 
-        debug!("Found {} projects matching query '{}'", projects.len(), query);
+        debug!(
+            "Found {} projects matching query '{}'",
+            projects.len(),
+            query
+        );
         Ok(projects)
     }
 
-    async fn bulk_update(&self, updates: Vec<(String, ProjectUpdateInput)>) -> StorageResult<Vec<Project>> {
+    async fn bulk_update(
+        &self,
+        updates: Vec<(String, ProjectUpdateInput)>,
+    ) -> StorageResult<Vec<Project>> {
         let mut updated_projects = Vec::new();
         // This is a simplified version - in a real implementation you'd want to batch these queries
         for (id, update_input) in updates {
@@ -604,16 +644,18 @@ impl ProjectStorage for SqliteStorage {
     }
 
     async fn get_storage_info(&self) -> StorageResult<StorageInfo> {
-        let count_row = sqlx::query("SELECT COUNT(*) as count FROM projects WHERE status != 'deleted'")
-            .fetch_one(&self.pool)
-            .await
-            .map_err(|e| StorageError::Sqlx(e))?;
+        let count_row =
+            sqlx::query("SELECT COUNT(*) as count FROM projects WHERE status != 'deleted'")
+                .fetch_one(&self.pool)
+                .await
+                .map_err(|e| StorageError::Sqlx(e))?;
         let total_projects: i64 = count_row.try_get("count")?;
 
-        let last_modified_row = sqlx::query("SELECT MAX(updated_at) as last_modified FROM projects")
-            .fetch_one(&self.pool)
-            .await
-            .map_err(|e| StorageError::Sqlx(e))?;
+        let last_modified_row =
+            sqlx::query("SELECT MAX(updated_at) as last_modified FROM projects")
+                .fetch_one(&self.pool)
+                .await
+                .map_err(|e| StorageError::Sqlx(e))?;
         let last_modified_str: Option<String> = last_modified_row.try_get("last_modified")?;
         let last_modified = last_modified_str
             .and_then(|s| DateTime::parse_from_rfc3339(&s).ok())
@@ -625,10 +667,8 @@ impl ProjectStorage for SqliteStorage {
             StorageProvider::Sqlite { path } => path,
             _ => return Err(StorageError::InvalidFormat),
         };
-        
-        let size_bytes = std::fs::metadata(db_path)
-            .map(|m| m.len())
-            .unwrap_or(0);
+
+        let size_bytes = std::fs::metadata(db_path).map(|m| m.len()).unwrap_or(0);
 
         Ok(StorageInfo {
             provider: "SQLite".to_string(),
@@ -648,7 +688,7 @@ impl ProjectStorage for SqliteStorage {
 
     async fn export_snapshot(&self) -> StorageResult<Vec<u8>> {
         let projects = self.list_projects().await?;
-        
+
         let snapshot = DatabaseSnapshot {
             version: 1,
             exported_at: Utc::now(),
@@ -658,8 +698,11 @@ impl ProjectStorage for SqliteStorage {
         let json_data = serde_json::to_vec(&snapshot)?;
         let compressed_data = compress_data(&json_data)?;
 
-        debug!("Exported snapshot with {} projects ({} bytes compressed)", 
-               snapshot.projects.len(), compressed_data.len());
+        debug!(
+            "Exported snapshot with {} projects ({} bytes compressed)",
+            snapshot.projects.len(),
+            compressed_data.len()
+        );
 
         Ok(compressed_data)
     }
@@ -668,7 +711,10 @@ impl ProjectStorage for SqliteStorage {
         let json_data = decompress_data(data)?;
         let snapshot: DatabaseSnapshot = serde_json::from_slice(&json_data)?;
 
-        debug!("Importing snapshot with {} projects", snapshot.projects.len());
+        debug!(
+            "Importing snapshot with {} projects",
+            snapshot.projects.len()
+        );
 
         let mut imported = 0;
         let mut skipped = 0;
@@ -729,8 +775,12 @@ impl ProjectStorage for SqliteStorage {
             }
         }
 
-        info!("Import completed: {} imported, {} skipped, {} conflicts", 
-              imported, skipped, conflicts.len());
+        info!(
+            "Import completed: {} imported, {} skipped, {} conflicts",
+            imported,
+            skipped,
+            conflicts.len()
+        );
 
         Ok(ImportResult {
             projects_imported: imported,
@@ -747,10 +797,10 @@ mod tests {
 
     async fn create_test_storage() -> SqliteStorage {
         use std::path::PathBuf;
-        
+
         // Use in-memory database for tests - more reliable than temp files
         let db_path = PathBuf::from(":memory:");
-        
+
         let config = StorageConfig {
             provider: StorageProvider::Sqlite { path: db_path },
             enable_wal: false, // WAL mode doesn't work with :memory:
@@ -793,7 +843,10 @@ mod tests {
         assert!(retrieved.is_some());
         let retrieved = retrieved.unwrap();
         assert_eq!(retrieved.name, "Test Project");
-        assert_eq!(retrieved.tags, Some(vec!["rust".to_string(), "test".to_string()]));
+        assert_eq!(
+            retrieved.tags,
+            Some(vec!["rust".to_string(), "test".to_string()])
+        );
     }
 
     #[tokio::test]

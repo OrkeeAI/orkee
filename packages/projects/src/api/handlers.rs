@@ -1,16 +1,13 @@
 use crate::manager::{
-    create_project as manager_create_project,
-    delete_project as manager_delete_project,
-    get_all_projects, 
-    get_project as manager_get_project,
+    create_project as manager_create_project, delete_project as manager_delete_project,
+    get_all_projects, get_project as manager_get_project,
     get_project_by_name as manager_get_project_by_name,
-    get_project_by_path as manager_get_project_by_path,
-    update_project as manager_update_project,
+    get_project_by_path as manager_get_project_by_path, update_project as manager_update_project,
     ManagerError,
 };
 use crate::types::{ProjectCreateInput, ProjectUpdateInput};
 use axum::{
-    extract::{Path, Json},
+    extract::{Json, Path},
     http::StatusCode,
     response::{IntoResponse, Json as ResponseJson},
 };
@@ -33,7 +30,7 @@ impl<T> ApiResponse<T> {
             error: None,
         }
     }
-    
+
     fn error(message: String) -> ApiResponse<()> {
         ApiResponse {
             success: false,
@@ -75,9 +72,12 @@ impl IntoResponse for ManagerError {
                 (StatusCode::CONFLICT, self.to_string())
             }
             ManagerError::Validation(_) => (StatusCode::BAD_REQUEST, self.to_string()),
-            ManagerError::Storage(_) => (StatusCode::INTERNAL_SERVER_ERROR, "Storage error".to_string()),
+            ManagerError::Storage(_) => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "Storage error".to_string(),
+            ),
         };
-        
+
         let response = ApiResponse::<()>::error(message);
         (status, ResponseJson(response)).into_response()
     }
@@ -86,7 +86,7 @@ impl IntoResponse for ManagerError {
 /// List all projects
 pub async fn list_projects() -> impl IntoResponse {
     info!("Listing all projects");
-    
+
     match get_all_projects().await {
         Ok(projects) => {
             info!("Retrieved {} projects", projects.len());
@@ -102,7 +102,7 @@ pub async fn list_projects() -> impl IntoResponse {
 /// Get a specific project by ID
 pub async fn get_project(Path(id): Path<String>) -> impl IntoResponse {
     info!("Getting project with ID: {}", id);
-    
+
     match manager_get_project(&id).await {
         Ok(Some(project)) => {
             info!("Found project: {}", project.name);
@@ -113,7 +113,8 @@ pub async fn get_project(Path(id): Path<String>) -> impl IntoResponse {
             (
                 StatusCode::NOT_FOUND,
                 ResponseJson(ApiResponse::<()>::error("Project not found".to_string())),
-            ).into_response()
+            )
+                .into_response()
         }
         Err(e) => {
             error!("Failed to get project {}: {}", id, e);
@@ -125,7 +126,7 @@ pub async fn get_project(Path(id): Path<String>) -> impl IntoResponse {
 /// Get a project by name
 pub async fn get_project_by_name(Path(name): Path<String>) -> impl IntoResponse {
     info!("Getting project with name: {}", name);
-    
+
     match manager_get_project_by_name(&name).await {
         Ok(Some(project)) => {
             info!("Found project by name: {}", project.name);
@@ -136,7 +137,8 @@ pub async fn get_project_by_name(Path(name): Path<String>) -> impl IntoResponse 
             (
                 StatusCode::NOT_FOUND,
                 ResponseJson(ApiResponse::<()>::error("Project not found".to_string())),
-            ).into_response()
+            )
+                .into_response()
         }
         Err(e) => {
             error!("Failed to get project by name {}: {}", name, e);
@@ -146,9 +148,11 @@ pub async fn get_project_by_name(Path(name): Path<String>) -> impl IntoResponse 
 }
 
 /// Get a project by path
-pub async fn get_project_by_path(Json(request): Json<GetProjectByPathRequest>) -> impl IntoResponse {
+pub async fn get_project_by_path(
+    Json(request): Json<GetProjectByPathRequest>,
+) -> impl IntoResponse {
     info!("Getting project with path: {}", request.project_root);
-    
+
     match manager_get_project_by_path(&request.project_root).await {
         Ok(Some(project)) => {
             info!("Found project by path: {}", project.name);
@@ -159,10 +163,14 @@ pub async fn get_project_by_path(Json(request): Json<GetProjectByPathRequest>) -
             (
                 StatusCode::NOT_FOUND,
                 ResponseJson(ApiResponse::<()>::error("Project not found".to_string())),
-            ).into_response()
+            )
+                .into_response()
         }
         Err(e) => {
-            error!("Failed to get project by path {}: {}", request.project_root, e);
+            error!(
+                "Failed to get project by path {}: {}",
+                request.project_root, e
+            );
             e.into_response()
         }
     }
@@ -171,11 +179,15 @@ pub async fn get_project_by_path(Json(request): Json<GetProjectByPathRequest>) -
 /// Create a new project
 pub async fn create_project(Json(input): Json<ProjectCreateInput>) -> impl IntoResponse {
     info!("Creating project: {}", input.name);
-    
+
     match manager_create_project(input).await {
         Ok(project) => {
             info!("Created project: {} (ID: {})", project.name, project.id);
-            (StatusCode::CREATED, ResponseJson(ApiResponse::success(project))).into_response()
+            (
+                StatusCode::CREATED,
+                ResponseJson(ApiResponse::success(project)),
+            )
+                .into_response()
         }
         Err(e) => {
             error!("Failed to create project: {}", e);
@@ -190,7 +202,7 @@ pub async fn update_project(
     Json(updates): Json<ProjectUpdateInput>,
 ) -> impl IntoResponse {
     info!("Updating project: {}", id);
-    
+
     match manager_update_project(&id, updates).await {
         Ok(project) => {
             info!("Updated project: {} (ID: {})", project.name, project.id);
@@ -206,21 +218,23 @@ pub async fn update_project(
 /// Delete a project
 pub async fn delete_project(Path(id): Path<String>) -> impl IntoResponse {
     info!("Deleting project: {}", id);
-    
+
     match manager_delete_project(&id).await {
         Ok(true) => {
             info!("Deleted project: {}", id);
             (
                 StatusCode::OK,
                 ResponseJson(ApiResponse::success("Project deleted successfully")),
-            ).into_response()
+            )
+                .into_response()
         }
         Ok(false) => {
             info!("Project not found for deletion: {}", id);
             (
                 StatusCode::NOT_FOUND,
                 ResponseJson(ApiResponse::<()>::error("Project not found".to_string())),
-            ).into_response()
+            )
+                .into_response()
         }
         Err(e) => {
             error!("Failed to delete project {}: {}", id, e);
@@ -232,37 +246,43 @@ pub async fn delete_project(Path(id): Path<String>) -> impl IntoResponse {
 /// Check if project has .taskmaster folder
 pub async fn check_taskmaster(Json(request): Json<CheckTaskmasterRequest>) -> impl IntoResponse {
     info!("Checking taskmaster folder for: {}", request.project_root);
-    
+
     let taskmaster_path = std::path::Path::new(&request.project_root).join(".taskmaster");
     let has_taskmaster = taskmaster_path.exists() && taskmaster_path.is_dir();
-    
+
     let response = CheckTaskmasterResponse {
         has_taskmaster,
-        task_source: if has_taskmaster { "taskmaster".to_string() } else { "manual".to_string() },
+        task_source: if has_taskmaster {
+            "taskmaster".to_string()
+        } else {
+            "manual".to_string()
+        },
     };
-    
-    info!("Taskmaster check result for {}: has_taskmaster={}, task_source={}", 
-          request.project_root, response.has_taskmaster, response.task_source);
-    
+
+    info!(
+        "Taskmaster check result for {}: has_taskmaster={}, task_source={}",
+        request.project_root, response.has_taskmaster, response.task_source
+    );
+
     (StatusCode::OK, ResponseJson(ApiResponse::success(response))).into_response()
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::test_utils::test_helpers::with_temp_home;
     use crate::types::ProjectStatus;
     use axum::{
         body::Body,
         http::{Request, StatusCode},
     };
     use tower::ServiceExt;
-    use crate::test_utils::test_helpers::with_temp_home;
 
     #[tokio::test]
     async fn test_create_and_get_project_api() {
         with_temp_home(|| async {
             let app = crate::api::create_projects_router();
-            
+
             // Create a project
             let create_request = ProjectCreateInput {
                 name: "API Test Project".to_string(),
@@ -279,26 +299,27 @@ mod tests {
                 manual_tasks: None,
                 mcp_servers: None,
             };
-            
+
             let request = Request::builder()
                 .method("POST")
                 .uri("/")
                 .header("content-type", "application/json")
                 .body(Body::from(serde_json::to_string(&create_request).unwrap()))
                 .unwrap();
-                
+
             let response = app.clone().oneshot(request).await.unwrap();
             assert_eq!(response.status(), StatusCode::CREATED);
-            
+
             // List projects
             let request = Request::builder()
                 .method("GET")
                 .uri("/")
                 .body(Body::empty())
                 .unwrap();
-                
+
             let response = app.oneshot(request).await.unwrap();
             assert_eq!(response.status(), StatusCode::OK);
-        }).await;
+        })
+        .await;
     }
 }

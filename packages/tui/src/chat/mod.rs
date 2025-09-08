@@ -28,17 +28,17 @@ impl ChatMessage {
     pub fn user(content: impl Into<String>) -> Self {
         Self::new(content.into(), MessageAuthor::User)
     }
-    
+
     /// Create a new system message
     pub fn system(content: impl Into<String>) -> Self {
         Self::new(content.into(), MessageAuthor::System)
     }
-    
+
     /// Create a new assistant message
     pub fn assistant(content: impl Into<String>) -> Self {
         Self::new(content.into(), MessageAuthor::Assistant)
     }
-    
+
     /// Create a new message with specified author
     fn new(content: String, author: MessageAuthor) -> Self {
         Self {
@@ -49,21 +49,21 @@ impl ChatMessage {
             edited: false,
         }
     }
-    
+
     /// Mark this message as edited
     pub fn mark_edited(&mut self) {
         self.edited = true;
     }
-    
+
     /// Get a display-friendly author label
     pub fn author_label(&self) -> &'static str {
         match self.author {
             MessageAuthor::User => "You",
-            MessageAuthor::System => "System", 
+            MessageAuthor::System => "System",
             MessageAuthor::Assistant => "Assistant",
         }
     }
-    
+
     /// Check if this message can be edited
     pub fn can_edit(&self) -> bool {
         matches!(self.author, MessageAuthor::User)
@@ -82,14 +82,14 @@ mod tests {
         assert!(!msg.edited);
         assert!(msg.can_edit());
     }
-    
+
     #[test]
     fn test_create_system_message() {
         let msg = ChatMessage::system("System status");
         assert_eq!(msg.author, MessageAuthor::System);
         assert!(!msg.can_edit());
     }
-    
+
     #[test]
     fn test_mark_edited() {
         let mut msg = ChatMessage::user("Original");

@@ -1,7 +1,7 @@
 use crate::mcp::*;
+use pretty_assertions::assert_eq;
 use rstest::rstest;
 use serde_json::json;
-use pretty_assertions::assert_eq;
 
 #[tokio::test]
 async fn test_initialize_request() {
@@ -21,7 +21,7 @@ async fn test_initialize_request() {
 
     let result = initialize(Some(request)).await;
     assert!(result.is_ok());
-    
+
     let response = result.unwrap();
     assert_eq!(response.protocol_version, "2024-11-05");
     assert_eq!(response.server_info.name, "orkee");
@@ -34,7 +34,7 @@ async fn test_initialize_request() {
 async fn test_initialize_without_request() {
     let result = initialize(None).await;
     assert!(result.is_ok());
-    
+
     let response = result.unwrap();
     assert_eq!(response.protocol_version, "2024-11-05");
 }
@@ -43,7 +43,7 @@ async fn test_initialize_without_request() {
 async fn test_ping() {
     let result = ping(None).await;
     assert!(result.is_ok());
-    
+
     let response = result.unwrap();
     assert_eq!(response, json!({}));
 }
@@ -53,7 +53,7 @@ async fn test_ping_with_params() {
     let params = json!({"test": "value"});
     let result = ping(Some(params)).await;
     assert!(result.is_ok());
-    
+
     let response = result.unwrap();
     assert_eq!(response, json!({}));
 }
@@ -63,10 +63,10 @@ async fn test_set_logging_level() {
     let request = LoggingLevel {
         level: "debug".to_string(),
     };
-    
+
     let result = logging_set_level(Some(request)).await;
     assert!(result.is_ok());
-    
+
     let response = result.unwrap();
     assert_eq!(response, json!({}));
 }
@@ -81,7 +81,7 @@ async fn test_logging_levels(#[case] level: &str) {
     let request = LoggingLevel {
         level: level.to_string(),
     };
-    
+
     let result = logging_set_level(Some(request)).await;
     assert!(result.is_ok());
 }
@@ -101,10 +101,10 @@ fn test_server_capabilities_serialization() {
             list_changed: Some(true),
         }),
     };
-    
+
     let json = serde_json::to_value(&capabilities);
     assert!(json.is_ok());
-    
+
     let value = json.unwrap();
     assert!(value.get("prompts").is_some());
     assert!(value.get("resources").is_some());
@@ -117,10 +117,10 @@ fn test_client_info_deserialization() {
         "name": "test-client",
         "version": "1.0.0"
     });
-    
+
     let result: Result<ClientInfo, _> = serde_json::from_value(json);
     assert!(result.is_ok());
-    
+
     let info = result.unwrap();
     assert_eq!(info.name, "test-client");
     assert_eq!(info.version, "1.0.0");
@@ -140,10 +140,10 @@ fn test_initialize_request_deserialization() {
             "version": "1.0"
         }
     });
-    
+
     let result: Result<InitializeRequest, _> = serde_json::from_value(json);
     assert!(result.is_ok());
-    
+
     let request = result.unwrap();
     assert_eq!(request.protocol_version, "2024-11-05");
     assert_eq!(request.client_info.name, "claude");

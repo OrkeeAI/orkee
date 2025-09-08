@@ -1,7 +1,7 @@
 use ratatui::{
+    layout::{Constraint, Direction, Layout},
     prelude::*,
-    widgets::{Block, Borders, Paragraph, Clear},
-    layout::{Layout, Direction, Constraint},
+    widgets::{Block, Borders, Clear, Paragraph},
 };
 
 /// Result of user interaction with the confirmation dialog
@@ -148,7 +148,9 @@ impl<'a> Widget for ConfirmationDialogWidget<'a> {
         let title_style = if self.dialog.dangerous {
             Style::default().fg(Color::Red).add_modifier(Modifier::BOLD)
         } else {
-            Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)
+            Style::default()
+                .fg(Color::Yellow)
+                .add_modifier(Modifier::BOLD)
         };
 
         let block = Block::default()
@@ -168,8 +170,8 @@ impl<'a> Widget for ConfirmationDialogWidget<'a> {
         let chunks = Layout::default()
             .direction(Direction::Vertical)
             .constraints([
-                Constraint::Min(3),      // Message content
-                Constraint::Length(3),   // Button area
+                Constraint::Min(3),    // Message content
+                Constraint::Length(3), // Button area
             ])
             .split(inner);
 
@@ -193,10 +195,10 @@ impl<'a> Widget for ConfirmationDialogWidget<'a> {
 
         // Add warning for dangerous actions
         if self.dialog.dangerous {
-            content_text.push(Line::from(vec![
-                Span::styled("⚠️  This action cannot be undone!", 
-                    Style::default().fg(Color::Red).add_modifier(Modifier::BOLD)),
-            ]));
+            content_text.push(Line::from(vec![Span::styled(
+                "⚠️  This action cannot be undone!",
+                Style::default().fg(Color::Red).add_modifier(Modifier::BOLD),
+            )]));
             content_text.push(Line::raw(""));
         }
 
@@ -208,11 +210,11 @@ impl<'a> Widget for ConfirmationDialogWidget<'a> {
 
         // Render buttons
         let button_area = chunks[1];
-        
+
         // Calculate button positions
         let total_button_width = self.dialog.cancel_text.len() + self.dialog.confirm_text.len() + 7; // buttons + spacing + brackets
         let start_x = (button_area.width.saturating_sub(total_button_width as u16)) / 2;
-        
+
         let cancel_width = self.dialog.cancel_text.len() as u16 + 2; // text + brackets
         let confirm_width = self.dialog.confirm_text.len() as u16 + 2;
         let spacing = 3;
@@ -220,7 +222,10 @@ impl<'a> Widget for ConfirmationDialogWidget<'a> {
         // Render Cancel button
         let cancel_x = start_x;
         let cancel_style = if matches!(self.dialog.focus, DialogFocus::Cancel) {
-            Style::default().bg(Color::Blue).fg(Color::White).add_modifier(Modifier::BOLD)
+            Style::default()
+                .bg(Color::Blue)
+                .fg(Color::White)
+                .add_modifier(Modifier::BOLD)
         } else {
             Style::default().fg(Color::Gray)
         };
@@ -240,9 +245,15 @@ impl<'a> Widget for ConfirmationDialogWidget<'a> {
         let confirm_x = cancel_x + cancel_width + spacing;
         let confirm_style = if matches!(self.dialog.focus, DialogFocus::Confirm) {
             if self.dialog.dangerous {
-                Style::default().bg(Color::Red).fg(Color::White).add_modifier(Modifier::BOLD)
+                Style::default()
+                    .bg(Color::Red)
+                    .fg(Color::White)
+                    .add_modifier(Modifier::BOLD)
             } else {
-                Style::default().bg(Color::Green).fg(Color::White).add_modifier(Modifier::BOLD)
+                Style::default()
+                    .bg(Color::Green)
+                    .fg(Color::White)
+                    .add_modifier(Modifier::BOLD)
             }
         } else {
             if self.dialog.dangerous {
@@ -268,14 +279,14 @@ impl<'a> Widget for ConfirmationDialogWidget<'a> {
         let shortcuts_para = Paragraph::new(shortcuts)
             .style(Style::default().fg(Color::DarkGray))
             .alignment(ratatui::layout::Alignment::Center);
-        
+
         let shortcuts_area = Rect {
             x: button_area.x,
             y: button_area.y + 2,
             width: button_area.width,
             height: 1,
         };
-        
+
         shortcuts_para.render(shortcuts_area, buf);
     }
 }

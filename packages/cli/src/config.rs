@@ -18,22 +18,18 @@ pub struct Config {
 
 impl Config {
     pub fn from_env() -> Result<Self, ConfigError> {
-        let port_str = env::var("PORT")
-            .unwrap_or_else(|_| "4001".to_string());
-        
+        let port_str = env::var("PORT").unwrap_or_else(|_| "4001".to_string());
+
         let port = port_str.parse::<u16>()?;
-        
+
         // Validate port is in valid range
         if port == 0 {
             return Err(ConfigError::PortOutOfRange(port));
         }
-            
-        let cors_origin = env::var("CORS_ORIGIN")
-            .unwrap_or_else(|_| "http://localhost:5173".to_string());
 
-        Ok(Config {
-            port,
-            cors_origin,
-        })
+        let cors_origin =
+            env::var("CORS_ORIGIN").unwrap_or_else(|_| "http://localhost:5173".to_string());
+
+        Ok(Config { port, cors_origin })
     }
 }

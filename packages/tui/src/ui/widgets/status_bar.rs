@@ -1,8 +1,8 @@
-use crate::state::{AppState, Screen, FocusArea};
 use crate::input::InputMode;
+use crate::state::{AppState, FocusArea, Screen};
+use ratatui::layout::{Constraint, Direction, Layout};
 use ratatui::prelude::*;
 use ratatui::widgets::{Block, Paragraph};
-use ratatui::layout::{Constraint, Direction, Layout};
 
 /// Status bar widget that displays context-aware information
 pub struct StatusBarWidget<'a> {
@@ -20,24 +20,54 @@ impl<'a> StatusBarWidget<'a> {
             InputMode::Normal => {
                 // Only show focus areas on Chat screen where it's relevant
                 match &self.state.current_screen {
-                    &Screen::Chat => {
-                        match self.state.focus_area() {
-                            FocusArea::Chat => Some(("CHAT".to_string(), Style::default().fg(Color::Cyan))),
-                            FocusArea::Input => Some(("INPUT".to_string(), Style::default().fg(Color::White))),
+                    &Screen::Chat => match self.state.focus_area() {
+                        FocusArea::Chat => {
+                            Some(("CHAT".to_string(), Style::default().fg(Color::Cyan)))
                         }
-                    }
+                        FocusArea::Input => {
+                            Some(("INPUT".to_string(), Style::default().fg(Color::White)))
+                        }
+                    },
                     _ => {
                         // On other screens in normal mode, don't show any mode indicator
                         None
                     }
                 }
             }
-            InputMode::Command => Some(("COMMAND".to_string(), Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD))),
-            InputMode::Search => Some(("MENTION".to_string(), Style::default().fg(Color::Magenta).add_modifier(Modifier::BOLD))),
-            InputMode::History => Some(("HISTORY".to_string(), Style::default().fg(Color::Blue).add_modifier(Modifier::BOLD))),
-            InputMode::Edit => Some(("EDIT".to_string(), Style::default().fg(Color::Green).add_modifier(Modifier::BOLD))),
-            InputMode::Form => Some(("FORM".to_string(), Style::default().fg(Color::Red).add_modifier(Modifier::BOLD))),
-            InputMode::ProjectSearch => Some(("SEARCH".to_string(), Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD))),
+            InputMode::Command => Some((
+                "COMMAND".to_string(),
+                Style::default()
+                    .fg(Color::Yellow)
+                    .add_modifier(Modifier::BOLD),
+            )),
+            InputMode::Search => Some((
+                "MENTION".to_string(),
+                Style::default()
+                    .fg(Color::Magenta)
+                    .add_modifier(Modifier::BOLD),
+            )),
+            InputMode::History => Some((
+                "HISTORY".to_string(),
+                Style::default()
+                    .fg(Color::Blue)
+                    .add_modifier(Modifier::BOLD),
+            )),
+            InputMode::Edit => Some((
+                "EDIT".to_string(),
+                Style::default()
+                    .fg(Color::Green)
+                    .add_modifier(Modifier::BOLD),
+            )),
+            InputMode::Form => Some((
+                "FORM".to_string(),
+                Style::default().fg(Color::Red).add_modifier(Modifier::BOLD),
+            )),
+            InputMode::ProjectSearch => Some((
+                "SEARCH".to_string(),
+                Style::default()
+                    .fg(Color::Cyan)
+                    .add_modifier(Modifier::BOLD),
+            )),
         }
     }
 
@@ -50,13 +80,24 @@ impl<'a> StatusBarWidget<'a> {
                     match &self.state.form_state {
                         Some(form_state) => {
                             match &form_state.form_mode {
-                                crate::state::FormMode::Create => format!(" New Project (Step {}/{})", form_state.step, form_state.total_steps),
+                                crate::state::FormMode::Create => format!(
+                                    " New Project (Step {}/{})",
+                                    form_state.step, form_state.total_steps
+                                ),
                                 crate::state::FormMode::Edit(project_id) => {
                                     // Try to find project name for better breadcrumb
-                                    if let Some(project) = self.state.projects.iter().find(|p| &p.id == project_id) {
-                                        format!(" Edit: {} (Step {}/{})", project.name, form_state.step, form_state.total_steps)
+                                    if let Some(project) =
+                                        self.state.projects.iter().find(|p| &p.id == project_id)
+                                    {
+                                        format!(
+                                            " Edit: {} (Step {}/{})",
+                                            project.name, form_state.step, form_state.total_steps
+                                        )
                                     } else {
-                                        format!(" Edit Project (Step {}/{})", form_state.step, form_state.total_steps)
+                                        format!(
+                                            " Edit Project (Step {}/{})",
+                                            form_state.step, form_state.total_steps
+                                        )
                                     }
                                 }
                             }
@@ -67,7 +108,11 @@ impl<'a> StatusBarWidget<'a> {
                     if self.state.projects.is_empty() {
                         " Projects (empty)".to_string()
                     } else if let Some(selected_idx) = self.state.selected_project {
-                        format!(" Projects ({}/{})", selected_idx + 1, self.state.projects.len())
+                        format!(
+                            " Projects ({}/{})",
+                            selected_idx + 1,
+                            self.state.projects.len()
+                        )
                     } else {
                         format!(" Projects ({})", self.state.projects.len())
                     }
@@ -93,20 +138,27 @@ impl<'a> StatusBarWidget<'a> {
             return match self.state.form_is_review_step() {
                 true => "Enter: Submit • Esc: Cancel • ↑: Previous",
                 false => "Enter/↓/Tab: Next • ↑: Previous • Esc: Cancel",
-            }.to_string();
+            }
+            .to_string();
         }
 
         match (&self.state.current_screen, self.state.input_mode()) {
-            (&Screen::Chat, InputMode::Command) => "↑↓: Navigate • Tab: Complete • Esc: Cancel".to_string(),
-            (&Screen::Chat, InputMode::Search) => "↑↓: Navigate • Enter: Select • Esc: Cancel".to_string(),
-            (&Screen::Chat, InputMode::History) => "↑↓: Navigate • Enter: Select • Esc: Cancel".to_string(),
-            (&Screen::Chat, InputMode::Edit) => "Enter: Save • Esc: Cancel".to_string(),
-            (&Screen::Chat, _) => {
-                match self.state.focus_area() {
-                    FocusArea::Chat => "↑↓: Scroll • Tab: Focus Input • q: Quit".to_string(),
-                    FocusArea::Input => "Enter: Send • /: Commands • @: Mentions • Tab: Focus Chat".to_string(),
-                }
+            (&Screen::Chat, InputMode::Command) => {
+                "↑↓: Navigate • Tab: Complete • Esc: Cancel".to_string()
             }
+            (&Screen::Chat, InputMode::Search) => {
+                "↑↓: Navigate • Enter: Select • Esc: Cancel".to_string()
+            }
+            (&Screen::Chat, InputMode::History) => {
+                "↑↓: Navigate • Enter: Select • Esc: Cancel".to_string()
+            }
+            (&Screen::Chat, InputMode::Edit) => "Enter: Save • Esc: Cancel".to_string(),
+            (&Screen::Chat, _) => match self.state.focus_area() {
+                FocusArea::Chat => "↑↓: Scroll • Tab: Focus Input • q: Quit".to_string(),
+                FocusArea::Input => {
+                    "Enter: Send • /: Commands • @: Mentions • Tab: Focus Chat".to_string()
+                }
+            },
             (&Screen::Projects, _) => {
                 if self.state.projects.is_empty() {
                     "n: New Project • Tab: Navigate • q: Quit".to_string()
@@ -114,7 +166,9 @@ impl<'a> StatusBarWidget<'a> {
                     "↑↓: Navigate • Enter: Details • n: New • e: Edit • d: Delete • Tab: Switch Screen".to_string()
                 }
             }
-            (&Screen::ProjectDetail, _) => "e: Edit • d: Delete • Esc: Back to List • Tab: Navigate".to_string(),
+            (&Screen::ProjectDetail, _) => {
+                "e: Edit • d: Delete • Esc: Back to List • Tab: Navigate".to_string()
+            }
         }
     }
 
@@ -125,15 +179,15 @@ impl<'a> StatusBarWidget<'a> {
                 if let Some(project) = self.state.get_selected_project() {
                     // Build context string with GitHub info and path
                     let mut context_parts = Vec::new();
-                    
+
                     // Add GitHub username/repo if available
                     if let Some(ref git_repo) = project.git_repository {
                         context_parts.push(format!("🔗 {}/{}", git_repo.owner, git_repo.repo));
                     }
-                    
+
                     // Add project path
                     context_parts.push(format!("📁 {}", project.project_root));
-                    
+
                     Some(context_parts.join(" • "))
                 } else {
                     None
@@ -175,7 +229,7 @@ impl<'a> Widget for StatusBarWidget<'a> {
             Layout::default()
                 .direction(Direction::Horizontal)
                 .constraints([
-                    Constraint::Min(20), // Breadcrumb and context (flexible)
+                    Constraint::Min(20),                        // Breadcrumb and context (flexible)
                     Constraint::Length(shortcuts.len() as u16), // Shortcuts (right-aligned)
                 ])
                 .split(area)

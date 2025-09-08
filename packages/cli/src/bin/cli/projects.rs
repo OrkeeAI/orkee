@@ -1,10 +1,10 @@
 use clap::Subcommand;
 use colored::*;
-use comfy_table::{Table, presets::UTF8_FULL, modifiers::UTF8_ROUND_CORNERS, ContentArrangement};
-use inquire::{Text, Select, Confirm};
+use comfy_table::{modifiers::UTF8_ROUND_CORNERS, presets::UTF8_FULL, ContentArrangement, Table};
+use inquire::{Confirm, Select, Text};
 use orkee_projects::{
-    get_all_projects, get_project, create_project, update_project, delete_project,
-    ProjectCreateInput, ProjectUpdateInput, Project, ProjectStatus, Priority,
+    create_project, delete_project, get_all_projects, get_project, update_project, Priority,
+    Project, ProjectCreateInput, ProjectStatus, ProjectUpdateInput,
 };
 
 #[derive(Subcommand)]
@@ -43,13 +43,17 @@ pub enum ProjectsCommands {
     },
 }
 
-pub async fn handle_projects_command(command: ProjectsCommands) -> Result<(), Box<dyn std::error::Error>> {
+pub async fn handle_projects_command(
+    command: ProjectsCommands,
+) -> Result<(), Box<dyn std::error::Error>> {
     match command {
         ProjectsCommands::List => list_projects().await,
         ProjectsCommands::Show { id } => show_project(&id).await,
-        ProjectsCommands::Add { name, path, description } => {
-            add_project(name, path, description).await
-        }
+        ProjectsCommands::Add {
+            name,
+            path,
+            description,
+        } => add_project(name, path, description).await,
         ProjectsCommands::Edit { id } => edit_project(&id).await,
         ProjectsCommands::Delete { id, yes } => delete_project_cmd(&id, yes).await,
     }
@@ -60,7 +64,10 @@ async fn list_projects() -> Result<(), Box<dyn std::error::Error>> {
 
     if projects.is_empty() {
         println!("{}", "No projects found".yellow());
-        println!("{}", "Use 'orkee projects add' to create your first project".dimmed());
+        println!(
+            "{}",
+            "Use 'orkee projects add' to create your first project".dimmed()
+        );
         return Ok(());
     }
 
@@ -73,7 +80,15 @@ async fn list_projects() -> Result<(), Box<dyn std::error::Error>> {
         .apply_modifier(UTF8_ROUND_CORNERS)
         .set_content_arrangement(ContentArrangement::Dynamic);
 
-    table.set_header(vec!["ID", "Name", "Repository", "Status", "Priority", "Tags", "Created"]);
+    table.set_header(vec![
+        "ID",
+        "Name",
+        "Repository",
+        "Status",
+        "Priority",
+        "Tags",
+        "Created",
+    ]);
 
     for project in &projects {
         let status_text = match project.status {
@@ -83,7 +98,7 @@ async fn list_projects() -> Result<(), Box<dyn std::error::Error>> {
 
         let priority_text = match project.priority {
             Priority::High => "High",
-            Priority::Medium => "Medium", 
+            Priority::Medium => "Medium",
             Priority::Low => "Low",
         };
 
@@ -114,9 +129,14 @@ async fn list_projects() -> Result<(), Box<dyn std::error::Error>> {
 async fn show_project(id: &str) -> Result<(), Box<dyn std::error::Error>> {
     match get_project(id).await? {
         Some(project) => {
-            println!("{}", format!("📂 Project Details - {}", project.name).blue().bold());
+            println!(
+                "{}",
+                format!("📂 Project Details - {}", project.name)
+                    .blue()
+                    .bold()
+            );
             println!();
-            
+
             print_project_details(&project);
         }
         None => {
@@ -130,8 +150,8 @@ async fn show_project(id: &str) -> Result<(), Box<dyn std::error::Error>> {
 
 async fn add_project(
     name: Option<String>,
-    path: Option<String>, 
-    description: Option<String>
+    path: Option<String>,
+    description: Option<String>,
 ) -> Result<(), Box<dyn std::error::Error>> {
     println!("{}", "➕ Add New Project".blue().bold());
     println!();
@@ -144,9 +164,7 @@ async fn add_project(
     let project_root = match path {
         Some(p) => p,
         None => {
-            let current_dir = std::env::current_dir()?
-                .to_string_lossy()
-                .to_string();
+            let current_dir = std::env::current_dir()?.to_string_lossy().to_string();
             Text::new("Project root path:")
                 .with_default(&current_dir)
                 .prompt()?
@@ -157,31 +175,54 @@ async fn add_project(
         Some(d) => Some(d),
         None => {
             let desc = Text::new("Description (optional):").prompt()?;
-            if desc.trim().is_empty() { None } else { Some(desc) }
+            if desc.trim().is_empty() {
+                None
+            } else {
+                Some(desc)
+            }
         }
     };
 
-    let status = Select::new("Status:", vec![ProjectStatus::Active, ProjectStatus::Archived])
-        .prompt()?;
+    let status = Select::new(
+        "Status:",
+        vec![ProjectStatus::Active, ProjectStatus::Archived],
+    )
+    .prompt()?;
 
-    let priority = Select::new("Priority:", vec![Priority::High, Priority::Medium, Priority::Low])
-        .prompt()?;
+    let priority = Select::new(
+        "Priority:",
+        vec![Priority::High, Priority::Medium, Priority::Low],
+    )
+    .prompt()?;
 
     let setup_script = Text::new("Setup script (optional):")
         .with_default("npm install")
         .prompt()?;
-    let setup_script = if setup_script.trim().is_empty() { None } else { Some(setup_script) };
+    let setup_script = if setup_script.trim().is_empty() {
+        None
+    } else {
+        Some(setup_script)
+    };
 
     let dev_script = Text::new("Development script (optional):")
         .with_default("npm run dev")
         .prompt()?;
-    let dev_script = if dev_script.trim().is_empty() { None } else { Some(dev_script) };
+    let dev_script = if dev_script.trim().is_empty() {
+        None
+    } else {
+        Some(dev_script)
+    };
 
     let tags_input = Text::new("Tags (comma-separated, optional):").prompt()?;
     let tags = if tags_input.trim().is_empty() {
         None
     } else {
-        Some(tags_input.split(',').map(|s| s.trim().to_string()).collect())
+        Some(
+            tags_input
+                .split(',')
+                .map(|s| s.trim().to_string())
+                .collect(),
+        )
     };
 
     let project_data = ProjectCreateInput {
@@ -203,7 +244,10 @@ async fn add_project(
     match create_project(project_data).await {
         Ok(project) => {
             println!();
-            println!("{}", format!("✅ Project '{}' created successfully!", name).green());
+            println!(
+                "{}",
+                format!("✅ Project '{}' created successfully!", name).green()
+            );
             println!("ID: {}", project.id.cyan());
         }
         Err(e) => {
@@ -224,7 +268,10 @@ async fn edit_project(id: &str) -> Result<(), Box<dyn std::error::Error>> {
         }
     };
 
-    println!("{}", format!("📝 Edit Project - {}", project.name).blue().bold());
+    println!(
+        "{}",
+        format!("📝 Edit Project - {}", project.name).blue().bold()
+    );
     println!();
 
     let name = Text::new("Project name:")
@@ -238,34 +285,53 @@ async fn edit_project(id: &str) -> Result<(), Box<dyn std::error::Error>> {
     let description = Text::new("Description:")
         .with_default(project.description.as_deref().unwrap_or(""))
         .prompt()?;
-    let description = if description.trim().is_empty() { None } else { Some(description) };
+    let description = if description.trim().is_empty() {
+        None
+    } else {
+        Some(description)
+    };
 
     let status_options = vec![ProjectStatus::Active, ProjectStatus::Archived];
-    let status = Select::new("Status:", status_options)
-        .prompt()?;
+    let status = Select::new("Status:", status_options).prompt()?;
 
     let priority_options = vec![Priority::High, Priority::Medium, Priority::Low];
-    let priority = Select::new("Priority:", priority_options)
-        .prompt()?;
+    let priority = Select::new("Priority:", priority_options).prompt()?;
 
     let setup_script = Text::new("Setup script:")
         .with_default(project.setup_script.as_deref().unwrap_or(""))
         .prompt()?;
-    let setup_script = if setup_script.trim().is_empty() { None } else { Some(setup_script) };
+    let setup_script = if setup_script.trim().is_empty() {
+        None
+    } else {
+        Some(setup_script)
+    };
 
     let dev_script = Text::new("Development script:")
         .with_default(project.dev_script.as_deref().unwrap_or(""))
         .prompt()?;
-    let dev_script = if dev_script.trim().is_empty() { None } else { Some(dev_script) };
+    let dev_script = if dev_script.trim().is_empty() {
+        None
+    } else {
+        Some(dev_script)
+    };
 
-    let current_tags = project.tags.as_ref().map(|t| t.join(", ")).unwrap_or_default();
+    let current_tags = project
+        .tags
+        .as_ref()
+        .map(|t| t.join(", "))
+        .unwrap_or_default();
     let tags_input = Text::new("Tags (comma-separated):")
         .with_default(&current_tags)
         .prompt()?;
     let tags = if tags_input.trim().is_empty() {
         None
     } else {
-        Some(tags_input.split(',').map(|s| s.trim().to_string()).collect())
+        Some(
+            tags_input
+                .split(',')
+                .map(|s| s.trim().to_string())
+                .collect(),
+        )
     };
 
     let updates = ProjectUpdateInput {
@@ -287,7 +353,10 @@ async fn edit_project(id: &str) -> Result<(), Box<dyn std::error::Error>> {
     match update_project(id, updates).await {
         Ok(_) => {
             println!();
-            println!("{}", format!("✅ Project '{}' updated successfully!", name).green());
+            println!(
+                "{}",
+                format!("✅ Project '{}' updated successfully!", name).green()
+            );
         }
         Err(e) => {
             eprintln!("{}", format!("❌ Failed to update project: {}", e).red());
@@ -298,7 +367,10 @@ async fn edit_project(id: &str) -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-async fn delete_project_cmd(id: &str, skip_confirmation: bool) -> Result<(), Box<dyn std::error::Error>> {
+async fn delete_project_cmd(
+    id: &str,
+    skip_confirmation: bool,
+) -> Result<(), Box<dyn std::error::Error>> {
     let project = match get_project(id).await? {
         Some(p) => p,
         None => {
@@ -307,7 +379,12 @@ async fn delete_project_cmd(id: &str, skip_confirmation: bool) -> Result<(), Box
         }
     };
 
-    println!("{}", format!("🗑️  Delete Project - {}", project.name).red().bold());
+    println!(
+        "{}",
+        format!("🗑️  Delete Project - {}", project.name)
+            .red()
+            .bold()
+    );
     println!();
 
     print_project_details(&project);
@@ -316,15 +393,21 @@ async fn delete_project_cmd(id: &str, skip_confirmation: bool) -> Result<(), Box
     let confirmed = if skip_confirmation {
         true
     } else {
-        Confirm::new(&format!("Are you sure you want to delete '{}'?", project.name))
-            .with_default(false)
-            .prompt()?
+        Confirm::new(&format!(
+            "Are you sure you want to delete '{}'?",
+            project.name
+        ))
+        .with_default(false)
+        .prompt()?
     };
 
     if confirmed {
         match delete_project(id).await {
             Ok(true) => {
-                println!("{}", format!("✅ Project '{}' deleted successfully!", project.name).green());
+                println!(
+                    "{}",
+                    format!("✅ Project '{}' deleted successfully!", project.name).green()
+                );
             }
             Ok(false) => {
                 eprintln!("{}", "❌ Project not found".red());
@@ -345,15 +428,19 @@ async fn delete_project_cmd(id: &str, skip_confirmation: bool) -> Result<(), Box
 fn print_project_details(project: &Project) {
     println!("{:<15} {}", "ID:".cyan(), project.id);
     println!("{:<15} {}", "Name:".cyan(), project.name);
-    println!("{:<15} {}", "Repository:".cyan(), extract_repo_name(&project.project_root));
+    println!(
+        "{:<15} {}",
+        "Repository:".cyan(),
+        extract_repo_name(&project.project_root)
+    );
     println!("{:<15} {}", "Path:".cyan(), project.project_root);
-    
+
     let status_colored = match project.status {
         ProjectStatus::Active => "Active".green(),
         ProjectStatus::Archived => "Archived".yellow(),
     };
     println!("{:<15} {}", "Status:".cyan(), status_colored);
-    
+
     let priority_colored = match project.priority {
         Priority::High => "High".red(),
         Priority::Medium => "Medium".yellow(),
@@ -391,8 +478,16 @@ fn print_project_details(project: &Project) {
         }
     }
 
-    println!("{:<15} {}", "Created:".cyan(), format_date(&project.created_at.to_rfc3339()));
-    println!("{:<15} {}", "Updated:".cyan(), format_date(&project.updated_at.to_rfc3339()));
+    println!(
+        "{:<15} {}",
+        "Created:".cyan(),
+        format_date(&project.created_at.to_rfc3339())
+    );
+    println!(
+        "{:<15} {}",
+        "Updated:".cyan(),
+        format_date(&project.updated_at.to_rfc3339())
+    );
 }
 
 fn format_date(date_str: &str) -> String {
@@ -419,7 +514,7 @@ fn extract_repo_name(path: &str) -> String {
             }
         }
     }
-    
+
     // No Git repository or no remote origin
     "No remote repository".to_string()
 }
@@ -428,17 +523,21 @@ fn parse_git_url(url: &str) -> String {
     // Handle GitHub SSH URLs: git@github.com:username/repo.git
     if url.starts_with("git@github.com:") {
         let without_prefix = url.strip_prefix("git@github.com:").unwrap_or(url);
-        let without_suffix = without_prefix.strip_suffix(".git").unwrap_or(without_prefix);
+        let without_suffix = without_prefix
+            .strip_suffix(".git")
+            .unwrap_or(without_prefix);
         return without_suffix.to_string();
     }
-    
+
     // Handle GitHub HTTPS URLs: https://github.com/username/repo.git
     if url.starts_with("https://github.com/") {
         let without_prefix = url.strip_prefix("https://github.com/").unwrap_or(url);
-        let without_suffix = without_prefix.strip_suffix(".git").unwrap_or(without_prefix);
+        let without_suffix = without_prefix
+            .strip_suffix(".git")
+            .unwrap_or(without_prefix);
         return without_suffix.to_string();
     }
-    
+
     // Handle other Git hosting services or generic URLs
     if let Ok(parsed_url) = url::Url::parse(url) {
         if let Some(path) = parsed_url.path().strip_prefix('/') {
@@ -446,13 +545,13 @@ fn parse_git_url(url: &str) -> String {
             return without_suffix.to_string();
         }
     }
-    
+
     // If all else fails, try to extract from the URL string
     if let Some(start) = url.find('/').or_else(|| url.find(':')) {
         let remaining = &url[start + 1..];
         let without_suffix = remaining.strip_suffix(".git").unwrap_or(remaining);
         return without_suffix.to_string();
     }
-    
+
     "Unknown".to_string()
 }

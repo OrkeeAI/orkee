@@ -17,31 +17,38 @@ pub mod test_utils;
 
 // Re-export main types
 pub use types::{
-    GitRepositoryInfo, ManualSubtask, ManualTask, Priority, Project, ProjectCreateInput, ProjectStatus,
-    ProjectUpdateInput, ProjectsConfig, TaskSource, TaskStatus,
+    GitRepositoryInfo, ManualSubtask, ManualTask, Priority, Project, ProjectCreateInput,
+    ProjectStatus, ProjectUpdateInput, ProjectsConfig, TaskSource, TaskStatus,
 };
 
 // Re-export manager functions
 pub use manager::{
     create_project, delete_project, get_all_projects, get_project, get_project_by_name,
-    get_project_by_path, update_project, ManagerError, ManagerResult, ProjectsManager,
-    initialize_storage, get_storage_manager,
+    get_project_by_path, get_storage_manager, initialize_storage, update_project, ManagerError,
+    ManagerResult, ProjectsManager,
 };
 
 // Re-export storage types and traits
 pub use storage::{
-    ProjectStorage, StorageConfig, StorageProvider, CloudProvider, StorageError,
-    StorageResult, StorageInfo, StorageCapabilities, ProjectFilter,
-    factory::{StorageFactory, StorageManager, StorageStats, ProjectStorageExt},
     // Legacy JSON storage functions for backward compatibility
-    ensure_projects_file, path_exists, read_projects_config, write_projects_config,
+    ensure_projects_file,
+    factory::{ProjectStorageExt, StorageFactory, StorageManager, StorageStats},
+    path_exists,
+    read_projects_config,
+    write_projects_config,
+    CloudProvider,
+    ProjectFilter,
+    ProjectStorage,
+    StorageCapabilities,
+    StorageConfig,
+    StorageError,
+    StorageInfo,
+    StorageProvider,
+    StorageResult,
 };
 
 // Re-export validator functions
-pub use validator::{
-    truncate, validate_project_data, validate_project_update,
-    ValidationError,
-};
+pub use validator::{truncate, validate_project_data, validate_project_update, ValidationError};
 
 // Re-export storage utility functions
 pub use storage::generate_project_id;

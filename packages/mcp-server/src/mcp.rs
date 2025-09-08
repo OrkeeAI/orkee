@@ -43,7 +43,7 @@ pub struct InitializeResult {
 pub struct ServerCapabilities {
     pub logging: Option<Value>,
     pub prompts: Option<PromptsCapability>,
-    pub resources: Option<ResourcesCapability>, 
+    pub resources: Option<ResourcesCapability>,
     pub tools: Option<ToolsCapability>,
 }
 
@@ -109,7 +109,6 @@ pub async fn ping(_request: Option<Value>) -> Result<Value> {
 pub async fn logging_set_level(_request: Option<LoggingLevel>) -> Result<Value> {
     Ok(json!({}))
 }
-
 
 pub async fn resources_list(_request: Option<Value>) -> Result<Value> {
     Ok(json!({

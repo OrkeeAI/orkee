@@ -1,4 +1,4 @@
-use axum::{Json, response::Result};
+use axum::{response::Result, Json};
 use serde_json::{json, Value};
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -21,7 +21,7 @@ pub async fn status_check() -> Result<Json<Value>> {
         .duration_since(UNIX_EPOCH)
         .map(|d| d.as_secs())
         .unwrap_or(0); // Fallback to 0 if system time is somehow before UNIX_EPOCH
-    
+
     // This would contain more detailed system information in a real implementation
     Ok(Json(json!({
         "status": "healthy",

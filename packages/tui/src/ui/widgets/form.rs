@@ -1,10 +1,10 @@
-use std::collections::HashMap;
-use ratatui::prelude::*;
-use ratatui::widgets::{Block, Borders, Paragraph, Clear};
-use tui_input::Input;
-use tui_input::backend::crossterm::EventHandler;
-use tui_textarea::TextArea;
 use crossterm::event::Event;
+use ratatui::prelude::*;
+use ratatui::widgets::{Block, Borders, Clear, Paragraph};
+use std::collections::HashMap;
+use tui_input::backend::crossterm::EventHandler;
+use tui_input::Input;
+use tui_textarea::TextArea;
 
 /// A form widget for collecting structured input data
 #[derive(Debug)]
@@ -43,19 +43,25 @@ impl FormStep {
 pub enum FieldValue {
     SingleLine(Input),
     MultiLine(TextArea<'static>),
-    Selection { options: Vec<String>, selected: usize },
+    Selection {
+        options: Vec<String>,
+        selected: usize,
+    },
 }
 
 impl std::fmt::Debug for FieldValue {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            FieldValue::SingleLine(input) => f.debug_struct("SingleLine")
+            FieldValue::SingleLine(input) => f
+                .debug_struct("SingleLine")
                 .field("value", &input.value())
                 .finish(),
-            FieldValue::MultiLine(textarea) => f.debug_struct("MultiLine")
+            FieldValue::MultiLine(textarea) => f
+                .debug_struct("MultiLine")
                 .field("lines", &textarea.lines().len())
                 .finish(),
-            FieldValue::Selection { options, selected } => f.debug_struct("Selection")
+            FieldValue::Selection { options, selected } => f
+                .debug_struct("Selection")
                 .field("options", options)
                 .field("selected", selected)
                 .finish(),
@@ -106,7 +112,9 @@ impl FieldValue {
     pub fn is_empty(&self) -> bool {
         match self {
             FieldValue::SingleLine(input) => input.value().is_empty(),
-            FieldValue::MultiLine(textarea) => textarea.lines().iter().all(|line| line.trim().is_empty()),
+            FieldValue::MultiLine(textarea) => {
+                textarea.lines().iter().all(|line| line.trim().is_empty())
+            }
             FieldValue::Selection { options, selected } => {
                 options.get(*selected).map_or(true, |s| s.is_empty())
             }
@@ -166,12 +174,16 @@ impl FormWidget {
 
     /// Get current step's fields
     pub fn current_step_fields(&self) -> Option<&[FormField]> {
-        self.steps.get(self.current_step).map(|step| step.fields.as_slice())
+        self.steps
+            .get(self.current_step)
+            .map(|step| step.fields.as_slice())
     }
 
     /// Get current step's fields mutably
     pub fn current_step_fields_mut(&mut self) -> Option<&mut [FormField]> {
-        self.steps.get_mut(self.current_step).map(|step| step.fields.as_mut_slice())
+        self.steps
+            .get_mut(self.current_step)
+            .map(|step| step.fields.as_mut_slice())
     }
 
     /// Move to the next field within current step
@@ -236,11 +248,11 @@ impl FormWidget {
         // Get field info first to avoid borrowing conflicts
         let current_field_idx = self.current_field;
         let current_step_idx = self.current_step;
-        
+
         if let Some(step) = self.steps.get_mut(current_step_idx) {
             if let Some(field) = step.fields.get_mut(current_field_idx) {
                 let field_name = field.name.clone(); // Clone name to avoid borrow issues
-                
+
                 let handled = match &mut field.field_value {
                     FieldValue::SingleLine(input) => {
                         // Use tui-input's handle_event method directly
@@ -253,29 +265,54 @@ impl FormWidget {
                             if key_event.code == crossterm::event::KeyCode::Enter {
                                 return false;
                             }
-                            
+
                             // Map crossterm types to ratatui types manually (version mismatch)
                             let ratatui_code = match key_event.code {
-                                crossterm::event::KeyCode::Backspace => ratatui::crossterm::event::KeyCode::Backspace,
-                                crossterm::event::KeyCode::Left => ratatui::crossterm::event::KeyCode::Left,
-                                crossterm::event::KeyCode::Right => ratatui::crossterm::event::KeyCode::Right,
-                                crossterm::event::KeyCode::Up => ratatui::crossterm::event::KeyCode::Up,
-                                crossterm::event::KeyCode::Down => ratatui::crossterm::event::KeyCode::Down,
-                                crossterm::event::KeyCode::Home => ratatui::crossterm::event::KeyCode::Home,
-                                crossterm::event::KeyCode::End => ratatui::crossterm::event::KeyCode::End,
-                                crossterm::event::KeyCode::PageUp => ratatui::crossterm::event::KeyCode::PageUp,
-                                crossterm::event::KeyCode::PageDown => ratatui::crossterm::event::KeyCode::PageDown,
-                                crossterm::event::KeyCode::Tab => ratatui::crossterm::event::KeyCode::Tab,
-                                crossterm::event::KeyCode::Delete => ratatui::crossterm::event::KeyCode::Delete,
-                                crossterm::event::KeyCode::Char(c) => ratatui::crossterm::event::KeyCode::Char(c),
+                                crossterm::event::KeyCode::Backspace => {
+                                    ratatui::crossterm::event::KeyCode::Backspace
+                                }
+                                crossterm::event::KeyCode::Left => {
+                                    ratatui::crossterm::event::KeyCode::Left
+                                }
+                                crossterm::event::KeyCode::Right => {
+                                    ratatui::crossterm::event::KeyCode::Right
+                                }
+                                crossterm::event::KeyCode::Up => {
+                                    ratatui::crossterm::event::KeyCode::Up
+                                }
+                                crossterm::event::KeyCode::Down => {
+                                    ratatui::crossterm::event::KeyCode::Down
+                                }
+                                crossterm::event::KeyCode::Home => {
+                                    ratatui::crossterm::event::KeyCode::Home
+                                }
+                                crossterm::event::KeyCode::End => {
+                                    ratatui::crossterm::event::KeyCode::End
+                                }
+                                crossterm::event::KeyCode::PageUp => {
+                                    ratatui::crossterm::event::KeyCode::PageUp
+                                }
+                                crossterm::event::KeyCode::PageDown => {
+                                    ratatui::crossterm::event::KeyCode::PageDown
+                                }
+                                crossterm::event::KeyCode::Tab => {
+                                    ratatui::crossterm::event::KeyCode::Tab
+                                }
+                                crossterm::event::KeyCode::Delete => {
+                                    ratatui::crossterm::event::KeyCode::Delete
+                                }
+                                crossterm::event::KeyCode::Char(c) => {
+                                    ratatui::crossterm::event::KeyCode::Char(c)
+                                }
                                 _ => return false, // Not handled
                             };
-                            
-                            let ratatui_modifiers = ratatui::crossterm::event::KeyModifiers::empty();
-                            
+
+                            let ratatui_modifiers =
+                                ratatui::crossterm::event::KeyModifiers::empty();
+
                             let ratatui_key_event = ratatui::crossterm::event::KeyEvent::new(
                                 ratatui_code,
-                                ratatui_modifiers
+                                ratatui_modifiers,
                             );
                             textarea.input(ratatui_key_event)
                         } else {
@@ -317,12 +354,12 @@ impl FormWidget {
                         }
                     }
                 };
-                
+
                 if handled {
                     // Clear validation error when field is updated
                     self.validation_errors.remove(&field_name);
                 }
-                
+
                 handled
             } else {
                 false
@@ -337,7 +374,7 @@ impl FormWidget {
         // Get field info first to avoid borrowing conflicts
         let current_field_idx = self.current_field;
         let current_step_idx = self.current_step;
-        
+
         if let Some(step) = self.steps.get_mut(current_step_idx) {
             if let Some(field) = step.fields.get_mut(current_field_idx) {
                 match &mut field.field_value {
@@ -345,10 +382,10 @@ impl FormWidget {
                         // Insert newline directly into textarea
                         let ratatui_key_event = ratatui::crossterm::event::KeyEvent::new(
                             ratatui::crossterm::event::KeyCode::Enter,
-                            ratatui::crossterm::event::KeyModifiers::empty()
+                            ratatui::crossterm::event::KeyModifiers::empty(),
                         );
                         textarea.input(ratatui_key_event);
-                        
+
                         // Clear validation error when field is updated
                         self.validation_errors.remove(&field.name);
                         true
@@ -368,19 +405,17 @@ impl FormWidget {
         // Get field info without borrowing self
         let current_field_idx = self.current_field;
         let current_step_idx = self.current_step;
-        
+
         if let Some(step) = self.steps.get(current_step_idx) {
             if let Some(field) = step.fields.get(current_field_idx) {
                 let field_name = field.name.clone();
                 let field_value_str = field.field_value.value();
                 let is_required = field.required;
-                
+
                 // Check if required field is empty
                 if is_required && field_value_str.trim().is_empty() {
-                    self.validation_errors.insert(
-                        field_name.clone(),
-                        "This field is required".to_string(),
-                    );
+                    self.validation_errors
+                        .insert(field_name.clone(), "This field is required".to_string());
                     return false;
                 }
 
@@ -405,7 +440,10 @@ impl FormWidget {
 
     /// Validate all fields in the current step
     pub fn validate_current_step(&mut self) -> bool {
-        let step_fields_len = self.current_step_fields().map(|fields| fields.len()).unwrap_or(0);
+        let step_fields_len = self
+            .current_step_fields()
+            .map(|fields| fields.len())
+            .unwrap_or(0);
         let mut all_valid = true;
         for i in 0..step_fields_len {
             let old_current = self.current_field;
@@ -423,14 +461,14 @@ impl FormWidget {
         let mut all_valid = true;
         let old_step = self.current_step;
         let old_field = self.current_field;
-        
+
         for step_idx in 0..self.steps.len() {
             self.current_step = step_idx;
             if !self.validate_current_step() {
                 all_valid = false;
             }
         }
-        
+
         self.current_step = old_step;
         self.current_field = old_field;
         all_valid
@@ -445,14 +483,14 @@ impl FormWidget {
                     return false;
                 }
             }
-            
+
             // No validation errors for current step fields
             for field in fields {
                 if self.validation_errors.contains_key(&field.name) {
                     return false;
                 }
             }
-            
+
             true
         } else {
             false
@@ -468,7 +506,7 @@ impl FormWidget {
                     return false;
                 }
             }
-            
+
             // No validation errors
             for field in &step.fields {
                 if self.validation_errors.contains_key(&field.name) {
@@ -498,13 +536,13 @@ impl FormWidget {
         let mut summary_lines = Vec::new();
         summary_lines.push("📋 Project Summary:".to_string());
         summary_lines.push("".to_string());
-        
+
         // Collect all field values from all steps
         for (step_idx, step) in self.steps.iter().enumerate() {
             if step_idx == self.current_step {
                 continue; // Skip the review step itself
             }
-            
+
             summary_lines.push(format!("▸ {}", step.title));
             for field in &step.fields {
                 let value = field.field_value.value();
@@ -524,7 +562,7 @@ impl FormWidget {
             }
             summary_lines.push("".to_string());
         }
-        
+
         summary_lines.push("".to_string());
         let action_text = if self.is_edit_mode {
             "✅ Ready to update project? Press Enter to confirm, Esc to go back, or Shift+C to cancel."
@@ -532,14 +570,14 @@ impl FormWidget {
             "✅ Ready to create project? Press Enter to confirm, Esc to go back, or Shift+C to cancel."
         };
         summary_lines.push(action_text.to_string());
-        
+
         // Create a paragraph with all the summary text
         let summary_text = summary_lines.join("\n");
         let summary_paragraph = Paragraph::new(summary_text)
             .style(Style::default().fg(Color::White))
             .wrap(ratatui::widgets::Wrap { trim: false })
             .scroll((0, 0));
-        
+
         frame.render_widget(summary_paragraph, area);
     }
 
@@ -551,11 +589,21 @@ impl FormWidget {
         // Get current step information
         let current_step = self.steps.get(self.current_step);
         let step_title = current_step.map(|s| s.title.as_str()).unwrap_or("Unknown");
-        let title = format!("{} - {} (Step {}/{})", self.title, step_title, self.current_step_number(), self.total_steps());
-        
+        let title = format!(
+            "{} - {} (Step {}/{})",
+            self.title,
+            step_title,
+            self.current_step_number(),
+            self.total_steps()
+        );
+
         let block = Block::default()
             .title(title)
-            .title_style(Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD))
+            .title_style(
+                Style::default()
+                    .fg(Color::Cyan)
+                    .add_modifier(Modifier::BOLD),
+            )
             .borders(Borders::ALL)
             .border_style(Style::default().fg(Color::Blue));
 
@@ -580,15 +628,16 @@ impl FormWidget {
         }
 
         // Calculate actual height for each field
-        let field_heights: Vec<u16> = fields.iter().map(|field| {
-            self.calculate_field_height(field)
-        }).collect();
+        let field_heights: Vec<u16> = fields
+            .iter()
+            .map(|field| self.calculate_field_height(field))
+            .collect();
 
         // Determine which fields can fit in available space
         let available_height = inner.height as u16;
         let mut total_height = 0u16;
         let mut end_field = 0;
-        
+
         // Start from current field and work outward to ensure current field is always visible
         for i in self.current_field..fields.len() {
             let field_height = field_heights[i];
@@ -599,7 +648,7 @@ impl FormWidget {
                 break;
             }
         }
-        
+
         // If we have room, try to include fields before the current field
         let mut start_field = self.current_field;
         while start_field > 0 {
@@ -630,7 +679,12 @@ impl FormWidget {
         // Render each visible field
         for (i, field_index) in (start_field..end_field).enumerate() {
             if let Some(field) = fields.get(field_index) {
-                self.render_field(frame, field_areas[i], field, field_index == self.current_field);
+                self.render_field(
+                    frame,
+                    field_areas[i],
+                    field,
+                    field_index == self.current_field,
+                );
             }
         }
 
@@ -644,29 +698,33 @@ impl FormWidget {
         let required_indicator = if field.required { " *" } else { "" };
         let label = format!("{}{}: ", field.label, required_indicator);
         let label_style = if is_current {
-            Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)
+            Style::default()
+                .fg(Color::Yellow)
+                .add_modifier(Modifier::BOLD)
         } else {
             Style::default().fg(Color::White)
         };
-        
+
         // Choose layout based on field type
         let (label_area, input_area, error_area) = match &field.field_value {
             FieldValue::MultiLine(textarea) => {
                 // Calculate dynamic height for textarea based on content (like chat input)
                 let textarea_lines = textarea.lines();
-                let line_count = if textarea_lines.is_empty() || (textarea_lines.len() == 1 && textarea_lines[0].is_empty()) {
+                let line_count = if textarea_lines.is_empty()
+                    || (textarea_lines.len() == 1 && textarea_lines[0].is_empty())
+                {
                     1 // At least 1 line for empty textarea
                 } else {
                     textarea_lines.len()
                 };
                 let textarea_height = (line_count as u16).min(10) + 2; // +2 for borders, max 10 lines of content
-                
+
                 let chunks = Layout::default()
                     .direction(Direction::Vertical)
                     .constraints([
-                        Constraint::Length(1), // Label
+                        Constraint::Length(1),               // Label
                         Constraint::Length(textarea_height), // Textarea (dynamic height)
-                        Constraint::Length(1), // Error/spacing
+                        Constraint::Length(1),               // Error/spacing
                     ])
                     .split(area);
                 (chunks[0], chunks[1], chunks[2])
@@ -686,19 +744,19 @@ impl FormWidget {
             FieldValue::Selection { options, .. } => {
                 // Selection layout - need height for all radio button options + borders
                 let selection_height = options.len() as u16 + 2; // +2 for borders
-                
+
                 let chunks = Layout::default()
                     .direction(Direction::Vertical)
                     .constraints([
-                        Constraint::Length(1), // Label
+                        Constraint::Length(1),                // Label
                         Constraint::Length(selection_height), // Selection options
-                        Constraint::Length(1), // Error/spacing
+                        Constraint::Length(1),                // Error/spacing
                     ])
                     .split(area);
                 (chunks[0], chunks[1], chunks[2])
             }
         };
-        
+
         // Render label
         let label_paragraph = Paragraph::new(label).style(label_style);
         frame.render_widget(label_paragraph, label_area);
@@ -716,51 +774,60 @@ impl FormWidget {
                 // Calculate scroll for long input values
                 let width = input_area.width.max(3).saturating_sub(2) as usize;
                 let scroll = input.visual_scroll(width);
-                
+
                 // Create a paragraph with the input value
                 let input_value = input.value();
                 let display_value = if input_value.is_empty() {
-                    field.placeholder.as_ref().map(|s| s.as_str()).unwrap_or(input_value)
+                    field
+                        .placeholder
+                        .as_ref()
+                        .map(|s| s.as_str())
+                        .unwrap_or(input_value)
                 } else {
                     input_value
                 };
-                
-                let input_paragraph = Paragraph::new(display_value)
-                    .style(input_style)
-                    .scroll((0, scroll as u16))
-                    .block(Block::default()
-                        .borders(Borders::ALL)
-                        .border_style(if is_current { 
-                            Style::default().fg(Color::Yellow) 
-                        } else { 
-                            Style::default().fg(Color::Gray) 
-                        }));
-                
+
+                let input_paragraph =
+                    Paragraph::new(display_value)
+                        .style(input_style)
+                        .scroll((0, scroll as u16))
+                        .block(Block::default().borders(Borders::ALL).border_style(
+                            if is_current {
+                                Style::default().fg(Color::Yellow)
+                            } else {
+                                Style::default().fg(Color::Gray)
+                            },
+                        ));
+
                 frame.render_widget(input_paragraph, input_area);
-                
+
                 // Set cursor position if this field is current
                 if is_current {
                     let cursor_x = input.visual_cursor().max(scroll);
                     // Position cursor inside the bordered block (add 1 for border, then cursor position)
-                    frame.set_cursor_position((input_area.x + 1 + cursor_x as u16, input_area.y + 1));
+                    frame.set_cursor_position((
+                        input_area.x + 1 + cursor_x as u16,
+                        input_area.y + 1,
+                    ));
                 }
             }
             FieldValue::MultiLine(textarea) => {
                 // Create a block for the textarea
-                let textarea_block = Block::default()
-                    .borders(Borders::ALL)
-                    .border_style(if is_current { 
-                        Style::default().fg(Color::Yellow) 
-                    } else { 
-                        Style::default().fg(Color::Gray) 
-                    });
+                let textarea_block =
+                    Block::default()
+                        .borders(Borders::ALL)
+                        .border_style(if is_current {
+                            Style::default().fg(Color::Yellow)
+                        } else {
+                            Style::default().fg(Color::Gray)
+                        });
 
                 // Render the block first
                 frame.render_widget(&textarea_block, input_area);
-                
+
                 // Get the inner area for the textarea content
                 let inner_area = textarea_block.inner(input_area);
-                
+
                 // Render the textarea inside the block
                 frame.render_widget(textarea, inner_area);
             }
@@ -769,35 +836,37 @@ impl FormWidget {
                 let selection_block = Block::default()
                     .borders(Borders::ALL)
                     .title("Select an option")
-                    .border_style(if is_current { 
-                        Style::default().fg(Color::Yellow) 
-                    } else { 
-                        Style::default().fg(Color::Gray) 
+                    .border_style(if is_current {
+                        Style::default().fg(Color::Yellow)
+                    } else {
+                        Style::default().fg(Color::Gray)
                     });
 
                 // Render the block first
                 frame.render_widget(&selection_block, input_area);
-                
+
                 // Get the inner area for the options
                 let inner_area = selection_block.inner(input_area);
-                
+
                 // Create radio button options
                 let mut option_lines = Vec::new();
                 for (i, option) in options.iter().enumerate() {
                     let radio_symbol = if i == *selected { "●" } else { "○" };
                     let option_style = if i == *selected {
-                        Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)
+                        Style::default()
+                            .fg(Color::Green)
+                            .add_modifier(Modifier::BOLD)
                     } else {
                         Style::default().fg(Color::White)
                     };
-                    
+
                     let line = Line::from(vec![
                         Span::styled(format!("{} ", radio_symbol), option_style),
                         Span::styled(option.clone(), option_style),
                     ]);
                     option_lines.push(line);
                 }
-                
+
                 // Render the options
                 let options_paragraph = Paragraph::new(option_lines);
                 frame.render_widget(options_paragraph, inner_area);
@@ -807,14 +876,13 @@ impl FormWidget {
         // Render error or help text
         if let Some(error) = self.validation_errors.get(&field.name) {
             let error_text = format!("❌ {}", error);
-            let error_paragraph = Paragraph::new(error_text)
-                .style(Style::default().fg(Color::Red));
+            let error_paragraph = Paragraph::new(error_text).style(Style::default().fg(Color::Red));
             frame.render_widget(error_paragraph, error_area);
         } else if is_current {
             if let Some(ref help) = field.help_text {
                 let help_text = format!("💡 {}", help);
-                let help_paragraph = Paragraph::new(help_text)
-                    .style(Style::default().fg(Color::Gray));
+                let help_paragraph =
+                    Paragraph::new(help_text).style(Style::default().fg(Color::Gray));
                 frame.render_widget(help_paragraph, error_area);
             }
         }
@@ -826,7 +894,9 @@ impl FormWidget {
             FieldValue::MultiLine(textarea) => {
                 // Calculate dynamic height for textarea based on content
                 let textarea_lines = textarea.lines();
-                let line_count = if textarea_lines.is_empty() || (textarea_lines.len() == 1 && textarea_lines[0].is_empty()) {
+                let line_count = if textarea_lines.is_empty()
+                    || (textarea_lines.len() == 1 && textarea_lines[0].is_empty())
+                {
                     1 // At least 1 line for empty textarea
                 } else {
                     textarea_lines.len()
@@ -871,8 +941,7 @@ impl FormWidget {
             height: 1,
         };
 
-        let help_paragraph = Paragraph::new(help_text)
-            .style(Style::default().fg(Color::DarkGray));
+        let help_paragraph = Paragraph::new(help_text).style(Style::default().fg(Color::DarkGray));
         frame.render_widget(help_paragraph, help_area);
     }
 }
@@ -882,7 +951,7 @@ impl FormField {
     pub fn text(name: String, label: String, required: bool) -> Self {
         let input = Input::default();
         // Set placeholder if we have one later
-        
+
         Self {
             name,
             label,
@@ -898,7 +967,7 @@ impl FormField {
     /// Create a new path field
     pub fn path(name: String, label: String, required: bool) -> Self {
         let input = Input::default();
-        
+
         Self {
             name,
             label,
@@ -916,7 +985,7 @@ impl FormField {
         let mut textarea = TextArea::default();
         // Remove the default underline cursor line style
         textarea.set_cursor_line_style(Style::default());
-        
+
         Self {
             name,
             label,
@@ -925,33 +994,37 @@ impl FormField {
             required,
             validator: None,
             placeholder: Some("Enter description...".to_string()),
-            help_text: Some("Use Shift+Enter for new lines, Enter/↓/Tab to continue, ↑ to go back".to_string()),
+            help_text: Some(
+                "Use Shift+Enter for new lines, Enter/↓/Tab to continue, ↑ to go back".to_string(),
+            ),
         }
     }
 
     /// Create a new selection field
     pub fn selection(name: String, label: String, options: Vec<String>, required: bool) -> Self {
         let selected = 0; // Default to first option
-        
+
         Self {
             name,
             label,
-            field_value: FieldValue::Selection { 
-                options: options.clone(), 
-                selected 
+            field_value: FieldValue::Selection {
+                options: options.clone(),
+                selected,
             },
             field_type: FieldType::Selection(options),
             required,
             validator: None,
             placeholder: None,
-            help_text: Some("Use ↑↓ arrow keys to select, Enter/↓/Tab to continue, ↑ to go back".to_string()),
+            help_text: Some(
+                "Use ↑↓ arrow keys to select, Enter/↓/Tab to continue, ↑ to go back".to_string(),
+            ),
         }
     }
 
     /// Create a new tags field
     pub fn tags(name: String, label: String, required: bool) -> Self {
         let input = Input::default();
-        
+
         Self {
             name,
             label,
@@ -960,7 +1033,9 @@ impl FormField {
             required,
             validator: None,
             placeholder: Some("tag1, tag2, tag3".to_string()),
-            help_text: Some("Separate tags with commas • Enter/↓/Tab to continue, ↑ to go back".to_string()),
+            help_text: Some(
+                "Separate tags with commas • Enter/↓/Tab to continue, ↑ to go back".to_string(),
+            ),
         }
     }
 

@@ -6,8 +6,8 @@ use axum::{
 use chrono::{DateTime, Utc};
 use orkee_preview::{
     types::{
-        ApiResponse, ServerLogsResponse, ServerStatusResponse,
-        StartServerRequest, StartServerResponse,
+        ApiResponse, ServerLogsResponse, ServerStatusResponse, StartServerRequest,
+        StartServerResponse,
     },
     PreviewManager, ServerInfo,
 };
@@ -31,7 +31,7 @@ pub async fn start_server(
     Json(_request): Json<StartServerRequest>,
 ) -> Result<Json<ApiResponse<StartServerResponse>>, StatusCode> {
     info!("Starting simple preview server for project: {}", project_id);
-    
+
     // Get project from projects service
     let project = match state.project_manager.get_project(&project_id).await {
         Ok(Some(project)) => project,
@@ -41,50 +41,63 @@ pub async fn start_server(
         }
         Err(e) => {
             error!("Failed to get project {}: {}", project_id, e);
-            return Ok(Json(ApiResponse::error(format!("Project manager error: {}", e))));
+            return Ok(Json(ApiResponse::error(format!(
+                "Project manager error: {}",
+                e
+            ))));
         }
     };
-    
+
     let project_root = std::path::PathBuf::from(&project.project_root);
 
     // Start the simplified server
-    match state.preview_manager.start_server(project_id.clone(), project_root).await {
+    match state
+        .preview_manager
+        .start_server(project_id.clone(), project_root)
+        .await
+    {
         Ok(server_info) => {
             info!("Successfully started server: {}", server_info.id);
-            
+
             // Convert ServerInfo to DevServerInstance for compatibility
             let instance = convert_server_info_to_instance(server_info);
             Ok(Json(ApiResponse::success(StartServerResponse { instance })))
         }
         Err(e) => {
             error!("Failed to start server: {}", e);
-            Ok(Json(ApiResponse::error(format!("Preview server error: {}", e))))
+            Ok(Json(ApiResponse::error(format!(
+                "Preview server error: {}",
+                e
+            ))))
         }
     }
 }
 
 /// Convert ServerInfo to DevServerInstance for API compatibility
 fn convert_server_info_to_instance(info: ServerInfo) -> orkee_preview::types::DevServerInstance {
-    use orkee_preview::types::*;
     use chrono::Utc;
-    
+    use orkee_preview::types::*;
+
     // Use real framework name or fallback
-    let framework_name = info.framework_name.unwrap_or_else(|| "Development Server".to_string());
+    let framework_name = info
+        .framework_name
+        .unwrap_or_else(|| "Development Server".to_string());
     let dev_command = info.actual_command.unwrap_or_else(|| "unknown".to_string());
-    
+
     // Detect project type based on framework
-    let project_type = if framework_name.contains("Static") || framework_name.contains("HTTP Server") {
-        ProjectType::Static
-    } else if framework_name.contains("Next") {
-        ProjectType::Nextjs
-    } else if framework_name.contains("React") {
-        ProjectType::React
-    } else if framework_name.contains("Vue") {
-        ProjectType::Vue
-    } else {
-        ProjectType::Unknown
-    };
-    
+    let project_type =
+        if framework_name.contains("Static") || framework_name.contains("HTTP Server") {
+            ProjectType::Static
+        } else if framework_name.contains("Next") {
+            ProjectType::Nextjs
+        } else if framework_name.contains("React") {
+            ProjectType::React
+        } else if framework_name.contains("Vue") {
+            ProjectType::Vue
+        } else {
+            ProjectType::Unknown
+        };
+
     DevServerInstance {
         id: info.id,
         project_id: info.project_id,
@@ -151,8 +164,11 @@ pub async fn get_server_logs(
 ) -> Json<ApiResponse<ServerLogsResponse>> {
     let since = query.since;
     let limit = query.limit;
-    
-    let logs = state.preview_manager.get_server_logs(&project_id, since, limit).await;
+
+    let logs = state
+        .preview_manager
+        .get_server_logs(&project_id, since, limit)
+        .await;
     Json(ApiResponse::success(ServerLogsResponse { logs }))
 }
 
@@ -185,5 +201,7 @@ pub async fn list_active_servers(
 
 /// Health check endpoint for the preview service
 pub async fn health_check() -> Json<ApiResponse<String>> {
-    Json(ApiResponse::success("Preview service is healthy".to_string()))
+    Json(ApiResponse::success(
+        "Preview service is healthy".to_string(),
+    ))
 }

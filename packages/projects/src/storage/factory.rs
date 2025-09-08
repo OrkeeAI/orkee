@@ -1,10 +1,10 @@
 use async_trait::async_trait;
 use std::sync::Arc;
-use tracing::{info, debug};
+use tracing::{debug, info};
 
 use super::{
-    ProjectStorage, StorageConfig, StorageProvider, StorageResult, StorageError,
-    sqlite::SqliteStorage,
+    sqlite::SqliteStorage, ProjectStorage, StorageConfig, StorageError, StorageProvider,
+    StorageResult,
 };
 
 /// Factory for creating storage instances
@@ -14,27 +14,40 @@ impl StorageFactory {
     /// Create a new storage instance from configuration
     pub async fn create_storage(config: StorageConfig) -> StorageResult<Box<dyn ProjectStorage>> {
         debug!("Creating storage with provider: {:?}", config.provider);
-        
+
         match &config.provider {
             StorageProvider::Sqlite { path } => {
                 info!("Initializing SQLite storage at: {:?}", path);
                 let storage = SqliteStorage::new(config).await?;
                 storage.initialize().await?;
                 Ok(Box::new(storage))
-            },
-            StorageProvider::Cloud { provider, local_cache: _ } => {
+            }
+            StorageProvider::Cloud {
+                provider,
+                local_cache: _,
+            } => {
                 // For future implementation
                 match provider {
                     super::CloudProvider::S3 { bucket, region } => {
                         // TODO: Implement S3-backed storage
-                        info!("S3 storage not yet implemented (bucket: {}, region: {})", bucket, region);
-                        Err(StorageError::Database("S3 storage not yet implemented".to_string()))
-                    },
+                        info!(
+                            "S3 storage not yet implemented (bucket: {}, region: {})",
+                            bucket, region
+                        );
+                        Err(StorageError::Database(
+                            "S3 storage not yet implemented".to_string(),
+                        ))
+                    }
                     super::CloudProvider::Convex { deployment_url } => {
                         // TODO: Implement Convex-backed storage
-                        info!("Convex storage not yet implemented (deployment: {})", deployment_url);
-                        Err(StorageError::Database("Convex storage not yet implemented".to_string()))
-                    },
+                        info!(
+                            "Convex storage not yet implemented (deployment: {})",
+                            deployment_url
+                        );
+                        Err(StorageError::Database(
+                            "Convex storage not yet implemented".to_string(),
+                        ))
+                    }
                 }
             }
         }
@@ -51,14 +64,17 @@ impl StorageFactory {
         if url.starts_with("sqlite:") {
             let path = url.strip_prefix("sqlite:").unwrap();
             let config = StorageConfig {
-                provider: StorageProvider::Sqlite { 
-                    path: std::path::PathBuf::from(path) 
+                provider: StorageProvider::Sqlite {
+                    path: std::path::PathBuf::from(path),
                 },
                 ..StorageConfig::default()
             };
             Self::create_storage(config).await
         } else {
-            Err(StorageError::Database(format!("Unsupported database URL: {}", url)))
+            Err(StorageError::Database(format!(
+                "Unsupported database URL: {}",
+                url
+            )))
         }
     }
 
@@ -66,8 +82,8 @@ impl StorageFactory {
     #[cfg(test)]
     pub async fn create_memory_storage() -> StorageResult<Box<dyn ProjectStorage>> {
         let config = StorageConfig {
-            provider: StorageProvider::Sqlite { 
-                path: std::path::PathBuf::from(":memory:") 
+            provider: StorageProvider::Sqlite {
+                path: std::path::PathBuf::from(":memory:"),
             },
             enable_wal: false, // WAL mode not supported for in-memory databases
             enable_fts: true,
@@ -128,12 +144,14 @@ impl StorageManager {
     pub async fn get_stats(&self) -> StorageResult<StorageStats> {
         let info = self.storage.get_storage_info().await?;
         let projects = self.storage.list_projects().await?;
-        
-        let active_count = projects.iter()
+
+        let active_count = projects
+            .iter()
             .filter(|p| p.status == crate::types::ProjectStatus::Active)
             .count();
-            
-        let archived_count = projects.iter()
+
+        let archived_count = projects
+            .iter()
             .filter(|p| p.status == crate::types::ProjectStatus::Archived)
             .count();
 
@@ -165,7 +183,10 @@ pub struct StorageStats {
 #[async_trait]
 pub trait ProjectStorageExt: ProjectStorage {
     /// Create a project and return its ID
-    async fn create_project_id(&self, input: crate::types::ProjectCreateInput) -> StorageResult<String> {
+    async fn create_project_id(
+        &self,
+        input: crate::types::ProjectCreateInput,
+    ) -> StorageResult<String> {
         let project = self.create_project(input).await?;
         Ok(project.id)
     }
@@ -218,7 +239,7 @@ mod tests {
     async fn test_factory_create_sqlite_storage() {
         let temp_dir = tempdir().unwrap();
         let db_path = temp_dir.path().join("test.db");
-        
+
         let config = StorageConfig {
             provider: StorageProvider::Sqlite { path: db_path },
             enable_wal: true,
@@ -228,7 +249,7 @@ mod tests {
         };
 
         let storage = StorageFactory::create_storage(config).await.unwrap();
-        
+
         // Test that it works
         let projects = storage.list_projects().await.unwrap();
         assert_eq!(projects.len(), 0);
@@ -246,9 +267,9 @@ mod tests {
         let temp_dir = tempdir().unwrap();
         let db_path = temp_dir.path().join("test.db");
         let url = format!("sqlite:{}", db_path.display());
-        
+
         let storage = StorageFactory::from_url(&url).await.unwrap();
-        
+
         // Test that it works
         let projects = storage.list_projects().await.unwrap();
         assert_eq!(projects.len(), 0);
@@ -258,7 +279,7 @@ mod tests {
     async fn test_storage_manager() {
         let temp_dir = tempdir().unwrap();
         let db_path = temp_dir.path().join("test.db");
-        
+
         let config = StorageConfig {
             provider: StorageProvider::Sqlite { path: db_path },
             enable_wal: true,
@@ -268,10 +289,10 @@ mod tests {
         };
 
         let manager = StorageManager::new(config).await.unwrap();
-        
+
         // Test connection
         manager.test_connection().await.unwrap();
-        
+
         // Create a test project
         let input = ProjectCreateInput {
             name: "Test Project".to_string(),
@@ -291,7 +312,7 @@ mod tests {
 
         let storage = manager.storage();
         storage.create_project(input).await.unwrap();
-        
+
         // Get stats
         let stats = manager.get_stats().await.unwrap();
         assert_eq!(stats.total_projects, 1);
@@ -303,7 +324,7 @@ mod tests {
     async fn test_storage_ext_methods() {
         let temp_dir = tempdir().unwrap();
         let db_path = temp_dir.path().join("test.db");
-        
+
         let config = StorageConfig {
             provider: StorageProvider::Sqlite { path: db_path },
             enable_wal: true,
@@ -336,17 +357,23 @@ mod tests {
         };
 
         let project_id = storage.create_project_id(input).await.unwrap();
-        
+
         // Test existence checks
         assert!(storage.project_exists(&project_id).await.unwrap());
         assert!(!storage.name_available("Test Project").await.unwrap());
         assert!(!storage.path_available("/tmp/test").await.unwrap());
 
         // Test counting
-        let active_count = storage.count_by_status(ProjectStatus::Active).await.unwrap();
+        let active_count = storage
+            .count_by_status(ProjectStatus::Active)
+            .await
+            .unwrap();
         assert_eq!(active_count, 1);
 
-        let archived_count = storage.count_by_status(ProjectStatus::Archived).await.unwrap();
+        let archived_count = storage
+            .count_by_status(ProjectStatus::Archived)
+            .await
+            .unwrap();
         assert_eq!(archived_count, 0);
     }
 }
