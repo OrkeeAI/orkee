@@ -27,7 +27,8 @@ import { CSS } from '@dnd-kit/utilities';
 import { ProjectCreateDialog } from '@/components/ProjectCreateDialog';
 import { ProjectEditDialog } from '@/components/ProjectEditDialog';
 import { ProjectDeleteDialog } from '@/components/ProjectDeleteDialog';
-import { projectsService, Project } from '@/services/projects';
+import { useProjects, useUpdateProject, useSearchProjects } from '@/hooks/useProjects';
+import { Project } from '@/services/projects';
 import { previewService } from '@/services/api';
 
 type ViewType = 'card' | 'list';
@@ -173,9 +174,6 @@ function SortableRow({ project, onEdit, onDelete, onView, formatDate, getPriorit
 
 export function Projects() {
   const navigate = useNavigate();
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [activeServers, setActiveServers] = useState<Set<string>>(new Set());
   
   // Dialog states
@@ -190,6 +188,14 @@ export function Projects() {
   const [viewType, setViewType] = useState<ViewType>('list');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('active');
 
+  // React Query hooks
+  const { data: allProjects = [], isLoading, error, isError } = useProjects();
+  const { data: searchResults = [], isLoading: isSearching } = useSearchProjects(
+    searchTerm, 
+    searchTerm.length >= 2
+  );
+  const updateProjectMutation = useUpdateProject();
+
   // Drag and drop sensors
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -198,18 +204,9 @@ export function Projects() {
     })
   );
 
-  const loadProjects = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      const projectsList = await projectsService.getAllProjects();
-      setProjects(projectsList);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load projects');
-    } finally {
-      setLoading(false);
-    }
-  };
+  // Use search results if searching, otherwise use all projects
+  const projects = searchTerm.length >= 2 ? searchResults : allProjects;
+  const loading = isLoading || (searchTerm.length >= 2 && isSearching);
 
   const loadActiveServers = async () => {
     try {
@@ -222,20 +219,14 @@ export function Projects() {
 
   // Calculate project counts by status
   const projectCounts = useMemo(() => {
-    const active = projects.filter(project => project.status === 'active').length;
-    const archived = projects.filter(project => project.status === 'archived').length;
+    const active = allProjects.filter(project => project.status === 'active').length;
+    const archived = allProjects.filter(project => project.status === 'archived').length;
     return { active, archived };
-  }, [projects]);
+  }, [allProjects]);
 
   // Filter and sort projects
   const filteredAndSortedProjects = useMemo(() => {
-    const filtered = projects.filter(project => 
-      project.status === statusFilter &&
-      (project.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      project.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      project.tags?.some(tag => tag.toLowerCase().includes(searchTerm.toLowerCase())) ||
-      project.projectRoot.toLowerCase().includes(searchTerm.toLowerCase()))
-    );
+    const filtered = projects.filter(project => project.status === statusFilter);
 
     const priorityOrder = { high: 3, medium: 2, low: 1 };
     
@@ -261,10 +252,9 @@ export function Projects() {
     });
 
     return filtered;
-  }, [projects, searchTerm, sortBy, statusFilter]);
+  }, [projects, sortBy, statusFilter]);
 
   useEffect(() => {
-    loadProjects();
     loadActiveServers();
     
     // Set up periodic refresh for active servers every 20 seconds
@@ -287,17 +277,10 @@ export function Projects() {
     setDeleteDialogOpen(true);
   };
 
-  const handleProjectCreated = () => {
-    loadProjects();
-  };
-
-  const handleProjectUpdated = () => {
-    loadProjects();
-  };
-
-  const handleProjectDeleted = () => {
-    loadProjects();
-  };
+  // No need for manual reload callbacks - React Query handles cache updates automatically
+  const handleProjectCreated = () => {};
+  const handleProjectUpdated = () => {};
+  const handleProjectDeleted = () => {};
 
   const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
@@ -329,12 +312,14 @@ export function Projects() {
       // Update rankings on server
       try {
         for (const project of updatedProjects) {
-          await projectsService.updateProject(project.id, { rank: project.rank });
+          await updateProjectMutation.mutateAsync({
+            id: project.id,
+            input: { rank: project.rank }
+          });
         }
       } catch (err) {
         console.error('Failed to update project rankings:', err);
-        // Reload projects to get correct state
-        loadProjects();
+        // React Query will handle rollback through its error handling
       }
     }
   };
@@ -451,10 +436,10 @@ export function Projects() {
         </div>
       </div>
 
-      {error && (
+      {isError && (
         <div className="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-md">
           <p className="font-medium">Error loading projects</p>
-          <p className="text-sm">{error}</p>
+          <p className="text-sm">{error?.message || 'Failed to load projects'}</p>
         </div>
       )}
 
@@ -466,7 +451,7 @@ export function Projects() {
 
         <TabsContent value={statusFilter} className="mt-6">
           {filteredAndSortedProjects.length === 0 ? (
-            projects.length === 0 ? (
+            allProjects.length === 0 ? (
               <div className="text-center py-12">
                 <FolderOpen className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                 <h3 className="text-lg font-medium text-muted-foreground mb-2">No projects found</h3>

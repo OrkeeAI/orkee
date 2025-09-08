@@ -8,7 +8,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { projectsService, Project } from '@/services/projects';
+import { useDeleteProject } from '@/hooks/useProjects';
+import { Project } from '@/services/projects';
 
 interface ProjectDeleteDialogProps {
   project: Project | null;
@@ -18,23 +19,18 @@ interface ProjectDeleteDialogProps {
 }
 
 export function ProjectDeleteDialog({ project, open, onOpenChange, onProjectDeleted }: ProjectDeleteDialogProps) {
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const deleteProjectMutation = useDeleteProject();
+  const { isLoading: loading, error } = deleteProjectMutation;
 
   const handleDelete = async () => {
     if (!project) return;
-    
-    setLoading(true);
-    setError(null);
 
     try {
-      await projectsService.deleteProject(project.id);
+      await deleteProjectMutation.mutateAsync(project.id);
       onProjectDeleted();
       onOpenChange(false);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to delete project');
-    } finally {
-      setLoading(false);
+    } catch {
+      // Error handled by React Query mutation
     }
   };
 
@@ -53,7 +49,7 @@ export function ProjectDeleteDialog({ project, open, onOpenChange, onProjectDele
         <div className="py-4">
           {error && (
             <div className="text-sm text-red-600 bg-red-50 p-3 rounded-md mb-4">
-              {error}
+              {error.message}
             </div>
           )}
 

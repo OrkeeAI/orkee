@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { 
   ArrowLeft, 
@@ -27,41 +27,22 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ProjectEditDialog } from '@/components/ProjectEditDialog';
 import { ProjectDeleteDialog } from '@/components/ProjectDeleteDialog';
 import { PreviewPanel } from '@/components/preview';
-import { projectsService, Project } from '@/services/projects';
+import { useProject } from '@/hooks/useProjects';
+import { Project } from '@/services/projects';
 
 export function ProjectDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   
-  const [project, setProject] = useState<Project | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
-  // Fetch project details
-  const fetchProject = useCallback(async () => {
-    if (!id) return;
-    
-    try {
-      setIsLoading(true);
-      const project = await projectsService.getProject(id);
-      setProject(project);
-    } catch (error) {
-      console.error('Failed to fetch project:', error);
-      setError('Failed to load project details');
-    } finally {
-      setIsLoading(false);
-    }
-  }, [id]);
-
-  useEffect(() => {
-    fetchProject();
-  }, [fetchProject]);
+  // Use React Query to fetch project data
+  const { data: project, isLoading, error, isError } = useProject(id!);
 
   const handleProjectUpdated = () => {
-    fetchProject();
     setShowEditDialog(false);
+    // React Query will automatically update the cache
   };
 
   const handleProjectDeleted = () => {
@@ -100,14 +81,14 @@ export function ProjectDetail() {
     );
   }
 
-  if (error || !project) {
+  if (isError || !project) {
     return (
       <div className="flex flex-1 flex-col gap-4 p-4">
         <div className="flex flex-1 items-center justify-center">
           <div className="text-center max-w-md">
             <AlertCircle className="h-12 w-12 mx-auto mb-4 text-destructive" />
             <h2 className="text-lg font-semibold mb-2">Unable to Load Project</h2>
-            <p className="text-muted-foreground mb-4">{error || 'Project not found'}</p>
+            <p className="text-muted-foreground mb-4">{error?.message || 'Project not found'}</p>
             <Button variant="outline" onClick={() => navigate('/projects')}>
               <ArrowLeft className="mr-2 h-4 w-4" />
               Back to Projects

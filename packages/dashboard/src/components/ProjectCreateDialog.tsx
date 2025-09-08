@@ -20,7 +20,8 @@ import {
 } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { DirectorySelector } from '@/components/DirectorySelector';
-import { projectsService, ProjectCreateInput, ProjectStatus, Priority } from '@/services/projects';
+import { useCreateProject } from '@/hooks/useProjects';
+import { ProjectCreateInput, ProjectStatus, Priority } from '@/services/projects';
 
 interface ProjectCreateDialogProps {
   open: boolean;
@@ -42,39 +43,36 @@ export function ProjectCreateDialog({ open, onOpenChange, onProjectCreated }: Pr
   });
   
   const [tagsInput, setTagsInput] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  
+  const createProjectMutation = useCreateProject();
+  const { isLoading: loading, error } = createProjectMutation;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
-    setError(null);
+
+    // Parse tags from comma-separated string
+    const tags = tagsInput
+      .split(',')
+      .map(tag => tag.trim())
+      .filter(tag => tag.length > 0);
+
+    const projectData: ProjectCreateInput = {
+      ...formData,
+      tags: tags.length > 0 ? tags : undefined,
+      // Remove empty optional fields
+      description: formData.description || undefined,
+      setupScript: formData.setupScript || undefined,
+      devScript: formData.devScript || undefined,
+      cleanupScript: formData.cleanupScript || undefined,
+    };
 
     try {
-      // Parse tags from comma-separated string
-      const tags = tagsInput
-        .split(',')
-        .map(tag => tag.trim())
-        .filter(tag => tag.length > 0);
-
-      const projectData: ProjectCreateInput = {
-        ...formData,
-        tags: tags.length > 0 ? tags : undefined,
-        // Remove empty optional fields
-        description: formData.description || undefined,
-        setupScript: formData.setupScript || undefined,
-        devScript: formData.devScript || undefined,
-        cleanupScript: formData.cleanupScript || undefined,
-      };
-
-      await projectsService.createProject(projectData);
+      await createProjectMutation.mutateAsync(projectData);
       onProjectCreated();
       onOpenChange(false);
       resetForm();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to create project');
-    } finally {
-      setLoading(false);
+    } catch {
+      // Error handled by React Query mutation
     }
   };
 
@@ -91,7 +89,7 @@ export function ProjectCreateDialog({ open, onOpenChange, onProjectCreated }: Pr
       cleanupScript: '',
     });
     setTagsInput('');
-    setError(null);
+    createProjectMutation.reset();
   };
 
   return (
@@ -108,7 +106,7 @@ export function ProjectCreateDialog({ open, onOpenChange, onProjectCreated }: Pr
           <div className="py-4">
             {error && (
               <div className="text-sm text-red-600 bg-red-50 p-3 rounded-md mb-4">
-                {error}
+                {error.message}
               </div>
             )}
 

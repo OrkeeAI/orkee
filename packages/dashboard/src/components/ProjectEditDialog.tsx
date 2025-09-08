@@ -21,7 +21,8 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { DirectorySelector } from '@/components/DirectorySelector';
 import { Check } from 'lucide-react';
-import { projectsService, Project, ProjectUpdateInput, ProjectStatus, Priority, TaskSource } from '@/services/projects';
+import { useUpdateProject } from '@/hooks/useProjects';
+import { Project, ProjectUpdateInput, ProjectStatus, Priority, TaskSource } from '@/services/projects';
 
 interface ProjectEditDialogProps {
   project: Project | null;
@@ -33,10 +34,11 @@ interface ProjectEditDialogProps {
 export function ProjectEditDialog({ project, open, onOpenChange, onProjectUpdated }: ProjectEditDialogProps) {
   const [formData, setFormData] = useState<ProjectUpdateInput>({});
   const [tagsInput, setTagsInput] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [hasTaskmaster, setHasTaskmaster] = useState(false);
   const [checkingTaskmaster, setCheckingTaskmaster] = useState(false);
+
+  const updateProjectMutation = useUpdateProject();
+  const { isLoading: loading, error } = updateProjectMutation;
 
   // Check for taskmaster folder
   const checkTaskmasterFolder = async (projectRoot: string) => {
@@ -85,7 +87,7 @@ export function ProjectEditDialog({ project, open, onOpenChange, onProjectUpdate
         taskSource: project.taskSource,
       });
       setTagsInput(project.tags?.join(', ') || '');
-      setError(null);
+      updateProjectMutation.reset();
       
       // Check for taskmaster folder when project loads
       checkTaskmasterFolder(project.projectRoot);
@@ -95,34 +97,32 @@ export function ProjectEditDialog({ project, open, onOpenChange, onProjectUpdate
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!project) return;
-    
-    setLoading(true);
-    setError(null);
+
+    // Parse tags from comma-separated string
+    const tags = tagsInput
+      .split(',')
+      .map(tag => tag.trim())
+      .filter(tag => tag.length > 0);
+
+    const updateData: ProjectUpdateInput = {
+      ...formData,
+      tags: tags.length > 0 ? tags : [],
+      // Send empty strings for cleared fields so backend can properly clear them
+      description: formData.description?.trim() || '',
+      setupScript: formData.setupScript?.trim() || '',
+      devScript: formData.devScript?.trim() || '',
+      cleanupScript: formData.cleanupScript?.trim() || '',
+    };
 
     try {
-      // Parse tags from comma-separated string
-      const tags = tagsInput
-        .split(',')
-        .map(tag => tag.trim())
-        .filter(tag => tag.length > 0);
-
-      const updateData: ProjectUpdateInput = {
-        ...formData,
-        tags: tags.length > 0 ? tags : [],
-        // Send empty strings for cleared fields so backend can properly clear them
-        description: formData.description?.trim() || '',
-        setupScript: formData.setupScript?.trim() || '',
-        devScript: formData.devScript?.trim() || '',
-        cleanupScript: formData.cleanupScript?.trim() || '',
-      };
-
-      await projectsService.updateProject(project.id, updateData);
+      await updateProjectMutation.mutateAsync({
+        id: project.id,
+        input: updateData
+      });
       onProjectUpdated();
       onOpenChange(false);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to update project');
-    } finally {
-      setLoading(false);
+    } catch {
+      // Error handled by React Query mutation
     }
   };
 
@@ -142,7 +142,7 @@ export function ProjectEditDialog({ project, open, onOpenChange, onProjectUpdate
           <div className="py-4">
             {error && (
               <div className="text-sm text-red-600 bg-red-50 p-3 rounded-md mb-4">
-                {error}
+                {error.message}
               </div>
             )}
 

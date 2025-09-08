@@ -1,0 +1,86 @@
+import { QueryClient } from '@tanstack/react-query'
+
+export const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 5 * 60 * 1000, // 5 minutes
+      gcTime: 10 * 60 * 1000, // 10 minutes (formerly cacheTime)
+      retry: (failureCount, error: any) => {
+        // Don't retry on 4xx errors except 408, 429
+        if (error?.status >= 400 && error?.status < 500) {
+          if (error.status === 408 || error.status === 429) {
+            return failureCount < 2
+          }
+          return false
+        }
+        return failureCount < 3
+      },
+      refetchOnWindowFocus: true,
+      refetchOnReconnect: true,
+      // Don't retry on mount if data is stale but still present
+      refetchOnMount: (query) => {
+        return query.state.data == null
+      },
+    },
+    mutations: {
+      retry: 1,
+      // Global error handler for mutations
+      onError: (error) => {
+        console.error('Mutation error:', error)
+        // Could add toast notification here
+      },
+    },
+  },
+})
+
+// Query invalidation utilities
+export const queryKeys = {
+  // Base keys
+  projects: ['projects'] as const,
+  directories: ['directories'] as const,
+  health: ['health'] as const,
+  
+  // Project-specific keys
+  projectsList: () => [...queryKeys.projects, 'list'] as const,
+  projectsSearch: (query: string) => [...queryKeys.projects, 'search', query] as const,
+  projectDetail: (id: string) => [...queryKeys.projects, 'detail', id] as const,
+  projectByName: (name: string) => [...queryKeys.projects, 'by-name', name] as const,
+  projectByPath: (path: string) => [...queryKeys.projects, 'by-path', path] as const,
+  
+  // Directory keys
+  directoryList: (path: string) => [...queryKeys.directories, 'list', path] as const,
+}
+
+// Helper function to invalidate all project-related queries
+export const invalidateProjectQueries = () => {
+  queryClient.invalidateQueries({ queryKey: queryKeys.projects })
+}
+
+// Helper function to invalidate specific project
+export const invalidateProject = (id: string) => {
+  queryClient.invalidateQueries({ queryKey: queryKeys.projectDetail(id) })
+  queryClient.invalidateQueries({ queryKey: queryKeys.projectsList() })
+}
+
+// Prefetch utilities
+export const prefetchProjects = () => {
+  return queryClient.prefetchQuery({
+    queryKey: queryKeys.projectsList(),
+    queryFn: async () => {
+      const { projectsService } = await import('@/services/projects')
+      return projectsService.getAllProjects()
+    },
+    staleTime: 5 * 60 * 1000,
+  })
+}
+
+export const prefetchProject = (id: string) => {
+  return queryClient.prefetchQuery({
+    queryKey: queryKeys.projectDetail(id),
+    queryFn: async () => {
+      const { projectsService } = await import('@/services/projects')
+      return projectsService.getProject(id)
+    },
+    staleTime: 5 * 60 * 1000,
+  })
+}
