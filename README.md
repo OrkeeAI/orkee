@@ -9,6 +9,7 @@ A CLI, TUI and dashboard for AI agent orchestration
 - 🖥️ **Terminal Interface** - Rich TUI for interactive command-line workflows
 - 🔧 **CLI Tools** - Command-line interface for configuration and control
 - 🔗 **Workflow Coordination** - Orchestrate complex multi-agent workflows
+- 🔒 **HTTPS/TLS Support** - Secure connections with auto-generated or custom certificates
 
 ## Project Structure
 
@@ -29,7 +30,7 @@ orkee/
 
 Orkee provides multiple interfaces for AI agent orchestration:
 
-- **CLI Server** - REST API backend running on port 4001
+- **CLI Server** - REST API backend running on port 4001 (HTTP) or 4001 (HTTPS) with automatic HTTP redirect
 - **Dashboard** - React web interface on port 5173 (connects to CLI server)
 - **TUI** - Standalone terminal interface with rich interactive features
 - **Shared Libraries** - Common functionality across all interfaces
@@ -70,9 +71,23 @@ cargo run --bin orkee -- tui
 cargo run --bin orkee -- --help
 ```
 
+### Enable HTTPS (Optional)
+
+```bash
+# Create .env file and enable TLS
+echo "TLS_ENABLED=true" > .env
+
+# Start with HTTPS (auto-generates development certificates)
+cargo run --bin orkee -- dashboard
+
+# Dashboard will be available at https://localhost:4001
+# HTTP requests to port 4000 automatically redirect to HTTPS
+```
+
 ## Documentation
 
 - [Getting Started Guide](docs/getting-started.md)
+- [Configuration & Security](DOCS.md) - Environment variables, TLS/HTTPS setup, security settings
 - [CLI Reference](docs/cli-reference.md)
 - [API Documentation](docs/api.md)
 - [Examples](examples/)
