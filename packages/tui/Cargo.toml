@@ -3,6 +3,9 @@ name = "orkee-tui"
 version = "0.0.1"
 edition = "2021"
 description = "Terminal user interface for Orkee"
+authors = ["Orkee Team"]
+license = "MIT"
+repository = "https://github.com/OrkeeAI/orkee"
 
 
 [dependencies]

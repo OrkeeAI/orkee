@@ -3,7 +3,7 @@
 
 [Unit]
 Description=Orkee AI Agent Orchestration Platform
-Documentation=https://github.com/yourusername/orkee
+Documentation=https://github.com/OrkeeAI/orkee
 After=network.target
 Wants=network.target
 

@@ -5,6 +5,7 @@ edition = "2021"
 description = "Development server preview system for Orkee projects"
 authors = ["Orkee Team"]
 license = "MIT"
+repository = "https://github.com/OrkeeAI/orkee"
 
 [lib]
 name = "orkee_preview"
