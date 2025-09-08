@@ -18,30 +18,34 @@ mod tests;
 
 use config::Config;
 
-fn validate_cors_origin(origin: &str) -> Result<AllowOrigin, Box<dyn std::error::Error>> {
-    // Local development origins only
-    const ALLOWED_ORIGINS: &[&str] = &[
-        "http://localhost:5173",
-        "http://localhost:5174",
-        "http://localhost:5175",
-        "http://localhost:3000",
-        "http://127.0.0.1:5173",
-        "http://127.0.0.1:3000",
-        "http://[::1]:5173", // IPv6 localhost
-    ];
-
-    // Check if origin is in allowed list
-    if !ALLOWED_ORIGINS.contains(&origin) {
-        return Err(format!(
-            "Invalid CORS origin: {}. Only localhost origins are allowed",
-            origin
-        )
-        .into());
+fn create_cors_origin(allow_any_localhost: bool) -> AllowOrigin {
+    if allow_any_localhost {
+        // Use a predicate to allow any localhost origin dynamically
+        AllowOrigin::predicate(|origin: &HeaderValue, _: &_| {
+            if let Ok(origin_str) = origin.to_str() {
+                origin_str.starts_with("http://localhost:") 
+                    || origin_str.starts_with("http://127.0.0.1:")
+                    || origin_str.starts_with("http://[::1]:")
+            } else {
+                false
+            }
+        })
+    } else {
+        // Use the restricted list
+        let allowed_origins = [
+            "http://localhost:5173",
+            "http://localhost:5174", 
+            "http://localhost:5175",
+            "http://localhost:3000",
+            "http://127.0.0.1:5173",
+            "http://127.0.0.1:3000",
+            "http://[::1]:5173",
+        ];
+        
+        AllowOrigin::list(allowed_origins.iter().map(|origin| {
+            HeaderValue::from_str(origin).unwrap()
+        }))
     }
-
-    // Parse and validate origin format
-    let header_value = HeaderValue::from_str(origin)?;
-    Ok(AllowOrigin::exact(header_value))
 }
 
 pub async fn run_server() -> Result<(), Box<dyn std::error::Error>> {
@@ -173,8 +177,8 @@ async fn create_application_router(
         header::HeaderName::from_static("x-api-key"),
     ]);
 
-    // Validate and restrict origin
-    let cors_origin = validate_cors_origin(&config.cors_origin)?;
+    // Create CORS origin configuration
+    let cors_origin = create_cors_origin(config.cors_allow_any_localhost);
 
     let cors = CorsLayer::new()
         .allow_origin(cors_origin)

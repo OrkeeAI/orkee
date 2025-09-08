@@ -4,6 +4,7 @@ use axum::{
 };
 
 pub mod directories;
+pub mod git;
 pub mod health;
 pub mod path_validator;
 pub mod preview;
@@ -79,6 +80,13 @@ pub async fn create_router() -> Router {
         )
         .with_state(preview_state);
 
+    // Create git router 
+    let git_router = Router::new()
+        .route("/:project_id/commits", get(git::get_commit_history))
+        .route("/:project_id/commits/:commit_id", get(git::get_commit_details))
+        .route("/:project_id/diff/:commit_id/*file_path", get(git::get_file_diff))
+        .layer(axum::Extension(project_manager.clone()));
+
     Router::new()
         .route("/api/health", get(health::health_check))
         .route("/api/status", get(health::status_check))
@@ -87,6 +95,7 @@ pub async fn create_router() -> Router {
             post(directories::browse_directories),
         )
         .nest("/api/projects", orkee_projects::create_projects_router())
+        .nest("/api/git", git_router)
         .nest("/api/preview", preview_router)
         .layer(axum::Extension(path_validator))
 }

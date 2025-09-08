@@ -64,6 +64,36 @@ export class ApiClient {
 
 export const apiClient = new ApiClient();
 
+// Generic API request function for consistent response handling
+export async function apiRequest<T>(
+  url: string, 
+  options: RequestInit = {}
+): Promise<{ success: boolean; data: T | null; error: string | null }> {
+  try {
+    const response = await fetch(`${API_BASE_URL}${url}`, {
+      ...options,
+      headers: {
+        'Content-Type': 'application/json',
+        ...options.headers,
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const result = await response.json();
+    return result;
+  } catch (error) {
+    console.error(`API request error for ${url}:`, error);
+    return {
+      success: false,
+      data: null,
+      error: error instanceof Error ? error.message : 'Unknown error',
+    };
+  }
+}
+
 export interface PreviewApiResponse<T> {
   success: boolean;
   data: T;

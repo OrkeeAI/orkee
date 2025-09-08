@@ -27,6 +27,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ProjectEditDialog } from '@/components/ProjectEditDialog';
 import { ProjectDeleteDialog } from '@/components/ProjectDeleteDialog';
 import { PreviewPanel } from '@/components/preview';
+import { GitTab } from '@/components/git';
 import { useProject } from '@/hooks/useProjects';
 
 export function ProjectDetail() {
@@ -153,7 +154,7 @@ export function ProjectDetail() {
 
       {/* Tabbed Content */}
       <Tabs defaultValue="overview" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="overview" className="flex items-center gap-2">
             <Info className="h-4 w-4" />
             Overview
@@ -161,6 +162,10 @@ export function ProjectDetail() {
           <TabsTrigger value="preview" className="flex items-center gap-2">
             <Play className="h-4 w-4" />
             Preview
+          </TabsTrigger>
+          <TabsTrigger value="git" className="flex items-center gap-2">
+            <GitBranch className="h-4 w-4" />
+            Git
           </TabsTrigger>
           <TabsTrigger value="settings" className="flex items-center gap-2">
             <Settings className="h-4 w-4" />
@@ -358,6 +363,10 @@ export function ProjectDetail() {
 
         <TabsContent value="preview" className="space-y-4">
           <PreviewPanel projectId={project.id} projectName={project.name} />
+        </TabsContent>
+
+        <TabsContent value="git" className="space-y-4">
+          <GitTab projectId={project.id} gitRepository={project.gitRepository} />
         </TabsContent>
 
         <TabsContent value="settings" className="space-y-4">
