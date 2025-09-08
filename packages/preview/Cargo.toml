@@ -1,6 +1,6 @@
 [package]
 name = "orkee-preview"
-version = "0.1.0"
+version = "0.0.1"
 edition = "2021"
 description = "Development server preview system for Orkee projects"
 authors = ["Orkee Team"]
