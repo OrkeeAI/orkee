@@ -24,7 +24,8 @@ orkee/
 │   ├── cli/          # Rust Axum HTTP server providing REST API endpoints  
 │   ├── dashboard/    # React SPA with Vite, Shadcn/ui, and Tailwind CSS
 │   ├── tui/          # Ratatui-based standalone terminal interface
-│   └── projects/     # Shared Rust library for core functionality (used by CLI and TUI)
+│   ├── projects/     # Shared Rust library for core functionality (used by CLI and TUI)
+│   └── cloud/        # Cloud sync functionality (S3, R2, encryption, auth) - optional dependency
 ├── docs/             # Documentation site
 └── README.md
 ```
@@ -36,9 +37,10 @@ Orkee provides multiple interfaces for AI agent orchestration:
 - **CLI Server** - REST API backend running on port 4001 (HTTP) or 4001 (HTTPS) with automatic HTTP redirect
 - **Dashboard** - React web interface on port 5173 (connects to CLI server)
 - **TUI** - Standalone terminal interface with rich interactive features
-- **Shared Libraries** - Common functionality across all interfaces
+- **Projects Library** - Core SQLite-based project management (used by CLI and TUI)
+- **Cloud Library** - Optional cloud sync functionality with encryption and multi-provider support
 
-The **Dashboard** requires the CLI server to be running. The **TUI** works independently.
+The **Dashboard** requires the CLI server to be running. The **TUI** works independently. **Cloud features** are optional and can be enabled with the `--features cloud` flag during compilation.
 
 ## Installation
 
@@ -51,6 +53,9 @@ git clone https://github.com/OrkeeAI/orkee.git
 cd orkee
 pnpm install
 turbo build
+
+# Build with cloud sync features (optional)
+cargo build --features cloud
 ```
 
 ## Quick Start

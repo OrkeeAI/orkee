@@ -148,6 +148,16 @@ CLOUD_MAX_SNAPSHOTS=30
 
 Orkee features a SQLite-first architecture with optional cloud synchronization capabilities. Data is stored locally in SQLite with full offline functionality, and can optionally be backed up and synchronized to cloud providers.
 
+**⚠️ Cloud Sync Requirements**: Cloud sync functionality is provided by the separate `orkee-cloud` package and requires compilation with the `--features cloud` flag. This makes cloud functionality optional, saving ~15MB when cloud sync is not needed.
+
+```bash
+# Build with cloud sync features
+cargo build --features cloud
+
+# Or build without cloud features (smaller binary)
+cargo build
+```
+
 ### Supported Cloud Providers
 
 - **AWS S3**: Native S3 support with all AWS regions
@@ -224,6 +234,8 @@ audit_logging = true
 ```
 
 ### Cloud CLI Commands Reference
+
+**Note**: All cloud commands require the CLI to be built with `--features cloud`.
 
 | Command | Description |
 |---------|-------------|

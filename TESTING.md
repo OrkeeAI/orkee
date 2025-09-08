@@ -19,6 +19,9 @@ cargo test -p orkee-mcp-server -- --test-threads=1
 # Projects tests
 cargo test -p orkee-projects
 
+# Cloud tests (optional - requires cloud features)
+cargo test -p orkee-cloud
+
 # TUI tests
 cargo test -p orkee-tui
 
@@ -41,25 +44,26 @@ cargo test -p orkee-cli tls https_redirect --quiet
 ### Cloud Sync Tests
 ```bash
 # Run all cloud integration tests
-cargo test -p orkee-projects cloud_integration
+cargo test -p orkee-cloud integration
 
 # Run cloud unit tests
-cargo test -p orkee-projects cloud_unit
+cargo test -p orkee-cloud unit
 
 # Run specific cloud component tests
-cargo test -p orkee-projects encryption
-cargo test -p orkee-projects cloud_state
-cargo test -p orkee-projects sync_engine
+cargo test -p orkee-cloud encryption
+cargo test -p orkee-cloud state
+cargo test -p orkee-cloud sync
 
 # Run cloud tests with verbose output
-cargo test -p orkee-projects cloud -- --nocapture
+cargo test -p orkee-cloud -- --nocapture
 ```
 
 ## Test Coverage Summary
 
 - **CLI**: 62 tests - API endpoints, configuration, health checks, TLS/HTTPS functionality
 - **MCP Server**: 28 tests - Protocol handling, tools, integration tests
-- **Projects**: 18 tests + **45 cloud tests** - CRUD operations, validation, storage, cloud sync, encryption
+- **Projects**: 18 tests - CRUD operations, validation, storage
+- **Cloud**: 45 tests - Cloud sync, encryption, authentication, provider integration
 - **TUI**: 63 tests - UI components, state management, input handling
 - **Preview**: 2 tests - Basic functionality
 

@@ -81,9 +81,12 @@ pnpm install
 # Build production binaries
 turbo build
 
-# Build optimized Rust binary
+# Build optimized Rust binary (standard build)
 cd packages/cli
 cargo build --release
+
+# Build with cloud sync features (adds ~15MB but enables S3/R2 backup)
+cargo build --release --features cloud
 
 # Binary location: target/release/orkee
 ```
