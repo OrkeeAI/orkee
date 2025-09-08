@@ -2,15 +2,9 @@
 
 import * as React from "react"
 import {
-  TrendingUp,
   FolderOpen,
-  MessageSquare,
-  Server,
-  Monitor,
   Settings,
   Bot,
-  Activity,
-  Database,
 } from "lucide-react"
 
 import { NavMain } from "@/components/nav-main"
@@ -42,30 +36,9 @@ const data = {
   ],
   navMain: [
     {
-      title: "Usage",
-      url: "/",
-      icon: TrendingUp,
-      isActive: true,
-    },
-    {
       title: "Projects", 
       url: "/projects",
       icon: FolderOpen,
-    },
-    {
-      title: "AI Chat",
-      url: "/ai-chat", 
-      icon: MessageSquare,
-    },
-    {
-      title: "MCP Servers",
-      url: "/mcp-servers",
-      icon: Server,
-    },
-    {
-      title: "Monitoring",
-      url: "/monitoring",
-      icon: Monitor,
     },
     {
       title: "Settings",
@@ -73,23 +46,7 @@ const data = {
       icon: Settings,
     },
   ],
-  projects: [
-    {
-      name: "Customer Support Bot",
-      url: "#",
-      icon: MessageSquare,
-    },
-    {
-      name: "Data Processing Pipeline", 
-      url: "#",
-      icon: Database,
-    },
-    {
-      name: "Analytics Dashboard",
-      url: "#", 
-      icon: Activity,
-    },
-  ],
+  projects: [],
 }
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
