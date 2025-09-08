@@ -266,9 +266,7 @@ impl InputBuffer {
         }
 
         // Safe to use unwrap_or_default here since we just recalculated if needed
-        self.lines_cache
-            .as_ref()
-            .map(|v| v.as_slice())
+        self.lines_cache.as_deref()
             .unwrap_or(&[])
     }
 

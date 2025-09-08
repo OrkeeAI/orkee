@@ -200,8 +200,7 @@ fn test_malformed_json_handling() {
         let result: Result<Value, _> = serde_json::from_str(json_str);
         // These should all parse as JSON (except the garbage one)
         // but should be handled gracefully by the protocol
-        if result.is_ok() {
-            let value = result.unwrap();
+        if let Ok(value) = result {
             // Verify it doesn't have all required fields
             let has_jsonrpc = value.get("jsonrpc").is_some();
             let has_method = value.get("method").and_then(|m| m.as_str()).is_some();

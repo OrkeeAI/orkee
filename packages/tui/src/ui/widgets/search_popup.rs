@@ -5,6 +5,14 @@ use ratatui::{
     widgets::{Block, Borders, Paragraph, Wrap},
 };
 
+/// Parameters for text rendering with highlighting
+struct RenderParams {
+    start_x: u16,
+    y: u16,
+    max_x: u16,
+    base_style: Style,
+}
+
 /// Widget for rendering the project search popup
 pub struct SearchPopupWidget<'a> {
     popup: &'a SearchPopup,
@@ -471,10 +479,12 @@ impl<'a> SearchPopupWidget<'a> {
             &project_match.project.name,
             &project_match.match_indices,
             matches!(project_match.matched_field, MatchedField::Name),
-            current_x,
-            y,
-            x + width,
-            bg_style,
+            RenderParams {
+                start_x: current_x,
+                y,
+                max_x: x + width,
+                base_style: bg_style,
+            },
             buf,
         );
 
@@ -529,30 +539,27 @@ impl<'a> SearchPopupWidget<'a> {
         text: &str,
         match_indices: &[usize],
         is_matched_field: bool,
-        start_x: u16,
-        y: u16,
-        max_x: u16,
-        base_style: Style,
+        params: RenderParams,
         buf: &mut Buffer,
     ) {
         let chars: Vec<char> = text.chars().collect();
-        let mut current_x = start_x;
+        let mut current_x = params.start_x;
 
         for (char_idx, ch) in chars.iter().enumerate() {
-            if current_x >= max_x {
+            if current_x >= params.max_x {
                 break;
             }
 
             let char_style = if is_matched_field && match_indices.contains(&char_idx) {
                 // Highlight matched characters
-                base_style.fg(Color::Yellow).add_modifier(Modifier::BOLD)
+                params.base_style.fg(Color::Yellow).add_modifier(Modifier::BOLD)
             } else {
                 // Normal text color
-                base_style.fg(Color::White)
+                params.base_style.fg(Color::White)
             };
 
-            if y < buf.area().bottom() {
-                buf[(current_x, y)].set_char(*ch).set_style(char_style);
+            if params.y < buf.area().bottom() {
+                buf[(current_x, params.y)].set_char(*ch).set_style(char_style);
             }
 
             current_x += 1;

@@ -141,7 +141,7 @@ async fn stop_all_preview_servers() -> Result<(), Box<dyn std::error::Error>> {
         print!("   Stopping server for project {}... ", id);
 
         let stop_response = client
-            .post(&format!(
+            .post(format!(
                 "http://localhost:4001/api/preview/servers/{}/stop",
                 id
             ))

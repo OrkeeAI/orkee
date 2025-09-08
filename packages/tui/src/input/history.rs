@@ -77,7 +77,7 @@ impl InputHistory {
             }
             Some(0) => {
                 // Already at oldest entry
-                self.history.get(0)
+                self.history.first()
             }
             Some(_) => {
                 // Any other index values (shouldn't happen, but handle safely)

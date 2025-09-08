@@ -20,14 +20,15 @@ pub mod test_helpers {
     /// This should be called at the beginning of each test that needs storage
     pub async fn setup_test_storage() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         // Use a global test lock to ensure tests run sequentially to avoid database conflicts
-        let _guard = TEST_LOCK.lock().unwrap();
-
-        INIT.call_once(|| {
-            // Set up a unique test database location to avoid conflicts
-            let test_dir = env::temp_dir().join(format!("orkee_test_{}", std::process::id()));
-            std::fs::create_dir_all(&test_dir).ok();
-            env::set_var("HOME", test_dir);
-        });
+        {
+            let _guard = TEST_LOCK.lock().unwrap();
+            INIT.call_once(|| {
+                // Set up a unique test database location to avoid conflicts
+                let test_dir = env::temp_dir().join(format!("orkee_test_{}", std::process::id()));
+                std::fs::create_dir_all(&test_dir).ok();
+                env::set_var("HOME", test_dir);
+            });
+        } // guard is dropped here
 
         // Always try to initialize storage - it will only actually initialize once
         match initialize_storage().await {

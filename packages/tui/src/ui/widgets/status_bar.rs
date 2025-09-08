@@ -73,9 +73,9 @@ impl<'a> StatusBarWidget<'a> {
 
     /// Get navigation breadcrumb text
     fn get_navigation_breadcrumb(&self) -> String {
-        match &self.state.current_screen {
-            &Screen::Chat => " Chat".to_string(),
-            &Screen::Projects => {
+        match self.state.current_screen {
+            Screen::Chat => " Chat".to_string(),
+            Screen::Projects => {
                 if self.state.is_form_mode() {
                     match &self.state.form_state {
                         Some(form_state) => {
@@ -104,21 +104,19 @@ impl<'a> StatusBarWidget<'a> {
                         }
                         None => " Projects Form".to_string(),
                     }
+                } else if self.state.projects.is_empty() {
+                    " Projects (empty)".to_string()
+                } else if let Some(selected_idx) = self.state.selected_project {
+                    format!(
+                        " Projects ({}/{})",
+                        selected_idx + 1,
+                        self.state.projects.len()
+                    )
                 } else {
-                    if self.state.projects.is_empty() {
-                        " Projects (empty)".to_string()
-                    } else if let Some(selected_idx) = self.state.selected_project {
-                        format!(
-                            " Projects ({}/{})",
-                            selected_idx + 1,
-                            self.state.projects.len()
-                        )
-                    } else {
-                        format!(" Projects ({})", self.state.projects.len())
-                    }
+                    format!(" Projects ({})", self.state.projects.len())
                 }
             }
-            &Screen::ProjectDetail => {
+            Screen::ProjectDetail => {
                 if let Some(project) = self.state.get_selected_project() {
                     format!(" {}", project.name)
                 } else {

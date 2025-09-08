@@ -269,17 +269,16 @@ impl App {
                 }
 
                 // Handle Shift+C (cancel form) - BEFORE routing to form widget
-                if c == 'C' && modifiers.contains(KeyModifiers::SHIFT) {
-                    if self.state.is_form_mode() {
+                if c == 'C' && modifiers.contains(KeyModifiers::SHIFT)
+                    && self.state.is_form_mode() {
                         // Cancel form and return to projects list
                         self.state.cancel_form();
                         return Ok(());
                     }
-                }
 
                 // Handle Shift+F (open search popup) - Project search
-                if c == 'F' && modifiers.contains(KeyModifiers::SHIFT) {
-                    if matches!(
+                if c == 'F' && modifiers.contains(KeyModifiers::SHIFT)
+                    && matches!(
                         self.state.current_screen,
                         Screen::Projects | Screen::ProjectDetail
                     ) {
@@ -294,7 +293,6 @@ impl App {
                         }
                         return Ok(());
                     }
-                }
 
                 // Global shortcuts are now handled above in the navigation logic
 
@@ -538,10 +536,9 @@ impl App {
                         // Exit mention mode if we deleted the @ or cursor is before it
                         if mention_start >= content.len()
                             || cursor_pos < mention_start
-                            || !content
+                            || (content
                                 .chars()
-                                .nth(mention_start)
-                                .map_or(false, |c| c == '@')
+                                .nth(mention_start) != Some('@'))
                         {
                             self.state.exit_mention_mode();
                         } else {

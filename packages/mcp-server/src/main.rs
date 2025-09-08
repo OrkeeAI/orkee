@@ -122,10 +122,9 @@ async fn main() -> Result<()> {
     let r = running.clone();
 
     thread::spawn(move || {
-        let mut signals = Signals::new(&[SIGINT]).unwrap();
-        for _ in signals.forever() {
+        let mut signals = Signals::new([SIGINT]).unwrap();
+        if signals.forever().next().is_some() {
             r.store(false, Ordering::SeqCst);
-            break;
         }
     });
 

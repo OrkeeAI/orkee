@@ -1190,7 +1190,6 @@ impl AppState {
     }
 
     /// This method is no longer needed - input is handled directly by widgets
-
     /// Validate current form field
     pub fn form_validate_current_field(&mut self) -> bool {
         if let Some(ref mut form_state) = self.form_state {
@@ -1594,7 +1593,6 @@ pub enum EscapeAction {
 
 impl AppState {
     /// Dialog handling methods
-
     /// Show a delete confirmation dialog for the given project ID
     pub fn show_delete_confirmation(&mut self, project_id: String) {
         if let Some(project) = self.projects.iter().find(|p| p.id == project_id) {

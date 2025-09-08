@@ -33,14 +33,9 @@ impl EventHandler {
 
                 if let Ok(has_event) = event::poll(timeout) {
                     if has_event {
-                        if let Ok(event) = event::read() {
-                            match event {
-                                Event::Key(key) => {
-                                    if key.kind == event::KeyEventKind::Press {
-                                        let _ = _sender.send(AppEvent::Key(key));
-                                    }
-                                }
-                                _ => {}
+                        if let Ok(Event::Key(key)) = event::read() {
+                            if key.kind == event::KeyEventKind::Press {
+                                let _ = _sender.send(AppEvent::Key(key));
                             }
                         }
                     }

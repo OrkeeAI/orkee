@@ -64,19 +64,17 @@ pub async fn browse_directories(
 
     match fs::read_dir(path) {
         Ok(entries) => {
-            for entry in entries {
-                if let Ok(entry) = entry {
-                    let entry_path = entry.path();
-                    if entry_path.is_dir() {
-                        if let Some(name) = entry.file_name().to_str() {
-                            // Skip hidden directories (starting with .)
-                            if !name.starts_with('.') {
-                                directories.push(DirectoryItem {
-                                    name: name.to_string(),
-                                    path: entry_path.to_string_lossy().to_string(),
-                                    is_directory: true,
-                                });
-                            }
+            for entry in entries.flatten() {
+                let entry_path = entry.path();
+                if entry_path.is_dir() {
+                    if let Some(name) = entry.file_name().to_str() {
+                        // Skip hidden directories (starting with .)
+                        if !name.starts_with('.') {
+                            directories.push(DirectoryItem {
+                                name: name.to_string(),
+                                path: entry_path.to_string_lossy().to_string(),
+                                is_directory: true,
+                            });
                         }
                     }
                 }
