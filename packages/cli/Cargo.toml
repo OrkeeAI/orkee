@@ -6,11 +6,13 @@ edition = "2021"
 [dependencies]
 axum = { version = "0.7", features = ["macros"] }
 tokio = { version = "1.0", features = ["full"] }
-tower-http = { version = "0.5", features = ["cors"] }
+tower-http = { version = "0.5", features = ["cors", "catch-panic", "set-header", "trace"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 reqwest = { version = "0.12", features = ["json"] }
-tower = "0.4"
+tower = { version = "0.4", features = ["limit", "util", "timeout"] }
+tower_governor = "0.4"
+governor = "0.6"
 dotenvy = "0.15"
 tracing = "0.1"
 thiserror = "2.0"
@@ -28,6 +30,13 @@ colored = "2.0"
 comfy-table = "7.0"
 inquire = "0.7"
 chrono = "0.4"
+uuid = { version = "1.8", features = ["v4"] }
+pin-project = "1.1"
+# TLS dependencies
+axum-server = { version = "0.6", features = ["tls-rustls"] }
+rustls = "0.21"
+rustls-pemfile = "1.0"
+rcgen = "0.12"
 
 [[bin]]
 name = "orkee"

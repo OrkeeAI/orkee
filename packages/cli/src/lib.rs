@@ -1,9 +1,17 @@
 use axum::http::{Method, HeaderValue, header};
 use std::{net::SocketAddr, time::Duration};
-use tower_http::cors::{AllowHeaders, AllowOrigin, CorsLayer};
+use tower_http::{
+    cors::{AllowHeaders, AllowOrigin, CorsLayer},
+    trace::TraceLayer,
+};
+use tracing::{info, error};
+use axum_server::tls_rustls::RustlsConfig;
 
 pub mod api;
 pub mod config;
+pub mod error;
+pub mod middleware;
+pub mod tls;
 
 #[cfg(test)]
 mod tests;
@@ -40,7 +48,99 @@ pub async fn run_server() -> Result<(), Box<dyn std::error::Error>> {
     dotenvy::dotenv().ok();
 
     let config = Config::from_env()?;
+    
+    // Log middleware configuration
+    info!("Starting server with middleware configuration:");
+    info!("  Rate limiting: {} ({}rpm)", config.rate_limit.enabled, config.rate_limit.global_rpm);
+    info!("  Security headers: {} (HSTS: {})", config.security_headers_enabled, config.enable_hsts);
+    info!("  Directory sandbox: {:?}", config.browse_sandbox_mode);
+    info!("  TLS: {} (auto-generate: {})", config.tls.enabled, config.tls.auto_generate);
 
+    if config.tls.enabled {
+        // TLS mode: run both HTTP (redirect) and HTTPS (main app) servers
+        run_dual_server_mode(config).await
+    } else {
+        // HTTP only mode
+        run_http_server(config).await
+    }
+}
+
+async fn run_http_server(config: Config) -> Result<(), Box<dyn std::error::Error>> {
+    let app = create_application_router(config.clone()).await?;
+    let addr = SocketAddr::from(([127, 0, 0, 1], config.port));
+
+    info!("Starting HTTP server on {}", addr);
+    println!("✅ HTTP server listening on {}", addr);
+
+    let listener = tokio::net::TcpListener::bind(addr).await?;
+    axum::serve(listener, app.into_make_service_with_connect_info::<SocketAddr>()).await?;
+
+    Ok(())
+}
+
+async fn run_dual_server_mode(config: Config) -> Result<(), Box<dyn std::error::Error>> {
+    // Initialize TLS manager
+    let tls_manager = tls::TlsManager::new(config.tls.clone());
+    let rustls_config = tls_manager.initialize().await?;
+
+    // Create main application router
+    let app = create_application_router(config.clone()).await?;
+
+    // Create HTTP redirect router (simpler router that just redirects to HTTPS)
+    let redirect_app = create_redirect_router(config.clone()).await?;
+
+    // HTTPS server (main application) on configured port
+    let https_addr = SocketAddr::from(([127, 0, 0, 1], config.port));
+    
+    // HTTP server (redirects only) on port 4000 (or port - 1 if custom port)
+    let http_port = if config.port == 4001 { 4000 } else { config.port.saturating_sub(1) };
+    let http_addr = SocketAddr::from(([127, 0, 0, 1], http_port));
+
+    info!("Starting dual server mode:");
+    info!("  HTTPS server (main): {}", https_addr);
+    info!("  HTTP server (redirect): {}", http_addr);
+    
+    println!("✅ HTTPS server listening on {}", https_addr);
+    println!("✅ HTTP redirect server listening on {}", http_addr);
+
+    // Start both servers concurrently
+    let https_server = start_https_server(https_addr, app, rustls_config);
+    let http_server = start_http_redirect_server(http_addr, redirect_app);
+
+    // Use tokio::select to run both servers and return if either fails
+    tokio::select! {
+        result = https_server => {
+            error!("HTTPS server stopped: {:?}", result);
+            result
+        }
+        result = http_server => {
+            error!("HTTP redirect server stopped: {:?}", result);  
+            result
+        }
+    }
+}
+
+async fn start_https_server(
+    addr: SocketAddr,
+    app: axum::Router,
+    rustls_config: RustlsConfig,
+) -> Result<(), Box<dyn std::error::Error>> {
+    axum_server::bind_rustls(addr, rustls_config)
+        .serve(app.into_make_service_with_connect_info::<SocketAddr>())
+        .await?;
+    Ok(())
+}
+
+async fn start_http_redirect_server(
+    addr: SocketAddr,
+    redirect_app: axum::Router,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let listener = tokio::net::TcpListener::bind(addr).await?;
+    axum::serve(listener, redirect_app.into_make_service_with_connect_info::<SocketAddr>()).await?;
+    Ok(())
+}
+
+async fn create_application_router(config: Config) -> Result<axum::Router, Box<dyn std::error::Error>> {
     // Create CORS layer with specific headers only
     let allowed_headers = AllowHeaders::list([
         header::CONTENT_TYPE,
@@ -59,17 +159,61 @@ pub async fn run_server() -> Result<(), Box<dyn std::error::Error>> {
         .allow_credentials(false)  // Explicitly disable credentials for local use
         .max_age(Duration::from_secs(3600));
 
-    // Create the router with CORS
-    let app = api::create_router().await.layer(cors);
+    // Create the router with all middleware layers (in order: outermost to innermost)
+    let mut app_builder = api::create_router().await;
 
-    // Create socket address
-    let addr = SocketAddr::from(([127, 0, 0, 1], config.port));
+    // Add CORS layer
+    app_builder = app_builder.layer(cors);
 
-    println!("✅ Server listening on {}", addr);
+    // Add tracing layer for request logging
+    app_builder = app_builder.layer(TraceLayer::new_for_http());
 
-    // Start the server
-    let listener = tokio::net::TcpListener::bind(addr).await?;
-    axum::serve(listener, app).await?;
+    // Add rate limiting if enabled
+    if config.rate_limit.enabled {
+        info!("Rate limiting enabled with {} global requests/minute", config.rate_limit.global_rpm);
+        app_builder = app_builder.layer(axum::middleware::from_fn(
+            middleware::rate_limit::rate_limit_middleware
+        ));
+    }
 
-    Ok(())
+    // Add security headers if enabled
+    if config.security_headers_enabled {
+        let security_layer = if config.enable_hsts {
+            middleware::SecurityHeadersLayer::new().with_hsts()
+        } else {
+            middleware::SecurityHeadersLayer::new()
+        };
+        app_builder = app_builder.layer(security_layer);
+        info!("Security headers enabled (HSTS: {})", config.enable_hsts);
+    }
+
+    // Add panic handler (outermost layer)
+    let app = app_builder.layer(middleware::create_panic_handler());
+
+    Ok(app)
+}
+
+async fn create_redirect_router(config: Config) -> Result<axum::Router, Box<dyn std::error::Error>> {
+    use middleware::https_redirect::{HttpsRedirectConfig, https_redirect_middleware};
+
+    // Create a minimal router that only handles redirects
+    let redirect_config = HttpsRedirectConfig {
+        enabled: true,
+        https_port: config.port,  // Redirect to the HTTPS port
+        preserve_host: true,
+    };
+
+    let redirect_router = axum::Router::new()
+        .fallback(|| async { "Redirecting to HTTPS..." })
+        .layer(axum::middleware::from_fn(move |mut request: axum::http::Request<axum::body::Body>, next: axum::middleware::Next| {
+            let config = redirect_config.clone();
+            async move {
+                request.extensions_mut().insert(config);
+                https_redirect_middleware(request, next).await
+            }
+        }))
+        .layer(TraceLayer::new_for_http())
+        .layer(middleware::create_panic_handler());
+
+    Ok(redirect_router)
 }

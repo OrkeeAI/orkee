@@ -297,6 +297,16 @@ mod tests {
             cors_allow_any_localhost: true,
             allowed_browse_paths: allowed.iter().map(|s| s.to_string()).collect(),
             browse_sandbox_mode: mode,
+            rate_limit: crate::middleware::RateLimitConfig::default(),
+            security_headers_enabled: true,
+            enable_hsts: false,
+            enable_request_id: true,
+            tls: crate::tls::TlsConfig {
+                enabled: false,
+                cert_path: "/tmp/cert.pem".into(),
+                key_path: "/tmp/key.pem".into(),
+                auto_generate: false,
+            },
         }
     }
 
