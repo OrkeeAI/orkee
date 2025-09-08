@@ -190,6 +190,19 @@ impl PathValidator {
     }
 
     fn check_blocked_paths(&self, path: &Path) -> Result<(), ValidationError> {
+        // In disabled mode, don't block any paths
+        if self.sandbox_mode == SandboxMode::Disabled {
+            return Ok(());
+        }
+        
+        // If path is explicitly allowed, don't block it
+        for allowed in &self.allowed_paths {
+            if path.starts_with(allowed) {
+                return Ok(());
+            }
+        }
+        
+        // Check blocked paths only if not explicitly allowed
         for blocked in &self.blocked_paths {
             if path.starts_with(blocked) {
                 return Err(ValidationError::BlockedPath(blocked.display().to_string()));
