@@ -63,7 +63,7 @@ impl SlashCommand {
         // Remove leading slash
         let without_slash = trimmed
             .strip_prefix('/')
-            .ok_or_else(|| "Input must start with '/'")?;
+            .ok_or("Input must start with '/'")?;
 
         // Split into parts
         let parts: Vec<&str> = without_slash.split_whitespace().collect();

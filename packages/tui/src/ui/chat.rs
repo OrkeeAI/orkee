@@ -67,7 +67,7 @@ fn render_command_popup_overlay(
     let area = frame.area();
 
     // Calculate popup position (above the input area)
-    let popup_height = (popup.result_count() as u16).min(8).max(1) + 2; // +2 for borders
+    let popup_height = (popup.result_count() as u16).clamp(1, 8) + 2; // +2 for borders
     let popup_width = area.width.saturating_sub(4).min(80); // Leave some margin
 
     // Position popup above input area

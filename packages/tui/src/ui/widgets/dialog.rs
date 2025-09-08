@@ -255,12 +255,10 @@ impl<'a> Widget for ConfirmationDialogWidget<'a> {
                     .fg(Color::White)
                     .add_modifier(Modifier::BOLD)
             }
+        } else if self.dialog.dangerous {
+            Style::default().fg(Color::Red)
         } else {
-            if self.dialog.dangerous {
-                Style::default().fg(Color::Red)
-            } else {
-                Style::default().fg(Color::Green)
-            }
+            Style::default().fg(Color::Green)
         };
 
         let confirm_area = Rect {

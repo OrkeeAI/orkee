@@ -69,8 +69,7 @@ pub fn render_with_area(frame: &mut Frame, state: &AppState, area: Rect) {
 
         let items: Vec<ListItem> = projects_to_display
             .iter()
-            .enumerate()
-            .map(|(_list_index, project)| {
+            .map(|project| {
                 let name = &project.name;
                 let status = format!("{:?}", project.status).to_lowercase();
                 let status_color = match status.as_str() {

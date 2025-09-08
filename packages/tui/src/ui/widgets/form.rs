@@ -6,6 +6,9 @@ use tui_input::backend::crossterm::EventHandler;
 use tui_input::Input;
 use tui_textarea::TextArea;
 
+/// Type alias for field validator function
+pub type FieldValidator = fn(&str) -> Result<(), String>;
+
 /// A form widget for collecting structured input data
 #[derive(Debug)]
 pub struct FormWidget {
@@ -42,7 +45,7 @@ impl FormStep {
 /// Enum to hold different types of input widgets
 pub enum FieldValue {
     SingleLine(Input),
-    MultiLine(TextArea<'static>),
+    MultiLine(Box<TextArea<'static>>),
     Selection {
         options: Vec<String>,
         selected: usize,
@@ -76,7 +79,7 @@ pub struct FormField {
     pub field_value: FieldValue,
     pub field_type: FieldType,
     pub required: bool,
-    pub validator: Option<fn(&str) -> Result<(), String>>,
+    pub validator: Option<FieldValidator>,
     pub placeholder: Option<String>,
     pub help_text: Option<String>,
 }
@@ -116,7 +119,7 @@ impl FieldValue {
                 textarea.lines().iter().all(|line| line.trim().is_empty())
             }
             FieldValue::Selection { options, selected } => {
-                options.get(*selected).map_or(true, |s| s.is_empty())
+                options.get(*selected).is_none_or(|s| s.is_empty())
             }
         }
     }
@@ -634,16 +637,15 @@ impl FormWidget {
             .collect();
 
         // Determine which fields can fit in available space
-        let available_height = inner.height as u16;
+        let available_height = inner.height;
         let mut total_height = 0u16;
         let mut end_field = 0;
 
         // Start from current field and work outward to ensure current field is always visible
-        for i in self.current_field..fields.len() {
-            let field_height = field_heights[i];
+        for (relative_i, &field_height) in field_heights.iter().enumerate().skip(self.current_field) {
             if total_height + field_height <= available_height {
                 total_height += field_height;
-                end_field = i + 1;
+                end_field = relative_i + 1;
             } else {
                 break;
             }
@@ -779,9 +781,7 @@ impl FormWidget {
                 let input_value = input.value();
                 let display_value = if input_value.is_empty() {
                     field
-                        .placeholder
-                        .as_ref()
-                        .map(|s| s.as_str())
+                        .placeholder.as_deref()
                         .unwrap_or(input_value)
                 } else {
                     input_value
@@ -829,7 +829,7 @@ impl FormWidget {
                 let inner_area = textarea_block.inner(input_area);
 
                 // Render the textarea inside the block
-                frame.render_widget(textarea, inner_area);
+                frame.render_widget(&**textarea, inner_area);
             }
             FieldValue::Selection { options, selected } => {
                 // Create a block for the selection
@@ -989,7 +989,7 @@ impl FormField {
         Self {
             name,
             label,
-            field_value: FieldValue::MultiLine(textarea),
+            field_value: FieldValue::MultiLine(Box::new(textarea)),
             field_type: FieldType::MultilineText,
             required,
             validator: None,

@@ -381,7 +381,7 @@ impl AppState {
 
         if let Some(edit_id) = &self.editing_message_id.clone() {
             // Replace the existing message content
-            if let Some(msg) = self.message_history.get_message_mut(&edit_id) {
+            if let Some(msg) = self.message_history.get_message_mut(edit_id) {
                 msg.content = content.clone();
                 msg.mark_edited();
                 // Update timestamp to current time
@@ -980,7 +980,7 @@ impl AppState {
         let desc_field = FormField {
             name: "description".to_string(),
             label: "Description".to_string(),
-            field_value: FieldValue::MultiLine(desc_textarea),
+            field_value: FieldValue::MultiLine(Box::new(desc_textarea)),
             field_type: crate::ui::widgets::FieldType::MultilineText,
             required: false,
             validator: None,
@@ -1548,7 +1548,7 @@ impl AppState {
                 FormMode::Edit(project_id) => {
                     // Handle project update
                     if let Some(project_update) = self.form_to_project_update_input() {
-                        match update_project(&project_id, project_update).await {
+                        match update_project(project_id, project_update).await {
                             Ok(project) => {
                                 // Project updated successfully
                                 self.add_system_message(format!("✅ **Project Updated Successfully**\n\n📁 **{}** has been updated", project.name));
@@ -1814,7 +1814,7 @@ impl AppState {
     pub fn has_active_search_filters(&self) -> bool {
         self.search_popup
             .as_ref()
-            .map_or(false, |s| s.has_active_filters())
+            .is_some_and(|s| s.has_active_filters())
     }
 }
 

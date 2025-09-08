@@ -321,7 +321,7 @@ impl SearchPopup {
             let weighted_score = (score as f64 * 1.0) as i64; // Weight 1.0 for name
             if best_match
                 .as_ref()
-                .map_or(true, |m| weighted_score > m.score)
+                .is_none_or(|m| weighted_score > m.score)
             {
                 best_match = Some(ProjectMatch {
                     project_index: index,
@@ -341,7 +341,7 @@ impl SearchPopup {
             let weighted_score = (score as f64 * 0.6) as i64; // Weight 0.6 for path
             if best_match
                 .as_ref()
-                .map_or(true, |m| weighted_score > m.score)
+                .is_none_or(|m| weighted_score > m.score)
             {
                 best_match = Some(ProjectMatch {
                     project_index: index,
@@ -362,7 +362,7 @@ impl SearchPopup {
                 let weighted_score = (score as f64 * 0.4) as i64; // Weight 0.4 for description
                 if best_match
                     .as_ref()
-                    .map_or(true, |m| weighted_score > m.score)
+                    .is_none_or(|m| weighted_score > m.score)
                 {
                     best_match = Some(ProjectMatch {
                         project_index: index,
@@ -385,7 +385,7 @@ impl SearchPopup {
                     let weighted_score = (score as f64 * 0.8) as i64; // Weight 0.8 for tags
                     if best_match
                         .as_ref()
-                        .map_or(true, |m| weighted_score > m.score)
+                        .is_none_or(|m| weighted_score > m.score)
                     {
                         best_match = Some(ProjectMatch {
                             project_index: index,
