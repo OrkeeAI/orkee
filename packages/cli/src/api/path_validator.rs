@@ -202,7 +202,25 @@ impl PathValidator {
             }
         }
         
-        // Check blocked paths only if not explicitly allowed
+        // In relaxed mode, be more permissive with temp directories
+        if self.sandbox_mode == SandboxMode::Relaxed {
+            // Allow temp directories unless they contain sensitive patterns
+            if path.starts_with("/tmp") || path.starts_with("/var/tmp") {
+                // Check for sensitive patterns in the path components
+                for component in path.components() {
+                    if let std::path::Component::Normal(name) = component {
+                        if let Some(name_str) = name.to_str() {
+                            if self.is_sensitive_directory(name_str) {
+                                return Err(ValidationError::SensitiveDirectory(name_str.to_string()));
+                            }
+                        }
+                    }
+                }
+                return Ok(());
+            }
+        }
+        
+        // Check blocked paths for strict mode and remaining relaxed mode paths
         for blocked in &self.blocked_paths {
             if path.starts_with(blocked) {
                 return Err(ValidationError::BlockedPath(blocked.display().to_string()));
