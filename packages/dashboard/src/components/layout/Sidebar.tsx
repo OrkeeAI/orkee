@@ -1,10 +1,6 @@
 import { Link, useLocation } from 'react-router-dom'
 import { 
-  TrendingUp,
   FolderOpen,
-  MessageSquare,
-  Server,
-  Monitor,
   Settings,
   Menu,
   X
@@ -21,29 +17,9 @@ interface SidebarItem {
 
 const sidebarItems: SidebarItem[] = [
   {
-    title: "Usage",
-    href: "/",
-    icon: TrendingUp
-  },
-  {
     title: "Projects",
     href: "/projects",
     icon: FolderOpen
-  },
-  {
-    title: "AI Chat",
-    href: "/ai-chat",
-    icon: MessageSquare
-  },
-  {
-    title: "MCP Servers",
-    href: "/mcp-servers",
-    icon: Server
-  },
-  {
-    title: "Monitoring",
-    href: "/monitoring", 
-    icon: Monitor
   },
   {
     title: "Settings",

@@ -9,11 +9,7 @@ import {
 } from '@/components/ui/breadcrumb'
 
 const routeLabels: Record<string, string> = {
-  '/': 'Usage',
   '/projects': 'Projects',
-  '/ai-chat': 'AI Chat',
-  '/mcp-servers': 'MCP Servers',
-  '/monitoring': 'Monitoring',
   '/settings': 'Settings'
 }
 
