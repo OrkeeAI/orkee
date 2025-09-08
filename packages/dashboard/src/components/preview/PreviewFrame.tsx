@@ -315,11 +315,6 @@ export function PreviewFrame({
           </Alert>
         ) : (
           <div className="preview-container">
-            {/* Device Info */}
-            <div className="mb-4 text-sm text-muted-foreground">
-              Previewing <strong>{projectName}</strong> in {currentConfig.name} view
-            </div>
-
             {/* Loading Indicator */}
             {(isLoading || !delayedUrl) && (
               <div className="absolute inset-0 flex items-center justify-center bg-background/80 z-10">
