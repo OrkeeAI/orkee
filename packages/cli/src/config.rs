@@ -14,6 +14,7 @@ pub enum ConfigError {
 pub struct Config {
     pub port: u16,
     pub cors_origin: String,
+    pub cors_allow_any_localhost: bool,  // New field
 }
 
 impl Config {
@@ -30,6 +31,15 @@ impl Config {
         let cors_origin =
             env::var("CORS_ORIGIN").unwrap_or_else(|_| "http://localhost:5173".to_string());
 
-        Ok(Config { port, cors_origin })
+        let cors_allow_any_localhost = env::var("CORS_ALLOW_ANY_LOCALHOST")
+            .unwrap_or_else(|_| "true".to_string())
+            .parse::<bool>()
+            .unwrap_or(true);
+
+        Ok(Config { 
+            port, 
+            cors_origin,
+            cors_allow_any_localhost,
+        })
     }
 }

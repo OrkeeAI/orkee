@@ -27,6 +27,7 @@ git2 = "0.18"
 
 # Utilities
 uuid = { version = "1.0", features = ["v4", "serde"] }
+regex = "1.10"
 
 # Compression
 flate2 = "1.0"

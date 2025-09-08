@@ -2142,6 +2142,7 @@ dependencies = [
  "git2",
  "hex",
  "rand 0.8.5",
+ "regex",
  "serde",
  "serde_json",
  "sqlx",
