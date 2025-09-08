@@ -6,10 +6,17 @@ use axum::{
 pub mod directories;
 pub mod health;
 pub mod preview;
+pub mod path_validator;
 
 pub async fn create_router() -> Router {
     use preview::PreviewState;
+    use path_validator::PathValidator;
     use std::sync::Arc;
+    use crate::config::Config;
+
+    // Create path validator from config
+    let config = Config::from_env().expect("Failed to load config for PathValidator");
+    let path_validator = Arc::new(PathValidator::new(&config));
 
     // Create the preview manager with recovery
     let preview_manager = match orkee_preview::init().await {
@@ -81,4 +88,5 @@ pub async fn create_router() -> Router {
         )
         .nest("/api/projects", orkee_projects::create_projects_router())
         .nest("/api/preview", preview_router)
+        .layer(axum::Extension(path_validator))
 }
