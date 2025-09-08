@@ -5,7 +5,7 @@ use std::collections::hash_map::DefaultHasher;
 use std::collections::HashMap;
 use std::collections::VecDeque;
 use std::hash::{Hash, Hasher};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::Stdio;
 use std::sync::Arc;
 use tokio::fs;
@@ -58,6 +58,12 @@ impl Clone for ServerInfo {
             actual_command: self.actual_command.clone(),
             framework_name: self.framework_name.clone(),
         }
+    }
+}
+
+impl Default for PreviewManager {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -190,7 +196,7 @@ impl PreviewManager {
                 if let Some(status_match) = captures.get(1) {
                     if let Ok(status_code) = status_match.as_str().parse::<u16>() {
                         // HTTP status codes 200-399 are success/redirect (not errors)
-                        return status_code >= 200 && status_code < 400;
+                        return (200..400).contains(&status_code);
                     }
                 }
             }
@@ -472,7 +478,7 @@ impl PreviewManager {
     async fn spawn_server(
         &self,
         server_info: &ServerInfo,
-        project_root: &PathBuf,
+        project_root: &Path,
     ) -> PreviewResult<SpawnResult> {
         // Check for package.json first - if it has dev scripts, prefer dev commands
         if project_root.join("package.json").exists() {
@@ -491,7 +497,7 @@ impl PreviewManager {
     async fn spawn_static_server(
         &self,
         server_info: &ServerInfo,
-        project_root: &PathBuf,
+        project_root: &Path,
     ) -> PreviewResult<SpawnResult> {
         // Use Python's built-in HTTP server as it's reliable and simple
         let mut cmd = Command::new("python3");
@@ -546,7 +552,7 @@ impl PreviewManager {
     }
 
     /// Check if a package.json script exists
-    async fn has_npm_script(&self, project_root: &PathBuf, script_name: &str) -> bool {
+    async fn has_npm_script(&self, project_root: &Path, script_name: &str) -> bool {
         let package_json_path = project_root.join("package.json");
         if let Ok(content) = fs::read_to_string(package_json_path).await {
             if let Ok(package_json) = serde_json::from_str::<serde_json::Value>(&content) {
@@ -560,7 +566,7 @@ impl PreviewManager {
     }
 
     /// Detect framework based on command and project files
-    async fn detect_framework(&self, command: &str, project_root: &PathBuf) -> String {
+    async fn detect_framework(&self, command: &str, project_root: &Path) -> String {
         // Check command first
         if command.contains("vite")
             || command.contains("npm run dev") && self.has_dependency(project_root, "vite").await
@@ -590,7 +596,7 @@ impl PreviewManager {
     }
 
     /// Check if project has a dependency in package.json
-    async fn has_dependency(&self, project_root: &PathBuf, dep_name: &str) -> bool {
+    async fn has_dependency(&self, project_root: &Path, dep_name: &str) -> bool {
         let package_json_path = project_root.join("package.json");
         if let Ok(content) = fs::read_to_string(package_json_path).await {
             if let Ok(package_json) = serde_json::from_str::<serde_json::Value>(&content) {
@@ -611,7 +617,7 @@ impl PreviewManager {
     async fn spawn_dev_command(
         &self,
         server_info: &ServerInfo,
-        project_root: &PathBuf,
+        project_root: &Path,
     ) -> PreviewResult<SpawnResult> {
         let port_str = server_info.port.to_string();
 
@@ -755,10 +761,7 @@ impl PreviewManager {
             use nix::unistd::Pid;
 
             // Signal 0 checks if process exists without actually sending a signal
-            match kill(Pid::from_raw(pid as i32), Some(Signal::SIGCONT)) {
-                Ok(_) => true,
-                Err(_) => false,
-            }
+            kill(Pid::from_raw(pid as i32), Some(Signal::SIGCONT)).is_ok()
         }
 
         #[cfg(not(unix))]
@@ -776,7 +779,7 @@ impl PreviewManager {
     async fn create_lock_file(
         &self,
         server_info: &ServerInfo,
-        project_root: &PathBuf,
+        project_root: &Path,
     ) -> PreviewResult<()> {
         let lock_data = ServerLockData {
             project_id: server_info.project_id.clone(),
@@ -789,19 +792,19 @@ impl PreviewManager {
 
         let lock_path = self.get_lock_file_path(&server_info.project_id);
         let lock_json = serde_json::to_string_pretty(&lock_data).map_err(|e| {
-            PreviewError::IoError(std::io::Error::new(std::io::ErrorKind::Other, e))
+            PreviewError::IoError(std::io::Error::other(e))
         })?;
 
         // Ensure directory exists
         if let Some(parent) = lock_path.parent() {
             fs::create_dir_all(parent)
                 .await
-                .map_err(|e| PreviewError::IoError(e))?;
+                .map_err(PreviewError::IoError)?;
         }
 
         fs::write(&lock_path, lock_json)
             .await
-            .map_err(|e| PreviewError::IoError(e))?;
+            .map_err(PreviewError::IoError)?;
 
         info!(
             "Created lock file for project: {} at {:?}",
@@ -816,7 +819,7 @@ impl PreviewManager {
         if lock_path.exists() {
             fs::remove_file(&lock_path)
                 .await
-                .map_err(|e| PreviewError::IoError(e))?;
+                .map_err(PreviewError::IoError)?;
             info!("Removed lock file for project: {}", project_id);
         }
         Ok(())
@@ -846,11 +849,10 @@ impl PreviewManager {
         let mut recovered_count = 0;
         while let Ok(Some(entry)) = entries.next_entry().await {
             let path = entry.path();
-            if path.extension() == Some(std::ffi::OsStr::new("json")) {
-                if self.recover_single_server(path).await.is_ok() {
+            if path.extension() == Some(std::ffi::OsStr::new("json"))
+                && self.recover_single_server(path).await.is_ok() {
                     recovered_count += 1;
                 }
-            }
         }
 
         if recovered_count > 0 {
