@@ -222,11 +222,7 @@ impl ProjectStorage for SqliteStorage {
         let id = generate_project_id();
         let now = Utc::now();
 
-        let tags_json = input
-            .tags
-            .as_ref()
-            .map(serde_json::to_string)
-            .transpose()?;
+        let tags_json = input.tags.as_ref().map(serde_json::to_string).transpose()?;
         let manual_tasks_json = input
             .manual_tasks
             .as_ref()

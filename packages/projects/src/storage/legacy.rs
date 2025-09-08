@@ -105,7 +105,10 @@ mod tests {
                 fs::remove_dir_all(orkee_dir()).await.ok();
             }
 
-            let config = ProjectsConfig { version: "test-version".to_string(), ..Default::default() };
+            let config = ProjectsConfig {
+                version: "test-version".to_string(),
+                ..Default::default()
+            };
 
             let write_result = write_projects_config(&config).await;
             assert!(write_result.is_ok());

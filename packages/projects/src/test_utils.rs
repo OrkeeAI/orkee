@@ -3,8 +3,8 @@
 #[cfg(test)]
 pub mod test_helpers {
     use std::env;
-    use tokio::sync::Mutex;
     use tempfile::TempDir;
+    use tokio::sync::Mutex;
 
     /// Global mutex to ensure thread-safe access to HOME environment variable across all tests
     static HOME_MUTEX: Mutex<()> = Mutex::const_new(());
