@@ -269,30 +269,32 @@ impl App {
                 }
 
                 // Handle Shift+C (cancel form) - BEFORE routing to form widget
-                if c == 'C' && modifiers.contains(KeyModifiers::SHIFT)
-                    && self.state.is_form_mode() {
-                        // Cancel form and return to projects list
-                        self.state.cancel_form();
-                        return Ok(());
-                    }
+                if c == 'C' && modifiers.contains(KeyModifiers::SHIFT) && self.state.is_form_mode()
+                {
+                    // Cancel form and return to projects list
+                    self.state.cancel_form();
+                    return Ok(());
+                }
 
                 // Handle Shift+F (open search popup) - Project search
-                if c == 'F' && modifiers.contains(KeyModifiers::SHIFT)
+                if c == 'F'
+                    && modifiers.contains(KeyModifiers::SHIFT)
                     && matches!(
                         self.state.current_screen,
                         Screen::Projects | Screen::ProjectDetail
-                    ) {
-                        if self.state.is_search_mode() {
-                            // Close search if already open
-                            self.state.close_search();
-                            self.state.input_mode = InputMode::Normal;
-                        } else {
-                            // Open search popup
-                            self.state.open_project_search();
-                            self.state.input_mode = InputMode::ProjectSearch;
-                        }
-                        return Ok(());
+                    )
+                {
+                    if self.state.is_search_mode() {
+                        // Close search if already open
+                        self.state.close_search();
+                        self.state.input_mode = InputMode::Normal;
+                    } else {
+                        // Open search popup
+                        self.state.open_project_search();
+                        self.state.input_mode = InputMode::ProjectSearch;
                     }
+                    return Ok(());
+                }
 
                 // Global shortcuts are now handled above in the navigation logic
 
@@ -536,9 +538,7 @@ impl App {
                         // Exit mention mode if we deleted the @ or cursor is before it
                         if mention_start >= content.len()
                             || cursor_pos < mention_start
-                            || (content
-                                .chars()
-                                .nth(mention_start) != Some('@'))
+                            || (content.chars().nth(mention_start) != Some('@'))
                         {
                             self.state.exit_mention_mode();
                         } else {

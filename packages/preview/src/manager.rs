@@ -791,9 +791,8 @@ impl PreviewManager {
         };
 
         let lock_path = self.get_lock_file_path(&server_info.project_id);
-        let lock_json = serde_json::to_string_pretty(&lock_data).map_err(|e| {
-            PreviewError::IoError(std::io::Error::other(e))
-        })?;
+        let lock_json = serde_json::to_string_pretty(&lock_data)
+            .map_err(|e| PreviewError::IoError(std::io::Error::other(e)))?;
 
         // Ensure directory exists
         if let Some(parent) = lock_path.parent() {
@@ -850,9 +849,10 @@ impl PreviewManager {
         while let Ok(Some(entry)) = entries.next_entry().await {
             let path = entry.path();
             if path.extension() == Some(std::ffi::OsStr::new("json"))
-                && self.recover_single_server(path).await.is_ok() {
-                    recovered_count += 1;
-                }
+                && self.recover_single_server(path).await.is_ok()
+            {
+                recovered_count += 1;
+            }
         }
 
         if recovered_count > 0 {

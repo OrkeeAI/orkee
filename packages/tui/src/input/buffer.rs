@@ -266,8 +266,7 @@ impl InputBuffer {
         }
 
         // Safe to use unwrap_or_default here since we just recalculated if needed
-        self.lines_cache.as_deref()
-            .unwrap_or(&[])
+        self.lines_cache.as_deref().unwrap_or(&[])
     }
 
     /// Find which line the cursor is on (0-indexed)

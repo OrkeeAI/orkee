@@ -552,14 +552,19 @@ impl<'a> SearchPopupWidget<'a> {
 
             let char_style = if is_matched_field && match_indices.contains(&char_idx) {
                 // Highlight matched characters
-                params.base_style.fg(Color::Yellow).add_modifier(Modifier::BOLD)
+                params
+                    .base_style
+                    .fg(Color::Yellow)
+                    .add_modifier(Modifier::BOLD)
             } else {
                 // Normal text color
                 params.base_style.fg(Color::White)
             };
 
             if params.y < buf.area().bottom() {
-                buf[(current_x, params.y)].set_char(*ch).set_style(char_style);
+                buf[(current_x, params.y)]
+                    .set_char(*ch)
+                    .set_style(char_style);
             }
 
             current_x += 1;

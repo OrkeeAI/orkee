@@ -27,7 +27,6 @@ pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 mod tests {
     use super::*;
 
-
     #[tokio::test]
     async fn test_init() {
         let manager = init().await.unwrap();
