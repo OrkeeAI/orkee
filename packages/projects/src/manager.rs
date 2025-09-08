@@ -1,4 +1,4 @@
-use crate::storage::{StorageError, ProjectStorage, factory::{StorageManager, ProjectStorageExt}};
+use crate::storage::{StorageError, factory::StorageManager};
 use crate::types::{Project, ProjectCreateInput, ProjectUpdateInput, ProjectStatus};
 use crate::validator::{validate_project_data, validate_project_update, ValidationError};
 use crate::git_utils::get_git_repository_info;
@@ -297,126 +297,127 @@ impl ProjectsManager {
 mod tests {
     use super::*;
     use crate::types::ProjectStatus;
-    use crate::test_utils::test_helpers::with_temp_home;
+    use crate::storage::{StorageConfig, StorageProvider};
+    use std::path::PathBuf;
+
+    /// Create a test storage manager (not using the global singleton)
+    async fn create_test_storage_manager() -> ManagerResult<Arc<StorageManager>> {
+        let config = StorageConfig {
+            provider: StorageProvider::Sqlite { path: PathBuf::from(":memory:") },
+            enable_wal: false,
+            enable_fts: true,
+            max_connections: 1,
+            busy_timeout_seconds: 10,
+        };
+        
+        Ok(Arc::new(StorageManager::new(config).await?))
+    }
 
     #[tokio::test]
     async fn test_create_and_get_project() {
-        with_temp_home(|| async {
-            // Clean slate
-            if crate::constants::projects_file().exists() {
-                tokio::fs::remove_file(crate::constants::projects_file()).await.ok();
-            }
-            if crate::constants::orkee_dir().exists() {
-                tokio::fs::remove_dir_all(crate::constants::orkee_dir()).await.ok();
-            }
-            
-            let input = ProjectCreateInput {
-                name: "Test Project".to_string(),
-                project_root: "/tmp/test".to_string(),
-                setup_script: Some("npm install".to_string()),
-                dev_script: Some("npm run dev".to_string()),
-                cleanup_script: None,
-                tags: Some(vec!["rust".to_string()]),
-                description: Some("A test project".to_string()),
-                status: Some(ProjectStatus::Active),
-                rank: None,
-                priority: None,
-                task_source: None,
-                manual_tasks: None,
-                mcp_servers: None,
-            };
-            
-            let project = create_project(input).await.unwrap();
-            assert_eq!(project.name, "Test Project");
-            assert_eq!(project.project_root, "/tmp/test");
-            
-            let retrieved = get_project(&project.id).await.unwrap();
-            assert!(retrieved.is_some());
-            assert_eq!(retrieved.unwrap().name, "Test Project");
-        }).await;
+        let storage_manager = create_test_storage_manager().await.unwrap();
+        let storage = storage_manager.storage();
+        
+        let input = ProjectCreateInput {
+            name: "Test Project".to_string(),
+            project_root: "/tmp/test".to_string(),
+            setup_script: Some("npm install".to_string()),
+            dev_script: Some("npm run dev".to_string()),
+            cleanup_script: None,
+            tags: Some(vec!["rust".to_string()]),
+            description: Some("A test project".to_string()),
+            status: Some(ProjectStatus::Active),
+            rank: None,
+            priority: None,
+            task_source: None,
+            manual_tasks: None,
+            mcp_servers: None,
+        };
+        
+        let project = storage.create_project(input).await.unwrap();
+        assert_eq!(project.name, "Test Project");
+        assert_eq!(project.project_root, "/tmp/test");
+        
+        let retrieved = storage.get_project(&project.id).await.unwrap();
+        assert!(retrieved.is_some());
+        assert_eq!(retrieved.unwrap().name, "Test Project");
     }
 
     #[tokio::test]
     async fn test_get_project_by_name() {
-        with_temp_home(|| async {
-            // Clean slate
-            if crate::constants::projects_file().exists() {
-                tokio::fs::remove_file(crate::constants::projects_file()).await.ok();
-            }
-            if crate::constants::orkee_dir().exists() {
-                tokio::fs::remove_dir_all(crate::constants::orkee_dir()).await.ok();
-            }
-            
-            let input = ProjectCreateInput {
-                name: "Unique Name".to_string(),
-                project_root: "/tmp/unique".to_string(),
-                setup_script: None,
-                dev_script: None,
-                cleanup_script: None,
-                tags: None,
-                description: None,
-                status: None,
-                rank: None,
-                priority: None,
-                task_source: None,
-                manual_tasks: None,
-                mcp_servers: None,
-            };
-            
-            create_project(input).await.unwrap();
-            
-            let found = get_project_by_name("Unique Name").await.unwrap();
-            assert!(found.is_some());
-            assert_eq!(found.unwrap().name, "Unique Name");
-            
-            let not_found = get_project_by_name("Nonexistent").await.unwrap();
-            assert!(not_found.is_none());
-        }).await;
+        let storage_manager = create_test_storage_manager().await.unwrap();
+        let storage = storage_manager.storage();
+        
+        let input = ProjectCreateInput {
+            name: "Unique Name".to_string(),
+            project_root: "/tmp/unique".to_string(),
+            setup_script: None,
+            dev_script: None,
+            cleanup_script: None,
+            tags: None,
+            description: None,
+            status: None,
+            rank: None,
+            priority: None,
+            task_source: None,
+            manual_tasks: None,
+            mcp_servers: None,
+        };
+        
+        storage.create_project(input).await.unwrap();
+        
+        let found = storage.get_project_by_name("Unique Name").await.unwrap();
+        assert!(found.is_some());
+        assert_eq!(found.unwrap().name, "Unique Name");
+        
+        let not_found = storage.get_project_by_name("Nonexistent").await.unwrap();
+        assert!(not_found.is_none());
     }
 
     #[tokio::test]
     async fn test_duplicate_name_error() {
-        with_temp_home(|| async {
-            let input1 = ProjectCreateInput {
-                name: "Duplicate".to_string(),
-                project_root: "/tmp/dup1".to_string(),
-                setup_script: None,
-                dev_script: None,
-                cleanup_script: None,
-                tags: None,
-                description: None,
-                status: None,
-                rank: None,
-                priority: None,
-                task_source: None,
-                manual_tasks: None,
-                mcp_servers: None,
-            };
-            
-            create_project(input1).await.unwrap();
-            
-            let input2 = ProjectCreateInput {
-                name: "Duplicate".to_string(),
-                project_root: "/tmp/dup2".to_string(),
-                setup_script: None,
-                dev_script: None,
-                cleanup_script: None,
-                tags: None,
-                description: None,
-                status: None,
-                rank: None,
-                priority: None,
-                task_source: None,
-                manual_tasks: None,
-                mcp_servers: None,
-            };
-            
-            let result = create_project(input2).await;
-            assert!(result.is_err());
-            match result.unwrap_err() {
-                ManagerError::DuplicateName(name) => assert_eq!(name, "Duplicate"),
-                _ => panic!("Expected DuplicateName error"),
-            }
-        }).await;
+        let storage_manager = create_test_storage_manager().await.unwrap();
+        let storage = storage_manager.storage();
+        
+        let input1 = ProjectCreateInput {
+            name: "Duplicate".to_string(),
+            project_root: "/tmp/dup1".to_string(),
+            setup_script: None,
+            dev_script: None,
+            cleanup_script: None,
+            tags: None,
+            description: None,
+            status: None,
+            rank: None,
+            priority: None,
+            task_source: None,
+            manual_tasks: None,
+            mcp_servers: None,
+        };
+        
+        storage.create_project(input1).await.unwrap();
+        
+        let input2 = ProjectCreateInput {
+            name: "Duplicate".to_string(),
+            project_root: "/tmp/dup2".to_string(),
+            setup_script: None,
+            dev_script: None,
+            cleanup_script: None,
+            tags: None,
+            description: None,
+            status: None,
+            rank: None,
+            priority: None,
+            task_source: None,
+            manual_tasks: None,
+            mcp_servers: None,
+        };
+        
+        let result = storage.create_project(input2).await;
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            StorageError::DuplicateName(name) => assert_eq!(name, "Duplicate"),
+            _ => panic!("Expected DuplicateName error"),
+        }
     }
 }

@@ -64,7 +64,7 @@ async fn test_set_logging_level() {
         level: "debug".to_string(),
     };
     
-    let result = set_logging_level(Some(request)).await;
+    let result = logging_set_level(Some(request)).await;
     assert!(result.is_ok());
     
     let response = result.unwrap();
@@ -82,7 +82,7 @@ async fn test_logging_levels(#[case] level: &str) {
         level: level.to_string(),
     };
     
-    let result = set_logging_level(Some(request)).await;
+    let result = logging_set_level(Some(request)).await;
     assert!(result.is_ok());
 }
 

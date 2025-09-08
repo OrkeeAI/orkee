@@ -1,4 +1,5 @@
 use crate::tools::{tools_list, tools_call, CallToolRequest};
+use crate::tests::test_helpers;
 use rstest::rstest;
 use serde_json::{json, Value};
 use tempfile::TempDir;
@@ -26,10 +27,8 @@ async fn test_tools_list() {
 
 #[tokio::test]
 async fn test_list_projects_tool() {
-    // Set up temporary home directory for testing
-    let temp_dir = TempDir::new().unwrap();
-    let original_home = env::var("HOME").ok();
-    env::set_var("HOME", temp_dir.path());
+    // Initialize storage for testing
+    test_helpers::setup_test_storage().await.unwrap();
     
     let request = CallToolRequest {
         name: "projects".to_string(),
@@ -41,20 +40,12 @@ async fn test_list_projects_tool() {
     
     let response = result.unwrap();
     assert!(!response.content.is_empty());
-    
-    // Clean up
-    if let Some(home) = original_home {
-        env::set_var("HOME", home);
-    } else {
-        env::remove_var("HOME");
-    }
 }
 
 #[tokio::test]
 async fn test_create_project_tool() {
-    let temp_dir = TempDir::new().unwrap();
-    let original_home = env::var("HOME").ok();
-    env::set_var("HOME", temp_dir.path());
+    // Initialize storage for testing
+    test_helpers::setup_test_storage().await.unwrap();
     
     let request = CallToolRequest {
         name: "project_manage".to_string(),
@@ -74,12 +65,6 @@ async fn test_create_project_tool() {
     assert!(!response.content.is_empty());
     let content = &response.content[0].text;
     assert!(content.contains("Test Project"));
-    
-    if let Some(home) = original_home {
-        env::set_var("HOME", home);
-    } else {
-        env::remove_var("HOME");
-    }
 }
 
 #[tokio::test]
@@ -213,9 +198,8 @@ async fn test_update_project_tool() {
 
 #[tokio::test]
 async fn test_delete_project_tool() {
-    let temp_dir = TempDir::new().unwrap();
-    let original_home = env::var("HOME").ok();
-    env::set_var("HOME", temp_dir.path());
+    // Initialize storage for testing
+    test_helpers::setup_test_storage().await.unwrap();
     
     // First create a project to delete
     let create_request = CallToolRequest {
@@ -236,7 +220,7 @@ async fn test_delete_project_tool() {
     
     let id_start = text.find("ID: ").map(|i| i + 4);
     let id = if let Some(start) = id_start {
-        let end = text[start..].find(')').unwrap_or(8);
+        let end = text[start..].find(')').unwrap_or(36); // UUID is 36 chars
         &text[start..start + end]
     } else {
         "test-id"
@@ -268,10 +252,4 @@ async fn test_delete_project_tool() {
     let get_response = get_result.unwrap();
     let get_text = &get_response.content[0].text;
     assert!(get_text.contains("not found") || get_text.contains("No project"));
-    
-    if let Some(home) = original_home {
-        env::set_var("HOME", home);
-    } else {
-        env::remove_var("HOME");
-    }
 }

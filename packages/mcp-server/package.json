@@ -6,6 +6,6 @@
     "build": "cargo build --release",
     "dev": "cargo run --bin orkee-mcp",
     "dev:http": "cargo run --bin orkee-mcp -- --transport http-stream --port 8080",
-    "test": "cargo test"
+    "test": "cargo test -- --test-threads=1"
   }
 }

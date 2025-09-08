@@ -1,5 +1,6 @@
 use crate::mcp;
 use crate::tools::{self, CallToolRequest};
+use crate::tests::test_helpers;
 use serde_json::json;
 use tempfile::TempDir;
 use std::env;
@@ -7,9 +8,8 @@ use std::env;
 /// Simulates a full MCP session from initialization to tool execution
 #[tokio::test]
 async fn test_full_mcp_session() {
-    let temp_dir = TempDir::new().unwrap();
-    let original_home = env::var("HOME").ok();
-    env::set_var("HOME", temp_dir.path());
+    // Initialize storage for testing
+    test_helpers::setup_test_storage().await.unwrap();
     
     // Step 1: Initialize the MCP connection
     let init_request = mcp::InitializeRequest {
@@ -64,21 +64,13 @@ async fn test_full_mcp_session() {
     assert!(!response.content.is_empty());
     let content = &response.content[0].text;
     assert!(content.contains("Integration Test Project"));
-    
-    // Cleanup
-    if let Some(home) = original_home {
-        env::set_var("HOME", home);
-    } else {
-        env::remove_var("HOME");
-    }
 }
 
 /// Tests handling of concurrent tool calls
 #[tokio::test]
 async fn test_concurrent_tool_calls() {
-    let temp_dir = TempDir::new().unwrap();
-    let original_home = env::var("HOME").ok();
-    env::set_var("HOME", temp_dir.path());
+    // Initialize storage for testing
+    test_helpers::setup_test_storage().await.unwrap();
     
     // Create multiple projects sequentially to avoid file system race conditions
     // Note: The actual concurrent testing happens at the tool level, not file system level
@@ -135,13 +127,6 @@ async fn test_concurrent_tool_calls() {
                 i
             );
         }
-    }
-    
-    // Cleanup
-    if let Some(home) = original_home {
-        env::set_var("HOME", home);
-    } else {
-        env::remove_var("HOME");
     }
 }
 

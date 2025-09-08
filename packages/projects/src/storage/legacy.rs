@@ -1,11 +1,10 @@
 use crate::constants::{orkee_dir, projects_file};
 use crate::types::ProjectsConfig;
 use std::path::Path;
-use thiserror::Error;
 use tokio::fs;
 use tracing::{debug, error, warn};
 
-use super::{StorageError, StorageResult};
+use super::StorageResult;
 
 /// Ensures the .orkee directory and projects.json file exist
 pub async fn ensure_projects_file() -> StorageResult<()> {

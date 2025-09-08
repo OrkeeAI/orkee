@@ -184,12 +184,14 @@ mod tests {
         let id1 = generate_project_id();
         let id2 = generate_project_id();
         
-        assert_eq!(id1.len(), 8);
-        assert_eq!(id2.len(), 8);
+        // UUIDs are 36 characters long
+        assert_eq!(id1.len(), 36);
+        assert_eq!(id2.len(), 36);
         assert_ne!(id1, id2);
         
-        // Should only contain hex characters
-        assert!(id1.chars().all(|c| c.is_ascii_hexdigit()));
+        // Should be valid UUID format (with dashes)
+        assert!(id1.chars().all(|c| c.is_ascii_hexdigit() || c == '-'));
+        assert!(id2.chars().all(|c| c.is_ascii_hexdigit() || c == '-'));
     }
 
     #[test]

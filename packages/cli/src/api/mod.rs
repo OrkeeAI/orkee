@@ -26,7 +26,18 @@ pub async fn create_router() -> Router {
     };
     
     // Create the project manager
-    let project_manager = Arc::new(orkee_projects::manager::ProjectsManager::new());
+    let project_manager = match orkee_projects::manager::ProjectsManager::new().await {
+        Ok(manager) => Arc::new(manager),
+        Err(e) => {
+            eprintln!("Failed to initialize project manager: {}", e);
+            // Return a router without preview functionality rather than panicking
+            return Router::new()
+                .route("/api/health", get(health::health_check))
+                .route("/api/status", get(health::status_check))
+                .route("/api/browse-directories", post(directories::browse_directories))
+                .nest("/api/projects", orkee_projects::create_projects_router());
+        }
+    };
     
     // Create preview state
     let preview_state = PreviewState {

@@ -344,19 +344,19 @@ impl ProjectStorage for SqliteStorage {
     async fn update_project(&self, id: &str, input: ProjectUpdateInput) -> StorageResult<Project> {
         let mut query_parts = Vec::new();
 
-        if let Some(ref name) = input.name {
+        if input.name.is_some() {
             query_parts.push("name = ?");
         }
-        if let Some(ref project_root) = input.project_root {
+        if input.project_root.is_some() {
             query_parts.push("project_root = ?");
         }
         if input.description.is_some() {
             query_parts.push("description = ?");
         }
-        if let Some(ref status) = input.status {
+        if input.status.is_some() {
             query_parts.push("status = ?");
         }
-        if let Some(ref priority) = input.priority {
+        if input.priority.is_some() {
             query_parts.push("priority = ?");
         }
         if input.rank.is_some() {
@@ -371,16 +371,16 @@ impl ProjectStorage for SqliteStorage {
         if input.cleanup_script.is_some() {
             query_parts.push("cleanup_script = ?");
         }
-        if let Some(ref task_source) = input.task_source {
+        if input.task_source.is_some() {
             query_parts.push("task_source = ?");
         }
-        if let Some(ref tags) = input.tags {
+        if input.tags.is_some() {
             query_parts.push("tags = ?");
         }
-        if let Some(ref manual_tasks) = input.manual_tasks {
+        if input.manual_tasks.is_some() {
             query_parts.push("manual_tasks = ?");
         }
-        if let Some(ref mcp_servers) = input.mcp_servers {
+        if input.mcp_servers.is_some() {
             query_parts.push("mcp_servers = ?");
         }
 
@@ -743,18 +743,19 @@ impl ProjectStorage for SqliteStorage {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tempfile::tempdir;
     use crate::types::ProjectStatus;
 
     async fn create_test_storage() -> SqliteStorage {
-        let temp_dir = tempdir().unwrap();
-        let db_path = temp_dir.path().join("test.db");
+        use std::path::PathBuf;
+        
+        // Use in-memory database for tests - more reliable than temp files
+        let db_path = PathBuf::from(":memory:");
         
         let config = StorageConfig {
             provider: StorageProvider::Sqlite { path: db_path },
-            enable_wal: true,
+            enable_wal: false, // WAL mode doesn't work with :memory:
             enable_fts: true,
-            max_connections: 5,
+            max_connections: 1, // Single connection for in-memory
             busy_timeout_seconds: 10,
         };
 

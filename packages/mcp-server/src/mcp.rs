@@ -110,10 +110,6 @@ pub async fn logging_set_level(_request: Option<LoggingLevel>) -> Result<Value> 
     Ok(json!({}))
 }
 
-// Alias for tests
-pub async fn set_logging_level(request: Option<LoggingLevel>) -> Result<Value> {
-    logging_set_level(request).await
-}
 
 pub async fn resources_list(_request: Option<Value>) -> Result<Value> {
     Ok(json!({
