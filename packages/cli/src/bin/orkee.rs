@@ -5,6 +5,7 @@ use std::process;
 mod cli;
 
 use cli::projects::ProjectsCommands;
+use cli::cloud::CloudCommands;
 
 #[derive(Subcommand)]
 enum PreviewCommands {
@@ -45,6 +46,9 @@ enum Commands {
     /// Manage projects
     #[command(subcommand)]
     Projects(ProjectsCommands),
+    /// Manage cloud sync
+    #[command(subcommand)]
+    Cloud(CloudCommands),
     /// Manage preview servers
     #[command(subcommand)]
     Preview(PreviewCommands),
@@ -88,6 +92,9 @@ async fn handle_command(command: Commands) -> Result<(), Box<dyn std::error::Err
         } => start_tui(refresh_interval).await,
         Commands::Projects(projects_cmd) => {
             cli::projects::handle_projects_command(projects_cmd).await
+        }
+        Commands::Cloud(cloud_cmd) => {
+            cli::cloud::handle_cloud_command(cloud_cmd).await
         }
         Commands::Preview(preview_cmd) => handle_preview_command(preview_cmd).await,
     }

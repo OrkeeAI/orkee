@@ -11,6 +11,9 @@ use thiserror::Error;
 pub mod factory;
 pub mod legacy;
 pub mod sqlite;
+pub mod cloud;
+pub mod sync;
+pub mod cloud_state;
 
 /// Storage errors
 #[derive(Error, Debug)]

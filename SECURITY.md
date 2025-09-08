@@ -30,6 +30,9 @@ Orkee follows a **defense-in-depth** strategy with **zero-trust principles**, im
 | **Container Security** | ✅ Complete | Non-root, hardened | Multi-stage builds |
 | **Deployment Security** | ✅ Complete | Systemd hardening | Production configs |
 | **Audit Logging** | ✅ Complete | Structured logging | Tracing framework |
+| **Cloud Encryption** | ✅ Complete | AES-256-GCM | All snapshots encrypted |
+| **Credential Management** | ✅ Complete | OS keyring | Windows/macOS/Linux |
+| **Data Integrity** | ✅ Complete | SHA-256 checksums | Corruption detection |
 | **Authentication** | ⚠️ By Design | Not implemented | Local CLI tool |
 
 ## Threat Model
@@ -48,6 +51,10 @@ Orkee follows a **defense-in-depth** strategy with **zero-trust principles**, im
 | **Privilege Escalation** | Process isolation | Non-root execution | ✅ Active |
 | **DoS Attacks** | Rate limiting | Burst protection | ✅ Active |
 | **MITM Attacks** | TLS encryption | Certificate validation | ✅ Active |
+| **Data Interception** | Cloud encryption | AES-256-GCM | ✅ Active |
+| **Credential Theft** | OS keyring | Secure storage | ✅ Active |
+| **Data Corruption** | Integrity checks | SHA-256 checksums | ✅ Active |
+| **Replay Attacks** | Nonce generation | Crypto secure RNG | ✅ Active |
 
 ### Trust Boundaries
 

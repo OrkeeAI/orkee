@@ -5,14 +5,15 @@ This document provides comprehensive information about Orkee configuration, envi
 ## Table of Contents
 
 1. [Environment Variables](#environment-variables)
-2. [Security Configuration](#security-configuration)
-3. [TLS/HTTPS Configuration](#tlshttps-configuration)
-4. [File Locations & Data Storage](#file-locations--data-storage)
-5. [CLI Commands Reference](#cli-commands-reference)
-6. [API Reference](#api-reference)
-7. [Default Ports & URLs](#default-ports--urls)
-8. [Development vs Production](#development-vs-production)
-9. [Troubleshooting](#troubleshooting)
+2. [Cloud Sync Configuration](#cloud-sync-configuration)
+3. [Security Configuration](#security-configuration)
+4. [TLS/HTTPS Configuration](#tlshttps-configuration)
+5. [File Locations & Data Storage](#file-locations--data-storage)
+6. [CLI Commands Reference](#cli-commands-reference)
+7. [API Reference](#api-reference)
+8. [Default Ports & URLs](#default-ports--urls)
+9. [Development vs Production](#development-vs-production)
+10. [Troubleshooting](#troubleshooting)
 
 ## Environment Variables
 
@@ -98,9 +99,143 @@ For AI-powered task management features, configure these API keys:
 | `XAI_API_KEY` | Optional | xAI API key |
 | `GROQ_API_KEY` | Optional | Groq API key |
 | `OPENROUTER_API_KEY` | Optional | OpenRouter API key |
+
+### Cloud Sync Variables
+
+Configure cloud backup and synchronization features:
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `AWS_ACCESS_KEY_ID` | - | AWS S3 access key (optional, can use OS keyring) |
+| `AWS_SECRET_ACCESS_KEY` | - | AWS S3 secret key (optional, can use OS keyring) |
+| `AWS_REGION` | `us-east-1` | AWS region for S3 operations |
+| `AWS_SESSION_TOKEN` | - | AWS session token for temporary credentials |
+| `R2_ACCESS_KEY_ID` | - | Cloudflare R2 access key |
+| `R2_SECRET_ACCESS_KEY` | - | Cloudflare R2 secret key |
+| `CLOUD_ENCRYPTION_ENABLED` | `true` | Enable AES-256-GCM snapshot encryption |
+| `CLOUD_AUTO_SYNC_ENABLED` | `false` | Enable automatic background sync |
+| `CLOUD_SYNC_INTERVAL_HOURS` | `24` | Hours between automatic syncs |
+| `CLOUD_MAX_SNAPSHOTS` | `30` | Maximum snapshots to retain per provider |
+
+#### Example cloud sync .env:
+```bash
+# AWS S3 Configuration
+AWS_ACCESS_KEY_ID=AKIAIOSFODNN7EXAMPLE
+AWS_SECRET_ACCESS_KEY=wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
+AWS_REGION=us-east-1
+
+# Cloudflare R2 Configuration (alternative to AWS)
+# R2_ACCESS_KEY_ID=your-r2-access-key
+# R2_SECRET_ACCESS_KEY=your-r2-secret-key
+
+# Cloud Sync Settings
+CLOUD_ENCRYPTION_ENABLED=true
+CLOUD_AUTO_SYNC_ENABLED=false
+CLOUD_SYNC_INTERVAL_HOURS=24
+CLOUD_MAX_SNAPSHOTS=30
+```
+
+**Note**: For production deployments, it's recommended to store credentials in the OS keyring rather than environment variables. Use `orkee cloud enable --setup-credentials` for interactive credential setup.
+
+#### Additional Task Master Variables:
+| Variable | Required | Description |
+|----------|----------|-------------|
 | `AZURE_OPENAI_API_KEY` | Optional | Azure OpenAI API key |
 | `OLLAMA_API_KEY` | Optional | Ollama API key (for remote servers) |
 | `GITHUB_API_KEY` | Optional | GitHub API for import/export (format: `ghp_...` or `github_pat_...`) |
+
+## Cloud Sync Configuration
+
+Orkee features a SQLite-first architecture with optional cloud synchronization capabilities. Data is stored locally in SQLite with full offline functionality, and can optionally be backed up and synchronized to cloud providers.
+
+### Supported Cloud Providers
+
+- **AWS S3**: Native S3 support with all AWS regions
+- **Cloudflare R2**: S3-compatible with zero egress fees  
+- **MinIO**: Self-hosted S3-compatible object storage
+- **Any S3-compatible provider**: Custom endpoints supported
+
+### Getting Started with Cloud Sync
+
+1. **Enable cloud sync** for your preferred provider:
+   ```bash
+   # AWS S3
+   orkee cloud enable --provider s3 --bucket my-orkee-backups --setup-credentials
+   
+   # Cloudflare R2  
+   orkee cloud enable --provider r2 --bucket my-bucket --account-id your-account-id --setup-credentials
+   ```
+
+2. **Create your first backup**:
+   ```bash
+   orkee cloud backup --verbose
+   ```
+
+3. **Check sync status**:
+   ```bash
+   orkee cloud status
+   ```
+
+### Cloud Sync Features
+
+- **🔐 Security First**: All snapshots encrypted with AES-256-GCM before upload
+- **🔑 Secure Credentials**: OS keyring integration with environment fallback
+- **🗜️ Compression**: Automatic compression to minimize storage costs
+- **✅ Data Integrity**: SHA-256 checksums for corruption detection
+- **🔄 Auto-Sync**: Optional background synchronization
+- **📊 Audit Logging**: Complete operation history for compliance
+- **⚡ Fast Recovery**: Restore entire project database from any snapshot
+
+### Security Architecture
+
+- **Encryption**: AES-256-GCM with Argon2 key derivation
+- **Key Management**: OS keyring (Windows Credential Manager, macOS Keychain, Linux Secret Service)
+- **Access Control**: Minimal IAM permissions required
+- **Zero Trust**: No credentials logged, encrypted storage, secure token handling
+- **Audit Trail**: All operations logged with request IDs and performance metrics
+
+### Configuration Files
+
+Cloud sync configuration is stored in `~/.orkee/cloud-config.toml`:
+
+```toml
+[cloud]
+enabled = true
+default_provider = "my-s3"
+
+[providers.my-s3]
+provider_type = "s3"
+name = "my-s3"
+enabled = true
+[providers.my-s3.settings]
+bucket = "my-orkee-backups"
+region = "us-east-1"
+
+[sync]
+auto_sync_enabled = false
+sync_interval_hours = 24
+max_snapshots = 30
+encrypt_snapshots = true
+
+[security]
+encrypt_snapshots = true
+encryption_algorithm = "AES-256-GCM"
+audit_logging = true
+```
+
+### Cloud CLI Commands Reference
+
+| Command | Description |
+|---------|-------------|
+| `orkee cloud enable` | Set up a new cloud provider |
+| `orkee cloud disable` | Disable cloud sync |
+| `orkee cloud backup` | Create manual backup |
+| `orkee cloud restore` | Restore from snapshot |
+| `orkee cloud list` | List available snapshots |
+| `orkee cloud status` | Show sync health and status |
+| `orkee cloud test` | Test cloud provider connection |
+| `orkee cloud cleanup` | Remove old snapshots |
+| `orkee cloud configure` | Modify sync settings |
 
 ## Security Configuration
 

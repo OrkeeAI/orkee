@@ -9,7 +9,10 @@ A CLI, TUI and dashboard for AI agent orchestration
 - 🖥️ **Terminal Interface** - Rich TUI for interactive command-line workflows
 - 🔧 **CLI Tools** - Command-line interface for configuration and control
 - 🔗 **Workflow Coordination** - Orchestrate complex multi-agent workflows
+- ☁️ **Cloud Sync** - Secure backup and sync with AWS S3, Cloudflare R2, and S3-compatible providers
+- 🔐 **Enterprise Security** - AES-256-GCM encryption, OS keyring integration, and audit logging
 - 🔒 **HTTPS/TLS Support** - Secure connections with auto-generated or custom certificates
+- 💾 **Local-First Architecture** - SQLite-based storage with optional cloud enhancement
 
 ## Project Structure
 
@@ -84,10 +87,33 @@ cargo run --bin orkee -- dashboard
 # HTTP requests to port 4000 automatically redirect to HTTPS
 ```
 
+### Cloud Sync Setup (Optional)
+
+```bash
+# Enable cloud backup to AWS S3 with interactive setup
+cargo run --bin orkee -- cloud enable --provider s3 --bucket my-orkee-backups --setup-credentials
+
+# Enable Cloudflare R2 
+cargo run --bin orkee -- cloud enable --provider r2 --bucket my-bucket --account-id your-account-id --setup-credentials
+
+# Create a backup
+cargo run --bin orkee -- cloud backup
+
+# Check sync status
+cargo run --bin orkee -- cloud status
+
+# List available backups
+cargo run --bin orkee -- cloud list
+
+# Restore from backup
+cargo run --bin orkee -- cloud restore --snapshot-id snap_abc123_def456
+```
+
 ## Documentation
 
 - [Getting Started Guide](docs/getting-started.md)
 - [Configuration & Security](DOCS.md) - Environment variables, TLS/HTTPS setup, security settings
+- [Cloud Sync Architecture](sqlite-cloud.md) - SQLite-first storage with cloud enhancement
 - [CLI Reference](docs/cli-reference.md)
 - [API Documentation](docs/api.md)
 - [Examples](examples/)
@@ -131,7 +157,9 @@ turbo build --filter=@orkee/dashboard  # Build dashboard only
 # CLI-specific commands (run from packages/cli/)
 cargo run --bin orkee -- dashboard           # Start API server (port 4001)
 cargo run --bin orkee -- tui                 # Launch TUI interface
-cargo run --bin orkee -- projects list       # Example command (see --help for all)
+cargo run --bin orkee -- projects list       # List all projects
+cargo run --bin orkee -- cloud status        # Check cloud sync status
+cargo run --bin orkee -- cloud backup        # Create cloud backup
 cargo run --bin orkee -- --help              # See all available commands
 cargo test                                   # Run Rust tests
 
