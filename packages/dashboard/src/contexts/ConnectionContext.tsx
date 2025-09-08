@@ -1,23 +1,6 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { healthService, HealthStatus } from '../services/health';
-
-export type ConnectionState = 'connected' | 'connecting' | 'disconnected';
-
-interface ConnectionContextType {
-  connectionState: ConnectionState;
-  lastHealthCheck: HealthStatus | null;
-  error: string | null;
-}
-
-const ConnectionContext = createContext<ConnectionContextType | undefined>(undefined);
-
-export function useConnection() {
-  const context = useContext(ConnectionContext);
-  if (context === undefined) {
-    throw new Error('useConnection must be used within a ConnectionProvider');
-  }
-  return context;
-}
+import { ConnectionContext, ConnectionState } from '@/lib/connection-context';
 
 interface ConnectionProviderProps {
   children: React.ReactNode;

@@ -1,4 +1,4 @@
-import { useConnection } from '@/contexts/ConnectionContext';
+import { useConnection } from '@/hooks/useConnection';
 import { cn } from '@/lib/utils';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 

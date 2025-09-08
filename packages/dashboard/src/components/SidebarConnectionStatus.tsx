@@ -1,4 +1,4 @@
-import { useSidebar } from '@/components/ui/sidebar';
+import { useSidebar } from '@/hooks/useSidebar';
 import { ConnectionStatus } from './ConnectionStatus';
 
 export function SidebarConnectionStatus() {
