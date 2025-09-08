@@ -58,6 +58,46 @@ jobs:
             - '**/*.md'
             - 'docs/**'
 
+  security-audit:
+    name: Security Audit
+    needs: changes
+    if: needs.changes.outputs.rust == 'true' || needs.changes.outputs.frontend == 'true'
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Install Rust
+      uses: dtolnay/rust-toolchain@stable
+      
+    - name: Install cargo-audit
+      run: cargo install cargo-audit
+      
+    - name: Run cargo audit
+      run: cargo audit
+      continue-on-error: true
+      
+    - name: Setup Node.js for npm audit
+      if: needs.changes.outputs.frontend == 'true'
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+    
+    - name: Install pnpm
+      if: needs.changes.outputs.frontend == 'true'
+      uses: pnpm/action-setup@v2
+      with:
+        version: 8
+    
+    - name: Install dependencies
+      if: needs.changes.outputs.frontend == 'true'
+      run: pnpm install
+      
+    - name: Run pnpm audit
+      if: needs.changes.outputs.frontend == 'true'
+      run: pnpm audit --prod
+      continue-on-error: true
+
   rust-checks:
     name: Rust Checks
     needs: changes
@@ -97,7 +137,7 @@ jobs:
     - name: Setup Node.js
       uses: actions/setup-node@v4
       with:
-        node-version: '18'
+        node-version: '20'
     
     - name: Install pnpm
       uses: pnpm/action-setup@v2
@@ -131,7 +171,7 @@ jobs:
     - name: Setup Node.js
       uses: actions/setup-node@v4
       with:
-        node-version: '18'
+        node-version: '20'
     
     - name: Install pnpm
       uses: pnpm/action-setup@v2
@@ -149,7 +189,7 @@ jobs:
 
   pr-comment:
     name: PR Comment
-    needs: [rust-checks, frontend-checks]
+    needs: [rust-checks, frontend-checks, security-audit]
     if: always()
     runs-on: ubuntu-latest
     
@@ -161,10 +201,12 @@ jobs:
         script: |
           const rustStatus = '${{ needs.rust-checks.result }}';
           const frontendStatus = '${{ needs.frontend-checks.result }}';
+          const securityStatus = '${{ needs.security-audit.result }}';
           
           let comment = '## PR Check Results\n\n';
           comment += `- Rust Checks: ${rustStatus === 'success' ? '✅' : rustStatus === 'skipped' ? '⏭️' : '❌'}\n`;
           comment += `- Frontend Checks: ${frontendStatus === 'success' ? '✅' : frontendStatus === 'skipped' ? '⏭️' : '❌'}\n`;
+          comment += `- Security Audit: ${securityStatus === 'success' ? '✅' : securityStatus === 'skipped' ? '⏭️' : '⚠️'}\n`;
           
           github.rest.issues.createComment({
             issue_number: context.issue.number,
