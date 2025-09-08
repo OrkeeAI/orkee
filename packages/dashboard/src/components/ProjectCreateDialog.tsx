@@ -45,7 +45,7 @@ export function ProjectCreateDialog({ open, onOpenChange, onProjectCreated }: Pr
   const [tagsInput, setTagsInput] = useState('');
   
   const createProjectMutation = useCreateProject();
-  const { isLoading: loading, error } = createProjectMutation;
+  const { isPending: loading, error } = createProjectMutation;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

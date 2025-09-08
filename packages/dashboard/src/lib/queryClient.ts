@@ -5,10 +5,11 @@ export const queryClient = new QueryClient({
     queries: {
       staleTime: 5 * 60 * 1000, // 5 minutes
       gcTime: 10 * 60 * 1000, // 10 minutes (formerly cacheTime)
-      retry: (failureCount, error: any) => {
+      retry: (failureCount, error) => {
         // Don't retry on 4xx errors except 408, 429
-        if (error?.status >= 400 && error?.status < 500) {
-          if (error.status === 408 || error.status === 429) {
+        const apiError = error as { status?: number };
+        if (apiError?.status && apiError.status >= 400 && apiError.status < 500) {
+          if (apiError.status === 408 || apiError.status === 429) {
             return failureCount < 2
           }
           return false

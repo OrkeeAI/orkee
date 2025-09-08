@@ -28,7 +28,6 @@ import { ProjectEditDialog } from '@/components/ProjectEditDialog';
 import { ProjectDeleteDialog } from '@/components/ProjectDeleteDialog';
 import { PreviewPanel } from '@/components/preview';
 import { useProject } from '@/hooks/useProjects';
-import { Project } from '@/services/projects';
 
 export function ProjectDetail() {
   const { id } = useParams<{ id: string }>();

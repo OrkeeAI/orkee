@@ -174,7 +174,7 @@ export function PreviewPanel({ projectId, projectName }: PreviewPanelProps) {
         refreshKey={refreshKey}
         serverStatus={serverInstance?.status}
         serverFramework={serverInstance?.config.framework?.name}
-        serverPort={serverInstance?.config.port}
+        serverPort={serverInstance?.config.port ?? undefined}
         isLoading={isLoading}
         isStarting={isStarting}
         isStopping={isStopping}

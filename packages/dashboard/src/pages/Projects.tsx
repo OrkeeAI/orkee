@@ -297,17 +297,7 @@ export function Projects() {
         rank: index
       }));
 
-      // Optimistically update the UI
-      setProjects(prev => {
-        const updated = [...prev];
-        updatedProjects.forEach(updatedProject => {
-          const index = updated.findIndex(p => p.id === updatedProject.id);
-          if (index !== -1) {
-            updated[index] = updatedProject;
-          }
-        });
-        return updated;
-      });
+      // React Query will handle optimistic updates through the mutation
 
       // Update rankings on server
       try {

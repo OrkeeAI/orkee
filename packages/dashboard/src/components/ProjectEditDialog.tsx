@@ -38,7 +38,7 @@ export function ProjectEditDialog({ project, open, onOpenChange, onProjectUpdate
   const [checkingTaskmaster, setCheckingTaskmaster] = useState(false);
 
   const updateProjectMutation = useUpdateProject();
-  const { isLoading: loading, error } = updateProjectMutation;
+  const { isPending: loading, error } = updateProjectMutation;
 
   // Check for taskmaster folder
   const checkTaskmasterFolder = async (projectRoot: string) => {
@@ -92,6 +92,7 @@ export function ProjectEditDialog({ project, open, onOpenChange, onProjectUpdate
       // Check for taskmaster folder when project loads
       checkTaskmasterFolder(project.projectRoot);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [project]);
 
   const handleSubmit = async (e: React.FormEvent) => {

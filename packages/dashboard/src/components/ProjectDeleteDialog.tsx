@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -20,7 +19,7 @@ interface ProjectDeleteDialogProps {
 
 export function ProjectDeleteDialog({ project, open, onOpenChange, onProjectDeleted }: ProjectDeleteDialogProps) {
   const deleteProjectMutation = useDeleteProject();
-  const { isLoading: loading, error } = deleteProjectMutation;
+  const { isPending: loading, error } = deleteProjectMutation;
 
   const handleDelete = async () => {
     if (!project) return;

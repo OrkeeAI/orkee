@@ -7,6 +7,12 @@ import type {
   ProjectUpdateInput 
 } from '@/services/projects'
 
+// Type for API errors
+interface ApiError {
+  message?: string;
+  status?: number;
+}
+
 // Query hooks
 export function useProjects() {
   return useQuery({
@@ -23,9 +29,10 @@ export function useProject(id: string) {
     queryFn: () => projectsService.getProject(id),
     enabled: !!id,
     staleTime: 5 * 60 * 1000, // 5 minutes for detail data
-    retry: (failureCount, error: any) => {
+    retry: (failureCount, error) => {
       // Don't retry if project not found
-      if (error?.message?.includes('not found')) {
+      const apiError = error as ApiError;
+      if (apiError?.message?.includes('not found')) {
         return false
       }
       return failureCount < 2
@@ -39,8 +46,9 @@ export function useProjectByName(name: string) {
     queryFn: () => projectsService.getProjectByName(name),
     enabled: !!name,
     staleTime: 5 * 60 * 1000,
-    retry: (failureCount, error: any) => {
-      if (error?.message?.includes('not found')) {
+    retry: (failureCount, error) => {
+      const apiError = error as ApiError;
+      if (apiError?.message?.includes('not found')) {
         return false
       }
       return failureCount < 2
@@ -54,8 +62,9 @@ export function useProjectByPath(path: string) {
     queryFn: () => projectsService.getProjectByPath(path),
     enabled: !!path,
     staleTime: 5 * 60 * 1000,
-    retry: (failureCount, error: any) => {
-      if (error?.message?.includes('not found')) {
+    retry: (failureCount, error) => {
+      const apiError = error as ApiError;
+      if (apiError?.message?.includes('not found')) {
         return false
       }
       return failureCount < 2
@@ -127,7 +136,7 @@ export function useCreateProject() {
 
       return { previousProjects }
     },
-    onError: (err, newProject, context) => {
+    onError: (_err, _newProject, context) => {
       // Rollback optimistic update
       if (context?.previousProjects) {
         queryClient.setQueryData(queryKeys.projectsList(), context.previousProjects)
@@ -189,7 +198,7 @@ export function useUpdateProject() {
 
       return { previousProject, previousProjects }
     },
-    onError: (err, { id }, context) => {
+    onError: (_err, { id }, context) => {
       // Rollback optimistic updates
       if (context?.previousProject) {
         queryClient.setQueryData(queryKeys.projectDetail(id), context.previousProject)
@@ -209,7 +218,7 @@ export function useUpdateProject() {
         )
       )
     },
-    onSettled: (updatedProject, error, { id }) => {
+    onSettled: (_updatedProject, _error, { id }) => {
       // Invalidate to ensure consistency
       invalidateProject(id)
     },
@@ -235,7 +244,7 @@ export function useDeleteProject() {
 
       return { previousProjects }
     },
-    onError: (err, id, context) => {
+    onError: (_err, _id, context) => {
       // Rollback optimistic update
       if (context?.previousProjects) {
         queryClient.setQueryData(queryKeys.projectsList(), context.previousProjects)
