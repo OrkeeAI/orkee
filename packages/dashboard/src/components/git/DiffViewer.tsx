@@ -80,7 +80,17 @@ export function DiffViewer({ projectId, commitId, filePath, onBack, commit }: Di
     },
     lineHeight: '1.1',
     fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Monaco, Inconsolata, "Roboto Mono", "Segoe UI Mono", "Courier New", monospace',
-    fontSize: '11px',
+    fontSize: '10px',
+    // Minimal styling - no layout properties
+    lineNumber: {
+      fontSize: '9px',
+    },
+    line: {
+      padding: '1px 2px',
+    },
+    gutter: {
+      padding: '1px 4px',
+    },
   };
 
   if (isLoading) {
@@ -238,7 +248,7 @@ export function DiffViewer({ projectId, commitId, filePath, onBack, commit }: Di
               styles={customStyles}
               hideLineNumbers={false}
               renderContent={(str) => (
-                <span style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{str}</span>
+                <span style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontSize: '10px', lineHeight: '1.1' }}>{str}</span>
               )}
             />
           )}
