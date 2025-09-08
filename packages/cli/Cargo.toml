@@ -22,6 +22,7 @@ tracing = "0.1"
 thiserror = "2.0"
 anyhow = "1.0"
 orkee-projects = { path = "../projects" }
+orkee-cloud = { path = "../cloud", optional = true }
 orkee-preview = { path = "../preview" }
 orkee-tui = { path = "../tui" }
 ratatui = "0.28"
@@ -45,6 +46,10 @@ rcgen = "0.12"
 [[bin]]
 name = "orkee"
 path = "src/bin/orkee.rs"
+
+[features]
+default = []
+cloud = ["orkee-cloud", "orkee-projects/cloud"]
 
 [dev-dependencies]
 rstest = "0.18"

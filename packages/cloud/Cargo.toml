@@ -1,0 +1,58 @@
+[package]
+name = "orkee-cloud"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Cloud sync functionality for Orkee AI agent orchestration platform"
+
+[dependencies]
+# Workspace dependencies
+tokio = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+
+# Core dependencies
+async-trait = "0.1"
+chrono = { version = "0.4", features = ["serde"] }
+uuid = { version = "1.0", features = ["v4", "serde"] }
+
+# Database
+sqlx = { version = "0.8", features = ["runtime-tokio-rustls", "sqlite", "chrono", "macros", "migrate"] }
+
+# Cloud Storage
+aws-config = "1.5"
+aws-sdk-s3 = "1.53"
+
+# Security & Encryption
+ring = "0.17"
+argon2 = "0.5"
+keyring = "3.6"
+
+# Network & Utilities
+backoff = { version = "0.4", features = ["tokio"] }
+bytes = "1.5"
+mime = "0.3"
+toml = "0.8"
+
+# Compression and utilities
+flate2 = "1.0"
+hex = "0.4"
+
+# No dependency on projects to avoid circular dependency
+# Cloud package is self-contained
+
+[dev-dependencies]
+tempfile = "3.0"
+mockall = "0.13"
+tokio-test = "0.4"
+wiremock = "0.6"
+
+[features]
+default = []
+# Enable real cloud provider implementations for integration tests
+integration-tests = []
