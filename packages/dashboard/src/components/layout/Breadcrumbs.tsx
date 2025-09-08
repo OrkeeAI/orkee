@@ -15,7 +15,15 @@ const routeLabels: Record<string, string> = {
 
 export function Breadcrumbs() {
   const location = useLocation()
-  const currentLabel = routeLabels[location.pathname] || 'Dashboard'
+  
+  // Check if we're on a project detail page
+  const isProjectDetail = location.pathname.startsWith('/projects/') && location.pathname !== '/projects'
+  
+  // Handle dynamic routes like /projects/[id]
+  let currentLabel = routeLabels[location.pathname] || 'Dashboard'
+  if (location.pathname.startsWith('/projects/')) {
+    currentLabel = 'Projects'
+  }
 
   return (
     <Breadcrumb>
@@ -27,7 +35,13 @@ export function Breadcrumbs() {
         </BreadcrumbItem>
         <BreadcrumbSeparator className="hidden md:block" />
         <BreadcrumbItem>
-          <BreadcrumbPage>{currentLabel}</BreadcrumbPage>
+          {isProjectDetail ? (
+            <BreadcrumbLink asChild>
+              <Link to="/projects">Projects</Link>
+            </BreadcrumbLink>
+          ) : (
+            <BreadcrumbPage>{currentLabel}</BreadcrumbPage>
+          )}
         </BreadcrumbItem>
       </BreadcrumbList>
     </Breadcrumb>

@@ -27,8 +27,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ProjectEditDialog } from '@/components/ProjectEditDialog';
 import { ProjectDeleteDialog } from '@/components/ProjectDeleteDialog';
 import { PreviewPanel } from '@/components/preview';
-import { GitTab } from '@/components/git';
+import { GitTab, GitActivityGraph } from '@/components/git';
 import { useProject } from '@/hooks/useProjects';
+import { useCommitHistory } from '@/services/git';
 
 export function ProjectDetail() {
   const { id } = useParams<{ id: string }>();
@@ -39,6 +40,13 @@ export function ProjectDetail() {
 
   // Use React Query to fetch project data
   const { data: project, isLoading, error, isError } = useProject(id!);
+
+  // Fetch commit history for activity graph (only if git repository exists)
+  const { data: commits = [] } = useCommitHistory(
+    project?.id || '',
+    { per_page: 500 }, // Get more commits to show activity for the full year
+    { enabled: !!project?.gitRepository && !!project?.id }
+  );
 
   const handleProjectUpdated = () => {
     setShowEditDialog(false);
@@ -347,16 +355,28 @@ export function ProjectDetail() {
             </Card>
           )}
 
-          {/* Recent Activity */}
+          {/* Git Activity Graph - PURE REACT VERSION */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-sm font-medium">Recent Activity</CardTitle>
-              <CardDescription>Last activity for this project</CardDescription>
+              <CardTitle className="text-sm font-medium">Git Activity</CardTitle>
+              <CardDescription>
+                {project?.gitRepository 
+                  ? `Commit activity for ${project.gitRepository.owner}/${project.gitRepository.repo}` 
+                  : 'Git repository activity'}
+              </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="text-center py-4 text-sm text-muted-foreground">
-                No recent activity
-              </div>
+              {project?.gitRepository ? (
+                <div className="w-full overflow-x-auto">
+                  <GitActivityGraph commits={commits} className="min-w-fit" />
+                </div>
+              ) : (
+                <div className="text-center py-8 text-sm text-muted-foreground">
+                  <Github className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                  <p>No Git repository configured</p>
+                  <p className="text-xs mt-1">Initialize a Git repository to see commit activity</p>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
