@@ -3,11 +3,11 @@
 #[cfg(test)]
 pub mod test_helpers {
     use std::env;
-    use std::sync::Mutex;
+    use tokio::sync::Mutex;
     use tempfile::TempDir;
 
     /// Global mutex to ensure thread-safe access to HOME environment variable across all tests
-    static HOME_MUTEX: Mutex<()> = Mutex::new(());
+    static HOME_MUTEX: Mutex<()> = Mutex::const_new(());
 
     /// Run a test with a temporary HOME directory, ensuring thread-safe execution
     pub async fn with_temp_home<F, Fut>(test: F)
@@ -15,9 +15,7 @@ pub mod test_helpers {
         F: FnOnce() -> Fut,
         Fut: std::future::Future<Output = ()>,
     {
-        let _guard = HOME_MUTEX
-            .lock()
-            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        let _guard = HOME_MUTEX.lock().await;
         let temp_dir = TempDir::new().unwrap();
         let original_home = env::var("HOME").ok();
 

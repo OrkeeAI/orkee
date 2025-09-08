@@ -13,17 +13,12 @@ pub struct GitRepositoryInfo {
 }
 
 /// Status options for projects
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
 #[serde(rename_all = "lowercase")]
 pub enum ProjectStatus {
+    #[default]
     Active,
     Archived,
-}
-
-impl Default for ProjectStatus {
-    fn default() -> Self {
-        ProjectStatus::Active
-    }
 }
 
 impl fmt::Display for ProjectStatus {
@@ -36,18 +31,13 @@ impl fmt::Display for ProjectStatus {
 }
 
 /// Priority levels
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
 #[serde(rename_all = "lowercase")]
 pub enum Priority {
     High,
+    #[default]
     Medium,
     Low,
-}
-
-impl Default for Priority {
-    fn default() -> Self {
-        Priority::Medium
-    }
 }
 
 impl fmt::Display for Priority {
@@ -69,21 +59,16 @@ pub enum TaskSource {
 }
 
 /// Task status options
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
 #[serde(rename_all = "kebab-case")]
 pub enum TaskStatus {
+    #[default]
     Pending,
     Done,
     InProgress,
     Review,
     Deferred,
     Cancelled,
-}
-
-impl Default for TaskStatus {
-    fn default() -> Self {
-        TaskStatus::Pending
-    }
 }
 
 /// A manual subtask

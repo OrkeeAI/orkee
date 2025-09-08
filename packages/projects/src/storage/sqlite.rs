@@ -30,7 +30,7 @@ impl SqliteStorage {
 
         // Ensure parent directory exists
         if let Some(parent) = database_path.parent() {
-            std::fs::create_dir_all(parent).map_err(|e| StorageError::Io(e))?;
+            std::fs::create_dir_all(parent).map_err(StorageError::Io)?;
         }
 
         let database_url = format!("sqlite:{}", database_path.display());
@@ -38,12 +38,12 @@ impl SqliteStorage {
         // Create database if it doesn't exist
         if !sqlx::Sqlite::database_exists(&database_url)
             .await
-            .map_err(|e| StorageError::Sqlx(e))?
+            .map_err(StorageError::Sqlx)?
         {
             debug!("Creating database at: {}", database_url);
             sqlx::Sqlite::create_database(&database_url)
                 .await
-                .map_err(|e| StorageError::Sqlx(e))?;
+                .map_err(StorageError::Sqlx)?;
         }
 
         // Configure connection pool
@@ -52,35 +52,35 @@ impl SqliteStorage {
             .acquire_timeout(std::time::Duration::from_secs(config.busy_timeout_seconds))
             .connect(&database_url)
             .await
-            .map_err(|e| StorageError::Sqlx(e))?;
+            .map_err(StorageError::Sqlx)?;
 
         // Configure SQLite settings (after pool creation, before migrations)
         if config.enable_wal {
             sqlx::query("PRAGMA journal_mode = WAL")
                 .execute(&pool)
                 .await
-                .map_err(|e| StorageError::Sqlx(e))?;
+                .map_err(StorageError::Sqlx)?;
         }
 
         sqlx::query("PRAGMA foreign_keys = ON")
             .execute(&pool)
             .await
-            .map_err(|e| StorageError::Sqlx(e))?;
+            .map_err(StorageError::Sqlx)?;
 
         sqlx::query("PRAGMA synchronous = NORMAL")
             .execute(&pool)
             .await
-            .map_err(|e| StorageError::Sqlx(e))?;
+            .map_err(StorageError::Sqlx)?;
 
         sqlx::query("PRAGMA temp_store = memory")
             .execute(&pool)
             .await
-            .map_err(|e| StorageError::Sqlx(e))?;
+            .map_err(StorageError::Sqlx)?;
 
         sqlx::query("PRAGMA mmap_size = 268435456")
             .execute(&pool)
             .await
-            .map_err(|e| StorageError::Sqlx(e))?;
+            .map_err(StorageError::Sqlx)?;
 
         let storage = Self { pool, config };
         Ok(storage)
@@ -206,13 +206,13 @@ impl ProjectStorage for SqliteStorage {
         sqlx::migrate!("./migrations")
             .run(&self.pool)
             .await
-            .map_err(|e| StorageError::Migration(e))?;
+            .map_err(StorageError::Migration)?;
 
         // Run post-migration optimizations
         sqlx::query("ANALYZE")
             .execute(&self.pool)
             .await
-            .map_err(|e| StorageError::Sqlx(e))?;
+            .map_err(StorageError::Sqlx)?;
 
         info!("SQLite storage initialized successfully");
         Ok(())
@@ -225,17 +225,17 @@ impl ProjectStorage for SqliteStorage {
         let tags_json = input
             .tags
             .as_ref()
-            .map(|t| serde_json::to_string(t))
+            .map(serde_json::to_string)
             .transpose()?;
         let manual_tasks_json = input
             .manual_tasks
             .as_ref()
-            .map(|t| serde_json::to_string(t))
+            .map(serde_json::to_string)
             .transpose()?;
         let mcp_servers_json = input
             .mcp_servers
             .as_ref()
-            .map(|t| serde_json::to_string(t))
+            .map(serde_json::to_string)
             .transpose()?;
 
         let status_str = Self::status_to_string(&input.status.unwrap_or(ProjectStatus::Active));
@@ -257,7 +257,7 @@ impl ProjectStorage for SqliteStorage {
         .bind(&input.description)
         .bind(status_str)
         .bind(priority_str)
-        .bind(&input.rank)
+        .bind(input.rank)
         .bind(&input.setup_script)
         .bind(&input.dev_script)
         .bind(&input.cleanup_script)
@@ -299,7 +299,7 @@ impl ProjectStorage for SqliteStorage {
             .bind(id)
             .fetch_optional(&self.pool)
             .await
-            .map_err(|e| StorageError::Sqlx(e))?;
+            .map_err(StorageError::Sqlx)?;
 
         match row {
             Some(row) => Ok(Some(self.row_to_project(&row)?)),
@@ -312,7 +312,7 @@ impl ProjectStorage for SqliteStorage {
             .bind(name)
             .fetch_optional(&self.pool)
             .await
-            .map_err(|e| StorageError::Sqlx(e))?;
+            .map_err(StorageError::Sqlx)?;
 
         match row {
             Some(row) => Ok(Some(self.row_to_project(&row)?)),
@@ -325,7 +325,7 @@ impl ProjectStorage for SqliteStorage {
             .bind(path)
             .fetch_optional(&self.pool)
             .await
-            .map_err(|e| StorageError::Sqlx(e))?;
+            .map_err(StorageError::Sqlx)?;
 
         match row {
             Some(row) => Ok(Some(self.row_to_project(&row)?)),
@@ -346,7 +346,7 @@ impl ProjectStorage for SqliteStorage {
         )
         .fetch_all(&self.pool)
         .await
-        .map_err(|e| StorageError::Sqlx(e))?;
+        .map_err(StorageError::Sqlx)?;
 
         let mut projects = Vec::new();
         for row in rows {
@@ -496,7 +496,7 @@ impl ProjectStorage for SqliteStorage {
             .bind(id)
             .execute(&self.pool)
             .await
-            .map_err(|e| StorageError::Sqlx(e))?;
+            .map_err(StorageError::Sqlx)?;
 
         if result.rows_affected() == 0 {
             return Err(StorageError::NotFound);
@@ -564,7 +564,7 @@ impl ProjectStorage for SqliteStorage {
         let rows = query
             .fetch_all(&self.pool)
             .await
-            .map_err(|e| StorageError::Sqlx(e))?;
+            .map_err(StorageError::Sqlx)?;
 
         let mut projects = Vec::new();
         for row in rows {
@@ -593,7 +593,7 @@ impl ProjectStorage for SqliteStorage {
             .bind(format!("%{}%", query))
             .fetch_all(&self.pool)
             .await
-            .map_err(|e| StorageError::Sqlx(e))?;
+            .map_err(StorageError::Sqlx)?;
 
             let mut projects = Vec::new();
             for row in rows {
@@ -615,7 +615,7 @@ impl ProjectStorage for SqliteStorage {
         .bind(query)
         .fetch_all(&self.pool)
         .await
-        .map_err(|e| StorageError::Sqlx(e))?;
+        .map_err(StorageError::Sqlx)?;
 
         let mut projects = Vec::new();
         for row in rows {
@@ -648,19 +648,19 @@ impl ProjectStorage for SqliteStorage {
             sqlx::query("SELECT COUNT(*) as count FROM projects WHERE status != 'deleted'")
                 .fetch_one(&self.pool)
                 .await
-                .map_err(|e| StorageError::Sqlx(e))?;
+                .map_err(StorageError::Sqlx)?;
         let total_projects: i64 = count_row.try_get("count")?;
 
         let last_modified_row =
             sqlx::query("SELECT MAX(updated_at) as last_modified FROM projects")
                 .fetch_one(&self.pool)
                 .await
-                .map_err(|e| StorageError::Sqlx(e))?;
+                .map_err(StorageError::Sqlx)?;
         let last_modified_str: Option<String> = last_modified_row.try_get("last_modified")?;
         let last_modified = last_modified_str
             .and_then(|s| DateTime::parse_from_rfc3339(&s).ok())
             .map(|dt| dt.with_timezone(&Utc))
-            .unwrap_or_else(|| Utc::now());
+            .unwrap_or_else(Utc::now);
 
         // Get database file size
         let db_path = match &self.config.provider {

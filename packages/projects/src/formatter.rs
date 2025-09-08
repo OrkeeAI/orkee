@@ -47,7 +47,7 @@ pub fn format_projects_table(projects: &[Project], current_project: Option<&Proj
     let rows: Vec<String> = projects
         .iter()
         .map(|project| {
-            let is_selected = current_project.map_or(false, |cp| cp.id == project.id);
+            let is_selected = current_project.is_some_and(|cp| cp.id == project.id);
             let indicator = if is_selected { "▸ " } else { "  " };
 
             let id = format!("{:<width$}", project.id, width = max_id_length);

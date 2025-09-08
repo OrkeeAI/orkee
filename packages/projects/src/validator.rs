@@ -37,14 +37,13 @@ pub async fn validate_project_data(
     }
 
     // Validate project root exists if required
-    if !data.project_root.is_empty() && !allow_nonexistent_path {
-        if !path_exists(&data.project_root).await {
+    if !data.project_root.is_empty() && !allow_nonexistent_path
+        && !path_exists(&data.project_root).await {
             errors.push(ValidationError::new(
                 "projectRoot",
                 format!("Project root path does not exist: {}", data.project_root),
             ));
         }
-    }
 
     // Validate tags if present
     if let Some(ref tags) = data.tags {
