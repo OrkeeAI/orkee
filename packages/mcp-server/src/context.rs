@@ -4,15 +4,16 @@
 //! allowing tests to use isolated in-memory storage while production
 //! code continues to use the global storage manager.
 
-use orkee_projects::{
-    storage::{
-        factory::StorageManager,
-        StorageConfig, StorageProvider,
-    },
-    ProjectsManager,
-};
-use std::path::PathBuf;
+use orkee_projects::ProjectsManager;
 use std::sync::Arc;
+
+#[cfg(test)]
+use orkee_projects::storage::{
+    factory::StorageManager,
+    StorageConfig, StorageProvider,
+};
+#[cfg(test)]
+use std::path::PathBuf;
 
 /// Context for tool execution that holds dependencies
 /// This enables dependency injection for testing while maintaining
@@ -29,20 +30,22 @@ impl ToolContext {
         Ok(Self { projects_manager })
     }
 
-    /// Create a new ToolContext with a custom ProjectsManager (testing use)
-    pub fn with_manager(projects_manager: Arc<ProjectsManager>) -> Self {
-        Self { projects_manager }
-    }
-
     /// Get the projects manager
     pub fn projects_manager(&self) -> &Arc<ProjectsManager> {
         &self.projects_manager
     }
+}
+
+// Note: No Default implementation since ToolContext requires async initialization
+// Tool functions will create the context if None is provided
+
+#[cfg(test)]
+pub mod test_utils {
+    use super::*;
 
     /// Create a test context with an isolated in-memory database
     /// This ensures complete test isolation without shared state
-    #[cfg(test)]
-    pub async fn test_context() -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
+    pub async fn create_test_context() -> Result<ToolContext, Box<dyn std::error::Error + Send + Sync>> {
         let config = StorageConfig {
             provider: StorageProvider::Sqlite {
                 path: PathBuf::from(":memory:"),
@@ -56,9 +59,6 @@ impl ToolContext {
         let storage_manager = Arc::new(StorageManager::new(config).await?);
         let projects_manager = Arc::new(ProjectsManager::with_storage(storage_manager));
         
-        Ok(Self::with_manager(projects_manager))
+        Ok(ToolContext { projects_manager })
     }
 }
-
-// Note: No Default implementation since ToolContext requires async initialization
-// Tool functions will create the context if None is provided
