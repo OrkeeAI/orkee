@@ -5,6 +5,7 @@ use std::process;
 mod cli;
 
 use cli::projects::ProjectsCommands;
+#[cfg(feature = "cloud")]
 use cli::cloud::CloudCommands;
 
 #[derive(Subcommand)]
@@ -22,6 +23,7 @@ struct Cli {
     command: Commands,
 }
 
+#[cfg(feature = "cloud")]
 #[derive(Subcommand)]
 enum Commands {
     /// Start the dashboard (backend + frontend)
@@ -49,6 +51,36 @@ enum Commands {
     /// Manage cloud sync
     #[command(subcommand)]
     Cloud(CloudCommands),
+    /// Manage preview servers
+    #[command(subcommand)]
+    Preview(PreviewCommands),
+}
+
+#[cfg(not(feature = "cloud"))]
+#[derive(Subcommand)]
+enum Commands {
+    /// Start the dashboard (backend + frontend)
+    Dashboard {
+        #[arg(short, long, default_value = "4001")]
+        port: u16,
+        #[arg(long, default_value = "http://localhost:5173")]
+        cors_origin: String,
+        #[arg(long, help = "Restart services (kill existing processes first)")]
+        restart: bool,
+    },
+    /// Launch the terminal user interface
+    Tui {
+        /// Refresh interval in seconds
+        #[arg(long, default_value = "20")]
+        refresh_interval: u64,
+
+        /// Theme
+        #[arg(long, value_enum, default_value = "dark")]
+        theme: TuiTheme,
+    },
+    /// Manage projects
+    #[command(subcommand)]
+    Projects(ProjectsCommands),
     /// Manage preview servers
     #[command(subcommand)]
     Preview(PreviewCommands),
@@ -93,6 +125,7 @@ async fn handle_command(command: Commands) -> Result<(), Box<dyn std::error::Err
         Commands::Projects(projects_cmd) => {
             cli::projects::handle_projects_command(projects_cmd).await
         }
+        #[cfg(feature = "cloud")]
         Commands::Cloud(cloud_cmd) => {
             cli::cloud::handle_cloud_command(cloud_cmd)
                 .await

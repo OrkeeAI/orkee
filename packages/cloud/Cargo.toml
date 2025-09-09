@@ -21,11 +21,10 @@ async-trait = "0.1"
 chrono = { version = "0.4", features = ["serde"] }
 uuid = { version = "1.0", features = ["v4", "serde"] }
 
-# HTTP Client for Supabase
+# HTTP Client
 reqwest = { version = "0.11", features = ["json", "rustls-tls"] }
 
 # Authentication
-warp = "0.3"  # For OAuth callback server
 open = "5.0"  # For opening browser
 
 # Configuration

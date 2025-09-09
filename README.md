@@ -9,7 +9,7 @@ A CLI, TUI and dashboard for AI agent orchestration
 - 🖥️ **Terminal Interface** - Rich TUI for interactive command-line workflows
 - 🔧 **CLI Tools** - Command-line interface for configuration and control
 - 🔗 **Workflow Coordination** - Orchestrate complex multi-agent workflows
-- ☁️ **Cloud Sync** - Optional backup and sync with Supabase cloud platform
+- ☁️ **Cloud Sync** - Optional backup and sync with Orkee Cloud
 - 🔐 **Enterprise Security** - OAuth authentication, JWT validation, and Row Level Security
 - 🔒 **HTTPS/TLS Support** - Secure connections with auto-generated or custom certificates
 - 💾 **Local-First Architecture** - SQLite-based storage with optional cloud enhancement
@@ -25,7 +25,7 @@ orkee/
 │   ├── dashboard/    # React SPA with Vite, Shadcn/ui, and Tailwind CSS
 │   ├── tui/          # Ratatui-based standalone terminal interface
 │   ├── projects/     # Shared Rust library for core functionality (used by CLI and TUI)
-│   └── cloud/        # Cloud sync functionality (Supabase integration) - optional dependency
+│   └── cloud/        # Cloud sync functionality (Orkee Cloud integration) - optional dependency
 ├── docs/             # Documentation site
 └── README.md
 ```
@@ -38,7 +38,7 @@ Orkee provides multiple interfaces for AI agent orchestration:
 - **Dashboard** - React web interface on port 5173 (connects to CLI server)
 - **TUI** - Standalone terminal interface with rich interactive features
 - **Projects Library** - Core SQLite-based project management (used by CLI and TUI)
-- **Cloud Library** - Optional cloud sync functionality with Supabase SaaS backend
+- **Cloud Library** - Optional cloud sync functionality with Orkee Cloud backend
 
 The **Dashboard** requires the CLI server to be running. The **TUI** works independently. **Cloud features** are optional and can be enabled with the `--features cloud` flag during compilation.
 
@@ -114,7 +114,7 @@ cargo run --bin orkee -- cloud restore
 cargo run --bin orkee -- cloud disable
 ```
 
-**Note**: Cloud features require a Supabase project. See [orkee-cloud.md](orkee-cloud.md) for setup instructions.
+**Note**: Cloud features require an Orkee Cloud account. Visit https://orkee.ai to sign up.
 
 ## Documentation
 
