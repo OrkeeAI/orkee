@@ -9,6 +9,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::thread;
 
+mod context;
 mod mcp;
 mod tools;
 
@@ -76,7 +77,7 @@ async fn handle_rpc_request(method: &str, params: Option<Value>) -> Result<Value
             } else {
                 None
             };
-            let result = tools_list(request).await?;
+            let result = tools_list(request, None).await?;
             Ok(serde_json::to_value(result)?)
         }
         "tools/call" => {
@@ -85,7 +86,7 @@ async fn handle_rpc_request(method: &str, params: Option<Value>) -> Result<Value
             } else {
                 None
             };
-            let result = tools_call(request).await?;
+            let result = tools_call(request, None).await?;
             Ok(serde_json::to_value(result)?)
         }
         _ => Err(anyhow::anyhow!("Unknown method: {}", method)),

@@ -2,14 +2,12 @@ use crate::mcp;
 use crate::tests::test_helpers;
 use crate::tools::{self, CallToolRequest};
 use serde_json::json;
-use std::env;
-use tempfile::TempDir;
 
 /// Simulates a full MCP session from initialization to tool execution
 #[tokio::test]
 async fn test_full_mcp_session() {
-    // Initialize storage for testing
-    test_helpers::setup_test_storage().await.unwrap();
+    // Create test context with isolated in-memory storage
+    let context = test_helpers::create_test_context().await.unwrap();
 
     // Step 1: Initialize the MCP connection
     let init_request = mcp::InitializeRequest {
@@ -34,7 +32,7 @@ async fn test_full_mcp_session() {
     assert!(ping_result.is_ok());
 
     // Step 3: List available tools
-    let tools_result = tools::tools_list(None).await;
+    let tools_result = tools::tools_list(None, None).await;
     assert!(tools_result.is_ok());
 
     // Step 4: Create a project
@@ -48,7 +46,7 @@ async fn test_full_mcp_session() {
         })),
     };
 
-    let create_result = tools::tools_call(Some(create_request)).await;
+    let create_result = tools::tools_call(Some(create_request), Some(context.clone())).await;
     assert!(create_result.is_ok());
 
     // Step 5: List projects to verify creation
@@ -57,7 +55,7 @@ async fn test_full_mcp_session() {
         arguments: Some(json!({"action": "list"})),
     };
 
-    let list_result = tools::tools_call(Some(list_request)).await;
+    let list_result = tools::tools_call(Some(list_request), Some(context.clone())).await;
     assert!(list_result.is_ok());
 
     let response = list_result.unwrap();
@@ -69,8 +67,8 @@ async fn test_full_mcp_session() {
 /// Tests handling of concurrent tool calls
 #[tokio::test]
 async fn test_concurrent_tool_calls() {
-    // Initialize storage for testing
-    test_helpers::setup_test_storage().await.unwrap();
+    // Create test context with isolated in-memory storage
+    let context = test_helpers::create_test_context().await.unwrap();
 
     // Create multiple projects sequentially to avoid file system race conditions
     // Note: The actual concurrent testing happens at the tool level, not file system level
@@ -84,7 +82,7 @@ async fn test_concurrent_tool_calls() {
             })),
         };
 
-        let result = tools::tools_call(Some(request)).await;
+        let result = tools::tools_call(Some(request), Some(context.clone())).await;
         assert!(result.is_ok(), "Failed to create project {}", i);
     }
 
@@ -94,7 +92,7 @@ async fn test_concurrent_tool_calls() {
         arguments: Some(json!({"action": "list"})),
     };
 
-    let list_result = tools::tools_call(Some(list_request)).await;
+    let list_result = tools::tools_call(Some(list_request), Some(context.clone())).await;
     assert!(list_result.is_ok());
 
     let response = list_result.unwrap();
@@ -133,9 +131,8 @@ async fn test_concurrent_tool_calls() {
 /// Tests error recovery and graceful handling
 #[tokio::test]
 async fn test_error_recovery() {
-    let temp_dir = TempDir::new().unwrap();
-    let original_home = env::var("HOME").ok();
-    env::set_var("HOME", temp_dir.path());
+    // Create test context with isolated in-memory storage
+    let context = test_helpers::create_test_context().await.unwrap();
 
     // Try to get a non-existent project
     let get_request = CallToolRequest {
@@ -146,7 +143,7 @@ async fn test_error_recovery() {
         })),
     };
 
-    let get_result = tools::tools_call(Some(get_request)).await;
+    let get_result = tools::tools_call(Some(get_request), Some(context.clone())).await;
     assert!(get_result.is_ok()); // Should not panic, just return error message
 
     // Try to create a project with invalid data
@@ -159,7 +156,7 @@ async fn test_error_recovery() {
         })),
     };
 
-    let invalid_result = tools::tools_call(Some(invalid_request)).await;
+    let invalid_result = tools::tools_call(Some(invalid_request), Some(context.clone())).await;
     // Should handle gracefully, either with error or validation
     let _ = invalid_result;
 
@@ -169,17 +166,10 @@ async fn test_error_recovery() {
         arguments: Some(json!({})),
     };
 
-    let unknown_result = tools::tools_call(Some(unknown_request)).await;
+    let unknown_result = tools::tools_call(Some(unknown_request), Some(context.clone())).await;
     assert!(unknown_result.is_ok()); // Returns Ok with error in content
     let unknown_response = unknown_result.unwrap();
     assert_eq!(unknown_response.is_error, Some(true));
-
-    // Cleanup
-    if let Some(home) = original_home {
-        env::set_var("HOME", home);
-    } else {
-        env::remove_var("HOME");
-    }
 }
 
 /// Tests that the MCP server properly handles malformed JSON-RPC requests
@@ -212,9 +202,8 @@ fn test_malformed_json_handling() {
 /// Tests resource limits and boundaries
 #[tokio::test]
 async fn test_resource_limits() {
-    let temp_dir = TempDir::new().unwrap();
-    let original_home = env::var("HOME").ok();
-    env::set_var("HOME", temp_dir.path());
+    // Create test context with isolated in-memory storage
+    let context = test_helpers::create_test_context().await.unwrap();
 
     // Create a project with very long name
     let long_name = "A".repeat(1000);
@@ -227,7 +216,7 @@ async fn test_resource_limits() {
         })),
     };
 
-    let result = tools::tools_call(Some(request)).await;
+    let result = tools::tools_call(Some(request), Some(context.clone())).await;
     // Should handle gracefully, either truncate or error
     let _ = result;
 
@@ -242,7 +231,7 @@ async fn test_resource_limits() {
             })),
         };
 
-        let _ = tools::tools_call(Some(request)).await;
+        let _ = tools::tools_call(Some(request), Some(context.clone())).await;
     }
 
     // List all projects - should handle large list
@@ -251,13 +240,6 @@ async fn test_resource_limits() {
         arguments: Some(json!({"action": "list"})),
     };
 
-    let list_result = tools::tools_call(Some(list_request)).await;
+    let list_result = tools::tools_call(Some(list_request), Some(context.clone())).await;
     assert!(list_result.is_ok());
-
-    // Cleanup
-    if let Some(home) = original_home {
-        env::set_var("HOME", home);
-    } else {
-        env::remove_var("HOME");
-    }
 }

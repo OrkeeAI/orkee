@@ -3,10 +3,8 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::collections::HashMap;
 
-use orkee_projects::{
-    create_project, delete_project, get_all_projects, get_project, update_project, Priority,
-    ProjectCreateInput, ProjectStatus, ProjectUpdateInput,
-};
+use crate::context::ToolContext;
+use orkee_projects::{Priority, ProjectCreateInput, ProjectStatus, ProjectUpdateInput};
 
 // MCP Tool Types
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -111,7 +109,10 @@ pub struct ProjectManageRequest {
 // Tool Registration is now handled by router_builder! macro in main.rs
 
 // Tool handlers
-pub async fn tools_list(_request: Option<ListToolsRequest>) -> Result<ListToolsResult> {
+pub async fn tools_list(
+    _request: Option<ListToolsRequest>,
+    _context: Option<ToolContext>,
+) -> Result<ListToolsResult> {
     let mut properties = HashMap::new();
 
     // Projects tool schema
@@ -260,7 +261,15 @@ pub async fn tools_list(_request: Option<ListToolsRequest>) -> Result<ListToolsR
     Ok(response)
 }
 
-pub async fn tools_call(request: Option<CallToolRequest>) -> Result<CallToolResult> {
+pub async fn tools_call(
+    request: Option<CallToolRequest>,
+    context: Option<ToolContext>,
+) -> Result<CallToolResult> {
+    // If no context provided, create a default one with global storage manager
+    let context = match context {
+        Some(ctx) => ctx,
+        None => ToolContext::new().await.map_err(|e| anyhow!("Failed to create context: {}", e))?,
+    };
     let call_request = request.ok_or_else(|| anyhow!("Missing tool call request"))?;
 
     match call_request.name.as_str() {
@@ -280,7 +289,7 @@ pub async fn tools_call(request: Option<CallToolRequest>) -> Result<CallToolResu
                 }
             };
 
-            let result = execute_projects_tool(args).await;
+            let result = execute_projects_tool(args, &context).await;
             Ok(CallToolResult {
                 content: vec![ToolContent {
                     content_type: "text".to_string(),
@@ -303,7 +312,7 @@ pub async fn tools_call(request: Option<CallToolRequest>) -> Result<CallToolResu
                 });
             };
 
-            let result = execute_project_manage_tool(args).await;
+            let result = execute_project_manage_tool(args, &context).await;
             Ok(CallToolResult {
                 content: vec![ToolContent {
                     content_type: "text".to_string(),
@@ -323,11 +332,11 @@ pub async fn tools_call(request: Option<CallToolRequest>) -> Result<CallToolResu
 }
 
 // Tool implementations (using existing tool logic)
-async fn execute_projects_tool(request: ProjectsRequest) -> String {
+async fn execute_projects_tool(request: ProjectsRequest, context: &ToolContext) -> String {
     match request.action.as_str() {
         "get" => {
             if let Some(id) = request.id {
-                match get_project(&id).await {
+                match context.projects_manager().get_project(&id).await {
                     Ok(Some(project)) => {
                         serde_json::to_string_pretty(&project).unwrap_or_else(|e| {
                             json!({ "error": format!("Serialization error: {}", e) }).to_string()
@@ -345,7 +354,7 @@ async fn execute_projects_tool(request: ProjectsRequest) -> String {
             }
         }
         "list" | "search" => {
-            match get_all_projects().await {
+            match context.projects_manager().list_projects().await {
                 Ok(mut projects) => {
                     // Filter by status
                     if request.status != "all" {
@@ -440,7 +449,7 @@ async fn execute_projects_tool(request: ProjectsRequest) -> String {
     }
 }
 
-async fn execute_project_manage_tool(request: ProjectManageRequest) -> String {
+async fn execute_project_manage_tool(request: ProjectManageRequest, context: &ToolContext) -> String {
     match request.action.as_str() {
         "create" => {
             if let (Some(name), Some(project_root)) = (&request.name, &request.project_root) {
@@ -469,7 +478,7 @@ async fn execute_project_manage_tool(request: ProjectManageRequest) -> String {
                     mcp_servers: None,
                 };
 
-                match create_project(project_data).await {
+                match context.projects_manager().create_project(project_data).await {
                     Ok(project) => {
                         let response = json!({
                             "success": true,
@@ -514,7 +523,7 @@ async fn execute_project_manage_tool(request: ProjectManageRequest) -> String {
                     mcp_servers: None,
                 };
 
-                match update_project(id, updates).await {
+                match context.projects_manager().update_project(id, updates).await {
                     Ok(project) => {
                         let response = json!({
                             "success": true,
@@ -535,7 +544,7 @@ async fn execute_project_manage_tool(request: ProjectManageRequest) -> String {
         }
         "delete" => {
             if let Some(id) = &request.id {
-                match delete_project(id).await {
+                match context.projects_manager().delete_project(id).await {
                     Ok(success) => {
                         let response = json!({
                             "success": success,
