@@ -9,8 +9,8 @@ A CLI, TUI and dashboard for AI agent orchestration
 - 🖥️ **Terminal Interface** - Rich TUI for interactive command-line workflows
 - 🔧 **CLI Tools** - Command-line interface for configuration and control
 - 🔗 **Workflow Coordination** - Orchestrate complex multi-agent workflows
-- ☁️ **Cloud Sync** - Secure backup and sync with AWS S3, Cloudflare R2, and S3-compatible providers
-- 🔐 **Enterprise Security** - AES-256-GCM encryption, OS keyring integration, and audit logging
+- ☁️ **Cloud Sync** - Optional backup and sync with Supabase cloud platform
+- 🔐 **Enterprise Security** - OAuth authentication, JWT validation, and Row Level Security
 - 🔒 **HTTPS/TLS Support** - Secure connections with auto-generated or custom certificates
 - 💾 **Local-First Architecture** - SQLite-based storage with optional cloud enhancement
 
@@ -25,7 +25,7 @@ orkee/
 │   ├── dashboard/    # React SPA with Vite, Shadcn/ui, and Tailwind CSS
 │   ├── tui/          # Ratatui-based standalone terminal interface
 │   ├── projects/     # Shared Rust library for core functionality (used by CLI and TUI)
-│   └── cloud/        # Cloud sync functionality (S3, R2, encryption, auth) - optional dependency
+│   └── cloud/        # Cloud sync functionality (Supabase integration) - optional dependency
 ├── docs/             # Documentation site
 └── README.md
 ```
@@ -38,7 +38,7 @@ Orkee provides multiple interfaces for AI agent orchestration:
 - **Dashboard** - React web interface on port 5173 (connects to CLI server)
 - **TUI** - Standalone terminal interface with rich interactive features
 - **Projects Library** - Core SQLite-based project management (used by CLI and TUI)
-- **Cloud Library** - Optional cloud sync functionality with encryption and multi-provider support
+- **Cloud Library** - Optional cloud sync functionality with Supabase SaaS backend
 
 The **Dashboard** requires the CLI server to be running. The **TUI** works independently. **Cloud features** are optional and can be enabled with the `--features cloud` flag during compilation.
 
@@ -95,30 +95,32 @@ cargo run --bin orkee -- dashboard
 ### Cloud Sync Setup (Optional)
 
 ```bash
-# Enable cloud backup to AWS S3 with interactive setup
-cargo run --bin orkee -- cloud enable --provider s3 --bucket my-orkee-backups --setup-credentials
+# Enable Orkee Cloud (opens browser for OAuth authentication)
+cargo run --bin orkee -- cloud enable
 
-# Enable Cloudflare R2 
-cargo run --bin orkee -- cloud enable --provider r2 --bucket my-bucket --account-id your-account-id --setup-credentials
-
-# Create a backup
-cargo run --bin orkee -- cloud backup
+# Manual sync to cloud
+cargo run --bin orkee -- cloud sync
 
 # Check sync status
 cargo run --bin orkee -- cloud status
 
-# List available backups
+# List available snapshots
 cargo run --bin orkee -- cloud list
 
-# Restore from backup
-cargo run --bin orkee -- cloud restore --snapshot-id snap_abc123_def456
+# Restore from cloud
+cargo run --bin orkee -- cloud restore
+
+# Disable cloud sync (return to local-only mode)
+cargo run --bin orkee -- cloud disable
 ```
+
+**Note**: Cloud features require a Supabase project. See [orkee-cloud.md](orkee-cloud.md) for setup instructions.
 
 ## Documentation
 
 - [Getting Started Guide](docs/getting-started.md)
 - [Configuration & Security](DOCS.md) - Environment variables, TLS/HTTPS setup, security settings
-- [Cloud Sync Architecture](sqlite-cloud.md) - SQLite-first storage with cloud enhancement
+- [Architecture & Implementation](orkee-cloud.md) - Complete architecture including local storage and cloud
 - [CLI Reference](docs/cli-reference.md)
 - [API Documentation](docs/api.md)
 - [Examples](examples/)
@@ -163,8 +165,8 @@ turbo build --filter=@orkee/dashboard  # Build dashboard only
 cargo run --bin orkee -- dashboard           # Start API server (port 4001)
 cargo run --bin orkee -- tui                 # Launch TUI interface
 cargo run --bin orkee -- projects list       # List all projects
-cargo run --bin orkee -- cloud status        # Check cloud sync status
-cargo run --bin orkee -- cloud backup        # Create cloud backup
+cargo run --bin orkee -- cloud enable        # Enable Orkee Cloud (OAuth flow)
+cargo run --bin orkee -- cloud sync          # Sync projects to cloud
 cargo run --bin orkee -- --help              # See all available commands
 cargo test                                   # Run Rust tests
 

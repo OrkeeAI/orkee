@@ -1,4 +1,3 @@
-use async_trait::async_trait;
 use chrono::{DateTime, Duration, Utc};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
@@ -6,7 +5,6 @@ use std::path::PathBuf;
 use thiserror::Error;
 use tokio::fs;
 
-use crate::client::CloudError;
 use crate::subscription::CloudSubscription;
 
 /// Authentication errors
@@ -101,8 +99,12 @@ impl CloudAuth {
         
         // Start local callback server
         let (tx, rx) = tokio::sync::oneshot::channel();
-        let callback_server = self.start_callback_server(callback_token.clone(), tx);
-        tokio::spawn(callback_server);
+        
+        // Clone the token for the spawned task
+        let expected_token = callback_token.clone();
+        tokio::spawn(async move {
+            let _ = Self::start_callback_server(expected_token, tx).await;
+        });
 
         // Build auth URL
         let auth_url = format!(
@@ -145,7 +147,6 @@ impl CloudAuth {
 
     /// Start local server for OAuth callback
     async fn start_callback_server(
-        &self,
         expected_token: String,
         tx: tokio::sync::oneshot::Sender<OAuthCallback>,
     ) -> AuthResult<()> {
@@ -159,7 +160,7 @@ impl CloudAuth {
             .and(warp::query::<OAuthCallback>())
             .and(expected_token)
             .and(tx_filter)
-            .map(|callback: OAuthCallback, expected: String, tx: std::sync::Arc<tokio::sync::Mutex<Option<tokio::sync::oneshot::Sender<OAuthCallback>>>>| {
+            .map(|callback: OAuthCallback, _expected: String, tx: std::sync::Arc<tokio::sync::Mutex<Option<tokio::sync::oneshot::Sender<OAuthCallback>>>>| {
                 // Send auth data back
                 if let Some(sender) = tx.blocking_lock().take() {
                     let _ = sender.send(callback);

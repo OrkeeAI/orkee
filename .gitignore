@@ -36,3 +36,8 @@ dist/
 
 # Claude Code
 .claude/
+
+# Internal documentation
+packages/cloud/INTERNAL.md
+INTERNAL.md
+**/INTERNAL.md

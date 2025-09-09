@@ -1,11 +1,9 @@
-use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use reqwest::{Client, StatusCode};
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
 use thiserror::Error;
 
-use crate::auth::CloudAuth;
 use crate::subscription::{CloudSubscription, CloudTier};
 
 /// Cloud operation errors
@@ -33,6 +31,8 @@ pub enum CloudError {
     Serialization(#[from] serde_json::Error),
     #[error("HTTP error: {0}")]
     Http(String),
+    #[error("Encryption error: {0}")]
+    Encryption(String),
 }
 
 pub type CloudResult<T> = Result<T, CloudError>;
@@ -55,6 +55,7 @@ pub struct CloudProject {
 }
 
 /// Main cloud client for Orkee Cloud operations
+#[derive(Clone)]
 pub struct CloudClient {
     http_client: Client,
     project_url: String,

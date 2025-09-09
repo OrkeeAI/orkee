@@ -57,7 +57,7 @@ pub async fn handle_cloud_command(command: CloudCommands) -> anyhow::Result<()> 
         .map_err(|_| anyhow::anyhow!("SUPABASE_ANON_KEY not found in environment"))?;
 
     // Configure cloud
-    use orkee_cloud::{CloudConfig, CloudConfigBuilder};
+    use orkee_cloud::config::CloudConfigBuilder;
     let config = CloudConfigBuilder::new()
         .project_url(supabase_url)
         .anon_key(supabase_key)
@@ -131,7 +131,7 @@ pub async fn handle_cloud_command(command: CloudCommands) -> anyhow::Result<()> 
             Ok(())
         }
 
-        CloudCommands::Restore(args) => {
+        CloudCommands::Restore(_args) => {
             if !cloud.is_enabled().await {
                 println!("❌ {} is not enabled", "Orkee Cloud".red());
                 println!("Run {} to enable cloud sync", "orkee cloud enable".yellow());

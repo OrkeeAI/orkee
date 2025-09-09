@@ -26,8 +26,8 @@ export function DiffViewer({ projectId, commitId, filePath, onBack, commit }: Di
   // Parse the unified diff to extract old and new content
   const parseDiff = (diffContent: string) => {
     const lines = diffContent.split('\n');
-    let oldContent: string[] = [];
-    let newContent: string[] = [];
+    const oldContent: string[] = [];
+    const newContent: string[] = [];
     let isInHunk = false;
     
     for (const line of lines) {

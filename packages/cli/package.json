@@ -3,8 +3,8 @@
   "version": "0.0.1",
   "private": true,
   "scripts": {
-    "build": "cargo build --release",
+    "build": "cargo build --release --features cloud",
     "dev": "cargo run --bin orkee -- dashboard",
-    "test": "cargo test"
+    "test": "cargo test --features cloud"
   }
 }

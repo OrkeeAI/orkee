@@ -94,7 +94,9 @@ async fn handle_command(command: Commands) -> Result<(), Box<dyn std::error::Err
             cli::projects::handle_projects_command(projects_cmd).await
         }
         Commands::Cloud(cloud_cmd) => {
-            cli::cloud::handle_cloud_command(cloud_cmd).await
+            cli::cloud::handle_cloud_command(cloud_cmd)
+                .await
+                .map_err(|e| e.to_string().into())
         }
         Commands::Preview(preview_cmd) => handle_preview_command(preview_cmd).await,
     }
