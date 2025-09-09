@@ -3,19 +3,13 @@
 //! This module is kept for compatibility but contains no encryption logic
 //! in Phase 3. Encryption is handled by HTTPS transport layer only.
 
-use crate::{CloudError, CloudResult};
+use crate::CloudResult;
 use serde::{Deserialize, Serialize};
 
 /// Placeholder encryption config
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct EncryptionConfig {
     pub enabled: bool,
-}
-
-impl Default for EncryptionConfig {
-    fn default() -> Self {
-        Self { enabled: false }
-    }
 }
 
 /// Placeholder encryption manager

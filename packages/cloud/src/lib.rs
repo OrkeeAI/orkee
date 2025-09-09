@@ -145,7 +145,7 @@ impl CloudClient {
         }
         
         let usage = self.get_usage().await?;
-        let (user_id, user_email, user_name) = self.user_info().unwrap();
+        let (_user_id, user_email, user_name) = self.user_info().unwrap();
         
         Ok(CloudStatus {
             authenticated: true,
@@ -175,6 +175,12 @@ pub struct CloudConfigBuilder {
     token: Option<String>,
 }
 
+impl Default for CloudConfigBuilder {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CloudConfigBuilder {
     pub fn new() -> Self {
         Self {
@@ -195,7 +201,7 @@ impl CloudConfigBuilder {
     
     pub async fn build(self) -> CloudResult<CloudClient> {
         let api_url = self.api_url.unwrap_or_else(|| "https://api.orkee.ai".to_string());
-        let mut client = CloudClient::new(api_url).await?;
+        let client = CloudClient::new(api_url).await?;
         
         // If token is provided, try to use it (for environment variable usage)
         if let Some(token) = self.token {

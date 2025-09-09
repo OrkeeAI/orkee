@@ -6,14 +6,13 @@ use std::path::PathBuf;
 use tokio::fs;
 
 use crate::{
-    api::{AuthRequest, AuthResponse, RefreshRequest, RefreshResponse},
+    api::{AuthRequest, AuthResponse},
     error::{CloudError, CloudResult},
 };
 
 /// OAuth configuration
 const AUTH_URL: &str = "/auth/cli";
 const TOKEN_EXCHANGE_URL: &str = "/auth/token/exchange";
-const TOKEN_REFRESH_URL: &str = "/auth/token/refresh";
 const CLI_CALLBACK_URL: &str = "http://localhost:3737/auth/callback";
 
 /// Token information stored locally
@@ -193,7 +192,7 @@ impl AuthManager {
     }
     
     /// Refresh token
-    async fn refresh_token_internal(&self, current_token: String) -> CloudResult<String> {
+    async fn refresh_token_internal(&self, _current_token: String) -> CloudResult<String> {
         // This would typically make a request to refresh the token
         // For now, return an error to prompt re-authentication
         Err(CloudError::auth("Token expired. Please run 'orkee cloud login' again"))
@@ -219,6 +218,12 @@ impl AuthManager {
 /// Simple HTTP server for handling OAuth callback
 pub struct CallbackServer {
     port: u16,
+}
+
+impl Default for CallbackServer {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl CallbackServer {
@@ -255,13 +260,13 @@ impl CallbackServer {
             let response = "HTTP/1.1 200 OK\r\nContent-Length: 133\r\n\r\n<html><body><h1>✅ Authentication Successful!</h1><p>You can now close this tab and return to your terminal.</p></body></html>";
             stream.write_all(response.as_bytes()).await?;
             
-            return Ok(code);
+            Ok(code)
         } else {
             // Send error response
             let response = "HTTP/1.1 400 Bad Request\r\nContent-Length: 120\r\n\r\n<html><body><h1>❌ Authentication Failed</h1><p>No authorization code found in request.</p></body></html>";
             stream.write_all(response.as_bytes()).await?;
             
-            return Err(CloudError::auth("No authorization code found in callback"));
+            Err(CloudError::auth("No authorization code found in callback"))
         }
     }
     
@@ -289,7 +294,6 @@ impl CallbackServer {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tempfile::tempdir;
     
     #[test]
     fn test_token_expiry() {

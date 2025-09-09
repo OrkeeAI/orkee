@@ -508,7 +508,7 @@ fn get_commit_file_changes(repo: &Repository, commit: &Commit) -> Result<Vec<Fil
     )?;
     
     // Get per-file stats by creating individual diffs for each file
-    for (_i, file_change) in file_changes.iter_mut().enumerate() {
+    for file_change in file_changes.iter_mut() {
         // Create a diff options that targets only this specific file
         let mut diff_opts = DiffOptions::new();
         diff_opts.pathspec(&file_change.path);

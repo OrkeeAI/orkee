@@ -353,6 +353,7 @@ pub async fn handle_cloud_command(command: CloudCommands) -> anyhow::Result<()> 
 }
 
 /// Print cloud help information
+#[allow(dead_code)]
 pub fn print_help() {
     println!("{}", "Orkee Cloud Commands".bold().cyan());
     println!();

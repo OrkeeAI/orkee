@@ -126,7 +126,7 @@ impl HttpClient {
                     Err(_) => {
                         // Fallback to direct parsing
                         serde_json::from_str(&response_text)
-                            .map_err(|e| CloudError::Serialization(e))
+                            .map_err(CloudError::Serialization)
                     }
                 }
             }
@@ -173,7 +173,7 @@ impl HttpClient {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use wiremock::{matchers::*, Mock, MockServer, ResponseTemplate};
+    use wiremock::MockServer;
     
     #[tokio::test]
     async fn test_http_client_creation() {
