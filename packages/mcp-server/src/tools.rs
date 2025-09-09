@@ -268,7 +268,9 @@ pub async fn tools_call(
     // If no context provided, create a default one with global storage manager
     let context = match context {
         Some(ctx) => ctx,
-        None => ToolContext::new().await.map_err(|e| anyhow!("Failed to create context: {}", e))?,
+        None => ToolContext::new()
+            .await
+            .map_err(|e| anyhow!("Failed to create context: {}", e))?,
     };
     let call_request = request.ok_or_else(|| anyhow!("Missing tool call request"))?;
 
@@ -449,7 +451,10 @@ async fn execute_projects_tool(request: ProjectsRequest, context: &ToolContext) 
     }
 }
 
-async fn execute_project_manage_tool(request: ProjectManageRequest, context: &ToolContext) -> String {
+async fn execute_project_manage_tool(
+    request: ProjectManageRequest,
+    context: &ToolContext,
+) -> String {
     match request.action.as_str() {
         "create" => {
             if let (Some(name), Some(project_root)) = (&request.name, &request.project_root) {

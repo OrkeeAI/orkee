@@ -1,5 +1,5 @@
 //! Context management for MCP server tools
-//! 
+//!
 //! This module provides dependency injection support for testing,
 //! allowing tests to use isolated in-memory storage while production
 //! code continues to use the global storage manager.
@@ -8,10 +8,7 @@ use orkee_projects::ProjectsManager;
 use std::sync::Arc;
 
 #[cfg(test)]
-use orkee_projects::storage::{
-    factory::StorageManager,
-    StorageConfig, StorageProvider,
-};
+use orkee_projects::storage::{factory::StorageManager, StorageConfig, StorageProvider};
 #[cfg(test)]
 use std::path::PathBuf;
 
@@ -45,7 +42,8 @@ pub mod test_utils {
 
     /// Create a test context with an isolated in-memory database
     /// This ensures complete test isolation without shared state
-    pub async fn create_test_context() -> Result<ToolContext, Box<dyn std::error::Error + Send + Sync>> {
+    pub async fn create_test_context(
+    ) -> Result<ToolContext, Box<dyn std::error::Error + Send + Sync>> {
         let config = StorageConfig {
             provider: StorageProvider::Sqlite {
                 path: PathBuf::from(":memory:"),
@@ -58,7 +56,7 @@ pub mod test_utils {
 
         let storage_manager = Arc::new(StorageManager::new(config).await?);
         let projects_manager = Arc::new(ProjectsManager::with_storage(storage_manager));
-        
+
         Ok(ToolContext { projects_manager })
     }
 }
