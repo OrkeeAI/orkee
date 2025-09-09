@@ -248,12 +248,12 @@ jobs:
         echo "🔨 Building all packages in release mode for consistency..."
         cargo build --all --release
     
-    - name: Start services
+    - name: Start services and test endpoints
       run: |
         echo "🚀 Starting Orkee CLI server..."
         
-        # Use cargo run with extended timeout for compilation
-        timeout 600 cargo run -p orkee-cli --bin orkee --release -- dashboard --port 4001 &
+        # Start server in background with nohup to persist across commands
+        nohup cargo run -p orkee-cli --bin orkee --release -- dashboard --port 4001 > server.log 2>&1 &
         SERVER_PID=$!
         echo "Server process started with PID: $SERVER_PID"
         
@@ -266,6 +266,8 @@ jobs:
           fi
           if [ $i -eq 120 ]; then
             echo "❌ Server failed to start after 120 seconds"
+            echo "📊 Server logs:"
+            cat server.log || true
             echo "📊 Process status:"
             ps aux | grep -E "(orkee|rustc|cargo)" || true
             echo "📊 Port status:"
@@ -281,25 +283,50 @@ jobs:
             # Check if process is still alive
             if ! kill -0 $SERVER_PID 2>/dev/null; then
               echo "❌ Server process died during startup"
-              # Check if any child processes are still running
+              echo "📊 Server logs:"
+              cat server.log || true
+              echo "📊 Process status:"
               ps aux | grep -E "(rustc|cargo)" || true
               exit 1
             fi
           fi
           sleep 1
         done
-    
-    - name: Test API endpoints
-      run: |
+        
         echo "🧪 Testing API endpoints..."
         
+        # Verify server is still alive before testing
+        if ! kill -0 $SERVER_PID 2>/dev/null; then
+          echo "❌ Server process died before API testing"
+          echo "📊 Server logs:"
+          cat server.log || true
+          exit 1
+        fi
+        
         echo "Testing /api/health endpoint..."
-        curl -f http://localhost:4001/api/health || exit 1
+        if ! curl -f http://localhost:4001/api/health; then
+          echo "❌ Health endpoint failed"
+          echo "📊 Server logs:"
+          cat server.log || true
+          echo "📊 Process status:"
+          ps aux | grep -E "(orkee|cargo)" || true
+          echo "📊 Port status:"
+          netstat -tlnp | grep 4001 || true
+          exit 1
+        fi
         
         echo "Testing /api/status endpoint..."
-        curl -f http://localhost:4001/api/status || exit 1
+        if ! curl -f http://localhost:4001/api/status; then
+          echo "❌ Status endpoint failed"
+          echo "📊 Server logs:"
+          cat server.log || true
+          exit 1
+        fi
         
         echo "✅ All API endpoints responding correctly"
+        
+        # Clean up
+        kill $SERVER_PID 2>/dev/null || true
     
     - name: Stop services
       run: |
