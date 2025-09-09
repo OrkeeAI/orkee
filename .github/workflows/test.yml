@@ -211,20 +211,51 @@ jobs:
       with:
         version: 8
     
-    - name: Install dependencies
+    - name: Install dependencies and build
       run: |
         pnpm install
-        cargo build --all
+        cargo build --all --release
     
     - name: Start services
       run: |
-        cargo run -p orkee-cli --bin orkee -- dashboard --port 4001 &
-        sleep 5
+        echo "🚀 Starting Orkee CLI server..."
+        cargo run -p orkee-cli --bin orkee --release -- dashboard --port 4001 &
+        SERVER_PID=$!
+        echo "Server started with PID: $SERVER_PID"
+        
+        # Wait for server to be ready with multiple attempts
+        echo "⏳ Waiting for server to start..."
+        for i in {1..30}; do
+          if curl -s http://localhost:4001/api/health > /dev/null 2>&1; then
+            echo "✅ Server is ready after $i seconds"
+            break
+          fi
+          if [ $i -eq 30 ]; then
+            echo "❌ Server failed to start after 30 seconds"
+            echo "Checking if server process is still running..."
+            ps aux | grep orkee || true
+            echo "Checking port 4001..."
+            netstat -tlnp | grep 4001 || true
+            exit 1
+          fi
+          echo "Attempt $i/30: Server not ready yet, waiting 1 second..."
+          sleep 1
+        done
     
     - name: Test API endpoints
       run: |
+        echo "🧪 Testing API endpoints..."
+        
+        echo "Testing /api/health endpoint..."
         curl -f http://localhost:4001/api/health || exit 1
+        
+        echo "Testing /api/status endpoint..."
         curl -f http://localhost:4001/api/status || exit 1
+        
+        echo "✅ All API endpoints responding correctly"
     
     - name: Stop services
-      run: pkill -f orkee || true
+      run: |
+        echo "🛑 Stopping services..."
+        pkill -f orkee || true
+        echo "Services stopped"
