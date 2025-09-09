@@ -38,12 +38,14 @@ argon2 = "0.5"
 # Utilities
 hostname = "0.4"
 hex = "0.4"
+base64 = "0.22"
+urlencoding = "2.1"
 
 # Compression (for future snapshot functionality)
 flate2 = "1.0"
 
-# No dependency on projects to avoid circular dependency
-# Cloud package is self-contained
+# Note: We don't depend on orkee-projects to avoid circular dependency
+# Cloud package is self-contained and uses its own CloudProject type
 
 [dev-dependencies]
 tempfile = "3.0"
