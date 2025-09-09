@@ -245,31 +245,47 @@ jobs:
     - name: Install dependencies and build
       run: |
         pnpm install
+        echo "🔨 Building all packages in release mode for consistency..."
         cargo build --all --release
     
     - name: Start services
       run: |
         echo "🚀 Starting Orkee CLI server..."
-        cargo run -p orkee-cli --bin orkee --release -- dashboard --port 4001 &
-        SERVER_PID=$!
-        echo "Server started with PID: $SERVER_PID"
         
-        # Wait for server to be ready with multiple attempts
-        echo "⏳ Waiting for server to start..."
-        for i in {1..30}; do
+        # Use cargo run with extended timeout for compilation
+        timeout 600 cargo run -p orkee-cli --bin orkee --release -- dashboard --port 4001 &
+        SERVER_PID=$!
+        echo "Server process started with PID: $SERVER_PID"
+        
+        # Wait for server to be ready (extended timeout for compilation + startup)
+        echo "⏳ Waiting for server to start (allowing for compilation time)..."
+        for i in {1..120}; do
           if curl -s http://localhost:4001/api/health > /dev/null 2>&1; then
             echo "✅ Server is ready after $i seconds"
             break
           fi
-          if [ $i -eq 30 ]; then
-            echo "❌ Server failed to start after 30 seconds"
-            echo "Checking if server process is still running..."
-            ps aux | grep orkee || true
-            echo "Checking port 4001..."
+          if [ $i -eq 120 ]; then
+            echo "❌ Server failed to start after 120 seconds"
+            echo "📊 Process status:"
+            ps aux | grep -E "(orkee|rustc|cargo)" || true
+            echo "📊 Port status:"
             netstat -tlnp | grep 4001 || true
+            echo "📊 System load:"
+            uptime || true
             exit 1
           fi
-          echo "Attempt $i/30: Server not ready yet, waiting 1 second..."
+          
+          # Show progress every 10 seconds to reduce noise
+          if [ $((i % 10)) -eq 0 ]; then
+            echo "Attempt $i/120: Server not ready yet, waiting..."
+            # Check if process is still alive
+            if ! kill -0 $SERVER_PID 2>/dev/null; then
+              echo "❌ Server process died during startup"
+              # Check if any child processes are still running
+              ps aux | grep -E "(rustc|cargo)" || true
+              exit 1
+            fi
+          fi
           sleep 1
         done
     
