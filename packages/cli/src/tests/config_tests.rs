@@ -1,8 +1,10 @@
 use crate::config::{Config, ConfigError};
 use rstest::rstest;
+use serial_test::serial;
 use std::env;
 
 #[test]
+#[serial]
 fn test_config_from_env_defaults() {
     // Clear environment variables
     env::remove_var("PORT");
@@ -15,6 +17,7 @@ fn test_config_from_env_defaults() {
 }
 
 #[test]
+#[serial]
 fn test_config_from_env_with_custom_port() {
     env::set_var("PORT", "8080");
     env::remove_var("CORS_ORIGIN");
@@ -28,6 +31,7 @@ fn test_config_from_env_with_custom_port() {
 }
 
 #[test]
+#[serial]
 fn test_config_from_env_with_custom_cors() {
     env::remove_var("PORT");
     env::set_var("CORS_ORIGIN", "https://example.com");
@@ -41,6 +45,7 @@ fn test_config_from_env_with_custom_cors() {
 }
 
 #[test]
+#[serial]
 fn test_config_from_env_with_all_custom() {
     env::set_var("PORT", "3000");
     env::set_var("CORS_ORIGIN", "https://app.example.com");
@@ -55,6 +60,7 @@ fn test_config_from_env_with_all_custom() {
 }
 
 #[test]
+#[serial]
 fn test_config_invalid_port() {
     env::set_var("PORT", "not-a-number");
 
@@ -67,6 +73,7 @@ fn test_config_invalid_port() {
 }
 
 #[test]
+#[serial]
 fn test_config_port_zero() {
     env::set_var("PORT", "0");
 
@@ -87,6 +94,7 @@ fn test_config_port_zero() {
 #[case("443", 443)]
 #[case("8080", 8080)]
 #[case("65535", 65535)]
+#[serial]
 fn test_valid_port_numbers(#[case] port_str: &str, #[case] expected: u16) {
     env::set_var("PORT", port_str);
 
@@ -103,6 +111,7 @@ fn test_valid_port_numbers(#[case] port_str: &str, #[case] expected: u16) {
 #[case("99999")]
 #[case("1.5")]
 #[case("0x1234")]
+#[serial]
 fn test_invalid_port_formats(#[case] port_str: &str) {
     env::set_var("PORT", port_str);
 
