@@ -43,16 +43,17 @@ cargo test -p orkee-cli tls https_redirect --quiet
 
 ### Cloud Sync Tests
 ```bash
-# Run all cloud integration tests
+# Run all cloud tests (requires --features cloud)
+cargo test -p orkee-cloud
+
+# Run integration tests specifically  
 cargo test -p orkee-cloud integration
 
-# Run cloud unit tests
+# Run unit tests specifically
 cargo test -p orkee-cloud unit
 
-# Run specific cloud component tests
-cargo test -p orkee-cloud encryption
-cargo test -p orkee-cloud state
-cargo test -p orkee-cloud sync
+# Run tests in client module (HTTP client functionality)
+cargo test -p orkee-cloud client
 
 # Run cloud tests with verbose output
 cargo test -p orkee-cloud -- --nocapture
@@ -63,15 +64,15 @@ cargo test -p orkee-cloud -- --nocapture
 - **CLI**: 62 tests - API endpoints, configuration, health checks, TLS/HTTPS functionality
 - **MCP Server**: 28 tests - Protocol handling, tools, integration tests
 - **Projects**: 18 tests - CRUD operations, validation, storage
-- **Cloud**: 45 tests - Cloud sync, encryption, authentication, provider integration
+- **Cloud**: 28 tests - OAuth authentication, HTTP client, API integration, error handling
 - **TUI**: 63 tests - UI components, state management, input handling
 - **Preview**: 2 tests - Basic functionality
 
 **Cloud Test Coverage**:
-- **Integration Tests**: 12 comprehensive scenarios - Full backup/restore cycles, encryption roundtrips, state management
-- **Unit Tests**: 33 component tests - Encryption, authentication, configuration, sync types, validation
+- **Integration Tests**: 16 comprehensive scenarios - Authentication flows, API client operations, error handling
+- **Unit Tests**: 12 component tests - Error types, API response parsing, token validation, project conversion
 
-Total: 218 tests (45 new cloud sync tests)
+Total: 201 tests (includes 28 cloud sync tests)
 
 ### CLI Test Breakdown
 

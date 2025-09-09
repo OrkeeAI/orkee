@@ -9,7 +9,7 @@ A CLI, TUI and dashboard for AI agent orchestration
 - 🖥️ **Terminal Interface** - Rich TUI for interactive command-line workflows
 - 🔧 **CLI Tools** - Command-line interface for configuration and control
 - 🔗 **Workflow Coordination** - Orchestrate complex multi-agent workflows
-- ☁️ **Cloud Sync** - Optional backup and sync with Orkee Cloud
+- ☁️ **Cloud Sync** - Optional backup and sync with Orkee Cloud (fully implemented)
 - 🔐 **Enterprise Security** - OAuth authentication, JWT validation, and Row Level Security
 - 🔒 **HTTPS/TLS Support** - Secure connections with auto-generated or custom certificates
 - 💾 **Local-First Architecture** - SQLite-based storage with optional cloud enhancement
@@ -95,26 +95,27 @@ cargo run --bin orkee -- dashboard
 ### Cloud Sync Setup (Optional)
 
 ```bash
-# Enable Orkee Cloud (opens browser for OAuth authentication)
-cargo run --bin orkee -- cloud enable
+# Authenticate with Orkee Cloud (opens browser for OAuth authentication)
+cargo run --features cloud --bin orkee -- cloud login
+
+# Check authentication and sync status
+cargo run --features cloud --bin orkee -- cloud status
 
 # Manual sync to cloud
-cargo run --bin orkee -- cloud sync
+cargo run --features cloud --bin orkee -- cloud sync
 
-# Check sync status
-cargo run --bin orkee -- cloud status
+# List cloud projects
+cargo run --features cloud --bin orkee -- cloud list
 
-# List available snapshots
-cargo run --bin orkee -- cloud list
+# Restore project from cloud
+cargo run --features cloud --bin orkee -- cloud restore --project <id>
 
-# Restore from cloud
-cargo run --bin orkee -- cloud restore
-
-# Disable cloud sync (return to local-only mode)
-cargo run --bin orkee -- cloud disable
+# Enable/disable cloud features
+cargo run --features cloud --bin orkee -- cloud enable
+cargo run --features cloud --bin orkee -- cloud disable
 ```
 
-**Note**: Cloud features require an Orkee Cloud account. Visit https://orkee.ai to sign up.
+**Note**: Cloud features require compilation with `--features cloud` and an Orkee Cloud account. The OSS client is fully implemented and ready - visit https://orkee.ai for API access.
 
 ## Documentation
 
@@ -165,8 +166,8 @@ turbo build --filter=@orkee/dashboard  # Build dashboard only
 cargo run --bin orkee -- dashboard           # Start API server (port 4001)
 cargo run --bin orkee -- tui                 # Launch TUI interface
 cargo run --bin orkee -- projects list       # List all projects
-cargo run --bin orkee -- cloud enable        # Enable Orkee Cloud (OAuth flow)
-cargo run --bin orkee -- cloud sync          # Sync projects to cloud
+cargo run --features cloud --bin orkee -- cloud login    # Authenticate with Orkee Cloud
+cargo run --features cloud --bin orkee -- cloud sync     # Sync projects to cloud
 cargo run --bin orkee -- --help              # See all available commands
 cargo test                                   # Run Rust tests
 

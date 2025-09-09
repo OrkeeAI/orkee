@@ -100,42 +100,25 @@ For AI-powered task management features, configure these API keys:
 | `GROQ_API_KEY` | Optional | Groq API key |
 | `OPENROUTER_API_KEY` | Optional | OpenRouter API key |
 
-### Cloud Sync Variables
+### Cloud Sync Variables (Orkee Cloud)
 
-Configure cloud backup and synchronization features:
+Configure Orkee Cloud integration for backup and synchronization:
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `AWS_ACCESS_KEY_ID` | - | AWS S3 access key (optional, can use OS keyring) |
-| `AWS_SECRET_ACCESS_KEY` | - | AWS S3 secret key (optional, can use OS keyring) |
-| `AWS_REGION` | `us-east-1` | AWS region for S3 operations |
-| `AWS_SESSION_TOKEN` | - | AWS session token for temporary credentials |
-| `R2_ACCESS_KEY_ID` | - | Cloudflare R2 access key |
-| `R2_SECRET_ACCESS_KEY` | - | Cloudflare R2 secret key |
-| `CLOUD_ENCRYPTION_ENABLED` | `true` | Enable AES-256-GCM snapshot encryption |
-| `CLOUD_AUTO_SYNC_ENABLED` | `false` | Enable automatic background sync |
-| `CLOUD_SYNC_INTERVAL_HOURS` | `24` | Hours between automatic syncs |
-| `CLOUD_MAX_SNAPSHOTS` | `30` | Maximum snapshots to retain per provider |
+| `ORKEE_CLOUD_API_URL` | `https://api.orkee.ai` | Orkee Cloud API base URL |
+| `ORKEE_CLOUD_TOKEN` | - | Authentication token (set via `orkee cloud login`) |
 
 #### Example cloud sync .env:
 ```bash
-# AWS S3 Configuration
-AWS_ACCESS_KEY_ID=AKIAIOSFODNN7EXAMPLE
-AWS_SECRET_ACCESS_KEY=wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
-AWS_REGION=us-east-1
+# Orkee Cloud Configuration
+ORKEE_CLOUD_API_URL=https://api.orkee.ai
 
-# Cloudflare R2 Configuration (alternative to AWS)
-# R2_ACCESS_KEY_ID=your-r2-access-key
-# R2_SECRET_ACCESS_KEY=your-r2-secret-key
-
-# Cloud Sync Settings
-CLOUD_ENCRYPTION_ENABLED=true
-CLOUD_AUTO_SYNC_ENABLED=false
-CLOUD_SYNC_INTERVAL_HOURS=24
-CLOUD_MAX_SNAPSHOTS=30
+# Note: ORKEE_CLOUD_TOKEN is set automatically via `orkee cloud login`
+# Do not set manually - use the OAuth authentication flow
 ```
 
-**Note**: For production deployments, it's recommended to store credentials in the OS keyring rather than environment variables. Use `orkee cloud enable --setup-credentials` for interactive credential setup.
+**Note**: Authentication is handled through OAuth. Use `orkee cloud login` to authenticate, which will securely store your token in `~/.orkee/auth.toml`.
 
 #### Additional Task Master Variables:
 | Variable | Required | Description |
@@ -146,9 +129,9 @@ CLOUD_MAX_SNAPSHOTS=30
 
 ## Cloud Sync Configuration
 
-Orkee features a SQLite-first architecture with optional cloud synchronization capabilities. Data is stored locally in SQLite with full offline functionality, and can optionally be backed up and synchronized to cloud providers.
+Orkee features a SQLite-first architecture with optional cloud synchronization capabilities. Data is stored locally in SQLite with full offline functionality, and can optionally be backed up and synchronized to Orkee Cloud.
 
-**⚠️ Cloud Sync Requirements**: Cloud sync functionality is provided by the separate `orkee-cloud` package and requires compilation with the `--features cloud` flag. This makes cloud functionality optional, saving ~15MB when cloud sync is not needed.
+**⚠️ Cloud Sync Requirements**: Cloud sync functionality is provided by the `orkee-cloud` package and requires compilation with the `--features cloud` flag. This makes cloud functionality optional, keeping the binary smaller when cloud sync is not needed.
 
 ```bash
 # Build with cloud sync features
@@ -158,27 +141,24 @@ cargo build --features cloud
 cargo build
 ```
 
-### Supported Cloud Providers
+### Orkee Cloud Integration
 
-- **AWS S3**: Native S3 support with all AWS regions
-- **Cloudflare R2**: S3-compatible with zero egress fees  
-- **MinIO**: Self-hosted S3-compatible object storage
-- **Any S3-compatible provider**: Custom endpoints supported
+- **Direct API Integration**: Simple, clean integration with Orkee Cloud API
+- **OAuth Authentication**: Secure browser-based authentication flow
+- **Project Synchronization**: Seamless sync of your project data
+- **Multi-device Access**: Access your projects from any device
 
 ### Getting Started with Cloud Sync
 
-1. **Enable cloud sync** for your preferred provider:
+1. **Authenticate with Orkee Cloud**:
    ```bash
-   # AWS S3
-   orkee cloud enable --provider s3 --bucket my-orkee-backups --setup-credentials
-   
-   # Cloudflare R2  
-   orkee cloud enable --provider r2 --bucket my-bucket --account-id your-account-id --setup-credentials
+   orkee cloud login
+   # This opens your browser for OAuth authentication
    ```
 
-2. **Create your first backup**:
+2. **Sync your projects**:
    ```bash
-   orkee cloud backup --verbose
+   orkee cloud sync
    ```
 
 3. **Check sync status**:
@@ -188,49 +168,32 @@ cargo build
 
 ### Cloud Sync Features
 
-- **🔐 Security First**: All snapshots encrypted with AES-256-GCM before upload
-- **🔑 Secure Credentials**: OS keyring integration with environment fallback
-- **🗜️ Compression**: Automatic compression to minimize storage costs
-- **✅ Data Integrity**: SHA-256 checksums for corruption detection
-- **🔄 Auto-Sync**: Optional background synchronization
-- **📊 Audit Logging**: Complete operation history for compliance
-- **⚡ Fast Recovery**: Restore entire project database from any snapshot
+- **🔐 OAuth Security**: Secure browser-based authentication
+- **🔑 Token Management**: Secure token storage in `~/.orkee/auth.toml`
+- **🔄 Project Sync**: Seamless synchronization of project data
+- **📊 Multi-device**: Access your projects from anywhere
+- **⚡ Fast Access**: Direct API integration for responsive sync
 
-### Security Architecture
+### Authentication Architecture
 
-- **Encryption**: AES-256-GCM with Argon2 key derivation
-- **Key Management**: OS keyring (Windows Credential Manager, macOS Keychain, Linux Secret Service)
-- **Access Control**: Minimal IAM permissions required
-- **Zero Trust**: No credentials logged, encrypted storage, secure token handling
-- **Audit Trail**: All operations logged with request IDs and performance metrics
+- **OAuth Flow**: Standard OAuth 2.0 with PKCE for security
+- **Token Storage**: Local secure storage with automatic expiry handling
+- **API Integration**: Direct REST API calls to Orkee Cloud
+- **Error Handling**: Comprehensive error messages and recovery
 
 ### Configuration Files
 
-Cloud sync configuration is stored in `~/.orkee/cloud-config.toml`:
+Cloud authentication is stored in `~/.orkee/auth.toml`:
 
 ```toml
-[cloud]
-enabled = true
-default_provider = "my-s3"
+# This file is managed automatically by `orkee cloud login`
+# Do not edit manually
 
-[providers.my-s3]
-provider_type = "s3"
-name = "my-s3"
-enabled = true
-[providers.my-s3.settings]
-bucket = "my-orkee-backups"
-region = "us-east-1"
-
-[sync]
-auto_sync_enabled = false
-sync_interval_hours = 24
-max_snapshots = 30
-encrypt_snapshots = true
-
-[security]
-encrypt_snapshots = true
-encryption_algorithm = "AES-256-GCM"
-audit_logging = true
+token = "orkee_abc123..."
+expires_at = "2025-01-01T12:00:00Z"
+user_email = "user@example.com"
+user_name = "User Name"
+user_id = "user-123"
 ```
 
 ### Cloud CLI Commands Reference
@@ -239,15 +202,14 @@ audit_logging = true
 
 | Command | Description |
 |---------|-------------|
-| `orkee cloud enable` | Set up a new cloud provider |
-| `orkee cloud disable` | Disable cloud sync |
-| `orkee cloud backup` | Create manual backup |
-| `orkee cloud restore` | Restore from snapshot |
-| `orkee cloud list` | List available snapshots |
-| `orkee cloud status` | Show sync health and status |
-| `orkee cloud test` | Test cloud provider connection |
-| `orkee cloud cleanup` | Remove old snapshots |
-| `orkee cloud configure` | Modify sync settings |
+| `orkee cloud login` | Authenticate with Orkee Cloud (OAuth flow) |
+| `orkee cloud logout` | Sign out from Orkee Cloud |
+| `orkee cloud status` | Show authentication and sync status |
+| `orkee cloud enable` | Enable cloud features |
+| `orkee cloud disable` | Disable cloud features |
+| `orkee cloud sync [--project <id>]` | Sync projects to cloud (all or specific) |
+| `orkee cloud list` | List cloud projects |
+| `orkee cloud restore --project <id>` | Restore project from cloud |
 
 ## Security Configuration
 

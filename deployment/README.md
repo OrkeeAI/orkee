@@ -2,6 +2,8 @@
 
 This guide covers deploying Orkee to production environments with proper security, performance, and reliability configurations.
 
+**Cloud Sync Status**: The OSS cloud client is fully implemented and ready. Cloud features work when compiled with `--features cloud`, but require an Orkee Cloud account and API access.
+
 ## Table of Contents
 
 1. [Overview](#overview)
@@ -85,7 +87,7 @@ turbo build
 cd packages/cli
 cargo build --release
 
-# Build with cloud sync features (adds ~15MB but enables S3/R2 backup)
+# Build with cloud sync features (adds ~15MB but enables Orkee Cloud integration)
 cargo build --release --features cloud
 
 # Binary location: target/release/orkee
