@@ -1,237 +1,273 @@
 //! Cloud sync CLI commands
 //! 
-//! This module is only available when the "cloud" feature is enabled.
+//! This module provides CLI commands for Orkee Cloud functionality.
 
-#[cfg(feature = "cloud")]
-pub use cloud_impl::*;
+use clap::{Args, Subcommand};
+use colored::*;
 
-#[cfg(not(feature = "cloud"))]
-pub fn cloud_disabled_message() -> &'static str {
-    "Cloud functionality is not available. Enable with --features cloud when building."
+#[derive(Debug, Subcommand)]
+pub enum CloudCommands {
+    /// Enable Orkee Cloud
+    Enable,
+    /// Disable Orkee Cloud
+    Disable,
+    /// Sync projects to cloud
+    Sync(SyncArgs),
+    /// Restore projects from cloud
+    Restore(RestoreArgs),
+    /// List cloud projects
+    List,
+    /// Show cloud status
+    Status,
+    /// Login to Orkee Cloud
+    Login,
+    /// Logout from Orkee Cloud
+    Logout,
 }
 
-#[cfg(feature = "cloud")]
-mod cloud_impl {
-    use clap::{Args, Subcommand};
-    use colored::*;
-    use std::collections::HashMap;
+#[derive(Debug, Args)]
+pub struct SyncArgs {
+    /// Specific project ID to sync
+    #[arg(long)]
+    pub project: Option<String>,
+    /// Force sync even if no changes
+    #[arg(long)]
+    pub force: bool,
+}
 
-    use orkee_cloud::{
-        auth::{CredentialProvider, CredentialSetup}, 
-        config::{CloudConfigManager, ProviderConfig},
-        sync::{SyncEngine, SyncEngineConfig, SyncEngineFactory}
-    };
-    use orkee_projects::storage::{factory::StorageFactory, StorageConfig};
+#[derive(Debug, Args)]
+pub struct RestoreArgs {
+    /// Specific project ID to restore
+    #[arg(long)]
+    pub project: Option<String>,
+    /// Create local backup before restore
+    #[arg(long)]
+    pub backup: bool,
+}
 
-    #[derive(Debug, Subcommand)]
-    pub enum CloudCommands {
-        /// Enable cloud sync for a provider
-        Enable(EnableArgs),
-        /// Disable cloud sync
-        Disable,
-        /// Configure cloud providers
-        Configure(ConfigureArgs),
-        /// Perform manual backup
-        Backup(BackupArgs),
-        /// Restore from cloud snapshot
-        Restore(RestoreArgs),
-        /// List available snapshots
-        List(ListArgs),
-        /// Show cloud sync status
-        Status,
-        /// Test cloud connection
-        Test(TestArgs),
-        /// Clean up old snapshots
-        Cleanup(CleanupArgs),
-    }
+/// Handle cloud commands
+pub async fn handle_cloud_command(command: CloudCommands) -> anyhow::Result<()> {
+    // Initialize cloud with environment variables
+    let supabase_url = std::env::var("NEXT_PUBLIC_SUPABASE_URL")
+        .or_else(|_| std::env::var("SUPABASE_URL"))
+        .map_err(|_| anyhow::anyhow!("SUPABASE_URL not found in environment"))?;
+    
+    let supabase_key = std::env::var("NEXT_PUBLIC_SUPABASE_ANON_KEY")
+        .or_else(|_| std::env::var("SUPABASE_ANON_KEY"))
+        .map_err(|_| anyhow::anyhow!("SUPABASE_ANON_KEY not found in environment"))?;
 
-    #[derive(Debug, Args)]
-    pub struct EnableArgs {
-        /// Cloud provider type
-        #[arg(long, value_enum)]
-        pub provider: ProviderType,
-        /// Provider name (for multiple providers of same type)
-        #[arg(long)]
-        pub name: Option<String>,
-        /// S3 bucket name
-        #[arg(long)]
-        pub bucket: Option<String>,
-        /// AWS region
-        #[arg(long)]
-        pub region: Option<String>,
-        /// Custom endpoint (for S3-compatible services)
-        #[arg(long)]
-        pub endpoint: Option<String>,
-        /// Cloudflare R2 account ID
-        #[arg(long)]
-        pub account_id: Option<String>,
-        /// Set as default provider
-        #[arg(long)]
-        pub set_default: bool,
-        /// Setup credentials interactively
-        #[arg(long)]
-        pub setup_credentials: bool,
-    }
+    // Configure cloud
+    use orkee_cloud::{CloudConfig, CloudConfigBuilder};
+    let config = CloudConfigBuilder::new()
+        .project_url(supabase_url)
+        .anon_key(supabase_key)
+        .build()?;
+    
+    // Save configuration
+    config.save().await?;
 
-    #[derive(Debug, Args)]
-    pub struct ConfigureArgs {
-        /// Provider name to configure
-        pub provider: String,
-        /// Interactive setup
-        #[arg(long)]
-        pub interactive: bool,
-    }
+    // Initialize cloud
+    let cloud = orkee_cloud::init().await?;
 
-    #[derive(Debug, Args)]
-    pub struct BackupArgs {
-        /// Optional backup name/tag
-        #[arg(long)]
-        pub name: Option<String>,
-        /// Encrypt backup
-        #[arg(long)]
-        pub encrypt: bool,
-        /// Passphrase for encryption (if not provided, will prompt)
-        #[arg(long)]
-        pub passphrase: Option<String>,
-    }
+    match command {
+        CloudCommands::Enable => {
+            println!("🚀 {}", "Enabling Orkee Cloud".bold());
+            println!();
+            println!("Orkee Cloud provides:");
+            println!("  • {} project backups", "Automatic".cyan());
+            println!("  • {} sync", "Multi-device".cyan());
+            println!("  • {} collaboration", "Team".cyan());
+            println!("  • {} access to your projects", "Web".cyan());
+            println!();
 
-    #[derive(Debug, Args)]
-    pub struct RestoreArgs {
-        /// Snapshot ID to restore
-        pub snapshot_id: String,
-        /// Restore to different location
-        #[arg(long)]
-        pub target_dir: Option<String>,
-        /// Force overwrite existing files
-        #[arg(long)]
-        pub force: bool,
-        /// Decrypt with passphrase (if not provided, will prompt)
-        #[arg(long)]
-        pub passphrase: Option<String>,
-    }
+            cloud.enable().await?;
+            
+            println!();
+            println!("✅ {} enabled!", "Orkee Cloud".green().bold());
+            println!();
+            println!("Your projects will now sync to the cloud.");
+            println!("Free tier includes {} projects and {} storage.", "2".yellow(), "100MB".yellow());
+            Ok(())
+        }
 
-    #[derive(Debug, Args)]
-    pub struct ListArgs {
-        /// Maximum number of snapshots to show
-        #[arg(long, short = 'n')]
-        pub limit: Option<usize>,
-        /// Show only snapshots created after this date
-        #[arg(long)]
-        pub after: Option<String>,
-        /// Show detailed information
-        #[arg(long, short = 'l')]
-        pub long: bool,
-    }
+        CloudCommands::Disable => {
+            println!("🔒 {}", "Disabling Orkee Cloud".bold());
+            cloud.disable().await?;
+            println!("✅ {} disabled", "Orkee Cloud".green().bold());
+            println!("Your projects are now local-only.");
+            Ok(())
+        }
 
-    #[derive(Debug, Args)]
-    pub struct TestArgs {
-        /// Provider name to test
-        pub provider: Option<String>,
-        /// Test all configured providers
-        #[arg(long)]
-        pub all: bool,
-    }
+        CloudCommands::Login => {
+            println!("🔐 {}", "Logging in to Orkee Cloud".bold());
+            let auth = cloud.auth();
+            auth.login().await?;
+            Ok(())
+        }
 
-    #[derive(Debug, Args)]
-    pub struct CleanupArgs {
-        /// Keep only this many recent snapshots
-        #[arg(long)]
-        pub keep: Option<usize>,
-        /// Delete snapshots older than this many days
-        #[arg(long)]
-        pub older_than_days: Option<u64>,
-        /// Dry run - show what would be deleted
-        #[arg(long)]
-        pub dry_run: bool,
-    }
+        CloudCommands::Logout => {
+            println!("👋 {}", "Logging out of Orkee Cloud".bold());
+            let auth = cloud.auth();
+            auth.logout().await?;
+            Ok(())
+        }
 
-    #[derive(Debug, Clone, clap::ValueEnum)]
-    pub enum ProviderType {
-        S3,
-        R2,
-        // Azure,
-        // Gcs,
-    }
+        CloudCommands::Sync(args) => {
+            if !cloud.is_enabled().await {
+                println!("❌ {} is not enabled", "Orkee Cloud".red());
+                println!("Run {} to enable cloud sync", "orkee cloud enable".yellow());
+                return Ok(());
+            }
 
-    // Implementation of cloud commands
-    pub async fn handle_cloud_command(cmd: CloudCommands) -> anyhow::Result<()> {
-        match cmd {
-            CloudCommands::Enable(args) => handle_enable(args).await,
-            CloudCommands::Disable => handle_disable().await,
-            CloudCommands::Configure(args) => handle_configure(args).await,
-            CloudCommands::Backup(args) => handle_backup(args).await,
-            CloudCommands::Restore(args) => handle_restore(args).await,
-            CloudCommands::List(args) => handle_list(args).await,
-            CloudCommands::Status => handle_status().await,
-            CloudCommands::Test(args) => handle_test(args).await,
-            CloudCommands::Cleanup(args) => handle_cleanup(args).await,
+            println!("🔄 {}", "Syncing projects to cloud...".bold());
+            
+            let result = if let Some(project_id) = args.project {
+                cloud.sync_project(&project_id).await?
+            } else {
+                cloud.sync().await?
+            };
+
+            println!("{}", result.summary());
+            Ok(())
+        }
+
+        CloudCommands::Restore(args) => {
+            if !cloud.is_enabled().await {
+                println!("❌ {} is not enabled", "Orkee Cloud".red());
+                println!("Run {} to enable cloud sync", "orkee cloud enable".yellow());
+                return Ok(());
+            }
+
+            println!("📥 {}", "Restoring projects from cloud...".bold());
+            
+            let projects = cloud.restore().await?;
+            
+            if projects.is_empty() {
+                println!("No projects found in cloud.");
+            } else {
+                println!("Found {} projects:", projects.len());
+                for project in projects {
+                    println!("  • {} - {}", 
+                        project.name.green(), 
+                        project.last_synced_at
+                            .map(|t| t.format("%Y-%m-%d %H:%M").to_string())
+                            .unwrap_or_else(|| "never synced".to_string())
+                    );
+                }
+            }
+            Ok(())
+        }
+
+        CloudCommands::List => {
+            if !cloud.is_enabled().await {
+                println!("❌ {} is not enabled", "Orkee Cloud".red());
+                println!("Run {} to enable cloud sync", "orkee cloud enable".yellow());
+                return Ok(());
+            }
+
+            println!("📋 {}", "Cloud projects:".bold());
+            
+            let projects = cloud.list().await?;
+            
+            if projects.is_empty() {
+                println!("No projects in cloud.");
+            } else {
+                println!();
+                for project in projects {
+                    let sync_status = match project.sync_status.as_str() {
+                        "synced" => "✓".green(),
+                        "pending" => "⏳".yellow(),
+                        "conflict" => "⚠".red(),
+                        _ => "?".white(),
+                    };
+                    
+                    println!("{} {} - {}", 
+                        sync_status,
+                        project.name.bold(), 
+                        project.description.as_deref().unwrap_or("No description")
+                    );
+                    
+                    if let Some(synced_at) = project.last_synced_at {
+                        println!("    Last synced: {}", 
+                            synced_at.format("%Y-%m-%d %H:%M").to_string().dimmed()
+                        );
+                    }
+                }
+            }
+            Ok(())
+        }
+
+        CloudCommands::Status => {
+            println!("☁️  {}", "Orkee Cloud Status".bold());
+            println!();
+
+            let status = cloud.status().await?;
+            
+            if !status.enabled {
+                println!("Status: {}", "Disabled".red());
+                println!("Run {} to enable cloud sync", "orkee cloud enable".yellow());
+            } else if !status.authenticated {
+                println!("Status: {}", "Not authenticated".yellow());
+                println!("Run {} to authenticate", "orkee cloud login".yellow());
+            } else {
+                println!("Status: {}", "Enabled".green());
+                println!();
+                
+                // Subscription info
+                let tier = &status.subscription.tier;
+                println!("📦 {} Tier", "Subscription:".bold());
+                println!("  Tier: {}", tier.display_name().cyan());
+                println!("  Limits: {}", status.subscription.describe_limits());
+                
+                // Features
+                println!();
+                println!("✨ {}:", "Features".bold());
+                let check = |enabled: bool| if enabled { "✓".green() } else { "✗".red() };
+                println!("  {} Auto-sync", check(status.subscription.auto_sync_enabled));
+                println!("  {} Real-time sync", check(status.subscription.realtime_enabled));
+                println!("  {} Team collaboration", check(status.subscription.collaboration_enabled));
+                
+                // Usage
+                if let Some(usage) = &status.usage {
+                    println!();
+                    println!("📊 {}:", "Usage".bold());
+                    println!("  Projects: {}/{}", 
+                        usage.project_count,
+                        if status.subscription.project_limit < 0 { 
+                            "unlimited".to_string() 
+                        } else { 
+                            status.subscription.project_limit.to_string() 
+                        }
+                    );
+                    println!("  Storage: {}MB/{}MB", 
+                        usage.used_mb,
+                        if status.subscription.storage_limit_mb < 0 { 
+                            "unlimited".to_string() 
+                        } else { 
+                            status.subscription.storage_limit_mb.to_string() 
+                        }
+                    );
+                }
+            }
+            Ok(())
         }
     }
+}
 
-    async fn handle_enable(args: EnableArgs) -> anyhow::Result<()> {
-        println!("{}", "Enabling cloud sync...".cyan());
-        
-        // Implementation will use orkee_cloud APIs
-        // This is a placeholder for the actual implementation
-        println!("Provider: {:?}", args.provider);
-        if let Some(bucket) = &args.bucket {
-            println!("Bucket: {}", bucket);
-        }
-        
-        Ok(())
-    }
-
-    async fn handle_disable() -> anyhow::Result<()> {
-        println!("{}", "Disabling cloud sync...".cyan());
-        Ok(())
-    }
-
-    async fn handle_configure(args: ConfigureArgs) -> anyhow::Result<()> {
-        println!("{}", format!("Configuring provider: {}", args.provider).cyan());
-        Ok(())
-    }
-
-    async fn handle_backup(args: BackupArgs) -> anyhow::Result<()> {
-        println!("{}", "Creating backup...".cyan());
-        if let Some(name) = &args.name {
-            println!("Backup name: {}", name);
-        }
-        Ok(())
-    }
-
-    async fn handle_restore(args: RestoreArgs) -> anyhow::Result<()> {
-        println!("{}", format!("Restoring snapshot: {}", args.snapshot_id).cyan());
-        Ok(())
-    }
-
-    async fn handle_list(args: ListArgs) -> anyhow::Result<()> {
-        println!("{}", "Listing snapshots...".cyan());
-        if let Some(limit) = args.limit {
-            println!("Limit: {}", limit);
-        }
-        Ok(())
-    }
-
-    async fn handle_status() -> anyhow::Result<()> {
-        println!("{}", "Cloud sync status:".cyan());
-        println!("Status: Not yet implemented");
-        Ok(())
-    }
-
-    async fn handle_test(args: TestArgs) -> anyhow::Result<()> {
-        if args.all {
-            println!("{}", "Testing all providers...".cyan());
-        } else if let Some(provider) = &args.provider {
-            println!("{}", format!("Testing provider: {}", provider).cyan());
-        }
-        Ok(())
-    }
-
-    async fn handle_cleanup(args: CleanupArgs) -> anyhow::Result<()> {
-        println!("{}", "Cleaning up snapshots...".cyan());
-        if args.dry_run {
-            println!("Dry run mode - no snapshots will be deleted");
-        }
-        Ok(())
-    }
+/// Print cloud help information
+pub fn print_help() {
+    println!("{}", "Orkee Cloud Commands".bold().cyan());
+    println!();
+    println!("  {} - Enable cloud sync", "orkee cloud enable".yellow());
+    println!("  {} - Disable cloud sync", "orkee cloud disable".yellow());
+    println!("  {} - Sync all projects", "orkee cloud sync".yellow());
+    println!("  {} - Sync specific project", "orkee cloud sync --project <id>".yellow());
+    println!("  {} - Restore from cloud", "orkee cloud restore".yellow());
+    println!("  {} - List cloud projects", "orkee cloud list".yellow());
+    println!("  {} - Show cloud status", "orkee cloud status".yellow());
+    println!("  {} - Login to cloud", "orkee cloud login".yellow());
+    println!("  {} - Logout from cloud", "orkee cloud logout".yellow());
+    println!();
+    println!("Cloud sync requires authentication and an active subscription.");
+    println!("Free tier includes 2 projects and 100MB storage.");
 }

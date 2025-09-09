@@ -21,27 +21,27 @@ async-trait = "0.1"
 chrono = { version = "0.4", features = ["serde"] }
 uuid = { version = "1.0", features = ["v4", "serde"] }
 
-# Database
-sqlx = { version = "0.8", features = ["runtime-tokio-rustls", "sqlite", "chrono", "macros", "migrate"] }
+# HTTP Client for Supabase
+reqwest = { version = "0.11", features = ["json", "rustls-tls"] }
 
-# Cloud Storage
-aws-config = "1.5"
-aws-sdk-s3 = "1.53"
+# Authentication
+warp = "0.3"  # For OAuth callback server
+open = "5.0"  # For opening browser
 
-# Security & Encryption
+# Configuration
+toml = "0.8"
+dirs = "5.0"
+
+# Security & Encryption (keep for future use)
 ring = "0.17"
 argon2 = "0.5"
-keyring = "3.6"
 
-# Network & Utilities
-backoff = { version = "0.4", features = ["tokio"] }
-bytes = "1.5"
-mime = "0.3"
-toml = "0.8"
-
-# Compression and utilities
-flate2 = "1.0"
+# Utilities
+hostname = "0.4"
 hex = "0.4"
+
+# Compression (for future snapshot functionality)
+flate2 = "1.0"
 
 # No dependency on projects to avoid circular dependency
 # Cloud package is self-contained
@@ -54,5 +54,5 @@ wiremock = "0.6"
 
 [features]
 default = []
-# Enable real cloud provider implementations for integration tests
+# Enable integration tests
 integration-tests = []

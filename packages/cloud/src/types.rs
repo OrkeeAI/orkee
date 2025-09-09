@@ -1,312 +1,161 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-// Re-export common types from providers
-pub use crate::providers::{SnapshotId, SnapshotMetadata, SnapshotInfo, StorageUsage};
-
-/// Credentials for authenticating with cloud providers
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum CloudCredentials {
-    /// AWS-style access key and secret
-    AwsCredentials {
-        access_key_id: String,
-        secret_access_key: String,
-        session_token: Option<String>,
-        region: String,
-    },
-    /// OAuth2 token
-    OAuth2 {
-        access_token: String,
-        refresh_token: Option<String>,
-        expires_at: Option<DateTime<Utc>>,
-    },
-    /// API key based authentication
-    ApiKey {
-        key: String,
-        secret: Option<String>,
-    },
-    /// Service account key (JSON)
-    ServiceAccount {
-        key_data: String,
-    },
-}
-
-/// Progress information for upload/download operations
+/// Progress information for sync operations
 #[derive(Debug, Clone)]
 pub struct ProgressInfo {
-    pub bytes_transferred: u64,
-    pub total_bytes: u64,
+    pub items_processed: usize,
+    pub total_items: usize,
     pub percentage: f32,
     pub elapsed_seconds: u64,
     pub estimated_remaining_seconds: Option<u64>,
+    pub current_item: Option<String>,
 }
 
 impl ProgressInfo {
-    pub fn new(bytes_transferred: u64, total_bytes: u64, elapsed_seconds: u64) -> Self {
-        let percentage = if total_bytes > 0 {
-            (bytes_transferred as f32 / total_bytes as f32) * 100.0
+    pub fn new(items_processed: usize, total_items: usize, elapsed_seconds: u64) -> Self {
+        let percentage = if total_items > 0 {
+            (items_processed as f32 / total_items as f32) * 100.0
         } else {
             0.0
         };
 
-        let estimated_remaining_seconds = if bytes_transferred > 0 && elapsed_seconds > 0 {
-            let rate = bytes_transferred as f64 / elapsed_seconds as f64;
-            let remaining_bytes = total_bytes.saturating_sub(bytes_transferred);
-            Some((remaining_bytes as f64 / rate) as u64)
+        let estimated_remaining_seconds = if items_processed > 0 && elapsed_seconds > 0 {
+            let rate = items_processed as f64 / elapsed_seconds as f64;
+            let remaining_items = total_items.saturating_sub(items_processed);
+            Some((remaining_items as f64 / rate) as u64)
         } else {
             None
         };
 
         Self {
-            bytes_transferred,
-            total_bytes,
+            items_processed,
+            total_items,
             percentage,
             elapsed_seconds,
             estimated_remaining_seconds,
+            current_item: None,
         }
     }
 
     pub fn is_complete(&self) -> bool {
-        self.bytes_transferred >= self.total_bytes
+        self.items_processed >= self.total_items
+    }
+
+    pub fn with_current_item(mut self, item: String) -> Self {
+        self.current_item = Some(item);
+        self
     }
 }
 
 /// Callback type for progress updates
 pub type ProgressCallback = Box<dyn Fn(ProgressInfo) + Send + Sync>;
 
-/// Sync operation status
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub enum SyncStatus {
-    Idle,
-    Preparing,
-    InProgress,
-    Completed,
-    Failed,
-    Paused,
-    Cancelled,
-}
-
-/// Result of a sync operation
-#[derive(Debug, Clone)]
-pub struct SyncResult {
-    pub status: SyncStatus,
+/// Cloud operation metadata
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OperationMetadata {
+    pub operation_id: String,
+    pub operation_type: OperationType,
     pub started_at: DateTime<Utc>,
     pub completed_at: Option<DateTime<Utc>>,
-    pub snapshot_id: Option<SnapshotId>,
-    pub bytes_transferred: u64,
-    pub projects_affected: usize,
-    pub error_message: Option<String>,
+    pub user_id: String,
+    pub machine_id: String,
+    pub success: bool,
+    pub error: Option<String>,
 }
 
-impl SyncResult {
-    pub fn starting(started_at: DateTime<Utc>) -> Self {
-        Self {
-            status: SyncStatus::Preparing,
-            started_at,
-            completed_at: None,
-            snapshot_id: None,
-            bytes_transferred: 0,
-            projects_affected: 0,
-            error_message: None,
-        }
-    }
-
-    pub fn in_progress(
-        started_at: DateTime<Utc>,
-        bytes_transferred: u64,
-        projects_affected: usize,
-    ) -> Self {
-        Self {
-            status: SyncStatus::InProgress,
-            started_at,
-            completed_at: None,
-            snapshot_id: None,
-            bytes_transferred,
-            projects_affected,
-            error_message: None,
-        }
-    }
-
-    pub fn completed(
-        started_at: DateTime<Utc>,
-        snapshot_id: SnapshotId,
-        bytes_transferred: u64,
-        projects_affected: usize,
-    ) -> Self {
-        Self {
-            status: SyncStatus::Completed,
-            started_at,
-            completed_at: Some(Utc::now()),
-            snapshot_id: Some(snapshot_id),
-            bytes_transferred,
-            projects_affected,
-            error_message: None,
-        }
-    }
-
-    pub fn failed(started_at: DateTime<Utc>, error: String) -> Self {
-        Self {
-            status: SyncStatus::Failed,
-            started_at,
-            completed_at: Some(Utc::now()),
-            snapshot_id: None,
-            bytes_transferred: 0,
-            projects_affected: 0,
-            error_message: Some(error),
-        }
-    }
-}
-
-/// Sync operation type
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub enum SyncOperation {
-    Backup,
+/// Type of cloud operation
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum OperationType {
+    Sync,
     Restore,
-    List,
-    Test,
+    Backup,
+    Delete,
+    Enable,
+    Disable,
 }
 
-/// Sync configuration settings
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SyncConfig {
-    pub auto_sync_enabled: bool,
-    pub sync_interval_hours: u32,
-    pub max_snapshots: u32,
-    pub compression_enabled: bool,
-    pub encryption_enabled: bool,
-    pub cleanup_old_snapshots: bool,
-}
-
-impl Default for SyncConfig {
-    fn default() -> Self {
-        Self {
-            auto_sync_enabled: false,
-            sync_interval_hours: 24,
-            max_snapshots: 30,
-            compression_enabled: true,
-            encryption_enabled: true,
-            cleanup_old_snapshots: true,
+impl std::fmt::Display for OperationType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            OperationType::Sync => write!(f, "Sync"),
+            OperationType::Restore => write!(f, "Restore"),
+            OperationType::Backup => write!(f, "Backup"),
+            OperationType::Delete => write!(f, "Delete"),
+            OperationType::Enable => write!(f, "Enable"),
+            OperationType::Disable => write!(f, "Disable"),
         }
     }
 }
 
-/// Cloud snapshot data structure for database storage
+/// Machine identifier for tracking sync sources
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CloudSnapshot {
+pub struct MachineId {
     pub id: String,
-    pub provider_name: String,
-    pub snapshot_id: String,
-    pub created_at: DateTime<Utc>,
-    pub size_bytes: u64,
-    pub compressed_size_bytes: u64,
-    pub project_count: usize,
-    pub version: u32,
-    pub checksum: String,
-    pub encrypted: bool,
-    pub storage_path: String,
-    pub etag: Option<String>,
-    pub last_accessed_at: Option<DateTime<Utc>>,
-    pub uploaded_at: Option<DateTime<Utc>>,
-    pub download_count: i64,
-    pub last_downloaded_at: Option<DateTime<Utc>>,
-    pub locally_deleted: bool,
-    pub deletion_scheduled_at: Option<DateTime<Utc>>,
-    pub metadata_json: String,
-    pub tags_json: String,
+    pub hostname: String,
+    pub platform: String,
 }
 
-/// Cloud sync state information
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CloudSyncState {
-    pub id: i64,
-    pub provider_name: String,
-    pub provider_type: String,
-    pub enabled: bool,
-    pub last_sync_at: Option<DateTime<Utc>>,
-    pub last_successful_sync_at: Option<DateTime<Utc>>,
-    pub last_snapshot_id: Option<String>,
-    pub sync_interval_minutes: Option<i64>,
-    pub auto_sync_enabled: bool,
-    pub max_snapshots: Option<i64>,
-    pub encryption_enabled: bool,
-    pub compression_enabled: bool,
-    pub created_at: DateTime<Utc>,
-    pub updated_at: DateTime<Utc>,
-    pub config_json: Option<String>,
-}
+impl MachineId {
+    /// Generate a machine ID for this system
+    pub fn current() -> Self {
+        let id = uuid::Uuid::new_v4().to_string();
+        let hostname = hostname::get()
+            .map(|h| h.to_string_lossy().to_string())
+            .unwrap_or_else(|_| "unknown".to_string());
+        let platform = std::env::consts::OS.to_string();
 
-/// Sync conflict information
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SyncConflict {
-    pub id: i64,
-    pub provider_name: String,
-    pub snapshot_id: Option<String>,
-    pub project_id: String,
-    pub detected_at: DateTime<Utc>,
-    pub conflict_type: String,
-    pub local_value: Option<String>,
-    pub remote_value: Option<String>,
-    pub local_version: Option<i64>,
-    pub remote_version: Option<i64>,
-    pub resolution_status: String,
-    pub resolution_strategy: Option<String>,
-    pub resolved_at: Option<DateTime<Utc>>,
-    pub resolved_by: Option<String>,
-    pub resolution_notes: Option<String>,
-}
-
-/// Sync health summary
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SyncHealthSummary {
-    pub provider_name: String,
-    pub provider_type: String,
-    pub enabled: bool,
-    pub auto_sync_enabled: bool,
-    pub last_successful_sync_at: Option<DateTime<Utc>>,
-    pub error_count: i64,
-    pub snapshot_count: i64,
-    pub pending_conflicts: i64,
-    pub latest_snapshot_at: Option<DateTime<Utc>>,
-}
-
-/// Snapshot validation result
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ValidationResult {
-    pub is_valid: bool,
-    pub checksum_matches: bool,
-    pub size_matches: bool,
-    pub metadata_valid: bool,
-    pub errors: Vec<String>,
-}
-
-impl ValidationResult {
-    pub fn valid() -> Self {
         Self {
-            is_valid: true,
-            checksum_matches: true,
-            size_matches: true,
-            metadata_valid: true,
-            errors: Vec::new(),
+            id,
+            hostname,
+            platform,
         }
     }
+}
 
-    pub fn invalid(errors: Vec<String>) -> Self {
+/// Usage event for analytics
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UsageEvent {
+    pub event_type: String,
+    pub event_data: serde_json::Value,
+    pub timestamp: DateTime<Utc>,
+    pub user_id: String,
+    pub machine_id: String,
+}
+
+impl UsageEvent {
+    /// Create a new usage event
+    pub fn new(event_type: String, event_data: serde_json::Value, user_id: String) -> Self {
         Self {
-            is_valid: false,
-            checksum_matches: false,
-            size_matches: false,
-            metadata_valid: false,
-            errors,
+            event_type,
+            event_data,
+            timestamp: Utc::now(),
+            user_id,
+            machine_id: MachineId::current().id,
         }
     }
+}
 
-    pub fn add_error(&mut self, error: String) {
-        self.errors.push(error);
-        self.is_valid = false;
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_progress_calculation() {
+        let progress = ProgressInfo::new(50, 100, 10);
+        assert_eq!(progress.percentage, 50.0);
+        assert!(!progress.is_complete());
+
+        let complete = ProgressInfo::new(100, 100, 20);
+        assert_eq!(complete.percentage, 100.0);
+        assert!(complete.is_complete());
     }
 
-    pub fn add_warning(&mut self, warning: String) {
-        // For now, warnings are just added to errors - could be separate in the future
-        self.errors.push(format!("Warning: {}", warning));
+    #[test]
+    fn test_machine_id_generation() {
+        let machine_id = MachineId::current();
+        assert!(!machine_id.id.is_empty());
+        assert!(!machine_id.hostname.is_empty());
+        assert!(!machine_id.platform.is_empty());
     }
 }
