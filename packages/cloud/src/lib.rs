@@ -1,5 +1,5 @@
 //! Orkee Cloud - Client package for Orkee Cloud integration
-//! 
+//!
 //! This package provides a client interface for connecting to Orkee Cloud API.
 //! Features:
 //! - OAuth authentication with browser-based flow
@@ -36,101 +36,117 @@ impl CloudClient {
         let mut auth_manager = AuthManager::new()?;
         auth_manager.init().await?;
         let http_client = HttpClient::new(api_base_url.clone(), auth_manager.clone())?;
-        
+
         Ok(Self {
             http_client,
             auth_manager,
             api_base_url,
         })
     }
-    
+
     /// Check if user is authenticated
     pub fn is_authenticated(&self) -> bool {
         self.auth_manager.is_authenticated()
     }
-    
+
     /// Get current user information
     pub fn user_info(&self) -> Option<(String, String, String)> {
-        self.auth_manager.user_info()
+        self.auth_manager
+            .user_info()
             .map(|(id, email, name)| (id.to_string(), email.to_string(), name.to_string()))
     }
-    
+
     /// Perform OAuth login flow
     pub async fn login(&mut self) -> CloudResult<TokenInfo> {
         println!("🚀 Starting Orkee Cloud authentication...");
-        
+
         // Start OAuth flow
-        let _state = self.auth_manager.start_oauth_flow(&self.api_base_url).await?;
-        
+        let _state = self
+            .auth_manager
+            .start_oauth_flow(&self.api_base_url)
+            .await?;
+
         // Start callback server
         let callback_server = CallbackServer::new();
         let auth_code = callback_server.wait_for_callback().await?;
-        
+
         println!("✅ Authentication code received!");
-        
+
         // Exchange code for token
         let http_client = reqwest::Client::new();
-        let token_info = self.auth_manager
+        let token_info = self
+            .auth_manager
             .exchange_code(auth_code, &http_client, &self.api_base_url)
             .await?;
-        
+
         println!("🎉 Successfully authenticated as {}", token_info.user_name);
         Ok(token_info)
     }
-    
+
     /// Logout and clear stored token
     pub async fn logout(&mut self) -> CloudResult<()> {
         self.auth_manager.logout().await?;
         println!("👋 Logged out from Orkee Cloud");
         Ok(())
     }
-    
+
     /// List all projects in the cloud
     pub async fn list_projects(&self) -> CloudResult<Vec<CloudProject>> {
         let response: ListProjectsResponse = self.http_client.get("/api/projects").await?;
         Ok(response.projects)
     }
-    
+
     /// Sync a project to the cloud
-    pub async fn sync_project(&self, cloud_project: CloudProject, project_data: serde_json::Value) -> CloudResult<String> {
+    pub async fn sync_project(
+        &self,
+        cloud_project: CloudProject,
+        project_data: serde_json::Value,
+    ) -> CloudResult<String> {
         // Serialize project data
         let project_json = serde_json::to_string(&project_data)?;
         let snapshot_data = BASE64.encode(project_json.as_bytes());
-        
+
         let request = ProjectSyncRequest {
             project: cloud_project.clone(),
             snapshot_data,
         };
-        
-        let response: ProjectSyncResponse = self.http_client.post("/api/projects/sync", &request).await?;
-        
+
+        let response: ProjectSyncResponse = self
+            .http_client
+            .post("/api/projects/sync", &request)
+            .await?;
+
         println!("☁️  Project '{}' synced successfully", cloud_project.name);
         Ok(response.snapshot_id)
     }
-    
+
     /// Restore a project from the cloud
     pub async fn restore_project(&self, project_id: &str) -> CloudResult<serde_json::Value> {
         let path = format!("/api/projects/{}", project_id);
         let response: RestoreResponse = self.http_client.get(&path).await?;
-        
+
         // Decode project data
-        let project_bytes = BASE64.decode(&response.snapshot_data)
+        let project_bytes = BASE64
+            .decode(&response.snapshot_data)
             .map_err(|e| CloudError::api(format!("Invalid snapshot data: {}", e)))?;
-        
+
         let project_json = String::from_utf8(project_bytes)
             .map_err(|e| CloudError::api(format!("Invalid UTF-8 in snapshot: {}", e)))?;
-        
+
         let project_data: serde_json::Value = serde_json::from_str(&project_json)?;
-        
-        println!("📥 Project '{}' restored successfully", response.project.name);
+
+        println!(
+            "📥 Project '{}' restored successfully",
+            response.project.name
+        );
         Ok(project_data)
     }
-    
+
     /// Get usage statistics
     pub async fn get_usage(&self) -> CloudResult<Usage> {
         self.http_client.get("/api/usage").await
     }
-    
+
     /// Get cloud sync status
     pub async fn get_status(&self) -> CloudResult<CloudStatus> {
         if !self.is_authenticated() {
@@ -143,10 +159,10 @@ impl CloudClient {
                 subscription_tier: None,
             });
         }
-        
+
         let usage = self.get_usage().await?;
         let (_user_id, user_email, user_name) = self.user_info().unwrap();
-        
+
         Ok(CloudStatus {
             authenticated: true,
             user_email: Some(user_email),
@@ -188,21 +204,23 @@ impl CloudConfigBuilder {
             token: None,
         }
     }
-    
+
     pub fn api_url(mut self, url: String) -> Self {
         self.api_url = Some(url);
         self
     }
-    
+
     pub fn token(mut self, token: String) -> Self {
         self.token = Some(token);
         self
     }
-    
+
     pub async fn build(self) -> CloudResult<CloudClient> {
-        let api_url = self.api_url.unwrap_or_else(|| "https://api.orkee.ai".to_string());
+        let api_url = self
+            .api_url
+            .unwrap_or_else(|| "https://api.orkee.ai".to_string());
         let client = CloudClient::new(api_url).await?;
-        
+
         // If token is provided, try to use it (for environment variable usage)
         if let Some(token) = self.token {
             if !token.is_empty() {
@@ -211,7 +229,7 @@ impl CloudConfigBuilder {
                 tracing::debug!("Token provided via environment variable");
             }
         }
-        
+
         Ok(client)
     }
 }
@@ -219,11 +237,11 @@ impl CloudConfigBuilder {
 /// Legacy compatibility - create and initialize cloud client
 pub async fn init() -> CloudResult<CloudClient> {
     // Try to get config from environment
-    let api_url = std::env::var("ORKEE_CLOUD_API_URL")
-        .unwrap_or_else(|_| "https://api.orkee.ai".to_string());
-    
+    let api_url =
+        std::env::var("ORKEE_CLOUD_API_URL").unwrap_or_else(|_| "https://api.orkee.ai".to_string());
+
     let token = std::env::var("ORKEE_CLOUD_TOKEN").unwrap_or_default();
-    
+
     CloudConfigBuilder::new()
         .api_url(api_url)
         .token(token)
@@ -234,14 +252,14 @@ pub async fn init() -> CloudResult<CloudClient> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[tokio::test]
     async fn test_cloud_client_creation() {
         let result = CloudClient::new("https://api.test.com".to_string()).await;
         assert!(result.is_ok());
     }
-    
-    #[tokio::test] 
+
+    #[tokio::test]
     async fn test_config_builder() {
         let result = CloudConfigBuilder::new()
             .api_url("https://api.test.com".to_string())

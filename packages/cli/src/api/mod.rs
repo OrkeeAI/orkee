@@ -80,11 +80,17 @@ pub async fn create_router() -> Router {
         )
         .with_state(preview_state);
 
-    // Create git router 
+    // Create git router
     let git_router = Router::new()
         .route("/:project_id/commits", get(git::get_commit_history))
-        .route("/:project_id/commits/:commit_id", get(git::get_commit_details))
-        .route("/:project_id/diff/:commit_id/*file_path", get(git::get_file_diff))
+        .route(
+            "/:project_id/commits/:commit_id",
+            get(git::get_commit_details),
+        )
+        .route(
+            "/:project_id/diff/:commit_id/*file_path",
+            get(git::get_file_diff),
+        )
         .layer(axum::Extension(project_manager.clone()));
 
     Router::new()

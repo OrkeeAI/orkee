@@ -66,10 +66,7 @@ impl RateLimitLayer {
     }
 
     /// Get or create rate limiter for specific endpoint category
-    fn get_limiter_for_path(
-        &self,
-        path: &str,
-    ) -> RateLimiterInstance {
+    fn get_limiter_for_path(&self, path: &str) -> RateLimiterInstance {
         let category = categorize_endpoint(path);
         let rpm = match category {
             EndpointCategory::Health => self.config.health_rpm,
@@ -193,9 +190,7 @@ pub async fn rate_limit_middleware(
 }
 
 /// Calculate how long the client should wait before retrying
-fn calculate_retry_after(
-    limiter: &RateLimiterType,
-) -> u64 {
+fn calculate_retry_after(limiter: &RateLimiterType) -> u64 {
     // Try to get the earliest time when a slot will be available
     match limiter.check() {
         Ok(_) => 1, // Should be available now, but return 1 second as minimum

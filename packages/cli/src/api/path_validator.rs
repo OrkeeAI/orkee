@@ -99,8 +99,7 @@ impl PathValidator {
             .collect();
 
         // Build blocked paths list
-        let mut blocked_paths: Vec<PathBuf> =
-            SYSTEM_BLOCKED.iter().map(PathBuf::from).collect();
+        let mut blocked_paths: Vec<PathBuf> = SYSTEM_BLOCKED.iter().map(PathBuf::from).collect();
 
         // Add user-specific blocked paths
         if !home_dir.is_empty() {

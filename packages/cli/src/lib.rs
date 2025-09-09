@@ -23,7 +23,7 @@ fn create_cors_origin(allow_any_localhost: bool) -> AllowOrigin {
         // Use a predicate to allow any localhost origin dynamically
         AllowOrigin::predicate(|origin: &HeaderValue, _: &_| {
             if let Ok(origin_str) = origin.to_str() {
-                origin_str.starts_with("http://localhost:") 
+                origin_str.starts_with("http://localhost:")
                     || origin_str.starts_with("http://127.0.0.1:")
                     || origin_str.starts_with("http://[::1]:")
             } else {
@@ -34,17 +34,19 @@ fn create_cors_origin(allow_any_localhost: bool) -> AllowOrigin {
         // Use the restricted list
         let allowed_origins = [
             "http://localhost:5173",
-            "http://localhost:5174", 
+            "http://localhost:5174",
             "http://localhost:5175",
             "http://localhost:3000",
             "http://127.0.0.1:5173",
             "http://127.0.0.1:3000",
             "http://[::1]:5173",
         ];
-        
-        AllowOrigin::list(allowed_origins.iter().map(|origin| {
-            HeaderValue::from_str(origin).unwrap()
-        }))
+
+        AllowOrigin::list(
+            allowed_origins
+                .iter()
+                .map(|origin| HeaderValue::from_str(origin).unwrap()),
+        )
     }
 }
 

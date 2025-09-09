@@ -112,7 +112,7 @@ impl<T> ApiResponse<T> {
     pub fn is_success(&self) -> bool {
         self.success
     }
-    
+
     /// Get the data, returning an error if the response was unsuccessful
     pub fn into_result(self) -> Result<T, crate::error::CloudError> {
         if self.success {
@@ -120,7 +120,8 @@ impl<T> ApiResponse<T> {
                 crate::error::CloudError::api("Response indicated success but contained no data")
             })
         } else {
-            let error_msg = self.error
+            let error_msg = self
+                .error
                 .map(|e| format!("{}: {}", e.error, e.message))
                 .unwrap_or_else(|| "Unknown API error".to_string());
             Err(crate::error::CloudError::api(error_msg))

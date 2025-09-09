@@ -3,7 +3,7 @@ use axum::{
     response::Json,
     Extension,
 };
-use git2::{Commit, DiffOptions, Repository, Oid, DiffFormat};
+use git2::{Commit, DiffFormat, DiffOptions, Oid, Repository};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tracing::{debug, error, warn};
@@ -142,7 +142,10 @@ pub async fn get_commit_details(
     Path((project_id, commit_id)): Path<(String, String)>,
     Extension(project_manager): Extension<Arc<ProjectsManager>>,
 ) -> Json<ApiResponse<CommitDetail>> {
-    debug!("Getting commit details for project: {}, commit: {}", project_id, commit_id);
+    debug!(
+        "Getting commit details for project: {}, commit: {}",
+        project_id, commit_id
+    );
 
     // Get project details
     let project = match project_manager.get_project(&project_id).await {
@@ -200,7 +203,10 @@ pub async fn get_file_diff(
     Query(params): Query<FileDiffQuery>,
     Extension(project_manager): Extension<Arc<ProjectsManager>>,
 ) -> Json<ApiResponse<FileDiff>> {
-    debug!("Getting file diff for project: {}, commit: {}, file: {}", project_id, commit_id, file_path);
+    debug!(
+        "Getting file diff for project: {}, commit: {}, file: {}",
+        project_id, commit_id, file_path
+    );
 
     let context = params.context.unwrap_or(3);
 
@@ -262,7 +268,7 @@ fn get_commits_from_repo(
     branch: Option<&str>,
 ) -> Result<Vec<CommitInfo>, git2::Error> {
     let mut revwalk = repo.revwalk()?;
-    
+
     // Use specified branch or HEAD
     if let Some(branch_name) = branch {
         let branch_ref = format!("refs/heads/{}", branch_name);
@@ -275,27 +281,27 @@ fn get_commits_from_repo(
     } else {
         revwalk.push_head()?;
     }
-    
+
     revwalk.set_sorting(git2::Sort::TIME)?;
-    
+
     let mut commits = Vec::new();
     let mut count = 0;
-    
+
     for (index, commit_id) in revwalk.enumerate() {
         if index < skip {
             continue;
         }
-        
+
         if count >= per_page {
             break;
         }
-        
+
         let commit_id = commit_id?;
         let commit = repo.find_commit(commit_id)?;
-        
+
         // Calculate diff stats
         let (files_changed, insertions, deletions) = calculate_commit_stats(repo, &commit)?;
-        
+
         commits.push(CommitInfo {
             id: commit.id().to_string(),
             short_id: commit.id().to_string()[..7].to_string(),
@@ -308,24 +314,27 @@ fn get_commits_from_repo(
             insertions,
             deletions,
         });
-        
+
         count += 1;
     }
-    
+
     Ok(commits)
 }
 
-fn get_commit_detail_from_repo(repo: &Repository, commit_id: &str) -> Result<CommitDetail, git2::Error> {
+fn get_commit_detail_from_repo(
+    repo: &Repository,
+    commit_id: &str,
+) -> Result<CommitDetail, git2::Error> {
     let oid = Oid::from_str(commit_id)?;
     let commit = repo.find_commit(oid)?;
-    
+
     // Get parent IDs
     let parent_ids: Vec<String> = commit.parent_ids().map(|id| id.to_string()).collect();
-    
+
     // Calculate diff stats and file changes
     let (files_changed, insertions, deletions) = calculate_commit_stats(repo, &commit)?;
     let files = get_commit_file_changes(repo, &commit)?;
-    
+
     let commit_info = CommitInfo {
         id: commit.id().to_string(),
         short_id: commit.id().to_string()[..7].to_string(),
@@ -338,7 +347,7 @@ fn get_commit_detail_from_repo(repo: &Repository, commit_id: &str) -> Result<Com
         insertions,
         deletions,
     };
-    
+
     Ok(CommitDetail {
         commit: commit_info,
         files,
@@ -359,25 +368,25 @@ fn get_file_diff_from_repo(
 ) -> Result<FileDiff, git2::Error> {
     let oid = Oid::from_str(commit_id)?;
     let commit = repo.find_commit(oid)?;
-    
+
     let tree = commit.tree()?;
     let parent_tree = if commit.parent_count() > 0 {
         Some(commit.parent(0)?.tree()?)
     } else {
         None
     };
-    
+
     let mut diff_opts = DiffOptions::new();
     diff_opts.context_lines(context as u32);
     diff_opts.pathspec(file_path);
-    
+
     let diff = repo.diff_tree_to_tree(parent_tree.as_ref(), Some(&tree), Some(&mut diff_opts))?;
-    
+
     let mut content = String::new();
     let mut old_path = None;
     let mut status = "modified".to_string();
     let mut is_binary = false;
-    
+
     diff.print(DiffFormat::Patch, |_delta, _hunk, line| {
         match line.origin() {
             ' ' | '+' | '-' => {
@@ -391,7 +400,7 @@ fn get_file_diff_from_repo(
                 }
             }
             'H' => {
-                // Hunk header  
+                // Hunk header
                 content.push_str("@@");
                 if let Ok(header) = std::str::from_utf8(line.content()) {
                     content.push_str(header);
@@ -404,7 +413,7 @@ fn get_file_diff_from_repo(
         }
         true
     })?;
-    
+
     // Get file status and old path from delta
     diff.foreach(
         &mut |delta, _progress| {
@@ -427,7 +436,7 @@ fn get_file_diff_from_repo(
         None,
         None,
     )?;
-    
+
     Ok(FileDiff {
         path: file_path.to_string(),
         old_path,
@@ -437,61 +446,68 @@ fn get_file_diff_from_repo(
     })
 }
 
-fn calculate_commit_stats(repo: &Repository, commit: &Commit) -> Result<(usize, usize, usize), git2::Error> {
+fn calculate_commit_stats(
+    repo: &Repository,
+    commit: &Commit,
+) -> Result<(usize, usize, usize), git2::Error> {
     let tree = commit.tree()?;
     let parent_tree = if commit.parent_count() > 0 {
         Some(commit.parent(0)?.tree()?)
     } else {
         None
     };
-    
+
     let diff = repo.diff_tree_to_tree(parent_tree.as_ref(), Some(&tree), None)?;
     let stats = diff.stats()?;
-    
-    Ok((
-        stats.files_changed(),
-        stats.insertions(),
-        stats.deletions(),
-    ))
+
+    Ok((stats.files_changed(), stats.insertions(), stats.deletions()))
 }
 
-fn get_commit_file_changes(repo: &Repository, commit: &Commit) -> Result<Vec<FileChange>, git2::Error> {
+fn get_commit_file_changes(
+    repo: &Repository,
+    commit: &Commit,
+) -> Result<Vec<FileChange>, git2::Error> {
     let tree = commit.tree()?;
     let parent_tree = if commit.parent_count() > 0 {
         Some(commit.parent(0)?.tree()?)
     } else {
         None
     };
-    
+
     let diff = repo.diff_tree_to_tree(parent_tree.as_ref(), Some(&tree), None)?;
     let mut file_changes = Vec::new();
-    
+
     diff.foreach(
         &mut |delta, _progress| {
             let new_file = delta.new_file();
             let old_file = delta.old_file();
-            
-            let path = new_file.path()
+
+            let path = new_file
+                .path()
                 .or_else(|| old_file.path())
                 .and_then(|p| p.to_str())
                 .unwrap_or("")
                 .to_string();
-            
+
             let old_path = if delta.status() == git2::Delta::Renamed {
-                old_file.path().and_then(|p| p.to_str()).map(|s| s.to_string())
+                old_file
+                    .path()
+                    .and_then(|p| p.to_str())
+                    .map(|s| s.to_string())
             } else {
                 None
             };
-            
+
             let status = match delta.status() {
                 git2::Delta::Added => "added",
-                git2::Delta::Deleted => "deleted", 
+                git2::Delta::Deleted => "deleted",
                 git2::Delta::Modified => "modified",
                 git2::Delta::Renamed => "renamed",
                 git2::Delta::Copied => "copied",
                 _ => "unknown",
-            }.to_string();
-            
+            }
+            .to_string();
+
             file_changes.push(FileChange {
                 path,
                 old_path,
@@ -499,27 +515,28 @@ fn get_commit_file_changes(repo: &Repository, commit: &Commit) -> Result<Vec<Fil
                 insertions: 0, // Will be filled by patch analysis
                 deletions: 0,  // Will be filled by patch analysis
             });
-            
+
             true
         },
         None,
         None,
         None,
     )?;
-    
+
     // Get per-file stats by creating individual diffs for each file
     for file_change in file_changes.iter_mut() {
         // Create a diff options that targets only this specific file
         let mut diff_opts = DiffOptions::new();
         diff_opts.pathspec(&file_change.path);
-        
+
         // Create a diff for just this file
-        let file_diff = repo.diff_tree_to_tree(parent_tree.as_ref(), Some(&tree), Some(&mut diff_opts))?;
-        
+        let file_diff =
+            repo.diff_tree_to_tree(parent_tree.as_ref(), Some(&tree), Some(&mut diff_opts))?;
+
         // Count additions and deletions for this specific file
         let mut insertions = 0;
         let mut deletions = 0;
-        
+
         file_diff.foreach(
             &mut |_delta, _progress| true,
             None,
@@ -533,17 +550,17 @@ fn get_commit_file_changes(repo: &Repository, commit: &Commit) -> Result<Vec<Fil
                 true
             }),
         )?;
-        
+
         file_change.insertions = insertions;
         file_change.deletions = deletions;
     }
-    
+
     Ok(file_changes)
 }
 
 fn format_timestamp(timestamp: i64) -> String {
-    use chrono::{Utc, TimeZone};
-    
+    use chrono::{TimeZone, Utc};
+
     match Utc.timestamp_opt(timestamp, 0) {
         chrono::LocalResult::Single(dt) => dt.format("%Y-%m-%d %H:%M:%S UTC").to_string(),
         _ => timestamp.to_string(),

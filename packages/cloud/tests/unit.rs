@@ -2,8 +2,11 @@
 
 #[cfg(test)]
 mod cloud_unit_tests {
-    use orkee_cloud::{CloudError, api::{ApiResponse, ApiError, CloudProject}};
     use chrono::Utc;
+    use orkee_cloud::{
+        api::{ApiError, ApiResponse, CloudProject},
+        CloudError,
+    };
 
     #[test]
     fn test_cloud_error_creation() {
@@ -49,7 +52,7 @@ mod cloud_unit_tests {
         assert!(!response.is_success());
         let result = response.into_result();
         assert!(result.is_err());
-        
+
         match result.unwrap_err() {
             CloudError::Api(msg) => {
                 assert!(msg.contains("test_error"));
