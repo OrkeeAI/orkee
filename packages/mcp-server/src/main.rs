@@ -125,7 +125,7 @@ async fn main() -> Result<()> {
 
     // Set up signal handling for graceful shutdown
     let running = Arc::new(AtomicBool::new(true));
-    
+
     #[cfg(unix)]
     {
         let r = running.clone();
