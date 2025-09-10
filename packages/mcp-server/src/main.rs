@@ -3,11 +3,16 @@
 use anyhow::Result;
 use clap::Parser;
 use serde_json::{json, Value};
-use signal_hook::{consts::SIGINT, iterator::Signals};
 use std::io::{self, BufRead, BufReader};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::thread;
+
+#[cfg(unix)]
+use signal_hook::{consts::SIGINT, iterator::Signals};
+
+#[cfg(windows)]
+use ctrlc;
 
 mod context;
 mod mcp;
@@ -120,14 +125,29 @@ async fn main() -> Result<()> {
 
     // Set up signal handling for graceful shutdown
     let running = Arc::new(AtomicBool::new(true));
-    let r = running.clone();
+    
+    #[cfg(unix)]
+    {
+        let r = running.clone();
+        thread::spawn(move || {
+            let mut signals = Signals::new([SIGINT]).unwrap();
+            if signals.forever().next().is_some() {
+                r.store(false, Ordering::SeqCst);
+            }
+        });
+    }
 
-    thread::spawn(move || {
-        let mut signals = Signals::new([SIGINT]).unwrap();
-        if signals.forever().next().is_some() {
+    #[cfg(windows)]
+    {
+        // On Windows, use ctrlc crate for signal handling
+        let r = running.clone();
+        match ctrlc::set_handler(move || {
             r.store(false, Ordering::SeqCst);
+        }) {
+            Ok(_) => {}
+            Err(e) => eprintln!("Warning: Could not set Ctrl+C handler: {}", e),
         }
-    });
+    }
 
     let stdin = io::stdin();
     let reader = BufReader::new(stdin);

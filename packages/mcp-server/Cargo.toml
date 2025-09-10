@@ -18,7 +18,12 @@ serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["preserve_order"] }
 clap = { version = "4", features = ["derive"] }
 anyhow = "1"
+
+[target.'cfg(unix)'.dependencies]
 signal-hook = "0.3"
+
+[target.'cfg(windows)'.dependencies]
+ctrlc = "3.4"
 
 [dev-dependencies]
 rstest = "0.18"
