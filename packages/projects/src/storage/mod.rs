@@ -203,10 +203,18 @@ pub fn decompress_data(data: &[u8]) -> StorageResult<Vec<u8>> {
     Ok(decompressed)
 }
 
-/// Generate a unique project ID
+/// Generate a unique project ID (8-character format for cloud compatibility)
 pub fn generate_project_id() -> String {
-    use uuid::Uuid;
-    Uuid::new_v4().to_string()
+    // Generate 8-character ID like nanoid
+    use rand::Rng;
+    const CHARSET: &[u8] = b"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+    let mut rng = rand::thread_rng();
+    (0..8)
+        .map(|_| {
+            let idx = rng.gen_range(0..CHARSET.len());
+            CHARSET[idx] as char
+        })
+        .collect()
 }
 
 // Re-export legacy JSON storage functions for backward compatibility

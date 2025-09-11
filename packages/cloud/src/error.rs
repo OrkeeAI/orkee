@@ -1,11 +1,11 @@
 //! Cloud error types
-
+use std::fmt;
 use thiserror::Error;
 
 /// Result type for cloud operations
 pub type CloudResult<T> = Result<T, CloudError>;
 
-/// Cloud error types
+/// Cloud-specific error types
 #[derive(Debug, Error)]
 pub enum CloudError {
     #[error("Authentication error: {0}")]
@@ -14,17 +14,17 @@ pub enum CloudError {
     #[error("API error: {0}")]
     Api(String),
 
+    #[error("IO error: {0}")]
+    Io(String),
+
     #[error("Network error: {0}")]
-    Network(#[from] reqwest::Error),
+    Network(String),
+
+    #[error("Serialization error: {0}")]
+    Serialization(String),
 
     #[error("Configuration error: {0}")]
     Configuration(String),
-
-    #[error("Serialization error: {0}")]
-    Serialization(#[from] serde_json::Error),
-
-    #[error("I/O error: {0}")]
-    Io(#[from] std::io::Error),
 
     #[error("Token expired or invalid")]
     TokenExpired,
@@ -36,17 +36,22 @@ pub enum CloudError {
 impl CloudError {
     /// Create an authentication error
     pub fn auth(msg: impl Into<String>) -> Self {
-        CloudError::Authentication(msg.into())
+        Self::Authentication(msg.into())
     }
 
     /// Create an API error
     pub fn api(msg: impl Into<String>) -> Self {
-        CloudError::Api(msg.into())
+        Self::Api(msg.into())
+    }
+
+    /// Create a network error
+    pub fn http(err: reqwest::Error) -> Self {
+        Self::Network(err.to_string())
     }
 
     /// Create a configuration error
     pub fn config(msg: impl Into<String>) -> Self {
-        CloudError::Configuration(msg.into())
+        Self::Configuration(msg.into())
     }
 
     /// Check if this is a network-related error
@@ -60,5 +65,23 @@ impl CloudError {
             self,
             CloudError::Authentication(_) | CloudError::TokenExpired
         )
+    }
+}
+
+impl From<reqwest::Error> for CloudError {
+    fn from(err: reqwest::Error) -> Self {
+        Self::Network(err.to_string())
+    }
+}
+
+impl From<serde_json::Error> for CloudError {
+    fn from(err: serde_json::Error) -> Self {
+        Self::Serialization(err.to_string())
+    }
+}
+
+impl From<std::io::Error> for CloudError {
+    fn from(err: std::io::Error) -> Self {
+        Self::Io(err.to_string())
     }
 }

@@ -52,16 +52,35 @@ pub struct ProjectSyncResponse {
     pub synced_at: DateTime<Utc>,
 }
 
-/// Cloud project representation
+/// Cloud project representation with full OSS compatibility
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CloudProject {
-    pub id: String,
+    pub id: String,  // 8-character format
     pub name: String,
-    pub path: String,
+    pub path: String,  // project_root
     pub description: Option<String>,
+    pub setup_script: Option<String>,
+    pub dev_script: Option<String>,
+    pub cleanup_script: Option<String>,
+    pub tags: Vec<String>,
+    pub status: String,  // "active" or "archived"
+    pub priority: String,  // "high", "medium", "low"
+    pub rank: Option<u32>,
+    pub task_source: Option<String>,  // "taskmaster" or "manual"
+    pub mcp_servers: std::collections::HashMap<String, bool>,
+    pub git_repository: Option<GitRepositoryInfo>,
+    pub manual_tasks: Option<Vec<serde_json::Value>>,  // Serialized tasks
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
     pub last_sync: Option<DateTime<Utc>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GitRepositoryInfo {
+    pub owner: String,
+    pub repo: String,
+    pub url: String,
+    pub branch: Option<String>,
 }
 
 /// List projects response
@@ -97,6 +116,64 @@ pub struct ApiError {
     pub message: String,
     #[serde(default)]
     pub details: Option<String>,
+}
+
+/// Conflict report for sync operations
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ConflictReport {
+    pub has_conflicts: bool,
+    pub conflicts: Vec<FieldConflict>,
+    pub local_updated_at: chrono::DateTime<chrono::Utc>,
+    pub cloud_updated_at: chrono::DateTime<chrono::Utc>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct FieldConflict {
+    pub field: String,
+    pub local_value: serde_json::Value,
+    pub cloud_value: serde_json::Value,
+}
+
+/// Conflict resolution strategy
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ConflictResolution {
+    pub strategy: ConflictStrategy,
+    pub field_resolutions: Option<Vec<FieldResolution>>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum ConflictStrategy {
+    LocalWins,
+    CloudWins,
+    Merge,
+    Manual,
+    Newest,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct FieldResolution {
+    pub field: String,
+    pub use_value: String,  // "local" or "cloud"
+}
+
+/// Project diff for incremental sync
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ProjectDiff {
+    pub changed_fields: Vec<String>,
+    pub name: Option<String>,
+    pub description: Option<String>,
+    pub project_root: Option<String>,
+    pub setup_script: Option<String>,
+    pub dev_script: Option<String>,
+    pub cleanup_script: Option<String>,
+    pub tags: Option<Vec<String>>,
+    pub status: Option<String>,
+    pub priority: Option<String>,
+    pub rank: Option<u32>,
+    pub task_source: Option<String>,
+    pub mcp_servers: Option<std::collections::HashMap<String, bool>>,
+    pub git_repository: Option<GitRepositoryInfo>,
 }
 
 /// Generic API response wrapper

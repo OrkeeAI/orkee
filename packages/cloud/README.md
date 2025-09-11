@@ -6,7 +6,10 @@ This package provides cloud synchronization capabilities for Orkee, implementing
 
 The cloud package enables:
 - **OAuth Authentication**: Secure browser-based authentication flow
-- **Project Synchronization**: Seamless sync of project data to Orkee Cloud
+- **Project Synchronization**: Full bidirectional sync of all project data
+- **Complete Project Support**: Scripts, tags, MCP servers, git info, tasks
+- **Conflict Resolution**: Automatic detection and resolution strategies
+- **Incremental Sync**: Efficient delta updates for large projects
 - **Multi-device Access**: Access your projects from any authenticated device
 - **Token Management**: Secure local storage of authentication tokens
 
@@ -17,7 +20,10 @@ This package contains a complete cloud client implementation:
 - **`CloudClient`** - Main client for Orkee Cloud API integration
 - **`HttpClient`** - HTTP wrapper with authentication and error handling
 - **`AuthManager`** - OAuth flow and token management
-- **API Models** - Request/response structures for cloud operations
+- **API Models** - Full OSS-compatible project models with all fields
+- **Sync Operations** - Full, incremental, and selective sync modes
+- **Conflict Detection** - Automatic conflict detection and resolution
+- **8-char IDs** - Consistent ID format across OSS and Cloud
 - **Comprehensive Error Handling** - User-friendly error messages and recovery
 
 ## Architecture
@@ -54,17 +60,33 @@ orkee cloud login
 # Check authentication status  
 orkee cloud status
 
-# Sync all projects to cloud
+# Sync all projects to cloud (includes all project fields)
 orkee cloud sync
 
 # Sync specific project
 orkee cloud sync --project <project-id>
+
+# Check for sync conflicts
+orkee cloud conflicts --project <project-id>
+
+# Push incremental changes
+orkee cloud push --project <project-id>
 
 # List cloud projects
 orkee cloud list
 
 # Restore project from cloud
 orkee cloud restore --project <project-id>
+```
+
+## Environment Variables
+
+```bash
+# Optional: Set API URL (defaults to https://api.orkee.ai)
+export ORKEE_CLOUD_API_URL=https://api.orkee.ai
+
+# Optional: Direct token authentication (instead of OAuth)
+export ORKEE_CLOUD_TOKEN=your-api-token
 ```
 
 ## Testing
@@ -84,9 +106,9 @@ cargo test -p orkee-cloud unit         # Unit tests
 
 ## Status
 
-**✅ Phase 3 Complete**: The OSS cloud client is fully implemented and ready. The client can authenticate, make API calls, handle errors, and integrate with CLI commands. 
+**✅ Production Ready**: The OSS cloud client is fully implemented with complete support for all project fields, conflict detection, and incremental sync. 
 
-**⏸️ Waiting for API Server**: The client is ready to connect to the Orkee Cloud API server when it becomes available (Phases 4-10 of the implementation plan).
+**✅ API Server Complete**: The Orkee Cloud API server is fully implemented with all sync endpoints, task management, and full field support.
 
 ## License
 

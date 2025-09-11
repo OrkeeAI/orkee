@@ -20,10 +20,11 @@ pub struct HttpClient {
 impl HttpClient {
     /// Create a new HTTP client
     pub fn new(base_url: String, auth_manager: AuthManager) -> CloudResult<Self> {
-        let client = Client::builder()
+        let client = reqwest::Client::builder()
             .timeout(Duration::from_secs(30))
             .user_agent(format!("orkee-cli/{}", env!("CARGO_PKG_VERSION")))
-            .build()?;
+            .build()
+            .map_err(CloudError::http)?;
 
         Ok(Self {
             client,
@@ -46,7 +47,8 @@ impl HttpClient {
             .header(header::AUTHORIZATION, format!("Bearer {}", token))
             .header(header::CONTENT_TYPE, "application/json")
             .send()
-            .await?;
+            .await
+            .map_err(CloudError::http)?;
 
         self.handle_response(response).await
     }
@@ -67,7 +69,30 @@ impl HttpClient {
             .header(header::CONTENT_TYPE, "application/json")
             .json(body)
             .send()
-            .await?;
+            .await
+            .map_err(CloudError::http)?;
+
+        self.handle_response(response).await
+    }
+
+    /// Make an authenticated PATCH request
+    pub async fn patch<B, T>(&self, path: &str, body: &B) -> CloudResult<T>
+    where
+        B: serde::Serialize,
+        T: DeserializeOwned,
+    {
+        let url = format!("{}{}", self.base_url, path);
+        let token = self.auth_manager.get_valid_token().await?;
+
+        let response = self
+            .client
+            .patch(&url)
+            .header(header::AUTHORIZATION, format!("Bearer {}", token))
+            .header(header::CONTENT_TYPE, "application/json")
+            .json(body)
+            .send()
+            .await
+            .map_err(CloudError::http)?;
 
         self.handle_response(response).await
     }
@@ -86,26 +111,8 @@ impl HttpClient {
             .header(header::AUTHORIZATION, format!("Bearer {}", token))
             .header(header::CONTENT_TYPE, "application/json")
             .send()
-            .await?;
-
-        self.handle_response(response).await
-    }
-
-    /// Make an unauthenticated POST request (for initial auth)
-    pub async fn post_unauth<B, T>(&self, path: &str, body: &B) -> CloudResult<T>
-    where
-        B: serde::Serialize,
-        T: DeserializeOwned,
-    {
-        let url = format!("{}{}", self.base_url, path);
-
-        let response = self
-            .client
-            .post(&url)
-            .header(header::CONTENT_TYPE, "application/json")
-            .json(body)
-            .send()
-            .await?;
+            .await
+            .map_err(CloudError::http)?;
 
         self.handle_response(response).await
     }
@@ -116,7 +123,7 @@ impl HttpClient {
         T: DeserializeOwned,
     {
         let status = response.status();
-        let response_text = response.text().await?;
+        let response_text = response.text().await.map_err(CloudError::http)?;
 
         match status {
             StatusCode::OK | StatusCode::CREATED => {
@@ -125,7 +132,7 @@ impl HttpClient {
                     Ok(api_response) => api_response.into_result(),
                     Err(_) => {
                         // Fallback to direct parsing
-                        serde_json::from_str(&response_text).map_err(CloudError::Serialization)
+                        serde_json::from_str(&response_text).map_err(|e| CloudError::Serialization(e.to_string()))
                     }
                 }
             }

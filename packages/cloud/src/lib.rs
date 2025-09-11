@@ -10,18 +10,24 @@
 pub mod api;
 pub mod auth;
 pub mod client;
+pub mod config;
 pub mod encryption;
 pub mod error;
 pub mod types;
 
 // Re-export main types
-pub use api::*;
+pub use api::{
+    CloudProject, ConflictReport, ConflictResolution, ConflictStrategy, 
+    FieldConflict, FieldResolution, GitRepositoryInfo, ProjectDiff,
+    User, Usage, ApiError, AuthResponse
+};
 pub use auth::{AuthManager, CallbackServer, TokenInfo};
 pub use client::HttpClient;
 pub use error::{CloudError, CloudResult};
 pub use types::*;
 
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine};
+use api::{ListProjectsResponse, RestoreResponse};
 
 /// Main cloud client for interacting with Orkee Cloud
 pub struct CloudClient {
@@ -102,22 +108,100 @@ impl CloudClient {
         cloud_project: CloudProject,
         project_data: serde_json::Value,
     ) -> CloudResult<String> {
-        // Serialize project data
-        let project_json = serde_json::to_string(&project_data)?;
-        let snapshot_data = BASE64.encode(project_json.as_bytes());
+        // Use the sync endpoint directly with full project data
+        #[derive(serde::Serialize)]
+        struct SyncRequest {
+            id: Option<String>,
+            name: String,
+            description: Option<String>,
+            project_root: Option<String>,
+            setup_script: Option<String>,
+            dev_script: Option<String>,
+            cleanup_script: Option<String>,
+            tags: Vec<String>,
+            status: String,
+            priority: String,
+            rank: Option<u32>,
+            task_source: Option<String>,
+            mcp_servers: std::collections::HashMap<String, bool>,
+            git_repository: Option<api::GitRepositoryInfo>,
+            manual_tasks: Option<Vec<serde_json::Value>>,
+        }
 
-        let request = ProjectSyncRequest {
-            project: cloud_project.clone(),
-            snapshot_data,
+        let request = SyncRequest {
+            id: Some(cloud_project.id.clone()),
+            name: cloud_project.name,
+            description: cloud_project.description,
+            project_root: Some(cloud_project.path),
+            setup_script: cloud_project.setup_script,
+            dev_script: cloud_project.dev_script,
+            cleanup_script: cloud_project.cleanup_script,
+            tags: cloud_project.tags,
+            status: cloud_project.status,
+            priority: cloud_project.priority,
+            rank: cloud_project.rank,
+            task_source: cloud_project.task_source,
+            mcp_servers: cloud_project.mcp_servers,
+            git_repository: cloud_project.git_repository,
+            manual_tasks: cloud_project.manual_tasks,
         };
 
-        let response: ProjectSyncResponse = self
+        #[derive(serde::Deserialize)]
+        struct SyncResponse {
+            project_id: String,
+            status: String,
+            synced_at: chrono::DateTime<chrono::Utc>,
+            tasks_synced: usize,
+        }
+
+        let response: SyncResponse = self
             .http_client
             .post("/api/projects/sync", &request)
             .await?;
 
-        println!("☁️  Project '{}' synced successfully", cloud_project.name);
-        Ok(response.snapshot_id)
+        Ok(response.project_id)
+    }
+
+    /// Check for sync conflicts
+    pub async fn check_conflicts(&self, project_id: &str) -> CloudResult<ConflictReport> {
+        let response: ConflictReport = self
+            .http_client
+            .get(&format!("/api/projects/{}/conflicts", project_id))
+            .await?;
+        Ok(response)
+    }
+
+    /// Resolve sync conflicts
+    pub async fn resolve_conflicts(
+        &self,
+        project_id: &str,
+        resolution: ConflictResolution,
+    ) -> CloudResult<()> {
+        self.http_client
+            .post(&format!("/api/projects/{}/resolve", project_id), &resolution)
+            .await?;
+        Ok(())
+    }
+
+    /// Incremental sync for changes only
+    pub async fn sync_incremental(
+        &self,
+        project_id: &str,
+        diff: ProjectDiff,
+    ) -> CloudResult<()> {
+        self.http_client
+            .patch(&format!("/api/projects/{}/delta", project_id), &diff)
+            .await?;
+        Ok(())
+    }
+
+    /// Get full project with all fields
+    pub async fn get_full_project(&self, project_id: &str) -> CloudResult<CloudProject> {
+        let response: CloudProject = self
+            .http_client
+            .get(&format!("/api/projects/{}/full", project_id))
+            .await?;
+        Ok(response)
     }
 
     /// Restore a project from the cloud
