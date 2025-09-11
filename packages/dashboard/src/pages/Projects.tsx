@@ -27,6 +27,8 @@ import { CSS } from '@dnd-kit/utilities';
 import { ProjectCreateDialog } from '@/components/ProjectCreateDialog';
 import { ProjectEditDialog } from '@/components/ProjectEditDialog';
 import { ProjectDeleteDialog } from '@/components/ProjectDeleteDialog';
+import { GlobalSyncStatus } from '@/components/cloud/GlobalSyncStatus';
+import { ProjectSyncBadge } from '@/components/cloud/ProjectSyncBadge';
 import { useProjects, useUpdateProject, useSearchProjects } from '@/hooks/useProjects';
 import { Project } from '@/services/projects';
 import { previewService } from '@/services/api';
@@ -128,6 +130,9 @@ function SortableRow({ project, onEdit, onDelete, onView, formatDate, getPriorit
         <Badge className={`${getPriorityColor(project.priority)} text-xs`} variant="secondary">
           {project.priority}
         </Badge>
+      </td>
+      <td className="py-3 px-2 sm:px-4 hidden sm:table-cell">
+        <ProjectSyncBadge projectId={project.id} variant="compact" />
       </td>
       <td className="py-3 px-2 sm:px-4 hidden lg:table-cell">
         {project.tags && project.tags.length > 0 ? (
@@ -433,6 +438,9 @@ export function Projects() {
         </div>
       )}
 
+      {/* Cloud Sync Status */}
+      <GlobalSyncStatus className="mb-6" />
+
       <Tabs value={statusFilter} onValueChange={(value) => setStatusFilter(value as StatusFilter)}>
         <TabsList className="grid w-full grid-cols-2 max-w-md">
           <TabsTrigger value="active">Active ({projectCounts.active})</TabsTrigger>
@@ -479,6 +487,7 @@ export function Projects() {
                         <th className="py-3 px-2 sm:px-4 text-left font-medium hidden md:table-cell">Repository</th>
                         <th className="py-3 px-2 sm:px-4 text-left font-medium">Dev</th>
                         <th className="py-3 px-2 sm:px-4 text-left font-medium">Priority</th>
+                        <th className="py-3 px-2 sm:px-4 text-left font-medium hidden sm:table-cell">Sync</th>
                         <th className="py-3 px-2 sm:px-4 text-left font-medium hidden lg:table-cell">Tags</th>
                         <th className="py-3 px-2 sm:px-4 text-left font-medium hidden xl:table-cell">Created</th>
                         <th className="py-3 px-2 sm:px-4 text-left font-medium">Actions</th>
@@ -552,6 +561,7 @@ export function Projects() {
                         <Badge className={getPriorityColor(project.priority)}>
                           {project.priority}
                         </Badge>
+                        <ProjectSyncBadge projectId={project.id} variant="compact" />
                       </div>
                       
                       {project.tags && project.tags.length > 0 && (
