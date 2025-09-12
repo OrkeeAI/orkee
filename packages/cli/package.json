@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "build": "cargo build --release --features cloud",
-    "dev": "cargo run --bin orkee -- dashboard",
+    "dev": "cargo run --features cloud --bin orkee -- dashboard",
     "test": "cargo test --features cloud"
   }
 }
