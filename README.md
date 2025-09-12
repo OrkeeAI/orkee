@@ -34,8 +34,8 @@ orkee/
 
 Orkee provides multiple interfaces for AI agent orchestration:
 
-- **CLI Server** - REST API backend running on port 4001 (HTTP) or 4001 (HTTPS) with automatic HTTP redirect
-- **Dashboard** - React web interface on port 5173 (connects to CLI server)
+- **CLI Server** - REST API backend (default port 4001, configurable)
+- **Dashboard** - React web interface (default port 5173, configurable)
 - **TUI** - Standalone terminal interface with rich interactive features
 - **Projects Library** - Core SQLite-based project management (used by CLI and TUI)
 - **Cloud Library** - Optional cloud sync functionality with Orkee Cloud backend
@@ -70,7 +70,9 @@ turbo dev
 # Or start components individually:
 
 # Launch the web dashboard (requires CLI server)
-cargo run --bin orkee -- dashboard
+cargo run --bin orkee -- dashboard                      # Default ports: API 4001, UI 5173
+cargo run --bin orkee -- dashboard --api-port 8080 --ui-port 3000  # Custom ports
+ORKEE_API_PORT=9000 ORKEE_UI_PORT=3333 cargo run --bin orkee -- dashboard  # Via env vars
 
 # Launch the terminal interface (standalone)
 cargo run --bin orkee -- tui
@@ -163,7 +165,9 @@ turbo dev --filter=@orkee/cli          # CLI only
 turbo build --filter=@orkee/dashboard  # Build dashboard only
 
 # CLI-specific commands (run from packages/cli/)
-cargo run --bin orkee -- dashboard           # Start API server (port 4001)
+cargo run --bin orkee -- dashboard           # Start API (4001) + UI (5173)
+cargo run --bin orkee -- dashboard --api-port 8080 --ui-port 3000  # Custom ports
+ORKEE_API_PORT=9000 ORKEE_UI_PORT=3333 cargo run --bin orkee -- dashboard  # Via env
 cargo run --bin orkee -- tui                 # Launch TUI interface
 cargo run --bin orkee -- projects list       # List all projects
 cargo run --features cloud --bin orkee -- cloud login    # Authenticate with Orkee Cloud
@@ -172,9 +176,10 @@ cargo run --bin orkee -- --help              # See all available commands
 cargo test                                   # Run Rust tests
 
 # Dashboard-specific commands (run from packages/dashboard/)
-pnpm dev          # Start Vite dev server (port 5173)
-pnpm build        # Production build
-pnpm lint         # Run ESLint
+pnpm dev                      # Start Vite dev server (uses ORKEE_UI_PORT or 5173)
+ORKEE_UI_PORT=3000 pnpm dev  # Start on custom port
+pnpm build                    # Production build
+pnpm lint                     # Run ESLint
 ```
 
 ### Project Commands

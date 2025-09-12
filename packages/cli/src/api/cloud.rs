@@ -10,10 +10,19 @@ use axum::{
     Extension,
 };
 use serde::{Deserialize, Serialize};
-use std::sync::Arc;
 
 #[cfg(feature = "cloud")]
 use orkee_cloud::{CloudClient, CloudError, CloudProject};
+
+// Mock CloudProject for when cloud feature is disabled
+#[cfg(not(feature = "cloud"))]
+#[derive(Serialize)]
+pub struct CloudProject {
+    pub id: String,
+    pub name: String,
+    pub path: String,
+    pub description: Option<String>,
+}
 
 // API Response format matching the existing patterns
 #[derive(Serialize)]
@@ -138,7 +147,7 @@ impl CloudState {
 
 /// Initialize OAuth flow and return auth URL
 pub async fn init_oauth_flow(
-    Extension(state): Extension<CloudState>,
+    Extension(_state): Extension<CloudState>,
 ) -> Result<Json<ApiResponse<OAuthInitResponse>>, StatusCode> {
     #[cfg(not(feature = "cloud"))]
     {
@@ -167,7 +176,7 @@ pub async fn init_oauth_flow(
 
 /// Handle OAuth callback
 pub async fn handle_oauth_callback(
-    Extension(state): Extension<CloudState>,
+    Extension(_state): Extension<CloudState>,
     Json(_request): Json<OAuthCallbackRequest>,
 ) -> Result<Json<ApiResponse<CloudAuthStatus>>, StatusCode> {
     #[cfg(not(feature = "cloud"))]
@@ -202,7 +211,7 @@ pub async fn handle_oauth_callback(
 
 /// Get current authentication status
 pub async fn get_auth_status(
-    Extension(state): Extension<CloudState>,
+    Extension(_state): Extension<CloudState>,
 ) -> Result<Json<ApiResponse<CloudAuthStatus>>, StatusCode> {
     #[cfg(not(feature = "cloud"))]
     {
@@ -247,7 +256,7 @@ pub async fn get_auth_status(
 
 /// Logout and clear authentication
 pub async fn logout(
-    Extension(state): Extension<CloudState>,
+    Extension(_state): Extension<CloudState>,
 ) -> Result<Json<ApiResponse<String>>, StatusCode> {
     #[cfg(not(feature = "cloud"))]
     {
@@ -276,7 +285,7 @@ pub async fn logout(
 
 /// Get global sync status for all projects
 pub async fn get_global_sync_status(
-    Extension(state): Extension<CloudState>,
+    Extension(_state): Extension<CloudState>,
 ) -> Result<Json<ApiResponse<GlobalSyncStatus>>, StatusCode> {
     #[cfg(not(feature = "cloud"))]
     {
@@ -332,7 +341,7 @@ pub async fn get_global_sync_status(
 
 /// List cloud projects
 pub async fn list_cloud_projects(
-    Extension(state): Extension<CloudState>,
+    Extension(_state): Extension<CloudState>,
 ) -> Result<Json<ApiResponse<Vec<CloudProject>>>, StatusCode> {
     #[cfg(not(feature = "cloud"))]
     {
@@ -359,7 +368,7 @@ pub async fn list_cloud_projects(
 
 /// Sync all projects to cloud
 pub async fn sync_all_projects(
-    Extension(state): Extension<CloudState>,
+    Extension(_state): Extension<CloudState>,
     Json(_request): Json<SyncAllRequest>,
 ) -> Result<Json<ApiResponse<Vec<SyncResult>>>, StatusCode> {
     #[cfg(not(feature = "cloud"))]
@@ -402,8 +411,8 @@ pub async fn sync_all_projects(
 
 /// Sync specific project
 pub async fn sync_project(
-    Extension(state): Extension<CloudState>,
-    Path(project_id): Path<String>,
+    Extension(_state): Extension<CloudState>,
+    Path(_project_id): Path<String>,
     Json(_request): Json<SyncProjectRequest>,
 ) -> Result<Json<ApiResponse<SyncResult>>, StatusCode> {
     #[cfg(not(feature = "cloud"))]
@@ -437,7 +446,7 @@ pub async fn sync_project(
 
 /// Get project sync status
 pub async fn get_project_sync_status(
-    Extension(state): Extension<CloudState>,
+    Extension(_state): Extension<CloudState>,
     Path(project_id): Path<String>,
 ) -> Result<Json<ApiResponse<ProjectSyncStatus>>, StatusCode> {
     #[cfg(not(feature = "cloud"))]
@@ -490,7 +499,7 @@ pub async fn get_project_sync_status(
 
 /// Get usage statistics
 pub async fn get_usage_stats(
-    Extension(state): Extension<CloudState>,
+    Extension(_state): Extension<CloudState>,
 ) -> Result<Json<ApiResponse<String>>, StatusCode> {
     #[cfg(not(feature = "cloud"))]
     {

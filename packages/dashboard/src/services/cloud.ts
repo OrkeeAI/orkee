@@ -85,7 +85,7 @@ export class CloudService {
 
   // Authentication methods
   async initOAuthFlow(): Promise<OAuthInitResponse> {
-    const response = await apiRequest<ApiResponse<OAuthInitResponse>>('/cloud/auth/init', {
+    const response = await apiRequest<ApiResponse<OAuthInitResponse>>('/api/cloud/auth/init', {
       method: 'POST',
     });
 
@@ -97,7 +97,7 @@ export class CloudService {
   }
 
   async handleOAuthCallback(code: string, state: string): Promise<CloudAuthStatus> {
-    const response = await apiRequest<ApiResponse<CloudAuthStatus>>('/cloud/auth/callback', {
+    const response = await apiRequest<ApiResponse<CloudAuthStatus>>('/api/cloud/auth/callback', {
       method: 'POST',
       body: JSON.stringify({ code, state }),
     });
@@ -110,7 +110,7 @@ export class CloudService {
   }
 
   async getAuthStatus(): Promise<CloudAuthStatus> {
-    const response = await apiRequest<ApiResponse<CloudAuthStatus>>('/cloud/auth/status');
+    const response = await apiRequest<ApiResponse<CloudAuthStatus>>('/api/cloud/auth/status');
 
     if (!response.success || !response.data?.success || !response.data.data) {
       // Return unauthenticated status instead of throwing
@@ -127,7 +127,7 @@ export class CloudService {
   }
 
   async logout(): Promise<void> {
-    const response = await apiRequest<ApiResponse<string>>('/cloud/auth/logout', {
+    const response = await apiRequest<ApiResponse<string>>('/api/cloud/auth/logout', {
       method: 'POST',
     });
 
@@ -138,7 +138,7 @@ export class CloudService {
 
   // Sync status methods
   async getGlobalSyncStatus(): Promise<GlobalSyncStatus> {
-    const response = await apiRequest<ApiResponse<GlobalSyncStatus>>('/cloud/sync/status');
+    const response = await apiRequest<ApiResponse<GlobalSyncStatus>>('/api/cloud/sync/status');
 
     if (!response.success || !response.data?.success || !response.data.data) {
       // Return default status instead of throwing for non-critical data
@@ -158,7 +158,7 @@ export class CloudService {
   }
 
   async getProjectSyncStatus(projectId: string): Promise<ProjectSyncStatus> {
-    const response = await apiRequest<ApiResponse<ProjectSyncStatus>>(`/cloud/projects/${projectId}/status`);
+    const response = await apiRequest<ApiResponse<ProjectSyncStatus>>(`/api/cloud/projects/${projectId}/status`);
 
     if (!response.success || !response.data?.success || !response.data.data) {
       // Return default status for individual projects
@@ -178,7 +178,7 @@ export class CloudService {
 
   // Project sync methods
   async listCloudProjects(): Promise<CloudProject[]> {
-    const response = await apiRequest<ApiResponse<CloudProject[]>>('/cloud/projects');
+    const response = await apiRequest<ApiResponse<CloudProject[]>>('/api/cloud/projects');
 
     if (!response.success || !response.data?.success) {
       throw new Error(response.error || response.data?.error || 'Failed to list cloud projects');
@@ -188,7 +188,7 @@ export class CloudService {
   }
 
   async syncAllProjects(options: SyncAllRequest = {}): Promise<SyncResult[]> {
-    const response = await apiRequest<ApiResponse<SyncResult[]>>('/cloud/projects/sync-all', {
+    const response = await apiRequest<ApiResponse<SyncResult[]>>('/api/cloud/projects/sync-all', {
       method: 'POST',
       body: JSON.stringify(options),
     });
@@ -201,7 +201,7 @@ export class CloudService {
   }
 
   async syncProject(projectId: string, options: SyncProjectRequest = {}): Promise<SyncResult> {
-    const response = await apiRequest<ApiResponse<SyncResult>>(`/cloud/projects/${projectId}/sync`, {
+    const response = await apiRequest<ApiResponse<SyncResult>>(`/api/cloud/projects/${projectId}/sync`, {
       method: 'POST',
       body: JSON.stringify(options),
     });
@@ -215,7 +215,7 @@ export class CloudService {
 
   // Usage and subscription methods
   async getUsageStats(): Promise<string> {
-    const response = await apiRequest<ApiResponse<string>>('/cloud/usage');
+    const response = await apiRequest<ApiResponse<string>>('/api/cloud/usage');
 
     if (!response.success || !response.data?.success) {
       throw new Error(response.error || response.data?.error || 'Failed to get usage stats');

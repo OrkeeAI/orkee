@@ -55,7 +55,10 @@ pub struct Config {
 
 impl Config {
     pub fn from_env() -> Result<Self, ConfigError> {
-        let port_str = env::var("PORT").unwrap_or_else(|_| "4001".to_string());
+        // Check for ORKEE_API_PORT first, fallback to PORT for backwards compatibility
+        let port_str = env::var("ORKEE_API_PORT")
+            .or_else(|_| env::var("PORT"))
+            .unwrap_or_else(|_| "4001".to_string());
 
         let port = port_str.parse::<u16>()?;
 
@@ -64,8 +67,10 @@ impl Config {
             return Err(ConfigError::PortOutOfRange(port));
         }
 
-        let cors_origin =
-            env::var("CORS_ORIGIN").unwrap_or_else(|_| "http://localhost:5173".to_string());
+        // Check for ORKEE_CORS_ORIGIN first, fallback to CORS_ORIGIN for backwards compatibility
+        let cors_origin = env::var("ORKEE_CORS_ORIGIN")
+            .or_else(|_| env::var("CORS_ORIGIN"))
+            .unwrap_or_else(|_| "http://localhost:5173".to_string());
 
         let cors_allow_any_localhost = env::var("CORS_ALLOW_ANY_LOCALHOST")
             .unwrap_or_else(|_| "true".to_string())

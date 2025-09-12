@@ -23,11 +23,14 @@ These variables configure the Orkee CLI server (Rust backend):
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `PORT` | `4001` | Port for the CLI server to listen on |
-| `CORS_ORIGIN` | `http://localhost:5173` | Allowed CORS origin (must be localhost) |
+| `ORKEE_API_PORT` | `4001` | API server port (can be overridden by `--api-port` flag) |
+| `ORKEE_UI_PORT` | `5173` | Dashboard UI port (can be overridden by `--ui-port` flag) |
+| `ORKEE_CORS_ORIGIN` | Auto-calculated from UI port | Allowed CORS origin (auto-set to `http://localhost:${ORKEE_UI_PORT}`) |
 | `CORS_ALLOW_ANY_LOCALHOST` | `true` | Allow any localhost origin in development |
 | `ALLOWED_BROWSE_PATHS` | `~/Documents,~/Projects,~/Desktop,~/Downloads` | Comma-separated list of allowed directory paths |
 | `BROWSE_SANDBOX_MODE` | `relaxed` | Directory browsing security mode: `strict`/`relaxed`/`disabled` |
+| ~~`PORT`~~ | ~~`4001`~~ | **Deprecated** - Use `ORKEE_API_PORT` instead |
+| ~~`CORS_ORIGIN`~~ | ~~`http://localhost:5173`~~ | **Deprecated** - Use `ORKEE_CORS_ORIGIN` or let it auto-configure |
 
 ### Security Middleware Variables
 
@@ -48,9 +51,12 @@ Configure rate limiting, security headers, and error handling:
 
 #### Example .env configuration:
 ```bash
+# Port Configuration (simple and clean - just two ports!)
+ORKEE_API_PORT=4001       # API server port
+ORKEE_UI_PORT=5173        # Dashboard UI port
+# ORKEE_CORS_ORIGIN is auto-calculated from UI port if not set
+
 # Server Configuration
-PORT=4001
-CORS_ORIGIN="http://localhost:5173"
 CORS_ALLOW_ANY_LOCALHOST=true
 
 # Directory Browsing Security
@@ -78,11 +84,13 @@ These variables configure the React dashboard frontend:
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `VITE_API_URL` | `http://localhost:4001` | Backend API URL for the dashboard to connect to |
+| `VITE_ORKEE_API_PORT` | `4001` | API server port (passed from CLI via environment) |
+| `VITE_API_URL` | Auto-constructed from port | Backend API URL (defaults to `http://localhost:${VITE_ORKEE_API_PORT}`) |
 
 #### Example dashboard .env:
 ```bash
-VITE_API_URL=http://localhost:4001
+# Usually auto-configured by the CLI, but can be overridden if needed
+# VITE_API_URL=http://localhost:4001  # Only set this if you need a custom URL
 ```
 
 ### Task Master AI Variables (Optional)
@@ -649,11 +657,26 @@ All API responses follow this format:
 
 ### Development Environment
 
-| Service | Port | URL | Purpose |
-|---------|------|-----|---------|
-| CLI Server | 4001 | http://localhost:4001 | REST API backend |
-| Dashboard | 5173 | http://localhost:5173 | React frontend (dev) |
-| Preview Servers | 5000-5999 | http://localhost:50XX | Dynamic project previews |
+| Service | Default Port | Configurable Via | URL | Purpose |
+|---------|-------------|------------------|-----|---------|
+| CLI Server | 4001 | `--api-port` or `ORKEE_API_PORT` | http://localhost:4001 | REST API backend |
+| Dashboard | 5173 | `--ui-port` or `ORKEE_UI_PORT` | http://localhost:5173 | React frontend (dev) |
+| Preview Servers | 5000-5999 | N/A | http://localhost:50XX | Dynamic project previews |
+
+**Port Configuration Examples:**
+```bash
+# Use default ports
+orkee dashboard
+
+# Custom ports via CLI flags
+orkee dashboard --api-port 8080 --ui-port 3000
+
+# Custom ports via environment variables
+ORKEE_API_PORT=9000 ORKEE_UI_PORT=3333 orkee dashboard
+
+# CLI flags override environment variables
+ORKEE_API_PORT=9000 orkee dashboard --api-port 7777  # Uses 7777
+```
 
 ### Production Environment
 

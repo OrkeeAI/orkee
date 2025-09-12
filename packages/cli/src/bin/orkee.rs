@@ -28,10 +28,10 @@ struct Cli {
 enum Commands {
     /// Start the dashboard (backend + frontend)
     Dashboard {
-        #[arg(short, long, default_value = "4001")]
-        port: u16,
-        #[arg(long, default_value = "http://localhost:5173")]
-        cors_origin: String,
+        #[arg(long, default_value = "4001", help = "API server port")]
+        api_port: u16,
+        #[arg(long, default_value = "5173", help = "Dashboard UI port")]
+        ui_port: u16,
         #[arg(long, help = "Restart services (kill existing processes first)")]
         restart: bool,
     },
@@ -61,10 +61,10 @@ enum Commands {
 enum Commands {
     /// Start the dashboard (backend + frontend)
     Dashboard {
-        #[arg(short, long, default_value = "4001")]
-        port: u16,
-        #[arg(long, default_value = "http://localhost:5173")]
-        cors_origin: String,
+        #[arg(long, default_value = "4001", help = "API server port")]
+        api_port: u16,
+        #[arg(long, default_value = "5173", help = "Dashboard UI port")]
+        ui_port: u16,
         #[arg(long, help = "Restart services (kill existing processes first)")]
         restart: bool,
     },
@@ -108,14 +108,33 @@ async fn main() {
 async fn handle_command(command: Commands) -> Result<(), Box<dyn std::error::Error>> {
     match command {
         Commands::Dashboard {
-            port,
-            cors_origin,
+            api_port,
+            ui_port,
             restart,
         } => {
-            if restart {
-                restart_dashboard(port, cors_origin).await
+            // Check environment variables if not explicitly set via CLI
+            let final_api_port = if api_port == 4001 {
+                std::env::var("ORKEE_API_PORT")
+                    .ok()
+                    .and_then(|p| p.parse().ok())
+                    .unwrap_or(api_port)
             } else {
-                start_full_dashboard(port, cors_origin).await
+                api_port
+            };
+            
+            let final_ui_port = if ui_port == 5173 {
+                std::env::var("ORKEE_UI_PORT")
+                    .ok()
+                    .and_then(|p| p.parse().ok())
+                    .unwrap_or(ui_port)
+            } else {
+                ui_port
+            };
+            
+            if restart {
+                restart_dashboard(final_api_port, final_ui_port).await
+            } else {
+                start_full_dashboard(final_api_port, final_ui_port).await
             }
         }
         Commands::Tui {
@@ -218,17 +237,18 @@ async fn stop_all_preview_servers() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-async fn start_server(port: u16, cors_origin: String) -> Result<(), Box<dyn std::error::Error>> {
+async fn start_server(api_port: u16, cors_origin: String) -> Result<(), Box<dyn std::error::Error>> {
     println!("{}", "🚀 Starting Orkee CLI server...".green().bold());
     println!(
         "{} http://localhost:{}",
         "📡 Server will run on".cyan(),
-        port
+        api_port
     );
     println!("{} {}", "🔗 CORS origin:".cyan(), cors_origin);
 
     // Set environment variables for the server
-    std::env::set_var("PORT", port.to_string());
+    std::env::set_var("ORKEE_API_PORT", api_port.to_string());
+    std::env::set_var("PORT", api_port.to_string()); // Backwards compatibility
     std::env::set_var("CORS_ORIGIN", cors_origin);
 
     // Call the original main function from main.rs
@@ -276,8 +296,8 @@ async fn start_tui(refresh_interval: u64) -> Result<(), Box<dyn std::error::Erro
 }
 
 async fn start_full_dashboard(
-    port: u16,
-    cors_origin: String,
+    api_port: u16,
+    ui_port: u16,
 ) -> Result<(), Box<dyn std::error::Error>> {
     println!(
         "{}",
@@ -286,11 +306,14 @@ async fn start_full_dashboard(
             .bold()
     );
 
+    // Auto-calculate CORS origin from UI port
+    let cors_origin = format!("http://localhost:{}", ui_port);
+    
     // Start backend server in background
     let backend_handle = {
         let cors_origin_clone = cors_origin.clone();
         tokio::spawn(async move {
-            if let Err(e) = start_server(port, cors_origin_clone).await {
+            if let Err(e) = start_server(api_port, cors_origin_clone).await {
                 eprintln!("{} Failed to start backend: {}", "Error:".red().bold(), e);
             }
         })
@@ -304,13 +327,15 @@ async fn start_full_dashboard(
     let frontend_result = std::process::Command::new("pnpm")
         .args(["dev"])
         .current_dir("../dashboard")
+        .env("ORKEE_UI_PORT", ui_port.to_string())
+        .env("VITE_ORKEE_API_PORT", api_port.to_string())
         .spawn();
 
     match frontend_result {
         Ok(mut child) => {
             println!("{}", "✅ Both backend and frontend started!".green());
-            println!("{} http://localhost:{}", "🔗 Backend API:".cyan(), port);
-            println!("{} http://localhost:5173", "🌐 Frontend UI:".cyan());
+            println!("{} http://localhost:{}", "🔗 Backend API:".cyan(), api_port);
+            println!("{} http://localhost:{}", "🌐 Frontend UI:".cyan(), ui_port);
 
             // Wait for both processes
             let _ = tokio::join!(
@@ -333,8 +358,8 @@ async fn start_full_dashboard(
 }
 
 async fn restart_dashboard(
-    port: u16,
-    cors_origin: String,
+    api_port: u16,
+    ui_port: u16,
 ) -> Result<(), Box<dyn std::error::Error>> {
     println!(
         "{}",
@@ -342,11 +367,11 @@ async fn restart_dashboard(
     );
 
     // Kill existing processes on the ports
-    kill_port(port).await?;
-    kill_port(5173).await?;
-    kill_port(5174).await?; // Also kill common dev server ports
-    kill_port(5175).await?;
-    kill_port(5176).await?;
+    kill_port(api_port).await?;
+    kill_port(ui_port).await?;
+    // Also kill common dev server ports if different
+    if ui_port != 5173 { kill_port(5173).await?; }
+    if ui_port != 5174 { kill_port(5174).await?; }
 
     println!("{}", "💀 Killed existing services".yellow());
 
@@ -354,7 +379,7 @@ async fn restart_dashboard(
     tokio::time::sleep(tokio::time::Duration::from_secs(3)).await;
 
     // Start fresh
-    start_full_dashboard(port, cors_origin).await
+    start_full_dashboard(api_port, ui_port).await
 }
 
 async fn kill_port(port: u16) -> Result<(), Box<dyn std::error::Error>> {

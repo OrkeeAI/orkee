@@ -1,4 +1,6 @@
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:4001';
+// Construct API URL from port (passed from CLI via VITE_ORKEE_API_PORT)
+const API_PORT = import.meta.env.VITE_ORKEE_API_PORT || '4001';
+const API_BASE_URL = import.meta.env.VITE_API_URL || `http://localhost:${API_PORT}`;
 
 export interface ApiResponse<T> {
   data: T;

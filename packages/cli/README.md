@@ -53,14 +53,25 @@ orkee cloud push --project <id>
 
 ### Dashboard Server
 ```bash
-# Start the API server (required for web dashboard)
+# Start the API server and dashboard with default ports
 orkee dashboard
+# API on port 4001, UI on port 5173
 
-# With custom port
-orkee dashboard --port 8080
+# With custom ports via CLI arguments
+orkee dashboard --api-port 8080 --ui-port 3000
+
+# With custom ports via environment variables
+ORKEE_API_PORT=9000 ORKEE_UI_PORT=3333 orkee dashboard
+
+# CLI arguments override environment variables
+ORKEE_API_PORT=9000 orkee dashboard --api-port 7777
+# Uses API port 7777 (CLI) and UI port 9000 (env)
 
 # With HTTPS enabled (auto-generates certs)
 TLS_ENABLED=true orkee dashboard
+
+# Restart services (kills existing processes first)
+orkee dashboard --restart
 ```
 
 ## API Endpoints
@@ -74,10 +85,14 @@ The REST API provides:
 ## Environment Variables
 
 ```bash
-# Server Configuration
+# Port Configuration (simple and clean - just two ports!)
+ORKEE_API_PORT=4001       # API server port (default: 4001)
+ORKEE_UI_PORT=5173        # Dashboard UI port (default: 5173)
+
+# Server Configuration (advanced)
 HOST=127.0.0.1
-PORT=4001
-CORS_ORIGIN=http://localhost:5173
+# ORKEE_CORS_ORIGIN is auto-calculated from UI port if not set
+CORS_ALLOW_ANY_LOCALHOST=true  # Allow any localhost origin in dev
 
 # TLS/HTTPS Configuration
 TLS_ENABLED=false
