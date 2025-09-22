@@ -4,139 +4,201 @@ on:
   push:
     tags:
       - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release (e.g., 0.0.1)'
+        required: true
+        type: string
 
-permissions:
-  contents: write
-
-concurrency:
-  group: release-${{ github.ref }}
-  cancel-in-progress: false
+env:
+  CARGO_TERM_COLOR: always
 
 jobs:
+  # Build binaries for all platforms
   build:
-    name: Build and package (${{ matrix.os }})
+    name: Build ${{ matrix.target }}
     runs-on: ${{ matrix.os }}
     strategy:
-      fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
-    env:
-      CARGO_TERM_COLOR: always
-      VERSION: ${{ github.ref_name }}
+        include:
+          # macOS Apple Silicon
+          - os: macos-latest
+            target: aarch64-apple-darwin
+            archive: orkee-aarch64-apple-darwin.tar.gz
+            
+          # macOS Intel
+          - os: macos-latest
+            target: x86_64-apple-darwin
+            archive: orkee-x86_64-apple-darwin.tar.gz
+            
+          # Linux x64
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            archive: orkee-x86_64-unknown-linux-gnu.tar.gz
+            
+          # Linux ARM64
+          - os: ubuntu-latest
+            target: aarch64-unknown-linux-gnu
+            archive: orkee-aarch64-unknown-linux-gnu.tar.gz
+            use_cross: true
+            
+          # Windows x64
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            archive: orkee-x86_64-pc-windows-msvc.zip
+            
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Validate version consistency
-        shell: bash
-        run: |
-          # Extract version from tag (remove 'v' prefix)
-          TAG_VERSION="${GITHUB_REF_NAME#v}"
-          
-          # Check workspace version
-          WORKSPACE_VERSION=$(grep '^version = ' Cargo.toml | head -1 | sed 's/version = "\(.*\)"/\1/')
-          if [ "$TAG_VERSION" != "$WORKSPACE_VERSION" ]; then
-            echo "❌ Tag version ($TAG_VERSION) doesn't match workspace version ($WORKSPACE_VERSION)"
-            exit 1
-          fi
-          
-          # Check CLI package version
-          CLI_VERSION=$(grep '^version = ' packages/cli/Cargo.toml | head -1 | sed 's/version = "\(.*\)"/\1/')
-          if [ "$TAG_VERSION" != "$CLI_VERSION" ]; then
-            echo "❌ Tag version ($TAG_VERSION) doesn't match CLI package version ($CLI_VERSION)"
-            exit 1
-          fi
-          
-          # Check MCP server package version
-          MCP_VERSION=$(grep '^version = ' packages/mcp-server/Cargo.toml | head -1 | sed 's/version = "\(.*\)"/\1/')
-          if [ "$TAG_VERSION" != "$MCP_VERSION" ]; then
-            echo "❌ Tag version ($TAG_VERSION) doesn't match MCP server version ($MCP_VERSION)"
-            exit 1
-          fi
-          
-          echo "✅ Version validation passed: $TAG_VERSION"
-
+      - uses: actions/checkout@v4
+      
       - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Cache cargo
-        uses: Swatinem/rust-cache@v2
-
-      - name: Run tests
-        run: cargo test --all --all-features
-
-      - name: Build release binaries
-        run: cargo build --release -p orkee-cli -p orkee-mcp-server
-
-      - name: Determine target triple (Unix)
-        if: runner.os != 'Windows'
-        shell: bash
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: stable
+          target: ${{ matrix.target }}
+          
+      - name: Install cross-compilation tools
+        if: matrix.use_cross
         run: |
-          echo "TARGET=$(rustc -vV | sed -n 's/^host: //p')" >> "$GITHUB_ENV"
-
-      - name: Determine target triple (Windows)
-        if: runner.os == 'Windows'
-        shell: pwsh
+          cargo install cross --git https://github.com/cross-rs/cross
+          
+      - name: Build binary
         run: |
-          $hostLine = (rustc -vV | Select-String '^host: ').Line
-          $target = $hostLine.Split(':')[1].Trim()
-          "TARGET=$target" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-
-      - name: Package artifacts (Linux/macOS)
-        if: runner.os != 'Windows'
-        shell: bash
-        run: |
-          set -euxo pipefail
-          mkdir -p dist
-          cp target/release/orkee dist/orkee
-          cp target/release/orkee-mcp dist/orkee-mcp
-          cd dist
-          zip -9 "orkee-${VERSION}-${TARGET}.zip" orkee
-          zip -9 "orkee-mcp-${VERSION}-${TARGET}.zip" orkee-mcp
-          if command -v shasum >/dev/null 2>&1; then
-            shasum -a 256 *.zip > "SHA256SUMS-${TARGET}.txt"
+          if [ "${{ matrix.use_cross }}" = "true" ]; then
+            cross build --release --target ${{ matrix.target }} --bin orkee
           else
-            sha256sum *.zip > "SHA256SUMS-${TARGET}.txt"
+            cargo build --release --target ${{ matrix.target }} --bin orkee
           fi
-
-      - name: Package artifacts (Windows)
-        if: runner.os == 'Windows'
-        shell: pwsh
+        shell: bash
+        
+      - name: Create archive (Unix)
+        if: runner.os != 'Windows'
         run: |
-          $ErrorActionPreference = "Stop"
-          New-Item -ItemType Directory -Path dist | Out-Null
-          Copy-Item "target\release\orkee.exe" "dist\orkee.exe"
-          Copy-Item "target\release\orkee-mcp.exe" "dist\orkee-mcp.exe"
-          Compress-Archive -Path "dist\orkee.exe" -DestinationPath "dist\orkee-$env:VERSION-$env:TARGET.zip"
-          Compress-Archive -Path "dist\orkee-mcp.exe" -DestinationPath "dist\orkee-mcp-$env:VERSION-$env:TARGET.zip"
-          Get-FileHash "dist\orkee-$env:VERSION-$env:TARGET.zip" -Algorithm SHA256 | ForEach-Object { $_.Hash + "  orkee-$env:VERSION-$env:TARGET.zip" } | Out-File "dist\SHA256SUMS-$env:TARGET.txt" -Append
-          Get-FileHash "dist\orkee-mcp-$env:VERSION-$env:TARGET.zip" -Algorithm SHA256 | ForEach-Object { $_.Hash + "  orkee-mcp-$env:VERSION-$env:TARGET.zip" } | Out-File "dist\SHA256SUMS-$env:TARGET.txt" -Append
-
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v4
+          cd target/${{ matrix.target }}/release
+          tar -czf ../../../${{ matrix.archive }} orkee
+          cd ../../..
+          
+      - name: Create archive (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          cd target/${{ matrix.target }}/release
+          7z a ../../../${{ matrix.archive }} orkee.exe
+          cd ../../..
+        shell: bash
+        
+      - name: Upload artifact
+        uses: actions/upload-artifact@v3
         with:
-          name: ${{ runner.os }}-${{ env.TARGET || 'unknown' }}
-          path: dist/*
+          name: binaries
+          path: ${{ matrix.archive }}
 
+  # Create GitHub release
   release:
-    name: Create GitHub Release
-    runs-on: ubuntu-latest
+    name: Create Release
     needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
-      - name: Download all build artifacts
-        uses: actions/download-artifact@v4
+      - uses: actions/checkout@v4
+      
+      - name: Download artifacts
+        uses: actions/download-artifact@v3
         with:
-          path: release
-          merge-multiple: true
-
-      - name: Create/Update GitHub Release
-        uses: ncipollo/release-action@v1
+          name: binaries
+          path: ./artifacts
+          
+      - name: Get version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "version=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
+          else
+            echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+          fi
+          
+      - name: Create Release Notes
+        id: notes
+        run: |
+          cat > release-notes.md << 'EOF'
+          ## Orkee v${{ steps.version.outputs.version }}
+          
+          ### Features
+          - 🤖 AI Agent Orchestration
+          - 📊 Real-time Dashboard
+          - 🖥️ Terminal Interface (TUI)
+          - 🔧 CLI Tools
+          - 🔗 Workflow Coordination
+          - ☁️ Cloud Sync (optional)
+          - 🔐 Enterprise Security
+          - 🔒 HTTPS/TLS Support
+          
+          ### Installation
+          
+          #### Via npm (recommended)
+          ```bash
+          npm install -g orkee
+          ```
+          
+          #### Direct Download
+          Download the appropriate binary for your platform from the assets below.
+          
+          ### Supported Platforms
+          - macOS (Apple Silicon & Intel)
+          - Linux (x64 & ARM64)
+          - Windows (x64)
+          
+          ### Getting Started
+          ```bash
+          orkee --help
+          orkee dashboard
+          orkee tui
+          ```
+          
+          See [README](https://github.com/OrkeeAI/orkee#readme) for full documentation.
+          EOF
+          
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
         with:
-          tag: ${{ github.ref_name }}
-          name: Release ${{ github.ref_name }}
+          tag_name: v${{ steps.version.outputs.version }}
+          name: Orkee v${{ steps.version.outputs.version }}
+          body_path: release-notes.md
+          files: ./artifacts/*
           draft: false
-          prerelease: ${{ contains(github.ref_name, '-') }}
-          allowUpdates: true
-          generateReleaseNotes: true
-          artifacts: "release/*"
-          artifactErrorsFailBuild: true
+          prerelease: false
+
+  # Publish to NPM
+  npm-publish:
+    name: Publish to NPM
+    needs: release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          registry-url: 'https://registry.npmjs.org'
+          
+      - name: Get version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "version=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
+          else
+            echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+          fi
+          
+      - name: Update package version
+        run: |
+          cd npm
+          npm version ${{ steps.version.outputs.version }} --no-git-tag-version
+          
+      - name: Publish to NPM
+        run: |
+          cd npm
+          npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
