@@ -106,7 +106,7 @@ impl CloudClient {
     pub async fn sync_project(
         &self,
         cloud_project: CloudProject,
-        project_data: serde_json::Value,
+        _project_data: serde_json::Value,
     ) -> CloudResult<String> {
         // Use the sync endpoint directly with full project data
         #[derive(serde::Serialize)]
@@ -149,8 +149,11 @@ impl CloudClient {
         #[derive(serde::Deserialize)]
         struct SyncResponse {
             project_id: String,
+            #[allow(dead_code)]
             status: String,
+            #[allow(dead_code)]
             synced_at: chrono::DateTime<chrono::Utc>,
+            #[allow(dead_code)]
             tasks_synced: usize,
         }
 
@@ -178,7 +181,7 @@ impl CloudClient {
         resolution: ConflictResolution,
     ) -> CloudResult<()> {
         self.http_client
-            .post(&format!("/api/projects/{}/resolve", project_id), &resolution)
+            .post::<_, ()>(&format!("/api/projects/{}/resolve", project_id), &resolution)
             .await?;
         Ok(())
     }
@@ -190,7 +193,7 @@ impl CloudClient {
         diff: ProjectDiff,
     ) -> CloudResult<()> {
         self.http_client
-            .patch(&format!("/api/projects/{}/delta", project_id), &diff)
+            .patch::<_, ()>(&format!("/api/projects/{}/delta", project_id), &diff)
             .await?;
         Ok(())
     }

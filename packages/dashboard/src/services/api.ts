@@ -70,27 +70,41 @@ export const apiClient = new ApiClient();
 export async function apiRequest<T>(
   url: string, 
   options: RequestInit = {}
-): Promise<{ success: boolean; data: T | null; error: string | null }> {
+): Promise<{ success: boolean; data?: T; error?: string }> {
   try {
+    // Include auth token if available
+    const accessToken = localStorage.getItem('orkee_access_token');
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      ...(options.headers as Record<string, string> || {}),
+    };
+    
+    if (accessToken) {
+      headers['Authorization'] = `Bearer ${accessToken}`;
+    }
+    
     const response = await fetch(`${API_BASE_URL}${url}`, {
       ...options,
-      headers: {
-        'Content-Type': 'application/json',
-        ...options.headers,
-      },
+      headers,
     });
 
+    const result = await response.json();
+    
     if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+      return {
+        success: false,
+        error: result.error || `HTTP error! status: ${response.status}`,
+      };
     }
 
-    const result = await response.json();
-    return result;
+    return {
+      success: true,
+      data: result,
+    };
   } catch (error) {
     console.error(`API request error for ${url}:`, error);
     return {
       success: false,
-      data: null,
       error: error instanceof Error ? error.message : 'Unknown error',
     };
   }

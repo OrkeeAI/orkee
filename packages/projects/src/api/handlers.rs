@@ -12,7 +12,8 @@ use axum::{
     response::{IntoResponse, Json as ResponseJson},
 };
 use serde::{Deserialize, Serialize};
-use tracing::{error, info};
+use std::process::Command;
+use tracing::{error, info, warn};
 
 /// Standard API response wrapper
 #[derive(Serialize)]
@@ -61,6 +62,25 @@ pub struct CheckTaskmasterResponse {
     has_taskmaster: bool,
     #[serde(rename = "taskSource")]
     task_source: String,
+}
+
+/// Request body for opening project in editor
+#[derive(Deserialize, Debug)]
+pub struct OpenInEditorRequest {
+    #[serde(rename = "projectId")]
+    project_id: Option<String>,
+    #[serde(rename = "projectPath")]
+    project_path: Option<String>,
+    #[serde(rename = "editorId")]
+    editor_id: Option<String>,
+}
+
+/// Response for opening project in editor
+#[derive(Serialize)]
+pub struct OpenInEditorResponse {
+    message: String,
+    #[serde(rename = "detectedCommand")]
+    detected_command: Option<String>,
 }
 
 /// Convert manager errors to HTTP responses
@@ -265,6 +285,388 @@ pub async fn check_taskmaster(Json(request): Json<CheckTaskmasterRequest>) -> im
     );
 
     (StatusCode::OK, ResponseJson(ApiResponse::success(response))).into_response()
+}
+
+/// Open a project in the configured editor
+pub async fn open_in_editor(Json(request): Json<OpenInEditorRequest>) -> impl IntoResponse {
+    info!("Opening project in editor: {:?}", request);
+
+    // Determine project path - either from projectId lookup or direct projectPath
+    let project_path = if let Some(project_id) = request.project_id {
+        match manager_get_project(&project_id).await {
+            Ok(Some(project)) => project.project_root,
+            Ok(None) => {
+                error!("Project not found: {}", project_id);
+                return (
+                    StatusCode::NOT_FOUND,
+                    ResponseJson(ApiResponse::<()>::error("Project not found".to_string())),
+                ).into_response();
+            }
+            Err(e) => {
+                error!("Failed to get project {}: {}", project_id, e);
+                return (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    ResponseJson(ApiResponse::<()>::error("Database error".to_string())),
+                ).into_response();
+            }
+        }
+    } else if let Some(project_path) = request.project_path {
+        project_path
+    } else {
+        return (
+            StatusCode::BAD_REQUEST,
+            ResponseJson(ApiResponse::<()>::error("Either projectId or projectPath must be provided".to_string())),
+        ).into_response();
+    };
+
+    // Use the preferred editor if specified, otherwise default to VS Code
+    let result = if let Some(editor_id) = request.editor_id {
+        try_open_with_editor(&project_path, &editor_id)
+    } else {
+        try_open_with_vscode(&project_path)
+    };
+    
+    match result {
+        Ok(message) => {
+            info!("Successfully opened project in editor: {}", message);
+            let response = OpenInEditorResponse {
+                message,
+                detected_command: Some("code".to_string()),
+            };
+            (StatusCode::OK, ResponseJson(ApiResponse::success(response))).into_response()
+        }
+        Err(error) => {
+            error!("Failed to open project in editor: {}", error);
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                ResponseJson(ApiResponse::<()>::error(error)),
+            ).into_response()
+        }
+    }
+}
+
+/// Test editor configuration (GET endpoint for testing)
+pub async fn test_editor_config() -> impl IntoResponse {
+    info!("Testing editor configuration");
+
+    // Try to detect VS Code for now
+    let result = detect_vscode();
+    
+    match result {
+        Ok(command) => {
+            let response = OpenInEditorResponse {
+                message: "Editor configuration test successful".to_string(),
+                detected_command: Some(command),
+            };
+            (StatusCode::OK, ResponseJson(ApiResponse::success(response))).into_response()
+        }
+        Err(error) => {
+            warn!("Editor configuration test failed: {}", error);
+            (
+                StatusCode::OK,
+                ResponseJson(ApiResponse::<()>::error(error)),
+            ).into_response()
+        }
+    }
+}
+
+/// Helper function to try opening a project with VS Code
+fn try_open_with_vscode(project_path: &str) -> Result<String, String> {
+    // Check if path exists
+    if !std::path::Path::new(project_path).exists() {
+        return Err("Project path does not exist".to_string());
+    }
+
+    // Try different ways to open VS Code based on platform
+    let commands = if cfg!(target_os = "macos") {
+        vec![
+            // Try command line tool first
+            ("code", vec![project_path.to_string()]),
+            // Try opening via application bundle
+            ("open", vec!["-a".to_string(), "Visual Studio Code".to_string(), project_path.to_string()]),
+        ]
+    } else if cfg!(target_os = "windows") {
+        vec![
+            ("code", vec![project_path.to_string()]),
+            ("code.cmd", vec![project_path.to_string()]),
+        ]
+    } else {
+        // Linux and other Unix-like systems
+        vec![
+            ("code", vec![project_path.to_string()]),
+            ("code-insiders", vec![project_path.to_string()]),
+        ]
+    };
+
+    let mut last_error = String::new();
+    
+    for (command, args) in commands {
+        match Command::new(command).args(&args).output() {
+            Ok(output) => {
+                if output.status.success() {
+                    return Ok(format!("Project opened in VS Code successfully using '{}'", command));
+                } else {
+                    let stderr = String::from_utf8_lossy(&output.stderr);
+                    last_error = format!("Command '{}' failed: {}", command, stderr);
+                }
+            }
+            Err(e) => {
+                last_error = format!("Failed to execute '{}': {}", command, e);
+                continue; // Try the next command
+            }
+        }
+    }
+
+    Err(format!("All VS Code launch attempts failed. Last error: {}", last_error))
+}
+
+/// Try to open a project with the specified editor
+fn try_open_with_editor(project_path: &str, editor_id: &str) -> Result<String, String> {
+    // Check if path exists
+    if !std::path::Path::new(project_path).exists() {
+        return Err("Project path does not exist".to_string());
+    }
+
+    // Get editor configuration based on ID
+    let commands = match editor_id {
+        "vscode" => get_vscode_commands(),
+        "cursor" => get_cursor_commands(),
+        "sublime" => get_sublime_commands(),
+        "atom" => get_atom_commands(),
+        "vim" => get_vim_commands(),
+        "neovim" => get_neovim_commands(),
+        "emacs" => get_emacs_commands(),
+        "intellij" => get_intellij_commands(),
+        "webstorm" => get_webstorm_commands(),
+        "phpstorm" => get_phpstorm_commands(),
+        "pycharm" => get_pycharm_commands(),
+        "rubymine" => get_rubymine_commands(),
+        "goland" => get_goland_commands(),
+        "clion" => get_clion_commands(),
+        "rider" => get_rider_commands(),
+        "appcode" => get_appcode_commands(),
+        "datagrip" => get_datagrip_commands(),
+        "fleet" => get_fleet_commands(),
+        "nova" => get_nova_commands(),
+        "textmate" => get_textmate_commands(),
+        "brackets" => get_brackets_commands(),
+        "notepadpp" => get_notepadpp_commands(),
+        "eclipse" => get_eclipse_commands(),
+        "netbeans" => get_netbeans_commands(),
+        "android-studio" => get_android_studio_commands(),
+        "xcode" => get_xcode_commands(),
+        "zed" => get_zed_commands(),
+        "windsurf" => get_windsurf_commands(),
+        "claude-dev" => get_claude_dev_commands(),
+        "replit" => get_replit_commands(),
+        "stackblitz" => get_stackblitz_commands(),
+        "codesandbox" => get_codesandbox_commands(),
+        "gitpod" => get_gitpod_commands(),
+        "lapce" => get_lapce_commands(),
+        "helix" => get_helix_commands(),
+        "kakoune" => get_kakoune_commands(),
+        "micro" => get_micro_commands(),
+        _ => {
+            return Err(format!("Unsupported editor: {}", editor_id));
+        }
+    };
+
+    let mut last_error = String::new();
+    
+    for (command, mut args) in commands {
+        // Add the project path as the last argument
+        args.push(project_path.to_string());
+        
+        match Command::new(command).args(&args).output() {
+            Ok(output) => {
+                if output.status.success() {
+                    return Ok(format!("Project opened in {} successfully using '{}'", editor_id, command));
+                } else {
+                    let stderr = String::from_utf8_lossy(&output.stderr);
+                    last_error = format!("Command '{}' failed: {}", command, stderr);
+                }
+            }
+            Err(e) => {
+                last_error = format!("Failed to execute '{}': {}", command, e);
+                continue; // Try the next command
+            }
+        }
+    }
+
+    Err(format!("All {} launch attempts failed. Last error: {}", editor_id, last_error))
+}
+
+/// Get VS Code commands for different platforms
+fn get_vscode_commands() -> Vec<(&'static str, Vec<String>)> {
+    if cfg!(target_os = "macos") {
+        vec![
+            ("code", vec![]),
+            ("open", vec!["-a".to_string(), "Visual Studio Code".to_string()]),
+        ]
+    } else if cfg!(target_os = "windows") {
+        vec![
+            ("code", vec![]),
+            ("code.cmd", vec![]),
+        ]
+    } else {
+        vec![
+            ("code", vec![]),
+            ("code-insiders", vec![]),
+        ]
+    }
+}
+
+/// Get Cursor commands for different platforms
+fn get_cursor_commands() -> Vec<(&'static str, Vec<String>)> {
+    if cfg!(target_os = "macos") {
+        vec![
+            ("cursor", vec![]),
+            ("open", vec!["-a".to_string(), "Cursor".to_string()]),
+        ]
+    } else if cfg!(target_os = "windows") {
+        vec![
+            ("cursor", vec![]),
+            ("cursor.exe", vec![]),
+        ]
+    } else {
+        vec![
+            ("cursor", vec![]),
+        ]
+    }
+}
+
+// For now, implement a basic fallback for other editors that tries common commands
+fn get_sublime_commands() -> Vec<(&'static str, Vec<String>)> {
+    if cfg!(target_os = "macos") {
+        vec![
+            ("subl", vec![]),
+            ("open", vec!["-a".to_string(), "Sublime Text".to_string()]),
+        ]
+    } else {
+        vec![("subl", vec![])]
+    }
+}
+
+fn get_atom_commands() -> Vec<(&'static str, Vec<String>)> { vec![("atom", vec![])] }
+fn get_vim_commands() -> Vec<(&'static str, Vec<String>)> { vec![("vim", vec![])] }
+fn get_neovim_commands() -> Vec<(&'static str, Vec<String>)> { vec![("nvim", vec![])] }
+fn get_emacs_commands() -> Vec<(&'static str, Vec<String>)> { vec![("emacs", vec![])] }
+fn get_intellij_commands() -> Vec<(&'static str, Vec<String>)> { vec![("idea", vec![])] }
+fn get_webstorm_commands() -> Vec<(&'static str, Vec<String>)> { vec![("webstorm", vec![])] }
+fn get_phpstorm_commands() -> Vec<(&'static str, Vec<String>)> { vec![("phpstorm", vec![])] }
+fn get_pycharm_commands() -> Vec<(&'static str, Vec<String>)> { vec![("pycharm", vec![])] }
+fn get_rubymine_commands() -> Vec<(&'static str, Vec<String>)> { vec![("rubymine", vec![])] }
+fn get_goland_commands() -> Vec<(&'static str, Vec<String>)> { vec![("goland", vec![])] }
+fn get_clion_commands() -> Vec<(&'static str, Vec<String>)> { vec![("clion", vec![])] }
+fn get_rider_commands() -> Vec<(&'static str, Vec<String>)> { vec![("rider", vec![])] }
+fn get_appcode_commands() -> Vec<(&'static str, Vec<String>)> { vec![("appcode", vec![])] }
+fn get_datagrip_commands() -> Vec<(&'static str, Vec<String>)> { vec![("datagrip", vec![])] }
+fn get_fleet_commands() -> Vec<(&'static str, Vec<String>)> { vec![("fleet", vec![])] }
+fn get_nova_commands() -> Vec<(&'static str, Vec<String>)> { vec![("nova", vec![])] }
+fn get_textmate_commands() -> Vec<(&'static str, Vec<String>)> { vec![("mate", vec![])] }
+fn get_brackets_commands() -> Vec<(&'static str, Vec<String>)> { vec![("brackets", vec![])] }
+fn get_notepadpp_commands() -> Vec<(&'static str, Vec<String>)> { vec![("notepad++", vec![])] }
+fn get_eclipse_commands() -> Vec<(&'static str, Vec<String>)> { vec![("eclipse", vec![])] }
+fn get_netbeans_commands() -> Vec<(&'static str, Vec<String>)> { vec![("netbeans", vec![])] }
+fn get_android_studio_commands() -> Vec<(&'static str, Vec<String>)> { vec![("studio", vec![])] }
+fn get_xcode_commands() -> Vec<(&'static str, Vec<String>)> {
+    if cfg!(target_os = "macos") {
+        vec![
+            ("xed", vec![]),
+            ("open", vec!["-a".to_string(), "Xcode".to_string()]),
+        ]
+    } else {
+        vec![]
+    }
+}
+fn get_zed_commands() -> Vec<(&'static str, Vec<String>)> { vec![("zed", vec![])] }
+
+fn get_windsurf_commands() -> Vec<(&'static str, Vec<String>)> {
+    if cfg!(target_os = "macos") {
+        vec![
+            ("windsurf", vec![]),
+            ("open", vec!["-a".to_string(), "Windsurf".to_string()]),
+        ]
+    } else if cfg!(target_os = "windows") {
+        vec![
+            ("windsurf", vec![]),
+            ("windsurf.exe", vec![]),
+        ]
+    } else {
+        vec![("windsurf", vec![])]
+    }
+}
+
+fn get_claude_dev_commands() -> Vec<(&'static str, Vec<String>)> {
+    if cfg!(target_os = "macos") {
+        vec![
+            ("claude-dev", vec![]),
+            ("open", vec!["-a".to_string(), "Claude Dev".to_string()]),
+        ]
+    } else {
+        vec![("claude-dev", vec![])]
+    }
+}
+
+fn get_replit_commands() -> Vec<(&'static str, Vec<String>)> {
+    vec![("replit", vec![])]
+}
+
+fn get_stackblitz_commands() -> Vec<(&'static str, Vec<String>)> {
+    vec![("stackblitz", vec![])]
+}
+
+fn get_codesandbox_commands() -> Vec<(&'static str, Vec<String>)> {
+    vec![("codesandbox", vec![])]
+}
+
+fn get_gitpod_commands() -> Vec<(&'static str, Vec<String>)> {
+    vec![("gitpod", vec![])]
+}
+
+fn get_lapce_commands() -> Vec<(&'static str, Vec<String>)> {
+    if cfg!(target_os = "macos") {
+        vec![
+            ("lapce", vec![]),
+            ("open", vec!["-a".to_string(), "Lapce".to_string()]),
+        ]
+    } else if cfg!(target_os = "windows") {
+        vec![
+            ("lapce", vec![]),
+            ("lapce.exe", vec![]),
+        ]
+    } else {
+        vec![("lapce", vec![])]
+    }
+}
+
+fn get_helix_commands() -> Vec<(&'static str, Vec<String>)> {
+    vec![("hx", vec![])]
+}
+
+fn get_kakoune_commands() -> Vec<(&'static str, Vec<String>)> {
+    vec![("kak", vec![])]
+}
+
+fn get_micro_commands() -> Vec<(&'static str, Vec<String>)> {
+    vec![("micro", vec![])]
+}
+
+/// Helper function to detect VS Code installation
+fn detect_vscode() -> Result<String, String> {
+    // Try to run 'code --version' to check if VS Code is available
+    let output = Command::new("code")
+        .arg("--version")
+        .output()
+        .map_err(|e| format!("VS Code not found or not in PATH: {}", e))?;
+
+    if output.status.success() {
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let version = stdout.lines().next().unwrap_or("unknown");
+        Ok(format!("code (VS Code {})", version))
+    } else {
+        Err("VS Code command failed".to_string())
+    }
 }
 
 #[cfg(test)]

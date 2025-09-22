@@ -16,4 +16,6 @@ pub fn create_projects_router() -> Router {
         .route("/by-name/:name", get(handlers::get_project_by_name))
         .route("/by-path", post(handlers::get_project_by_path))
         .route("/check-taskmaster", post(handlers::check_taskmaster))
+        .route("/open-in-editor", post(handlers::open_in_editor))
+        .route("/open-in-editor", get(handlers::test_editor_config))
 }

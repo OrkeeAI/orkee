@@ -42,7 +42,7 @@ orkee-cloud = { path = "../cloud", optional = true }
 mime = "0.3"
 
 [features]
-default = []
+default = ["cloud"]
 cloud = ["orkee-cloud"]
 
 [dev-dependencies]

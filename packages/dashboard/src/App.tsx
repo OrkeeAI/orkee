@@ -8,6 +8,8 @@ import { queryClient } from '@/lib/queryClient'
 import { Projects } from '@/pages/Projects'
 import { ProjectDetail } from '@/pages/ProjectDetail'
 import { Settings } from '@/pages/Settings'
+import OAuthCallback from '@/pages/OAuthCallback'
+import { PopupCloseHandler } from '@/components/PopupCloseHandler'
 
 function App() {
   return (
@@ -15,14 +17,23 @@ function App() {
       <ConnectionProvider>
         <CloudProvider>
           <BrowserRouter>
-            <Layout>
-              <Routes>
-                <Route path="/" element={<Navigate to="/projects" replace />} />
-                <Route path="/projects" element={<Projects />} />
-                <Route path="/projects/:id" element={<ProjectDetail />} />
-                <Route path="/settings" element={<Settings />} />
-              </Routes>
-            </Layout>
+            <PopupCloseHandler />
+            <Routes>
+              {/* OAuth callback route - outside Layout */}
+              <Route path="/oauth/callback" element={<OAuthCallback />} />
+              
+              {/* Main app routes - inside Layout */}
+              <Route path="/*" element={
+                <Layout>
+                  <Routes>
+                    <Route path="/" element={<Navigate to="/projects" replace />} />
+                    <Route path="/projects" element={<Projects />} />
+                    <Route path="/projects/:id" element={<ProjectDetail />} />
+                    <Route path="/settings" element={<Settings />} />
+                  </Routes>
+                </Layout>
+              } />
+            </Routes>
           </BrowserRouter>
         </CloudProvider>
       </ConnectionProvider>

@@ -1,7 +1,8 @@
-import { ReactNode } from 'react'
+import { ReactNode, useState, useEffect } from 'react'
 import { AppSidebar } from "@/components/app-sidebar"
 import { Breadcrumbs } from './Breadcrumbs'
 import { CloudAuthButtonHeader } from '@/components/cloud/CloudAuthButton'
+import { fetchConfig } from '@/services/config'
 import { Separator } from "@/components/ui/separator"
 import {
   SidebarInset,
@@ -14,6 +15,14 @@ interface LayoutProps {
 }
 
 export function Layout({ children }: LayoutProps) {
+  const [isCloudEnabled, setIsCloudEnabled] = useState(false)
+
+  useEffect(() => {
+    fetchConfig().then(config => {
+      setIsCloudEnabled(config.cloud_enabled)
+    })
+  }, [])
+
   return (
     <SidebarProvider>
       <AppSidebar />
@@ -27,9 +36,11 @@ export function Layout({ children }: LayoutProps) {
             />
             <Breadcrumbs />
           </div>
-          <div className="ml-auto px-4">
-            <CloudAuthButtonHeader />
-          </div>
+          {isCloudEnabled && (
+            <div className="ml-auto px-4">
+              <CloudAuthButtonHeader />
+            </div>
+          )}
         </header>
         <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
           {children}

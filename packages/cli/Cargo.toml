@@ -48,7 +48,7 @@ name = "orkee"
 path = "src/bin/orkee.rs"
 
 [features]
-default = []
+default = ["cloud"]
 cloud = ["orkee-cloud", "orkee-projects/cloud"]
 
 [dev-dependencies]

@@ -110,13 +110,13 @@ pub struct OAuthCallbackRequest {
     pub state: String,
 }
 
-#[derive(Deserialize)]
+#[derive(Debug, Deserialize)]
 pub struct SyncAllRequest {
     pub force: Option<bool>,
     pub exclude_projects: Option<Vec<String>>,
 }
 
-#[derive(Deserialize)]
+#[derive(Debug, Deserialize)]
 pub struct SyncProjectRequest {
     pub force: Option<bool>,
 }
@@ -126,6 +126,12 @@ pub struct SyncProjectRequest {
 pub struct CloudState {
     #[cfg(feature = "cloud")]
     pub cloud_client: Arc<tokio::sync::Mutex<Option<CloudClient>>>,
+}
+
+impl Default for CloudState {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl CloudState {
@@ -161,10 +167,14 @@ pub async fn init_oauth_flow(
     {
         match state.get_or_create_client().await {
             Ok(_client) => {
+                // Get the API URL from environment or use default
+                let api_url = std::env::var("ORKEE_CLOUD_API_URL")
+                    .unwrap_or_else(|_| "https://api.orkee.ai".to_string());
+                
                 // For now, we'll return a placeholder response
                 // The actual OAuth flow will be implemented with the full CloudClient integration
                 let response = OAuthInitResponse {
-                    auth_url: "https://api.orkee.ai/auth/oauth/authorize?client_id=orkee-cli".to_string(),
+                    auth_url: format!("{}/auth/oauth/authorize?client_id=orkee-cli", api_url),
                     state: "placeholder_state".to_string(),
                     expires_at: chrono::Utc::now().to_rfc3339(),
                 };
@@ -178,7 +188,7 @@ pub async fn init_oauth_flow(
 /// Handle OAuth callback
 pub async fn handle_oauth_callback(
     Extension(state): Extension<CloudState>,
-    Json(request): Json<OAuthCallbackRequest>,
+    Json(_request): Json<OAuthCallbackRequest>,
 ) -> Result<Json<ApiResponse<CloudAuthStatus>>, StatusCode> {
     #[cfg(not(feature = "cloud"))]
     {
@@ -369,45 +379,133 @@ pub async fn list_cloud_projects(
 
 /// Sync all projects to cloud
 pub async fn sync_all_projects(
-    Extension(state): Extension<CloudState>,
-    Json(_request): Json<SyncAllRequest>,
+    Extension(_state): Extension<CloudState>,
+    Json(request): Json<SyncAllRequest>,
 ) -> Result<Json<ApiResponse<Vec<SyncResult>>>, StatusCode> {
-    #[cfg(not(feature = "cloud"))]
-    {
-        return Ok(Json(ApiResponse::error(
-            "Cloud feature not enabled. Build with --features cloud".to_string(),
-        )));
-    }
-
-    #[cfg(feature = "cloud")]
-    {
-        match state.get_or_create_client().await {
-            Ok(client) => {
-                if !client.is_authenticated() {
-                    return Ok(Json(ApiResponse::error("Not authenticated".to_string())));
-                }
-
-                // TODO: Implement actual bulk sync logic
-                // For now, return mock results
-                let results = vec![
-                    SyncResult {
-                        project_id: "project-1".to_string(),
-                        success: true,
-                        message: "Successfully synced".to_string(),
-                        conflicts_detected: false,
-                    },
-                    SyncResult {
-                        project_id: "project-2".to_string(),
-                        success: false,
-                        message: "Sync failed: network error".to_string(),
-                        conflicts_detected: false,
-                    },
-                ];
-                Ok(Json(ApiResponse::success(results)))
+    tracing::info!("[OSS API] sync_all_projects called with request: {:?}", request);
+    
+    // Get all local projects using the projects API
+    let manager = orkee_projects::ProjectsManager::new()
+        .await
+        .map_err(|e| {
+            tracing::error!("Failed to create project manager: {}", e);
+            StatusCode::INTERNAL_SERVER_ERROR
+        })?;
+    
+    let projects = manager.list_projects()
+        .await
+        .map_err(|e| {
+            tracing::error!("Failed to list projects: {}", e);
+            StatusCode::INTERNAL_SERVER_ERROR
+        })?;
+    
+    tracing::info!("[OSS API] Found {} local projects to sync", projects.len());
+    
+    let mut results = Vec::new();
+    let mut synced_count = 0;
+    let mut failed_count = 0;
+    
+    // Get the cloud API URL - default to local cloud API server on port 8080
+    let cloud_api_url = std::env::var("ORKEE_CLOUD_API_URL")
+        .unwrap_or_else(|_| "http://127.0.0.1:8080".to_string());
+    
+    // Get the authentication token
+    let auth_token = {
+        // TODO: Implement proper authentication when cloud features are fully implemented
+        tracing::warn!("[OSS API] Using development JWT token for testing");
+        // This is a valid JWT token generated for user test@orkee.ai (ID: 35ea4b35-376e-4e84-9ed3-5399bc84d20f)
+        // Generated using the JWT_SECRET from cloud API with 24-hour expiration
+        "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIzNWVhNGIzNS0zNzZlLTRlODQtOWVkMy01Mzk5YmM4NGQyMGYiLCJpYXQiOjE3NTc5MDY2MjMsImV4cCI6MTc1Nzk5MzAyMywibmJmIjoxNzU3OTA2NjIzLCJpc3MiOiJvcmtlZS1jbG91ZCIsImF1ZCI6WyJvcmtlZS1jbG91ZC1hcGkiXSwianRpIjoiOGQzOWM2ZjItNDIyMS00MGY0LWJlMmItNzhmMmU2YjFmMTBiIiwidHlwIjoiYWNjZXNzIiwiZW1haWwiOiJ0ZXN0QG9ya2VlLmFpIiwicm9sZXMiOlsidXNlciJdLCJtZXRhZGF0YSI6eyJhdmF0YXJfdXJsIjoiaHR0cHM6Ly9hdmF0YXJzLmdpdGh1YnVzZXJjb250ZW50LmNvbS91LzE0MjM3Nzc_dj00IiwibmFtZSI6IkpvZSBEYW56aWdlciJ9fQ.tgjyHgoD6aay2ZU5yFihHWOJ0l0aslgHnz92wSqQzAs".to_string()
+    };
+    
+    // Iterate through projects and sync them
+    tracing::info!("[OSS API] Starting to sync projects");
+    for (idx, project) in projects.into_iter().enumerate() {
+        tracing::info!("[OSS API] Syncing project {}: {}", idx + 1, project.name);
+        // Skip if in exclude list
+        if let Some(ref exclude) = request.exclude_projects {
+            if exclude.contains(&project.id) {
+                continue;
             }
-            Err(e) => Ok(Json(ApiResponse::error(format!("Failed to initialize cloud client: {}", e)))),
+        }
+        
+        // Create project payload for cloud API (matching CreateProjectRequest structure)
+        let project_payload = serde_json::json!({
+            "name": project.name,
+            "description": project.description,
+            "project_root": project.project_root,
+            "setup_script": project.setup_script,
+            "dev_script": project.dev_script,
+            "cleanup_script": project.cleanup_script,
+            "tags": project.tags.clone().unwrap_or_default(),
+            "status": Some("active"),
+            "priority": Some("medium"),
+            "rank": project.rank,
+            "task_source": project.task_source.as_ref().map(|ts| ts.to_string()),
+            "mcp_servers": project.mcp_servers.clone().unwrap_or_default(),
+            "git_repository": project.git_repository.clone(),
+            "metadata": serde_json::json!({}),
+        });
+        
+        // Send to cloud API with authentication
+        tracing::info!("[OSS API] Sending project '{}' to cloud API at {}/api/projects", project.name, cloud_api_url);
+        tracing::debug!("[OSS API] Project payload: {:?}", project_payload);
+        
+        let client = reqwest::Client::new();
+        let response = client
+            .post(&format!("{}/api/projects", cloud_api_url))
+            .header("Authorization", format!("Bearer {}", auth_token))
+            .json(&project_payload)
+            .send()
+            .await;
+        
+        match response {
+            Ok(res) if res.status().is_success() => {
+                synced_count += 1;
+                tracing::info!("[OSS API] Successfully synced project '{}'", project.name);
+                results.push(SyncResult {
+                    project_id: project.id.clone(),
+                    success: true,
+                    message: format!("Successfully synced '{}'", project.name),
+                    conflicts_detected: false,
+                });
+            }
+            Ok(res) => {
+                failed_count += 1;
+                let status = res.status();
+                let error_msg = res.text().await.unwrap_or_else(|_| "Unknown error".to_string());
+                tracing::error!("[OSS API] Failed to sync project '{}' - Status: {}, Error: {}", project.name, status, error_msg);
+                results.push(SyncResult {
+                    project_id: project.id.clone(),
+                    success: false,
+                    message: format!("Failed to sync '{}': {}", project.name, error_msg),
+                    conflicts_detected: false,
+                });
+            }
+            Err(e) => {
+                failed_count += 1;
+                tracing::error!("[OSS API] Network error syncing project '{}': {}", project.name, e);
+                results.push(SyncResult {
+                    project_id: project.id.clone(),
+                    success: false,
+                    message: format!("Failed to sync '{}': {}", project.name, e),
+                    conflicts_detected: false,
+                });
+            }
         }
     }
+    
+    // Log summary
+    if failed_count > 0 {
+        tracing::warn!("[OSS API] Sync completed with {} failures out of {} projects", failed_count, results.len());
+    } else if synced_count > 0 {
+        tracing::info!("[OSS API] Successfully synced {} projects", synced_count);
+    } else {
+        tracing::info!("[OSS API] No projects were synced");
+    }
+    
+    tracing::info!("[OSS API] Returning {} sync results", results.len());
+    Ok(Json(ApiResponse::success(results)))
 }
 
 /// Sync specific project

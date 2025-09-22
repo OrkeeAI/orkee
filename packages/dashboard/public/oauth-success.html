@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OAuth Success</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+    }
+    .container {
+      text-align: center;
+      padding: 2rem;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 10px;
+      backdrop-filter: blur(10px);
+    }
+    h1 {
+      margin-bottom: 1rem;
+    }
+    .spinner {
+      border: 3px solid rgba(255, 255, 255, 0.3);
+      border-radius: 50%;
+      border-top: 3px solid white;
+      width: 40px;
+      height: 40px;
+      animation: spin 1s linear infinite;
+      margin: 20px auto;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Authentication Successful!</h1>
+    <div class="spinner"></div>
+    <p>Completing authentication...</p>
+  </div>
+
+  <script>
+    // Extract tokens from URL parameters or hash
+    const params = new URLSearchParams(window.location.search);
+    const hashParams = new URLSearchParams(window.location.hash.substring(1));
+    
+    const accessToken = params.get('access_token') || hashParams.get('access_token');
+    const refreshToken = params.get('refresh_token') || hashParams.get('refresh_token');
+    const error = params.get('error') || hashParams.get('error');
+    
+    if (window.opener) {
+      // Send message to opener
+      if (error) {
+        window.opener.postMessage({
+          type: 'oauth-error',
+          error: error
+        }, '*');
+      } else {
+        window.opener.postMessage({
+          type: 'oauth-success',
+          accessToken: accessToken,
+          refreshToken: refreshToken,
+          authenticated: true
+        }, '*');
+      }
+      
+      // Close after a short delay
+      setTimeout(() => {
+        window.close();
+      }, 1000);
+    } else {
+      // If not in popup, redirect to main app
+      setTimeout(() => {
+        window.location.href = '/?oauth_success=true';
+      }, 1000);
+    }
+  </script>
+</body>
+</html>

@@ -62,7 +62,8 @@ impl StorageFactory {
     /// Create a storage instance from a database URL
     pub async fn from_url(url: &str) -> StorageResult<Box<dyn ProjectStorage>> {
         if url.starts_with("sqlite:") {
-            let path = url.strip_prefix("sqlite:").unwrap();
+            let path = url.strip_prefix("sqlite:")
+                .ok_or_else(|| StorageError::Database("Invalid SQLite URL format".to_string()))?;
             let config = StorageConfig {
                 provider: StorageProvider::Sqlite {
                     path: std::path::PathBuf::from(path),

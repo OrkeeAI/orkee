@@ -40,10 +40,12 @@ export function GlobalSyncStatus({ className, onSyncAll }: GlobalSyncStatusProps
   }
 
   const handleSyncAll = async () => {
+    console.log('[GlobalSyncStatus] handleSyncAll called');
     setIsSyncing(true);
     setSyncError(null);
     
     try {
+      console.log('[GlobalSyncStatus] Calling cloudService.syncAllProjects...');
       const results = await cloudService.syncAllProjects();
       
       // Check for any failed syncs

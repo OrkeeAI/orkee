@@ -58,6 +58,15 @@ pub enum TaskSource {
     Manual,
 }
 
+impl fmt::Display for TaskSource {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            TaskSource::Taskmaster => write!(f, "taskmaster"),
+            TaskSource::Manual => write!(f, "manual"),
+        }
+    }
+}
+
 /// Task status options
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
 #[serde(rename_all = "kebab-case")]

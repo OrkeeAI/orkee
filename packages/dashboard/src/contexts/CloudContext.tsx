@@ -92,7 +92,9 @@ export function CloudProvider({ children }: CloudProviderProps) {
   
   // Actions
   const login = useCallback(async (): Promise<void> => {
-    if (isAuthenticating) return;
+    if (isAuthenticating) {
+      return;
+    }
     
     setIsAuthenticating(true);
     setAuthError(null);
@@ -103,12 +105,22 @@ export function CloudProvider({ children }: CloudProviderProps) {
       
       // Refresh sync status after successful auth
       if (authResult.authenticated) {
-        refreshSyncStatus();
+        // Manually call with new auth status since state update is async
+        setIsLoadingSyncStatus(true);
+        try {
+          const status = await cloudService.getGlobalSyncStatus();
+          setSyncStatus(status);
+          localStorage.setItem(LAST_SYNC_CHECK_KEY, new Date().toISOString());
+        } catch (error) {
+          console.error('[CloudContext] Failed to refresh sync status:', error);
+        } finally {
+          setIsLoadingSyncStatus(false);
+        }
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Login failed';
       setAuthError(errorMessage);
-      console.error('Cloud login failed:', error);
+      console.error('[CloudContext] Cloud login failed:', error);
     } finally {
       setIsAuthenticating(false);
     }
@@ -122,6 +134,11 @@ export function CloudProvider({ children }: CloudProviderProps) {
     
     try {
       await cloudService.logout();
+      
+      // Clear stored tokens
+      localStorage.removeItem('orkee_access_token');
+      localStorage.removeItem('orkee_refresh_token');
+      
       setAuthStatus({
         authenticated: false,
         user_id: undefined,
@@ -169,7 +186,7 @@ export function CloudProvider({ children }: CloudProviderProps) {
       }
       
     } catch (error) {
-      console.error('Failed to refresh auth status:', error);
+      console.error('[CloudContext] Failed to refresh auth status:', error);
       // Don't show error to user for background refresh
     }
   }, []);
@@ -230,6 +247,40 @@ export function CloudProvider({ children }: CloudProviderProps) {
   useEffect(() => {
     refreshAuthStatus();
   }, [refreshAuthStatus]);
+  
+  // Listen for OAuth success events from popup
+  useEffect(() => {
+    const handleOAuthMessage = async (event: MessageEvent) => {
+      if (event.data?.type === 'oauth-success') {
+        // OAuth completed successfully, refresh auth status
+        // Wait a moment for the backend to process the tokens
+        setTimeout(async () => {
+          await refreshAuthStatus();
+          // Then refresh sync status - don't check authStatus.authenticated here
+          // because it won't be updated yet (state updates are async)
+          await refreshSyncStatus();
+        }, 1000);
+      }
+    };
+    
+    const handleStorageChange = async (event: StorageEvent) => {
+      // Check if OAuth tokens were added to localStorage
+      if (event.key === 'orkee_access_token' && event.newValue) {
+        // Token was added, refresh auth status
+        await refreshAuthStatus();
+        // Also refresh sync status
+        await refreshSyncStatus();
+      }
+    };
+    
+    window.addEventListener('message', handleOAuthMessage);
+    window.addEventListener('storage', handleStorageChange);
+    
+    return () => {
+      window.removeEventListener('message', handleOAuthMessage);
+      window.removeEventListener('storage', handleStorageChange);
+    };
+  }, [refreshAuthStatus, refreshSyncStatus]);
   
   // Auto-refresh auth status periodically
   useEffect(() => {

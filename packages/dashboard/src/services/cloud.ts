@@ -188,16 +188,23 @@ export class CloudService {
   }
 
   async syncAllProjects(options: SyncAllRequest = {}): Promise<SyncResult[]> {
+    console.log('[CLOUD_SERVICE] syncAllProjects called with options:', options);
+    
     const response = await apiRequest<ApiResponse<SyncResult[]>>('/api/cloud/projects/sync-all', {
       method: 'POST',
       body: JSON.stringify(options),
     });
 
+    console.log('[CLOUD_SERVICE] syncAllProjects response:', response);
+
     if (!response.success || !response.data?.success) {
+      console.error('[CLOUD_SERVICE] syncAllProjects failed:', response.error || response.data?.error);
       throw new Error(response.error || response.data?.error || 'Failed to sync all projects');
     }
 
-    return response.data.data || [];
+    const results = response.data.data || [];
+    console.log('[CLOUD_SERVICE] syncAllProjects returning results:', results);
+    return results;
   }
 
   async syncProject(projectId: string, options: SyncProjectRequest = {}): Promise<SyncResult> {
@@ -229,10 +236,16 @@ export class CloudService {
     const authInit = await this.initOAuthFlow();
     
     return new Promise((resolve, reject) => {
+      // Calculate center position for popup
+      const width = 600;
+      const height = 700;
+      const left = window.screen.width / 2 - width / 2;
+      const top = window.screen.height / 2 - height / 2;
+      
       const popup = window.open(
         authInit.auth_url,
-        'orkee-cloud-auth',
-        'width=500,height=600,scrollbars=yes,resizable=yes'
+        'oauth-popup',
+        `width=${width},height=${height},left=${left},top=${top},scrollbars=yes,resizable=yes`
       );
 
       if (!popup) {
@@ -240,35 +253,175 @@ export class CloudService {
         return;
       }
 
-      // Poll for the callback
+      let handled = false;
+
+      // Listen for postMessage from the popup
+      const messageHandler = async (event: MessageEvent) => {
+        console.log('[CLOUD_SERVICE] Received postMessage from:', event.origin);
+        console.log('[CLOUD_SERVICE] Message data:', event.data);
+        
+        // Accept messages from the popup (could be from cloud server domain)
+        if (!event.origin.startsWith('http://localhost:') && 
+            !event.origin.startsWith('http://127.0.0.1:')) {
+          console.log('[CLOUD_SERVICE] Ignoring message from untrusted origin');
+          return;
+        }
+        
+        // Handle OAuth success with tokens
+        if (event.data?.type === 'oauth-success') {
+          console.log('[CLOUD_SERVICE] OAuth success message received!');
+          console.log('[CLOUD_SERVICE] Has tokens:', {
+            hasAccessToken: !!event.data.accessToken,
+            hasRefreshToken: !!event.data.refreshToken,
+            state: event.data.state
+          });
+          
+          if (handled) {
+            console.log('[CLOUD_SERVICE] Already handled, ignoring');
+            return;
+          }
+          handled = true;
+          
+          window.removeEventListener('message', messageHandler);
+          clearInterval(pollTimer);
+          
+          // Close popup if still open
+          if (popup && !popup.closed) {
+            popup.close();
+          }
+          
+          // If we have tokens, send them to the backend
+          if (event.data.accessToken && event.data.refreshToken) {
+            console.log('[CLOUD_SERVICE] Storing tokens locally');
+            // Store tokens locally for immediate use
+            localStorage.setItem('orkee_access_token', event.data.accessToken);
+            localStorage.setItem('orkee_refresh_token', event.data.refreshToken);
+            
+            // Send tokens to backend via callback endpoint
+            try {
+              console.log('[CLOUD_SERVICE] Sending tokens to backend...');
+              // Create a mock OAuth callback to register tokens with backend
+              const callbackResponse = await apiRequest<ApiResponse<CloudAuthStatus>>('/api/cloud/auth/callback', {
+                method: 'POST',
+                body: JSON.stringify({
+                  code: 'oauth_success_' + Date.now(),
+                  state: 'oauth_success',
+                  access_token: event.data.accessToken,
+                  refresh_token: event.data.refreshToken
+                }),
+              });
+              
+              console.log('[CLOUD_SERVICE] Backend response:', callbackResponse);
+              
+              if (callbackResponse.success && callbackResponse.data) {
+                console.log('[CLOUD_SERVICE] Auth successful! User:', callbackResponse.data);
+                resolve(callbackResponse.data);
+                return;
+              } else {
+                console.error('[CLOUD_SERVICE] Backend rejected tokens:', callbackResponse);
+              }
+            } catch (e) {
+              console.error('[CLOUD_SERVICE] Failed to register tokens with backend:', e);
+            }
+          } else {
+            console.error('[CLOUD_SERVICE] Missing tokens in OAuth success message');
+          }
+          
+          // Fallback: refresh auth status
+          console.log('[CLOUD_SERVICE] Fallback: refreshing auth status...');
+          try {
+            const authStatus = await this.getAuthStatus();
+            console.log('[CLOUD_SERVICE] Fallback auth status:', authStatus);
+            resolve(authStatus);
+          } catch (error) {
+            console.error('[CLOUD_SERVICE] Fallback failed:', error);
+            reject(error);
+          }
+        } 
+        // Legacy callback handling
+        else if (event.data?.type === 'oauth-callback' && event.data.code && event.data.state) {
+          if (handled) return;
+          handled = true;
+          
+          window.removeEventListener('message', messageHandler);
+          clearInterval(pollTimer);
+          
+          try {
+            const authStatus = await this.handleOAuthCallback(event.data.code, event.data.state);
+            resolve(authStatus);
+          } catch (error) {
+            reject(error);
+          }
+        }
+        // Handle OAuth errors
+        else if (event.data?.type === 'oauth-error') {
+          handled = true;
+          window.removeEventListener('message', messageHandler);
+          clearInterval(pollTimer);
+          
+          if (popup && !popup.closed) {
+            popup.close();
+          }
+          
+          reject(new Error(event.data.error || 'OAuth authentication failed'));
+        }
+      };
+
+      window.addEventListener('message', messageHandler);
+
+      // Also poll localStorage as backup
       const pollTimer = setInterval(async () => {
         try {
           if (popup.closed) {
             clearInterval(pollTimer);
-            reject(new Error('OAuth flow cancelled by user'));
-            return;
-          }
-
-          // Check if we can access the popup URL (same-origin after callback)
-          if (popup.location.origin === window.location.origin) {
-            const urlParams = new URLSearchParams(popup.location.search);
-            const code = urlParams.get('code');
-            const state = urlParams.get('state');
-
-            if (code && state) {
-              clearInterval(pollTimer);
-              popup.close();
-
-              try {
-                const authStatus = await this.handleOAuthCallback(code, state);
-                resolve(authStatus);
-              } catch (error) {
-                reject(error);
+            window.removeEventListener('message', messageHandler);
+            
+            // Check localStorage for callback or success
+            const storedCallback = localStorage.getItem('oauth_callback');
+            const storedSuccess = localStorage.getItem('oauth_success');
+            
+            if (storedSuccess) {
+              const { authenticated, timestamp } = JSON.parse(storedSuccess);
+              // Only use if recent (within 10 seconds)
+              if (authenticated && Date.now() - timestamp < 10000) {
+                localStorage.removeItem('oauth_success');
+                if (!handled) {
+                  handled = true;
+                  try {
+                    const authStatus = await this.getAuthStatus();
+                    resolve(authStatus);
+                    return;
+                  } catch (error) {
+                    reject(error);
+                    return;
+                  }
+                }
+              }
+            } else if (storedCallback) {
+              const { code, state, timestamp } = JSON.parse(storedCallback);
+              // Only use if recent (within 10 seconds)
+              if (Date.now() - timestamp < 10000) {
+                localStorage.removeItem('oauth_callback');
+                if (!handled) {
+                  handled = true;
+                  try {
+                    const authStatus = await this.handleOAuthCallback(code, state);
+                    resolve(authStatus);
+                    return;
+                  } catch (error) {
+                    reject(error);
+                    return;
+                  }
+                }
               }
             }
+            
+            if (!handled) {
+              reject(new Error('OAuth flow cancelled by user'));
+            }
+            return;
           }
         } catch (e) {
-          // Can't access popup.location yet (cross-origin)
           // Continue polling
         }
       }, 1000);
@@ -276,10 +429,13 @@ export class CloudService {
       // Timeout after 5 minutes
       setTimeout(() => {
         clearInterval(pollTimer);
+        window.removeEventListener('message', messageHandler);
         if (!popup.closed) {
           popup.close();
         }
-        reject(new Error('OAuth flow timed out'));
+        if (!handled) {
+          reject(new Error('OAuth flow timed out'));
+        }
       }, 5 * 60 * 1000);
     });
   }

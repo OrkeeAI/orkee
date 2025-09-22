@@ -22,6 +22,9 @@ export const GitActivityGraph: React.FC<GitActivityGraphProps> = ({
 }) => {
   // Transform commit data into activity graph format
   const activityData = useMemo((): Activity[] => {
+    // Ensure commits is an array
+    const safeCommits = Array.isArray(commits) ? commits : [];
+    
     // Calculate date range (last 12 months)
     const endDate = new Date();
     const startDate = new Date();
@@ -39,7 +42,7 @@ export const GitActivityGraph: React.FC<GitActivityGraphProps> = ({
     }
 
     // Group commits by date
-    commits.forEach((commit) => {
+    safeCommits.forEach((commit) => {
       const commitDate = new Date(commit.timestamp * 1000);
       const dateKey = commitDate.toISOString().split('T')[0];
       
@@ -73,7 +76,7 @@ export const GitActivityGraph: React.FC<GitActivityGraphProps> = ({
     return activities.sort((a, b) => a.date.localeCompare(b.date));
   }, [commits]);
 
-  if (commits.length === 0) {
+  if (!Array.isArray(commits) || commits.length === 0) {
     return (
       <div className="flex items-center justify-center h-32 text-muted-foreground">
         <div className="text-center">

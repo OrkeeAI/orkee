@@ -4,6 +4,7 @@ use axum::{
 };
 
 pub mod cloud;
+pub mod config;
 pub mod directories;
 pub mod git;
 pub mod health;
@@ -95,23 +96,23 @@ pub async fn create_router() -> Router {
         .layer(axum::Extension(project_manager.clone()));
 
     // Create cloud router
-    let cloud_state = cloud::CloudState::new();
     let cloud_router = Router::new()
         .route("/auth/init", post(cloud::init_oauth_flow))
         .route("/auth/callback", post(cloud::handle_oauth_callback))
         .route("/auth/status", get(cloud::get_auth_status))
         .route("/auth/logout", post(cloud::logout))
         .route("/sync/status", get(cloud::get_global_sync_status))
+        .route("/projects/:project_id/status", get(cloud::get_project_sync_status))
         .route("/projects", get(cloud::list_cloud_projects))
         .route("/projects/sync-all", post(cloud::sync_all_projects))
         .route("/projects/:project_id/sync", post(cloud::sync_project))
-        .route("/projects/:project_id/status", get(cloud::get_project_sync_status))
         .route("/usage", get(cloud::get_usage_stats))
-        .layer(axum::Extension(cloud_state));
+        .layer(axum::Extension(cloud::CloudState::new()));
 
     Router::new()
         .route("/api/health", get(health::health_check))
         .route("/api/status", get(health::status_check))
+        .route("/api/config", get(config::get_config))
         .route(
             "/api/browse-directories",
             post(directories::browse_directories),

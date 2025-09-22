@@ -53,7 +53,7 @@ fn validate_name(name: &str) -> Result<(), ValidationError> {
     }
 
     // Check pattern
-    let re = Regex::new(NAME_PATTERN).unwrap();
+    let re = Regex::new(NAME_PATTERN).expect("Invalid NAME_PATTERN regex");
     if !re.is_match(name) {
         return Err(ValidationError::new(
             "name",
@@ -256,7 +256,7 @@ pub async fn validate_project_data(
 
     // Validate tags if present
     if let Some(ref tags) = data.tags {
-        let tag_re = Regex::new(TAG_PATTERN).unwrap();
+        let tag_re = Regex::new(TAG_PATTERN).expect("Invalid TAG_PATTERN regex");
         for tag in tags {
             if tag.trim().is_empty() {
                 errors.push(ValidationError::new("tags", "Tags cannot be empty"));
@@ -361,7 +361,7 @@ pub async fn validate_project_update(
 
     // Validate tags if present
     if let Some(ref tags) = data.tags {
-        let tag_re = Regex::new(TAG_PATTERN).unwrap();
+        let tag_re = Regex::new(TAG_PATTERN).expect("Invalid TAG_PATTERN regex");
         for tag in tags {
             if tag.trim().is_empty() {
                 errors.push(ValidationError::new("tags", "Tags cannot be empty"));
@@ -473,14 +473,14 @@ mod tests {
         let id1 = generate_project_id();
         let id2 = generate_project_id();
 
-        // UUIDs are 36 characters long
-        assert_eq!(id1.len(), 36);
-        assert_eq!(id2.len(), 36);
+        // IDs are 8 characters long (cloud-compatible format)
+        assert_eq!(id1.len(), 8);
+        assert_eq!(id2.len(), 8);
         assert_ne!(id1, id2);
 
-        // Should be valid UUID format (with dashes)
-        assert!(id1.chars().all(|c| c.is_ascii_hexdigit() || c == '-'));
-        assert!(id2.chars().all(|c| c.is_ascii_hexdigit() || c == '-'));
+        // Should be alphanumeric characters only
+        assert!(id1.chars().all(|c| c.is_ascii_alphanumeric()));
+        assert!(id2.chars().all(|c| c.is_ascii_alphanumeric()));
     }
 
     #[test]

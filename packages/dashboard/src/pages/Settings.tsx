@@ -2,9 +2,25 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { useCloudAuth, useCloudSync } from '@/contexts/CloudContext'
 import { cloudService, formatLastSync } from '@/services/cloud'
-import { Settings as SettingsIcon, Key, Bell, Palette, Download, Upload, Cloud, User, RefreshCw } from 'lucide-react'
+import { fetchConfig } from '@/services/config'
+import { Cloud, User, RefreshCw, Download, Upload, Code2, ExternalLink } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { SUPPORTED_EDITORS, getDefaultEditorSettings, findEditorById } from '@/lib/editor-utils'
+import type { EditorSettings } from '@/lib/editor-utils'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Switch } from '@/components/ui/switch'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 
 export function Settings() {
+  const [isCloudEnabled, setIsCloudEnabled] = useState(false)
+
+  useEffect(() => {
+    fetchConfig().then(config => {
+      setIsCloudEnabled(config.cloud_enabled)
+    })
+  }, [])
+
   return (
     <div className="space-y-6">
       <div>
@@ -15,159 +31,236 @@ export function Settings() {
       </div>
 
       <div className="grid gap-6">
-        {/* API Configuration */}
-        <div className="rounded-lg border p-6">
-          <div className="flex items-center gap-2 mb-4">
-            <Key className="h-5 w-5 text-primary" />
-            <h2 className="text-xl font-semibold">API Configuration</h2>
-          </div>
-          <div className="space-y-4">
-            <div>
-              <label className="text-sm font-medium mb-2 block">OpenAI API Key</label>
-              <div className="flex gap-2">
-                <input 
-                  type="password" 
-                  placeholder="sk-..." 
-                  className="flex-1 px-3 py-2 border rounded-md"
-                />
-                <Button variant="outline">Update</Button>
-              </div>
-            </div>
-            <div>
-              <label className="text-sm font-medium mb-2 block">Anthropic API Key</label>
-              <div className="flex gap-2">
-                <input 
-                  type="password" 
-                  placeholder="sk-ant-..." 
-                  className="flex-1 px-3 py-2 border rounded-md"
-                />
-                <Button variant="outline">Update</Button>
-              </div>
-            </div>
-            <div>
-              <label className="text-sm font-medium mb-2 block">Custom Endpoint URL</label>
-              <div className="flex gap-2">
-                <input 
-                  type="url" 
-                  placeholder="https://your-api-endpoint.com" 
-                  className="flex-1 px-3 py-2 border rounded-md"
-                />
-                <Button variant="outline">Save</Button>
-              </div>
-            </div>
-          </div>
-        </div>
-
+        {/* Editor Settings - Always show */}
+        <EditorSettings />
+        
         {/* Cloud Settings */}
-        <CloudSettings />
-
-        {/* Notifications */}
-        <div className="rounded-lg border p-6">
-          <div className="flex items-center gap-2 mb-4">
-            <Bell className="h-5 w-5 text-primary" />
-            <h2 className="text-xl font-semibold">Notifications</h2>
+        {isCloudEnabled && <CloudSettings />}
+        
+        {/* When cloud is disabled, show a note */}
+        {!isCloudEnabled && (
+          <div className="rounded-lg border p-6">
+            <h2 className="text-xl font-semibold mb-2">Additional Settings</h2>
+            <p className="text-muted-foreground">
+              Cloud sync and other features will be available here when enabled.
+            </p>
           </div>
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="font-medium">Agent Status Changes</p>
-                <p className="text-sm text-muted-foreground">Get notified when agents go online/offline</p>
-              </div>
-              <label className="relative inline-flex items-center cursor-pointer">
-                <input type="checkbox" className="sr-only peer" defaultChecked />
-                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
-              </label>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// Editor Settings Component
+function EditorSettings() {
+  const [editorSettings, setEditorSettings] = useState<EditorSettings>(getDefaultEditorSettings());
+  const [isTestingEditor, setIsTestingEditor] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+
+  // Load editor settings on mount
+  useEffect(() => {
+    loadEditorSettings();
+  }, []);
+
+  const loadEditorSettings = async () => {
+    try {
+      const stored = localStorage.getItem('orkee-editor-settings');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        setEditorSettings({ ...getDefaultEditorSettings(), ...parsed });
+      }
+    } catch (error) {
+      console.error('Failed to load editor settings:', error);
+    }
+  };
+
+  const saveEditorSettings = async (newSettings: EditorSettings) => {
+    setIsSaving(true);
+    try {
+      localStorage.setItem('orkee-editor-settings', JSON.stringify(newSettings));
+      setEditorSettings(newSettings);
+    } catch (error) {
+      console.error('Failed to save editor settings:', error);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleEditorChange = (editorId: string) => {
+    const newSettings = {
+      ...editorSettings,
+      defaultEditor: editorId,
+    };
+    saveEditorSettings(newSettings);
+  };
+
+  const handleCustomCommandChange = (command: string) => {
+    const newSettings = {
+      ...editorSettings,
+      customCommand: command,
+    };
+    saveEditorSettings(newSettings);
+  };
+
+  const handleToggleChange = (field: keyof EditorSettings, value: boolean) => {
+    const newSettings = {
+      ...editorSettings,
+      [field]: value,
+    };
+    saveEditorSettings(newSettings);
+  };
+
+  const handleTestEditor = async () => {
+    setIsTestingEditor(true);
+    try {
+      const response = await fetch('/api/projects/open-in-editor', {
+        method: 'GET',
+      });
+      const result = await response.json();
+      
+      if (result.success) {
+        alert(`✅ ${result.message}\n\nDetected: ${result.detectedCommand || 'N/A'}`);
+      } else {
+        alert(`❌ ${result.message}`);
+      }
+    } catch (error) {
+      alert('❌ Failed to test editor configuration');
+      console.error('Test editor error:', error);
+    } finally {
+      setIsTestingEditor(false);
+    }
+  };
+
+  const selectedEditor = findEditorById(editorSettings.defaultEditor);
+
+  return (
+    <div className="rounded-lg border p-6">
+      <div className="flex items-center gap-2 mb-4">
+        <Code2 className="h-5 w-5 text-primary" />
+        <h2 className="text-xl font-semibold">Code Editor</h2>
+      </div>
+
+      <div className="space-y-6">
+        {/* Editor Selection */}
+        <div className="space-y-3">
+          <Label htmlFor="editor-select">Default Editor</Label>
+          <p className="text-sm text-muted-foreground mb-3">
+            Choose your preferred code editor for opening projects
+          </p>
+          <Select 
+            value={editorSettings.defaultEditor} 
+            onValueChange={handleEditorChange}
+            disabled={isSaving}
+          >
+            <SelectTrigger>
+              <SelectValue>
+                <div className="flex items-center gap-2">
+                  <span>{selectedEditor?.icon}</span>
+                  <span>{selectedEditor?.name || "Select editor..."}</span>
+                </div>
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent className="max-h-[300px]">
+              {SUPPORTED_EDITORS.map((editor) => (
+                <SelectItem key={editor.id} value={editor.id}>
+                  <div className="flex items-center gap-2">
+                    <span>{editor.icon}</span>
+                    <span>{editor.name}</span>
+                    {/* Platform indicators */}
+                    {editor.platformRestricted?.includes('darwin') && editor.platformRestricted.length === 1 && (
+                      <Badge variant="secondary" className="ml-auto text-xs">macOS</Badge>
+                    )}
+                    {editor.platformRestricted?.includes('win32') && editor.platformRestricted.length === 1 && (
+                      <Badge variant="secondary" className="ml-auto text-xs">Windows</Badge>
+                    )}
+                    {editor.platformRestricted?.includes('linux') && editor.platformRestricted.length === 1 && (
+                      <Badge variant="secondary" className="ml-auto text-xs">Linux</Badge>
+                    )}
+                  </div>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Custom Command Input */}
+        {editorSettings.defaultEditor === 'custom' && (
+          <div className="space-y-3">
+            <Label htmlFor="custom-command">Custom Command</Label>
+            <p className="text-sm text-muted-foreground mb-3">
+              Enter the full path or command to launch your editor
+            </p>
+            <Input
+              id="custom-command"
+              type="text"
+              placeholder="e.g., /usr/local/bin/myeditor"
+              value={editorSettings.customCommand}
+              onChange={(e) => handleCustomCommandChange(e.target.value)}
+              disabled={isSaving}
+            />
+          </div>
+        )}
+
+        {/* Editor Options */}
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5">
+              <Label htmlFor="auto-detect">Auto-detect Editor</Label>
+              <p className="text-sm text-muted-foreground">
+                Automatically detect if the selected editor is installed
+              </p>
             </div>
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="font-medium">Error Alerts</p>
-                <p className="text-sm text-muted-foreground">Receive alerts for system errors</p>
-              </div>
-              <label className="relative inline-flex items-center cursor-pointer">
-                <input type="checkbox" className="sr-only peer" defaultChecked />
-                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
-              </label>
+            <Switch
+              id="auto-detect"
+              checked={editorSettings.autoDetect}
+              onCheckedChange={(value) => handleToggleChange('autoDetect', value)}
+              disabled={isSaving}
+            />
+          </div>
+
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5">
+              <Label htmlFor="new-window">Open in New Window</Label>
+              <p className="text-sm text-muted-foreground">
+                Always open projects in a new editor window
+              </p>
             </div>
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="font-medium">Usage Alerts</p>
-                <p className="text-sm text-muted-foreground">Alerts for high usage or approaching limits</p>
-              </div>
-              <label className="relative inline-flex items-center cursor-pointer">
-                <input type="checkbox" className="sr-only peer" />
-                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
-              </label>
-            </div>
+            <Switch
+              id="new-window"
+              checked={editorSettings.openInNewWindow}
+              onCheckedChange={(value) => handleToggleChange('openInNewWindow', value)}
+              disabled={isSaving}
+            />
           </div>
         </div>
 
-        {/* Appearance */}
-        <div className="rounded-lg border p-6">
-          <div className="flex items-center gap-2 mb-4">
-            <Palette className="h-5 w-5 text-primary" />
-            <h2 className="text-xl font-semibold">Appearance</h2>
-          </div>
-          <div className="space-y-4">
-            <div>
-              <p className="font-medium mb-3">Theme</p>
-              <div className="flex gap-4">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input type="radio" name="theme" value="light" className="w-4 h-4" defaultChecked />
-                  <span>Light</span>
-                </label>
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input type="radio" name="theme" value="dark" className="w-4 h-4" />
-                  <span>Dark</span>
-                </label>
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input type="radio" name="theme" value="system" className="w-4 h-4" />
-                  <span>System</span>
-                </label>
-              </div>
-            </div>
-            <div>
-              <p className="font-medium mb-3">Dashboard Density</p>
-              <div className="flex gap-4">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input type="radio" name="density" value="compact" className="w-4 h-4" />
-                  <span>Compact</span>
-                </label>
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input type="radio" name="density" value="normal" className="w-4 h-4" defaultChecked />
-                  <span>Normal</span>
-                </label>
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input type="radio" name="density" value="comfortable" className="w-4 h-4" />
-                  <span>Comfortable</span>
-                </label>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Data Management */}
-        <div className="rounded-lg border p-6">
-          <div className="flex items-center gap-2 mb-4">
-            <SettingsIcon className="h-5 w-5 text-primary" />
-            <h2 className="text-xl font-semibold">Data Management</h2>
-          </div>
-          <div className="flex gap-4">
-            <Button variant="outline">
-              <Download className="mr-2 h-4 w-4" />
-              Export Configuration
-            </Button>
-            <Button variant="outline">
-              <Upload className="mr-2 h-4 w-4" />
-              Import Configuration
-            </Button>
-          </div>
-          <p className="text-sm text-muted-foreground mt-2">
-            Export your settings and configurations, or import from a backup.
+        {/* Test Button */}
+        <div className="pt-4 border-t">
+          <Button 
+            variant="outline" 
+            onClick={handleTestEditor}
+            className="w-full"
+            disabled={!editorSettings.defaultEditor || isTestingEditor || isSaving}
+          >
+            {isTestingEditor ? (
+              <>
+                <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                Testing...
+              </>
+            ) : (
+              <>
+                <ExternalLink className="mr-2 h-4 w-4" />
+                Test Editor Configuration
+              </>
+            )}
+          </Button>
+          <p className="text-xs text-muted-foreground mt-2 text-center">
+            Tests if your selected editor can be launched successfully
           </p>
         </div>
       </div>
     </div>
-  )
+  );
 }
 
 // Cloud Settings Component
@@ -305,7 +398,7 @@ function CloudSettings() {
               <div className="flex gap-2">
                 <input 
                   type="url" 
-                  value="https://api.orkee.ai"
+                  value={import.meta.env.VITE_ORKEE_CLOUD_API_URL || "https://api.orkee.ai"}
                   readOnly
                   className="flex-1 px-3 py-2 border rounded-md bg-gray-50 text-gray-600"
                 />

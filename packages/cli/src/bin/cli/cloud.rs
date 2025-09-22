@@ -83,7 +83,7 @@ pub async fn handle_cloud_command(command: CloudCommands) -> anyhow::Result<()> 
     {
         use orkee_cloud::{
             api::CloudProject as ApiCloudProject, 
-            CloudClient, ConflictReport, ProjectDiff
+            CloudClient
         };
 
         // Initialize cloud client
@@ -460,13 +460,6 @@ pub async fn handle_cloud_command(command: CloudCommands) -> anyhow::Result<()> 
                 println!("Your local projects will continue to work normally.");
             }
 
-            CloudCommands::Enable => {
-                println!("✅ Cloud sync enabled for this project");
-            }
-
-            CloudCommands::Disable => {
-                println!("✅ Cloud sync disabled for this project");
-            }
 
             CloudCommands::Conflicts(args) => {
                 println!("🔍 {}", "Checking for Sync Conflicts".bold());

@@ -1,5 +1,4 @@
 //! Cloud error types
-use std::fmt;
 use thiserror::Error;
 
 /// Result type for cloud operations

@@ -69,6 +69,17 @@ mod cloud_unit_tests {
             name: "Test Project".to_string(),
             path: "/tmp/test".to_string(),
             description: Some("Test description".to_string()),
+            setup_script: None,
+            dev_script: None,
+            cleanup_script: None,
+            tags: vec![],
+            status: "active".to_string(),
+            priority: "medium".to_string(),
+            rank: None,
+            task_source: None,
+            mcp_servers: std::collections::HashMap::new(),
+            git_repository: None,
+            manual_tasks: None,
             created_at: Utc::now(),
             updated_at: Utc::now(),
             last_sync: None,
@@ -79,6 +90,8 @@ mod cloud_unit_tests {
         assert_eq!(project.path, "/tmp/test");
         assert!(project.description.is_some());
         assert!(project.last_sync.is_none());
+        assert_eq!(project.status, "active");
+        assert_eq!(project.priority, "medium");
     }
 
     #[test]

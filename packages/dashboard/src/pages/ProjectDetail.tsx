@@ -28,6 +28,7 @@ import { ProjectEditDialog } from '@/components/ProjectEditDialog';
 import { ProjectDeleteDialog } from '@/components/ProjectDeleteDialog';
 import { PreviewPanel } from '@/components/preview';
 import { GitTab, GitActivityGraph } from '@/components/git';
+import { OpenInEditorButton } from '@/components/ui/OpenInEditorButton';
 import { useProject } from '@/hooks/useProjects';
 import { useCommitHistory } from '@/services/git';
 
@@ -147,6 +148,14 @@ export function ProjectDetail() {
         </div>
         
         <div className="flex flex-col sm:flex-row sm:flex-wrap gap-2 w-full sm:w-auto">
+          <OpenInEditorButton 
+            projectId={project.id}
+            variant="outline"
+            size="default"
+            showText={true}
+            text="Open in Editor"
+            className="sm:w-auto w-full"
+          />
           <Button variant="outline" onClick={() => setShowEditDialog(true)} className="sm:w-auto w-full">
             <Edit className="mr-2 h-4 w-4" />
             <span className="sm:inline">Edit</span>

@@ -14,5 +14,11 @@ export default defineConfig({
     port: parseInt(process.env.ORKEE_UI_PORT || process.env.VITE_PORT || '5173'),
     strictPort: true,
     host: 'localhost',
+    proxy: {
+      '/api': {
+        target: `http://localhost:${process.env.ORKEE_API_PORT || '4001'}`,
+        changeOrigin: true,
+      },
+    },
   },
 })
