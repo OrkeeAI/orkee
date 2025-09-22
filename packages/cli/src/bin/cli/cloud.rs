@@ -81,10 +81,7 @@ pub async fn handle_cloud_command(command: CloudCommands) -> anyhow::Result<()> 
 
     #[cfg(feature = "cloud")]
     {
-        use orkee_cloud::{
-            api::CloudProject as ApiCloudProject, 
-            CloudClient
-        };
+        use orkee_cloud::{api::CloudProject as ApiCloudProject, CloudClient};
 
         // Initialize cloud client
         let api_url = std::env::var("ORKEE_CLOUD_API_URL")
@@ -227,7 +224,9 @@ pub async fn handle_cloud_command(command: CloudCommands) -> anyhow::Result<()> 
                                 tags: project.tags.clone().unwrap_or_default(),
                                 status: match project.status {
                                     orkee_projects::ProjectStatus::Active => "active".to_string(),
-                                    orkee_projects::ProjectStatus::Archived => "archived".to_string(),
+                                    orkee_projects::ProjectStatus::Archived => {
+                                        "archived".to_string()
+                                    }
                                 },
                                 priority: match project.priority {
                                     orkee_projects::Priority::High => "high".to_string(),
@@ -236,7 +235,9 @@ pub async fn handle_cloud_command(command: CloudCommands) -> anyhow::Result<()> 
                                 },
                                 rank: project.rank,
                                 task_source: project.task_source.as_ref().map(|ts| match ts {
-                                    orkee_projects::TaskSource::Taskmaster => "taskmaster".to_string(),
+                                    orkee_projects::TaskSource::Taskmaster => {
+                                        "taskmaster".to_string()
+                                    }
                                     orkee_projects::TaskSource::Manual => "manual".to_string(),
                                 }),
                                 mcp_servers: project.mcp_servers.clone().unwrap_or_default(),
@@ -249,7 +250,10 @@ pub async fn handle_cloud_command(command: CloudCommands) -> anyhow::Result<()> 
                                     }
                                 }),
                                 manual_tasks: project.manual_tasks.as_ref().map(|tasks| {
-                                    tasks.iter().map(|t| serde_json::to_value(t).unwrap()).collect()
+                                    tasks
+                                        .iter()
+                                        .map(|t| serde_json::to_value(t).unwrap())
+                                        .collect()
                                 }),
                                 created_at: project.created_at,
                                 updated_at: project.updated_at,
@@ -298,20 +302,35 @@ pub async fn handle_cloud_command(command: CloudCommands) -> anyhow::Result<()> 
                                         cleanup_script: project.cleanup_script.clone(),
                                         tags: project.tags.clone().unwrap_or_default(),
                                         status: match project.status {
-                                            orkee_projects::ProjectStatus::Active => "active".to_string(),
-                                            orkee_projects::ProjectStatus::Archived => "archived".to_string(),
+                                            orkee_projects::ProjectStatus::Active => {
+                                                "active".to_string()
+                                            }
+                                            orkee_projects::ProjectStatus::Archived => {
+                                                "archived".to_string()
+                                            }
                                         },
                                         priority: match project.priority {
                                             orkee_projects::Priority::High => "high".to_string(),
-                                            orkee_projects::Priority::Medium => "medium".to_string(),
+                                            orkee_projects::Priority::Medium => {
+                                                "medium".to_string()
+                                            }
                                             orkee_projects::Priority::Low => "low".to_string(),
                                         },
                                         rank: project.rank,
-                                        task_source: project.task_source.as_ref().map(|ts| match ts {
-                                            orkee_projects::TaskSource::Taskmaster => "taskmaster".to_string(),
-                                            orkee_projects::TaskSource::Manual => "manual".to_string(),
-                                        }),
-                                        mcp_servers: project.mcp_servers.clone().unwrap_or_default(),
+                                        task_source: project.task_source.as_ref().map(
+                                            |ts| match ts {
+                                                orkee_projects::TaskSource::Taskmaster => {
+                                                    "taskmaster".to_string()
+                                                }
+                                                orkee_projects::TaskSource::Manual => {
+                                                    "manual".to_string()
+                                                }
+                                            },
+                                        ),
+                                        mcp_servers: project
+                                            .mcp_servers
+                                            .clone()
+                                            .unwrap_or_default(),
                                         git_repository: project.git_repository.as_ref().map(|gr| {
                                             orkee_cloud::api::GitRepositoryInfo {
                                                 owner: gr.owner.clone(),
@@ -321,7 +340,10 @@ pub async fn handle_cloud_command(command: CloudCommands) -> anyhow::Result<()> 
                                             }
                                         }),
                                         manual_tasks: project.manual_tasks.as_ref().map(|tasks| {
-                                            tasks.iter().map(|t| serde_json::to_value(t).unwrap()).collect()
+                                            tasks
+                                                .iter()
+                                                .map(|t| serde_json::to_value(t).unwrap())
+                                                .collect()
                                         }),
                                         created_at: project.created_at,
                                         updated_at: project.updated_at,
@@ -460,7 +482,6 @@ pub async fn handle_cloud_command(command: CloudCommands) -> anyhow::Result<()> 
                 println!("Your local projects will continue to work normally.");
             }
 
-
             CloudCommands::Conflicts(args) => {
                 println!("🔍 {}", "Checking for Sync Conflicts".bold());
 
@@ -509,9 +530,11 @@ pub async fn handle_cloud_command(command: CloudCommands) -> anyhow::Result<()> 
                         Ok(Some(project)) => {
                             if args.incremental {
                                 // TODO: Implement change detection for incremental sync
-                                println!("⚠️  Incremental sync not yet implemented, using full sync");
+                                println!(
+                                    "⚠️  Incremental sync not yet implemented, using full sync"
+                                );
                             }
-                            
+
                             // Use the same sync logic as sync command
                             let cloud_project = ApiCloudProject {
                                 id: project.id.clone(),
@@ -524,7 +547,9 @@ pub async fn handle_cloud_command(command: CloudCommands) -> anyhow::Result<()> 
                                 tags: project.tags.clone().unwrap_or_default(),
                                 status: match project.status {
                                     orkee_projects::ProjectStatus::Active => "active".to_string(),
-                                    orkee_projects::ProjectStatus::Archived => "archived".to_string(),
+                                    orkee_projects::ProjectStatus::Archived => {
+                                        "archived".to_string()
+                                    }
                                 },
                                 priority: match project.priority {
                                     orkee_projects::Priority::High => "high".to_string(),
@@ -533,7 +558,9 @@ pub async fn handle_cloud_command(command: CloudCommands) -> anyhow::Result<()> 
                                 },
                                 rank: project.rank,
                                 task_source: project.task_source.as_ref().map(|ts| match ts {
-                                    orkee_projects::TaskSource::Taskmaster => "taskmaster".to_string(),
+                                    orkee_projects::TaskSource::Taskmaster => {
+                                        "taskmaster".to_string()
+                                    }
                                     orkee_projects::TaskSource::Manual => "manual".to_string(),
                                 }),
                                 mcp_servers: project.mcp_servers.clone().unwrap_or_default(),
@@ -546,7 +573,10 @@ pub async fn handle_cloud_command(command: CloudCommands) -> anyhow::Result<()> 
                                     }
                                 }),
                                 manual_tasks: project.manual_tasks.as_ref().map(|tasks| {
-                                    tasks.iter().map(|t| serde_json::to_value(t).unwrap()).collect()
+                                    tasks
+                                        .iter()
+                                        .map(|t| serde_json::to_value(t).unwrap())
+                                        .collect()
                                 }),
                                 created_at: project.created_at,
                                 updated_at: project.updated_at,

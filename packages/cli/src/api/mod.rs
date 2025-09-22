@@ -102,7 +102,10 @@ pub async fn create_router() -> Router {
         .route("/auth/status", get(cloud::get_auth_status))
         .route("/auth/logout", post(cloud::logout))
         .route("/sync/status", get(cloud::get_global_sync_status))
-        .route("/projects/:project_id/status", get(cloud::get_project_sync_status))
+        .route(
+            "/projects/:project_id/status",
+            get(cloud::get_project_sync_status),
+        )
         .route("/projects", get(cloud::list_cloud_projects))
         .route("/projects/sync-all", post(cloud::sync_all_projects))
         .route("/projects/:project_id/sync", post(cloud::sync_project))

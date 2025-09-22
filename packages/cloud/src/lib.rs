@@ -17,17 +17,16 @@ pub mod types;
 
 // Re-export main types
 pub use api::{
-    CloudProject, ConflictReport, ConflictResolution, ConflictStrategy, 
-    FieldConflict, FieldResolution, GitRepositoryInfo, ProjectDiff,
-    User, Usage, ApiError, AuthResponse
+    ApiError, AuthResponse, CloudProject, ConflictReport, ConflictResolution, ConflictStrategy,
+    FieldConflict, FieldResolution, GitRepositoryInfo, ProjectDiff, Usage, User,
 };
 pub use auth::{AuthManager, CallbackServer, TokenInfo};
 pub use client::HttpClient;
 pub use error::{CloudError, CloudResult};
 pub use types::*;
 
-use base64::{engine::general_purpose::STANDARD as BASE64, Engine};
 use api::{ListProjectsResponse, RestoreResponse};
+use base64::{engine::general_purpose::STANDARD as BASE64, Engine};
 
 /// Main cloud client for interacting with Orkee Cloud
 pub struct CloudClient {
@@ -181,17 +180,16 @@ impl CloudClient {
         resolution: ConflictResolution,
     ) -> CloudResult<()> {
         self.http_client
-            .post::<_, ()>(&format!("/api/projects/{}/resolve", project_id), &resolution)
+            .post::<_, ()>(
+                &format!("/api/projects/{}/resolve", project_id),
+                &resolution,
+            )
             .await?;
         Ok(())
     }
 
     /// Incremental sync for changes only
-    pub async fn sync_incremental(
-        &self,
-        project_id: &str,
-        diff: ProjectDiff,
-    ) -> CloudResult<()> {
+    pub async fn sync_incremental(&self, project_id: &str, diff: ProjectDiff) -> CloudResult<()> {
         self.http_client
             .patch::<_, ()>(&format!("/api/projects/{}/delta", project_id), &diff)
             .await?;

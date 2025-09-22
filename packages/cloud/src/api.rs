@@ -55,21 +55,21 @@ pub struct ProjectSyncResponse {
 /// Cloud project representation with full OSS compatibility
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CloudProject {
-    pub id: String,  // 8-character format
+    pub id: String, // 8-character format
     pub name: String,
-    pub path: String,  // project_root
+    pub path: String, // project_root
     pub description: Option<String>,
     pub setup_script: Option<String>,
     pub dev_script: Option<String>,
     pub cleanup_script: Option<String>,
     pub tags: Vec<String>,
-    pub status: String,  // "active" or "archived"
-    pub priority: String,  // "high", "medium", "low"
+    pub status: String,   // "active" or "archived"
+    pub priority: String, // "high", "medium", "low"
     pub rank: Option<u32>,
-    pub task_source: Option<String>,  // "taskmaster" or "manual"
+    pub task_source: Option<String>, // "taskmaster" or "manual"
     pub mcp_servers: std::collections::HashMap<String, bool>,
     pub git_repository: Option<GitRepositoryInfo>,
-    pub manual_tasks: Option<Vec<serde_json::Value>>,  // Serialized tasks
+    pub manual_tasks: Option<Vec<serde_json::Value>>, // Serialized tasks
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
     pub last_sync: Option<DateTime<Utc>>,
@@ -154,7 +154,7 @@ pub enum ConflictStrategy {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct FieldResolution {
     pub field: String,
-    pub use_value: String,  // "local" or "cloud"
+    pub use_value: String, // "local" or "cloud"
 }
 
 /// Project diff for incremental sync

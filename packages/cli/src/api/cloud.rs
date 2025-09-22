@@ -3,14 +3,9 @@
 //! This module provides API endpoints that bridge to the CloudClient for Orkee Cloud functionality.
 //! These endpoints are used by the dashboard to interact with Orkee Cloud.
 
-use axum::{
-    extract::Path,
-    http::StatusCode,
-    response::Json,
-    Extension,
-};
-use std::sync::Arc;
+use axum::{extract::Path, http::StatusCode, response::Json, Extension};
 use serde::{Deserialize, Serialize};
+use std::sync::Arc;
 
 #[cfg(feature = "cloud")]
 use orkee_cloud::{CloudClient, CloudError, CloudProject};
@@ -170,7 +165,7 @@ pub async fn init_oauth_flow(
                 // Get the API URL from environment or use default
                 let api_url = std::env::var("ORKEE_CLOUD_API_URL")
                     .unwrap_or_else(|_| "https://api.orkee.ai".to_string());
-                
+
                 // For now, we'll return a placeholder response
                 // The actual OAuth flow will be implemented with the full CloudClient integration
                 let response = OAuthInitResponse {
@@ -180,7 +175,10 @@ pub async fn init_oauth_flow(
                 };
                 Ok(Json(ApiResponse::success(response)))
             }
-            Err(e) => Ok(Json(ApiResponse::error(format!("Failed to initialize cloud client: {}", e)))),
+            Err(e) => Ok(Json(ApiResponse::error(format!(
+                "Failed to initialize cloud client: {}",
+                e
+            )))),
         }
     }
 }
@@ -212,10 +210,16 @@ pub async fn handle_oauth_callback(
                         };
                         Ok(Json(ApiResponse::success(auth_status)))
                     }
-                    Err(e) => Ok(Json(ApiResponse::error(format!("OAuth login failed: {}", e)))),
+                    Err(e) => Ok(Json(ApiResponse::error(format!(
+                        "OAuth login failed: {}",
+                        e
+                    )))),
                 }
             }
-            Err(e) => Ok(Json(ApiResponse::error(format!("Failed to initialize cloud client: {}", e)))),
+            Err(e) => Ok(Json(ApiResponse::error(format!(
+                "Failed to initialize cloud client: {}",
+                e
+            )))),
         }
     }
 }
@@ -260,7 +264,10 @@ pub async fn get_auth_status(
                 };
                 Ok(Json(ApiResponse::success(auth_status)))
             }
-            Err(e) => Ok(Json(ApiResponse::error(format!("Failed to check auth status: {}", e)))),
+            Err(e) => Ok(Json(ApiResponse::error(format!(
+                "Failed to check auth status: {}",
+                e
+            )))),
         }
     }
 }
@@ -284,12 +291,17 @@ pub async fn logout(
                     Ok(_) => {
                         // Clear the cached client
                         *state.cloud_client.lock().await = None;
-                        Ok(Json(ApiResponse::success("Successfully logged out".to_string())))
+                        Ok(Json(ApiResponse::success(
+                            "Successfully logged out".to_string(),
+                        )))
                     }
                     Err(e) => Ok(Json(ApiResponse::error(format!("Logout failed: {}", e)))),
                 }
             }
-            Err(e) => Ok(Json(ApiResponse::error(format!("Failed to initialize cloud client: {}", e)))),
+            Err(e) => Ok(Json(ApiResponse::error(format!(
+                "Failed to initialize cloud client: {}",
+                e
+            )))),
         }
     }
 }
@@ -345,7 +357,10 @@ pub async fn get_global_sync_status(
                 };
                 Ok(Json(ApiResponse::success(status)))
             }
-            Err(e) => Ok(Json(ApiResponse::error(format!("Failed to get sync status: {}", e)))),
+            Err(e) => Ok(Json(ApiResponse::error(format!(
+                "Failed to get sync status: {}",
+                e
+            )))),
         }
     }
 }
@@ -369,10 +384,16 @@ pub async fn list_cloud_projects(
 
                 match client.list_projects().await {
                     Ok(projects) => Ok(Json(ApiResponse::success(projects))),
-                    Err(e) => Ok(Json(ApiResponse::error(format!("Failed to list cloud projects: {}", e)))),
+                    Err(e) => Ok(Json(ApiResponse::error(format!(
+                        "Failed to list cloud projects: {}",
+                        e
+                    )))),
                 }
             }
-            Err(e) => Ok(Json(ApiResponse::error(format!("Failed to initialize cloud client: {}", e)))),
+            Err(e) => Ok(Json(ApiResponse::error(format!(
+                "Failed to initialize cloud client: {}",
+                e
+            )))),
         }
     }
 }
@@ -382,33 +403,32 @@ pub async fn sync_all_projects(
     Extension(_state): Extension<CloudState>,
     Json(request): Json<SyncAllRequest>,
 ) -> Result<Json<ApiResponse<Vec<SyncResult>>>, StatusCode> {
-    tracing::info!("[OSS API] sync_all_projects called with request: {:?}", request);
-    
+    tracing::info!(
+        "[OSS API] sync_all_projects called with request: {:?}",
+        request
+    );
+
     // Get all local projects using the projects API
-    let manager = orkee_projects::ProjectsManager::new()
-        .await
-        .map_err(|e| {
-            tracing::error!("Failed to create project manager: {}", e);
-            StatusCode::INTERNAL_SERVER_ERROR
-        })?;
-    
-    let projects = manager.list_projects()
-        .await
-        .map_err(|e| {
-            tracing::error!("Failed to list projects: {}", e);
-            StatusCode::INTERNAL_SERVER_ERROR
-        })?;
-    
+    let manager = orkee_projects::ProjectsManager::new().await.map_err(|e| {
+        tracing::error!("Failed to create project manager: {}", e);
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
+
+    let projects = manager.list_projects().await.map_err(|e| {
+        tracing::error!("Failed to list projects: {}", e);
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
+
     tracing::info!("[OSS API] Found {} local projects to sync", projects.len());
-    
+
     let mut results = Vec::new();
     let mut synced_count = 0;
     let mut failed_count = 0;
-    
+
     // Get the cloud API URL - default to local cloud API server on port 8080
     let cloud_api_url = std::env::var("ORKEE_CLOUD_API_URL")
         .unwrap_or_else(|_| "http://127.0.0.1:8080".to_string());
-    
+
     // Get the authentication token
     let auth_token = {
         // TODO: Implement proper authentication when cloud features are fully implemented
@@ -417,7 +437,7 @@ pub async fn sync_all_projects(
         // Generated using the JWT_SECRET from cloud API with 24-hour expiration
         "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIzNWVhNGIzNS0zNzZlLTRlODQtOWVkMy01Mzk5YmM4NGQyMGYiLCJpYXQiOjE3NTc5MDY2MjMsImV4cCI6MTc1Nzk5MzAyMywibmJmIjoxNzU3OTA2NjIzLCJpc3MiOiJvcmtlZS1jbG91ZCIsImF1ZCI6WyJvcmtlZS1jbG91ZC1hcGkiXSwianRpIjoiOGQzOWM2ZjItNDIyMS00MGY0LWJlMmItNzhmMmU2YjFmMTBiIiwidHlwIjoiYWNjZXNzIiwiZW1haWwiOiJ0ZXN0QG9ya2VlLmFpIiwicm9sZXMiOlsidXNlciJdLCJtZXRhZGF0YSI6eyJhdmF0YXJfdXJsIjoiaHR0cHM6Ly9hdmF0YXJzLmdpdGh1YnVzZXJjb250ZW50LmNvbS91LzE0MjM3Nzc_dj00IiwibmFtZSI6IkpvZSBEYW56aWdlciJ9fQ.tgjyHgoD6aay2ZU5yFihHWOJ0l0aslgHnz92wSqQzAs".to_string()
     };
-    
+
     // Iterate through projects and sync them
     tracing::info!("[OSS API] Starting to sync projects");
     for (idx, project) in projects.into_iter().enumerate() {
@@ -428,7 +448,7 @@ pub async fn sync_all_projects(
                 continue;
             }
         }
-        
+
         // Create project payload for cloud API (matching CreateProjectRequest structure)
         let project_payload = serde_json::json!({
             "name": project.name,
@@ -446,11 +466,15 @@ pub async fn sync_all_projects(
             "git_repository": project.git_repository.clone(),
             "metadata": serde_json::json!({}),
         });
-        
+
         // Send to cloud API with authentication
-        tracing::info!("[OSS API] Sending project '{}' to cloud API at {}/api/projects", project.name, cloud_api_url);
+        tracing::info!(
+            "[OSS API] Sending project '{}' to cloud API at {}/api/projects",
+            project.name,
+            cloud_api_url
+        );
         tracing::debug!("[OSS API] Project payload: {:?}", project_payload);
-        
+
         let client = reqwest::Client::new();
         let response = client
             .post(&format!("{}/api/projects", cloud_api_url))
@@ -458,7 +482,7 @@ pub async fn sync_all_projects(
             .json(&project_payload)
             .send()
             .await;
-        
+
         match response {
             Ok(res) if res.status().is_success() => {
                 synced_count += 1;
@@ -473,8 +497,16 @@ pub async fn sync_all_projects(
             Ok(res) => {
                 failed_count += 1;
                 let status = res.status();
-                let error_msg = res.text().await.unwrap_or_else(|_| "Unknown error".to_string());
-                tracing::error!("[OSS API] Failed to sync project '{}' - Status: {}, Error: {}", project.name, status, error_msg);
+                let error_msg = res
+                    .text()
+                    .await
+                    .unwrap_or_else(|_| "Unknown error".to_string());
+                tracing::error!(
+                    "[OSS API] Failed to sync project '{}' - Status: {}, Error: {}",
+                    project.name,
+                    status,
+                    error_msg
+                );
                 results.push(SyncResult {
                     project_id: project.id.clone(),
                     success: false,
@@ -484,7 +516,11 @@ pub async fn sync_all_projects(
             }
             Err(e) => {
                 failed_count += 1;
-                tracing::error!("[OSS API] Network error syncing project '{}': {}", project.name, e);
+                tracing::error!(
+                    "[OSS API] Network error syncing project '{}': {}",
+                    project.name,
+                    e
+                );
                 results.push(SyncResult {
                     project_id: project.id.clone(),
                     success: false,
@@ -494,16 +530,20 @@ pub async fn sync_all_projects(
             }
         }
     }
-    
+
     // Log summary
     if failed_count > 0 {
-        tracing::warn!("[OSS API] Sync completed with {} failures out of {} projects", failed_count, results.len());
+        tracing::warn!(
+            "[OSS API] Sync completed with {} failures out of {} projects",
+            failed_count,
+            results.len()
+        );
     } else if synced_count > 0 {
         tracing::info!("[OSS API] Successfully synced {} projects", synced_count);
     } else {
         tracing::info!("[OSS API] No projects were synced");
     }
-    
+
     tracing::info!("[OSS API] Returning {} sync results", results.len());
     Ok(Json(ApiResponse::success(results)))
 }
@@ -538,7 +578,10 @@ pub async fn sync_project(
                 };
                 Ok(Json(ApiResponse::success(result)))
             }
-            Err(e) => Ok(Json(ApiResponse::error(format!("Failed to initialize cloud client: {}", e)))),
+            Err(e) => Ok(Json(ApiResponse::error(format!(
+                "Failed to initialize cloud client: {}",
+                e
+            )))),
         }
     }
 }
@@ -591,7 +634,10 @@ pub async fn get_project_sync_status(
                 };
                 Ok(Json(ApiResponse::success(status)))
             }
-            Err(e) => Ok(Json(ApiResponse::error(format!("Failed to get project sync status: {}", e)))),
+            Err(e) => Ok(Json(ApiResponse::error(format!(
+                "Failed to get project sync status: {}",
+                e
+            )))),
         }
     }
 }
@@ -616,11 +662,19 @@ pub async fn get_usage_stats(
                 }
 
                 match client.get_usage().await {
-                    Ok(_usage) => Ok(Json(ApiResponse::success("Usage data retrieved".to_string()))),
-                    Err(e) => Ok(Json(ApiResponse::error(format!("Failed to get usage stats: {}", e)))),
+                    Ok(_usage) => Ok(Json(ApiResponse::success(
+                        "Usage data retrieved".to_string(),
+                    ))),
+                    Err(e) => Ok(Json(ApiResponse::error(format!(
+                        "Failed to get usage stats: {}",
+                        e
+                    )))),
                 }
             }
-            Err(e) => Ok(Json(ApiResponse::error(format!("Failed to initialize cloud client: {}", e)))),
+            Err(e) => Ok(Json(ApiResponse::error(format!(
+                "Failed to initialize cloud client: {}",
+                e
+            )))),
         }
     }
 }

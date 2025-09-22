@@ -300,14 +300,16 @@ pub async fn open_in_editor(Json(request): Json<OpenInEditorRequest>) -> impl In
                 return (
                     StatusCode::NOT_FOUND,
                     ResponseJson(ApiResponse::<()>::error("Project not found".to_string())),
-                ).into_response();
+                )
+                    .into_response();
             }
             Err(e) => {
                 error!("Failed to get project {}: {}", project_id, e);
                 return (
                     StatusCode::INTERNAL_SERVER_ERROR,
                     ResponseJson(ApiResponse::<()>::error("Database error".to_string())),
-                ).into_response();
+                )
+                    .into_response();
             }
         }
     } else if let Some(project_path) = request.project_path {
@@ -315,8 +317,11 @@ pub async fn open_in_editor(Json(request): Json<OpenInEditorRequest>) -> impl In
     } else {
         return (
             StatusCode::BAD_REQUEST,
-            ResponseJson(ApiResponse::<()>::error("Either projectId or projectPath must be provided".to_string())),
-        ).into_response();
+            ResponseJson(ApiResponse::<()>::error(
+                "Either projectId or projectPath must be provided".to_string(),
+            )),
+        )
+            .into_response();
     };
 
     // Use the preferred editor if specified, otherwise default to VS Code
@@ -325,7 +330,7 @@ pub async fn open_in_editor(Json(request): Json<OpenInEditorRequest>) -> impl In
     } else {
         try_open_with_vscode(&project_path)
     };
-    
+
     match result {
         Ok(message) => {
             info!("Successfully opened project in editor: {}", message);
@@ -340,7 +345,8 @@ pub async fn open_in_editor(Json(request): Json<OpenInEditorRequest>) -> impl In
             (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 ResponseJson(ApiResponse::<()>::error(error)),
-            ).into_response()
+            )
+                .into_response()
         }
     }
 }
@@ -351,7 +357,7 @@ pub async fn test_editor_config() -> impl IntoResponse {
 
     // Try to detect VS Code for now
     let result = detect_vscode();
-    
+
     match result {
         Ok(command) => {
             let response = OpenInEditorResponse {
@@ -365,7 +371,8 @@ pub async fn test_editor_config() -> impl IntoResponse {
             (
                 StatusCode::OK,
                 ResponseJson(ApiResponse::<()>::error(error)),
-            ).into_response()
+            )
+                .into_response()
         }
     }
 }
@@ -383,7 +390,14 @@ fn try_open_with_vscode(project_path: &str) -> Result<String, String> {
             // Try command line tool first
             ("code", vec![project_path.to_string()]),
             // Try opening via application bundle
-            ("open", vec!["-a".to_string(), "Visual Studio Code".to_string(), project_path.to_string()]),
+            (
+                "open",
+                vec![
+                    "-a".to_string(),
+                    "Visual Studio Code".to_string(),
+                    project_path.to_string(),
+                ],
+            ),
         ]
     } else if cfg!(target_os = "windows") {
         vec![
@@ -399,12 +413,15 @@ fn try_open_with_vscode(project_path: &str) -> Result<String, String> {
     };
 
     let mut last_error = String::new();
-    
+
     for (command, args) in commands {
         match Command::new(command).args(&args).output() {
             Ok(output) => {
                 if output.status.success() {
-                    return Ok(format!("Project opened in VS Code successfully using '{}'", command));
+                    return Ok(format!(
+                        "Project opened in VS Code successfully using '{}'",
+                        command
+                    ));
                 } else {
                     let stderr = String::from_utf8_lossy(&output.stderr);
                     last_error = format!("Command '{}' failed: {}", command, stderr);
@@ -417,7 +434,10 @@ fn try_open_with_vscode(project_path: &str) -> Result<String, String> {
         }
     }
 
-    Err(format!("All VS Code launch attempts failed. Last error: {}", last_error))
+    Err(format!(
+        "All VS Code launch attempts failed. Last error: {}",
+        last_error
+    ))
 }
 
 /// Try to open a project with the specified editor
@@ -472,15 +492,18 @@ fn try_open_with_editor(project_path: &str, editor_id: &str) -> Result<String, S
     };
 
     let mut last_error = String::new();
-    
+
     for (command, mut args) in commands {
         // Add the project path as the last argument
         args.push(project_path.to_string());
-        
+
         match Command::new(command).args(&args).output() {
             Ok(output) => {
                 if output.status.success() {
-                    return Ok(format!("Project opened in {} successfully using '{}'", editor_id, command));
+                    return Ok(format!(
+                        "Project opened in {} successfully using '{}'",
+                        editor_id, command
+                    ));
                 } else {
                     let stderr = String::from_utf8_lossy(&output.stderr);
                     last_error = format!("Command '{}' failed: {}", command, stderr);
@@ -493,7 +516,10 @@ fn try_open_with_editor(project_path: &str, editor_id: &str) -> Result<String, S
         }
     }
 
-    Err(format!("All {} launch attempts failed. Last error: {}", editor_id, last_error))
+    Err(format!(
+        "All {} launch attempts failed. Last error: {}",
+        editor_id, last_error
+    ))
 }
 
 /// Get VS Code commands for different platforms
@@ -501,18 +527,15 @@ fn get_vscode_commands() -> Vec<(&'static str, Vec<String>)> {
     if cfg!(target_os = "macos") {
         vec![
             ("code", vec![]),
-            ("open", vec!["-a".to_string(), "Visual Studio Code".to_string()]),
+            (
+                "open",
+                vec!["-a".to_string(), "Visual Studio Code".to_string()],
+            ),
         ]
     } else if cfg!(target_os = "windows") {
-        vec![
-            ("code", vec![]),
-            ("code.cmd", vec![]),
-        ]
+        vec![("code", vec![]), ("code.cmd", vec![])]
     } else {
-        vec![
-            ("code", vec![]),
-            ("code-insiders", vec![]),
-        ]
+        vec![("code", vec![]), ("code-insiders", vec![])]
     }
 }
 
@@ -524,14 +547,9 @@ fn get_cursor_commands() -> Vec<(&'static str, Vec<String>)> {
             ("open", vec!["-a".to_string(), "Cursor".to_string()]),
         ]
     } else if cfg!(target_os = "windows") {
-        vec![
-            ("cursor", vec![]),
-            ("cursor.exe", vec![]),
-        ]
+        vec![("cursor", vec![]), ("cursor.exe", vec![])]
     } else {
-        vec![
-            ("cursor", vec![]),
-        ]
+        vec![("cursor", vec![])]
     }
 }
 
@@ -547,28 +565,72 @@ fn get_sublime_commands() -> Vec<(&'static str, Vec<String>)> {
     }
 }
 
-fn get_atom_commands() -> Vec<(&'static str, Vec<String>)> { vec![("atom", vec![])] }
-fn get_vim_commands() -> Vec<(&'static str, Vec<String>)> { vec![("vim", vec![])] }
-fn get_neovim_commands() -> Vec<(&'static str, Vec<String>)> { vec![("nvim", vec![])] }
-fn get_emacs_commands() -> Vec<(&'static str, Vec<String>)> { vec![("emacs", vec![])] }
-fn get_intellij_commands() -> Vec<(&'static str, Vec<String>)> { vec![("idea", vec![])] }
-fn get_webstorm_commands() -> Vec<(&'static str, Vec<String>)> { vec![("webstorm", vec![])] }
-fn get_phpstorm_commands() -> Vec<(&'static str, Vec<String>)> { vec![("phpstorm", vec![])] }
-fn get_pycharm_commands() -> Vec<(&'static str, Vec<String>)> { vec![("pycharm", vec![])] }
-fn get_rubymine_commands() -> Vec<(&'static str, Vec<String>)> { vec![("rubymine", vec![])] }
-fn get_goland_commands() -> Vec<(&'static str, Vec<String>)> { vec![("goland", vec![])] }
-fn get_clion_commands() -> Vec<(&'static str, Vec<String>)> { vec![("clion", vec![])] }
-fn get_rider_commands() -> Vec<(&'static str, Vec<String>)> { vec![("rider", vec![])] }
-fn get_appcode_commands() -> Vec<(&'static str, Vec<String>)> { vec![("appcode", vec![])] }
-fn get_datagrip_commands() -> Vec<(&'static str, Vec<String>)> { vec![("datagrip", vec![])] }
-fn get_fleet_commands() -> Vec<(&'static str, Vec<String>)> { vec![("fleet", vec![])] }
-fn get_nova_commands() -> Vec<(&'static str, Vec<String>)> { vec![("nova", vec![])] }
-fn get_textmate_commands() -> Vec<(&'static str, Vec<String>)> { vec![("mate", vec![])] }
-fn get_brackets_commands() -> Vec<(&'static str, Vec<String>)> { vec![("brackets", vec![])] }
-fn get_notepadpp_commands() -> Vec<(&'static str, Vec<String>)> { vec![("notepad++", vec![])] }
-fn get_eclipse_commands() -> Vec<(&'static str, Vec<String>)> { vec![("eclipse", vec![])] }
-fn get_netbeans_commands() -> Vec<(&'static str, Vec<String>)> { vec![("netbeans", vec![])] }
-fn get_android_studio_commands() -> Vec<(&'static str, Vec<String>)> { vec![("studio", vec![])] }
+fn get_atom_commands() -> Vec<(&'static str, Vec<String>)> {
+    vec![("atom", vec![])]
+}
+fn get_vim_commands() -> Vec<(&'static str, Vec<String>)> {
+    vec![("vim", vec![])]
+}
+fn get_neovim_commands() -> Vec<(&'static str, Vec<String>)> {
+    vec![("nvim", vec![])]
+}
+fn get_emacs_commands() -> Vec<(&'static str, Vec<String>)> {
+    vec![("emacs", vec![])]
+}
+fn get_intellij_commands() -> Vec<(&'static str, Vec<String>)> {
+    vec![("idea", vec![])]
+}
+fn get_webstorm_commands() -> Vec<(&'static str, Vec<String>)> {
+    vec![("webstorm", vec![])]
+}
+fn get_phpstorm_commands() -> Vec<(&'static str, Vec<String>)> {
+    vec![("phpstorm", vec![])]
+}
+fn get_pycharm_commands() -> Vec<(&'static str, Vec<String>)> {
+    vec![("pycharm", vec![])]
+}
+fn get_rubymine_commands() -> Vec<(&'static str, Vec<String>)> {
+    vec![("rubymine", vec![])]
+}
+fn get_goland_commands() -> Vec<(&'static str, Vec<String>)> {
+    vec![("goland", vec![])]
+}
+fn get_clion_commands() -> Vec<(&'static str, Vec<String>)> {
+    vec![("clion", vec![])]
+}
+fn get_rider_commands() -> Vec<(&'static str, Vec<String>)> {
+    vec![("rider", vec![])]
+}
+fn get_appcode_commands() -> Vec<(&'static str, Vec<String>)> {
+    vec![("appcode", vec![])]
+}
+fn get_datagrip_commands() -> Vec<(&'static str, Vec<String>)> {
+    vec![("datagrip", vec![])]
+}
+fn get_fleet_commands() -> Vec<(&'static str, Vec<String>)> {
+    vec![("fleet", vec![])]
+}
+fn get_nova_commands() -> Vec<(&'static str, Vec<String>)> {
+    vec![("nova", vec![])]
+}
+fn get_textmate_commands() -> Vec<(&'static str, Vec<String>)> {
+    vec![("mate", vec![])]
+}
+fn get_brackets_commands() -> Vec<(&'static str, Vec<String>)> {
+    vec![("brackets", vec![])]
+}
+fn get_notepadpp_commands() -> Vec<(&'static str, Vec<String>)> {
+    vec![("notepad++", vec![])]
+}
+fn get_eclipse_commands() -> Vec<(&'static str, Vec<String>)> {
+    vec![("eclipse", vec![])]
+}
+fn get_netbeans_commands() -> Vec<(&'static str, Vec<String>)> {
+    vec![("netbeans", vec![])]
+}
+fn get_android_studio_commands() -> Vec<(&'static str, Vec<String>)> {
+    vec![("studio", vec![])]
+}
 fn get_xcode_commands() -> Vec<(&'static str, Vec<String>)> {
     if cfg!(target_os = "macos") {
         vec![
@@ -579,7 +641,9 @@ fn get_xcode_commands() -> Vec<(&'static str, Vec<String>)> {
         vec![]
     }
 }
-fn get_zed_commands() -> Vec<(&'static str, Vec<String>)> { vec![("zed", vec![])] }
+fn get_zed_commands() -> Vec<(&'static str, Vec<String>)> {
+    vec![("zed", vec![])]
+}
 
 fn get_windsurf_commands() -> Vec<(&'static str, Vec<String>)> {
     if cfg!(target_os = "macos") {
@@ -588,10 +652,7 @@ fn get_windsurf_commands() -> Vec<(&'static str, Vec<String>)> {
             ("open", vec!["-a".to_string(), "Windsurf".to_string()]),
         ]
     } else if cfg!(target_os = "windows") {
-        vec![
-            ("windsurf", vec![]),
-            ("windsurf.exe", vec![]),
-        ]
+        vec![("windsurf", vec![]), ("windsurf.exe", vec![])]
     } else {
         vec![("windsurf", vec![])]
     }
@@ -631,10 +692,7 @@ fn get_lapce_commands() -> Vec<(&'static str, Vec<String>)> {
             ("open", vec!["-a".to_string(), "Lapce".to_string()]),
         ]
     } else if cfg!(target_os = "windows") {
-        vec![
-            ("lapce", vec![]),
-            ("lapce.exe", vec![]),
-        ]
+        vec![("lapce", vec![]), ("lapce.exe", vec![])]
     } else {
         vec![("lapce", vec![])]
     }

@@ -44,8 +44,13 @@ pub async fn get_storage_manager() -> ManagerResult<Arc<StorageManager>> {
         None => {
             warn!("Storage manager not initialized, initializing now");
             initialize_storage().await?;
-            STORAGE_MANAGER.get()
-                .ok_or_else(|| ManagerError::Storage(StorageError::Database("Failed to initialize storage manager".to_string())))
+            STORAGE_MANAGER
+                .get()
+                .ok_or_else(|| {
+                    ManagerError::Storage(StorageError::Database(
+                        "Failed to initialize storage manager".to_string(),
+                    ))
+                })
                 .map(|m| m.clone())
         }
     }

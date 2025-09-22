@@ -132,7 +132,8 @@ impl HttpClient {
                     Ok(api_response) => api_response.into_result(),
                     Err(_) => {
                         // Fallback to direct parsing
-                        serde_json::from_str(&response_text).map_err(|e| CloudError::Serialization(e.to_string()))
+                        serde_json::from_str(&response_text)
+                            .map_err(|e| CloudError::Serialization(e.to_string()))
                     }
                 }
             }

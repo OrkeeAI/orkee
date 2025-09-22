@@ -1,4 +1,4 @@
-use axum::{response::Json, http::StatusCode};
+use axum::{http::StatusCode, response::Json};
 use serde::Serialize;
 use std::env;
 
@@ -17,11 +17,10 @@ pub struct Config {
 pub async fn get_config() -> Result<Json<ConfigResponse>, StatusCode> {
     let cloud_enabled = env::var("ORKEE_CLOUD_ENABLED")
         .unwrap_or_else(|_| "false".to_string())
-        .to_lowercase() == "true";
+        .to_lowercase()
+        == "true";
 
-    let config = Config {
-        cloud_enabled,
-    };
+    let config = Config { cloud_enabled };
 
     Ok(Json(ConfigResponse {
         success: true,

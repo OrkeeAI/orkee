@@ -121,7 +121,7 @@ async fn handle_command(command: Commands) -> Result<(), Box<dyn std::error::Err
             } else {
                 api_port
             };
-            
+
             let final_ui_port = if ui_port == 5173 {
                 std::env::var("ORKEE_UI_PORT")
                     .ok()
@@ -130,7 +130,7 @@ async fn handle_command(command: Commands) -> Result<(), Box<dyn std::error::Err
             } else {
                 ui_port
             };
-            
+
             if restart {
                 restart_dashboard(final_api_port, final_ui_port).await
             } else {
@@ -237,7 +237,10 @@ async fn stop_all_preview_servers() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-async fn start_server(api_port: u16, cors_origin: String) -> Result<(), Box<dyn std::error::Error>> {
+async fn start_server(
+    api_port: u16,
+    cors_origin: String,
+) -> Result<(), Box<dyn std::error::Error>> {
     println!("{}", "🚀 Starting Orkee CLI server...".green().bold());
     println!(
         "{} http://localhost:{}",
@@ -308,7 +311,7 @@ async fn start_full_dashboard(
 
     // Auto-calculate CORS origin from UI port
     let cors_origin = format!("http://localhost:{}", ui_port);
-    
+
     // Start backend server in background
     let backend_handle = {
         let cors_origin_clone = cors_origin.clone();
@@ -357,10 +360,7 @@ async fn start_full_dashboard(
     Ok(())
 }
 
-async fn restart_dashboard(
-    api_port: u16,
-    ui_port: u16,
-) -> Result<(), Box<dyn std::error::Error>> {
+async fn restart_dashboard(api_port: u16, ui_port: u16) -> Result<(), Box<dyn std::error::Error>> {
     println!(
         "{}",
         "🔄 Restarting all dashboard services...".yellow().bold()
@@ -370,8 +370,12 @@ async fn restart_dashboard(
     kill_port(api_port).await?;
     kill_port(ui_port).await?;
     // Also kill common dev server ports if different
-    if ui_port != 5173 { kill_port(5173).await?; }
-    if ui_port != 5174 { kill_port(5174).await?; }
+    if ui_port != 5173 {
+        kill_port(5173).await?;
+    }
+    if ui_port != 5174 {
+        kill_port(5174).await?;
+    }
 
     println!("{}", "💀 Killed existing services".yellow());
 
