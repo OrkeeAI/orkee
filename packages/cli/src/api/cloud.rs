@@ -477,7 +477,7 @@ pub async fn sync_all_projects(
 
         let client = reqwest::Client::new();
         let response = client
-            .post(&format!("{}/api/projects", cloud_api_url))
+            .post(format!("{}/api/projects", cloud_api_url))
             .header("Authorization", format!("Bearer {}", auth_token))
             .json(&project_payload)
             .send()

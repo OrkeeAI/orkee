@@ -51,7 +51,7 @@ pub async fn get_storage_manager() -> ManagerResult<Arc<StorageManager>> {
                         "Failed to initialize storage manager".to_string(),
                     ))
                 })
-                .map(|m| m.clone())
+                .cloned()
         }
     }
 }
