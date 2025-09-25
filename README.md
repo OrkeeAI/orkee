@@ -25,9 +25,10 @@ orkee/
 │   ├── dashboard/    # React SPA with Vite, Shadcn/ui, and Tailwind CSS
 │   ├── tui/          # Ratatui-based standalone terminal interface
 │   ├── projects/     # Shared Rust library for core functionality (used by CLI and TUI)
-│   └── cloud/        # Cloud sync functionality (Orkee Cloud integration) - optional dependency
-├── docs/             # Documentation site
-└── README.md
+│   ├── cloud/        # Cloud sync functionality (Orkee Cloud integration) - optional dependency
+│   └── mcp-server/   # MCP (Model Context Protocol) server for Claude integration
+├── deployment/       # Production deployment configurations
+└── scripts/          # Build and release automation scripts
 ```
 
 ## Architecture
@@ -121,12 +122,10 @@ cargo run --features cloud --bin orkee -- cloud disable
 
 ## Documentation
 
-- [Getting Started Guide](docs/getting-started.md)
-- [Configuration & Security](DOCS.md) - Environment variables, TLS/HTTPS setup, security settings
-- [Architecture & Implementation](orkee-cloud.md) - Complete architecture including local storage and cloud
-- [CLI Reference](docs/cli-reference.md)
-- [API Documentation](docs/api.md)
-- [Examples](examples/)
+- [Configuration & Architecture](CLAUDE.md) - Complete development guide and architecture details
+- [Environment Variables & Configuration](DOCS.md) - Environment variables, security, and operational configuration
+- [Production Deployment](DEPLOYMENT.md) - Docker, Nginx, TLS/SSL, and security setup
+- [Security Guidelines](SECURITY.md) - Security policies and vulnerability reporting
 
 ## Development
 
@@ -182,12 +181,6 @@ pnpm build                    # Production build
 pnpm lint                     # Run ESLint
 ```
 
-### Project Commands
-
-- **`turbo build`** - Build all applications and packages
-- **`turbo dev`** - Start development servers for all apps
-- **`turbo lint`** - Run linting across the monorepo
-- **`turbo test`** - Execute tests for all packages
 
 ## Contributing
 
@@ -199,7 +192,7 @@ We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) f
 
 ## Support
 
-- 📖 [Documentation](https://orkee.dev/docs)
+- 📖 [Documentation](https://orkee.ai/docs)
 - 💬 [Discussions](https://github.com/OrkeeAI/orkee/discussions)
 - 🐛 [Issues](https://github.com/OrkeeAI/orkee/issues)
 
