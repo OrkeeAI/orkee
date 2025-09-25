@@ -1,8 +1,14 @@
 {
   "name": "orkee-cli",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "Orkee CLI - AI agent orchestration platform",
-  "keywords": ["ai", "agents", "orchestration", "cli", "dashboard"],
+  "keywords": [
+    "ai",
+    "agents",
+    "orchestration",
+    "cli",
+    "dashboard"
+  ],
   "homepage": "https://github.com/OrkeeAI/orkee",
   "repository": {
     "type": "git",
