@@ -9,6 +9,7 @@ use tracing::{error, info};
 
 pub mod api;
 pub mod config;
+pub mod dashboard;
 pub mod error;
 pub mod middleware;
 pub mod tls;

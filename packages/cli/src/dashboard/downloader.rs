@@ -1,7 +1,6 @@
 use colored::*;
 use flate2::read::GzDecoder;
 use indicatif::{ProgressBar, ProgressStyle};
-use reqwest;
 use std::fs;
 use std::io::Write;
 use std::path::PathBuf;

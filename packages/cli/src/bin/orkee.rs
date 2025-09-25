@@ -3,12 +3,11 @@ use colored::*;
 use std::process;
 
 mod cli;
-mod dashboard_downloader;
 
 #[cfg(feature = "cloud")]
 use cli::cloud::CloudCommands;
 use cli::projects::ProjectsCommands;
-use dashboard_downloader::ensure_dashboard;
+use orkee_cli::dashboard::downloader::ensure_dashboard;
 
 #[derive(Subcommand)]
 enum PreviewCommands {
