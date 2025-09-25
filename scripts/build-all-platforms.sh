@@ -66,7 +66,7 @@ done
 
 # Create tarballs for each platform
 cd "$DIST_DIR"
-for file in orkee-cli-*; do
+for file in orkee-*; do
   if [[ -f "$file" && "$file" != *.tar.gz && "$file" != *.zip ]]; then
     if [[ "$file" == *.exe ]]; then
       # Create zip for Windows

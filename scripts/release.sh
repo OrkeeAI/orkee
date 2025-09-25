@@ -72,7 +72,7 @@ done
 
 # Get version from package.json if not specified
 if [ -z "$VERSION" ]; then
-    VERSION=$(cat npm/package.json | grep '"version"' | cut -d'"' -f4)
+    VERSION=$(cat packages/cli/package.json | grep '"version"' | cut -d'"' -f4)
     print_warning "No version specified, using version from package.json: $VERSION"
 fi
 
@@ -266,8 +266,8 @@ fi
 if [ "$SKIP_NPM" = false ]; then
     print_step "Publishing to NPM..."
     
-    # Navigate to npm directory
-    cd npm/
+    # Navigate to cli package directory
+    cd packages/cli/
     
     # Check if logged in to npm
     if ! npm whoami >/dev/null 2>&1; then
@@ -285,7 +285,7 @@ if [ "$SKIP_NPM" = false ]; then
         print_step "Package created: $(ls *.tgz)"
     fi
     
-    cd ..
+    cd ../..
 else
     print_warning "Skipping NPM publish (--skip-npm flag)"
 fi
@@ -320,9 +320,10 @@ fi
 
 # 9. Prepare for next version
 print_step "Next steps:"
-echo "1. Update version in npm/package.json for next release"
-echo "2. Commit version bump: git commit -am 'chore: bump version'"
-echo "3. Push changes: git push origin main"
+echo "1. Update version in packages/cli/Cargo.toml for next release"
+echo "2. Update version in packages/cli/package.json for next release"
+echo "3. Commit version bump: git commit -am 'chore: bump version'"
+echo "4. Push changes: git push origin main"
 
 print_success "🎉 Release v$VERSION completed successfully!"
 
