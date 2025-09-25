@@ -36,7 +36,18 @@ async fn test_status_endpoint() {
 }
 
 #[tokio::test]
+#[serial_test::serial]
 async fn test_projects_list_endpoint() {
+    use tempfile::TempDir;
+    use std::env;
+    
+    // Create a temporary directory for this test's database
+    let temp_dir = TempDir::new().unwrap();
+    let original_home = env::var("HOME").ok();
+    
+    // Set HOME to temp dir so the database is created there
+    env::set_var("HOME", temp_dir.path());
+    
     let app = api::create_router().await;
 
     let request = Request::builder()
@@ -46,6 +57,13 @@ async fn test_projects_list_endpoint() {
         .unwrap();
 
     let response = app.oneshot(request).await.unwrap();
+
+    // Restore original HOME
+    if let Some(home) = original_home {
+        env::set_var("HOME", home);
+    } else {
+        env::remove_var("HOME");
+    }
 
     assert_eq!(response.status(), StatusCode::OK);
 }
