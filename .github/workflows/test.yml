@@ -256,7 +256,7 @@ jobs:
         echo "🚀 Starting Orkee CLI server..."
         
         # Start server in background with nohup to persist across commands
-        nohup cargo run -p orkee-cli --bin orkee --release -- dashboard --port 4001 > server.log 2>&1 &
+        nohup cargo run -p orkee-cli --bin orkee --release -- dashboard --api-port 4001 > server.log 2>&1 &
         SERVER_PID=$!
         echo "Server process started with PID: $SERVER_PID"
         
