@@ -330,10 +330,13 @@ async fn start_full_dashboard(
     // Check if we should use downloaded dashboard or dev server
     let dashboard_path = std::path::PathBuf::from("../dashboard");
     let package_json = dashboard_path.join("package.json");
-    
+
     if package_json.exists() {
         // Development mode - use pnpm dev
-        println!("{}", "🖥️  Starting frontend dashboard (development mode)...".cyan());
+        println!(
+            "{}",
+            "🖥️  Starting frontend dashboard (development mode)...".cyan()
+        );
         let frontend_result = std::process::Command::new("pnpm")
             .args(["dev"])
             .current_dir("../dashboard")
@@ -365,13 +368,19 @@ async fn start_full_dashboard(
         }
     } else {
         // Production mode - download dashboard source and run dev server
-        println!("{}", "📦 Dashboard source not found, downloading...".yellow());
-        
-        // Ensure dashboard is downloaded  
+        println!(
+            "{}",
+            "📦 Dashboard source not found, downloading...".yellow()
+        );
+
+        // Ensure dashboard is downloaded
         let dashboard_dir = ensure_dashboard().await?;
-        
+
         // Run pnpm dev from the downloaded dashboard
-        println!("{}", "🖥️  Starting frontend dashboard from downloaded source...".cyan());
+        println!(
+            "{}",
+            "🖥️  Starting frontend dashboard from downloaded source...".cyan()
+        );
         let frontend_result = std::process::Command::new("pnpm")
             .args(["dev"])
             .current_dir(&dashboard_dir)
