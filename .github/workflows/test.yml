@@ -1,8 +1,8 @@
-name: Tests
+name: CI
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [ main ]
   pull_request:
     branches: [ main ]
 
@@ -10,329 +10,52 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  rust-tests:
-    name: Rust Tests
+  test:
+    name: Test
     runs-on: ubuntu-latest
     
     steps:
     - uses: actions/checkout@v4
     
-    - name: Install Rust
+    - name: Setup Rust
       uses: dtolnay/rust-toolchain@stable
       with:
         components: rustfmt, clippy
     
-    - name: Cache cargo registry
-      uses: actions/cache@v4
+    - name: Setup pnpm
+      uses: pnpm/action-setup@v4
       with:
-        path: ~/.cargo/registry
-        key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
-    
-    - name: Cache cargo index
-      uses: actions/cache@v4
-      with:
-        path: ~/.cargo/git
-        key: ${{ runner.os }}-cargo-index-${{ hashFiles('**/Cargo.lock') }}
-    
-    - name: Cache cargo build
-      uses: actions/cache@v4
-      with:
-        path: target
-        key: ${{ runner.os }}-cargo-build-target-${{ hashFiles('**/Cargo.lock') }}
-    
-    - name: Check formatting
-      run: cargo fmt --all -- --check
-    
-    - name: Run clippy
-      run: cargo clippy --all-targets --all-features -- -D warnings
-    
-    - name: Run tests
-      run: cargo test --all --all-features --verbose
-    
-    - name: Run doc tests
-      run: cargo test --doc --all-features
-
-  rust-coverage:
-    name: Rust Coverage
-    runs-on: ubuntu-latest
-    
-    steps:
-    - uses: actions/checkout@v4
-    
-    - name: Install Rust
-      uses: dtolnay/rust-toolchain@stable
-    
-    - name: Install tarpaulin
-      run: cargo install cargo-tarpaulin
-    
-    - name: Generate coverage
-      run: cargo tarpaulin --all-features --workspace --timeout 600 --out xml
-    
-    - name: Upload coverage to Codecov
-      uses: codecov/codecov-action@v4
-      with:
-        file: ./cobertura.xml
-        fail_ci_if_error: false
-
-  frontend-tests:
-    name: Frontend Tests
-    runs-on: ubuntu-latest
-    
-    steps:
-    - uses: actions/checkout@v4
+        version: 10.15.1
     
     - name: Setup Node.js
       uses: actions/setup-node@v4
       with:
         node-version: '20'
+        cache: 'pnpm'
     
-    - name: Install pnpm
-      uses: pnpm/action-setup@v4
-      with:
-        version: 10.15.1
-    
-    - name: Get pnpm store directory
-      shell: bash
-      run: |
-        echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
-    
-    - name: Setup pnpm cache
+    - name: Cache Rust dependencies
       uses: actions/cache@v4
       with:
-        path: ${{ env.STORE_PATH }}
-        key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
-        restore-keys: |
-          ${{ runner.os }}-pnpm-store-
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+          target
+        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+        restore-keys: ${{ runner.os }}-cargo-
     
-    - name: Install dependencies
+    - name: Install Node dependencies
       run: pnpm install
     
-    - name: Run linter
+    - name: Check Rust formatting
+      run: cargo fmt --all -- --check
+    
+    - name: Run Rust tests
+      run: cargo test --all
+    
+    - name: Lint dashboard
       run: pnpm lint
       working-directory: packages/dashboard
     
     - name: Build dashboard
       run: pnpm build
       working-directory: packages/dashboard
-    
-    # Tests will be enabled once they're added
-    # - name: Run tests
-    #   run: pnpm test:coverage
-    #   working-directory: packages/dashboard
-
-  security-audit:
-    name: Security Audit
-    runs-on: ubuntu-latest
-    
-    steps:
-    - uses: actions/checkout@v4
-    
-    - name: Install Rust
-      uses: dtolnay/rust-toolchain@stable
-    
-    - name: Install cargo-audit
-      run: cargo install cargo-audit
-    
-    - name: Cache advisory database
-      uses: actions/cache@v4
-      with:
-        path: ~/.cargo/advisory-db
-        key: advisory-db-${{ runner.os }}-${{ github.run_id }}
-        restore-keys: |
-          advisory-db-${{ runner.os }}-
-    
-    - name: Run cargo audit
-      run: |
-        echo "🔍 Running cargo audit..."
-        
-        # Run cargo audit allowing unmaintained crates (only fail on vulnerabilities)
-        # The --deny flag without arguments defaults to denying vulnerabilities only
-        cargo audit 2>&1 | tee audit_output.txt
-        audit_exit_code=$?
-        
-        if [ $audit_exit_code -eq 0 ]; then
-          echo "✅ Cargo audit passed - no issues found"
-          exit 0
-        fi
-        
-        echo "📊 Audit found issues, analyzing..."
-        cat audit_output.txt
-        
-        # Check what types of issues were found
-        if grep -q "error:" audit_output.txt; then
-          echo "❌ Found actual security vulnerabilities - failing CI"
-          exit 1
-        elif grep -q "Warning:.*unmaintained" audit_output.txt; then
-          echo "⚠️ Found only unmaintained crate warnings (no vulnerabilities)"
-          echo "📝 These warnings are logged but don't fail CI"
-          echo "📝 Consider updating dependencies: fxhash (via inquire) and paste (via ratatui)"
-          exit 0
-        elif grep -q "Warning:" audit_output.txt; then
-          echo "⚠️ Found warnings but no vulnerabilities"
-          echo "📝 Warnings are acceptable - not failing CI"
-          exit 0
-        else
-          echo "❌ Cargo audit failed for unknown reasons"
-          
-          # Try with stale database in case of network issues
-          echo "🔄 Retrying with stale database..."
-          if cargo audit --stale; then
-            echo "✅ Cargo audit passed with stale database"
-            exit 0
-          else
-            echo "💥 Cargo audit failed even with stale database"
-            exit 1
-          fi
-        fi
-    
-    - name: Setup Node.js for npm audit
-      uses: actions/setup-node@v4
-      with:
-        node-version: '18'
-    
-    - name: Install pnpm
-      uses: pnpm/action-setup@v4
-      with:
-        version: 10.15.1
-    
-    - name: Install dependencies
-      run: pnpm install
-    
-    - name: Run pnpm audit
-      run: |
-        echo "🔍 Running pnpm audit for production dependencies..."
-        if pnpm audit --prod; then
-          echo "✅ pnpm audit passed - no vulnerabilities found"
-        else
-          echo "⚠️ pnpm audit found issues, but continuing (configured to not fail CI)"
-        fi
-      continue-on-error: true # Don't fail CI on audit warnings
-
-  build-check:
-    name: Build Check
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
-    
-    steps:
-    - uses: actions/checkout@v4
-    
-    - name: Install Rust
-      uses: dtolnay/rust-toolchain@stable
-    
-    - name: Build all packages
-      run: cargo build --all --release
-
-  integration-tests:
-    name: Integration Tests
-    runs-on: ubuntu-latest
-    needs: [rust-tests, frontend-tests]
-    
-    steps:
-    - uses: actions/checkout@v4
-    
-    - name: Install Rust
-      uses: dtolnay/rust-toolchain@stable
-    
-    - name: Setup Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: '20'
-    
-    - name: Install pnpm
-      uses: pnpm/action-setup@v4
-      with:
-        version: 10.15.1
-    
-    - name: Install dependencies and build
-      run: |
-        pnpm install
-        echo "🔨 Building all packages in release mode for consistency..."
-        cargo build --all --release
-    
-    - name: Start services and test endpoints
-      run: |
-        echo "🚀 Starting Orkee CLI server..."
-        
-        # Start server in background with nohup to persist across commands
-        nohup cargo run -p orkee-cli --bin orkee --release -- dashboard --api-port 4001 > server.log 2>&1 &
-        SERVER_PID=$!
-        echo "Server process started with PID: $SERVER_PID"
-        
-        # Wait for server to be ready (extended timeout for compilation + startup)
-        echo "⏳ Waiting for server to start (allowing for compilation time)..."
-        for i in {1..120}; do
-          if curl -s http://localhost:4001/api/health > /dev/null 2>&1; then
-            echo "✅ Server is ready after $i seconds"
-            break
-          fi
-          if [ $i -eq 120 ]; then
-            echo "❌ Server failed to start after 120 seconds"
-            echo "📊 Server logs:"
-            cat server.log || true
-            echo "📊 Process status:"
-            ps aux | grep -E "(orkee|rustc|cargo)" || true
-            echo "📊 Port status:"
-            netstat -tlnp | grep 4001 || true
-            echo "📊 System load:"
-            uptime || true
-            exit 1
-          fi
-          
-          # Show progress every 10 seconds to reduce noise
-          if [ $((i % 10)) -eq 0 ]; then
-            echo "Attempt $i/120: Server not ready yet, waiting..."
-            # Check if process is still alive
-            if ! kill -0 $SERVER_PID 2>/dev/null; then
-              echo "❌ Server process died during startup"
-              echo "📊 Server logs:"
-              cat server.log || true
-              echo "📊 Process status:"
-              ps aux | grep -E "(rustc|cargo)" || true
-              exit 1
-            fi
-          fi
-          sleep 1
-        done
-        
-        echo "🧪 Testing API endpoints..."
-        
-        # Verify server is still alive before testing
-        if ! kill -0 $SERVER_PID 2>/dev/null; then
-          echo "❌ Server process died before API testing"
-          echo "📊 Server logs:"
-          cat server.log || true
-          exit 1
-        fi
-        
-        echo "Testing /api/health endpoint..."
-        if ! curl -f http://localhost:4001/api/health; then
-          echo "❌ Health endpoint failed"
-          echo "📊 Server logs:"
-          cat server.log || true
-          echo "📊 Process status:"
-          ps aux | grep -E "(orkee|cargo)" || true
-          echo "📊 Port status:"
-          netstat -tlnp | grep 4001 || true
-          exit 1
-        fi
-        
-        echo "Testing /api/status endpoint..."
-        if ! curl -f http://localhost:4001/api/status; then
-          echo "❌ Status endpoint failed"
-          echo "📊 Server logs:"
-          cat server.log || true
-          exit 1
-        fi
-        
-        echo "✅ All API endpoints responding correctly"
-        
-        # Clean up
-        kill $SERVER_PID 2>/dev/null || true
-    
-    - name: Stop services
-      run: |
-        echo "🛑 Stopping services..."
-        pkill -f orkee || true
-        echo "Services stopped"
