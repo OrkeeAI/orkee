@@ -301,7 +301,7 @@ export class CloudService {
             try {
               console.log('[CLOUD_SERVICE] Sending tokens to backend...');
               // Create a mock OAuth callback to register tokens with backend
-              const callbackResponse = await apiRequest<ApiResponse<CloudAuthStatus>>('/api/cloud/auth/callback', {
+              const callbackResponse = await apiRequest<CloudAuthStatus>('/api/cloud/auth/callback', {
                 method: 'POST',
                 body: JSON.stringify({
                   code: 'oauth_success_' + Date.now(),

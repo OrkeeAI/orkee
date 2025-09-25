@@ -4,12 +4,6 @@ export interface Config {
   cloud_enabled: boolean
 }
 
-export interface ConfigResponse {
-  success: boolean
-  data: Config | null
-  error: string | null
-}
-
 let configCache: Config | null = null
 
 export async function fetchConfig(): Promise<Config> {
@@ -18,7 +12,7 @@ export async function fetchConfig(): Promise<Config> {
   }
 
   try {
-    const response = await apiRequest<ConfigResponse>('/api/config')
+    const response = await apiRequest<Config>('/api/config')
     if (response.success && response.data) {
       configCache = response.data
       return response.data
