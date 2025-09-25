@@ -421,7 +421,7 @@ export class CloudService {
             }
             return;
           }
-        } catch (e) {
+        } catch {
           // Continue polling
         }
       }, 1000);

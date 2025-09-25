@@ -9,7 +9,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { useCloudAuth, useCloudSync } from '@/contexts/CloudContext';
+import { useCloudAuth, useCloudSync } from '@/hooks/useCloud';
 import { cloudService } from '@/services/cloud';
 import { formatLastSync } from '@/services/cloud';
 import {

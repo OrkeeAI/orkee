@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
-import { useCloudAuth } from '@/contexts/CloudContext';
+import { useCloudAuth } from '@/hooks/useCloud';
 
 export function PopupCloseHandler() {
   const { isAuthenticated } = useCloudAuth();

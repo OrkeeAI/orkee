@@ -1,6 +1,6 @@
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { useCloudAuth, useCloudSync } from '@/contexts/CloudContext'
+import { useCloudAuth, useCloudSync } from '@/hooks/useCloud'
 import { cloudService, formatLastSync } from '@/services/cloud'
 import { fetchConfig } from '@/services/config'
 import { Cloud, User, RefreshCw, Download, Upload, Code2, ExternalLink } from 'lucide-react'

@@ -10,7 +10,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Badge } from '@/components/ui/badge';
-import { useCloudAuth } from '@/contexts/CloudContext';
+import { useCloudAuth } from '@/hooks/useCloud';
 import { Cloud, User, LogOut, Settings, AlertCircle } from 'lucide-react';
 
 interface CloudAuthButtonProps {
@@ -29,7 +29,7 @@ export function CloudAuthButton({
     setShowError(false);
     try {
       await login();
-    } catch (error) {
+    } catch {
       setShowError(true);
     }
   };

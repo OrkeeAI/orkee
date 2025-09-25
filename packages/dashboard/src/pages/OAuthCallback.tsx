@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { useCloudAuth } from '@/contexts/CloudContext';
+import { useCloudAuth } from '@/hooks/useCloud';
 
 export default function OAuthCallback() {
   const navigate = useNavigate();

@@ -1,29 +1,6 @@
-import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { cloudService, CloudAuthStatus, GlobalSyncStatus } from '@/services/cloud';
-
-// Context types
-interface CloudContextType {
-  // Authentication state
-  authStatus: CloudAuthStatus;
-  isAuthenticating: boolean;
-  authError: string | null;
-  
-  // Sync state
-  syncStatus: GlobalSyncStatus;
-  isLoadingSyncStatus: boolean;
-  
-  // Actions
-  login: () => Promise<void>;
-  logout: () => Promise<void>;
-  refreshAuthStatus: () => Promise<void>;
-  refreshSyncStatus: () => Promise<void>;
-  
-  // Real-time sync updates
-  subscribeSyncUpdates: () => void;
-  unsubscribeSyncUpdates: () => void;
-}
-
-const CloudContext = createContext<CloudContextType | null>(null);
+import { CloudContext, CloudContextType } from './CloudContextTypes';
 
 // Local storage key for auth persistence
 const AUTH_STATUS_STORAGE_KEY = 'orkee-cloud-auth-status';
@@ -339,49 +316,4 @@ export function CloudProvider({ children }: CloudProviderProps) {
       {children}
     </CloudContext.Provider>
   );
-}
-
-// Hook to use the cloud context
-export function useCloud(): CloudContextType {
-  const context = useContext(CloudContext);
-  if (!context) {
-    throw new Error('useCloud must be used within a CloudProvider');
-  }
-  return context;
-}
-
-// Hook specifically for auth status
-export function useCloudAuth() {
-  const { authStatus, isAuthenticating, authError, login, logout, refreshAuthStatus } = useCloud();
-  
-  return {
-    authStatus,
-    isAuthenticating,
-    authError,
-    login,
-    logout,
-    refreshAuthStatus,
-    isAuthenticated: authStatus.authenticated,
-    user: authStatus.authenticated ? {
-      id: authStatus.user_id!,
-      email: authStatus.user_email!,
-      name: authStatus.user_name!,
-      tier: authStatus.subscription_tier!,
-    } : null,
-  };
-}
-
-// Hook specifically for sync status
-export function useCloudSync() {
-  const { syncStatus, isLoadingSyncStatus, refreshSyncStatus } = useCloud();
-  
-  return {
-    syncStatus,
-    isLoadingSyncStatus,
-    refreshSyncStatus,
-    hasPendingSync: syncStatus.pending_projects > 0 || syncStatus.syncing_projects > 0,
-    hasConflicts: syncStatus.conflict_projects > 0,
-    syncProgress: syncStatus.current_sync_progress,
-    lastSync: syncStatus.last_sync,
-  };
 }

@@ -7,7 +7,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { useCloudAuth } from '@/contexts/CloudContext';
+import { useCloudAuth } from '@/hooks/useCloud';
 import { cloudService, ProjectSyncStatus, formatSyncStatus, formatLastSync } from '@/services/cloud';
 import {
   RefreshCw,
@@ -51,6 +51,7 @@ export function ProjectSyncBadge({
   // Initial load
   useEffect(() => {
     fetchSyncStatus();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAuthenticated, projectId]);
 
   // Handle sync action
@@ -248,53 +249,4 @@ export function ProjectSyncBadge({
       )}
     </div>
   );
-}
-
-// Hook to use project sync status
-export function useProjectSync(projectId: string) {
-  const { isAuthenticated } = useCloudAuth();
-  const [syncStatus, setSyncStatus] = useState<ProjectSyncStatus | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-
-  const fetchStatus = async () => {
-    if (!isAuthenticated) return;
-    
-    setIsLoading(true);
-    try {
-      const status = await cloudService.getProjectSyncStatus(projectId);
-      setSyncStatus(status);
-    } catch (error) {
-      console.error('Failed to fetch project sync status:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const syncProject = async () => {
-    if (!isAuthenticated) return false;
-    
-    try {
-      const result = await cloudService.syncProject(projectId);
-      if (result.success) {
-        await fetchStatus(); // Refresh status
-        return true;
-      }
-      return false;
-    } catch (error) {
-      console.error('Sync failed:', error);
-      return false;
-    }
-  };
-
-  useEffect(() => {
-    fetchStatus();
-  }, [isAuthenticated, projectId]);
-
-  return {
-    syncStatus,
-    isLoading,
-    fetchStatus,
-    syncProject,
-    isAuthenticated,
-  };
 }
