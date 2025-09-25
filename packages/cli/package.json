@@ -14,10 +14,10 @@
     "orkee": "./orkee"
   },
   "files": [
-    "orkee",
-    "orkee.exe"
+    "scripts/"
   ],
   "scripts": {
+    "postinstall": "node scripts/install.js",
     "build": "cargo build --release --features cloud",
     "dev": "cargo run --features cloud --bin orkee -- dashboard",
     "test": "cargo test --features cloud"

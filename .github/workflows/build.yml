@@ -140,9 +140,38 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
+  package-dashboard:
+    name: Package Dashboard Source
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Create dashboard source package
+        run: |
+          echo "Creating dashboard source package..."
+          cd packages/dashboard
+          
+          # Create tarball of dashboard source
+          tar czf ../../orkee-dashboard-source.tar.gz \
+            --exclude="node_modules" \
+            --exclude="dist" \
+            --exclude=".turbo" \
+            .
+          
+          cd ../..
+          echo "Dashboard package created:"
+          ls -lh orkee-dashboard-source.tar.gz
+      
+      - name: Upload Dashboard Package
+        uses: actions/upload-artifact@v4
+        with:
+          name: orkee-dashboard-source
+          path: orkee-dashboard-source.tar.gz
+          retention-days: 7
+
   release:
     name: Create Release
-    needs: build
+    needs: [build, package-dashboard]
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/v')
     permissions:
@@ -161,7 +190,10 @@ jobs:
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
-          files: artifacts/**/*.tar.gz,artifacts/**/*.zip
+          files: |
+            artifacts/**/*.tar.gz
+            artifacts/**/*.zip
+            artifacts/orkee-dashboard-source/orkee-dashboard-source.tar.gz
           generate_release_notes: true
           draft: false
           prerelease: ${{ contains(github.ref, '-rc') || contains(github.ref, '-beta') || contains(github.ref, '-alpha') }}
