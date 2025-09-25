@@ -2,10 +2,7 @@ name: Build Multi-Platform Binaries
 
 on:
   push:
-    branches: [ main, develop ]
     tags: [ 'v*' ]
-  pull_request:
-    branches: [ main ]
   workflow_dispatch:
 
 env:
