@@ -13,7 +13,7 @@ tokio = { version = "1.0", features = ["full"] }
 tower-http = { version = "0.5", features = ["cors", "catch-panic", "set-header", "trace"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-reqwest = { version = "0.12", features = ["json"] }
+reqwest = { version = "0.12", features = ["json", "native-tls-vendored"] }
 tower = { version = "0.4", features = ["limit", "util", "timeout"] }
 tower_governor = "0.4"
 governor = "0.6"
@@ -27,7 +27,7 @@ orkee-preview = { path = "../preview" }
 orkee-tui = { path = "../tui" }
 ratatui = "0.28"
 crossterm = "0.27"
-git2 = "0.18"
+git2 = { version = "0.18", features = ["vendored-openssl"] }
 url = "2.4"
 # CLI dependencies
 clap = { version = "4.0", features = ["derive"] }
