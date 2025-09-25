@@ -326,89 +326,44 @@ async fn start_full_dashboard(
     // Wait a moment for backend to start
     tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
 
-    // Check if we should use downloaded dashboard or dev server
-    let dashboard_path = std::path::PathBuf::from("../dashboard");
-    let package_json = dashboard_path.join("package.json");
+    // Always use downloaded dashboard from ~/.orkee/dashboard
+    // Ensure dashboard is downloaded
+    let dashboard_dir = ensure_dashboard().await?;
 
-    if package_json.exists() {
-        // Development mode - use pnpm dev
-        println!(
-            "{}",
-            "🖥️  Starting frontend dashboard (development mode)...".cyan()
-        );
-        let frontend_result = std::process::Command::new("pnpm")
-            .args(["dev"])
-            .current_dir("../dashboard")
-            .env("ORKEE_UI_PORT", ui_port.to_string())
-            .env("VITE_ORKEE_API_PORT", api_port.to_string())
-            .spawn();
+    // Run pnpm dev from the downloaded dashboard
+    println!(
+        "{}",
+        "🖥️  Starting frontend dashboard...".cyan()
+    );
+    let frontend_result = std::process::Command::new("pnpm")
+        .args(["dev"])
+        .current_dir(&dashboard_dir)
+        .env("ORKEE_UI_PORT", ui_port.to_string())
+        .env("ORKEE_API_PORT", api_port.to_string())
+        .env("VITE_ORKEE_API_PORT", api_port.to_string())
+        .spawn();
 
-        match frontend_result {
-            Ok(mut child) => {
-                println!("{}", "✅ Both backend and frontend started!".green());
-                println!("{} http://localhost:{}", "🔗 Backend API:".cyan(), api_port);
-                println!("{} http://localhost:{}", "🌐 Frontend UI:".cyan(), ui_port);
+    match frontend_result {
+        Ok(mut child) => {
+            println!("{}", "✅ Both backend and frontend started!".green());
+            println!("{} http://localhost:{}", "🔗 Backend API:".cyan(), api_port);
+            println!("{} http://localhost:{}", "🌐 Frontend UI:".cyan(), ui_port);
 
-                // Wait for both processes
-                let _ = tokio::join!(
-                    backend_handle,
-                    tokio::task::spawn_blocking(move || {
-                        let _ = child.wait();
-                    })
-                );
-            }
-            Err(e) => {
-                eprintln!("{} Failed to start frontend: {}", "Error:".red().bold(), e);
-                eprintln!(
-                    "{} Make sure you're in the packages/cli directory and pnpm is installed",
-                    "Tip:".yellow()
-                );
-            }
+            // Wait for both processes
+            let _ = tokio::join!(
+                backend_handle,
+                tokio::task::spawn_blocking(move || {
+                    let _ = child.wait();
+                })
+            );
         }
-    } else {
-        // Production mode - download dashboard source and run dev server
-        println!(
-            "{}",
-            "📦 Dashboard source not found, downloading...".yellow()
-        );
-
-        // Ensure dashboard is downloaded
-        let dashboard_dir = ensure_dashboard().await?;
-
-        // Run pnpm dev from the downloaded dashboard
-        println!(
-            "{}",
-            "🖥️  Starting frontend dashboard from downloaded source...".cyan()
-        );
-        let frontend_result = std::process::Command::new("pnpm")
-            .args(["dev"])
-            .current_dir(&dashboard_dir)
-            .env("ORKEE_UI_PORT", ui_port.to_string())
-            .env("VITE_ORKEE_API_PORT", api_port.to_string())
-            .spawn();
-
-        match frontend_result {
-            Ok(mut child) => {
-                println!("{}", "✅ Both backend and frontend started!".green());
-                println!("{} http://localhost:{}", "🔗 Backend API:".cyan(), api_port);
-                println!("{} http://localhost:{}", "🌐 Frontend UI:".cyan(), ui_port);
-
-                // Wait for both processes
-                let _ = tokio::join!(
-                    backend_handle,
-                    tokio::task::spawn_blocking(move || {
-                        let _ = child.wait();
-                    })
-                );
-            }
-            Err(e) => {
-                eprintln!("{} Failed to start frontend: {}", "Error:".red().bold(), e);
-                eprintln!(
-                    "{} Make sure pnpm is installed and dependencies are installed in {}",
-                    "Tip:".yellow(),
-                    dashboard_dir.display()
-                );
-            }
+        Err(e) => {
+            eprintln!("{} Failed to start frontend: {}", "Error:".red().bold(), e);
+            eprintln!(
+                "{} Make sure pnpm is installed and dependencies are installed in {}",
+                "Tip:".yellow(),
+                dashboard_dir.display()
+            );
         }
     }
 

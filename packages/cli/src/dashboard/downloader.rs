@@ -44,6 +44,38 @@ pub fn is_dashboard_installed() -> bool {
     false
 }
 
+/// Install dependencies in the dashboard directory
+fn install_dependencies(dashboard_dir: &PathBuf) -> Result<(), Box<dyn std::error::Error>> {
+    println!("{} Installing dashboard dependencies...", "📦".cyan());
+
+    let pnpm_check = std::process::Command::new("which").arg("pnpm").output();
+
+    if pnpm_check.is_ok() && pnpm_check.unwrap().status.success() {
+        let install_result = std::process::Command::new("pnpm")
+            .args(["install"])
+            .current_dir(dashboard_dir)
+            .status();
+
+        match install_result {
+            Ok(status) if status.success() => {
+                println!("{} Dependencies installed successfully!", "✅".green());
+                Ok(())
+            }
+            _ => {
+                Err(format!(
+                    "Failed to install dependencies. Run 'pnpm install' manually in {}",
+                    dashboard_dir.display()
+                ).into())
+            }
+        }
+    } else {
+        Err(format!(
+            "pnpm not found. Install pnpm and run 'pnpm install' in {}",
+            dashboard_dir.display()
+        ).into())
+    }
+}
+
 /// Download and extract dashboard source from GitHub releases
 pub async fn download_dashboard() -> Result<PathBuf, Box<dyn std::error::Error>> {
     let dashboard_dir = get_dashboard_dir();
@@ -150,35 +182,9 @@ pub async fn download_dashboard() -> Result<PathBuf, Box<dyn std::error::Error>>
     let version_file = dashboard_dir.join(".version");
     fs::write(&version_file, version)?;
 
-    // Check if pnpm is available and install dependencies
-    println!("{} Installing dashboard dependencies...", "📦".cyan());
-
-    let pnpm_check = std::process::Command::new("which").arg("pnpm").output();
-
-    if pnpm_check.is_ok() && pnpm_check.unwrap().status.success() {
-        let install_result = std::process::Command::new("pnpm")
-            .args(["install", "--frozen-lockfile"])
-            .current_dir(&dashboard_dir)
-            .status();
-
-        match install_result {
-            Ok(status) if status.success() => {
-                println!("{} Dependencies installed successfully!", "✅".green());
-            }
-            _ => {
-                println!(
-                    "{} Failed to install dependencies. Run 'pnpm install' manually in {}",
-                    "⚠️".yellow(),
-                    dashboard_dir.display()
-                );
-            }
-        }
-    } else {
-        println!(
-            "{} pnpm not found. Install pnpm and run 'pnpm install' in {}",
-            "⚠️".yellow(),
-            dashboard_dir.display()
-        );
+    // Install dependencies
+    if let Err(e) = install_dependencies(&dashboard_dir) {
+        println!("{} {}", "⚠️".yellow(), e);
     }
 
     println!("{} Dashboard source installed successfully!", "✅".green());
@@ -188,8 +194,19 @@ pub async fn download_dashboard() -> Result<PathBuf, Box<dyn std::error::Error>>
 
 /// Ensure dashboard is installed, downloading if necessary
 pub async fn ensure_dashboard() -> Result<PathBuf, Box<dyn std::error::Error>> {
+    let dashboard_dir = get_dashboard_dir();
+    
     if is_dashboard_installed() {
-        let dashboard_dir = get_dashboard_dir();
+        // Check if node_modules exists
+        let node_modules = dashboard_dir.join("node_modules");
+        if !node_modules.exists() {
+            println!(
+                "{} Dashboard found but dependencies missing, installing...",
+                "📦".yellow()
+            );
+            install_dependencies(&dashboard_dir)?;
+        }
+        
         println!(
             "{} Using cached dashboard from {}",
             "📂".cyan(),
