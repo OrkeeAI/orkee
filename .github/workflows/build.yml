@@ -1,0 +1,133 @@
+name: Build Multi-Platform Binaries
+
+on:
+  push:
+    branches: [ main, develop ]
+    tags: [ 'v*' ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+
+jobs:
+  build:
+    name: Build - ${{ matrix.platform.name }}
+    runs-on: ${{ matrix.platform.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        platform:
+          - name: macOS-x64
+            os: macos-13  # Intel Mac runner
+            target: x86_64-apple-darwin
+            binary: orkee
+            command: cargo
+            
+          - name: macOS-arm64
+            os: macos-14  # M1 Mac runner
+            target: aarch64-apple-darwin
+            binary: orkee
+            command: cargo
+            
+          - name: Linux-x64
+            os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            binary: orkee
+            command: cargo
+            
+          - name: Linux-arm64
+            os: ubuntu-latest
+            target: aarch64-unknown-linux-gnu
+            binary: orkee
+            command: cross
+            
+          - name: Windows-x64
+            os: windows-latest
+            target: x86_64-pc-windows-msvc
+            binary: orkee.exe
+            command: cargo
+            
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.platform.target }}
+          
+      - name: Setup Cross
+        if: matrix.platform.command == 'cross'
+        run: |
+          cargo install cross --locked
+          
+      - name: Cache Cargo
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-${{ matrix.platform.target }}-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-${{ matrix.platform.target }}-
+            ${{ runner.os }}-cargo-
+            
+      - name: Build
+        working-directory: packages/cli
+        run: |
+          ${{ matrix.platform.command }} build --release --target ${{ matrix.platform.target }}
+          
+      - name: Package Binary
+        shell: bash
+        run: |
+          cd packages/cli/target/${{ matrix.platform.target }}/release
+          if [[ "${{ matrix.platform.os }}" == "windows-latest" ]]; then
+            7z a ../../../orkee-${{ matrix.platform.target }}.zip ${{ matrix.platform.binary }}
+          else
+            tar czf ../../../orkee-${{ matrix.platform.target }}.tar.gz ${{ matrix.platform.binary }}
+          fi
+          cd ../../..
+          ls -la orkee-*
+          
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: orkee-${{ matrix.platform.target }}
+          path: |
+            packages/cli/orkee-${{ matrix.platform.target }}.tar.gz
+            packages/cli/orkee-${{ matrix.platform.target }}.zip
+          if-no-files-found: error
+          retention-days: 7
+
+  release:
+    name: Create Release
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Download all artifacts
+        uses: actions/download-artifact@v3
+        with:
+          path: artifacts
+          
+      - name: List artifacts
+        run: ls -laR artifacts/
+        
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: artifacts/**/*.tar.gz,artifacts/**/*.zip
+          generate_release_notes: true
+          draft: false
+          prerelease: ${{ contains(github.ref, '-rc') || contains(github.ref, '-beta') || contains(github.ref, '-alpha') }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

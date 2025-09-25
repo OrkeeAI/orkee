@@ -54,9 +54,9 @@ for target in "${platforms[@]}"; do
   if $BUILD_CMD build --release --target "$target"; then
     # Copy binary to dist
     if [[ "$target" == *"windows"* ]]; then
-      cp "target/$target/release/orkee-cli.exe" "$DIST_DIR/orkee-$target.exe" || true
+      cp "target/$target/release/orkee.exe" "$DIST_DIR/orkee-$target.exe" || true
     else
-      cp "target/$target/release/orkee-cli" "$DIST_DIR/orkee-$target" || true
+      cp "target/$target/release/orkee" "$DIST_DIR/orkee-$target" || true
     fi
     echo "✓ Built $target with $BUILD_CMD"
   else
@@ -66,7 +66,7 @@ done
 
 # Create tarballs for each platform
 cd "$DIST_DIR"
-for file in orkee-*; do
+for file in orkee-cli-*; do
   if [[ -f "$file" && "$file" != *.tar.gz && "$file" != *.zip ]]; then
     if [[ "$file" == *.exe ]]; then
       # Create zip for Windows
