@@ -193,7 +193,6 @@ jobs:
           files: |
             artifacts/**/*.tar.gz
             artifacts/**/*.zip
-            artifacts/orkee-dashboard-source/orkee-dashboard-source.tar.gz
           generate_release_notes: true
           draft: false
           prerelease: ${{ contains(github.ref, '-rc') || contains(github.ref, '-beta') || contains(github.ref, '-alpha') }}
