@@ -1,7 +1,7 @@
 {
-  "name": "orkee-cli",
-  "version": "0.0.3",
-  "description": "Orkee CLI - AI agent orchestration platform",
+  "name": "orkee",
+  "version": "0.0.2",
+  "description": "Orkee - AI agent orchestration platform with CLI, TUI, and dashboard",
   "keywords": [
     "ai",
     "agents",
@@ -17,13 +17,16 @@
   "license": "MIT",
   "author": "Orkee Team",
   "bin": {
-    "orkee": "./orkee"
+    "orkee": "./scripts/install.js"
   },
   "files": [
     "scripts/"
   ],
   "scripts": {
+    "sync-version": "node scripts/sync-version.js",
+    "prepublishOnly": "npm run sync-version",
     "postinstall": "node scripts/install.js",
+    "prebuild": "npm run sync-version",
     "build": "cargo build --release --features cloud",
     "dev": "cargo run --features cloud --bin orkee -- dashboard",
     "test": "cargo test --features cloud"

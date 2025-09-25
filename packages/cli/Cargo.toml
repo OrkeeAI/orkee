@@ -1,6 +1,6 @@
 [package]
 name = "orkee-cli"
-version = "0.0.1"
+version = "0.0.2"
 edition = "2021"
 description = "CLI server for Orkee project management"
 authors = ["Orkee Team"]
