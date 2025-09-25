@@ -15,8 +15,7 @@
   },
   "files": [
     "orkee",
-    "orkee.exe",
-    "scripts/"
+    "orkee.exe"
   ],
   "scripts": {
     "build": "cargo build --release --features cloud",

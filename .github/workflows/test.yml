@@ -87,9 +87,9 @@ jobs:
         node-version: '20'
     
     - name: Install pnpm
-      uses: pnpm/action-setup@v2
+      uses: pnpm/action-setup@v4
       with:
-        version: 8
+        version: 10.15.1
     
     - name: Get pnpm store directory
       shell: bash
@@ -191,9 +191,9 @@ jobs:
         node-version: '18'
     
     - name: Install pnpm
-      uses: pnpm/action-setup@v2
+      uses: pnpm/action-setup@v4
       with:
-        version: 8
+        version: 10.15.1
     
     - name: Install dependencies
       run: pnpm install
@@ -241,9 +241,9 @@ jobs:
         node-version: '20'
     
     - name: Install pnpm
-      uses: pnpm/action-setup@v2
+      uses: pnpm/action-setup@v4
       with:
-        version: 8
+        version: 10.15.1
     
     - name: Install dependencies and build
       run: |
