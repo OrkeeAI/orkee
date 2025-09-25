@@ -38,16 +38,16 @@ async fn test_status_endpoint() {
 #[tokio::test]
 #[serial_test::serial]
 async fn test_projects_list_endpoint() {
-    use tempfile::TempDir;
     use std::env;
-    
+    use tempfile::TempDir;
+
     // Create a temporary directory for this test's database
     let temp_dir = TempDir::new().unwrap();
     let original_home = env::var("HOME").ok();
-    
+
     // Set HOME to temp dir so the database is created there
     env::set_var("HOME", temp_dir.path());
-    
+
     let app = api::create_router().await;
 
     let request = Request::builder()
