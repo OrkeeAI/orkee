@@ -78,29 +78,29 @@ jobs:
             ${{ runner.os }}-cargo-
             
       - name: Build
-        working-directory: packages/cli
         run: |
           echo "Building orkee for ${{ matrix.platform.target }}..."
+          cd packages/cli
           ${{ matrix.platform.command }} build --release --target ${{ matrix.platform.target }} --bin orkee
+          cd ../..
           echo "Build completed, checking output..."
           ls -la target/${{ matrix.platform.target }}/release/ || true
           
       - name: Package Binary
         shell: bash
         run: |
-          # Debug: List the target directory structure
-          echo "Checking build output..."
-          ls -la packages/cli/target/${{ matrix.platform.target }}/release/ || echo "Release directory not found"
+          # Debug: List possible target locations
+          echo "Checking for binary in workspace root target..."
+          ls -la target/${{ matrix.platform.target }}/release/ 2>/dev/null || echo "Not in workspace root"
           
-          # Find the binary location
-          BINARY_PATH="packages/cli/target/${{ matrix.platform.target }}/release/${{ matrix.platform.binary }}"
+          # The target directory is at the workspace root when using cargo workspaces
+          BINARY_PATH="target/${{ matrix.platform.target }}/release/${{ matrix.platform.binary }}"
           
           if [ -f "$BINARY_PATH" ]; then
             echo "Found binary at: $BINARY_PATH"
-            cd packages/cli
             
             if [[ "${{ matrix.platform.os }}" == "windows-latest" ]]; then
-              7z a orkee-${{ matrix.platform.target }}.zip target/${{ matrix.platform.target }}/release/${{ matrix.platform.binary }}
+              7z a orkee-${{ matrix.platform.target }}.zip "$BINARY_PATH"
             else
               tar czf orkee-${{ matrix.platform.target }}.tar.gz -C target/${{ matrix.platform.target }}/release ${{ matrix.platform.binary }}
             fi
@@ -109,8 +109,8 @@ jobs:
             ls -la orkee-${{ matrix.platform.target }}.*
           else
             echo "Error: Binary not found at expected location: $BINARY_PATH"
-            echo "Looking for binary in other locations..."
-            find packages/cli/target -name "${{ matrix.platform.binary }}" -type f 2>/dev/null || true
+            echo "Looking for binary in all possible locations..."
+            find . -name "${{ matrix.platform.binary }}" -type f 2>/dev/null | head -10
             exit 1
           fi
           
@@ -119,8 +119,8 @@ jobs:
         with:
           name: orkee-${{ matrix.platform.target }}
           path: |
-            packages/cli/orkee-${{ matrix.platform.target }}.tar.gz
-            packages/cli/orkee-${{ matrix.platform.target }}.zip
+            orkee-${{ matrix.platform.target }}.tar.gz
+            orkee-${{ matrix.platform.target }}.zip
           if-no-files-found: error
           retention-days: 7
 
