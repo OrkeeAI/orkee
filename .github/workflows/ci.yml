@@ -44,7 +44,11 @@ jobs:
 
       - name: Check for unsafe code
         run: |
-          ! grep -r "unsafe" --include="*.rs" packages/ || echo "::warning::Unsafe code detected"
+          # Check for actual unsafe Rust code blocks (not strings containing 'unsafe')
+          ! grep -rE "^[[:space:]]*unsafe[[:space:]]*\{" --include="*.rs" packages/ || echo "::warning::Unsafe code blocks detected"
+          ! grep -rE "unsafe[[:space:]]+fn" --include="*.rs" packages/ || echo "::warning::Unsafe functions detected"
+          ! grep -rE "unsafe[[:space:]]+impl" --include="*.rs" packages/ || echo "::warning::Unsafe impl blocks detected"
+          ! grep -rE "unsafe[[:space:]]+trait" --include="*.rs" packages/ || echo "::warning::Unsafe traits detected"
 
       - name: Run Rust tests
         run: cargo test --all --all-features
