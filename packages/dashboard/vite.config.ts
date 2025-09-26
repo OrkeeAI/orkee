@@ -8,6 +8,7 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
+      '@orkee/tasks': path.resolve(__dirname, '../tasks/src'),
     },
   },
   server: {

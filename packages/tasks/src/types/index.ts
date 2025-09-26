@@ -56,7 +56,7 @@ export interface TaskProviderConfig {
   options?: Record<string, any>;
 }
 
-export interface KanbanColumn {
+export interface KanbanColumnData {
   id: string;
   title: string;
   status: TaskStatus;

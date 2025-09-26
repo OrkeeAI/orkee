@@ -200,8 +200,8 @@ export function ProjectDetail() {
 
         {project?.taskSource === 'taskmaster' && (
           <TabsContent value="tasks" className="space-y-4">
-            <TasksTab 
-              projectId={project.id} 
+            <TasksTab
+              projectId={project.id}
               projectPath={project.projectRoot}
               taskSource={project.taskSource}
             />

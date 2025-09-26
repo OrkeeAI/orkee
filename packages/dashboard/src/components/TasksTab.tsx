@@ -1,5 +1,4 @@
-import React from 'react';
-import { useTasks, KanbanBoard } from '@orkee/tasks';
+import { useTasks, KanbanBoard, Task } from '@orkee/tasks';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Loader2, AlertCircle } from 'lucide-react';
@@ -22,7 +21,8 @@ export function TasksTab({ projectId, projectPath, taskSource }: TasksTabProps) 
     projectId,
     projectPath,
     providerType: taskSource as any,
-    enabled: true
+    enabled: true,
+    apiBaseUrl: 'http://localhost:4001'
   });
 
   if (isLoading) {
@@ -37,7 +37,6 @@ export function TasksTab({ projectId, projectPath, taskSource }: TasksTabProps) 
     return (
       <Alert variant="destructive">
         <AlertCircle className="h-4 w-4" />
-        <AlertTitle>Error loading tasks</AlertTitle>
         <AlertDescription>
           {error instanceof Error ? error.message : 'Failed to load tasks. Please try again.'}
         </AlertDescription>
@@ -74,19 +73,12 @@ export function TasksTab({ projectId, projectPath, taskSource }: TasksTabProps) 
     );
   }
 
-  const handleTaskStatusChange = (taskId: string, newStatus: string) => {
-    updateTask(taskId, { status: newStatus });
+  const handleTaskUpdate = (taskId: string, updates: Partial<Task>) => {
+    updateTask(taskId, updates);
   };
 
-  const handleTaskCreate = (columnId: string) => {
-    const title = prompt('Enter task title:');
-    if (title) {
-      createTask({
-        title,
-        status: columnId,
-        description: ''
-      });
-    }
+  const handleTaskCreate = (task: Partial<Task>) => {
+    createTask(task);
   };
 
   const handleTaskDelete = (taskId: string) => {
@@ -99,7 +91,7 @@ export function TasksTab({ projectId, projectPath, taskSource }: TasksTabProps) 
     <div className="space-y-4">
       <KanbanBoard
         tasks={tasks}
-        onTaskStatusChange={handleTaskStatusChange}
+        onTaskUpdate={handleTaskUpdate}
         onTaskCreate={handleTaskCreate}
         onTaskDelete={handleTaskDelete}
       />

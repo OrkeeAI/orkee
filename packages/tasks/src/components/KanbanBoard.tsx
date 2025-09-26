@@ -11,11 +11,9 @@ import {
   useSensors,
 } from '@dnd-kit/core';
 import {
-  SortableContext,
   sortableKeyboardCoordinates,
-  verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
-import { Task, TaskStatus, KanbanColumn } from '../types';
+import { Task, TaskStatus, KanbanColumnData } from '../types';
 import { KanbanColumn as KanbanColumnComponent } from './KanbanColumn';
 import { TaskCard } from './TaskCard';
 
@@ -45,7 +43,7 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
     })
   );
 
-  const columns = useMemo<KanbanColumn[]>(() => {
+  const columns = useMemo<KanbanColumnData[]>(() => {
     const columnDefinitions: Array<{ id: string; title: string; status: TaskStatus }> = [
       { id: 'pending', title: 'To Do', status: TaskStatus.Pending },
       { id: 'in-progress', title: 'In Progress', status: TaskStatus.InProgress },
@@ -96,34 +94,30 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
 
   return (
     <div className="h-full overflow-hidden">
-      <DndContext
-        sensors={sensors}
-        collisionDetection={closestCorners}
-        onDragStart={handleDragStart}
-        onDragEnd={handleDragEnd}
-      >
-        <div className="flex gap-4 h-full overflow-x-auto pb-4">
-          {columns.map((column) => (
-            <div key={column.id} className="flex-shrink-0 w-80">
-              <KanbanColumnComponent
-                column={column}
-                onTaskUpdate={onTaskUpdate}
-                onTaskCreate={onTaskCreate}
-                onTaskDelete={onTaskDelete}
-              />
-            </div>
-          ))}
-        </div>
-        
-        <DragOverlay>
-          {activeTask && (
-            <TaskCard 
-              task={activeTask}
-              isDragging
-            />
-          )}
-        </DragOverlay>
-      </DndContext>
+      {React.createElement(DndContext, {
+        sensors,
+        collisionDetection: closestCorners,
+        onDragStart: handleDragStart,
+        onDragEnd: handleDragEnd,
+        children: React.createElement(React.Fragment, {}, [React.createElement('div', {
+          key: 'columns',
+          className: 'flex gap-4 h-full overflow-x-auto pb-4'
+        }, columns.map((column) => React.createElement('div', {
+          key: column.id,
+          className: 'flex-shrink-0 w-80'
+        }, React.createElement(KanbanColumnComponent, {
+          column,
+          onTaskUpdate,
+          onTaskCreate,
+          onTaskDelete
+        })))), React.createElement(DragOverlay, {
+          key: 'overlay',
+          children: activeTask && React.createElement(TaskCard, {
+            task: activeTask,
+            isDragging: true
+          })
+        })])
+      })}
     </div>
   );
 };

@@ -10,6 +10,7 @@ pub mod git;
 pub mod health;
 pub mod path_validator;
 pub mod preview;
+pub mod taskmaster;
 
 pub async fn create_router() -> Router {
     use crate::config::Config;
@@ -95,6 +96,11 @@ pub async fn create_router() -> Router {
         )
         .layer(axum::Extension(project_manager.clone()));
 
+    // Create taskmaster router
+    let taskmaster_router = Router::new()
+        .route("/tasks", post(taskmaster::get_tasks))
+        .route("/tasks/save", post(taskmaster::save_tasks));
+
     // Create cloud router
     let cloud_router = Router::new()
         .route("/auth/init", post(cloud::init_oauth_flow))
@@ -124,5 +130,6 @@ pub async fn create_router() -> Router {
         .nest("/api/git", git_router)
         .nest("/api/preview", preview_router)
         .nest("/api/cloud", cloud_router)
+        .nest("/api/taskmaster", taskmaster_router)
         .layer(axum::Extension(path_validator))
 }

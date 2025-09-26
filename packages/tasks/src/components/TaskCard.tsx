@@ -5,7 +5,6 @@ import { Task, TaskPriority } from '../types';
 import { 
   Calendar, 
   User, 
-  MoreHorizontal, 
   Trash2,
   AlertCircle,
   CheckCircle
@@ -21,7 +20,6 @@ interface TaskCardProps {
 export const TaskCard: React.FC<TaskCardProps> = ({
   task,
   isDragging = false,
-  onUpdate,
   onDelete,
 }) => {
   const {
@@ -67,11 +65,9 @@ export const TaskCard: React.FC<TaskCardProps> = ({
           {task.title}
         </h4>
         <div className="flex items-center gap-1">
-          {task.priority && (
-            <PriorityIcon 
-              className={`w-4 h-4 ${priorityColors[task.priority]}`}
-            />
-          )}
+          {task.priority && React.createElement(PriorityIcon, {
+            className: `w-4 h-4 ${priorityColors[task.priority]}`
+          })}
           <button
             onClick={(e) => {
               e.stopPropagation();
@@ -79,7 +75,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
             }}
             className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
           >
-            <Trash2 className="w-3 h-3 text-gray-400" />
+            {React.createElement(Trash2, { className: "w-3 h-3 text-gray-400" })}
           </button>
         </div>
       </div>
@@ -93,14 +89,14 @@ export const TaskCard: React.FC<TaskCardProps> = ({
       <div className="flex items-center gap-3 text-xs text-gray-500 dark:text-gray-400">
         {task.assignee && (
           <div className="flex items-center gap-1">
-            <User className="w-3 h-3" />
+            {React.createElement(User, { className: "w-3 h-3" })}
             <span>{task.assignee}</span>
           </div>
         )}
         
         {task.dueDate && (
           <div className="flex items-center gap-1">
-            <Calendar className="w-3 h-3" />
+            {React.createElement(Calendar, { className: "w-3 h-3" })}
             <span>
               {new Date(task.dueDate).toLocaleDateString()}
             </span>

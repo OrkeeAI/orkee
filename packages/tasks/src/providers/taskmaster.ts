@@ -1,21 +1,16 @@
-import { promises as fs } from 'fs';
-import * as path from 'path';
 import { BaseTaskProvider } from './base';
 import { Task, TaskStatus, TaskProviderType, TaskPriority } from '../types';
 
 interface TaskmasterTaskData {
-  id: string;
+  id: number | string;
   title: string;
   description?: string;
+  details?: string;
+  testStrategy?: string;
   status: string;
   priority?: string;
-  tags?: string[];
-  parent?: string;
-  subtasks?: string[];
-  created: string;
-  updated: string;
-  due?: string;
-  assignee?: string;
+  dependencies?: number[];
+  subtasks?: any[];
 }
 
 interface TaskmasterData {
@@ -32,34 +27,50 @@ export class TaskmasterProvider extends BaseTaskProvider {
   
   private tasksCache = new Map<string, Task[]>();
   private fileWatchers = new Map<string, NodeJS.Timeout>();
+  private apiBaseUrl: string;
+
+  constructor(apiBaseUrl: string = 'http://localhost:4001') {
+    super();
+    this.apiBaseUrl = apiBaseUrl;
+  }
 
   protected async doInitialize(): Promise<void> {
     // Initialization logic if needed
   }
 
   async getTasks(projectPath: string): Promise<Task[]> {
-    const tasksJsonPath = path.join(projectPath, '.taskmaster', 'tasks', 'tasks.json');
-    
     try {
-      const data = await fs.readFile(tasksJsonPath, 'utf-8');
-      const taskmasterData: TaskmasterData = JSON.parse(data);
+      // Try to read tasks via the API endpoint (for browser compatibility)
+      const response = await fetch(`${this.apiBaseUrl}/api/taskmaster/tasks`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ projectPath })
+      });
       
-      const tasks = this.convertTaskmasterTasks(taskmasterData.tasks);
-      this.tasksCache.set(projectPath, tasks);
-      
-      return tasks;
-    } catch (error) {
-      if ((error as any).code === 'ENOENT') {
-        return [];
+      if (response.ok) {
+        const result = await response.json();
+        if (result.success && result.data) {
+          // Handle the nested structure from taskmaster
+          const tasksArray = result.data.master?.tasks || result.data.tasks || [];
+          const tasks = this.convertTaskmasterTasks(tasksArray);
+          this.tasksCache.set(projectPath, tasks);
+          return tasks;
+        }
       }
-      throw new Error(`Failed to read Taskmaster tasks: ${error}`);
+      
+      // Fallback: return empty array if API fails
+      return [];
+    } catch (error) {
+      console.warn('Failed to fetch Taskmaster tasks via API:', error);
+      return [];
     }
   }
 
   async createTask(projectPath: string, taskData: Partial<Task>): Promise<Task> {
     this.validateTask(taskData);
     
-    const tasksJsonPath = path.join(projectPath, '.taskmaster', 'tasks', 'tasks.json');
     const tasks = await this.getTasks(projectPath);
     
     const newTask: Task = {
@@ -139,7 +150,6 @@ export class TaskmasterProvider extends BaseTaskProvider {
   }
 
   watchTasks(projectPath: string, callback: (tasks: Task[]) => void): () => void {
-    const tasksJsonPath = path.join(projectPath, '.taskmaster', 'tasks', 'tasks.json');
     
     // Poll for changes every 2 seconds
     const interval = setInterval(async () => {
@@ -163,20 +173,23 @@ export class TaskmasterProvider extends BaseTaskProvider {
     };
   }
 
-  private convertTaskmasterTasks(taskmasterTasks: TaskmasterTaskData[]): Task[] {
+  private convertTaskmasterTasks(taskmasterTasks: any[]): Task[] {
     return taskmasterTasks.map(task => ({
-      id: task.id,
+      id: String(task.id),
       title: task.title,
-      description: task.description,
+      description: task.description || task.details,
       status: this.mapTaskStatus(task.status),
       priority: this.mapTaskPriority(task.priority),
-      tags: task.tags,
-      assignee: task.assignee,
-      dueDate: task.due ? new Date(task.due) : undefined,
-      createdAt: new Date(task.created),
-      updatedAt: new Date(task.updated),
-      parentId: task.parent,
+      tags: [],
+      assignee: undefined,
+      dueDate: undefined,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      parentId: undefined,
       metadata: {
+        details: task.details,
+        testStrategy: task.testStrategy,
+        dependencies: task.dependencies,
         subtasks: task.subtasks
       }
     }));
@@ -211,12 +224,6 @@ export class TaskmasterProvider extends BaseTaskProvider {
   }
 
   private async saveTasks(projectPath: string, tasks: Task[]): Promise<void> {
-    const tasksJsonPath = path.join(projectPath, '.taskmaster', 'tasks', 'tasks.json');
-    const taskmasterDir = path.join(projectPath, '.taskmaster', 'tasks');
-    
-    // Ensure directory exists
-    await fs.mkdir(taskmasterDir, { recursive: true });
-    
     const taskmasterData: TaskmasterData = {
       tasks: tasks.map(task => ({
         id: task.id,
@@ -238,7 +245,23 @@ export class TaskmasterProvider extends BaseTaskProvider {
       }
     };
     
-    await fs.writeFile(tasksJsonPath, JSON.stringify(taskmasterData, null, 2));
+    try {
+      // Save tasks via API endpoint 
+      const response = await fetch(`${this.apiBaseUrl}/api/taskmaster/tasks/save`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ projectPath, data: taskmasterData })
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+    } catch (error) {
+      console.warn('Failed to save Taskmaster tasks via API:', error);
+      throw error;
+    }
   }
 
   private reverseMapTaskStatus(status: TaskStatus): string {
