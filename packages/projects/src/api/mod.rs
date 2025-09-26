@@ -18,4 +18,9 @@ pub fn create_projects_router() -> Router {
         .route("/check-taskmaster", post(handlers::check_taskmaster))
         .route("/open-in-editor", post(handlers::open_in_editor))
         .route("/open-in-editor", get(handlers::test_editor_config))
+        // Task management endpoints
+        .route("/tasks", post(handlers::get_tasks))
+        .route("/tasks/create", post(handlers::create_task))
+        .route("/tasks/update", post(handlers::update_task))
+        .route("/tasks/delete", post(handlers::delete_task))
 }

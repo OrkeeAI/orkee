@@ -710,6 +710,198 @@ fn get_micro_commands() -> Vec<(&'static str, Vec<String>)> {
     vec![("micro", vec![])]
 }
 
+// =============================================================================
+// Task Management Handlers
+// =============================================================================
+
+/// Request body for task operations
+#[derive(Deserialize)]
+pub struct GetTasksRequest {
+    #[serde(rename = "projectId")]
+    project_id: String,
+    #[serde(rename = "taskSource")]
+    task_source: Option<String>,
+}
+
+#[derive(Deserialize)]
+pub struct CreateTaskRequest {
+    #[serde(rename = "projectId")]
+    project_id: String,
+    title: String,
+    description: Option<String>,
+    status: Option<String>,
+    priority: Option<String>,
+}
+
+#[derive(Deserialize)]
+pub struct UpdateTaskRequest {
+    #[serde(rename = "projectId")]
+    project_id: String,
+    #[serde(rename = "taskId")]
+    task_id: String,
+    title: Option<String>,
+    description: Option<String>,
+    status: Option<String>,
+    priority: Option<String>,
+}
+
+#[derive(Deserialize)]
+pub struct DeleteTaskRequest {
+    #[serde(rename = "projectId")]
+    project_id: String,
+    #[serde(rename = "taskId")]
+    task_id: String,
+}
+
+/// Get tasks for a project
+pub async fn get_tasks(Json(request): Json<GetTasksRequest>) -> impl IntoResponse {
+    info!("Getting tasks for project {}", request.project_id);
+
+    // Get project to find its path
+    match manager_get_project(&request.project_id) {
+        Ok(project) => {
+            // For now, return empty tasks array
+            // In production, this would delegate to the tasks service
+            let response = serde_json::json!({
+                "projectId": request.project_id,
+                "projectPath": project.project_root,
+                "taskSource": request.task_source.unwrap_or_else(|| "taskmaster".to_string()),
+                "tasks": []
+            });
+
+            (StatusCode::OK, ResponseJson(ApiResponse::success(response))).into_response()
+        }
+        Err(ManagerError::NotFound(_)) => (
+            StatusCode::NOT_FOUND,
+            ResponseJson(ApiResponse::<()>::error("Project not found".to_string())),
+        )
+            .into_response(),
+        Err(e) => {
+            error!("Failed to get project {}: {}", request.project_id, e);
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                ResponseJson(ApiResponse::<()>::error("Database error".to_string())),
+            )
+                .into_response()
+        }
+    }
+}
+
+/// Create a new task
+pub async fn create_task(Json(request): Json<CreateTaskRequest>) -> impl IntoResponse {
+    info!(
+        "Creating task '{}' for project {}",
+        request.title, request.project_id
+    );
+
+    // Get project to validate it exists
+    match manager_get_project(&request.project_id) {
+        Ok(_project) => {
+            // For now, return a mock created task
+            let response = serde_json::json!({
+                "id": format!("task_{}", uuid::Uuid::new_v4()),
+                "projectId": request.project_id,
+                "title": request.title,
+                "description": request.description,
+                "status": request.status.unwrap_or_else(|| "pending".to_string()),
+                "priority": request.priority,
+                "createdAt": chrono::Utc::now().to_rfc3339(),
+            });
+
+            (
+                StatusCode::CREATED,
+                ResponseJson(ApiResponse::success(response)),
+            )
+                .into_response()
+        }
+        Err(ManagerError::NotFound(_)) => (
+            StatusCode::NOT_FOUND,
+            ResponseJson(ApiResponse::<()>::error("Project not found".to_string())),
+        )
+            .into_response(),
+        Err(e) => {
+            error!("Failed to get project {}: {}", request.project_id, e);
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                ResponseJson(ApiResponse::<()>::error("Database error".to_string())),
+            )
+                .into_response()
+        }
+    }
+}
+
+/// Update an existing task
+pub async fn update_task(Json(request): Json<UpdateTaskRequest>) -> impl IntoResponse {
+    info!(
+        "Updating task {} for project {}",
+        request.task_id, request.project_id
+    );
+
+    // Get project to validate it exists
+    match manager_get_project(&request.project_id) {
+        Ok(_project) => {
+            // For now, return a mock updated task
+            let response = serde_json::json!({
+                "id": request.task_id,
+                "projectId": request.project_id,
+                "title": request.title,
+                "description": request.description,
+                "status": request.status,
+                "priority": request.priority,
+                "updatedAt": chrono::Utc::now().to_rfc3339(),
+            });
+
+            (StatusCode::OK, ResponseJson(ApiResponse::success(response))).into_response()
+        }
+        Err(ManagerError::NotFound(_)) => (
+            StatusCode::NOT_FOUND,
+            ResponseJson(ApiResponse::<()>::error("Project not found".to_string())),
+        )
+            .into_response(),
+        Err(e) => {
+            error!("Failed to get project {}: {}", request.project_id, e);
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                ResponseJson(ApiResponse::<()>::error("Database error".to_string())),
+            )
+                .into_response()
+        }
+    }
+}
+
+/// Delete a task
+pub async fn delete_task(Json(request): Json<DeleteTaskRequest>) -> impl IntoResponse {
+    info!(
+        "Deleting task {} from project {}",
+        request.task_id, request.project_id
+    );
+
+    // Get project to validate it exists
+    match manager_get_project(&request.project_id) {
+        Ok(_project) => {
+            // For now, return success
+            let response = serde_json::json!({
+                "message": format!("Task {} deleted successfully", request.task_id)
+            });
+
+            (StatusCode::OK, ResponseJson(ApiResponse::success(response))).into_response()
+        }
+        Err(ManagerError::NotFound(_)) => (
+            StatusCode::NOT_FOUND,
+            ResponseJson(ApiResponse::<()>::error("Project not found".to_string())),
+        )
+            .into_response(),
+        Err(e) => {
+            error!("Failed to get project {}: {}", request.project_id, e);
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                ResponseJson(ApiResponse::<()>::error("Database error".to_string())),
+            )
+                .into_response()
+        }
+    }
+}
+
 /// Helper function to detect VS Code installation
 fn detect_vscode() -> Result<String, String> {
     // Try to run 'code --version' to check if VS Code is available

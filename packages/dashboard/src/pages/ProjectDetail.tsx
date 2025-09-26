@@ -17,7 +17,8 @@ import {
   AlertTriangle,
   Trash2,
   Github,
-  Play
+  Play,
+  ListTodo
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -29,6 +30,7 @@ import { ProjectDeleteDialog } from '@/components/ProjectDeleteDialog';
 import { PreviewPanel } from '@/components/preview';
 import { GitTab, GitActivityGraph } from '@/components/git';
 import { OpenInEditorButton } from '@/components/ui/OpenInEditorButton';
+import { TasksTab } from '@/components/TasksTab';
 import { useProject } from '@/hooks/useProjects';
 import { useCommitHistory } from '@/services/git';
 
@@ -171,11 +173,17 @@ export function ProjectDetail() {
 
       {/* Tabbed Content */}
       <Tabs defaultValue="overview" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className={`grid w-full ${project?.taskSource === 'taskmaster' ? 'grid-cols-5' : 'grid-cols-4'}`}>
           <TabsTrigger value="overview" className="flex items-center gap-2">
             <Info className="h-4 w-4" />
             Overview
           </TabsTrigger>
+          {project?.taskSource === 'taskmaster' && (
+            <TabsTrigger value="tasks" className="flex items-center gap-2">
+              <ListTodo className="h-4 w-4" />
+              Tasks
+            </TabsTrigger>
+          )}
           <TabsTrigger value="preview" className="flex items-center gap-2">
             <Play className="h-4 w-4" />
             Preview
@@ -189,6 +197,16 @@ export function ProjectDetail() {
             Settings
           </TabsTrigger>
         </TabsList>
+
+        {project?.taskSource === 'taskmaster' && (
+          <TabsContent value="tasks" className="space-y-4">
+            <TasksTab 
+              projectId={project.id} 
+              projectPath={project.projectRoot}
+              taskSource={project.taskSource}
+            />
+          </TabsContent>
+        )}
 
         <TabsContent value="overview" className="space-y-4">
           {/* Project Stats */}
