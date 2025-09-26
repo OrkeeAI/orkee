@@ -131,11 +131,11 @@ export function ProjectEditDialog({ project, open, onOpenChange, onProjectUpdate
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[625px]">
+      <DialogContent className="sm:max-w-[625px]" aria-describedby="edit-project-description">
         <form onSubmit={handleSubmit}>
           <DialogHeader>
             <DialogTitle>Edit Project</DialogTitle>
-            <DialogDescription>
+            <DialogDescription id="edit-project-description">
               Update the project details below.
             </DialogDescription>
           </DialogHeader>

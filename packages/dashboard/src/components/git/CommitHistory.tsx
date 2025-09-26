@@ -14,6 +14,9 @@ interface CommitHistoryProps {
 export function CommitHistory({ commits, projectId }: CommitHistoryProps) {
   const [selectedCommit, setSelectedCommit] = useState<string | null>(null);
 
+  // Ensure commits is always an array
+  const safeCommits = Array.isArray(commits) ? commits : [];
+
   const formatDate = (timestamp: number) => {
     const date = new Date(timestamp * 1000);
     const now = new Date();
@@ -66,7 +69,7 @@ export function CommitHistory({ commits, projectId }: CommitHistoryProps) {
         </CardHeader>
         <CardContent className="p-0">
           <div className="divide-y">
-            {commits.map((commit, index) => (
+            {safeCommits.map((commit, index) => (
               <div
                 key={commit.id}
                 className="p-4 hover:bg-muted/50 cursor-pointer transition-colors"
@@ -139,7 +142,7 @@ export function CommitHistory({ commits, projectId }: CommitHistoryProps) {
           </div>
 
           {/* Load more button if needed */}
-          {commits.length >= 50 && (
+          {safeCommits.length >= 50 && (
             <div className="p-4 border-t">
               <Button variant="outline" className="w-full" disabled>
                 Load More Commits (Coming Soon)

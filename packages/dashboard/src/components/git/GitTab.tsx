@@ -194,7 +194,7 @@ export function GitTab({ projectId, gitRepository }: GitTabProps) {
       </Card>
 
       <CommitHistory 
-        commits={commits} 
+        commits={commits || []} 
         projectId={projectId}
       />
     </div>

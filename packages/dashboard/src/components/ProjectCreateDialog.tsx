@@ -94,11 +94,11 @@ export function ProjectCreateDialog({ open, onOpenChange, onProjectCreated }: Pr
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[625px]">
+      <DialogContent className="sm:max-w-[625px]" aria-describedby="create-project-description">
         <form onSubmit={handleSubmit}>
           <DialogHeader>
             <DialogTitle>Create New Project</DialogTitle>
-            <DialogDescription>
+            <DialogDescription id="create-project-description">
               Add a new project to your workspace. Fill in the details below.
             </DialogDescription>
           </DialogHeader>

@@ -331,10 +331,7 @@ async fn start_full_dashboard(
     let dashboard_dir = ensure_dashboard().await?;
 
     // Run pnpm dev from the downloaded dashboard
-    println!(
-        "{}",
-        "🖥️  Starting frontend dashboard...".cyan()
-    );
+    println!("{}", "🖥️  Starting frontend dashboard...".cyan());
     let frontend_result = std::process::Command::new("pnpm")
         .args(["dev"])
         .current_dir(&dashboard_dir)

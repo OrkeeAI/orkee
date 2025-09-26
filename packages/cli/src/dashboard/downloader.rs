@@ -61,18 +61,18 @@ fn install_dependencies(dashboard_dir: &PathBuf) -> Result<(), Box<dyn std::erro
                 println!("{} Dependencies installed successfully!", "✅".green());
                 Ok(())
             }
-            _ => {
-                Err(format!(
-                    "Failed to install dependencies. Run 'pnpm install' manually in {}",
-                    dashboard_dir.display()
-                ).into())
-            }
+            _ => Err(format!(
+                "Failed to install dependencies. Run 'pnpm install' manually in {}",
+                dashboard_dir.display()
+            )
+            .into()),
         }
     } else {
         Err(format!(
             "pnpm not found. Install pnpm and run 'pnpm install' in {}",
             dashboard_dir.display()
-        ).into())
+        )
+        .into())
     }
 }
 
@@ -195,7 +195,7 @@ pub async fn download_dashboard() -> Result<PathBuf, Box<dyn std::error::Error>>
 /// Ensure dashboard is installed, downloading if necessary
 pub async fn ensure_dashboard() -> Result<PathBuf, Box<dyn std::error::Error>> {
     let dashboard_dir = get_dashboard_dir();
-    
+
     if is_dashboard_installed() {
         // Check if node_modules exists
         let node_modules = dashboard_dir.join("node_modules");
@@ -206,7 +206,7 @@ pub async fn ensure_dashboard() -> Result<PathBuf, Box<dyn std::error::Error>> {
             );
             install_dependencies(&dashboard_dir)?;
         }
-        
+
         println!(
             "{} Using cached dashboard from {}",
             "📂".cyan(),

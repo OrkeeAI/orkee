@@ -37,10 +37,10 @@ export function ProjectDeleteDialog({ project, open, onOpenChange, onProjectDele
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-[425px]" aria-describedby="delete-project-description">
         <DialogHeader>
           <DialogTitle>Delete Project</DialogTitle>
-          <DialogDescription>
+          <DialogDescription id="delete-project-description">
             Are you sure you want to delete this project? This action cannot be undone.
           </DialogDescription>
         </DialogHeader>

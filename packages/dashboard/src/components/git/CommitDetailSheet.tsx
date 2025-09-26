@@ -67,7 +67,10 @@ export function CommitDetailSheet({ projectId, commitId, open, onClose }: Commit
 
   return (
     <Sheet open={open} onOpenChange={onClose}>
-      <SheetContent className="w-full sm:max-w-[90vw] lg:max-w-[80vw] xl:max-w-[70vw] p-0">
+      <SheetContent 
+        className="w-full sm:max-w-[90vw] lg:max-w-[80vw] xl:max-w-[70vw] p-0"
+        aria-describedby={commitDetail ? "commit-description" : undefined}
+      >
         {isLoading && (
           <div className="flex items-center justify-center h-full">
             <div className="text-center">
@@ -99,7 +102,7 @@ export function CommitDetailSheet({ projectId, commitId, open, onClose }: Commit
                 <GitCommit className="h-5 w-5" />
                 {formatCommitMessage(commitDetail.commit.message, 60)}
               </SheetTitle>
-              <SheetDescription className="flex items-center gap-4 text-sm">
+              <SheetDescription id="commit-description" className="flex items-center gap-4 text-sm">
                 <code className="bg-muted px-2 py-1 rounded">
                   {commitDetail.commit.short_id}
                 </code>
