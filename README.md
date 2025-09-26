@@ -165,8 +165,10 @@ turbo build --filter=@orkee/dashboard  # Build dashboard only
 
 # CLI-specific commands (run from packages/cli/)
 cargo run --bin orkee -- dashboard           # Start API (4001) + UI (5173)
+cargo run --bin orkee -- dashboard --dev     # Use local dashboard from packages/dashboard/
 cargo run --bin orkee -- dashboard --api-port 8080 --ui-port 3000  # Custom ports
 ORKEE_API_PORT=9000 ORKEE_UI_PORT=3333 cargo run --bin orkee -- dashboard  # Via env
+ORKEE_DEV_MODE=true cargo run --bin orkee -- dashboard    # Use local dashboard via env
 cargo run --bin orkee -- tui                 # Launch TUI interface
 cargo run --bin orkee -- projects list       # List all projects
 cargo run --features cloud --bin orkee -- cloud login    # Authenticate with Orkee Cloud
@@ -181,6 +183,32 @@ pnpm build                    # Production build
 pnpm lint                     # Run ESLint
 ```
 
+### Dashboard Development Mode
+
+For dashboard development, you can use the local copy instead of the downloaded version:
+
+```bash
+# Method 1: Use --dev flag (recommended)
+cargo run --bin orkee -- dashboard --dev
+
+# Method 2: Use environment variable
+ORKEE_DEV_MODE=true cargo run --bin orkee -- dashboard
+
+# Method 3: With custom ports in dev mode
+cargo run --bin orkee -- dashboard --dev --api-port 8080 --ui-port 3000
+```
+
+**Benefits:**
+- 🚀 **No file copying** - Uses `packages/dashboard/` directly
+- 🔄 **Live reloading** - Vite HMR works with your source files
+- ⚡ **Faster iteration** - Immediate feedback on changes
+
+**How it works:**
+- `--dev` or `ORKEE_DEV_MODE=true` enables development mode
+- Uses local dashboard from `packages/dashboard/` instead of `~/.orkee/dashboard/`
+- Falls back to downloaded version if local dashboard isn't found
+
+See [DEV_MODE_README.md](DEV_MODE_README.md) for detailed usage instructions.
 
 ## Contributing
 

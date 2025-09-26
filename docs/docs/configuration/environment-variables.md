@@ -16,6 +16,14 @@ The core port configuration variables that control where Orkee services run:
 | `ORKEE_UI_PORT` | `5173` | Dashboard UI port (can be overridden by `--ui-port` flag) |
 | `ORKEE_CORS_ORIGIN` | Auto-calculated | Allowed CORS origin (auto-set to `http://localhost:${ORKEE_UI_PORT}`) |
 
+## Development Configuration
+
+Variables that control development behavior:
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `ORKEE_DEV_MODE` | `false` | Use local dashboard from `packages/dashboard/` instead of `~/.orkee/dashboard/` |
+
 ### Legacy Variables (Deprecated)
 
 | Variable | Replacement | Status |

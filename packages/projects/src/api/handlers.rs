@@ -758,8 +758,8 @@ pub async fn get_tasks(Json(request): Json<GetTasksRequest>) -> impl IntoRespons
     info!("Getting tasks for project {}", request.project_id);
 
     // Get project to find its path
-    match manager_get_project(&request.project_id) {
-        Ok(project) => {
+    match manager_get_project(&request.project_id).await {
+        Ok(Some(project)) => {
             // For now, return empty tasks array
             // In production, this would delegate to the tasks service
             let response = serde_json::json!({
@@ -771,6 +771,11 @@ pub async fn get_tasks(Json(request): Json<GetTasksRequest>) -> impl IntoRespons
 
             (StatusCode::OK, ResponseJson(ApiResponse::success(response))).into_response()
         }
+        Ok(None) => (
+            StatusCode::NOT_FOUND,
+            ResponseJson(ApiResponse::<()>::error("Project not found".to_string())),
+        )
+            .into_response(),
         Err(ManagerError::NotFound(_)) => (
             StatusCode::NOT_FOUND,
             ResponseJson(ApiResponse::<()>::error("Project not found".to_string())),
@@ -795,8 +800,8 @@ pub async fn create_task(Json(request): Json<CreateTaskRequest>) -> impl IntoRes
     );
 
     // Get project to validate it exists
-    match manager_get_project(&request.project_id) {
-        Ok(_project) => {
+    match manager_get_project(&request.project_id).await {
+        Ok(Some(_project)) => {
             // For now, return a mock created task
             let response = serde_json::json!({
                 "id": format!("task_{}", uuid::Uuid::new_v4()),
@@ -814,6 +819,11 @@ pub async fn create_task(Json(request): Json<CreateTaskRequest>) -> impl IntoRes
             )
                 .into_response()
         }
+        Ok(None) => (
+            StatusCode::NOT_FOUND,
+            ResponseJson(ApiResponse::<()>::error("Project not found".to_string())),
+        )
+            .into_response(),
         Err(ManagerError::NotFound(_)) => (
             StatusCode::NOT_FOUND,
             ResponseJson(ApiResponse::<()>::error("Project not found".to_string())),
@@ -838,8 +848,8 @@ pub async fn update_task(Json(request): Json<UpdateTaskRequest>) -> impl IntoRes
     );
 
     // Get project to validate it exists
-    match manager_get_project(&request.project_id) {
-        Ok(_project) => {
+    match manager_get_project(&request.project_id).await {
+        Ok(Some(_project)) => {
             // For now, return a mock updated task
             let response = serde_json::json!({
                 "id": request.task_id,
@@ -853,6 +863,11 @@ pub async fn update_task(Json(request): Json<UpdateTaskRequest>) -> impl IntoRes
 
             (StatusCode::OK, ResponseJson(ApiResponse::success(response))).into_response()
         }
+        Ok(None) => (
+            StatusCode::NOT_FOUND,
+            ResponseJson(ApiResponse::<()>::error("Project not found".to_string())),
+        )
+            .into_response(),
         Err(ManagerError::NotFound(_)) => (
             StatusCode::NOT_FOUND,
             ResponseJson(ApiResponse::<()>::error("Project not found".to_string())),
@@ -877,8 +892,8 @@ pub async fn delete_task(Json(request): Json<DeleteTaskRequest>) -> impl IntoRes
     );
 
     // Get project to validate it exists
-    match manager_get_project(&request.project_id) {
-        Ok(_project) => {
+    match manager_get_project(&request.project_id).await {
+        Ok(Some(_project)) => {
             // For now, return success
             let response = serde_json::json!({
                 "message": format!("Task {} deleted successfully", request.task_id)
@@ -886,6 +901,11 @@ pub async fn delete_task(Json(request): Json<DeleteTaskRequest>) -> impl IntoRes
 
             (StatusCode::OK, ResponseJson(ApiResponse::success(response))).into_response()
         }
+        Ok(None) => (
+            StatusCode::NOT_FOUND,
+            ResponseJson(ApiResponse::<()>::error("Project not found".to_string())),
+        )
+            .into_response(),
         Err(ManagerError::NotFound(_)) => (
             StatusCode::NOT_FOUND,
             ResponseJson(ApiResponse::<()>::error("Project not found".to_string())),

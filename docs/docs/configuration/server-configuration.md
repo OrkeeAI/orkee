@@ -26,6 +26,9 @@ import TabItem from '@theme/TabItem';
 ```bash
 # Override ports with command line flags
 orkee dashboard --api-port 8080 --ui-port 3000
+
+# Enable development mode with custom ports
+orkee dashboard --dev --api-port 8080 --ui-port 3000
 ```
 
 </TabItem>
@@ -34,6 +37,9 @@ orkee dashboard --api-port 8080 --ui-port 3000
 ```bash
 # Set via environment variables
 ORKEE_API_PORT=8080 ORKEE_UI_PORT=3000 orkee dashboard
+
+# Enable development mode via environment
+ORKEE_DEV_MODE=true ORKEE_API_PORT=8080 ORKEE_UI_PORT=3000 orkee dashboard
 ```
 
 </TabItem>
@@ -43,6 +49,7 @@ ORKEE_API_PORT=8080 ORKEE_UI_PORT=3000 orkee dashboard
 # Create .env file
 echo "ORKEE_API_PORT=8080" > .env
 echo "ORKEE_UI_PORT=3000" >> .env
+echo "ORKEE_DEV_MODE=true" >> .env
 orkee dashboard
 ```
 

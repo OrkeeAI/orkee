@@ -35,6 +35,8 @@ enum Commands {
         ui_port: u16,
         #[arg(long, help = "Restart services (kill existing processes first)")]
         restart: bool,
+        #[arg(long, help = "Use local development dashboard from packages/dashboard")]
+        dev: bool,
     },
     /// Launch the terminal user interface
     Tui {
@@ -68,6 +70,8 @@ enum Commands {
         ui_port: u16,
         #[arg(long, help = "Restart services (kill existing processes first)")]
         restart: bool,
+        #[arg(long, help = "Use local development dashboard from packages/dashboard")]
+        dev: bool,
     },
     /// Launch the terminal user interface
     Tui {
@@ -112,6 +116,7 @@ async fn handle_command(command: Commands) -> Result<(), Box<dyn std::error::Err
             api_port,
             ui_port,
             restart,
+            dev,
         } => {
             // Check environment variables if not explicitly set via CLI
             let final_api_port = if api_port == 4001 {
@@ -133,9 +138,9 @@ async fn handle_command(command: Commands) -> Result<(), Box<dyn std::error::Err
             };
 
             if restart {
-                restart_dashboard(final_api_port, final_ui_port).await
+                restart_dashboard(final_api_port, final_ui_port, dev).await
             } else {
-                start_full_dashboard(final_api_port, final_ui_port).await
+                start_full_dashboard(final_api_port, final_ui_port, dev).await
             }
         }
         Commands::Tui {
@@ -302,6 +307,7 @@ async fn start_tui(refresh_interval: u64) -> Result<(), Box<dyn std::error::Erro
 async fn start_full_dashboard(
     api_port: u16,
     ui_port: u16,
+    dev: bool,
 ) -> Result<(), Box<dyn std::error::Error>> {
     println!(
         "{}",
@@ -326,9 +332,34 @@ async fn start_full_dashboard(
     // Wait a moment for backend to start
     tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
 
-    // Always use downloaded dashboard from ~/.orkee/dashboard
-    // Ensure dashboard is downloaded
-    let dashboard_dir = ensure_dashboard().await?;
+    // Determine which dashboard to use
+    let dashboard_dir = if dev || std::env::var("ORKEE_DEV_MODE").is_ok() {
+        // Try to use local development dashboard
+        let local_dashboard = std::path::PathBuf::from("packages/dashboard");
+        let absolute_local = if local_dashboard.is_absolute() {
+            local_dashboard
+        } else {
+            std::env::current_dir()?.join(&local_dashboard)
+        };
+        
+        if absolute_local.exists() {
+            println!(
+                "{} Using local development dashboard from {}",
+                "🔧".cyan(),
+                absolute_local.display()
+            );
+            absolute_local
+        } else {
+            println!(
+                "{} Local dashboard not found, falling back to downloaded version",
+                "⚠️".yellow()
+            );
+            ensure_dashboard().await?
+        }
+    } else {
+        // Use downloaded dashboard from ~/.orkee/dashboard
+        ensure_dashboard().await?
+    };
 
     // Run pnpm dev from the downloaded dashboard
     println!("{}", "🖥️  Starting frontend dashboard...".cyan());
@@ -367,7 +398,7 @@ async fn start_full_dashboard(
     Ok(())
 }
 
-async fn restart_dashboard(api_port: u16, ui_port: u16) -> Result<(), Box<dyn std::error::Error>> {
+async fn restart_dashboard(api_port: u16, ui_port: u16, dev: bool) -> Result<(), Box<dyn std::error::Error>> {
     println!(
         "{}",
         "🔄 Restarting all dashboard services...".yellow().bold()
@@ -390,7 +421,7 @@ async fn restart_dashboard(api_port: u16, ui_port: u16) -> Result<(), Box<dyn st
     tokio::time::sleep(tokio::time::Duration::from_secs(3)).await;
 
     // Start fresh
-    start_full_dashboard(api_port, ui_port).await
+    start_full_dashboard(api_port, ui_port, dev).await
 }
 
 async fn kill_port(port: u16) -> Result<(), Box<dyn std::error::Error>> {
