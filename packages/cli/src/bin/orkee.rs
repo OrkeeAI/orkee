@@ -341,7 +341,7 @@ async fn start_full_dashboard(
         } else {
             std::env::current_dir()?.join(&local_dashboard)
         };
-        
+
         if absolute_local.exists() {
             println!(
                 "{} Using local development dashboard from {}",
@@ -398,7 +398,11 @@ async fn start_full_dashboard(
     Ok(())
 }
 
-async fn restart_dashboard(api_port: u16, ui_port: u16, dev: bool) -> Result<(), Box<dyn std::error::Error>> {
+async fn restart_dashboard(
+    api_port: u16,
+    ui_port: u16,
+    dev: bool,
+) -> Result<(), Box<dyn std::error::Error>> {
     println!(
         "{}",
         "🔄 Restarting all dashboard services...".yellow().bold()
