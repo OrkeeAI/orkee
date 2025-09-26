@@ -58,11 +58,8 @@ export function ProjectEditDialog({ project, open, onOpenChange, onProjectUpdate
         const result = await response.json();
         if (result.success) {
           setHasTaskmaster(result.data.hasTaskmaster);
-          // Update the form data with detected task source
-          setFormData(prev => ({
-            ...prev,
-            taskSource: result.data.taskSource as TaskSource
-          }));
+          // Don't auto-change task source when editing existing projects
+          // The user's current selection should be preserved
         }
       }
     } catch (error) {
