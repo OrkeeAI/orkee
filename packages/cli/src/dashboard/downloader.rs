@@ -48,10 +48,10 @@ pub fn is_dashboard_installed() -> bool {
 fn install_dependencies(dashboard_dir: &PathBuf) -> Result<(), Box<dyn std::error::Error>> {
     println!("{} Installing dashboard dependencies...", "📦".cyan());
 
-    let pnpm_check = std::process::Command::new("which").arg("pnpm").output();
+    let bun_check = std::process::Command::new("which").arg("bun").output();
 
-    if pnpm_check.is_ok() && pnpm_check.unwrap().status.success() {
-        let install_result = std::process::Command::new("pnpm")
+    if bun_check.is_ok() && bun_check.unwrap().status.success() {
+        let install_result = std::process::Command::new("bun")
             .args(["install"])
             .current_dir(dashboard_dir)
             .status();
@@ -62,14 +62,14 @@ fn install_dependencies(dashboard_dir: &PathBuf) -> Result<(), Box<dyn std::erro
                 Ok(())
             }
             _ => Err(format!(
-                "Failed to install dependencies. Run 'pnpm install' manually in {}",
+                "Failed to install dependencies. Run 'bun install' manually in {}",
                 dashboard_dir.display()
             )
             .into()),
         }
     } else {
         Err(format!(
-            "pnpm not found. Install pnpm and run 'pnpm install' in {}",
+            "bun not found. Install bun and run 'bun install' in {}",
             dashboard_dir.display()
         )
         .into())

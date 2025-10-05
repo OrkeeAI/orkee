@@ -361,10 +361,10 @@ async fn start_full_dashboard(
         ensure_dashboard().await?
     };
 
-    // Run pnpm dev from the downloaded dashboard
+    // Run bun dev from the downloaded dashboard
     println!("{}", "🖥️  Starting frontend dashboard...".cyan());
-    let frontend_result = std::process::Command::new("pnpm")
-        .args(["dev"])
+    let frontend_result = std::process::Command::new("bun")
+        .args(["run", "dev"])
         .current_dir(&dashboard_dir)
         .env("ORKEE_UI_PORT", ui_port.to_string())
         .env("ORKEE_API_PORT", api_port.to_string())
@@ -388,7 +388,7 @@ async fn start_full_dashboard(
         Err(e) => {
             eprintln!("{} Failed to start frontend: {}", "Error:".red().bold(), e);
             eprintln!(
-                "{} Make sure pnpm is installed and dependencies are installed in {}",
+                "{} Make sure bun is installed and dependencies are installed in {}",
                 "Tip:".yellow(),
                 dashboard_dir.display()
             );
