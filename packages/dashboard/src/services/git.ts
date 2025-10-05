@@ -60,7 +60,7 @@ export const getCommitHistory = async (
   params: CommitHistoryParams = {}
 ): Promise<CommitInfo[]> => {
   const searchParams = new URLSearchParams();
-  
+
   if (params.page) {
     searchParams.append('page', params.page.toString());
   }
@@ -70,37 +70,49 @@ export const getCommitHistory = async (
   if (params.branch) {
     searchParams.append('branch', params.branch);
   }
-  
+
   const queryString = searchParams.toString();
   const url = `/api/git/${projectId}/commits${queryString ? '?' + queryString : ''}`;
-  
-  const response = await apiRequest<CommitInfo[]>(url, {
+
+  const response = await apiRequest<{ success: boolean; data?: CommitInfo[]; error?: string }>(url, {
     method: 'GET',
   });
-  
+
   if (!response.success || !response.data) {
     throw new Error(response.error || 'Failed to fetch commit history');
   }
-  
-  return response.data;
+
+  // Unwrap the nested API response
+  const apiResponse = response.data;
+  if (!apiResponse.success || !apiResponse.data) {
+    throw new Error(apiResponse.error || 'Failed to fetch commit history');
+  }
+
+  return apiResponse.data;
 };
 
 export const getCommitDetails = async (
   projectId: string,
   commitId: string
 ): Promise<CommitDetail> => {
-  const response = await apiRequest<CommitDetail>(
+  const response = await apiRequest<{ success: boolean; data?: CommitDetail; error?: string }>(
     `/api/git/${projectId}/commits/${commitId}`,
     {
       method: 'GET',
     }
   );
-  
+
   if (!response.success || !response.data) {
     throw new Error(response.error || 'Failed to get commit details');
   }
-  
-  return response.data;
+
+  // Unwrap the nested API response
+  const apiResponse = response.data;
+  if (!apiResponse.success || !apiResponse.data) {
+    throw new Error(apiResponse.error || 'Failed to get commit details');
+  }
+
+  return apiResponse.data;
 };
 
 export const getFileDiff = async (
@@ -110,25 +122,31 @@ export const getFileDiff = async (
   params: FileDiffParams = {}
 ): Promise<FileDiff> => {
   const searchParams = new URLSearchParams();
-  
+
   if (params.context !== undefined) {
     searchParams.append('context', params.context.toString());
   }
-  
+
   const queryString = searchParams.toString();
   const url = `/api/git/${projectId}/diff/${commitId}/${encodeURIComponent(filePath)}${
     queryString ? '?' + queryString : ''
   }`;
-  
-  const response = await apiRequest<FileDiff>(url, {
+
+  const response = await apiRequest<{ success: boolean; data?: FileDiff; error?: string }>(url, {
     method: 'GET',
   });
-  
+
   if (!response.success || !response.data) {
     throw new Error(response.error || 'Failed to get file diff');
   }
-  
-  return response.data;
+
+  // Unwrap the nested API response
+  const apiResponse = response.data;
+  if (!apiResponse.success || !apiResponse.data) {
+    throw new Error(apiResponse.error || 'Failed to get file diff');
+  }
+
+  return apiResponse.data;
 };
 
 // React Query hooks

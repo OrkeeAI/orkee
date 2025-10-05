@@ -122,7 +122,7 @@ function SortableRow({ project, onEdit, onDelete, onView, formatDate, getPriorit
       <td className="py-3 px-2 sm:px-4">
         <div className="flex items-center justify-center">
           <div className={`w-2 h-2 rounded-full ${
-            isDevServerRunning(project) ? 'bg-green-500' : 'bg-gray-400'
+            isDevServerRunning(project) ? 'bg-green-500 dark:bg-green-400' : 'bg-muted-foreground/40'
           }`} />
         </div>
       </td>
@@ -325,10 +325,10 @@ export function Projects() {
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
-      case 'high': return 'bg-red-100 text-red-800';
-      case 'medium': return 'bg-yellow-100 text-yellow-800';
-      case 'low': return 'bg-green-100 text-green-800';
-      default: return 'bg-gray-100 text-gray-800';
+      case 'high': return 'bg-red-500/10 text-red-600 dark:text-red-400';
+      case 'medium': return 'bg-yellow-500/10 text-yellow-700 dark:text-yellow-400';
+      case 'low': return 'bg-green-500/10 text-green-700 dark:text-green-400';
+      default: return 'bg-muted text-muted-foreground';
     }
   };
 
@@ -348,7 +348,7 @@ export function Projects() {
           </div>
         </div>
         <div className="flex items-center justify-center h-32">
-          <div className="h-6 w-6 animate-spin rounded-full border-2 border-gray-300 border-t-blue-600"></div>
+          <div className="h-6 w-6 animate-spin rounded-full border-2 border-muted border-t-primary"></div>
           <span className="ml-2">Loading projects...</span>
         </div>
       </div>
@@ -432,7 +432,7 @@ export function Projects() {
       </div>
 
       {isError && (
-        <div className="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-md">
+        <div className="bg-destructive/10 border border-destructive/20 text-destructive px-4 py-3 rounded-md">
           <p className="font-medium">Error loading projects</p>
           <p className="text-sm">{error?.message || 'Failed to load projects'}</p>
         </div>
@@ -479,9 +479,9 @@ export function Projects() {
                 collisionDetection={closestCenter}
                 onDragEnd={handleDragEnd}
               >
-                <div className="bg-white rounded-lg border overflow-x-auto">
+                <div className="bg-card rounded-lg border overflow-x-auto">
                   <table className="w-full min-w-full">
-                    <thead className="border-b bg-muted/30">
+                    <thead className="border-b bg-muted/50">
                       <tr>
                         <th className="py-3 px-2 sm:px-4 text-left font-medium">Name</th>
                         <th className="py-3 px-2 sm:px-4 text-left font-medium hidden md:table-cell">Repository</th>
@@ -554,7 +554,7 @@ export function Projects() {
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <div className={`w-2 h-2 rounded-full ${
-                            isDevServerRunning(project) ? 'bg-green-500' : 'bg-gray-400'
+                            isDevServerRunning(project) ? 'bg-green-500 dark:bg-green-400' : 'bg-muted-foreground/40'
                           }`} />
                           <span className="text-sm">Dev Server</span>
                         </div>

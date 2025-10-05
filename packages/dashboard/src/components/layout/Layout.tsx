@@ -2,6 +2,7 @@ import { ReactNode, useState, useEffect } from 'react'
 import { AppSidebar } from "@/components/app-sidebar"
 import { Breadcrumbs } from './Breadcrumbs'
 import { CloudAuthButtonHeader } from '@/components/cloud/CloudAuthButton'
+import { ThemeSwitcher } from '@/components/ThemeSwitcher'
 import { fetchConfig } from '@/services/config'
 import { Separator } from "@/components/ui/separator"
 import {
@@ -36,11 +37,10 @@ export function Layout({ children }: LayoutProps) {
             />
             <Breadcrumbs />
           </div>
-          {isCloudEnabled && (
-            <div className="ml-auto px-4">
-              <CloudAuthButtonHeader />
-            </div>
-          )}
+          <div className="ml-auto flex items-center gap-2 px-4">
+            <ThemeSwitcher />
+            {isCloudEnabled && <CloudAuthButtonHeader />}
+          </div>
         </header>
         <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
           {children}
