@@ -28,8 +28,12 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
+    "@radix-ui/react-dialog": "^1.1.15",
     "@tanstack/react-query": "^5.51.11",
-    "eventemitter3": "^5.0.1"
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "eventemitter3": "^5.0.1",
+    "tailwind-merge": "^3.3.1"
   },
   "devDependencies": {
     "@types/node": "^20.10.5",

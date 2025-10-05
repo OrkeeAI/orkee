@@ -4,15 +4,25 @@ import {
   SortableContext,
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
-import { KanbanColumnData as KanbanColumnType, Task } from '../types';
+import { KanbanColumnData as KanbanColumnType, Task, TaskStatus } from '../types';
 import { TaskCard } from './TaskCard';
-import { Plus } from 'lucide-react';
+import { 
+  Plus, 
+  Circle, 
+  Clock, 
+  Eye, 
+  CheckCircle, 
+  XCircle, 
+  PauseCircle,
+  Ban
+} from 'lucide-react';
 
 interface KanbanColumnProps {
   column: KanbanColumnType;
   onTaskUpdate?: (taskId: string, updates: Partial<Task>) => void;
   onTaskCreate?: (task: Partial<Task>) => void;
   onTaskDelete?: (taskId: string) => void;
+  onTaskClick?: (task: Task) => void;
 }
 
 export const KanbanColumn: React.FC<KanbanColumnProps> = ({
@@ -20,12 +30,55 @@ export const KanbanColumn: React.FC<KanbanColumnProps> = ({
   onTaskUpdate,
   onTaskCreate,
   onTaskDelete,
+  onTaskClick,
 }) => {
   const { setNodeRef, isOver } = useDroppable({
     id: column.id,
   });
 
   const taskIds = column.tasks.map(task => task.id);
+
+  const getStatusIcon = () => {
+    switch (column.status) {
+      case TaskStatus.Pending:
+        return <Circle className="w-4 h-4" />;
+      case TaskStatus.InProgress:
+        return <Clock className="w-4 h-4" />;
+      case TaskStatus.Review:
+        return <Eye className="w-4 h-4" />;
+      case TaskStatus.Done:
+        return <CheckCircle className="w-4 h-4" />;
+      case TaskStatus.Cancelled:
+        return <XCircle className="w-4 h-4" />;
+      case TaskStatus.Deferred:
+        return <PauseCircle className="w-4 h-4" />;
+      case TaskStatus.Blocked:
+        return <Ban className="w-4 h-4" />;
+      default:
+        return <Circle className="w-4 h-4" />;
+    }
+  };
+
+  const getStatusColor = () => {
+    switch (column.status) {
+      case TaskStatus.Pending:
+        return 'text-gray-600';
+      case TaskStatus.InProgress:
+        return 'text-blue-600';
+      case TaskStatus.Review:
+        return 'text-purple-600';
+      case TaskStatus.Done:
+        return 'text-green-600';
+      case TaskStatus.Cancelled:
+        return 'text-red-600';
+      case TaskStatus.Deferred:
+        return 'text-orange-600';
+      case TaskStatus.Blocked:
+        return 'text-yellow-600';
+      default:
+        return 'text-gray-600';
+    }
+  };
 
   const handleAddTask = () => {
     if (onTaskCreate) {
@@ -40,22 +93,27 @@ export const KanbanColumn: React.FC<KanbanColumnProps> = ({
     <div
       ref={setNodeRef}
       className={`
-        flex flex-col h-full bg-gray-50 dark:bg-gray-900 rounded-lg
-        ${isOver ? 'ring-2 ring-blue-500' : ''}
+        flex flex-col bg-gray-50 dark:bg-gray-900 rounded-lg
+        ${isOver ? 'ring-2 ring-blue-500 bg-blue-50 dark:bg-blue-900/20' : ''}
+        transition-colors duration-200
+        flex-1 h-full min-w-0
       `}
     >
-      <div className="p-3 border-b border-gray-200 dark:border-gray-700">
+      <div className="p-2 sm:p-3 border-b border-gray-200 dark:border-gray-700">
         <div className="flex items-center justify-between">
-          <h3 className="font-semibold text-gray-900 dark:text-gray-100">
-            {column.title}
-          </h3>
-          <span className="px-2 py-1 text-xs bg-gray-200 dark:bg-gray-700 rounded-full">
+          <div className={`flex items-center gap-1 sm:gap-2 font-semibold text-sm sm:text-base ${getStatusColor()}`}>
+            <div className="w-3 h-3 sm:w-4 sm:h-4">
+              {getStatusIcon()}
+            </div>
+            <span>{column.title}</span>
+          </div>
+          <span className="px-1.5 sm:px-2 py-0.5 text-xs text-gray-600 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 rounded-full font-medium">
             {column.tasks.length}
           </span>
         </div>
       </div>
       
-      <div className="flex-1 overflow-y-auto p-3 space-y-2">
+      <div className="flex-1 overflow-y-auto p-2 sm:p-3 space-y-2">
         <SortableContext
           items={taskIds}
           strategy={verticalListSortingStrategy}
@@ -66,19 +124,21 @@ export const KanbanColumn: React.FC<KanbanColumnProps> = ({
               task={task}
               onUpdate={onTaskUpdate}
               onDelete={onTaskDelete}
+              onClick={onTaskClick}
             />
           ))}
         </SortableContext>
       </div>
       
       {onTaskCreate && (
-        <div className="p-3 border-t border-gray-200 dark:border-gray-700">
+        <div className="p-2 sm:p-3 border-t border-gray-200 dark:border-gray-700">
           <button
             onClick={handleAddTask}
-            className="w-full flex items-center justify-center gap-2 p-2 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors"
+            className="w-full flex items-center justify-center gap-1 sm:gap-2 p-1.5 sm:p-2 text-xs sm:text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors"
           >
-            <Plus className="w-4 h-4" />
-            Add Task
+            <Plus className="w-3 h-3 sm:w-4 sm:h-4" />
+            <span className="hidden sm:inline">Add Task</span>
+            <span className="sm:hidden">Add</span>
           </button>
         </div>
       )}

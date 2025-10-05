@@ -53,10 +53,29 @@ export class TaskmasterProvider extends BaseTaskProvider {
         const result = await response.json();
         if (result.success && result.data) {
           // Handle the nested structure from taskmaster
-          const tasksArray = result.data.master?.tasks || result.data.tasks || [];
-          const tasks = this.convertTaskmasterTasks(tasksArray);
-          this.tasksCache.set(projectPath, tasks);
-          return tasks;
+          // Tasks can be organized under different contexts (e.g., "master")
+          let allTasks: Task[] = [];
+          
+          // Check if tasks are under a context key like "master"
+          if (result.data.master?.tasks) {
+            const tasks = this.convertTaskmasterTasks(result.data.master.tasks, 'master');
+            allTasks = allTasks.concat(tasks);
+          } else if (result.data.tasks) {
+            // Direct tasks array without context
+            const tasks = this.convertTaskmasterTasks(result.data.tasks);
+            allTasks = allTasks.concat(tasks);
+          } else {
+            // Check for other context keys
+            Object.keys(result.data).forEach(key => {
+              if (result.data[key]?.tasks && Array.isArray(result.data[key].tasks)) {
+                const tasks = this.convertTaskmasterTasks(result.data[key].tasks, key);
+                allTasks = allTasks.concat(tasks);
+              }
+            });
+          }
+          
+          this.tasksCache.set(projectPath, allTasks);
+          return allTasks;
         }
       }
       
@@ -173,26 +192,36 @@ export class TaskmasterProvider extends BaseTaskProvider {
     };
   }
 
-  private convertTaskmasterTasks(taskmasterTasks: any[]): Task[] {
-    return taskmasterTasks.map(task => ({
-      id: String(task.id),
-      title: task.title,
-      description: task.description || task.details,
-      status: this.mapTaskStatus(task.status),
-      priority: this.mapTaskPriority(task.priority),
-      tags: [],
-      assignee: undefined,
-      dueDate: undefined,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-      parentId: undefined,
-      metadata: {
-        details: task.details,
-        testStrategy: task.testStrategy,
-        dependencies: task.dependencies,
-        subtasks: task.subtasks
+  private convertTaskmasterTasks(taskmasterTasks: any[], context?: string): Task[] {
+    return taskmasterTasks.map(task => {
+      // Start with task.tags if it exists, otherwise empty array
+      const tags = task.tags ? [...task.tags] : [];
+      
+      // Add the context as a tag if provided
+      if (context && !tags.includes(context)) {
+        tags.push(context);
       }
-    }));
+      
+      return {
+        id: String(task.id),
+        title: task.title,
+        description: task.description || task.details,
+        status: this.mapTaskStatus(task.status),
+        priority: this.mapTaskPriority(task.priority),
+        tags: tags,
+        assignee: undefined,
+        dueDate: undefined,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        parentId: undefined,
+        metadata: {
+          details: task.details,
+          testStrategy: task.testStrategy,
+          dependencies: task.dependencies,
+          subtasks: task.subtasks
+        }
+      };
+    });
   }
 
   private mapTaskStatus(status: string): TaskStatus {
@@ -204,7 +233,8 @@ export class TaskmasterProvider extends BaseTaskProvider {
       'done': TaskStatus.Done,
       'completed': TaskStatus.Done,
       'cancelled': TaskStatus.Cancelled,
-      'deferred': TaskStatus.Deferred
+      'deferred': TaskStatus.Deferred,
+      'blocked': TaskStatus.Blocked
     };
     
     return statusMap[status.toLowerCase()] || TaskStatus.Pending;
@@ -224,24 +254,25 @@ export class TaskmasterProvider extends BaseTaskProvider {
   }
 
   private async saveTasks(projectPath: string, tasks: Task[]): Promise<void> {
-    const taskmasterData: TaskmasterData = {
-      tasks: tasks.map(task => ({
-        id: task.id,
-        title: task.title,
-        description: task.description,
-        status: this.reverseMapTaskStatus(task.status),
-        priority: task.priority ? this.reverseMapTaskPriority(task.priority) : undefined,
-        tags: task.tags,
-        parent: task.parentId,
-        subtasks: task.metadata?.subtasks,
-        created: task.createdAt.toISOString(),
-        updated: task.updatedAt.toISOString(),
-        due: task.dueDate?.toISOString(),
-        assignee: task.assignee
-      })),
-      metadata: {
-        version: '1.0.0',
-        lastSync: new Date().toISOString()
+    // Wrap tasks in the master structure to match the expected format
+    const taskmasterData = {
+      master: {
+        tasks: tasks.map(task => ({
+          id: parseInt(task.id) || task.id, // Try to keep numeric IDs if possible
+          title: task.title,
+          description: task.description,
+          details: task.metadata?.details || task.description,
+          testStrategy: task.metadata?.testStrategy,
+          status: this.reverseMapTaskStatus(task.status),
+          priority: task.priority ? this.reverseMapTaskPriority(task.priority) : undefined,
+          dependencies: task.metadata?.dependencies || [],
+          subtasks: task.metadata?.subtasks || []
+        })),
+        metadata: {
+          created: new Date().toISOString(),
+          updated: new Date().toISOString(),
+          description: "Tasks for master context"
+        }
       }
     };
     
@@ -271,7 +302,8 @@ export class TaskmasterProvider extends BaseTaskProvider {
       [TaskStatus.Review]: 'review',
       [TaskStatus.Done]: 'done',
       [TaskStatus.Cancelled]: 'cancelled',
-      [TaskStatus.Deferred]: 'deferred'
+      [TaskStatus.Deferred]: 'deferred',
+      [TaskStatus.Blocked]: 'blocked'
     };
     
     return statusMap[status];

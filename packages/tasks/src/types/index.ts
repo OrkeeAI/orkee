@@ -20,7 +20,8 @@ export enum TaskStatus {
   Review = 'review',
   Done = 'done',
   Cancelled = 'cancelled',
-  Deferred = 'deferred'
+  Deferred = 'deferred',
+  Blocked = 'blocked'
 }
 
 export enum TaskPriority {

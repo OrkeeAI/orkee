@@ -29,6 +29,7 @@ export interface KanbanBoardProps {
 }
 
 export declare const KanbanBoard: React.FC<KanbanBoardProps>;
+export declare const TaskDetailsSheet: React.FC<any>;
 
 export interface UseTasksOptions {
   projectId: string;
