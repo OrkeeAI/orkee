@@ -162,13 +162,13 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
   return (
     <div className="h-full flex flex-col w-full">
       {/* Header Bar */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 px-3 sm:px-4 py-3 border-b bg-white dark:bg-gray-900">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 px-3 sm:px-4 py-3 border-b border-border bg-background">
         <div className="flex items-center gap-2 sm:gap-4 w-full sm:w-auto">
           {/* Tag Filter Selector */}
-          <select 
+          <select
             value={selectedTag}
             onChange={(e) => setSelectedTag(e.target.value)}
-            className="px-2 sm:px-3 py-1 border rounded-md text-xs sm:text-sm flex-1 sm:flex-initial"
+            className="px-2 sm:px-3 py-1 border border-input rounded-md text-xs sm:text-sm flex-1 sm:flex-initial bg-background text-foreground"
           >
             <option value="all">All Tags</option>
             {availableTags.length > 0 && (
@@ -179,40 +179,40 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
               </optgroup>
             )}
           </select>
-          
+
           {/* Task Count */}
-          <span className="text-xs sm:text-sm text-gray-500 whitespace-nowrap">
+          <span className="text-xs sm:text-sm text-muted-foreground whitespace-nowrap">
             {filteredTasks.length} task{filteredTasks.length !== 1 ? 's' : ''}
             {selectedTag !== 'all' && ` (${selectedTag})`}
           </span>
         </div>
-        
+
         <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
           {/* Dependencies Button - Hidden on mobile */}
-          <button 
-            className="hidden sm:flex px-2 sm:px-3 py-1 text-xs sm:text-sm border rounded-md hover:bg-gray-50 items-center gap-2"
+          <button
+            className="hidden sm:flex px-2 sm:px-3 py-1 text-xs sm:text-sm border border-input rounded-md hover:bg-muted items-center gap-2"
             onClick={() => console.log('Dependencies clicked')}
           >
             <Users className="w-3 h-3 sm:w-4 sm:h-4" />
             <span className="hidden lg:inline">Dependencies</span>
           </button>
-          
+
           {/* Columns Dropdown */}
           <div className="relative">
-            <button 
+            <button
               onClick={() => setShowColumnsDropdown(!showColumnsDropdown)}
-              className="px-2 sm:px-3 py-1 text-xs sm:text-sm border rounded-md hover:bg-gray-50 flex items-center gap-1 sm:gap-2"
+              className="px-2 sm:px-3 py-1 text-xs sm:text-sm border border-input rounded-md hover:bg-muted flex items-center gap-1 sm:gap-2"
             >
               <Settings className="w-3 h-3 sm:w-4 sm:h-4" />
               <span className="hidden sm:inline">Columns</span>
             </button>
             {showColumnsDropdown && (
-              <div className="absolute right-0 mt-1 w-48 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md shadow-lg z-50">
+              <div className="absolute right-0 mt-1 w-48 bg-card border border-border rounded-md shadow-lg z-50">
                 <div className="p-2">
                   {columnConfigs.map(col => (
-                    <label key={col.id} className="flex items-center gap-2 p-2 hover:bg-gray-50 dark:hover:bg-gray-700 rounded cursor-pointer">
-                      <input 
-                        type="checkbox" 
+                    <label key={col.id} className="flex items-center gap-2 p-2 hover:bg-muted rounded cursor-pointer">
+                      <input
+                        type="checkbox"
                         checked={col.visible}
                         onChange={() => toggleColumn(col.id)}
                         className="rounded"
@@ -224,11 +224,11 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
               </div>
             )}
           </div>
-          
+
           {/* Refresh Button */}
-          <button 
+          <button
             onClick={handleRefresh}
-            className="px-2 sm:px-3 py-1 text-xs sm:text-sm border rounded-md hover:bg-gray-50 flex items-center gap-1 sm:gap-2"
+            className="px-2 sm:px-3 py-1 text-xs sm:text-sm border border-input rounded-md hover:bg-muted flex items-center gap-1 sm:gap-2"
           >
             <RefreshCw className="w-3 h-3 sm:w-4 sm:h-4" />
             <span className="hidden sm:inline">Refresh</span>
