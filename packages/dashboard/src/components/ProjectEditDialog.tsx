@@ -128,16 +128,16 @@ export function ProjectEditDialog({ project, open, onOpenChange, onProjectUpdate
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[625px]" aria-describedby="edit-project-description">
-        <form onSubmit={handleSubmit}>
-          <DialogHeader>
+      <DialogContent className="sm:max-w-[625px] max-h-[90vh]" aria-describedby="edit-project-description">
+        <form onSubmit={handleSubmit} className="flex flex-col max-h-[calc(90vh-3rem)]">
+          <DialogHeader className="flex-shrink-0">
             <DialogTitle>Edit Project</DialogTitle>
             <DialogDescription id="edit-project-description">
               Update the project details below.
             </DialogDescription>
           </DialogHeader>
-          
-          <div className="py-4">
+
+          <div className="py-4 overflow-y-auto min-h-0 px-1">
             {error && (
               <div className="text-sm text-red-600 bg-red-50 p-3 rounded-md mb-4">
                 {error.message}
@@ -194,6 +194,7 @@ export function ProjectEditDialog({ project, open, onOpenChange, onProjectUpdate
                     <Select
                       value={formData.status}
                       onValueChange={(value: ProjectStatus) => setFormData({ ...formData, status: value })}
+                      modal={false}
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Select status" />
@@ -210,6 +211,7 @@ export function ProjectEditDialog({ project, open, onOpenChange, onProjectUpdate
                     <Select
                       value={formData.priority}
                       onValueChange={(value: Priority) => setFormData({ ...formData, priority: value })}
+                      modal={false}
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Select priority" />
@@ -228,6 +230,7 @@ export function ProjectEditDialog({ project, open, onOpenChange, onProjectUpdate
                   <Select
                     value={formData.taskSource || 'manual'}
                     onValueChange={(value: TaskSource) => setFormData({ ...formData, taskSource: value })}
+                    modal={false}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Select task source" />
@@ -320,7 +323,7 @@ export function ProjectEditDialog({ project, open, onOpenChange, onProjectUpdate
             </Tabs>
           </div>
 
-          <DialogFooter>
+          <DialogFooter className="flex-shrink-0">
             <Button
               type="button"
               variant="outline"

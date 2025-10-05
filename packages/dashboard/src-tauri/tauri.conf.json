@@ -1,0 +1,74 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Orkee",
+  "version": "0.0.2",
+  "identifier": "ai.orkee.desktop",
+  "build": {
+    "beforeDevCommand": "pnpm dev",
+    "devUrl": "http://localhost:5173",
+    "beforeBuildCommand": "pnpm build",
+    "frontendDist": "../dist"
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "resources": [],
+    "externalBin": [
+      "binaries/orkee"
+    ],
+    "copyright": "Copyright © 2024 Orkee AI",
+    "shortDescription": "AI Agent Orchestration Platform",
+    "longDescription": "Orkee is an AI agent orchestration platform featuring a Rust CLI server and React dashboard for monitoring and managing AI agents.",
+    "linux": {
+      "deb": {
+        "depends": []
+      }
+    },
+    "macOS": {
+      "frameworks": [],
+      "minimumSystemVersion": "10.13"
+    },
+    "windows": {
+      "certificateThumbprint": null,
+      "digestAlgorithm": "sha256",
+      "timestampUrl": ""
+    }
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "Orkee",
+        "width": 1280,
+        "height": 800,
+        "minWidth": 800,
+        "minHeight": 600,
+        "resizable": true,
+        "fullscreen": false,
+        "decorations": true,
+        "transparent": false
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; connect-src 'self' http://localhost:* ws://localhost:* https://api.orkee.ai; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'",
+      "capabilities": [
+        {
+          "identifier": "http-all",
+          "permissions": [
+            "http:default",
+            "http:allow-fetch",
+            "http:allow-fetch-cancel",
+            "http:allow-fetch-read-body",
+            "http:allow-fetch-send"
+          ]
+        }
+      ]
+    }
+  }
+}

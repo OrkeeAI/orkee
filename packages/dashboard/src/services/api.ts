@@ -1,6 +1,35 @@
-// Construct API URL from port (passed from CLI via VITE_ORKEE_API_PORT)
+import { isTauriApp, platformFetch, getApiPort } from '@/lib/platform';
+
+// Default API configuration (used in web mode and as fallback)
 const API_PORT = import.meta.env.VITE_ORKEE_API_PORT || '4001';
-const API_BASE_URL = import.meta.env.VITE_API_URL || `http://localhost:${API_PORT}`;
+const DEFAULT_API_BASE_URL = import.meta.env.VITE_API_URL || `http://localhost:${API_PORT}`;
+
+// Cache for the dynamically determined API base URL
+let cachedApiBaseUrl: string | null = null;
+
+/**
+ * Get the appropriate API base URL based on the platform
+ * In web mode: uses the configured API_BASE_URL (with proxy)
+ * In desktop mode: queries Tauri for the dynamic port and connects directly
+ */
+async function getApiBaseUrl(): Promise<string> {
+  // Return cached value if available
+  if (cachedApiBaseUrl) {
+    return cachedApiBaseUrl;
+  }
+
+  if (isTauriApp()) {
+    // Get the dynamically assigned port from Tauri
+    const port = await getApiPort();
+    cachedApiBaseUrl = `http://localhost:${port}`;
+    console.log(`Using dynamic API port: ${port}`);
+    return cachedApiBaseUrl;
+  }
+
+  // Web mode: use default
+  cachedApiBaseUrl = DEFAULT_API_BASE_URL;
+  return cachedApiBaseUrl;
+}
 
 export interface ApiResponse<T> {
   data: T;
@@ -8,15 +37,16 @@ export interface ApiResponse<T> {
 }
 
 export class ApiClient {
-  private baseURL: string;
+  private baseURL: Promise<string>;
 
-  constructor(baseURL: string = API_BASE_URL) {
-    this.baseURL = baseURL;
+  constructor(baseURL?: string) {
+    this.baseURL = baseURL ? Promise.resolve(baseURL) : getApiBaseUrl();
   }
 
   async get<T>(endpoint: string): Promise<ApiResponse<T>> {
     try {
-      const response = await fetch(`${this.baseURL}${endpoint}`, {
+      const baseUrl = await this.baseURL;
+      const response = await platformFetch(`${baseUrl}${endpoint}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -40,7 +70,8 @@ export class ApiClient {
 
   async post<T>(endpoint: string, body: unknown): Promise<ApiResponse<T>> {
     try {
-      const response = await fetch(`${this.baseURL}${endpoint}`, {
+      const baseUrl = await this.baseURL;
+      const response = await platformFetch(`${baseUrl}${endpoint}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -83,7 +114,8 @@ export async function apiRequest<T>(
       headers['Authorization'] = `Bearer ${accessToken}`;
     }
     
-    const response = await fetch(`${API_BASE_URL}${url}`, {
+    const baseUrl = await getApiBaseUrl();
+    const response = await platformFetch(`${baseUrl}${url}`, {
       ...options,
       headers,
     });
@@ -119,7 +151,8 @@ export interface PreviewApiResponse<T> {
 export const previewService = {
   async getActiveServers(): Promise<string[]> {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/preview/servers`);
+      const baseUrl = await getApiBaseUrl();
+      const response = await platformFetch(`${baseUrl}/api/preview/servers`);
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
