@@ -93,13 +93,13 @@ export const KanbanColumn: React.FC<KanbanColumnProps> = ({
     <div
       ref={setNodeRef}
       className={`
-        flex flex-col bg-gray-50 dark:bg-gray-900 rounded-lg
-        ${isOver ? 'ring-2 ring-blue-500 bg-blue-50 dark:bg-blue-900/20' : ''}
+        flex flex-col bg-muted/30 rounded-lg border border-border
+        ${isOver ? 'ring-2 ring-primary bg-primary/10' : ''}
         transition-colors duration-200
         flex-1 h-full min-w-0
       `}
     >
-      <div className="p-2 sm:p-3 border-b border-gray-200 dark:border-gray-700">
+      <div className="p-2 sm:p-3 border-b border-border">
         <div className="flex items-center justify-between">
           <div className={`flex items-center gap-1 sm:gap-2 font-semibold text-sm sm:text-base ${getStatusColor()}`}>
             <div className="w-3 h-3 sm:w-4 sm:h-4">
@@ -107,7 +107,7 @@ export const KanbanColumn: React.FC<KanbanColumnProps> = ({
             </div>
             <span>{column.title}</span>
           </div>
-          <span className="px-1.5 sm:px-2 py-0.5 text-xs text-gray-600 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 rounded-full font-medium">
+          <span className="px-1.5 sm:px-2 py-0.5 text-xs text-muted-foreground bg-secondary rounded-full font-medium">
             {column.tasks.length}
           </span>
         </div>
@@ -131,10 +131,10 @@ export const KanbanColumn: React.FC<KanbanColumnProps> = ({
       </div>
       
       {onTaskCreate && (
-        <div className="p-2 sm:p-3 border-t border-gray-200 dark:border-gray-700">
+        <div className="p-2 sm:p-3 border-t border-border">
           <button
             onClick={handleAddTask}
-            className="w-full flex items-center justify-center gap-1 sm:gap-2 p-1.5 sm:p-2 text-xs sm:text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors"
+            className="w-full flex items-center justify-center gap-1 sm:gap-2 p-1.5 sm:p-2 text-xs sm:text-sm text-muted-foreground hover:text-foreground hover:bg-muted rounded transition-colors"
           >
             <Plus className="w-3 h-3 sm:w-4 sm:h-4" />
             <span className="hidden sm:inline">Add Task</span>

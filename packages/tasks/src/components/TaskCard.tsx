@@ -61,8 +61,8 @@ export const TaskCard: React.FC<TaskCardProps> = ({
       ref={setNodeRef}
       style={style}
       className={`
-        bg-white dark:bg-gray-800 
-        p-2 sm:p-3 
+        bg-card border border-border
+        p-2 sm:p-3
         rounded-lg shadow-sm
         hover:shadow-md transition-shadow cursor-move
         ${isSortableDragging || isDragging ? 'opacity-50' : ''}
@@ -73,7 +73,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
       {...listeners}
     >
       <div className="flex items-start justify-between mb-1.5 sm:mb-2 gap-2">
-        <h4 className="text-xs sm:text-sm font-medium text-gray-900 dark:text-gray-100 flex-1 line-clamp-2">
+        <h4 className="text-xs sm:text-sm font-medium text-card-foreground flex-1 line-clamp-2">
           {task.title}
         </h4>
         <div className="flex items-center gap-0.5 sm:gap-1 flex-shrink-0">
@@ -86,21 +86,21 @@ export const TaskCard: React.FC<TaskCardProps> = ({
                 e.stopPropagation();
                 onDelete(task.id);
               }}
-              className="p-0.5 sm:p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded touch-manipulation"
+              className="p-0.5 sm:p-1 hover:bg-muted rounded touch-manipulation"
             >
-              {React.createElement(Trash2, { className: "w-3 h-3 text-gray-400" })}
+              {React.createElement(Trash2, { className: "w-3 h-3 text-muted-foreground" })}
             </button>
           )}
         </div>
       </div>
-      
+
       {task.description && (
-        <p className="text-[10px] sm:text-xs text-gray-600 dark:text-gray-400 mb-1.5 sm:mb-2 line-clamp-2">
+        <p className="text-[10px] sm:text-xs text-muted-foreground mb-1.5 sm:mb-2 line-clamp-2">
           {task.description}
         </p>
       )}
-      
-      <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-[10px] sm:text-xs text-gray-500 dark:text-gray-400">
+
+      <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-[10px] sm:text-xs text-muted-foreground">
         {task.assignee && (
           <div className="flex items-center gap-0.5 sm:gap-1">
             {React.createElement(User, { className: "w-2.5 h-2.5 sm:w-3 sm:h-3" })}
@@ -126,13 +126,13 @@ export const TaskCard: React.FC<TaskCardProps> = ({
           {task.tags.slice(0, 3).map((tag) => (
             <span
               key={tag}
-              className="px-1.5 sm:px-2 py-0.5 text-[10px] sm:text-xs bg-gray-100 dark:bg-gray-700 rounded-full"
+              className="px-1.5 sm:px-2 py-0.5 text-[10px] sm:text-xs bg-secondary text-secondary-foreground rounded-full"
             >
               {tag}
             </span>
           ))}
           {task.tags.length > 3 && (
-            <span className="px-1.5 sm:px-2 py-0.5 text-[10px] sm:text-xs text-gray-500 dark:text-gray-400">
+            <span className="px-1.5 sm:px-2 py-0.5 text-[10px] sm:text-xs text-muted-foreground">
               +{task.tags.length - 3}
             </span>
           )}
