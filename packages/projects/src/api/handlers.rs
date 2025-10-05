@@ -1,5 +1,6 @@
 use crate::manager::{
     create_project as manager_create_project, delete_project as manager_delete_project,
+    export_database as manager_export_database, import_database as manager_import_database,
     get_all_projects, get_project as manager_get_project,
     get_project_by_name as manager_get_project_by_name,
     get_project_by_path as manager_get_project_by_path, update_project as manager_update_project,
@@ -8,8 +9,9 @@ use crate::manager::{
 use crate::types::{ProjectCreateInput, ProjectUpdateInput};
 use axum::{
     extract::{Json, Path},
-    http::StatusCode,
-    response::{IntoResponse, Json as ResponseJson},
+    http::{StatusCode, header},
+    response::{IntoResponse, Json as ResponseJson, Response},
+    body::Body,
 };
 use serde::{Deserialize, Serialize};
 use std::process::Command;
@@ -936,6 +938,116 @@ fn detect_vscode() -> Result<String, String> {
         Ok(format!("code (VS Code {})", version))
     } else {
         Err("VS Code command failed".to_string())
+    }
+}
+
+// =============================================================================
+// Database Export/Import Handlers
+// =============================================================================
+
+/// Export database as compressed snapshot
+pub async fn export_database() -> impl IntoResponse {
+    info!("Exporting database");
+
+    match manager_export_database().await {
+        Ok(data) => {
+            // Generate filename with timestamp
+            let timestamp = chrono::Utc::now().format("%Y-%m-%d-%H%M%S");
+            let filename = format!("orkee-backup-{}.gz", timestamp);
+
+            info!("Database export successful, {} bytes", data.len());
+
+            // Return binary data with appropriate headers
+            Response::builder()
+                .status(StatusCode::OK)
+                .header(header::CONTENT_TYPE, "application/gzip")
+                .header(
+                    header::CONTENT_DISPOSITION,
+                    format!("attachment; filename=\"{}\"", filename),
+                )
+                .body(Body::from(data))
+                .unwrap()
+        }
+        Err(e) => {
+            error!("Failed to export database: {}", e);
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                ResponseJson(ApiResponse::<()>::error(format!(
+                    "Failed to export database: {}",
+                    e
+                ))),
+            )
+                .into_response()
+        }
+    }
+}
+
+/// Response for database import
+#[derive(Serialize)]
+pub struct ImportDatabaseResponse {
+    #[serde(rename = "projectsImported")]
+    projects_imported: usize,
+    #[serde(rename = "projectsSkipped")]
+    projects_skipped: usize,
+    #[serde(rename = "conflictsCount")]
+    conflicts_count: usize,
+    conflicts: Vec<ImportConflictInfo>,
+}
+
+#[derive(Serialize)]
+pub struct ImportConflictInfo {
+    #[serde(rename = "projectId")]
+    project_id: String,
+    #[serde(rename = "projectName")]
+    project_name: String,
+    #[serde(rename = "conflictType")]
+    conflict_type: String,
+}
+
+/// Import database from compressed snapshot
+pub async fn import_database(body: axum::body::Bytes) -> impl IntoResponse {
+    info!("Importing database, {} bytes received", body.len());
+
+    // Convert Bytes to Vec<u8>
+    let data = body.to_vec();
+
+    match manager_import_database(data).await {
+        Ok(result) => {
+            let conflicts = result
+                .conflicts
+                .iter()
+                .map(|c| ImportConflictInfo {
+                    project_id: c.project_id.clone(),
+                    project_name: c.project_name.clone(),
+                    conflict_type: format!("{:?}", c.conflict_type),
+                })
+                .collect();
+
+            let response = ImportDatabaseResponse {
+                projects_imported: result.projects_imported,
+                projects_skipped: result.projects_skipped,
+                conflicts_count: result.conflicts.len(),
+                conflicts,
+            };
+
+            info!(
+                "Database import successful: {} imported, {} skipped, {} conflicts",
+                result.projects_imported, result.projects_skipped, result.conflicts.len()
+            );
+
+            (StatusCode::OK, ResponseJson(ApiResponse::success(response))).into_response()
+        }
+        Err(e) => {
+            error!("Failed to import database: {}", e);
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                ResponseJson(ApiResponse::<()>::error(format!(
+                    "Failed to import database: {}",
+                    e
+                ))),
+            )
+                .into_response()
+        }
     }
 }
 

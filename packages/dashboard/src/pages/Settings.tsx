@@ -3,14 +3,16 @@ import { Badge } from '@/components/ui/badge'
 import { useCloudAuth, useCloudSync } from '@/hooks/useCloud'
 import { cloudService, formatLastSync } from '@/services/cloud'
 import { fetchConfig } from '@/services/config'
-import { Cloud, User, RefreshCw, Download, Upload, Code2, ExternalLink } from 'lucide-react'
-import { useState, useEffect } from 'react'
+import { exportDatabase, importDatabase, type ImportResult } from '@/services/database'
+import { Cloud, User, RefreshCw, Download, Upload, Code2, ExternalLink, Database, AlertTriangle } from 'lucide-react'
+import { useState, useEffect, useRef } from 'react'
 import { SUPPORTED_EDITORS, getDefaultEditorSettings, findEditorById } from '@/lib/editor-utils'
 import type { EditorSettings } from '@/lib/editor-utils'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Alert, AlertDescription } from '@/components/ui/alert'
 
 export function Settings() {
   const [isCloudEnabled, setIsCloudEnabled] = useState(false)
@@ -33,10 +35,13 @@ export function Settings() {
       <div className="grid gap-6">
         {/* Editor Settings - Always show */}
         <EditorSettings />
-        
+
+        {/* Database Settings - Always show */}
+        <DatabaseSettings />
+
         {/* Cloud Settings */}
         {isCloudEnabled && <CloudSettings />}
-        
+
         {/* When cloud is disabled, show a note */}
         {!isCloudEnabled && (
           <div className="rounded-lg border p-6">
@@ -258,6 +263,203 @@ function EditorSettings() {
             Tests if your selected editor can be launched successfully
           </p>
         </div>
+      </div>
+    </div>
+  );
+}
+
+// Database Settings Component
+function DatabaseSettings() {
+  const [isExporting, setIsExporting] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [importResult, setImportResult] = useState<ImportResult | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleExport = async () => {
+    setIsExporting(true);
+    setError(null);
+
+    try {
+      const result = await exportDatabase();
+
+      if (!result.success) {
+        setError(result.error || 'Failed to export database');
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Export failed');
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      // Validate file extension
+      if (!file.name.endsWith('.gz')) {
+        setError('Please select a valid backup file (.gz)');
+        setSelectedFile(null);
+        return;
+      }
+
+      setSelectedFile(file);
+      setError(null);
+      setImportResult(null);
+    }
+  };
+
+  const handleImport = async () => {
+    if (!selectedFile) return;
+
+    setIsImporting(true);
+    setError(null);
+    setImportResult(null);
+
+    try {
+      const result = await importDatabase(selectedFile);
+
+      if (result.success && result.data) {
+        setImportResult(result.data);
+        setSelectedFile(null);
+        if (fileInputRef.current) {
+          fileInputRef.current.value = '';
+        }
+      } else {
+        setError(result.error || 'Import failed');
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Import failed');
+    } finally {
+      setIsImporting(false);
+    }
+  };
+
+  return (
+    <div className="rounded-lg border p-6">
+      <div className="flex items-center gap-2 mb-4">
+        <Database className="h-5 w-5 text-primary" />
+        <h2 className="text-xl font-semibold">Database Backup</h2>
+      </div>
+
+      <div className="space-y-6">
+        {/* Export Section */}
+        <div className="space-y-3">
+          <h3 className="text-sm font-medium">Export Database</h3>
+          <p className="text-sm text-muted-foreground">
+            Download a compressed backup of your Orkee database. This includes all projects and their configurations.
+          </p>
+          <Button
+            onClick={handleExport}
+            disabled={isExporting}
+            className="w-full sm:w-auto"
+          >
+            {isExporting ? (
+              <>
+                <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                Exporting...
+              </>
+            ) : (
+              <>
+                <Download className="mr-2 h-4 w-4" />
+                Export Database
+              </>
+            )}
+          </Button>
+        </div>
+
+        {/* Import Section */}
+        <div className="space-y-3 pt-3 border-t">
+          <h3 className="text-sm font-medium">Import Database</h3>
+          <p className="text-sm text-muted-foreground">
+            Restore your database from a backup file. This will merge imported projects with existing ones.
+          </p>
+
+          {/* Warning */}
+          <Alert>
+            <AlertTriangle className="h-4 w-4" />
+            <AlertDescription>
+              Importing will merge data with your current database. Projects with duplicate names or paths may be skipped.
+            </AlertDescription>
+          </Alert>
+
+          {/* File Input */}
+          <div className="flex flex-col sm:flex-row gap-2">
+            <Input
+              ref={fileInputRef}
+              type="file"
+              accept=".gz"
+              onChange={handleFileSelect}
+              className="flex-1"
+            />
+            <Button
+              onClick={handleImport}
+              disabled={!selectedFile || isImporting}
+              className="w-full sm:w-auto"
+            >
+              {isImporting ? (
+                <>
+                  <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                  Importing...
+                </>
+              ) : (
+                <>
+                  <Upload className="mr-2 h-4 w-4" />
+                  Import Database
+                </>
+              )}
+            </Button>
+          </div>
+
+          {/* Selected File Info */}
+          {selectedFile && (
+            <p className="text-sm text-muted-foreground">
+              Selected: {selectedFile.name} ({(selectedFile.size / 1024).toFixed(2)} KB)
+            </p>
+          )}
+        </div>
+
+        {/* Error Display */}
+        {error && (
+          <Alert variant="destructive">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
+
+        {/* Import Results */}
+        {importResult && (
+          <Alert>
+            <Database className="h-4 w-4" />
+            <AlertDescription>
+              <div className="space-y-1">
+                <p className="font-medium">Import completed successfully!</p>
+                <ul className="text-sm space-y-1 mt-2">
+                  <li>✓ {importResult.projectsImported} projects imported</li>
+                  {importResult.projectsSkipped > 0 && (
+                    <li>⊘ {importResult.projectsSkipped} projects skipped</li>
+                  )}
+                  {importResult.conflictsCount > 0 && (
+                    <li className="text-orange-600">⚠ {importResult.conflictsCount} conflicts detected</li>
+                  )}
+                </ul>
+                {importResult.conflicts.length > 0 && (
+                  <details className="mt-3">
+                    <summary className="cursor-pointer text-sm font-medium">View conflicts</summary>
+                    <ul className="mt-2 space-y-1 text-sm">
+                      {importResult.conflicts.map((conflict, idx) => (
+                        <li key={idx}>
+                          {conflict.projectName} ({conflict.conflictType})
+                        </li>
+                      ))}
+                    </ul>
+                  </details>
+                )}
+              </div>
+            </AlertDescription>
+          </Alert>
+        )}
       </div>
     </div>
   );

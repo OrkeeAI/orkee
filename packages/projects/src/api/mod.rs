@@ -23,4 +23,7 @@ pub fn create_projects_router() -> Router {
         .route("/tasks/create", post(handlers::create_task))
         .route("/tasks/update", post(handlers::update_task))
         .route("/tasks/delete", post(handlers::delete_task))
+        // Database export/import endpoints
+        .route("/export", get(handlers::export_database))
+        .route("/import", post(handlers::import_database))
 }

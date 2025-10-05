@@ -311,6 +311,34 @@ impl ProjectsManager {
     }
 }
 
+/// Export database as a compressed snapshot
+pub async fn export_database() -> ManagerResult<Vec<u8>> {
+    let storage_manager = get_storage_manager().await?;
+    let storage = storage_manager.storage();
+
+    info!("Exporting database snapshot");
+    let snapshot = storage.export_snapshot().await?;
+
+    info!("Database exported successfully, {} bytes", snapshot.len());
+    Ok(snapshot)
+}
+
+/// Import database from a compressed snapshot
+pub async fn import_database(data: Vec<u8>) -> ManagerResult<crate::storage::ImportResult> {
+    let storage_manager = get_storage_manager().await?;
+    let storage = storage_manager.storage();
+
+    info!("Importing database snapshot, {} bytes", data.len());
+    let result = storage.import_snapshot(&data).await?;
+
+    info!(
+        "Database imported: {} projects imported, {} skipped, {} conflicts",
+        result.projects_imported, result.projects_skipped, result.conflicts.len()
+    );
+
+    Ok(result)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
