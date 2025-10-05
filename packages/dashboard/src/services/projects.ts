@@ -175,51 +175,41 @@ export class ProjectsService {
   }
 
   async updateProject(id: string, updates: ProjectUpdateInput): Promise<Project> {
-    // Add PUT method to ApiClient if it doesn't exist
-    const response = await fetch(`${apiClient['baseURL']}/api/projects/${id}`, {
+    const { apiRequest } = await import('./api');
+    const result = await apiRequest<ApiResponse<Project>>(`/api/projects/${id}`, {
       method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-      },
       body: JSON.stringify(updates),
     });
 
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+    if (!result.success || !result.data) {
+      throw new Error(result.error || 'Failed to update project');
     }
 
-    const data: ApiResponse<Project> = await response.json();
-    
-    if (!data.success) {
-      throw new Error(data.error || 'Failed to update project');
+    if (!result.data.success) {
+      throw new Error(result.data.error || 'Failed to update project');
     }
-    
-    if (!data.data) {
+
+    if (!result.data.data) {
       throw new Error('No project data returned');
     }
-    
-    return data.data;
+
+    return result.data.data;
   }
 
   async deleteProject(id: string): Promise<boolean> {
-    // Add DELETE method to ApiClient if it doesn't exist
-    const response = await fetch(`${apiClient['baseURL']}/api/projects/${id}`, {
+    const { apiRequest } = await import('./api');
+    const result = await apiRequest<ApiResponse<string>>(`/api/projects/${id}`, {
       method: 'DELETE',
-      headers: {
-        'Content-Type': 'application/json',
-      },
     });
 
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+    if (!result.success || !result.data) {
+      throw new Error(result.error || 'Failed to delete project');
     }
 
-    const data: ApiResponse<string> = await response.json();
-    
-    if (!data.success) {
-      throw new Error(data.error || 'Failed to delete project');
+    if (!result.data.success) {
+      throw new Error(result.data.error || 'Failed to delete project');
     }
-    
+
     return true;
   }
 }

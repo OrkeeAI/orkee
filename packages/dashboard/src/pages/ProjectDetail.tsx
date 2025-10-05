@@ -413,7 +413,7 @@ export function ProjectDetail() {
         </TabsContent>
 
         <TabsContent value="git" className="space-y-4">
-          <GitTab projectId={project.id} gitRepository={project.gitRepository} />
+          <GitTab projectId={project.id} projectRoot={project.projectRoot} gitRepository={project.gitRepository} />
         </TabsContent>
 
         <TabsContent value="settings" className="space-y-4">

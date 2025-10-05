@@ -47,12 +47,12 @@ export function ProjectDeleteDialog({ project, open, onOpenChange, onProjectDele
         
         <div className="py-4">
           {error && (
-            <div className="text-sm text-red-600 bg-red-50 p-3 rounded-md mb-4">
+            <div className="text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/50 p-3 rounded-md mb-4">
               {error.message}
             </div>
           )}
 
-          <div className="bg-gray-50 p-4 rounded-md">
+          <div className="bg-muted p-4 rounded-md">
             <h4 className="font-medium">{project.name}</h4>
             <p className="text-sm text-muted-foreground">{project.projectRoot}</p>
             {project.description && (

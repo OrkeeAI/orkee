@@ -6,6 +6,7 @@ import { CommitHistory } from './CommitHistory';
 
 interface GitTabProps {
   projectId: string;
+  projectRoot: string;
   gitRepository?: {
     owner: string;
     repo: string;
@@ -14,7 +15,7 @@ interface GitTabProps {
   } | null;
 }
 
-export function GitTab({ projectId, gitRepository }: GitTabProps) {
+export function GitTab({ projectId, projectRoot, gitRepository }: GitTabProps) {
   const {
     data: commits,
     isLoading,
@@ -44,7 +45,7 @@ export function GitTab({ projectId, gitRepository }: GitTabProps) {
                 To initialize a Git repository in this project:
               </p>
               <div className="space-y-1 text-xs font-mono bg-background p-3 rounded border">
-                <div>cd {projectId}</div>
+                <div>cd {projectRoot}</div>
                 <div>git init</div>
                 <div>git add .</div>
                 <div>git commit -m "Initial commit"</div>
