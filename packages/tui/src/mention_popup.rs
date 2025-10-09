@@ -269,7 +269,7 @@ mod tests {
             id: id.to_string(),
             name: name.to_string(),
             project_root: path.to_string(),
-            status: orkee_projects::ProjectStatus::Active,
+            status: orkee_projects::ProjectStatus::PreLaunch,
             priority: orkee_projects::Priority::Medium,
             created_at: chrono::Utc::now(),
             updated_at: chrono::Utc::now(),

@@ -1,7 +1,7 @@
 import { apiClient } from './api';
 
 // TypeScript interfaces matching Rust types
-export type ProjectStatus = 'active' | 'archived';
+export type ProjectStatus = 'pre-launch' | 'launched' | 'archived';
 export type Priority = 'high' | 'medium' | 'low';
 export type TaskSource = 'taskmaster' | 'manual';
 export type TaskStatus = 'pending' | 'done' | 'in-progress' | 'review' | 'deferred' | 'cancelled';

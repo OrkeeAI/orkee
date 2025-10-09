@@ -35,7 +35,7 @@ import { previewService } from '@/services/api';
 
 type ViewType = 'card' | 'list';
 type SortType = 'rank' | 'priority' | 'alpha';
-type StatusFilter = 'active' | 'archived';
+type StatusFilter = 'pre-launch' | 'launched' | 'archived';
 
 // Helper function to get git repository info
 const getRepositoryInfo = (project: Project): { owner: string; repo: string } | null => {
@@ -224,9 +224,10 @@ export function Projects() {
 
   // Calculate project counts by status
   const projectCounts = useMemo(() => {
-    const active = allProjects.filter(project => project.status === 'active').length;
+    const preLaunch = allProjects.filter(project => project.status === 'pre-launch').length;
+    const launched = allProjects.filter(project => project.status === 'launched').length;
     const archived = allProjects.filter(project => project.status === 'archived').length;
-    return { active, archived };
+    return { preLaunch, launched, archived };
   }, [allProjects]);
 
   // Filter and sort projects
@@ -442,8 +443,9 @@ export function Projects() {
       <GlobalSyncStatus className="mb-6" />
 
       <Tabs value={statusFilter} onValueChange={(value) => setStatusFilter(value as StatusFilter)}>
-        <TabsList className="grid w-full grid-cols-2 max-w-md">
-          <TabsTrigger value="active">Active ({projectCounts.active})</TabsTrigger>
+        <TabsList className="grid w-full grid-cols-3 max-w-2xl">
+          <TabsTrigger value="pre-launch">Pre-Launch ({projectCounts.preLaunch})</TabsTrigger>
+          <TabsTrigger value="launched">Launched ({projectCounts.launched})</TabsTrigger>
           <TabsTrigger value="archived">Archived ({projectCounts.archived})</TabsTrigger>
         </TabsList>
 

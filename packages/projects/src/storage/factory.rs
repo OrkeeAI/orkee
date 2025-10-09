@@ -149,7 +149,7 @@ impl StorageManager {
 
         let active_count = projects
             .iter()
-            .filter(|p| p.status == crate::types::ProjectStatus::Active)
+            .filter(|p| p.status == crate::types::ProjectStatus::PreLaunch || p.status == crate::types::ProjectStatus::Launched)
             .count();
 
         let archived_count = projects
@@ -208,13 +208,22 @@ pub trait ProjectStorageExt: ProjectStorage {
         Ok(self.get_project_by_path(path).await?.is_none())
     }
 
-    /// Get active projects only
+    /// Get active projects only (Pre-Launch and Launched)
     async fn list_active_projects(&self) -> StorageResult<Vec<crate::types::Project>> {
         let filter = super::ProjectFilter {
-            status: Some(crate::types::ProjectStatus::Active),
+            status: Some(crate::types::ProjectStatus::PreLaunch),
             ..Default::default()
         };
-        self.list_projects_with_filter(filter).await
+        let mut projects = self.list_projects_with_filter(filter).await?;
+
+        let filter2 = super::ProjectFilter {
+            status: Some(crate::types::ProjectStatus::Launched),
+            ..Default::default()
+        };
+        let launched = self.list_projects_with_filter(filter2).await?;
+        projects.extend(launched);
+
+        Ok(projects)
     }
 
     /// Count projects by status
@@ -300,7 +309,7 @@ mod tests {
             name: "Test Project".to_string(),
             project_root: "/tmp/test".to_string(),
             description: Some("Test".to_string()),
-            status: Some(ProjectStatus::Active),
+            status: Some(ProjectStatus::PreLaunch),
             priority: None,
             rank: None,
             setup_script: None,
@@ -346,7 +355,7 @@ mod tests {
             name: "Test Project".to_string(),
             project_root: "/tmp/test".to_string(),
             description: None,
-            status: Some(ProjectStatus::Active),
+            status: Some(ProjectStatus::PreLaunch),
             priority: None,
             rank: None,
             setup_script: None,
@@ -367,7 +376,7 @@ mod tests {
 
         // Test counting
         let active_count = storage
-            .count_by_status(ProjectStatus::Active)
+            .count_by_status(ProjectStatus::PreLaunch)
             .await
             .unwrap();
         assert_eq!(active_count, 1);

@@ -361,9 +361,10 @@ async fn execute_projects_tool(request: ProjectsRequest, context: &ToolContext) 
                     // Filter by status
                     if request.status != "all" {
                         let status_filter = match request.status.as_str() {
-                            "active" => ProjectStatus::Active,
+                            "pre-launch" => ProjectStatus::PreLaunch,
+                            "launched" => ProjectStatus::Launched,
                             "archived" => ProjectStatus::Archived,
-                            _ => ProjectStatus::Active,
+                            _ => ProjectStatus::PreLaunch,
                         };
                         projects.retain(|p| p.status == status_filter);
                     }
@@ -467,7 +468,8 @@ async fn execute_project_manage_tool(
                     cleanup_script: request.cleanup_script.clone(),
                     tags: request.tags.clone(),
                     status: request.status.as_ref().and_then(|s| match s.as_str() {
-                        "active" => Some(ProjectStatus::Active),
+                        "pre-launch" => Some(ProjectStatus::PreLaunch),
+                        "launched" => Some(ProjectStatus::Launched),
                         "archived" => Some(ProjectStatus::Archived),
                         _ => None,
                     }),
@@ -512,7 +514,8 @@ async fn execute_project_manage_tool(
                     cleanup_script: request.cleanup_script.clone(),
                     tags: request.tags.clone(),
                     status: request.status.as_ref().and_then(|s| match s.as_str() {
-                        "active" => Some(ProjectStatus::Active),
+                        "pre-launch" => Some(ProjectStatus::PreLaunch),
+                        "launched" => Some(ProjectStatus::Launched),
                         "archived" => Some(ProjectStatus::Archived),
                         _ => None,
                     }),

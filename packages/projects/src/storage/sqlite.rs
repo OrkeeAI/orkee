@@ -119,9 +119,10 @@ impl SqliteStorage {
 
         let status_str: String = row.try_get("status")?;
         let status = match status_str.as_str() {
-            "active" => ProjectStatus::Active,
+            "pre-launch" => ProjectStatus::PreLaunch,
+            "launched" => ProjectStatus::Launched,
             "archived" => ProjectStatus::Archived,
-            _ => ProjectStatus::Active,
+            _ => ProjectStatus::PreLaunch,
         };
 
         let priority_str: String = row.try_get("priority")?;
@@ -174,7 +175,8 @@ impl SqliteStorage {
     /// Convert project status to string
     fn status_to_string(status: &ProjectStatus) -> &'static str {
         match status {
-            ProjectStatus::Active => "active",
+            ProjectStatus::PreLaunch => "pre-launch",
+            ProjectStatus::Launched => "launched",
             ProjectStatus::Archived => "archived",
         }
     }
@@ -234,7 +236,7 @@ impl ProjectStorage for SqliteStorage {
             .map(serde_json::to_string)
             .transpose()?;
 
-        let status_str = Self::status_to_string(&input.status.unwrap_or(ProjectStatus::Active));
+        let status_str = Self::status_to_string(&input.status.unwrap_or(ProjectStatus::PreLaunch));
         let priority_str = Self::priority_to_string(&input.priority.unwrap_or(Priority::Medium));
         let task_source_str = input.task_source.as_ref().map(Self::task_source_to_string);
 
@@ -818,7 +820,7 @@ mod tests {
             name: "Test Project".to_string(),
             project_root: "/tmp/test".to_string(),
             description: Some("A test project".to_string()),
-            status: Some(ProjectStatus::Active),
+            status: Some(ProjectStatus::PreLaunch),
             priority: Some(Priority::High),
             rank: Some(1),
             setup_script: Some("npm install".to_string()),
@@ -832,7 +834,7 @@ mod tests {
 
         let project = storage.create_project(input).await.unwrap();
         assert_eq!(project.name, "Test Project");
-        assert_eq!(project.status, ProjectStatus::Active);
+        assert_eq!(project.status, ProjectStatus::PreLaunch);
         assert_eq!(project.priority, Priority::High);
 
         let retrieved = storage.get_project(&project.id).await.unwrap();

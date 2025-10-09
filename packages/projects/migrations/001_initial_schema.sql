@@ -13,7 +13,7 @@ CREATE TABLE projects (
     description TEXT,
     
     -- Status and priority
-    status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'archived')),
+    status TEXT NOT NULL DEFAULT 'pre-launch' CHECK (status IN ('pre-launch', 'launched', 'archived')),
     priority TEXT NOT NULL DEFAULT 'medium' CHECK (priority IN ('low', 'medium', 'high')),
     rank INTEGER,
     

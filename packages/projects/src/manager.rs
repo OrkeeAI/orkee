@@ -293,13 +293,22 @@ impl ProjectsManager {
         Ok(projects)
     }
 
-    /// Get active projects only
+    /// Get active projects only (Pre-Launch and Launched)
     pub async fn list_active_projects(&self) -> ManagerResult<Vec<Project>> {
         let filter = crate::storage::ProjectFilter {
-            status: Some(ProjectStatus::Active),
+            status: Some(ProjectStatus::PreLaunch),
             ..Default::default()
         };
-        self.list_projects_with_filter(filter).await
+        let mut projects = self.list_projects_with_filter(filter).await?;
+
+        let filter2 = crate::storage::ProjectFilter {
+            status: Some(ProjectStatus::Launched),
+            ..Default::default()
+        };
+        let launched = self.list_projects_with_filter(filter2).await?;
+        projects.extend(launched);
+
+        Ok(projects)
     }
 
     /// Get storage statistics
@@ -374,7 +383,7 @@ mod tests {
             cleanup_script: None,
             tags: Some(vec!["rust".to_string()]),
             description: Some("A test project".to_string()),
-            status: Some(ProjectStatus::Active),
+            status: Some(ProjectStatus::PreLaunch),
             rank: None,
             priority: None,
             task_source: None,

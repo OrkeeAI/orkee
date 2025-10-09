@@ -328,9 +328,9 @@ impl App {
                             crate::search_popup::SearchMode::Status => {
                                 // Status filter mode - handle status selection keys
                                 match c {
-                                    '1' | 'a' => {
+                                    '1' | 'p' => {
                                         search_popup.toggle_status_filter(Some(
-                                            orkee_projects::ProjectStatus::Active,
+                                            orkee_projects::ProjectStatus::PreLaunch,
                                         ));
                                     }
                                     '2' | 'r' => {
@@ -345,8 +345,11 @@ impl App {
                                         // Space key - cycle through status options
                                         let current_status = search_popup.get_status_filter();
                                         let next_status = match current_status {
-                                            None => Some(orkee_projects::ProjectStatus::Active),
-                                            Some(orkee_projects::ProjectStatus::Active) => {
+                                            None => Some(orkee_projects::ProjectStatus::PreLaunch),
+                                            Some(orkee_projects::ProjectStatus::PreLaunch) => {
+                                                Some(orkee_projects::ProjectStatus::Launched)
+                                            }
+                                            Some(orkee_projects::ProjectStatus::Launched) => {
                                                 Some(orkee_projects::ProjectStatus::Archived)
                                             }
                                             Some(orkee_projects::ProjectStatus::Archived) => None,

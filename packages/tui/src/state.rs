@@ -996,10 +996,11 @@ impl AppState {
         let mut step2 = FormStep::new("Configuration".to_string());
 
         // Pre-populate status field
-        let status_options = vec!["active".to_string(), "archived".to_string()];
+        let status_options = vec!["pre-launch".to_string(), "launched".to_string(), "archived".to_string()];
         let status_selected = match project.status {
-            ProjectStatus::Active => 0,
-            ProjectStatus::Archived => 1,
+            ProjectStatus::PreLaunch => 0,
+            ProjectStatus::Launched => 1,
+            ProjectStatus::Archived => 2,
         };
         let mut status_field = FormField::selection(
             "status".to_string(),
@@ -1311,7 +1312,8 @@ impl AppState {
                                 let status_value = field.field_value.value();
                                 if !status_value.trim().is_empty() {
                                     status = match status_value.trim().to_lowercase().as_str() {
-                                        "active" => Some(ProjectStatus::Active),
+                                        "pre-launch" => Some(ProjectStatus::PreLaunch),
+                                        "launched" => Some(ProjectStatus::Launched),
                                         "archived" => Some(ProjectStatus::Archived),
                                         _ => None,
                                     };
@@ -1428,7 +1430,8 @@ impl AppState {
                                 let status_value = field.field_value.value();
                                 if !status_value.trim().is_empty() {
                                     status = match status_value.trim().to_lowercase().as_str() {
-                                        "active" => Some(ProjectStatus::Active),
+                                        "pre-launch" => Some(ProjectStatus::PreLaunch),
+                                        "launched" => Some(ProjectStatus::Launched),
                                         "archived" => Some(ProjectStatus::Archived),
                                         _ => None,
                                     };

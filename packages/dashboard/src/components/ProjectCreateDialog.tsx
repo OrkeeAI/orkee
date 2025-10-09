@@ -159,7 +159,8 @@ export function ProjectCreateDialog({ open, onOpenChange, onProjectCreated }: Pr
                         <SelectValue placeholder="Select status" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="active">Active</SelectItem>
+                        <SelectItem value="pre-launch">Pre-Launch</SelectItem>
+                        <SelectItem value="launched">Launched</SelectItem>
                         <SelectItem value="archived">Archived</SelectItem>
                       </SelectContent>
                     </Select>

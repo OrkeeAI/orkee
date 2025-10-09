@@ -118,8 +118,14 @@ export function ProjectDetail() {
           <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
             <h1 className="text-2xl sm:text-3xl font-bold tracking-tight break-words">{project.name}</h1>
             <div className="flex items-center gap-2">
-              <Badge variant={project.status === 'active' ? 'default' : 'secondary'}>
-                {project.status}
+              <Badge variant={
+                project.status === 'launched' ? 'default' :
+                project.status === 'pre-launch' ? 'outline' :
+                'secondary'
+              }>
+                {project.status === 'pre-launch' ? 'Pre-Launch' :
+                 project.status === 'launched' ? 'Launched' :
+                 project.status}
               </Badge>
               {project.priority && (
                 <Badge variant={getPriorityColor(project.priority)}>
@@ -217,9 +223,15 @@ export function ProjectDetail() {
                 <CardTitle className="text-sm font-medium">Status</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold capitalize">{project.status}</div>
+                <div className="text-2xl font-bold capitalize">
+                  {project.status === 'pre-launch' ? 'Pre-Launch' :
+                   project.status === 'launched' ? 'Launched' :
+                   project.status}
+                </div>
                 <p className="text-xs text-muted-foreground mt-1">
-                  {project.status === 'active' ? 'Currently active' : 'Archived project'}
+                  {project.status === 'pre-launch' ? 'Preparing for launch' :
+                   project.status === 'launched' ? 'Live in production' :
+                   'Archived project'}
                 </p>
               </CardContent>
             </Card>

@@ -92,7 +92,8 @@ async fn list_projects() -> Result<(), Box<dyn std::error::Error>> {
 
     for project in &projects {
         let status_text = match project.status {
-            ProjectStatus::Active => "Active",
+            ProjectStatus::PreLaunch => "Pre-Launch",
+            ProjectStatus::Launched => "Launched",
             ProjectStatus::Archived => "Archived",
         };
 
@@ -185,7 +186,7 @@ async fn add_project(
 
     let status = Select::new(
         "Status:",
-        vec![ProjectStatus::Active, ProjectStatus::Archived],
+        vec![ProjectStatus::PreLaunch, ProjectStatus::Launched, ProjectStatus::Archived],
     )
     .prompt()?;
 
@@ -291,7 +292,7 @@ async fn edit_project(id: &str) -> Result<(), Box<dyn std::error::Error>> {
         Some(description)
     };
 
-    let status_options = vec![ProjectStatus::Active, ProjectStatus::Archived];
+    let status_options = vec![ProjectStatus::PreLaunch, ProjectStatus::Launched, ProjectStatus::Archived];
     let status = Select::new("Status:", status_options).prompt()?;
 
     let priority_options = vec![Priority::High, Priority::Medium, Priority::Low];
@@ -436,7 +437,8 @@ fn print_project_details(project: &Project) {
     println!("{:<15} {}", "Path:".cyan(), project.project_root);
 
     let status_colored = match project.status {
-        ProjectStatus::Active => "Active".green(),
+        ProjectStatus::PreLaunch => "Pre-Launch".cyan(),
+        ProjectStatus::Launched => "Launched".green(),
         ProjectStatus::Archived => "Archived".yellow(),
     };
     println!("{:<15} {}", "Status:".cyan(), status_colored);

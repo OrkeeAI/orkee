@@ -14,17 +14,19 @@ pub struct GitRepositoryInfo {
 
 /// Status options for projects
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
-#[serde(rename_all = "lowercase")]
+#[serde(rename_all = "kebab-case")]
 pub enum ProjectStatus {
     #[default]
-    Active,
+    PreLaunch,
+    Launched,
     Archived,
 }
 
 impl fmt::Display for ProjectStatus {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            ProjectStatus::Active => write!(f, "Active"),
+            ProjectStatus::PreLaunch => write!(f, "Pre-Launch"),
+            ProjectStatus::Launched => write!(f, "Launched"),
             ProjectStatus::Archived => write!(f, "Archived"),
         }
     }
