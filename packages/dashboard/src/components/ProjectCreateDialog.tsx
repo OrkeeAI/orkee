@@ -34,7 +34,7 @@ export function ProjectCreateDialog({ open, onOpenChange, onProjectCreated }: Pr
     name: '',
     projectRoot: '',
     description: '',
-    status: 'active',
+    status: 'planning',
     priority: 'medium',
     tags: [],
     setupScript: '',
@@ -81,7 +81,7 @@ export function ProjectCreateDialog({ open, onOpenChange, onProjectCreated }: Pr
       name: '',
       projectRoot: '',
       description: '',
-      status: 'active',
+      status: 'planning',
       priority: 'medium',
       tags: [],
       setupScript: '',
@@ -159,8 +159,11 @@ export function ProjectCreateDialog({ open, onOpenChange, onProjectCreated }: Pr
                         <SelectValue placeholder="Select status" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="pre-launch">Pre-Launch</SelectItem>
+                        <SelectItem value="planning">Planning</SelectItem>
+                        <SelectItem value="building">Building</SelectItem>
+                        <SelectItem value="review">Review</SelectItem>
                         <SelectItem value="launched">Launched</SelectItem>
+                        <SelectItem value="on-hold">On-Hold</SelectItem>
                         <SelectItem value="archived">Archived</SelectItem>
                       </SelectContent>
                     </Select>
