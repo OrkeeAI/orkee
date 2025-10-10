@@ -44,7 +44,6 @@ export interface TaskProvider {
 }
 
 export enum TaskProviderType {
-  Taskmaster = 'taskmaster',
   Manual = 'manual',
   Linear = 'linear',
   Jira = 'jira',
