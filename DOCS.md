@@ -4,16 +4,360 @@ This document provides comprehensive information about Orkee configuration, envi
 
 ## Table of Contents
 
-1. [Environment Variables](#environment-variables)
-2. [Cloud Sync Configuration](#cloud-sync-configuration)
-3. [Security Configuration](#security-configuration)
-4. [TLS/HTTPS Configuration](#tlshttps-configuration)
-5. [File Locations & Data Storage](#file-locations--data-storage)
-6. [CLI Commands Reference](#cli-commands-reference)
-7. [API Reference](#api-reference)
-8. [Default Ports & URLs](#default-ports--urls)
-9. [Development vs Production](#development-vs-production)
-10. [Troubleshooting](#troubleshooting)
+1. [Launch Modes](#launch-modes)
+2. [Dashboard Distribution](#dashboard-distribution)
+3. [Bundle Optimization](#bundle-optimization)
+4. [Environment Variables](#environment-variables)
+5. [Cloud Sync Configuration](#cloud-sync-configuration)
+6. [Security Configuration](#security-configuration)
+7. [TLS/HTTPS Configuration](#tlshttps-configuration)
+8. [File Locations & Data Storage](#file-locations--data-storage)
+9. [CLI Commands Reference](#cli-commands-reference)
+10. [API Reference](#api-reference)
+11. [Default Ports & URLs](#default-ports--urls)
+12. [Development vs Production](#development-vs-production)
+13. [Troubleshooting](#troubleshooting)
+
+## Launch Modes
+
+Orkee provides two distinct ways to run the dashboard interface, each optimized for different use cases:
+
+### 1. Desktop Application (Tauri)
+
+The Tauri desktop application provides a native app experience with everything bundled together.
+
+#### Quick Start
+```bash
+# From root directory
+bun dev:tauri
+
+# Or from dashboard directory
+cd packages/dashboard
+bun tauri dev
+
+# Or for production build
+cd packages/dashboard
+bun tauri build
+```
+
+#### Features
+- **Native Application**: Runs as a desktop app with system integration
+- **Self-Contained**: Includes both frontend and backend (CLI binary as sidecar)
+- **Fast Startup**: Everything is bundled, no download needed
+- **Hot Reload**: Full development experience with Vite HMR
+- **Cross-Platform**: Builds for macOS, Windows, and Linux
+
+#### Architecture
+- **Frontend**: React app served via Tauri's webview
+- **Backend**: CLI binary included as sidecar process
+- **Communication**: IPC bridge between frontend and backend
+- **Bundle Size**: ~18 MB (includes 8.9 MB CLI binary + UI assets)
+
+### 2. Web Dashboard (Browser)
+
+The web dashboard runs in any modern browser with the backend API server.
+
+#### Quick Start
+```bash
+# From root directory (recommended)
+bun dev:web
+
+# Or using CLI directly
+cd packages/cli
+cargo run --bin orkee -- dashboard
+
+# With development mode (hot reload)
+cargo run --bin orkee -- dashboard --dev
+
+# With custom ports
+cargo run --bin orkee -- dashboard --api-port 8080 --ui-port 3000
+```
+
+#### Features
+- **Browser-Based**: Runs in any modern web browser
+- **Remote Access**: Can be accessed from other devices on network
+- **Two Modes**:
+  - **Production (Dist)**: Pre-built static files, fast loading
+  - **Development (Source)**: Live reload with Vite dev server
+- **Flexible Deployment**: Can run behind reverse proxies
+
+#### Architecture
+- **Frontend**: React SPA served by Vite (dev) or static server (prod)
+- **Backend**: Axum REST API server on separate port
+- **Communication**: HTTP/HTTPS with CORS configuration
+- **Download Size**:
+  - Dist mode: ~2-5 MB (pre-built assets)
+  - Source mode: ~100 MB (with dependencies)
+  - CLI binary: 8.9 MB (one-time download)
+
+### Comparison Table
+
+| Feature | Desktop (Tauri) | Web Dashboard |
+|---------|----------------|---------------|
+| **Launch Command** | `bun dev:tauri` | `bun dev:web` |
+| **Platform** | Desktop app | Web browser |
+| **Installation** | Single app bundle | CLI + dashboard download |
+| **Startup Time** | Faster (bundled) | Slower (may need download) |
+| **Hot Reload** | ✅ Yes | ✅ Yes (dev mode) |
+| **Remote Access** | ❌ No | ✅ Yes |
+| **System Integration** | ✅ Native menus, tray | ❌ Browser limitations |
+| **Bundle Size** | 18 MB total | 8.9 MB CLI + 2-5 MB dashboard |
+| **Offline Work** | ✅ Fully offline | ✅ After initial download |
+| **Update Method** | App update | CLI update + dashboard refresh |
+
+### Which to Choose?
+
+**Choose Desktop (Tauri) if you:**
+- Want a native desktop application experience
+- Prefer faster startup times
+- Need system tray integration (future feature)
+- Don't need remote access
+- Want everything in a single package
+
+**Choose Web Dashboard if you:**
+- Prefer browser-based interfaces
+- Need remote access capabilities
+- Want smaller initial download
+- Need to run behind reverse proxy
+- Want to integrate with existing web infrastructure
+
+## Dashboard Distribution
+
+Orkee uses a hybrid distribution system that optimizes for both end-users and developers.
+
+### Distribution Modes
+
+#### 1. Pre-Built Distribution (Production)
+Optimized for end-users with minimal download size and fast startup.
+
+**Characteristics:**
+- **Download Size**: ~2-5 MB
+- **Content**: Minified, bundled JavaScript/CSS/HTML
+- **Startup**: Instant (static file serving)
+- **Requirements**: No Node.js/Bun needed
+- **Hot Reload**: Not available
+
+**How it works:**
+1. User runs `orkee dashboard`
+2. CLI checks for cached dashboard in `~/.orkee/dashboard`
+3. If not found, downloads `orkee-dashboard-dist.tar.gz` from GitHub
+4. Extracts pre-built files to cache directory
+5. Serves static files on configured port
+
+#### 2. Source Distribution (Development)
+Full development environment with hot reload capabilities.
+
+**Characteristics:**
+- **Download Size**: ~100 MB (with dependencies)
+- **Content**: Source TypeScript/React components
+- **Startup**: Slower (needs compilation)
+- **Requirements**: Bun/Node.js required
+- **Hot Reload**: Full Vite HMR support
+
+**How it works:**
+1. User runs `orkee dashboard --dev`
+2. CLI checks for local dashboard in `packages/dashboard`
+3. If not found, downloads `orkee-dashboard-source.tar.gz`
+4. Installs dependencies with `bun install`
+5. Starts Vite dev server with hot reload
+
+### Mode Selection
+
+The CLI automatically selects the appropriate mode:
+
+```bash
+# End users: Pre-built distribution (fast, small)
+orkee dashboard
+
+# Developers: Source distribution (hot reload)
+orkee dashboard --dev
+
+# Force dev mode via environment
+ORKEE_DEV_MODE=true orkee dashboard
+
+# Explicit path override
+ORKEE_DASHBOARD_PATH=/custom/path orkee dashboard
+```
+
+### Fallback Strategy
+
+The CLI implements intelligent fallbacks:
+
+1. **Production Mode** (`orkee dashboard`):
+   - Try pre-built distribution first
+   - Fall back to source if pre-built unavailable
+   - Useful during development releases
+
+2. **Development Mode** (`orkee dashboard --dev`):
+   - Look for local `packages/dashboard` first
+   - Fall back to downloaded source
+   - Always uses source mode for hot reload
+
+### Caching Strategy
+
+Dashboard assets are cached to minimize downloads:
+
+**Cache Location**: `~/.orkee/dashboard/`
+
+**Version Tracking**:
+- `.version` file contains installed version
+- `.mode` file tracks distribution mode (dist/source)
+- Automatic re-download when version changes
+
+**Cache Management**:
+```bash
+# Clean dashboard cache
+rm -rf ~/.orkee/dashboard
+
+# Force re-download
+orkee dashboard --restart
+```
+
+### GitHub Release Artifacts
+
+Each release includes two dashboard packages:
+
+1. **`orkee-dashboard-dist.tar.gz`** (~2-5 MB)
+   - Pre-built production bundle
+   - Minified and optimized
+   - Ready to serve
+
+2. **`orkee-dashboard-source.tar.gz`** (~600 KB)
+   - Source code only
+   - Requires dependency installation
+   - Enables development features
+
+### Build Process
+
+The GitHub Actions workflow handles both distributions:
+
+```yaml
+# Build and package dashboard
+- name: Build Dashboard
+  run: |
+    cd packages/dashboard
+    bun install
+    bun run build  # Creates dist/ folder
+
+- name: Package Distributions
+  run: |
+    # Pre-built distribution
+    tar czf orkee-dashboard-dist.tar.gz dist/
+
+    # Source distribution
+    tar czf orkee-dashboard-source.tar.gz \
+      --exclude="node_modules" \
+      --exclude="dist" \
+      .
+```
+
+## Bundle Optimization
+
+Orkee has been optimized to minimize bundle sizes across all components.
+
+### Binary Size Optimization
+
+#### Rust Compilation Profile
+The workspace uses aggressive optimization settings:
+
+```toml
+[profile.release]
+opt-level = "z"     # Optimize for size
+lto = true          # Link-Time Optimization
+codegen-units = 1   # Better optimization
+strip = true        # Strip debug symbols
+panic = "abort"     # Smaller panic handler
+```
+
+#### Results
+| Component | Before | After | Reduction |
+|-----------|--------|-------|-----------|
+| CLI Binary (debug) | 66 MB | - | - |
+| CLI Binary (release) | 24 MB | 8.9 MB | **63%** |
+| Tauri Bundle | 75 MB | 18 MB | **76%** |
+
+### Dashboard Optimization
+
+#### Production Build
+- **Tree Shaking**: Removes unused code
+- **Minification**: Compresses JavaScript/CSS
+- **Code Splitting**: Lazy loads routes
+- **Asset Optimization**: Compresses images
+
+#### Dependency Management
+- **Production Mode**: `bun install --production`
+- **Excludes**: Dev dependencies (TypeScript, ESLint)
+- **Result**: ~50% smaller node_modules
+
+### Distribution Size Comparison
+
+| Distribution Type | Size | Content |
+|------------------|------|---------|
+| **CLI Binary** | 8.9 MB | Standalone executable |
+| **Dashboard Dist** | 2-5 MB | Minified production build |
+| **Dashboard Source** | 600 KB | Source code (no deps) |
+| **Dashboard + Deps** | 100 MB | Source + prod dependencies |
+| **Dashboard + Dev Deps** | 215 MB | Source + all dependencies |
+| **Tauri Desktop** | 18 MB | Complete app bundle |
+
+### Optimization Strategies
+
+#### 1. Conditional Features
+```bash
+# Build without cloud features (smaller)
+cargo build --release
+
+# Build with cloud features
+cargo build --release --features cloud
+```
+
+#### 2. Dynamic Downloads
+- Dashboard downloaded only when needed
+- Version-based caching prevents re-downloads
+- Dist mode for users, source for developers
+
+#### 3. Shared Dependencies
+- Workspace-level Cargo dependencies
+- Centralized TypeScript configs
+- Monorepo with Turborepo caching
+
+#### 4. Asset Loading
+- Lazy route loading in React
+- Dynamic imports for heavy components
+- CDN potential for static assets
+
+### Monitoring Bundle Size
+
+#### Build-Time Analysis
+```bash
+# Analyze Rust binary size
+cargo bloat --release --bin orkee
+
+# Analyze JavaScript bundle
+cd packages/dashboard
+bun run build --analyze
+```
+
+#### CI Size Limits
+The GitHub workflow can enforce size limits:
+```yaml
+- name: Check Binary Size
+  run: |
+    SIZE=$(stat -f%z target/release/orkee)
+    if [ $SIZE -gt 10485760 ]; then  # 10 MB limit
+      echo "Binary too large: $SIZE bytes"
+      exit 1
+    fi
+```
+
+### Future Optimizations
+
+**Planned improvements:**
+- WebAssembly modules for compute-heavy tasks
+- Service worker for offline caching
+- Brotli compression for assets
+- Native Axum static file serving (remove Python dependency)
+- CDN distribution option
 
 ## Environment Variables
 
@@ -25,6 +369,8 @@ These variables configure the Orkee CLI server (Rust backend):
 |----------|---------|-------------|
 | `ORKEE_API_PORT` | `4001` | API server port (can be overridden by `--api-port` flag) |
 | `ORKEE_UI_PORT` | `5173` | Dashboard UI port (can be overridden by `--ui-port` flag) |
+| `ORKEE_DEV_MODE` | `false` | Enable development mode for dashboard (uses source with hot reload) |
+| `ORKEE_DASHBOARD_PATH` | Auto-detected | Explicit path to dashboard directory (overrides auto-detection) |
 | `ORKEE_CORS_ORIGIN` | Auto-calculated from UI port | Allowed CORS origin (auto-set to `http://localhost:${ORKEE_UI_PORT}`) |
 | `CORS_ALLOW_ANY_LOCALHOST` | `true` | Allow any localhost origin in development |
 | `ALLOWED_BROWSE_PATHS` | `~/Documents,~/Projects,~/Desktop,~/Downloads` | Comma-separated list of allowed directory paths |

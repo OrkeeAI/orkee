@@ -45,6 +45,10 @@ fn create_cors_origin(_allow_any_localhost: bool) -> AllowOrigin {
 }
 
 pub async fn run_server() -> Result<(), Box<dyn std::error::Error>> {
+    run_server_with_options(None).await
+}
+
+pub async fn run_server_with_options(dashboard_path: Option<std::path::PathBuf>) -> Result<(), Box<dyn std::error::Error>> {
     // Load .env file
     dotenvy::dotenv().ok();
 
@@ -68,15 +72,15 @@ pub async fn run_server() -> Result<(), Box<dyn std::error::Error>> {
 
     if config.tls.enabled {
         // TLS mode: run both HTTP (redirect) and HTTPS (main app) servers
-        run_dual_server_mode(config).await
+        run_dual_server_mode(config, dashboard_path).await
     } else {
         // HTTP only mode
-        run_http_server(config).await
+        run_http_server(config, dashboard_path).await
     }
 }
 
-async fn run_http_server(config: Config) -> Result<(), Box<dyn std::error::Error>> {
-    let app = create_application_router(config.clone()).await?;
+async fn run_http_server(config: Config, dashboard_path: Option<std::path::PathBuf>) -> Result<(), Box<dyn std::error::Error>> {
+    let app = create_application_router(config.clone(), dashboard_path).await?;
     let addr = SocketAddr::from(([127, 0, 0, 1], config.port));
 
     info!("Starting HTTP server on {}", addr);
@@ -92,13 +96,13 @@ async fn run_http_server(config: Config) -> Result<(), Box<dyn std::error::Error
     Ok(())
 }
 
-async fn run_dual_server_mode(config: Config) -> Result<(), Box<dyn std::error::Error>> {
+async fn run_dual_server_mode(config: Config, dashboard_path: Option<std::path::PathBuf>) -> Result<(), Box<dyn std::error::Error>> {
     // Initialize TLS manager
     let tls_manager = tls::TlsManager::new(config.tls.clone());
     let rustls_config = tls_manager.initialize().await?;
 
     // Create main application router
-    let app = create_application_router(config.clone()).await?;
+    let app = create_application_router(config.clone(), dashboard_path).await?;
 
     // Create HTTP redirect router (simpler router that just redirects to HTTPS)
     let redirect_app = create_redirect_router(config.clone()).await?;
@@ -164,6 +168,7 @@ async fn start_http_redirect_server(
 
 async fn create_application_router(
     config: Config,
+    dashboard_path: Option<std::path::PathBuf>,
 ) -> Result<axum::Router, Box<dyn std::error::Error>> {
     // Create CORS layer with specific headers only
     let allowed_headers = AllowHeaders::list([
@@ -184,7 +189,7 @@ async fn create_application_router(
         .max_age(Duration::from_secs(3600));
 
     // Create the router with all middleware layers (in order: outermost to innermost)
-    let mut app_builder = api::create_router().await;
+    let mut app_builder = api::create_router_with_options(dashboard_path).await;
 
     // Add CORS layer
     app_builder = app_builder.layer(cors);

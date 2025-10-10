@@ -1,6 +1,7 @@
 use clap::{Parser, Subcommand};
 use colored::*;
 use std::process;
+use std::path::PathBuf;
 
 mod cli;
 
@@ -8,6 +9,7 @@ mod cli;
 use cli::cloud::CloudCommands;
 use cli::projects::ProjectsCommands;
 use orkee_cli::dashboard::downloader::ensure_dashboard;
+use orkee_cli::dashboard::DashboardMode;
 
 #[derive(Subcommand)]
 enum PreviewCommands {
@@ -256,9 +258,10 @@ async fn stop_all_preview_servers() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-async fn start_server(
+async fn start_server_with_options(
     api_port: u16,
     cors_origin: String,
+    dashboard_path: Option<PathBuf>,
 ) -> Result<(), Box<dyn std::error::Error>> {
     println!("{}", "🚀 Starting Orkee CLI server...".green().bold());
     println!(
@@ -273,8 +276,8 @@ async fn start_server(
     std::env::set_var("PORT", api_port.to_string()); // Backwards compatibility
     std::env::set_var("CORS_ORIGIN", cors_origin);
 
-    // Call the original main function from main.rs
-    orkee_cli::run_server().await
+    // Call the server with optional dashboard path
+    orkee_cli::run_server_with_options(dashboard_path).await
 }
 
 async fn start_tui(refresh_interval: u64) -> Result<(), Box<dyn std::error::Error>> {
@@ -329,14 +332,64 @@ async fn start_full_dashboard(
             .bold()
     );
 
-    // Auto-calculate CORS origin from UI port
-    let cors_origin = format!("http://localhost:{}", ui_port);
+    // Determine which dashboard to use first (moved up)
+    let (dashboard_dir, dashboard_mode) = if dev || std::env::var("ORKEE_DEV_MODE").is_ok() {
+        // Try to use local development dashboard
+        // First check if ORKEE_DASHBOARD_PATH is set (explicit override)
+        if let Ok(dashboard_path) = std::env::var("ORKEE_DASHBOARD_PATH") {
+            let path = std::path::PathBuf::from(dashboard_path);
+            if path.exists() && path.join("package.json").exists() {
+                println!(
+                    "{} Using dashboard from ORKEE_DASHBOARD_PATH: {}",
+                    "🔧".cyan(),
+                    path.display()
+                );
+                (path, DashboardMode::Source) // Local dev is always Source mode
+            } else {
+                println!(
+                    "{} ORKEE_DASHBOARD_PATH invalid, falling back to auto-detection",
+                    "⚠️".yellow()
+                );
+                let path = find_local_dashboard().await?;
+                (path, DashboardMode::Source)
+            }
+        } else {
+            let path = find_local_dashboard().await?;
+            (path, DashboardMode::Source)
+        }
+    } else {
+        // Use downloaded dashboard from ~/.orkee/dashboard
+        let (path, mode) = ensure_dashboard(dev).await?;
+        println!(
+            "{} Using {} mode",
+            "📦".cyan(),
+            match mode {
+                DashboardMode::Dist => "pre-built dashboard",
+                DashboardMode::Source => "source dashboard with dev server",
+            }
+        );
+        (path, mode)
+    };
+
+    // Auto-calculate CORS origin from UI port (for dev mode) or same origin (for dist mode)
+    let cors_origin = if matches!(dashboard_mode, DashboardMode::Source) {
+        format!("http://localhost:{}", ui_port)
+    } else {
+        // For dist mode, no CORS needed as it's same origin
+        format!("http://localhost:{}", api_port)
+    };
 
     // Start backend server in background
     let backend_handle = {
         let cors_origin_clone = cors_origin.clone();
+        let dashboard_path_for_server = if matches!(dashboard_mode, DashboardMode::Dist) {
+            Some(dashboard_dir.clone())
+        } else {
+            None
+        };
+
         tokio::spawn(async move {
-            if let Err(e) = start_server(api_port, cors_origin_clone).await {
+            if let Err(e) = start_server_with_options(api_port, cors_origin_clone, dashboard_path_for_server).await {
                 eprintln!("{} Failed to start backend: {}", "Error:".red().bold(), e);
             }
         })
@@ -345,66 +398,94 @@ async fn start_full_dashboard(
     // Wait a moment for backend to start
     tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
 
-    // Determine which dashboard to use
-    let dashboard_dir = if dev || std::env::var("ORKEE_DEV_MODE").is_ok() {
-        // Try to use local development dashboard
-        let local_dashboard = std::path::PathBuf::from("packages/dashboard");
-        let absolute_local = if local_dashboard.is_absolute() {
-            local_dashboard
+async fn find_local_dashboard() -> Result<std::path::PathBuf, Box<dyn std::error::Error>> {
+    // Try to find dashboard by walking up directories (for monorepo)
+    let mut current = std::env::current_dir()?;
+
+    // Try current/packages/dashboard first
+    let try_path = current.join("packages/dashboard");
+    if try_path.exists() && try_path.join("package.json").exists() {
+        println!(
+            "{} Using local development dashboard from {}",
+            "🔧".cyan(),
+            try_path.display()
+        );
+        return Ok(try_path);
+    }
+
+    // Walk up parent directories to find monorepo root
+    for _ in 0..5 {  // Increased from 3 to 5 levels
+        if let Some(parent) = current.parent() {
+            current = parent.to_path_buf();
+            let try_path = current.join("packages/dashboard");
+            if try_path.exists() && try_path.join("package.json").exists() {
+                println!(
+                    "{} Using local development dashboard from {}",
+                    "🔧".cyan(),
+                    try_path.display()
+                );
+                return Ok(try_path);
+            }
         } else {
-            std::env::current_dir()?.join(&local_dashboard)
-        };
-
-        if absolute_local.exists() {
-            println!(
-                "{} Using local development dashboard from {}",
-                "🔧".cyan(),
-                absolute_local.display()
-            );
-            absolute_local
-        } else {
-            println!(
-                "{} Local dashboard not found, falling back to downloaded version",
-                "⚠️".yellow()
-            );
-            ensure_dashboard().await?
+            break;
         }
-    } else {
-        // Use downloaded dashboard from ~/.orkee/dashboard
-        ensure_dashboard().await?
-    };
+    }
 
-    // Run bun dev from the downloaded dashboard
-    println!("{}", "🖥️  Starting frontend dashboard...".cyan());
-    let frontend_result = std::process::Command::new("bun")
-        .args(["run", "dev"])
-        .current_dir(&dashboard_dir)
-        .env("ORKEE_UI_PORT", ui_port.to_string())
-        .env("ORKEE_API_PORT", api_port.to_string())
-        .env("VITE_ORKEE_API_PORT", api_port.to_string())
-        .spawn();
+    // Fallback to downloaded dashboard
+    println!(
+        "{} Local dashboard not found, falling back to downloaded version",
+        "⚠️".yellow()
+    );
+    let (path, _mode) = ensure_dashboard(true).await?; // Use dev mode for source when local search fails
+    Ok(path)
+}
 
-    match frontend_result {
-        Ok(mut child) => {
-            println!("{}", "✅ Both backend and frontend started!".green());
-            println!("{} http://localhost:{}", "🔗 Backend API:".cyan(), api_port);
-            println!("{} http://localhost:{}", "🌐 Frontend UI:".cyan(), ui_port);
+    // Start frontend based on mode
+    match dashboard_mode {
+        DashboardMode::Dist => {
+            // For dist mode, serve everything from the API server (single port)
+            println!("{}", "📦 Using single-port serving for production mode".cyan());
+            println!("{}", "✅ Dashboard and API started!".green());
+            println!("{} http://localhost:{}", "🌐 Access the dashboard at:".cyan(), api_port);
+            println!("{} Running in production mode (pre-built assets)", "⚡".cyan());
 
-            // Wait for both processes
-            let _ = tokio::join!(
-                backend_handle,
-                tokio::task::spawn_blocking(move || {
-                    let _ = child.wait();
-                })
-            );
+            // Just wait for the backend since it's serving everything
+            let _ = backend_handle.await;
         }
-        Err(e) => {
-            eprintln!("{} Failed to start frontend: {}", "Error:".red().bold(), e);
-            eprintln!(
-                "{} Make sure bun is installed and dependencies are installed in {}",
-                "Tip:".yellow(),
-                dashboard_dir.display()
-            );
+        DashboardMode::Source => {
+            // Run dev server for source mode
+            let frontend_result = std::process::Command::new("bun")
+                .args(["run", "dev"])
+                .current_dir(&dashboard_dir)
+                .env("ORKEE_UI_PORT", ui_port.to_string())
+                .env("ORKEE_API_PORT", api_port.to_string())
+                .env("VITE_ORKEE_API_PORT", api_port.to_string())
+                .spawn();
+
+            match frontend_result {
+                Ok(mut child) => {
+                    println!("{}", "✅ Both backend and frontend started!".green());
+                    println!("{} http://localhost:{}", "🔗 Backend API:".cyan(), api_port);
+                    println!("{} http://localhost:{}", "🌐 Frontend UI:".cyan(), ui_port);
+                    println!("{} Running in development mode (with hot reload)", "🔄".cyan());
+
+                    // Wait for both processes
+                    let _ = tokio::join!(
+                        backend_handle,
+                        tokio::task::spawn_blocking(move || {
+                            let _ = child.wait();
+                        })
+                    );
+                }
+                Err(e) => {
+                    eprintln!("{} Failed to start frontend: {}", "Error:".red().bold(), e);
+                    eprintln!(
+                        "{} Make sure bun is installed and dependencies are installed in {}",
+                        "Tip:".yellow(),
+                        dashboard_dir.display()
+                    );
+                }
+            }
         }
     }
 

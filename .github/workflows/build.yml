@@ -138,32 +138,69 @@ jobs:
           retention-days: 7
 
   package-dashboard:
-    name: Package Dashboard Source
+    name: Package Dashboard (Source & Dist)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Build Dashboard
+        run: |
+          echo "Building dashboard production bundle..."
+          cd packages/dashboard
+
+          # Install dependencies
+          bun install
+
+          # Build production bundle
+          bun run build
+
+          # Check build output
+          echo "Build output:"
+          ls -la dist/
+          du -sh dist/
+
+          cd ../..
+
+      - name: Create dashboard dist package
+        run: |
+          echo "Creating dashboard dist package..."
+          cd packages/dashboard
+
+          # Package the built files
+          tar czf ../../orkee-dashboard-dist.tar.gz dist/
+
+          cd ../..
+          echo "Dashboard dist package created:"
+          ls -lh orkee-dashboard-dist.tar.gz
+
       - name: Create dashboard source package
         run: |
           echo "Creating dashboard source package..."
           cd packages/dashboard
-          
-          # Create tarball of dashboard source
+
+          # Create tarball of dashboard source (for developers)
           tar czf ../../orkee-dashboard-source.tar.gz \
             --exclude="node_modules" \
             --exclude="dist" \
             --exclude=".turbo" \
             .
-          
+
           cd ../..
-          echo "Dashboard package created:"
+          echo "Dashboard source package created:"
           ls -lh orkee-dashboard-source.tar.gz
-      
-      - name: Upload Dashboard Package
+
+      - name: Upload Dashboard Packages
         uses: actions/upload-artifact@v4
         with:
-          name: orkee-dashboard-source
-          path: orkee-dashboard-source.tar.gz
+          name: orkee-dashboard-packages
+          path: |
+            orkee-dashboard-dist.tar.gz
+            orkee-dashboard-source.tar.gz
           retention-days: 7
 
   release:

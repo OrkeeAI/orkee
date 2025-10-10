@@ -7,7 +7,14 @@ use std::path::PathBuf;
 use tar::Archive;
 
 const GITHUB_REPO: &str = "OrkeeAI/orkee";
-const DASHBOARD_ASSET_NAME: &str = "orkee-dashboard-source.tar.gz";
+const DASHBOARD_DIST_ASSET: &str = "orkee-dashboard-dist.tar.gz";
+const DASHBOARD_SOURCE_ASSET: &str = "orkee-dashboard-source.tar.gz";
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum DashboardMode {
+    Dist,   // Pre-built production files
+    Source, // Source files requiring build
+}
 
 /// Get the path where dashboard assets should be stored
 fn get_dashboard_dir() -> PathBuf {
@@ -16,12 +23,34 @@ fn get_dashboard_dir() -> PathBuf {
 }
 
 /// Check if dashboard assets are already downloaded and match the current version
-pub fn is_dashboard_installed() -> bool {
+pub fn is_dashboard_installed(mode: DashboardMode) -> bool {
     let dashboard_dir = get_dashboard_dir();
     let version_file = dashboard_dir.join(".version");
+    let mode_file = dashboard_dir.join(".mode");
 
     if !dashboard_dir.exists() || !version_file.exists() {
         return false;
+    }
+
+    // Check if the mode matches
+    if mode_file.exists() {
+        if let Ok(installed_mode) = fs::read_to_string(&mode_file) {
+            let installed_mode = installed_mode.trim();
+            let expected_mode = match mode {
+                DashboardMode::Dist => "dist",
+                DashboardMode::Source => "source",
+            };
+
+            if installed_mode != expected_mode {
+                println!(
+                    "{} Dashboard mode mismatch (installed: {}, expected: {})",
+                    "⚠️".yellow(),
+                    installed_mode,
+                    expected_mode
+                );
+                return false;
+            }
+        }
     }
 
     // Read the installed version
@@ -51,8 +80,15 @@ fn install_dependencies(dashboard_dir: &PathBuf) -> Result<(), Box<dyn std::erro
     let bun_check = std::process::Command::new("which").arg("bun").output();
 
     if bun_check.is_ok() && bun_check.unwrap().status.success() {
+        // Use production flag if not in dev mode
+        let install_args = if std::env::var("ORKEE_DEV_MODE").is_err() {
+            vec!["install", "--production"]
+        } else {
+            vec!["install"]
+        };
+
         let install_result = std::process::Command::new("bun")
-            .args(["install"])
+            .args(&install_args)
             .current_dir(dashboard_dir)
             .status();
 
@@ -76,15 +112,26 @@ fn install_dependencies(dashboard_dir: &PathBuf) -> Result<(), Box<dyn std::erro
     }
 }
 
-/// Download and extract dashboard source from GitHub releases
-pub async fn download_dashboard() -> Result<PathBuf, Box<dyn std::error::Error>> {
+/// Download and extract dashboard from GitHub releases
+pub async fn download_dashboard(mode: DashboardMode) -> Result<PathBuf, Box<dyn std::error::Error>> {
     let dashboard_dir = get_dashboard_dir();
     let version = env!("CARGO_PKG_VERSION");
 
-    println!("{}", "📦 Dashboard source not found locally".yellow());
+    let asset_name = match mode {
+        DashboardMode::Dist => DASHBOARD_DIST_ASSET,
+        DashboardMode::Source => DASHBOARD_SOURCE_ASSET,
+    };
+
+    let mode_name = match mode {
+        DashboardMode::Dist => "pre-built dashboard",
+        DashboardMode::Source => "dashboard source",
+    };
+
+    println!("{}", format!("📦 {} not found locally", mode_name).yellow());
     println!(
-        "{} Downloading dashboard source v{}...",
+        "{} Downloading {} v{}...",
         "⬇️".cyan(),
+        mode_name,
         version
     );
 
@@ -94,7 +141,7 @@ pub async fn download_dashboard() -> Result<PathBuf, Box<dyn std::error::Error>>
     // Construct download URL
     let download_url = format!(
         "https://github.com/{}/releases/download/v{}/{}",
-        GITHUB_REPO, version, DASHBOARD_ASSET_NAME
+        GITHUB_REPO, version, asset_name
     );
 
     // Create progress bar
@@ -182,39 +229,81 @@ pub async fn download_dashboard() -> Result<PathBuf, Box<dyn std::error::Error>>
     let version_file = dashboard_dir.join(".version");
     fs::write(&version_file, version)?;
 
-    // Install dependencies
-    if let Err(e) = install_dependencies(&dashboard_dir) {
-        println!("{} {}", "⚠️".yellow(), e);
+    // Write mode file
+    let mode_file = dashboard_dir.join(".mode");
+    let mode_str = match mode {
+        DashboardMode::Dist => "dist",
+        DashboardMode::Source => "source",
+    };
+    fs::write(&mode_file, mode_str)?;
+
+    // Install dependencies only for source mode
+    if mode == DashboardMode::Source {
+        if let Err(e) = install_dependencies(&dashboard_dir) {
+            println!("{} {}", "⚠️".yellow(), e);
+        }
     }
 
-    println!("{} Dashboard source installed successfully!", "✅".green());
+    let success_msg = match mode {
+        DashboardMode::Dist => "Pre-built dashboard installed successfully!",
+        DashboardMode::Source => "Dashboard source installed successfully!",
+    };
+    println!("{} {}", "✅".green(), success_msg);
 
     Ok(dashboard_dir)
 }
 
 /// Ensure dashboard is installed, downloading if necessary
-pub async fn ensure_dashboard() -> Result<PathBuf, Box<dyn std::error::Error>> {
+pub async fn ensure_dashboard(dev_mode: bool) -> Result<(PathBuf, DashboardMode), Box<dyn std::error::Error>> {
     let dashboard_dir = get_dashboard_dir();
 
-    if is_dashboard_installed() {
-        // Check if node_modules exists
-        let node_modules = dashboard_dir.join("node_modules");
-        if !node_modules.exists() {
-            println!(
-                "{} Dashboard found but dependencies missing, installing...",
-                "📦".yellow()
-            );
-            install_dependencies(&dashboard_dir)?;
+    // Determine which mode to use
+    let mode = if dev_mode || std::env::var("ORKEE_DEV_MODE").is_ok() {
+        DashboardMode::Source
+    } else {
+        DashboardMode::Dist
+    };
+
+    if is_dashboard_installed(mode) {
+        // For source mode, check if node_modules exists
+        if mode == DashboardMode::Source {
+            let node_modules = dashboard_dir.join("node_modules");
+            if !node_modules.exists() {
+                println!(
+                    "{} Dashboard found but dependencies missing, installing...",
+                    "📦".yellow()
+                );
+                install_dependencies(&dashboard_dir)?;
+            }
         }
 
+        let mode_name = match mode {
+            DashboardMode::Dist => "pre-built dashboard",
+            DashboardMode::Source => "dashboard source",
+        };
+
         println!(
-            "{} Using cached dashboard from {}",
+            "{} Using cached {} from {}",
             "📂".cyan(),
+            mode_name,
             dashboard_dir.display()
         );
-        Ok(dashboard_dir)
+        Ok((dashboard_dir, mode))
     } else {
-        download_dashboard().await
+        // Try to download the requested mode first
+        match download_dashboard(mode).await {
+            Ok(path) => Ok((path, mode)),
+            Err(e) if mode == DashboardMode::Dist => {
+                // If dist download fails, fallback to source
+                println!(
+                    "{} Pre-built dashboard not available ({}), falling back to source",
+                    "⚠️".yellow(),
+                    e
+                );
+                download_dashboard(DashboardMode::Source).await.map(|path| (path, DashboardMode::Source))
+            }
+            Err(e) => Err(e)
+        }
     }
 }
 

@@ -30,3 +30,11 @@ mockall = "0.12"
 tempfile = "3.8"
 tokio-test = "0.4"
 pretty_assertions = "1.4"
+
+# Optimized release profile for smaller binaries
+[profile.release]
+opt-level = "z"        # Optimize for size
+lto = true            # Enable Link Time Optimization
+codegen-units = 1     # Single codegen unit for better optimization
+strip = true          # Strip symbols from binary
+panic = "abort"       # Smaller panic handler
