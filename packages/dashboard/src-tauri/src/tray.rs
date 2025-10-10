@@ -29,9 +29,7 @@ struct ServerInfo {
 
 #[derive(Debug, Deserialize)]
 struct ApiResponse<T> {
-    success: bool,
     data: Option<T>,
-    error: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -101,7 +99,7 @@ impl TrayManager {
         let mut menu_builder = MenuBuilder::new(app_handle);
 
         // Dashboard item
-        let show_item = MenuItemBuilder::with_id("show", "Show Dashboard").build(app_handle)?;
+        let show_item = MenuItemBuilder::with_id("show", "Show Orkee Dashboard").build(app_handle)?;
         menu_builder = menu_builder.item(&show_item);
         menu_builder = menu_builder.separator();
 
@@ -386,10 +384,6 @@ impl TrayManager {
                 }
             }
         });
-    }
-
-    pub fn get_tray(&self) -> Option<TrayIcon> {
-        self.tray_icon.lock().unwrap().clone()
     }
 }
 

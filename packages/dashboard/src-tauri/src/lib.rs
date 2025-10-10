@@ -57,6 +57,11 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_clipboard_manager::init())
         .setup(|app| {
+            // Set the activation policy to Accessory on macOS to prevent the app from
+            // appearing in the Dock and allow it to run with just the tray icon
+            #[cfg(target_os = "macos")]
+            app.set_activation_policy(tauri::ActivationPolicy::Accessory);
+
             // Find available port dynamically
             let api_port = find_available_port();
             // Get UI port from environment or use default
@@ -112,6 +117,12 @@ pub fn run() {
                 Err(e) => eprintln!("Failed to initialize tray: {}", e),
             }
             app.manage(tray_manager);
+
+            // Show and focus the main window on startup
+            if let Some(window) = app.get_webview_window("main") {
+                let _ = window.show();
+                let _ = window.set_focus();
+            }
 
             #[cfg(debug_assertions)]
             {
