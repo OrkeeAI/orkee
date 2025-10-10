@@ -271,7 +271,7 @@ impl<'a> SearchPopupWidget<'a> {
         current_status: &Option<orkee_projects::ProjectStatus>,
     ) -> String {
         let active_indicator =
-            if matches!(current_status, Some(orkee_projects::ProjectStatus::PreLaunch)) {
+            if matches!(current_status, Some(orkee_projects::ProjectStatus::Planning)) {
                 "●"
             } else {
                 "○"
@@ -496,8 +496,11 @@ impl<'a> SearchPopupWidget<'a> {
             format!("{:?}", project_match.project.status).to_lowercase()
         );
         let status_color = match project_match.project.status {
-            orkee_projects::ProjectStatus::PreLaunch => Color::Cyan,
+            orkee_projects::ProjectStatus::Planning => Color::Cyan,
+            orkee_projects::ProjectStatus::Building => Color::Blue,
+            orkee_projects::ProjectStatus::Review => Color::Magenta,
             orkee_projects::ProjectStatus::Launched => Color::Green,
+            orkee_projects::ProjectStatus::OnHold => Color::LightYellow,
             orkee_projects::ProjectStatus::Archived => Color::Yellow,
         };
 

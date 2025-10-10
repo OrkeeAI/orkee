@@ -296,7 +296,7 @@ impl ProjectsManager {
     /// Get active projects only (Pre-Launch and Launched)
     pub async fn list_active_projects(&self) -> ManagerResult<Vec<Project>> {
         let filter = crate::storage::ProjectFilter {
-            status: Some(ProjectStatus::PreLaunch),
+            status: Some(ProjectStatus::Planning),
             ..Default::default()
         };
         let mut projects = self.list_projects_with_filter(filter).await?;
@@ -383,7 +383,7 @@ mod tests {
             cleanup_script: None,
             tags: Some(vec!["rust".to_string()]),
             description: Some("A test project".to_string()),
-            status: Some(ProjectStatus::PreLaunch),
+            status: Some(ProjectStatus::Planning),
             rank: None,
             priority: None,
             task_source: None,

@@ -996,11 +996,14 @@ impl AppState {
         let mut step2 = FormStep::new("Configuration".to_string());
 
         // Pre-populate status field
-        let status_options = vec!["pre-launch".to_string(), "launched".to_string(), "archived".to_string()];
+        let status_options = vec!["planning".to_string(), "building".to_string(), "review".to_string(), "launched".to_string(), "on-hold".to_string(), "archived".to_string()];
         let status_selected = match project.status {
-            ProjectStatus::PreLaunch => 0,
-            ProjectStatus::Launched => 1,
-            ProjectStatus::Archived => 2,
+            ProjectStatus::Planning => 0,
+            ProjectStatus::Building => 1,
+            ProjectStatus::Review => 2,
+            ProjectStatus::Launched => 3,
+            ProjectStatus::OnHold => 4,
+            ProjectStatus::Archived => 5,
         };
         let mut status_field = FormField::selection(
             "status".to_string(),
@@ -1312,7 +1315,7 @@ impl AppState {
                                 let status_value = field.field_value.value();
                                 if !status_value.trim().is_empty() {
                                     status = match status_value.trim().to_lowercase().as_str() {
-                                        "pre-launch" => Some(ProjectStatus::PreLaunch),
+                                        "planning" => Some(ProjectStatus::Planning),
                                         "launched" => Some(ProjectStatus::Launched),
                                         "archived" => Some(ProjectStatus::Archived),
                                         _ => None,
@@ -1430,7 +1433,7 @@ impl AppState {
                                 let status_value = field.field_value.value();
                                 if !status_value.trim().is_empty() {
                                     status = match status_value.trim().to_lowercase().as_str() {
-                                        "pre-launch" => Some(ProjectStatus::PreLaunch),
+                                        "planning" => Some(ProjectStatus::Planning),
                                         "launched" => Some(ProjectStatus::Launched),
                                         "archived" => Some(ProjectStatus::Archived),
                                         _ => None,

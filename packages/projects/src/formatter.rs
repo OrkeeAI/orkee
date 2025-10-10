@@ -177,7 +177,7 @@ mod tests {
             updated_at: Utc::now(),
             tags: None,
             description: None,
-            status: ProjectStatus::PreLaunch,
+            status: ProjectStatus::Planning,
             rank: None,
             priority: Priority::Medium,
             task_source: None,

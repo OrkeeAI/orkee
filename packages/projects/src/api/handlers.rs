@@ -1076,7 +1076,7 @@ mod tests {
                 cleanup_script: None,
                 tags: Some(vec!["api".to_string(), "test".to_string()]),
                 description: Some("Test project for API".to_string()),
-                status: Some(ProjectStatus::PreLaunch),
+                status: Some(ProjectStatus::Planning),
                 rank: None,
                 priority: None,
                 task_source: None,
