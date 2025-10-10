@@ -24,8 +24,7 @@ fn create_cors_origin(_allow_any_localhost: bool) -> AllowOrigin {
     // This supports dynamic ports without configuration
     AllowOrigin::predicate(|origin: &HeaderValue, _: &_| {
         if let Ok(origin_str) = origin.to_str() {
-            // Allow any localhost origin (including Tauri)
-            origin_str.starts_with("http://localhost:")
+            let allowed = origin_str.starts_with("http://localhost:")
                 || origin_str.starts_with("http://127.0.0.1:")
                 || origin_str.starts_with("http://[::1]:")
                 || origin_str.starts_with("https://localhost:")
@@ -33,7 +32,12 @@ fn create_cors_origin(_allow_any_localhost: bool) -> AllowOrigin {
                 || origin_str.starts_with("https://[::1]:")
                 || origin_str == "tauri://localhost"
                 || origin_str == "http://tauri.localhost"
-                || origin_str == "https://tauri.localhost"
+                || origin_str == "https://tauri.localhost";
+
+            if !allowed {
+                eprintln!("🚫 CORS blocked origin: {}", origin_str);
+            }
+            allowed
         } else {
             false
         }

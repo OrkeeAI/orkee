@@ -18,7 +18,7 @@ export default defineConfig({
   },
   server: {
     port: parseInt(process.env.ORKEE_UI_PORT || process.env.VITE_PORT || '5173'),
-    strictPort: true,
+    strictPort: false, // Allow fallback to next available port
     host: 'localhost',
     proxy: {
       '/api': {

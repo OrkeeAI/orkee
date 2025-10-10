@@ -420,8 +420,19 @@ impl PreviewManager {
             .await;
 
             if let Some(pid) = info.pid {
-                // Try to kill the process
-                self.kill_process(pid).await?;
+                // Try to kill the process - ignore errors if process is already dead
+                if let Err(e) = self.kill_process(pid).await {
+                    warn!(
+                        "Failed to kill process {} for project {}: {} (process may already be dead)",
+                        pid, project_id, e
+                    );
+                    self.add_log(
+                        project_id,
+                        LogType::System,
+                        format!("Process {} was not running (already stopped)", pid),
+                    )
+                    .await;
+                }
             }
 
             // Remove from active servers
@@ -900,9 +911,15 @@ impl PreviewManager {
             info!("Removed lock file for project: {}", project_id);
         }
 
-        // Also remove from the central registry
-        if let Err(e) = GLOBAL_REGISTRY.unregister_server(project_id).await {
-            warn!("Failed to unregister server from central registry: {}", e);
+        // Also remove from the central registry (need to find the server ID first)
+        let registry_servers = GLOBAL_REGISTRY.get_all_servers().await;
+        for entry in registry_servers {
+            if entry.project_id == project_id {
+                if let Err(e) = GLOBAL_REGISTRY.unregister_server(&entry.id).await {
+                    warn!("Failed to unregister server from central registry: {}", e);
+                }
+                break;
+            }
         }
 
         Ok(())

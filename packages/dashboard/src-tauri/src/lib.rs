@@ -59,9 +59,14 @@ pub fn run() {
         .setup(|app| {
             // Find available port dynamically
             let api_port = find_available_port();
-            let ui_port = 5173; // UI port is fixed in dev mode (Vite already started)
+            // Get UI port from environment or use default
+            let ui_port: u16 = std::env::var("ORKEE_UI_PORT")
+                .or_else(|_| std::env::var("VITE_PORT"))
+                .unwrap_or_else(|_| "5173".to_string())
+                .parse()
+                .unwrap_or(5173);
 
-            println!("Using dynamic API port: {}", api_port);
+            println!("Using dynamic API port: {} and UI port: {}", api_port, ui_port);
 
             // Start the Orkee CLI server as a sidecar
             let shell = app.shell();
@@ -71,6 +76,18 @@ pub fn run() {
                 .expect("Failed to create sidecar command");
 
             // Spawn the CLI server with dashboard command
+            #[cfg(debug_assertions)]
+            let (_rx, child) = sidecar_command
+                .args([
+                    "dashboard",
+                    "--dev",  // Use local dashboard in dev mode
+                    "--api-port", &api_port.to_string(),
+                    "--ui-port", &ui_port.to_string(),
+                ])
+                .spawn()
+                .expect("Failed to spawn orkee CLI server");
+
+            #[cfg(not(debug_assertions))]
             let (_rx, child) = sidecar_command
                 .args([
                     "dashboard",

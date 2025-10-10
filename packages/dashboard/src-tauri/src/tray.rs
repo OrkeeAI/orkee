@@ -60,8 +60,8 @@ impl TrayManager {
 
         println!("Menu built successfully");
 
-        // Load the icon
-        let icon_bytes = include_bytes!("../icons/128x128.png");
+        // Load the icon (white with transparent background for menu bar)
+        let icon_bytes = include_bytes!("../icons/icon.png");
         let icon = Image::from_bytes(icon_bytes)?;
 
         println!("Icon loaded successfully");

@@ -42,8 +42,10 @@
     }
   },
   "app": {
+    "withGlobalTauri": true,
     "windows": [
       {
+        "label": "main",
         "title": "Orkee",
         "width": 1280,
         "height": 800,
@@ -61,9 +63,17 @@
       "capabilities": [
         {
           "identifier": "http-all",
+          "windows": ["main"],
           "permissions": [
             "http:default",
-            "http:allow-fetch",
+            {
+              "identifier": "http:allow-fetch",
+              "allow": [
+                { "url": "http://localhost:*" },
+                { "url": "http://127.0.0.1:*" },
+                { "url": "https://api.orkee.ai" }
+              ]
+            },
             "http:allow-fetch-cancel",
             "http:allow-fetch-read-body",
             "http:allow-fetch-send"

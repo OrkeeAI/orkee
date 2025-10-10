@@ -1,5 +1,8 @@
 import { isTauriApp, platformFetch, getApiPort } from '@/lib/platform';
 
+console.log('[API] Module loaded - checking platform...');
+console.log('[API] isTauriApp():', isTauriApp());
+
 // Default API configuration
 const API_PORT = parseInt(import.meta.env.VITE_ORKEE_API_PORT || '4001');
 const DEFAULT_API_BASE_URL = import.meta.env.VITE_API_URL || `http://localhost:${API_PORT}`;
