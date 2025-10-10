@@ -19,36 +19,25 @@ mod tests;
 
 use config::Config;
 
-fn create_cors_origin(allow_any_localhost: bool) -> AllowOrigin {
-    if allow_any_localhost {
-        // Use a predicate to allow any localhost origin dynamically
-        AllowOrigin::predicate(|origin: &HeaderValue, _: &_| {
-            if let Ok(origin_str) = origin.to_str() {
-                origin_str.starts_with("http://localhost:")
-                    || origin_str.starts_with("http://127.0.0.1:")
-                    || origin_str.starts_with("http://[::1]:")
-            } else {
-                false
-            }
-        })
-    } else {
-        // Use the restricted list
-        let allowed_origins = [
-            "http://localhost:5173",
-            "http://localhost:5174",
-            "http://localhost:5175",
-            "http://localhost:3000",
-            "http://127.0.0.1:5173",
-            "http://127.0.0.1:3000",
-            "http://[::1]:5173",
-        ];
-
-        AllowOrigin::list(
-            allowed_origins
-                .iter()
-                .map(|origin| HeaderValue::from_str(origin).unwrap()),
-        )
-    }
+fn create_cors_origin(_allow_any_localhost: bool) -> AllowOrigin {
+    // Always allow any localhost origin for development flexibility
+    // This supports dynamic ports without configuration
+    AllowOrigin::predicate(|origin: &HeaderValue, _: &_| {
+        if let Ok(origin_str) = origin.to_str() {
+            // Allow any localhost origin (including Tauri)
+            origin_str.starts_with("http://localhost:")
+                || origin_str.starts_with("http://127.0.0.1:")
+                || origin_str.starts_with("http://[::1]:")
+                || origin_str.starts_with("https://localhost:")
+                || origin_str.starts_with("https://127.0.0.1:")
+                || origin_str.starts_with("https://[::1]:")
+                || origin_str == "tauri://localhost"
+                || origin_str == "http://tauri.localhost"
+                || origin_str == "https://tauri.localhost"
+        } else {
+            false
+        }
+    })
 }
 
 pub async fn run_server() -> Result<(), Box<dyn std::error::Error>> {

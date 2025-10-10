@@ -1,3 +1,4 @@
+use crate::registry::{ServerRegistryEntry, GLOBAL_REGISTRY};
 use crate::types::*;
 use chrono::Utc;
 use serde_json;
@@ -80,9 +81,35 @@ impl PreviewManager {
     pub async fn new_with_recovery() -> Self {
         let manager = Self::new();
 
-        // Recover existing servers from lock files
+        // Sync from preview-locks to central registry first
+        if let Err(e) = GLOBAL_REGISTRY.sync_from_preview_locks().await {
+            warn!("Failed to sync from preview locks: {}", e);
+        }
+
+        // Recover existing servers from lock files (backwards compatibility)
         if let Err(e) = manager.recover_servers().await {
             warn!("Failed to recover servers: {}", e);
+        }
+
+        // Also load servers from the central registry
+        let registry_servers = GLOBAL_REGISTRY.get_all_servers().await;
+        for entry in registry_servers {
+            // Only add if not already in our local list
+            let mut servers = manager.active_servers.write().await;
+            if !servers.contains_key(&entry.project_id) {
+                let server_info = ServerInfo {
+                    id: Uuid::new_v4(), // Generate new ID
+                    project_id: entry.project_id.clone(),
+                    port: entry.port,
+                    pid: entry.pid,
+                    status: entry.status,
+                    preview_url: entry.preview_url,
+                    child: None,
+                    actual_command: entry.actual_command,
+                    framework_name: entry.framework_name,
+                };
+                servers.insert(entry.project_id, server_info);
+            }
         }
 
         manager
@@ -423,10 +450,36 @@ impl PreviewManager {
         servers.get(project_id).cloned()
     }
 
-    /// List all active servers
+    /// List all active servers (from BOTH local AND central registry)
     pub async fn list_servers(&self) -> Vec<ServerInfo> {
-        let servers = self.active_servers.read().await;
-        servers.values().cloned().collect()
+        // Get local servers first
+        let local_servers = self.active_servers.read().await;
+        let mut all_servers: HashMap<String, ServerInfo> = local_servers
+            .iter()
+            .map(|(k, v)| (k.clone(), v.clone()))
+            .collect();
+
+        // Also get servers from the global registry
+        let registry_servers = GLOBAL_REGISTRY.get_all_servers().await;
+        for entry in registry_servers {
+            // Add servers from registry if not already in local list
+            if !all_servers.contains_key(&entry.project_id) {
+                let server_info = ServerInfo {
+                    id: Uuid::parse_str(&entry.id).unwrap_or_else(|_| Uuid::new_v4()),
+                    project_id: entry.project_id.clone(),
+                    port: entry.port,
+                    pid: entry.pid,
+                    status: entry.status,
+                    preview_url: entry.preview_url,
+                    child: None,
+                    actual_command: entry.actual_command,
+                    framework_name: entry.framework_name,
+                };
+                all_servers.insert(entry.project_id, server_info);
+            }
+        }
+
+        all_servers.into_values().collect()
     }
 
     /// Get preferred port for a project (consistent across restarts)
@@ -809,6 +862,31 @@ impl PreviewManager {
             "Created lock file for project: {} at {:?}",
             server_info.project_id, lock_path
         );
+
+        // Also register with the central registry
+        let registry_entry = ServerRegistryEntry {
+            id: server_info.id.to_string(),
+            project_id: server_info.project_id.clone(),
+            project_name: None, // Could be fetched from project manager if available
+            project_root: project_root.to_path_buf(),
+            port: server_info.port,
+            pid: server_info.pid,
+            status: server_info.status.clone(),
+            preview_url: server_info.preview_url.clone(),
+            framework_name: server_info.framework_name.clone(),
+            actual_command: server_info.actual_command.clone(),
+            started_at: Utc::now(),
+            last_seen: Utc::now(),
+            api_port: std::env::var("ORKEE_API_PORT")
+                .ok()
+                .and_then(|p| p.parse().ok())
+                .unwrap_or(4001),
+        };
+
+        if let Err(e) = GLOBAL_REGISTRY.register_server(registry_entry).await {
+            warn!("Failed to register server in central registry: {}", e);
+        }
+
         Ok(())
     }
 
@@ -821,6 +899,12 @@ impl PreviewManager {
                 .map_err(PreviewError::IoError)?;
             info!("Removed lock file for project: {}", project_id);
         }
+
+        // Also remove from the central registry
+        if let Err(e) = GLOBAL_REGISTRY.unregister_server(project_id).await {
+            warn!("Failed to unregister server from central registry: {}", e);
+        }
+
         Ok(())
     }
 

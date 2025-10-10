@@ -2,6 +2,9 @@ use tauri::Manager;
 use tauri_plugin_shell::ShellExt;
 use std::sync::Mutex;
 
+mod tray;
+use tray::TrayManager;
+
 // Store the CLI server process handle and ports globally
 struct CliServerState {
     process: Mutex<Option<tauri_plugin_shell::process::CommandChild>>,
@@ -12,6 +15,30 @@ struct CliServerState {
 #[tauri::command]
 fn get_api_port(state: tauri::State<CliServerState>) -> u16 {
     state.api_port
+}
+
+/// Tauri command to manually refresh the tray menu
+#[tauri::command]
+async fn refresh_tray_menu(
+    _app: tauri::AppHandle,
+    tray_state: tauri::State<'_, TrayManager>,
+) -> Result<String, String> {
+    // Fetch latest servers from API
+    let api_port = tray_state.api_port;
+    let url = format!("http://localhost:{}/api/preview/servers", api_port);
+
+    match reqwest::get(&url).await {
+        Ok(response) => {
+            if response.status().is_success() {
+                // For now just log that we refreshed
+                println!("Tray menu refresh requested");
+                Ok("Menu refreshed".to_string())
+            } else {
+                Err("Failed to fetch servers".to_string())
+            }
+        }
+        Err(e) => Err(format!("Network error: {}", e))
+    }
 }
 
 /// Find an available port dynamically
@@ -25,6 +52,10 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_http::init())
+        .plugin(tauri_plugin_notification::init())
+        .plugin(tauri_plugin_process::init())
+        .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_clipboard_manager::init())
         .setup(|app| {
             // Find available port dynamically
             let api_port = find_available_port();
@@ -57,6 +88,14 @@ pub fn run() {
                 api_port,
             });
 
+            // Initialize the tray
+            let mut tray_manager = TrayManager::new(app.handle().clone(), api_port);
+            match tray_manager.init(app) {
+                Ok(_) => println!("Tray initialized successfully"),
+                Err(e) => eprintln!("Failed to initialize tray: {}", e),
+            }
+            app.manage(tray_manager);
+
             #[cfg(debug_assertions)]
             {
                 let window = app.get_webview_window("main").unwrap();
@@ -66,19 +105,28 @@ pub fn run() {
             Ok(())
         })
         .on_window_event(|window, event| {
-            // Kill the CLI server when the app closes
-            if let tauri::WindowEvent::CloseRequested { .. } = event {
-                if let Some(state) = window.app_handle().try_state::<CliServerState>() {
-                    if let Ok(mut process) = state.process.lock() {
-                        if let Some(mut child) = process.take() {
-                            println!("Stopping Orkee CLI server...");
-                            let _ = child.kill();
+            match event {
+                tauri::WindowEvent::CloseRequested { api, .. } => {
+                    // Instead of closing, hide the window (minimize to tray)
+                    // Users can quit from the tray menu
+                    window.hide().unwrap();
+                    api.prevent_close();
+                }
+                tauri::WindowEvent::Destroyed => {
+                    // When the window is actually destroyed (app quitting)
+                    if let Some(state) = window.app_handle().try_state::<CliServerState>() {
+                        if let Ok(mut process) = state.process.lock() {
+                            if let Some(child) = process.take() {
+                                println!("Stopping Orkee CLI server...");
+                                let _ = child.kill();
+                            }
                         }
                     }
                 }
+                _ => {}
             }
         })
-        .invoke_handler(tauri::generate_handler![get_api_port])
+        .invoke_handler(tauri::generate_handler![get_api_port, refresh_tray_menu])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

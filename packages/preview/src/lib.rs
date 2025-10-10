@@ -4,6 +4,7 @@
 //! for various project types with crash-resistant operation.
 
 pub mod manager;
+pub mod registry;
 pub mod types;
 
 // Re-export key types and functions for easier use

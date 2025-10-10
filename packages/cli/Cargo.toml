@@ -47,6 +47,8 @@ axum-server = { version = "0.6", features = ["tls-rustls"] }
 rustls = "0.21"
 rustls-pemfile = "1.0"
 rcgen = "0.12"
+# Port discovery
+portpicker = "0.1"
 
 [[bin]]
 name = "orkee"

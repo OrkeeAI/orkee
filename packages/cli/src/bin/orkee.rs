@@ -29,9 +29,9 @@ struct Cli {
 enum Commands {
     /// Start the dashboard (backend + frontend)
     Dashboard {
-        #[arg(long, default_value = "4001", help = "API server port")]
+        #[arg(long, default_value = "0", help = "API server port (0 = auto-allocate)")]
         api_port: u16,
-        #[arg(long, default_value = "5173", help = "Dashboard UI port")]
+        #[arg(long, default_value = "0", help = "Dashboard UI port (0 = auto-allocate)")]
         ui_port: u16,
         #[arg(long, help = "Restart services (kill existing processes first)")]
         restart: bool,
@@ -64,9 +64,9 @@ enum Commands {
 enum Commands {
     /// Start the dashboard (backend + frontend)
     Dashboard {
-        #[arg(long, default_value = "4001", help = "API server port")]
+        #[arg(long, default_value = "0", help = "API server port (0 = auto-allocate)")]
         api_port: u16,
-        #[arg(long, default_value = "5173", help = "Dashboard UI port")]
+        #[arg(long, default_value = "0", help = "Dashboard UI port (0 = auto-allocate)")]
         ui_port: u16,
         #[arg(long, help = "Restart services (kill existing processes first)")]
         restart: bool,
@@ -118,24 +118,37 @@ async fn handle_command(command: Commands) -> Result<(), Box<dyn std::error::Err
             restart,
             dev,
         } => {
-            // Check environment variables if not explicitly set via CLI
-            let final_api_port = if api_port == 4001 {
-                std::env::var("ORKEE_API_PORT")
-                    .ok()
-                    .and_then(|p| p.parse().ok())
-                    .unwrap_or(api_port)
-            } else {
+            // Determine ports: specified > environment > dynamic
+            let final_api_port = if api_port != 0 {
+                // User specified a port
                 api_port
+            } else if let Ok(port) = std::env::var("ORKEE_API_PORT")
+                .and_then(|p| p.parse::<u16>().map_err(|_| std::env::VarError::NotPresent))
+            {
+                // Environment variable set
+                port
+            } else {
+                // Dynamic allocation
+                find_available_port(4001, 4100).unwrap_or(4001)
             };
 
-            let final_ui_port = if ui_port == 5173 {
-                std::env::var("ORKEE_UI_PORT")
-                    .ok()
-                    .and_then(|p| p.parse().ok())
-                    .unwrap_or(ui_port)
-            } else {
+            let final_ui_port = if ui_port != 0 {
+                // User specified a port
                 ui_port
+            } else if let Ok(port) = std::env::var("ORKEE_UI_PORT")
+                .and_then(|p| p.parse::<u16>().map_err(|_| std::env::VarError::NotPresent))
+            {
+                // Environment variable set
+                port
+            } else {
+                // Dynamic allocation
+                find_available_port(5173, 5273).unwrap_or(5173)
             };
+
+            // Save port info for discovery when using dynamic ports
+            if api_port == 0 || ui_port == 0 {
+                save_port_info(final_api_port, final_ui_port)?;
+            }
 
             if restart {
                 restart_dashboard(final_api_port, final_ui_port, dev).await
@@ -448,6 +461,48 @@ async fn kill_port(port: u16) -> Result<(), Box<dyn std::error::Error>> {
             }
         }
     }
+
+    Ok(())
+}
+
+fn find_available_port(start: u16, end: u16) -> Option<u16> {
+    for _ in 0..5 {
+        // Try portpicker first for a random available port
+        if let Some(port) = portpicker::pick_unused_port() {
+            if port >= start && port <= end {
+                return Some(port);
+            }
+        }
+    }
+
+    // Fallback: scan range for available port
+    for port in start..=end {
+        if std::net::TcpListener::bind(("127.0.0.1", port)).is_ok() {
+            return Some(port);
+        }
+    }
+    None
+}
+
+fn save_port_info(api_port: u16, ui_port: u16) -> Result<(), Box<dyn std::error::Error>> {
+    use std::fs;
+
+    // Create ~/.orkee directory if it doesn't exist
+    let orkee_dir = dirs::home_dir()
+        .ok_or("Could not find home directory")?
+        .join(".orkee");
+    fs::create_dir_all(&orkee_dir)?;
+
+    // Write port info to JSON file
+    let ports_file = orkee_dir.join("ports.json");
+    let port_info = serde_json::json!({
+        "api_port": api_port,
+        "ui_port": ui_port,
+        "timestamp": chrono::Utc::now().to_rfc3339()
+    });
+
+    fs::write(&ports_file, serde_json::to_string_pretty(&port_info)?)?;
+    println!("💾 Saved port configuration to {}", ports_file.display());
 
     Ok(())
 }

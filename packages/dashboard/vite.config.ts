@@ -11,6 +11,11 @@ export default defineConfig({
       '@orkee/tasks': path.resolve(__dirname, '../tasks/src'),
     },
   },
+  define: {
+    // Pass the dynamic API port to the frontend
+    'import.meta.env.VITE_ORKEE_API_PORT': JSON.stringify(process.env.ORKEE_API_PORT || ''),
+    'import.meta.env.VITE_ORKEE_UI_PORT': JSON.stringify(process.env.ORKEE_UI_PORT || ''),
+  },
   server: {
     port: parseInt(process.env.ORKEE_UI_PORT || process.env.VITE_PORT || '5173'),
     strictPort: true,

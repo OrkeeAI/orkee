@@ -262,3 +262,22 @@ impl<T> ApiResponse<T> {
         }
     }
 }
+
+/// Server information for status display (e.g., tray menu)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ServerStatusInfo {
+    pub id: String,
+    pub project_id: String,
+    pub project_name: Option<String>,
+    pub port: u16,
+    pub url: String,
+    pub status: String,
+    pub framework_name: Option<String>,
+    pub started_at: Option<DateTime<Utc>>,
+}
+
+/// Response containing list of servers
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ServersResponse {
+    pub servers: Vec<ServerStatusInfo>,
+}

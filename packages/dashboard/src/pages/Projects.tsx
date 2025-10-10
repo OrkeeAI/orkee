@@ -215,10 +215,35 @@ export function Projects() {
 
   const loadActiveServers = async () => {
     try {
-      const activeServerIds = await previewService.getActiveServers();
+      console.log('Loading active servers...');
+      const result = await previewService.getActiveServers();
+      console.log('Got result:', result, 'Type:', typeof result, 'Is array?', Array.isArray(result));
+
+      // Handle both array response and object response
+      let activeServerIds: string[];
+      if (Array.isArray(result)) {
+        activeServerIds = result;
+      } else if (result && typeof result === 'object' && 'servers' in result) {
+        // If it's an object with servers property, extract project_ids
+        const servers = (result as any).servers;
+        if (Array.isArray(servers)) {
+          activeServerIds = servers.map((s: any) => s.project_id);
+          console.log('Extracted project IDs from servers:', activeServerIds);
+        } else {
+          console.error('servers is not an array!', servers);
+          setActiveServers(new Set());
+          return;
+        }
+      } else {
+        console.error('Unexpected result type!', result);
+        setActiveServers(new Set());
+        return;
+      }
+
       setActiveServers(new Set(activeServerIds));
     } catch (err) {
       console.error('Failed to load active servers:', err);
+      setActiveServers(new Set());
     }
   };
 
