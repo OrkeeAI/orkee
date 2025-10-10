@@ -60,8 +60,9 @@ impl TrayManager {
 
         println!("Menu built successfully");
 
-        // Load the icon (white with transparent background for menu bar)
-        let icon_bytes = include_bytes!("../icons/icon.png");
+        // Load the template icon (white frame with transparent cutout for menu bar)
+        // macOS will automatically adapt the color based on light/dark mode
+        let icon_bytes = include_bytes!("../icons/icon-template.png");
         let icon = Image::from_bytes(icon_bytes)?;
 
         println!("Icon loaded successfully");
@@ -71,6 +72,7 @@ impl TrayManager {
 
         let tray = TrayIconBuilder::new()
             .icon(icon)
+            .icon_as_template(true) // Enable macOS template mode for automatic color adaptation
             .menu(&menu)
             .tooltip("Orkee - Development Server Manager")
             .show_menu_on_left_click(true)
