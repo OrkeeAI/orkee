@@ -57,10 +57,13 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_clipboard_manager::init())
         .setup(|app| {
-            // Set the activation policy to Accessory on macOS to prevent the app from
-            // appearing in the Dock and allow it to run with just the tray icon
+            // Set the activation policy on macOS
+            // Options:
+            // - Accessory: No Dock icon, no Cmd+Tab (menu bar only) - CURRENT
+            // - Regular: Shows in Dock and Cmd+Tab (standard app)
+            // - Prohibited: Hidden by default but can show in some contexts
             #[cfg(target_os = "macos")]
-            app.set_activation_policy(tauri::ActivationPolicy::Accessory);
+            app.set_activation_policy(tauri::ActivationPolicy::Regular);
 
             // Find available port dynamically
             let api_port = find_available_port();
