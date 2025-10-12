@@ -244,7 +244,7 @@ mod tests {
         let result = format_project_details(&project);
         assert!(result.contains("ID: minimal"));
         assert!(result.contains("Name: Minimal Project"));
-        assert!(result.contains("Status: active"));
+        assert!(result.contains("Status: planning"));
         assert!(!result.contains("Description:"));
         assert!(!result.contains("Tags:"));
     }

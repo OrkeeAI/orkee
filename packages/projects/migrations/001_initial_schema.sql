@@ -13,7 +13,7 @@ CREATE TABLE projects (
     description TEXT,
     
     -- Status and priority
-    status TEXT NOT NULL DEFAULT 'pre-launch' CHECK (status IN ('pre-launch', 'launched', 'archived')),
+    status TEXT NOT NULL DEFAULT 'planning' CHECK (status IN ('planning', 'building', 'review', 'launched', 'on-hold', 'archived')),
     priority TEXT NOT NULL DEFAULT 'medium' CHECK (priority IN ('low', 'medium', 'high')),
     rank INTEGER,
     
@@ -137,9 +137,9 @@ CREATE INDEX idx_sync_state_last_sync ON sync_state(last_sync_at);
 
 -- Views for common queries
 CREATE VIEW active_projects AS
-SELECT * FROM projects 
-WHERE status = 'active' 
-ORDER BY 
+SELECT * FROM projects
+WHERE status IN ('planning', 'building', 'review')
+ORDER BY
     CASE WHEN rank IS NULL THEN 1 ELSE 0 END,
     rank ASC,
     name ASC;
