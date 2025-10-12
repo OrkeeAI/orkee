@@ -62,14 +62,16 @@ fn validate_api_host(host: &str) -> Result<(), String> {
         ));
     }
 
-    // Allow localhost variants by default
-    let is_localhost = host == "localhost"
-        || host == "127.0.0.1"
-        || host == "::1"
-        || host.starts_with("127.");
-
-    if is_localhost {
+    // Allow localhost by name
+    if host == "localhost" {
         return Ok(());
+    }
+
+    // Validate as IP address and check if it's loopback
+    if let Ok(ip) = host.parse::<std::net::IpAddr>() {
+        if ip.is_loopback() {
+            return Ok(());
+        }
     }
 
     // Check if remote API access is explicitly enabled
