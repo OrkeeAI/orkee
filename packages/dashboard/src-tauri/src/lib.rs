@@ -429,35 +429,15 @@ pub fn run() {
                 }
             };
 
-            // Spawn the CLI server with dashboard command and log its output
+            // Build args dynamically based on build profile
+            let mut args = vec!["dashboard"];
             #[cfg(debug_assertions)]
-            let child = match sidecar_command
-                .args([
-                    "dashboard",
-                    "--dev",  // Use local dashboard in dev mode
-                    "--api-port", &api_port.to_string(),
-                    "--ui-port", &ui_port.to_string(),
-                ])
-                .spawn()
-            {
-                Ok((rx, child)) => {
-                    log_sidecar_output(rx);
-                    child
-                }
-                Err(e) => {
-                    eprintln!("Failed to spawn orkee CLI server process: {}", e);
-                    eprintln!("Check that the orkee binary has execute permissions and is not corrupted");
-                    return Err(Box::new(e));
-                }
-            };
+            args.push("--dev");  // Use local dashboard in dev mode
+            args.extend(["--api-port", &api_port.to_string(), "--ui-port", &ui_port.to_string()]);
 
-            #[cfg(not(debug_assertions))]
+            // Spawn the CLI server with dashboard command and log its output
             let child = match sidecar_command
-                .args([
-                    "dashboard",
-                    "--api-port", &api_port.to_string(),
-                    "--ui-port", &ui_port.to_string(),
-                ])
+                .args(args)
                 .spawn()
             {
                 Ok((rx, child)) => {
