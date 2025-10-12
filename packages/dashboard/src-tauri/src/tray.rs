@@ -12,7 +12,6 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 use serde::{Deserialize, Serialize};
 use urlencoding::encode;
-use futures::future::join_all;
 
 // Timeout constants for HTTP operations
 const HTTP_REQUEST_TIMEOUT_SECS: u64 = 5;
@@ -565,32 +564,9 @@ impl TrayManager {
         if response.status().is_success() {
             let api_response: ApiResponse<ServersResponse> = response.json().await?;
             if let Some(data) = api_response.data {
-                let mut servers = data.servers;
-
-                // Enrich servers with project names from projects API (parallel fetching)
-                let futures: Vec<_> = servers
-                    .iter()
-                    .filter(|s| s.project_name.is_none())
-                    .map(|s| {
-                        let project_id = s.project_id.clone();
-                        let server_id = s.id.clone();
-                        let client = self.http_client.clone();
-                        let api_port = self.api_port;
-                        async move {
-                            let name = Self::fetch_project_name_with_client(&client, api_port, &project_id).await.ok();
-                            (server_id, name)
-                        }
-                    })
-                    .collect();
-
-                let results = join_all(futures).await;
-                for (server_id, name) in results {
-                    if let Some(server) = servers.iter_mut().find(|s| s.id == server_id) {
-                        server.project_name = name;
-                    }
-                }
-
-                Ok(servers)
+                // Project names are now included in the API response
+                // No need for additional fetching - this eliminates the N+1 query problem
+                Ok(data.servers)
             } else {
                 // Return error instead of empty vec to prevent clearing menu on API issues
                 Err("API response missing data field".into())
@@ -599,23 +575,6 @@ impl TrayManager {
             // Return error instead of empty vec to prevent clearing menu on HTTP errors
             Err(format!("HTTP error: {}", response.status()).into())
         }
-    }
-
-    async fn fetch_project_name_with_client(client: &reqwest::Client, api_port: u16, project_id: &str) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
-        let url = format!("http://{}:{}/api/projects/{}", get_api_host(), api_port, encode(project_id));
-        let response = client.get(&url).send().await?;
-
-        if response.status().is_success() {
-            let api_response: ApiResponse<serde_json::Value> = response.json().await?;
-            if let Some(data) = api_response.data {
-                if let Some(name) = data.get("name").and_then(|n| n.as_str()) {
-                    return Ok(name.to_string());
-                }
-            }
-        }
-
-        // Fallback to project_id if we can't fetch the name
-        Ok(project_id.to_string())
     }
 
     /// Get the polling interval from environment variable or use default.

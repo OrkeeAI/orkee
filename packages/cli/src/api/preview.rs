@@ -234,12 +234,28 @@ pub async fn list_active_servers(
 ) -> Json<ApiResponse<ServersResponse>> {
     let servers = state.preview_manager.list_servers().await;
 
+    // Fetch all projects in a single batch to get project names
+    // This avoids N+1 query problem where each server would require a separate project lookup
+    let project_names = match state.project_manager.list_projects().await {
+        Ok(projects) => {
+            // Build a map of project_id -> project_name for fast lookups
+            projects
+                .into_iter()
+                .map(|p| (p.id.clone(), p.name.clone()))
+                .collect::<std::collections::HashMap<String, String>>()
+        }
+        Err(e) => {
+            error!("Failed to fetch projects for server list: {}", e);
+            std::collections::HashMap::new()
+        }
+    };
+
     // Convert ServerInfo to a format suitable for the tray menu
     let server_list: Vec<ServerStatusInfo> = servers
         .into_iter()
         .map(|info| {
-            // Get the project name if available
-            let project_name = None; // Could be fetched from project manager if needed
+            // Get the project name from the batch-fetched map
+            let project_name = project_names.get(&info.project_id).cloned();
 
             ServerStatusInfo {
                 id: info.id.to_string(),
