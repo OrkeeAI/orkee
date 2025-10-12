@@ -525,7 +525,7 @@ pub fn run() {
                         }
                     }
                 }
-                tauri::RunEvent::ExitRequested { api, .. } => {
+                tauri::RunEvent::ExitRequested { .. } => {
                     // Don't prevent exit, but ensure cleanup happens
                     println!("Exit requested, cleanup will occur in Exit event");
                     // Don't call prevent_exit - let it proceed to Exit event
