@@ -701,18 +701,34 @@ fn discover_api_port() -> Result<u16, Box<dyn std::error::Error>> {
             "{} Could not determine home directory for port discovery",
             "⚠️".yellow()
         );
-        eprintln!(
-            "{} Port configuration file (~/.orkee/ports.json) cannot be accessed",
-            "ℹ️".cyan()
-        );
     }
 
-    // Priority 3: Fall back to default port
-    eprintln!(
-        "{} Using default API port 4001 (set ORKEE_API_PORT to specify a different port)",
-        "ℹ️".cyan()
-    );
-    Ok(4001)
+    // Priority 3: Try to detect running server by checking common ports
+    let common_ports = vec![4001, 4000, 4002, 3000, 8000, 8080, 9000];
+    use std::net::{TcpStream, SocketAddr};
+    use std::time::Duration;
+
+    for port in common_ports {
+        // Try to connect to the port with a short timeout
+        let addr: SocketAddr = format!("127.0.0.1:{}", port).parse().unwrap();
+        if TcpStream::connect_timeout(&addr, Duration::from_millis(100)).is_ok() {
+            eprintln!(
+                "{} Found service running on port {} - assuming it's Orkee server",
+                "🔍".cyan(),
+                port
+            );
+            return Ok(port);
+        }
+    }
+
+    // Priority 4: Fall back to default port with better error message
+    return Err(format!(
+        "Could not discover API port. Please ensure the Orkee server is running.\n\
+        You can specify the port using:\n\
+        - ORKEE_API_PORT environment variable\n\
+        - Or start the server with: orkee dashboard --api-port <PORT>"
+    )
+    .into());
 }
 
 async fn wait_for_backend_ready(api_port: u16) -> Result<(), Box<dyn std::error::Error>> {
