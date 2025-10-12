@@ -10,9 +10,40 @@ env:
   RUST_BACKTRACE: 1
 
 jobs:
+  audit:
+    name: Security Audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install cargo-audit
+        run: cargo install cargo-audit --locked
+
+      - name: Run Rust security audit
+        run: cargo audit
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.2.23"
+
+      - name: Install dashboard dependencies
+        run: |
+          cd packages/dashboard
+          bun install
+
+      - name: Run Bun security audit
+        run: |
+          cd packages/dashboard
+          bun audit
+
   build:
     name: Build - ${{ matrix.platform.name }}
     runs-on: ${{ matrix.platform.os }}
+    needs: [audit]
     strategy:
       fail-fast: false
       matrix:
@@ -169,6 +200,7 @@ jobs:
   package-dashboard:
     name: Package Dashboard (Source & Dist)
     runs-on: ubuntu-latest
+    needs: [audit]
     steps:
       - uses: actions/checkout@v4
 
