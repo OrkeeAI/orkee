@@ -6,3 +6,6 @@ mod api_tests;
 
 #[cfg(test)]
 mod health_tests;
+
+#[cfg(test)]
+mod downloader_tests;
