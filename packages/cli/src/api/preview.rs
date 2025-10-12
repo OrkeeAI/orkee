@@ -139,6 +139,44 @@ pub async fn stop_server(
     }
 }
 
+/// Stop all development servers
+pub async fn stop_all_servers(
+    State(state): State<PreviewState>,
+) -> Json<ApiResponse<()>> {
+    info!("Stopping all development servers");
+
+    let servers = state.preview_manager.list_servers().await;
+    let mut errors = Vec::new();
+    let mut stopped_count = 0;
+
+    for server in servers {
+        match state.preview_manager.stop_server(&server.project_id).await {
+            Ok(_) => {
+                info!("Stopped server for project: {}", server.project_id);
+                stopped_count += 1;
+            }
+            Err(e) => {
+                error!("Failed to stop server for project {}: {}", server.project_id, e);
+                errors.push(format!("{}: {}", server.project_id, e));
+            }
+        }
+    }
+
+    if errors.is_empty() {
+        info!("Successfully stopped {} servers", stopped_count);
+        Json(ApiResponse::success(()))
+    } else {
+        let error_msg = format!(
+            "Stopped {} servers, but {} failed: {}",
+            stopped_count,
+            errors.len(),
+            errors.join(", ")
+        );
+        error!("{}", error_msg);
+        Json(ApiResponse::error(error_msg))
+    }
+}
+
 /// Get server status
 pub async fn get_server_status(
     Path(project_id): Path<String>,

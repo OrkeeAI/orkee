@@ -162,8 +162,10 @@ impl ServerRegistry {
 
         let json = serde_json::to_string_pretty(entries)?;
 
-        // Write to temporary file first for atomic operation
-        let temp_path = self.registry_path.with_extension("tmp");
+        // Write to process-unique temporary file to prevent cross-instance collisions
+        let temp_path = self
+            .registry_path
+            .with_extension(&format!("tmp.{}", std::process::id()));
         fs::write(&temp_path, &json)?;
 
         // Atomic rename to actual file with cleanup on failure
@@ -208,21 +210,14 @@ impl ServerRegistry {
     ) -> Result<(), Box<dyn std::error::Error>> {
         let entry_id = entry.id.clone();
 
-        // Create new state with the entry added
-        let new_entries = {
-            let mut registry = self.entries.read().await.clone();
-            registry.insert(entry_id.clone(), entry);
-            registry
-        };
+        // Hold write lock for entire transaction to prevent race conditions
+        let mut registry = self.entries.write().await;
 
-        // Save to disk first (transactional boundary)
-        self.save_entries_to_disk(&new_entries).await?;
+        // Add entry to registry
+        registry.insert(entry_id, entry);
 
-        // Only update memory if save succeeded
-        {
-            let mut registry = self.entries.write().await;
-            *registry = new_entries;
-        }
+        // Save to disk (transactional boundary)
+        self.save_entries_to_disk(&*registry).await?;
 
         Ok(())
     }
@@ -248,21 +243,14 @@ impl ServerRegistry {
         &self,
         server_id: &str,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        // Create new state with the entry removed
-        let new_entries = {
-            let mut registry = self.entries.read().await.clone();
-            registry.remove(server_id);
-            registry
-        };
+        // Hold write lock for entire transaction to prevent race conditions
+        let mut registry = self.entries.write().await;
 
-        // Save to disk first (transactional boundary)
-        self.save_entries_to_disk(&new_entries).await?;
+        // Remove entry from registry
+        registry.remove(server_id);
 
-        // Only update memory if save succeeded
-        {
-            let mut registry = self.entries.write().await;
-            *registry = new_entries;
-        }
+        // Save to disk (transactional boundary)
+        self.save_entries_to_disk(&*registry).await?;
 
         Ok(())
     }
@@ -317,24 +305,17 @@ impl ServerRegistry {
         server_id: &str,
         status: DevServerStatus,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        // Create new state with the status updated
-        let new_entries = {
-            let mut registry = self.entries.read().await.clone();
-            if let Some(entry) = registry.get_mut(server_id) {
-                entry.status = status;
-                entry.last_seen = Utc::now();
-            }
-            registry
-        };
+        // Hold write lock for entire transaction to prevent race conditions
+        let mut registry = self.entries.write().await;
 
-        // Save to disk first (transactional boundary)
-        self.save_entries_to_disk(&new_entries).await?;
-
-        // Only update memory if save succeeded
-        {
-            let mut registry = self.entries.write().await;
-            *registry = new_entries;
+        // Update server status and timestamp
+        if let Some(entry) = registry.get_mut(server_id) {
+            entry.status = status;
+            entry.last_seen = Utc::now();
         }
+
+        // Save to disk (transactional boundary)
+        self.save_entries_to_disk(&*registry).await?;
 
         Ok(())
     }
@@ -371,44 +352,38 @@ impl ServerRegistry {
     /// Returns an error if the registry cannot be saved to disk after cleanup.
     pub async fn cleanup_stale_entries(&self) -> Result<(), Box<dyn std::error::Error>> {
         let cutoff = Utc::now() - chrono::Duration::minutes(self.stale_timeout_minutes);
+
+        // Hold write lock for entire transaction to prevent race conditions
+        let mut registry = self.entries.write().await;
         let mut to_remove = Vec::new();
 
-        {
-            let registry = self.entries.read().await;
-            for (id, entry) in registry.iter() {
-                if entry.last_seen < cutoff {
-                    // Check if the process is still running with validation
-                    if let Some(pid) = entry.pid {
-                        if !is_process_running_validated(
-                            pid,
-                            Some(entry.started_at),
-                            &["node", "python", "npm", "yarn", "bun", "pnpm", "deno"],
-                        ) {
-                            to_remove.push(id.clone());
-                        }
-                    } else {
+        // Identify stale entries
+        for (id, entry) in registry.iter() {
+            if entry.last_seen < cutoff {
+                // Check if the process is still running with validation
+                if let Some(pid) = entry.pid {
+                    if !is_process_running_validated(
+                        pid,
+                        Some(entry.started_at),
+                        &["node", "python", "npm", "yarn", "bun", "pnpm", "deno"],
+                    ) {
                         to_remove.push(id.clone());
                     }
+                } else {
+                    to_remove.push(id.clone());
                 }
             }
         }
 
+        // Remove stale entries
         if !to_remove.is_empty() {
-            let new_entries = {
-                let mut registry = self.entries.read().await.clone();
-                for id in &to_remove {
-                    warn!("Removing stale server entry: {}", id);
-                    registry.remove(id);
-                }
-                registry
-            };
-
-            self.save_entries_to_disk(&new_entries).await?;
-
-            {
-                let mut registry = self.entries.write().await;
-                *registry = new_entries;
+            for id in &to_remove {
+                warn!("Removing stale server entry: {}", id);
+                registry.remove(id);
             }
+
+            // Save to disk (transactional boundary)
+            self.save_entries_to_disk(&*registry).await?;
         }
 
         Ok(())
@@ -596,6 +571,72 @@ fn is_process_running_validated(
 use once_cell::sync::Lazy;
 pub static GLOBAL_REGISTRY: Lazy<ServerRegistry> = Lazy::new(ServerRegistry::new);
 
+/// Start periodic cleanup of stale registry entries.
+///
+/// Spawns a background task that runs every 5 minutes to clean up stale server
+/// entries from the global registry. This prevents memory leaks and keeps the
+/// registry in sync with actually running processes.
+///
+/// The cleanup interval can be configured via `ORKEE_CLEANUP_INTERVAL_MINUTES`
+/// environment variable (default: 5 minutes, min: 1, max: 60).
+///
+/// This function should be called once during application initialization.
+/// Multiple calls are safe - subsequent calls will be ignored.
+///
+/// # Examples
+///
+/// ```no_run
+/// use orkee_preview::registry::start_periodic_cleanup;
+///
+/// #[tokio::main]
+/// async fn main() {
+///     start_periodic_cleanup();
+///     // Application continues running...
+/// }
+/// ```
+pub fn start_periodic_cleanup() {
+    use once_cell::sync::OnceCell;
+    use tokio::time::{interval, Duration};
+
+    static CLEANUP_TASK_STARTED: OnceCell<()> = OnceCell::new();
+
+    // Only start the task once
+    if CLEANUP_TASK_STARTED.get().is_some() {
+        debug!("Periodic cleanup task already started");
+        return;
+    }
+
+    // Get cleanup interval from environment variable (default: 5 minutes)
+    let cleanup_interval_minutes =
+        parse_env_or_default_with_validation("ORKEE_CLEANUP_INTERVAL_MINUTES", 5, |v| {
+            v >= 1 && v <= 60
+        });
+
+    info!(
+        "Starting periodic registry cleanup task (interval: {} minutes)",
+        cleanup_interval_minutes
+    );
+
+    // Mark as started
+    let _ = CLEANUP_TASK_STARTED.set(());
+
+    // Spawn background task
+    tokio::spawn(async move {
+        let mut interval = interval(Duration::from_secs(cleanup_interval_minutes * 60));
+
+        loop {
+            interval.tick().await;
+
+            debug!("Running periodic registry cleanup");
+            if let Err(e) = GLOBAL_REGISTRY.cleanup_stale_entries().await {
+                error!("Periodic cleanup failed: {}", e);
+            } else {
+                debug!("Periodic cleanup completed successfully");
+            }
+        }
+    });
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -756,9 +797,15 @@ mod tests {
         // Verify main file exists
         assert!(registry.registry_path.exists());
 
-        // Verify temp file was cleaned up
-        let temp_path = registry.registry_path.with_extension("tmp");
+        // Verify process-unique temp file was cleaned up
+        let temp_path = registry
+            .registry_path
+            .with_extension(&format!("tmp.{}", std::process::id()));
         assert!(!temp_path.exists());
+
+        // Verify old-style temp file doesn't exist either
+        let old_temp_path = registry.registry_path.with_extension("tmp");
+        assert!(!old_temp_path.exists());
     }
 
     #[tokio::test]

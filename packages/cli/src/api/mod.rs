@@ -71,6 +71,7 @@ pub async fn create_router_with_options(dashboard_path: Option<std::path::PathBu
     let preview_router = Router::new()
         .route("/health", get(preview::health_check))
         .route("/servers", get(preview::list_active_servers))
+        .route("/servers/stop-all", post(preview::stop_all_servers))
         .route("/servers/:project_id/start", post(preview::start_server))
         .route("/servers/:project_id/stop", post(preview::stop_server))
         .route(
