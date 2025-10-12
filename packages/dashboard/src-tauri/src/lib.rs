@@ -115,6 +115,44 @@ fn kill_cli_process(child: tauri_plugin_shell::process::CommandChild) {
     }
 }
 
+/// Handle mutex poisoning and attempt to recover the CLI process.
+///
+/// When the process mutex is poisoned (due to a panic while locked), this function
+/// logs diagnostic information and attempts to recover the process handle from the
+/// poisoned state. If recovery succeeds, it properly terminates the CLI process.
+///
+/// # Arguments
+///
+/// * `poisoned` - The poisoned mutex error containing the guard
+/// * `location` - Human-readable description of where the poisoning was detected
+///
+/// # Notes
+///
+/// This function will always attempt recovery, even if the mutex was poisoned.
+/// The poisoning indicates a previous panic, but the process handle may still
+/// be valid and needs to be properly cleaned up.
+fn recover_cli_process(
+    poisoned: std::sync::PoisonError<std::sync::MutexGuard<Option<tauri_plugin_shell::process::CommandChild>>>,
+    location: &str,
+) {
+    eprintln!("=== MUTEX POISONING DETECTED ===");
+    eprintln!("Location: {}", location);
+    eprintln!("Thread: {:?}", std::thread::current().id());
+    eprintln!("Status: CRITICAL - Process mutex was poisoned");
+    eprintln!("Cause: Another thread panicked while holding this mutex");
+    eprintln!("Action: Attempting recovery from poisoned state");
+    eprintln!("Note: Please report this issue if it occurs frequently at https://github.com/OrkeeAI/orkee/issues");
+    eprintln!("================================");
+
+    let mut guard = poisoned.into_inner();
+    if let Some(child) = guard.take() {
+        eprintln!("✓ Recovery successful: Process handle recovered from poisoned mutex");
+        kill_cli_process(child);
+    } else {
+        eprintln!("✗ FATAL: No process handle found in poisoned mutex - orphaned process likely");
+    }
+}
+
 /// Get the API port that the CLI server is running on.
 ///
 /// This Tauri command is exposed to the frontend to allow it to discover
@@ -361,22 +399,7 @@ pub fn run() {
                                                 }
                                             }
                                             Err(poisoned) => {
-                                                eprintln!("=== MUTEX POISONING DETECTED ===");
-                                                eprintln!("Location: Quick shutdown path (no async cleanup)");
-                                                eprintln!("Thread: {:?}", std::thread::current().id());
-                                                eprintln!("Status: CRITICAL - Process mutex was poisoned");
-                                                eprintln!("Cause: Another thread panicked while holding this mutex");
-                                                eprintln!("Action: Attempting recovery from poisoned state");
-                                                eprintln!("Note: Please report this issue if it occurs frequently at https://github.com/OrkeeAI/orkee/issues");
-                                                eprintln!("================================");
-
-                                                let mut guard = poisoned.into_inner();
-                                                if let Some(child) = guard.take() {
-                                                    eprintln!("✓ Recovery successful: Process handle recovered from poisoned mutex");
-                                                    kill_cli_process(child);
-                                                } else {
-                                                    eprintln!("✗ FATAL: No process handle found in poisoned mutex - orphaned process likely");
-                                                }
+                                                recover_cli_process(poisoned, "Quick shutdown path (no async cleanup)");
                                             }
                                         }
                                         return;
@@ -406,24 +429,8 @@ pub fn run() {
                                 }
                             }
                             Err(poisoned) => {
-                                eprintln!("=== MUTEX POISONING DETECTED ===");
-                                eprintln!("Location: Normal shutdown path (after async cleanup)");
-                                eprintln!("Thread: {:?}", std::thread::current().id());
-                                eprintln!("Status: CRITICAL - Process mutex was poisoned");
-                                eprintln!("Cause: Another thread panicked while holding this mutex");
-                                eprintln!("Action: Attempting recovery from poisoned state");
-                                eprintln!("Note: Please report this issue if it occurs frequently at https://github.com/OrkeeAI/orkee/issues");
-                                eprintln!("================================");
-
-                                // Attempt to recover the process handle from poisoned mutex
-                                let mut guard = poisoned.into_inner();
-                                if let Some(child) = guard.take() {
-                                    eprintln!("✓ Recovery successful: Process handle recovered from poisoned mutex");
-                                    kill_cli_process(child);
-                                } else {
-                                    eprintln!("✗ FATAL: No process handle found in poisoned mutex - orphaned process likely");
-                                    eprintln!("✗ Action required: You may need to manually kill the orkee CLI process");
-                                }
+                                recover_cli_process(poisoned, "Normal shutdown path (after async cleanup)");
+                                eprintln!("✗ Action required: You may need to manually kill the orkee CLI process");
                             }
                         }
                     }
@@ -467,22 +474,7 @@ pub fn run() {
                                         }
                                     }
                                     Err(poisoned) => {
-                                        eprintln!("=== MUTEX POISONING DETECTED ===");
-                                        eprintln!("Location: Exit event path (runtime creation failed)");
-                                        eprintln!("Thread: {:?}", std::thread::current().id());
-                                        eprintln!("Status: CRITICAL - Process mutex was poisoned");
-                                        eprintln!("Cause: Another thread panicked while holding this mutex");
-                                        eprintln!("Action: Attempting recovery from poisoned state");
-                                        eprintln!("Note: Please report this issue if it occurs frequently at https://github.com/OrkeeAI/orkee/issues");
-                                        eprintln!("================================");
-
-                                        let mut guard = poisoned.into_inner();
-                                        if let Some(child) = guard.take() {
-                                            eprintln!("✓ Recovery successful: Process handle recovered from poisoned mutex");
-                                            kill_cli_process(child);
-                                        } else {
-                                            eprintln!("✗ FATAL: No process handle found in poisoned mutex - orphaned process likely");
-                                        }
+                                        recover_cli_process(poisoned, "Exit event path (runtime creation failed)");
                                     }
                                 }
                                 return;
@@ -503,24 +495,8 @@ pub fn run() {
                                 }
                             }
                             Err(poisoned) => {
-                                eprintln!("=== MUTEX POISONING DETECTED ===");
-                                eprintln!("Location: App exit event (normal shutdown after cleanup)");
-                                eprintln!("Thread: {:?}", std::thread::current().id());
-                                eprintln!("Status: CRITICAL - Process mutex was poisoned");
-                                eprintln!("Cause: Another thread panicked while holding this mutex");
-                                eprintln!("Action: Attempting recovery from poisoned state");
-                                eprintln!("Note: Please report this issue if it occurs frequently at https://github.com/OrkeeAI/orkee/issues");
-                                eprintln!("================================");
-
-                                // Attempt to recover the process handle from poisoned mutex
-                                let mut guard = poisoned.into_inner();
-                                if let Some(child) = guard.take() {
-                                    eprintln!("✓ Recovery successful: Process handle recovered from poisoned mutex");
-                                    kill_cli_process(child);
-                                } else {
-                                    eprintln!("✗ FATAL: No process handle found in poisoned mutex - orphaned process likely");
-                                    eprintln!("✗ Action required: You may need to manually kill the orkee CLI process");
-                                }
+                                recover_cli_process(poisoned, "App exit event (normal shutdown after cleanup)");
+                                eprintln!("✗ Action required: You may need to manually kill the orkee CLI process");
                             }
                         }
                     }

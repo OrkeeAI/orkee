@@ -520,6 +520,23 @@ impl ServerRegistry {
     }
 }
 
+/// Get the process start time validation tolerance in seconds.
+///
+/// Returns the tolerance value used to determine if a process's start time matches
+/// the expected start time. This helps detect PID reuse on systems under heavy load.
+/// Can be configured via the `ORKEE_PROCESS_START_TIME_TOLERANCE_SECS` environment
+/// variable (default: 5 seconds, max: 60 seconds).
+///
+/// # Returns
+///
+/// Returns the tolerance in seconds.
+fn get_start_time_tolerance_secs() -> u64 {
+    use crate::env::parse_env_or_default_with_validation;
+    parse_env_or_default_with_validation("ORKEE_PROCESS_START_TIME_TOLERANCE_SECS", 5, |v| {
+        v > 0 && v <= 60
+    })
+}
+
 /// Check if a process with the given PID is running and matches expected criteria
 /// This prevents PID reuse attacks where a new process reuses an old PID
 fn is_process_running_validated(
@@ -549,18 +566,21 @@ fn is_process_running_validated(
             return false;
         }
 
-        // Validate start time if available (within 5 second tolerance for clock skew)
+        // Validate start time if available
         if let Some(expected_time) = expected_start_time {
+            let tolerance_secs = get_start_time_tolerance_secs();
             let process_start_secs = process.start_time();
             let expected_unix = expected_time.timestamp() as u64;
+            let time_diff = process_start_secs.abs_diff(expected_unix);
 
-            // Allow 5 second tolerance for clock skew
-            if process_start_secs.abs_diff(expected_unix) > 5 {
+            if time_diff > tolerance_secs {
                 warn!(
-                    "PID {} exists but start time mismatch (process: {}, expected: {}) - likely PID reuse",
+                    "PID {} exists but start time mismatch (process: {}, expected: {}, diff: {}s, tolerance: {}s) - likely PID reuse",
                     pid,
                     process_start_secs,
-                    expected_unix
+                    expected_unix,
+                    time_diff,
+                    tolerance_secs
                 );
                 return false;
             }

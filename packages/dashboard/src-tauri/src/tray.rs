@@ -424,13 +424,19 @@ impl TrayManager {
                 }
             }
 
-            // Step 2: Poll and verify server is actually stopped
+            // Step 2: Poll and verify server is actually stopped with exponential backoff
             let status_url = format!("http://{}:{}/api/preview/servers/{}/status", get_api_host(), api_port, encode(&project_id));
-            let max_attempts = (SERVER_RESTART_MAX_WAIT_SECS * 1000) / SERVER_RESTART_POLL_INTERVAL_MS;
+            let max_wait_ms = SERVER_RESTART_MAX_WAIT_SECS * 1000;
 
             let mut stopped = false;
-            for attempt in 0..max_attempts {
-                tokio::time::sleep(Duration::from_millis(SERVER_RESTART_POLL_INTERVAL_MS)).await;
+            let mut wait_ms = SERVER_RESTART_POLL_INTERVAL_MS; // Start with 100ms
+            let mut elapsed_ms = 0;
+            let mut attempt = 0;
+
+            while elapsed_ms < max_wait_ms {
+                tokio::time::sleep(Duration::from_millis(wait_ms)).await;
+                elapsed_ms += wait_ms;
+                attempt += 1;
 
                 // Check if server is no longer running
                 match client.get(&status_url).send().await {
@@ -442,7 +448,7 @@ impl TrayManager {
                                     if data.get("instance").is_none() {
                                         // Server is stopped
                                         stopped = true;
-                                        println!("Server confirmed stopped after {}ms", attempt * SERVER_RESTART_POLL_INTERVAL_MS);
+                                        println!("Server confirmed stopped after {}ms (attempt {})", elapsed_ms, attempt);
                                         break;
                                     }
                                 }
@@ -450,17 +456,20 @@ impl TrayManager {
                         } else {
                             // Server not found (404 or similar) - it's stopped
                             stopped = true;
-                            println!("Server confirmed stopped (no longer exists) after {}ms", attempt * SERVER_RESTART_POLL_INTERVAL_MS);
+                            println!("Server confirmed stopped (no longer exists) after {}ms (attempt {})", elapsed_ms, attempt);
                             break;
                         }
                     }
                     Err(_) => {
                         // API error might mean server is down, consider it stopped
                         stopped = true;
-                        println!("Server appears stopped (API unreachable) after {}ms", attempt * SERVER_RESTART_POLL_INTERVAL_MS);
+                        println!("Server appears stopped (API unreachable) after {}ms (attempt {})", elapsed_ms, attempt);
                         break;
                     }
                 }
+
+                // Exponential backoff: 100ms → 200ms → 400ms → 800ms → 1000ms (capped)
+                wait_ms = (wait_ms * 2).min(1000);
             }
 
             if !stopped {
