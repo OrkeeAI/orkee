@@ -823,25 +823,65 @@ impl PreviewManager {
             .join(format!("{}.json", project_id))
     }
 
-    /// Check if a process is running (Unix only)
-    fn is_process_running(&self, pid: u32) -> bool {
+    /// Check if a process is running and matches our spawned process
+    /// This prevents PID reuse attacks where a new process reuses an old PID
+    fn is_process_running_validated(
+        &self,
+        pid: u32,
+        expected_start_time: Option<chrono::DateTime<Utc>>,
+    ) -> bool {
         #[cfg(unix)]
         {
-            use nix::sys::signal::{kill, Signal};
-            use nix::unistd::Pid;
+            use sysinfo::{Pid, System};
 
-            // Signal 0 checks if process exists without actually sending a signal
-            kill(Pid::from_raw(pid as i32), Some(Signal::SIGCONT)).is_ok()
+            let mut system = System::new();
+            system.refresh_processes();
+            let pid_obj = Pid::from_u32(pid);
+
+            if let Some(process) = system.process(pid_obj) {
+                // Validate process name (should be dev server related)
+                let name = process.name().to_string().to_lowercase();
+                let is_dev_process = ["node", "python", "npm", "yarn", "bun", "pnpm", "deno"]
+                    .iter()
+                    .any(|pattern| name.contains(pattern));
+
+                if !is_dev_process {
+                    warn!(
+                        "PID {} exists but process '{}' is not a dev server (likely PID reuse)",
+                        pid, name
+                    );
+                    return false;
+                }
+
+                // Validate start time if we have it
+                if let Some(expected) = expected_start_time {
+                    let process_start_secs = process.start_time();
+                    let expected_unix = expected.timestamp() as u64;
+
+                    // Allow 5 second tolerance for clock skew
+                    if process_start_secs.abs_diff(expected_unix) > 5 {
+                        warn!(
+                            "PID {} exists but start time mismatch - likely PID reuse",
+                            pid
+                        );
+                        return false;
+                    }
+                }
+
+                true
+            } else {
+                false
+            }
         }
 
         #[cfg(not(unix))]
         {
-            // On Windows, assume process is running (safer default)
-            warn!(
-                "Process checking not implemented for this platform, assuming PID {} is running",
-                pid
-            );
-            true
+            // On Windows, use sysinfo instead of assuming
+            use sysinfo::{Pid, System};
+
+            let mut system = System::new();
+            system.refresh_processes();
+            system.process(Pid::from_u32(pid)).is_some()
         }
     }
 
@@ -994,8 +1034,8 @@ impl PreviewManager {
             }
         };
 
-        // Check if process is still running
-        if self.is_process_running(lock_data.pid) {
+        // Check if process is still running with validation
+        if self.is_process_running_validated(lock_data.pid, Some(lock_data.started_at)) {
             // Restore to active_servers
             let server_info = ServerInfo {
                 id: Uuid::new_v4(),

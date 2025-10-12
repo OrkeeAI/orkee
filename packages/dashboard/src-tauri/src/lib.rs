@@ -233,9 +233,25 @@ pub fn run() {
                         }
 
                         // Now safe to kill CLI server process after cleanup completes
-                        if let Ok(mut process) = state.process.lock() {
-                            if let Some(child) = process.take() {
-                                kill_cli_process(child);
+                        match state.process.lock() {
+                            Ok(mut process) => {
+                                if let Some(child) = process.take() {
+                                    kill_cli_process(child);
+                                }
+                            }
+                            Err(poisoned) => {
+                                eprintln!("CRITICAL: Process mutex poisoned during shutdown");
+                                eprintln!("Attempting to recover process handle from poisoned mutex...");
+
+                                // Attempt to recover the process handle from poisoned mutex
+                                let mut guard = poisoned.into_inner();
+                                if let Some(child) = guard.take() {
+                                    eprintln!("Successfully recovered process handle, killing CLI server");
+                                    kill_cli_process(child);
+                                } else {
+                                    eprintln!("FATAL: Cannot recover CLI process handle - orphaned process likely");
+                                    eprintln!("You may need to manually kill the orkee CLI process");
+                                }
                             }
                         }
                     }
@@ -271,9 +287,25 @@ pub fn run() {
                         });
 
                         // Kill CLI server process
-                        if let Ok(mut process) = state.process.lock() {
-                            if let Some(child) = process.take() {
-                                kill_cli_process(child);
+                        match state.process.lock() {
+                            Ok(mut process) => {
+                                if let Some(child) = process.take() {
+                                    kill_cli_process(child);
+                                }
+                            }
+                            Err(poisoned) => {
+                                eprintln!("CRITICAL: Process mutex poisoned during app exit");
+                                eprintln!("Attempting to recover process handle from poisoned mutex...");
+
+                                // Attempt to recover the process handle from poisoned mutex
+                                let mut guard = poisoned.into_inner();
+                                if let Some(child) = guard.take() {
+                                    eprintln!("Successfully recovered process handle, killing CLI server");
+                                    kill_cli_process(child);
+                                } else {
+                                    eprintln!("FATAL: Cannot recover CLI process handle - orphaned process likely");
+                                    eprintln!("You may need to manually kill the orkee CLI process");
+                                }
                             }
                         }
                     }

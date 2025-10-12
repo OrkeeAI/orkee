@@ -229,9 +229,13 @@ impl ServerRegistry {
             let registry = self.entries.read().await;
             for (id, entry) in registry.iter() {
                 if entry.last_seen < cutoff {
-                    // Check if the process is still running
+                    // Check if the process is still running with validation
                     if let Some(pid) = entry.pid {
-                        if !is_process_running(pid) {
+                        if !is_process_running_validated(
+                            pid,
+                            Some(entry.started_at),
+                            &["node", "python", "npm", "yarn", "bun", "pnpm", "deno"],
+                        ) {
                             to_remove.push(id.clone());
                         }
                     } else {
@@ -308,9 +312,13 @@ impl ServerRegistry {
                                     api_port,
                                 };
 
-                                // Check if process is still running
+                                // Check if process is still running with validation
                                 if let Some(pid) = entry.pid {
-                                    if is_process_running(pid) {
+                                    if is_process_running_validated(
+                                        pid,
+                                        Some(entry.started_at),
+                                        &["node", "python", "npm", "yarn", "bun", "pnpm", "deno"],
+                                    ) {
                                         let mut registry = self.entries.write().await;
                                         registry.insert(server_id, entry);
                                     }
@@ -330,15 +338,56 @@ impl ServerRegistry {
     }
 }
 
-/// Check if a process with the given PID is running
-fn is_process_running(pid: u32) -> bool {
-    // Use sysinfo to check process
+/// Check if a process with the given PID is running and matches expected criteria
+/// This prevents PID reuse attacks where a new process reuses an old PID
+fn is_process_running_validated(
+    pid: u32,
+    expected_start_time: Option<DateTime<Utc>>,
+    expected_name_patterns: &[&str], // e.g., ["node", "python", "npm"]
+) -> bool {
     use sysinfo::{Pid, System};
     let mut system = System::new();
     system.refresh_processes();
 
-    let pid = Pid::from_u32(pid);
-    system.process(pid).is_some()
+    let pid_obj = Pid::from_u32(pid);
+
+    if let Some(process) = system.process(pid_obj) {
+        // Validate process name matches expected patterns (node/python/npm/etc.)
+        let process_name = process.name().to_string().to_lowercase();
+        let name_matches = expected_name_patterns.is_empty()
+            || expected_name_patterns
+                .iter()
+                .any(|pattern| process_name.contains(pattern));
+
+        if !name_matches {
+            warn!(
+                "PID {} exists but process name '{}' doesn't match expected patterns {:?} - likely PID reuse",
+                pid, process_name, expected_name_patterns
+            );
+            return false;
+        }
+
+        // Validate start time if available (within 5 second tolerance for clock skew)
+        if let Some(expected_time) = expected_start_time {
+            let process_start_secs = process.start_time();
+            let expected_unix = expected_time.timestamp() as u64;
+
+            // Allow 5 second tolerance for clock skew
+            if process_start_secs.abs_diff(expected_unix) > 5 {
+                warn!(
+                    "PID {} exists but start time mismatch (process: {}, expected: {}) - likely PID reuse",
+                    pid,
+                    process_start_secs,
+                    expected_unix
+                );
+                return false;
+            }
+        }
+
+        true
+    } else {
+        false
+    }
 }
 
 // Singleton instance for global access
