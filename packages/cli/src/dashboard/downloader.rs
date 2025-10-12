@@ -233,44 +233,64 @@ pub async fn download_dashboard(
 
     // Download to temporary file
     let temp_file = dashboard_dir.join("dashboard.tar.gz.tmp");
-    let mut file = fs::File::create(&temp_file)?;
 
-    let bytes = response.bytes().await?;
-    pb.inc(bytes.len() as u64);
-    file.write_all(&bytes)?;
+    // Perform download and extraction with guaranteed cleanup
+    let extraction_result = async {
+        let mut file = fs::File::create(&temp_file)?;
 
-    pb.finish_with_message("Download complete");
+        let bytes = response.bytes().await?;
+        pb.inc(bytes.len() as u64);
+        file.write_all(&bytes)?;
+        drop(file); // Ensure file handle is closed before extraction
 
-    // Extract the archive
-    println!("{} Extracting dashboard source...", "📂".cyan());
+        pb.finish_with_message("Download complete");
 
-    // Clear existing dashboard files (except .version and node_modules)
-    if dashboard_dir.exists() {
-        for entry in fs::read_dir(&dashboard_dir)? {
-            let entry = entry?;
-            let path = entry.path();
-            let filename = path.file_name().unwrap();
-            if filename != ".version"
-                && filename != "dashboard.tar.gz.tmp"
-                && filename != "node_modules"
-            {
-                if path.is_dir() {
-                    fs::remove_dir_all(&path)?;
-                } else {
-                    fs::remove_file(&path)?;
+        // Extract the archive
+        println!("{} Extracting dashboard source...", "📂".cyan());
+
+        // Clear existing dashboard files (except .version and node_modules)
+        if dashboard_dir.exists() {
+            for entry in fs::read_dir(&dashboard_dir)? {
+                let entry = entry?;
+                let path = entry.path();
+                if let Some(filename) = path.file_name() {
+                    if filename != ".version"
+                        && filename != "dashboard.tar.gz.tmp"
+                        && filename != "node_modules"
+                    {
+                        if path.is_dir() {
+                            fs::remove_dir_all(&path)?;
+                        } else {
+                            fs::remove_file(&path)?;
+                        }
+                    }
                 }
             }
         }
+
+        // Extract tar.gz
+        let tar_gz = fs::File::open(&temp_file)?;
+        let tar = GzDecoder::new(tar_gz);
+        let mut archive = Archive::new(tar);
+        archive.unpack(&dashboard_dir)?;
+
+        Ok::<(), Box<dyn std::error::Error>>(())
+    }
+    .await;
+
+    // Always attempt to cleanup temp file, regardless of success or failure
+    if temp_file.exists() {
+        if let Err(e) = fs::remove_file(&temp_file) {
+            eprintln!(
+                "⚠️  Warning: Failed to remove temporary file {}: {}",
+                temp_file.display(),
+                e
+            );
+        }
     }
 
-    // Extract tar.gz
-    let tar_gz = fs::File::open(&temp_file)?;
-    let tar = GzDecoder::new(tar_gz);
-    let mut archive = Archive::new(tar);
-    archive.unpack(&dashboard_dir)?;
-
-    // Remove temporary file
-    fs::remove_file(&temp_file)?;
+    // Propagate any errors from extraction
+    extraction_result?;
 
     // Write version file
     let version_file = dashboard_dir.join(".version");

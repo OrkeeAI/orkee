@@ -166,11 +166,7 @@ async fn handle_command(command: Commands) -> Result<(), Box<dyn std::error::Err
             // Save port info for discovery when using dynamic ports
             if api_port == 0 || ui_port == 0 {
                 if let Err(e) = save_port_info(final_api_port, final_ui_port) {
-                    eprintln!(
-                        "{} Failed to save port configuration: {}",
-                        "⚠️".yellow(),
-                        e
-                    );
+                    eprintln!("{} Failed to save port configuration: {}", "⚠️".yellow(), e);
                     eprintln!(
                         "{} Port discovery may not work. Consider setting ORKEE_API_PORT and ORKEE_UI_PORT environment variables.",
                         "ℹ️".cyan()

@@ -227,7 +227,7 @@ impl PreviewManager {
     ///     let logs = manager.get_server_logs("my-project", Some(five_mins_ago), Some(50)).await;
     ///
     ///     for log in logs {
-    ///         println!("[{}] {}", log.log_type, log.message);
+    ///         println!("[{:?}] {}", log.log_type, log.message);
     ///     }
     /// }
     /// ```

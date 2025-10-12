@@ -165,8 +165,18 @@ impl ServerRegistry {
         let temp_path = self.registry_path.with_extension("tmp");
         fs::write(&temp_path, &json)?;
 
-        // Atomic rename to actual file
-        fs::rename(&temp_path, &self.registry_path)?;
+        // Atomic rename to actual file with cleanup on failure
+        let rename_result = fs::rename(&temp_path, &self.registry_path);
+
+        // If rename failed, attempt to cleanup temp file
+        if rename_result.is_err() {
+            if temp_path.exists() {
+                if let Err(e) = fs::remove_file(&temp_path) {
+                    warn!("Failed to cleanup temp file after failed rename: {}", e);
+                }
+            }
+            rename_result?; // Propagate the original rename error
+        }
 
         debug!("Saved {} servers to registry", entries.len());
         Ok(())
