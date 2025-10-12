@@ -89,15 +89,11 @@ impl ServerRegistry {
             stale_timeout_minutes
         );
 
-        let registry = Self {
+        Self {
             registry_path,
             entries: Arc::new(RwLock::new(HashMap::new())),
             stale_timeout_minutes,
-        };
-
-        // Load existing registry on creation
-        let _ = futures::executor::block_on(registry.load_registry());
-        registry
+        }
     }
 
     /// Load the registry from disk.
@@ -113,15 +109,20 @@ impl ServerRegistry {
     ///
     /// Returns an error if the file exists but cannot be read or contains invalid JSON.
     pub async fn load_registry(&self) -> Result<(), Box<dyn std::error::Error>> {
-        if !self.registry_path.exists() {
-            debug!(
-                "Server registry does not exist yet at {:?}",
-                self.registry_path
-            );
-            return Ok(());
-        }
+        // Read file directly and handle NotFound error instead of checking exists() first
+        // This prevents TOCTOU race where file could be deleted between check and read
+        let content = match fs::read_to_string(&self.registry_path) {
+            Ok(content) => content,
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+                debug!(
+                    "Server registry does not exist yet at {:?}",
+                    self.registry_path
+                );
+                return Ok(());
+            }
+            Err(e) => return Err(e.into()),
+        };
 
-        let content = fs::read_to_string(&self.registry_path)?;
         let entries: HashMap<String, ServerRegistryEntry> = serde_json::from_str(&content)?;
 
         let mut registry = self.entries.write().await;

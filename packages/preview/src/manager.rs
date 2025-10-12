@@ -140,9 +140,19 @@ impl PreviewManager {
             .and_then(|p| p.parse().ok())
             .unwrap_or(4001);
 
-        // Sync from preview-locks to central registry first
+        // Load existing registry from disk first
+        if let Err(e) = GLOBAL_REGISTRY.load_registry().await {
+            warn!("Failed to load registry from disk: {}", e);
+        }
+
+        // Sync from preview-locks to central registry
         if let Err(e) = GLOBAL_REGISTRY.sync_from_preview_locks(api_port).await {
             warn!("Failed to sync from preview locks: {}", e);
+        }
+
+        // Clean up stale entries from previous sessions
+        if let Err(e) = GLOBAL_REGISTRY.cleanup_stale_entries().await {
+            warn!("Failed to cleanup stale registry entries: {}", e);
         }
 
         // Recover existing servers from lock files (backwards compatibility)

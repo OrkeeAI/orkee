@@ -452,10 +452,12 @@ impl TrayManager {
 
                 Ok(servers)
             } else {
-                Ok(vec![])
+                // Return error instead of empty vec to prevent clearing menu on API issues
+                Err("API response missing data field".into())
             }
         } else {
-            Ok(vec![])
+            // Return error instead of empty vec to prevent clearing menu on HTTP errors
+            Err(format!("HTTP error: {}", response.status()).into())
         }
     }
 
@@ -533,6 +535,8 @@ impl TrayManager {
                                                     eprintln!("Failed to update tray menu: {}", e);
                                                 } else {
                                                     println!("Tray menu updated successfully");
+                                                    // Only update last_servers if menu update succeeded
+                                                    last_servers = servers.clone();
                                                 }
                                             }
                                         }
@@ -545,8 +549,6 @@ impl TrayManager {
                                     eprintln!("Failed to build menu: {}", e);
                                 }
                             }
-
-                            last_servers = servers;
                         }
                     }
                 }
