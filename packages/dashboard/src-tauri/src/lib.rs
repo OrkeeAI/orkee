@@ -1,6 +1,7 @@
 use tauri::Manager;
 use tauri_plugin_shell::ShellExt;
 use std::sync::{Arc, Mutex};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 use std::str::FromStr;
 
@@ -9,6 +10,9 @@ use tray::TrayManager;
 
 // Global runtime storage to prevent premature drop during cleanup
 static GLOBAL_RUNTIME: Mutex<Option<Arc<tokio::runtime::Runtime>>> = Mutex::new(None);
+
+// Track cleanup execution to prevent double cleanup
+static CLEANUP_DONE: AtomicBool = AtomicBool::new(false);
 
 // Timeout constants for cleanup operations
 const CLEANUP_HTTP_TIMEOUT_SECS: u64 = 3;
@@ -248,6 +252,23 @@ fn perform_cleanup(app_handle: &tauri::AppHandle, context: &str) -> Result<(), B
     Ok(())
 }
 
+/// Perform cleanup exactly once, preventing double cleanup from multiple shutdown paths.
+///
+/// Uses atomic compare-and-swap to ensure cleanup runs only once even if called
+/// from both WindowEvent::Destroyed and RunEvent::Exit handlers.
+///
+/// # Arguments
+///
+/// * `app_handle` - The Tauri application handle
+/// * `context` - Human-readable description of the cleanup context for logging
+fn perform_cleanup_once(app_handle: &tauri::AppHandle, context: &str) {
+    if CLEANUP_DONE.compare_exchange(false, true, Ordering::SeqCst, Ordering::Relaxed).is_ok() {
+        let _ = perform_cleanup(app_handle, context);
+    } else {
+        println!("Cleanup already performed, skipping duplicate call from {}", context);
+    }
+}
+
 /// Get the API port that the CLI server is running on.
 ///
 /// This Tauri command is exposed to the frontend to allow it to discover
@@ -427,7 +448,7 @@ pub fn run() {
                 }
                 tauri::WindowEvent::Destroyed => {
                     // When the window is actually destroyed (app quitting)
-                    let _ = perform_cleanup(&window.app_handle(), "window destroyed");
+                    perform_cleanup_once(&window.app_handle(), "window destroyed");
                 }
                 _ => {}
             }
@@ -442,7 +463,7 @@ pub fn run() {
             // Handle app-level events including unexpected exits
             match event {
                 tauri::RunEvent::Exit => {
-                    let _ = perform_cleanup(app_handle, "app exit");
+                    perform_cleanup_once(app_handle, "app exit");
                 }
                 tauri::RunEvent::ExitRequested { .. } => {
                     // Don't prevent exit, but ensure cleanup happens
