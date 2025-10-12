@@ -47,6 +47,15 @@ impl TrayManager {
         }
     }
 
+    /// Create an HTTP client with configured timeouts to prevent hangs
+    fn create_http_client() -> reqwest::Client {
+        reqwest::Client::builder()
+            .timeout(std::time::Duration::from_secs(5))
+            .connect_timeout(std::time::Duration::from_secs(2))
+            .build()
+            .unwrap_or_else(|_| reqwest::Client::new())
+    }
+
     pub fn init(&mut self, app: &App) -> Result<(), Box<dyn std::error::Error>> {
         println!("Starting tray initialization...");
 
@@ -54,7 +63,13 @@ impl TrayManager {
         let menu = Self::build_menu(&app.handle(), vec![])?;
 
         // Store the menu
-        *self.current_menu.lock().unwrap() = Some(menu.clone());
+        match self.current_menu.lock() {
+            Ok(mut current_menu) => *current_menu = Some(menu.clone()),
+            Err(e) => {
+                eprintln!("Failed to lock current_menu during init: {}", e);
+                return Err(format!("Mutex lock failed: {}", e).into());
+            }
+        }
 
         println!("Menu built successfully");
 
@@ -80,7 +95,13 @@ impl TrayManager {
             .build(app)?;
 
         // Store the tray icon
-        *self.tray_icon.lock().unwrap() = Some(tray);
+        match self.tray_icon.lock() {
+            Ok(mut tray_icon) => *tray_icon = Some(tray),
+            Err(e) => {
+                eprintln!("Failed to lock tray_icon during init: {}", e);
+                return Err(format!("Mutex lock failed: {}", e).into());
+            }
+        }
 
         println!("Tray icon initialized and stored successfully");
 
@@ -194,20 +215,32 @@ impl TrayManager {
                 // Refresh will happen automatically via polling
             }
             id if id.starts_with("open_") => {
-                let server_id = id.strip_prefix("open_").unwrap().to_string();
-                Self::open_server_in_browser(api_port, server_id);
+                if let Some(server_id) = id.strip_prefix("open_") {
+                    Self::open_server_in_browser(api_port, server_id.to_string());
+                } else {
+                    eprintln!("Invalid menu event ID format: {}", id);
+                }
             }
             id if id.starts_with("copy_") => {
-                let server_id = id.strip_prefix("copy_").unwrap().to_string();
-                Self::copy_server_url(app.clone(), api_port, server_id);
+                if let Some(server_id) = id.strip_prefix("copy_") {
+                    Self::copy_server_url(app.clone(), api_port, server_id.to_string());
+                } else {
+                    eprintln!("Invalid menu event ID format: {}", id);
+                }
             }
             id if id.starts_with("restart_") => {
-                let project_id = id.strip_prefix("restart_").unwrap().to_string();
-                Self::restart_server(api_port, project_id);
+                if let Some(project_id) = id.strip_prefix("restart_") {
+                    Self::restart_server(api_port, project_id.to_string());
+                } else {
+                    eprintln!("Invalid menu event ID format: {}", id);
+                }
             }
             id if id.starts_with("stop_") => {
-                let project_id = id.strip_prefix("stop_").unwrap().to_string();
-                Self::stop_server(api_port, project_id);
+                if let Some(project_id) = id.strip_prefix("stop_") {
+                    Self::stop_server(api_port, project_id.to_string());
+                } else {
+                    eprintln!("Invalid menu event ID format: {}", id);
+                }
             }
             _ => {}
         }
@@ -246,8 +279,9 @@ impl TrayManager {
 
     fn stop_server(api_port: u16, project_id: String) {
         tauri::async_runtime::spawn(async move {
+            let client = Self::create_http_client();
             let url = format!("http://localhost:{}/api/preview/servers/{}/stop", api_port, project_id);
-            match reqwest::Client::new().post(&url).send().await {
+            match client.post(&url).send().await {
                 Ok(response) => {
                     if response.status().is_success() {
                         println!("Successfully stopped server: {}", project_id);
@@ -262,9 +296,11 @@ impl TrayManager {
 
     fn restart_server(api_port: u16, project_id: String) {
         tauri::async_runtime::spawn(async move {
+            let client = Self::create_http_client();
+
             // First stop the server
             let stop_url = format!("http://localhost:{}/api/preview/servers/{}/stop", api_port, project_id);
-            match reqwest::Client::new().post(&stop_url).send().await {
+            match client.post(&stop_url).send().await {
                 Ok(response) => {
                     if response.status().is_success() {
                         println!("Successfully stopped server: {}", project_id);
@@ -274,7 +310,7 @@ impl TrayManager {
 
                         // Then start it again
                         let start_url = format!("http://localhost:{}/api/preview/servers/{}/start", api_port, project_id);
-                        match reqwest::Client::new().post(&start_url).send().await {
+                        match client.post(&start_url).send().await {
                             Ok(start_response) => {
                                 if start_response.status().is_success() {
                                     println!("Successfully restarted server: {}", project_id);
@@ -294,8 +330,9 @@ impl TrayManager {
     }
 
     async fn fetch_servers(api_port: u16) -> Result<Vec<ServerInfo>, Box<dyn std::error::Error + Send + Sync>> {
+        let client = Self::create_http_client();
         let url = format!("http://localhost:{}/api/preview/servers", api_port);
-        let response = reqwest::get(&url).await?;
+        let response = client.get(&url).send().await?;
 
         if response.status().is_success() {
             let api_response: ApiResponse<ServersResponse> = response.json().await?;
@@ -321,8 +358,9 @@ impl TrayManager {
     }
 
     async fn fetch_project_name(api_port: u16, project_id: &str) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
+        let client = Self::create_http_client();
         let url = format!("http://localhost:{}/api/projects/{}", api_port, project_id);
-        let response = reqwest::get(&url).await?;
+        let response = client.get(&url).send().await?;
 
         if response.status().is_success() {
             let api_response: ApiResponse<serde_json::Value> = response.json().await?;
@@ -361,11 +399,18 @@ impl TrayManager {
                             match Self::build_menu(&app_handle, servers.clone()) {
                                 Ok(new_menu) => {
                                     // Update the tray icon's menu
-                                    if let Some(tray) = tray_icon.lock().unwrap().as_ref() {
-                                        if let Err(e) = tray.set_menu(Some(new_menu)) {
-                                            eprintln!("Failed to update tray menu: {}", e);
-                                        } else {
-                                            println!("Tray menu updated successfully");
+                                    match tray_icon.lock() {
+                                        Ok(tray_guard) => {
+                                            if let Some(tray) = tray_guard.as_ref() {
+                                                if let Err(e) = tray.set_menu(Some(new_menu)) {
+                                                    eprintln!("Failed to update tray menu: {}", e);
+                                                } else {
+                                                    println!("Tray menu updated successfully");
+                                                }
+                                            }
+                                        }
+                                        Err(e) => {
+                                            eprintln!("Failed to lock tray_icon during polling: {}", e);
                                         }
                                     }
                                 }

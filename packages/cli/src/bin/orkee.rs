@@ -200,10 +200,13 @@ async fn handle_preview_command(
 async fn stop_all_preview_servers() -> Result<(), Box<dyn std::error::Error>> {
     println!("{}", "🛑 Stopping all preview servers...".yellow().bold());
 
+    // Discover the actual API port being used
+    let api_port = discover_api_port()?;
+
     // Get list of active servers
     let client = reqwest::Client::new();
     let response = client
-        .get("http://localhost:4001/api/preview/servers")
+        .get(format!("http://localhost:{}/api/preview/servers", api_port))
         .send()
         .await?;
 
@@ -238,8 +241,8 @@ async fn stop_all_preview_servers() -> Result<(), Box<dyn std::error::Error>> {
 
         let stop_response = client
             .post(format!(
-                "http://localhost:4001/api/preview/servers/{}/stop",
-                id
+                "http://localhost:{}/api/preview/servers/{}/stop",
+                api_port, id
             ))
             .send()
             .await;
@@ -414,8 +417,8 @@ async fn start_full_dashboard(
         })
     };
 
-    // Wait a moment for backend to start
-    tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
+    // Wait for backend to be ready with health check retry loop
+    wait_for_backend_ready(api_port).await?;
 
     async fn find_local_dashboard() -> Result<std::path::PathBuf, Box<dyn std::error::Error>> {
         // Try to find dashboard by walking up directories (for monorepo)
@@ -556,21 +559,68 @@ async fn restart_dashboard(
 }
 
 async fn kill_port(port: u16) -> Result<(), Box<dyn std::error::Error>> {
-    let output = std::process::Command::new("lsof")
-        .args(["-ti", &format!(":{}", port)])
-        .output();
+    #[cfg(unix)]
+    {
+        let output = std::process::Command::new("lsof")
+            .args(["-ti", &format!(":{}", port)])
+            .output();
 
-    if let Ok(output) = output {
-        if !output.stdout.is_empty() {
-            let pid_string = String::from_utf8_lossy(&output.stdout);
-            // Handle multiple PIDs (one per line)
-            for pid_line in pid_string.lines() {
-                let pid = pid_line.trim();
-                if !pid.is_empty() {
-                    let _ = std::process::Command::new("kill")
-                        .args(["-9", pid])
-                        .output();
-                    println!("🔪 Killed process {} on port {}", pid, port);
+        if let Ok(output) = output {
+            if !output.stdout.is_empty() {
+                let pid_string = String::from_utf8_lossy(&output.stdout);
+                // Handle multiple PIDs (one per line)
+                for pid_line in pid_string.lines() {
+                    let pid = pid_line.trim();
+                    if !pid.is_empty() {
+                        let _ = std::process::Command::new("kill")
+                            .args(["-9", pid])
+                            .output();
+                        println!("🔪 Killed process {} on port {}", pid, port);
+                    }
+                }
+            }
+        }
+    }
+
+    #[cfg(windows)]
+    {
+        // Use netstat to find PIDs using the port
+        let output = std::process::Command::new("netstat")
+            .args(["-ano"])
+            .output();
+
+        if let Ok(output) = output {
+            let output_str = String::from_utf8_lossy(&output.stdout);
+
+            // Parse netstat output to find PIDs for the port
+            for line in output_str.lines() {
+                // Look for lines containing the port (format: "  TCP    0.0.0.0:PORT    0.0.0.0:0    LISTENING    PID")
+                if line.contains(&format!(":{}", port)) && line.contains("LISTENING") {
+                    // Extract PID (last column)
+                    if let Some(pid_str) = line.split_whitespace().last() {
+                        if let Ok(pid) = pid_str.parse::<u32>() {
+                            // Use taskkill to terminate the process
+                            let kill_result = std::process::Command::new("taskkill")
+                                .args(["/F", "/PID", &pid.to_string()])
+                                .output();
+
+                            match kill_result {
+                                Ok(kill_output) if kill_output.status.success() => {
+                                    println!("🔪 Killed process {} on port {}", pid, port);
+                                }
+                                Ok(kill_output) => {
+                                    eprintln!(
+                                        "Failed to kill process {}: {}",
+                                        pid,
+                                        String::from_utf8_lossy(&kill_output.stderr)
+                                    );
+                                }
+                                Err(e) => {
+                                    eprintln!("Failed to execute taskkill for PID {}: {}", pid, e);
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -617,6 +667,67 @@ fn save_port_info(api_port: u16, ui_port: u16) -> Result<(), Box<dyn std::error:
 
     fs::write(&ports_file, serde_json::to_string_pretty(&port_info)?)?;
     println!("💾 Saved port configuration to {}", ports_file.display());
+
+    Ok(())
+}
+
+fn discover_api_port() -> Result<u16, Box<dyn std::error::Error>> {
+    // Priority 1: Check environment variable
+    if let Ok(port_str) = std::env::var("ORKEE_API_PORT") {
+        if let Ok(port) = port_str.parse::<u16>() {
+            return Ok(port);
+        }
+    }
+
+    // Priority 2: Read from saved port info file
+    if let Some(home_dir) = dirs::home_dir() {
+        let ports_file = home_dir.join(".orkee").join("ports.json");
+        if let Ok(contents) = std::fs::read_to_string(&ports_file) {
+            if let Ok(port_info) = serde_json::from_str::<serde_json::Value>(&contents) {
+                if let Some(api_port) = port_info["api_port"].as_u64() {
+                    return Ok(api_port as u16);
+                }
+            }
+        }
+    }
+
+    // Priority 3: Fall back to default port
+    Ok(4001)
+}
+
+async fn wait_for_backend_ready(api_port: u16) -> Result<(), Box<dyn std::error::Error>> {
+    let client = reqwest::Client::new();
+    let health_url = format!("http://localhost:{}/api/health", api_port);
+    let max_retries = 30;
+    let retry_interval = tokio::time::Duration::from_millis(500);
+
+    print!("⏳ Waiting for backend to be ready");
+    std::io::Write::flush(&mut std::io::stdout())?;
+
+    for attempt in 1..=max_retries {
+        match client.get(&health_url).send().await {
+            Ok(response) if response.status().is_success() => {
+                println!(" ✅");
+                return Ok(());
+            }
+            _ => {
+                // Backend not ready yet, wait and retry
+                print!(".");
+                std::io::Write::flush(&mut std::io::stdout())?;
+                tokio::time::sleep(retry_interval).await;
+            }
+        }
+
+        // On last attempt, return error
+        if attempt == max_retries {
+            println!(" ❌");
+            return Err(format!(
+                "Backend failed to become ready after {} seconds. Check logs for errors.",
+                (max_retries as f64) * retry_interval.as_secs_f64()
+            )
+            .into());
+        }
+    }
 
     Ok(())
 }

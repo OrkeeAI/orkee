@@ -175,7 +175,10 @@ impl ServerRegistry {
     }
 
     /// Sync from preview-locks directory (for backwards compatibility)
-    pub async fn sync_from_preview_locks(&self) -> Result<(), Box<dyn std::error::Error>> {
+    pub async fn sync_from_preview_locks(
+        &self,
+        api_port: u16,
+    ) -> Result<(), Box<dyn std::error::Error>> {
         let home = dirs::home_dir().expect("Could not determine home directory");
         let locks_dir = home.join(".orkee").join("preview-locks");
 
@@ -221,7 +224,7 @@ impl ServerRegistry {
                                         .map(|dt| dt.with_timezone(&Utc))
                                         .unwrap_or_else(Utc::now),
                                     last_seen: Utc::now(),
-                                    api_port: 4001, // Default API port
+                                    api_port,
                                 };
 
                                 // Check if process is still running

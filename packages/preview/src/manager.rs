@@ -81,8 +81,14 @@ impl PreviewManager {
     pub async fn new_with_recovery() -> Self {
         let manager = Self::new();
 
+        // Get the API port from environment variable or use default
+        let api_port = std::env::var("ORKEE_API_PORT")
+            .ok()
+            .and_then(|p| p.parse().ok())
+            .unwrap_or(4001);
+
         // Sync from preview-locks to central registry first
-        if let Err(e) = GLOBAL_REGISTRY.sync_from_preview_locks().await {
+        if let Err(e) = GLOBAL_REGISTRY.sync_from_preview_locks(api_port).await {
             warn!("Failed to sync from preview locks: {}", e);
         }
 
