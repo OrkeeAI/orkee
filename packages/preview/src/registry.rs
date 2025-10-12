@@ -181,6 +181,17 @@ impl ServerRegistry {
             rename_result?; // Propagate the original rename error
         }
 
+        // Set restrictive file permissions (owner read/write only)
+        // This prevents other local users from reading sensitive server info or injecting malicious entries
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let mut perms = fs::metadata(&self.registry_path)?.permissions();
+            perms.set_mode(0o600); // Owner read/write only (rw-------)
+            fs::set_permissions(&self.registry_path, perms)?;
+            debug!("Set registry file permissions to 0600 (owner read/write only)");
+        }
+
         debug!("Saved {} servers to registry", entries.len());
         Ok(())
     }
@@ -912,5 +923,35 @@ mod tests {
         // Verify all servers were registered
         let servers = registry.get_all_servers().await;
         assert_eq!(servers.len(), 10);
+    }
+
+    #[tokio::test]
+    #[cfg(unix)]
+    async fn test_registry_file_permissions() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let (registry, _temp_dir) = create_test_registry();
+        let entry = create_test_entry("server1", "proj1", 3000);
+
+        // Register server which will create the file
+        registry.register_server(entry).await.unwrap();
+
+        // Verify file exists
+        assert!(registry.registry_path.exists());
+
+        // Check file permissions
+        let metadata = fs::metadata(&registry.registry_path).unwrap();
+        let permissions = metadata.permissions();
+        let mode = permissions.mode();
+
+        // Extract permission bits (last 9 bits: rwxrwxrwx)
+        let perms = mode & 0o777;
+
+        // Should be 0600 (owner read/write only, no group or other permissions)
+        assert_eq!(
+            perms, 0o600,
+            "Registry file should have 0600 permissions (owner read/write only), but has {:o}",
+            perms
+        );
     }
 }
