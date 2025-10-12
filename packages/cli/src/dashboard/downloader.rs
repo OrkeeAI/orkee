@@ -4,6 +4,7 @@ use indicatif::{ProgressBar, ProgressStyle};
 use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
+use std::time::Duration;
 use tar::Archive;
 
 const GITHUB_REPO: &str = "OrkeeAI/orkee";
@@ -360,7 +361,11 @@ pub async fn download_dashboard(
     pb.set_message("Connecting to GitHub...");
 
     // Download the file
-    let client = reqwest::Client::builder().user_agent("orkee-cli").build()?;
+    let client = reqwest::Client::builder()
+        .user_agent("orkee-cli")
+        .timeout(Duration::from_secs(300))
+        .connect_timeout(Duration::from_secs(30))
+        .build()?;
 
     let response = client.get(&download_url).send().await?;
 
