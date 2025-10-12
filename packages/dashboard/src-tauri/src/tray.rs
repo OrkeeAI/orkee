@@ -28,11 +28,14 @@ const SERVER_RESTART_MAX_WAIT_SECS: u64 = 10;
 const SERVER_RESTART_POLL_INTERVAL_MS: u64 = 100;
 
 // API Host Configuration
-// NOTE: All API calls use localhost because the Tauri desktop app launches
+// NOTE: All API calls use localhost by default because the Tauri desktop app launches
 // and manages its own local Orkee CLI server process. This is not a remote
 // API - it's a sidecar process running on 127.0.0.1. Using localhost is
 // intentional and correct for this architecture.
-const API_HOST: &str = "localhost";
+// Can be overridden via ORKEE_API_HOST environment variable for extensibility.
+fn get_api_host() -> String {
+    std::env::var("ORKEE_API_HOST").unwrap_or_else(|_| "localhost".to_string())
+}
 
 #[derive(Clone)]
 pub struct TrayManager {
@@ -316,7 +319,7 @@ impl TrayManager {
                     return;
                 }
             };
-            let url = format!("http://{}:{}/api/preview/servers/{}/stop", API_HOST, api_port, encode(&project_id));
+            let url = format!("http://{}:{}/api/preview/servers/{}/stop", get_api_host(), api_port, encode(&project_id));
             match client.post(&url).send().await {
                 Ok(response) => {
                     if response.status().is_success() {
@@ -341,7 +344,7 @@ impl TrayManager {
             };
 
             // Step 1: Stop the server
-            let stop_url = format!("http://{}:{}/api/preview/servers/{}/stop", API_HOST, api_port, encode(&project_id));
+            let stop_url = format!("http://{}:{}/api/preview/servers/{}/stop", get_api_host(), api_port, encode(&project_id));
             match client.post(&stop_url).send().await {
                 Ok(response) => {
                     if !response.status().is_success() {
@@ -357,7 +360,7 @@ impl TrayManager {
             }
 
             // Step 2: Poll and verify server is actually stopped
-            let status_url = format!("http://{}:{}/api/preview/servers/{}/status", API_HOST, api_port, encode(&project_id));
+            let status_url = format!("http://{}:{}/api/preview/servers/{}/status", get_api_host(), api_port, encode(&project_id));
             let max_attempts = (SERVER_RESTART_MAX_WAIT_SECS * 1000) / SERVER_RESTART_POLL_INTERVAL_MS;
 
             let mut stopped = false;
@@ -403,7 +406,7 @@ impl TrayManager {
             // Step 3: Start the server with retry logic for port availability
             // OS-level port cleanup can take time after process termination
             // Instead of a fixed delay, we retry with exponential backoff if port isn't ready
-            let start_url = format!("http://{}:{}/api/preview/servers/{}/start", API_HOST, api_port, encode(&project_id));
+            let start_url = format!("http://{}:{}/api/preview/servers/{}/start", get_api_host(), api_port, encode(&project_id));
             let max_start_attempts = 5;
             let mut start_delay_ms = SERVER_RESTART_POLL_INTERVAL_MS;
 
@@ -445,7 +448,7 @@ impl TrayManager {
 
     async fn fetch_servers(api_port: u16) -> Result<Vec<ServerInfo>, Box<dyn std::error::Error + Send + Sync>> {
         let client = Self::create_http_client()?;
-        let url = format!("http://{}:{}/api/preview/servers", API_HOST, api_port);
+        let url = format!("http://{}:{}/api/preview/servers", get_api_host(), api_port);
         let response = client.get(&url).send().await?;
 
         if response.status().is_success() {
@@ -487,7 +490,7 @@ impl TrayManager {
 
     async fn fetch_project_name(api_port: u16, project_id: &str) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
         let client = Self::create_http_client()?;
-        let url = format!("http://{}:{}/api/projects/{}", API_HOST, api_port, encode(project_id));
+        let url = format!("http://{}:{}/api/projects/{}", get_api_host(), api_port, encode(project_id));
         let response = client.get(&url).send().await?;
 
         if response.status().is_success() {
@@ -535,6 +538,8 @@ impl TrayManager {
             let mut last_rebuild_time = std::time::Instant::now();
             let min_rebuild_interval = Duration::from_secs(MENU_REBUILD_DEBOUNCE_SECS);
             let poll_interval_secs = Self::get_polling_interval_secs();
+            let mut consecutive_failures = 0;
+            const MAX_FAILURES_BEFORE_WARNING: u32 = 3;
 
             println!("Tray polling interval set to {} seconds", poll_interval_secs);
 
@@ -559,39 +564,46 @@ impl TrayManager {
                 // Try to fetch servers from API
                 match Self::fetch_servers(api_port).await {
                     Ok(servers) => {
-                        // Check if servers have changed and enough time has passed since last rebuild
-                        // This debouncing prevents rapid menu rebuilds during server state transitions
                         if !servers_equal(&servers, &last_servers) {
-                            // Update last_servers immediately to prevent race conditions
-                            last_servers = servers.clone();
-
                             let now = std::time::Instant::now();
                             if now.duration_since(last_rebuild_time) >= min_rebuild_interval {
                                 println!("Server list changed, updating menu...");
                                 println!("Found {} servers", servers.len());
-                                last_rebuild_time = now;
 
-                            // Rebuild the menu with new server information
                             match Self::build_menu(&app_handle, servers.clone()) {
                                 Ok(new_menu) => {
-                                    // Update the tray icon's menu
                                     match tray_icon.lock() {
                                         Ok(tray_guard) => {
                                             if let Some(tray) = tray_guard.as_ref() {
                                                 if let Err(e) = tray.set_menu(Some(new_menu)) {
+                                                    consecutive_failures += 1;
                                                     eprintln!("Failed to update tray menu: {}", e);
+                                                    if consecutive_failures >= MAX_FAILURES_BEFORE_WARNING {
+                                                        eprintln!("WARNING: Tray menu update has failed {} consecutive times", consecutive_failures);
+                                                    }
                                                 } else {
                                                     println!("Tray menu updated successfully");
+                                                    last_servers = servers.clone();
+                                                    last_rebuild_time = now;
+                                                    consecutive_failures = 0;
                                                 }
                                             }
                                         }
                                         Err(e) => {
+                                            consecutive_failures += 1;
                                             eprintln!("Failed to lock tray_icon during polling: {}", e);
+                                            if consecutive_failures >= MAX_FAILURES_BEFORE_WARNING {
+                                                eprintln!("WARNING: Tray icon lock has failed {} consecutive times", consecutive_failures);
+                                            }
                                         }
                                     }
                                 }
                                 Err(e) => {
+                                    consecutive_failures += 1;
                                     eprintln!("Failed to build menu: {}", e);
+                                    if consecutive_failures >= MAX_FAILURES_BEFORE_WARNING {
+                                        eprintln!("WARNING: Menu build has failed {} consecutive times", consecutive_failures);
+                                    }
                                 }
                             }
                         }
@@ -832,8 +844,9 @@ mod tests {
         for project_id in dangerous_ids {
             let encoded = encode(project_id);
             let api_port = 4001;
+            let api_host = get_api_host();
             let url = format!("http://{}:{}/api/preview/servers/{}/stop",
-                            API_HOST, api_port, encoded);
+                            api_host, api_port, encoded);
 
             // Verify that special characters are properly encoded
             assert!(!url.contains("../"), "URL should not contain path traversal sequences");
@@ -841,7 +854,7 @@ mod tests {
             assert!(!url.contains("#"), "URL should not contain unencoded fragments");
 
             // Verify the encoded path segment is in the correct position
-            assert!(url.starts_with(&format!("http://{}:{}/api/preview/servers/", API_HOST, api_port)));
+            assert!(url.starts_with(&format!("http://{}:{}/api/preview/servers/", api_host, api_port)));
             assert!(url.ends_with("/stop"));
         }
     }

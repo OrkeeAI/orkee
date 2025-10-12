@@ -394,13 +394,21 @@ impl ServerRegistry {
         }
 
         if !to_remove.is_empty() {
-            let mut registry = self.entries.write().await;
-            for id in to_remove {
-                warn!("Removing stale server entry: {}", id);
-                registry.remove(&id);
+            let new_entries = {
+                let mut registry = self.entries.read().await.clone();
+                for id in &to_remove {
+                    warn!("Removing stale server entry: {}", id);
+                    registry.remove(id);
+                }
+                registry
+            };
+
+            self.save_entries_to_disk(&new_entries).await?;
+
+            {
+                let mut registry = self.entries.write().await;
+                *registry = new_entries;
             }
-            drop(registry);
-            self.save_registry().await?;
         }
 
         Ok(())
@@ -450,6 +458,14 @@ impl ServerRegistry {
                         if let Ok(lock_data) = serde_json::from_str::<serde_json::Value>(&content) {
                             // Convert lock file to registry entry
                             if let Some(project_id) = lock_data["project_id"].as_str() {
+                                let project_root = match lock_data["project_root"].as_str() {
+                                    Some(root) => PathBuf::from(root),
+                                    None => {
+                                        error!("Skipping lock file {:?}: missing or invalid project_root", path);
+                                        continue;
+                                    }
+                                };
+
                                 let server_id = path
                                     .file_stem()
                                     .and_then(|s| s.to_str())
@@ -460,9 +476,7 @@ impl ServerRegistry {
                                     id: server_id.clone(),
                                     project_id: project_id.to_string(),
                                     project_name: None,
-                                    project_root: PathBuf::from(
-                                        lock_data["project_root"].as_str().unwrap_or("/"),
-                                    ),
+                                    project_root,
                                     port: lock_data["port"].as_u64().unwrap_or(0) as u16,
                                     pid: lock_data["pid"].as_u64().map(|p| p as u32),
                                     status: DevServerStatus::Running,
