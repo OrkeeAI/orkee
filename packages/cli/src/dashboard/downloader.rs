@@ -133,6 +133,36 @@ fn validate_nesting_depth(path: &Path, base_dir: &Path) -> Result<(), Box<dyn st
     Ok(())
 }
 
+/// Normalize a path by manually resolving .. and . components
+/// This is used for non-existent paths where canonicalize() would fail
+fn normalize_path(path: &Path) -> PathBuf {
+    use std::path::Component;
+
+    let mut normalized = PathBuf::new();
+
+    for component in path.components() {
+        match component {
+            Component::Prefix(prefix) => normalized.push(prefix.as_os_str()),
+            Component::RootDir => normalized.push(component.as_os_str()),
+            Component::CurDir => {
+                // Skip . components
+            }
+            Component::ParentDir => {
+                // Pop the last component if it's not the root
+                if normalized.components().count() > 1 {
+                    normalized.pop();
+                }
+                // If we're at root or have only prefix/root, ignore the ..
+            }
+            Component::Normal(name) => {
+                normalized.push(name);
+            }
+        }
+    }
+
+    normalized
+}
+
 /// Validate symlinks after extraction to ensure they don't point outside base directory
 fn validate_symlink(
     symlink_path: &Path,
@@ -158,19 +188,20 @@ fn validate_symlink(
     };
 
     // Canonicalize to resolve any .. or . components
+    let canonical_base = base_dir.canonicalize()?;
     let canonical_target = if absolute_target.exists() {
         absolute_target.canonicalize()?
     } else {
-        // For non-existent targets, manually resolve the path
-        let canonical_base = base_dir.canonicalize()?;
-        if let Ok(relative) = absolute_target.strip_prefix(base_dir) {
-            canonical_base.join(relative)
+        // For non-existent targets, manually normalize the path to resolve .. and .
+        // This prevents symlinks with path traversal from bypassing validation
+        if absolute_target.is_absolute() {
+            // Absolute path - normalize it by removing .. and . components
+            normalize_path(&absolute_target)
         } else {
-            absolute_target
+            // Relative path - normalize relative to canonical_base
+            normalize_path(&canonical_base.join(&absolute_target))
         }
     };
-
-    let canonical_base = base_dir.canonicalize()?;
 
     // Check if the symlink target is within the base directory
     if !canonical_target.starts_with(&canonical_base) {
