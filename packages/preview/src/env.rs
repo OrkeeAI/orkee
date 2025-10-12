@@ -2,6 +2,7 @@
 // ABOUTME: Provides helper functions for parsing and validating environment variables
 
 use std::str::FromStr;
+use tracing;
 
 /// Parse an environment variable with a fallback default value
 /// Returns the parsed value or the default if the variable is not set or cannot be parsed
@@ -17,16 +18,43 @@ where
 
 /// Parse an environment variable with validation
 /// Returns the parsed value if it passes validation, otherwise returns the default
+/// Logs warnings when environment variables are set but fail validation or parsing
 pub fn parse_env_or_default_with_validation<T, F>(var_name: &str, default: T, validator: F) -> T
 where
-    T: FromStr + Copy,
+    T: FromStr + Copy + std::fmt::Display,
     F: Fn(T) -> bool,
 {
-    let value = parse_env_or_default(var_name, default);
-    if validator(value) {
-        value
-    } else {
-        default
+    match std::env::var(var_name) {
+        Ok(raw_value) => {
+            match raw_value.parse::<T>() {
+                Ok(parsed_value) => {
+                    if validator(parsed_value) {
+                        parsed_value
+                    } else {
+                        tracing::warn!(
+                            "Environment variable {} has invalid value '{}', using default: {}",
+                            var_name,
+                            raw_value,
+                            default
+                        );
+                        default
+                    }
+                }
+                Err(_) => {
+                    tracing::warn!(
+                        "Environment variable {} has unparseable value '{}', using default: {}",
+                        var_name,
+                        raw_value,
+                        default
+                    );
+                    default
+                }
+            }
+        }
+        Err(_) => {
+            // Variable not set - no warning needed, this is expected behavior
+            default
+        }
     }
 }
 
