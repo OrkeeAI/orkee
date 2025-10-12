@@ -20,7 +20,7 @@ export function TasksTab({ projectId, projectPath, taskSource }: TasksTabProps) 
   } = useTasks({
     projectId,
     projectPath,
-    providerType: taskSource as any,
+    providerType: taskSource as 'taskmaster' | 'manual',
     enabled: true,
     apiBaseUrl: 'http://localhost:4001'
   });

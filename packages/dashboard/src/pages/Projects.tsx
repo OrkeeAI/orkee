@@ -37,6 +37,16 @@ type ViewType = 'card' | 'list';
 type SortType = 'rank' | 'priority' | 'alpha';
 type StatusFilter = 'planning' | 'building' | 'review' | 'launched' | 'on-hold' | 'archived';
 
+// Type for preview server response
+interface PreviewServer {
+  project_id: string;
+  [key: string]: unknown;
+}
+
+interface ServersResponse {
+  servers: PreviewServer[];
+}
+
 // Helper function to get git repository info
 const getRepositoryInfo = (project: Project): { owner: string; repo: string } | null => {
   // Use real git repository data from the backend
@@ -225,12 +235,12 @@ export function Projects() {
         activeServerIds = result;
       } else if (result && typeof result === 'object' && 'servers' in result) {
         // If it's an object with servers property, extract project_ids
-        const servers = (result as any).servers;
-        if (Array.isArray(servers)) {
-          activeServerIds = servers.map((s: any) => s.project_id);
+        const serversResponse = result as ServersResponse;
+        if (Array.isArray(serversResponse.servers)) {
+          activeServerIds = serversResponse.servers.map((s) => s.project_id);
           console.log('Extracted project IDs from servers:', activeServerIds);
         } else {
-          console.error('servers is not an array!', servers);
+          console.error('servers is not an array!', serversResponse.servers);
           setActiveServers(new Set());
           return;
         }
