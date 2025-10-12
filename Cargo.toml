@@ -37,4 +37,4 @@ opt-level = "z"        # Optimize for size
 lto = true            # Enable Link Time Optimization
 codegen-units = 1     # Single codegen unit for better optimization
 strip = true          # Strip symbols from binary
-panic = "abort"       # Smaller panic handler
+panic = "unwind"      # Allow panic recovery and mutex poisoning detection
