@@ -399,9 +399,12 @@ impl PreviewManager {
         }
     }
 
-    /// Capture logs from a spawned process
-    async fn capture_process_logs(&self, project_id: String, mut child: Child) {
-        let project_id_clone = project_id.clone();
+    /// Capture logs from a child process handle (takes mutable reference)
+    ///
+    /// This method takes stdout/stderr from the child process and spawns tasks
+    /// to capture and log output. The child handle remains available for cleanup.
+    async fn capture_process_logs_from_handle(&self, project_id: &str, child: &mut Child) {
+        let project_id_clone = project_id.to_string();
         let manager = self.clone();
 
         // Get stdout handle
@@ -537,18 +540,25 @@ impl PreviewManager {
             Ok(spawn_result) => {
                 let pid = spawn_result.child.id();
 
+                // Wrap child in Arc<RwLock<>> so we can store it and use it for log capture
+                let child_handle = Arc::new(RwLock::new(spawn_result.child));
+                let child_for_logs = child_handle.clone();
+
                 // Start capturing logs from the process
+                // The log capture will take stdout/stderr from the child
                 let project_id_for_logs = project_id.clone();
                 let manager_for_logs = self.clone();
                 tokio::spawn(async move {
+                    let mut child = child_for_logs.write().await;
                     manager_for_logs
-                        .capture_process_logs(project_id_for_logs, spawn_result.child)
+                        .capture_process_logs_from_handle(&project_id_for_logs, &mut *child)
                         .await;
                 });
 
                 let mut updated_info = server_info;
                 updated_info.pid = pid;
                 updated_info.status = DevServerStatus::Running;
+                updated_info.child = Some(child_handle); // Store the child handle
                 updated_info.actual_command = Some(spawn_result.command);
                 updated_info.framework_name = Some(spawn_result.framework);
 
@@ -642,19 +652,48 @@ impl PreviewManager {
             )
             .await;
 
-            if let Some(pid) = info.pid {
-                // Try to kill the process - ignore errors if process is already dead
-                if let Err(e) = self.kill_process(pid).await {
-                    warn!(
-                        "Failed to kill process {} for project {}: {} (process may already be dead)",
-                        pid, project_id, e
-                    );
-                    self.add_log(
-                        project_id,
-                        LogType::System,
-                        format!("Process {} was not running (already stopped)", pid),
-                    )
-                    .await;
+            // Try to kill using child handle first (preferred method)
+            let mut killed_via_handle = false;
+            if let Some(child_handle) = &info.child {
+                match child_handle.write().await.kill().await {
+                    Ok(_) => {
+                        info!(
+                            "Successfully killed process for project {} using child handle",
+                            project_id
+                        );
+                        self.add_log(
+                            project_id,
+                            LogType::System,
+                            "Process terminated via child handle".to_string(),
+                        )
+                        .await;
+                        killed_via_handle = true;
+                    }
+                    Err(e) => {
+                        warn!(
+                            "Failed to kill process for project {} using child handle: {}",
+                            project_id, e
+                        );
+                    }
+                }
+            }
+
+            // Fall back to PID-based kill if child handle wasn't available or failed
+            if !killed_via_handle {
+                if let Some(pid) = info.pid {
+                    // Try to kill the process - ignore errors if process is already dead
+                    if let Err(e) = self.kill_process(pid).await {
+                        warn!(
+                            "Failed to kill process {} for project {}: {} (process may already be dead)",
+                            pid, project_id, e
+                        );
+                        self.add_log(
+                            project_id,
+                            LogType::System,
+                            format!("Process {} was not running (already stopped)", pid),
+                        )
+                        .await;
+                    }
                 }
             }
 
