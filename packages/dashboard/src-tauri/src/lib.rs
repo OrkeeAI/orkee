@@ -1,11 +1,14 @@
 use tauri::Manager;
 use tauri_plugin_shell::ShellExt;
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use std::str::FromStr;
 
 mod tray;
 use tray::TrayManager;
+
+// Global runtime storage to prevent premature drop during cleanup
+static GLOBAL_RUNTIME: Mutex<Option<Arc<tokio::runtime::Runtime>>> = Mutex::new(None);
 
 // Timeout constants for cleanup operations
 const CLEANUP_HTTP_TIMEOUT_SECS: u64 = 3;
@@ -190,7 +193,12 @@ fn perform_cleanup(app_handle: &tauri::AppHandle, context: &str) -> Result<(), B
         Err(_) => {
             // Create new runtime if none exists
             match tokio::runtime::Runtime::new() {
-                Ok(rt) => rt.handle().clone(),
+                Ok(rt) => {
+                    // Store runtime in Arc to prevent drop
+                    let runtime = Arc::new(rt);
+                    *GLOBAL_RUNTIME.lock().unwrap() = Some(runtime.clone());
+                    runtime.handle().clone()
+                }
                 Err(e) => {
                     eprintln!("Failed to create tokio runtime for cleanup: {}", e);
                     eprintln!("Skipping async cleanup - proceeding to kill CLI process");
