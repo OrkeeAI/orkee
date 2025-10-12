@@ -229,14 +229,16 @@ impl ServerRegistry {
     ) -> Result<(), Box<dyn std::error::Error>> {
         let entry_id = entry.id.clone();
 
-        // Hold write lock for entire transaction to prevent race conditions
-        let mut registry = self.entries.write().await;
-
-        // Add entry to registry
-        registry.insert(entry_id, entry);
+        // Clone registry for disk I/O
+        let snapshot = {
+            let mut registry = self.entries.write().await;
+            registry.insert(entry_id, entry);
+            registry.clone()
+        };
+        // Lock is released here before disk I/O
 
         // Save to disk (transactional boundary)
-        self.save_entries_to_disk(&*registry).await?;
+        self.save_entries_to_disk(&snapshot).await?;
 
         Ok(())
     }
@@ -262,14 +264,16 @@ impl ServerRegistry {
         &self,
         server_id: &str,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        // Hold write lock for entire transaction to prevent race conditions
-        let mut registry = self.entries.write().await;
-
-        // Remove entry from registry
-        registry.remove(server_id);
+        // Clone registry for disk I/O
+        let snapshot = {
+            let mut registry = self.entries.write().await;
+            registry.remove(server_id);
+            registry.clone()
+        };
+        // Lock is released here before disk I/O
 
         // Save to disk (transactional boundary)
-        self.save_entries_to_disk(&*registry).await?;
+        self.save_entries_to_disk(&snapshot).await?;
 
         Ok(())
     }
@@ -324,17 +328,22 @@ impl ServerRegistry {
         server_id: &str,
         status: DevServerStatus,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        // Hold write lock for entire transaction to prevent race conditions
-        let mut registry = self.entries.write().await;
+        // Clone registry for disk I/O
+        let snapshot = {
+            let mut registry = self.entries.write().await;
 
-        // Update server status and timestamp
-        if let Some(entry) = registry.get_mut(server_id) {
-            entry.status = status;
-            entry.last_seen = Utc::now();
-        }
+            // Update server status and timestamp
+            if let Some(entry) = registry.get_mut(server_id) {
+                entry.status = status;
+                entry.last_seen = Utc::now();
+            }
+
+            registry.clone()
+        };
+        // Lock is released here before disk I/O
 
         // Save to disk (transactional boundary)
-        self.save_entries_to_disk(&*registry).await?;
+        self.save_entries_to_disk(&snapshot).await?;
 
         Ok(())
     }
@@ -372,38 +381,46 @@ impl ServerRegistry {
     pub async fn cleanup_stale_entries(&self) -> Result<(), Box<dyn std::error::Error>> {
         let cutoff = Utc::now() - chrono::Duration::minutes(self.stale_timeout_minutes);
 
-        // Hold write lock for entire transaction to prevent race conditions
-        let mut registry = self.entries.write().await;
-        let mut to_remove = Vec::new();
+        // Clone registry for disk I/O
+        let (snapshot, removed_any) = {
+            let mut registry = self.entries.write().await;
+            let mut to_remove = Vec::new();
 
-        // Identify stale entries
-        for (id, entry) in registry.iter() {
-            if entry.last_seen < cutoff {
-                // Check if the process is still running with validation
-                if let Some(pid) = entry.pid {
-                    if !is_process_running_validated(
-                        pid,
-                        Some(entry.started_at),
-                        &["node", "python", "npm", "yarn", "bun", "pnpm", "deno"],
-                        entry.actual_command.as_deref(), // Use command for stronger validation
-                    ) {
+            // Identify stale entries
+            for (id, entry) in registry.iter() {
+                if entry.last_seen < cutoff {
+                    // Check if the process is still running with validation
+                    if let Some(pid) = entry.pid {
+                        if !is_process_running_validated(
+                            pid,
+                            Some(entry.started_at),
+                            &["node", "python", "npm", "yarn", "bun", "pnpm", "deno"],
+                            entry.actual_command.as_deref(), // Use command for stronger validation
+                        ) {
+                            to_remove.push(id.clone());
+                        }
+                    } else {
                         to_remove.push(id.clone());
                     }
-                } else {
-                    to_remove.push(id.clone());
                 }
             }
-        }
 
-        // Remove stale entries
-        if !to_remove.is_empty() {
-            for id in &to_remove {
-                warn!("Removing stale server entry: {}", id);
-                registry.remove(id);
+            // Remove stale entries
+            let removed_any = !to_remove.is_empty();
+            if removed_any {
+                for id in &to_remove {
+                    warn!("Removing stale server entry: {}", id);
+                    registry.remove(id);
+                }
             }
 
-            // Save to disk (transactional boundary)
-            self.save_entries_to_disk(&*registry).await?;
+            (registry.clone(), removed_any)
+        };
+        // Lock is released here before disk I/O
+
+        // Save to disk if we removed entries
+        if removed_any {
+            self.save_entries_to_disk(&snapshot).await?;
         }
 
         Ok(())

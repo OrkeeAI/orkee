@@ -1,9 +1,9 @@
+use std::str::FromStr;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Mutex};
+use std::time::Duration;
 use tauri::Manager;
 use tauri_plugin_shell::ShellExt;
-use std::sync::{Arc, Mutex};
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::time::Duration;
-use std::str::FromStr;
 
 mod tray;
 use tray::TrayManager;
@@ -139,7 +139,9 @@ fn kill_cli_process(child: tauri_plugin_shell::process::CommandChild) {
 /// The poisoning indicates a previous panic, but the process handle may still
 /// be valid and needs to be properly cleaned up.
 fn recover_cli_process(
-    poisoned: std::sync::PoisonError<std::sync::MutexGuard<Option<tauri_plugin_shell::process::CommandChild>>>,
+    poisoned: std::sync::PoisonError<
+        std::sync::MutexGuard<Option<tauri_plugin_shell::process::CommandChild>>,
+    >,
     location: &str,
 ) {
     eprintln!("=== MUTEX POISONING DETECTED ===");
@@ -175,7 +177,10 @@ fn recover_cli_process(
 ///
 /// Returns `Ok(())` on successful cleanup. Errors are logged but don't prevent
 /// the process termination from completing.
-fn perform_cleanup(app_handle: &tauri::AppHandle, context: &str) -> Result<(), Box<dyn std::error::Error>> {
+fn perform_cleanup(
+    app_handle: &tauri::AppHandle,
+    context: &str,
+) -> Result<(), Box<dyn std::error::Error>> {
     println!("Starting cleanup ({})...", context);
 
     // Stop tray polling first
@@ -214,7 +219,10 @@ fn perform_cleanup(app_handle: &tauri::AppHandle, context: &str) -> Result<(), B
                             }
                         }
                         Err(poisoned) => {
-                            recover_cli_process(poisoned, &format!("Cleanup without runtime ({})", context));
+                            recover_cli_process(
+                                poisoned,
+                                &format!("Cleanup without runtime ({})", context),
+                            );
                         }
                     }
                     return Err(Box::new(e));
@@ -227,14 +235,18 @@ fn perform_cleanup(app_handle: &tauri::AppHandle, context: &str) -> Result<(), B
     let cleanup_result = runtime.block_on(async {
         tokio::time::timeout(
             Duration::from_secs(CLEANUP_TOTAL_TIMEOUT_SECS),
-            cleanup_servers(api_port)
-        ).await
+            cleanup_servers(api_port),
+        )
+        .await
     });
 
     match cleanup_result {
         Ok(Ok(_)) => println!("Cleanup completed successfully"),
         Ok(Err(e)) => eprintln!("Cleanup error: {}", e),
-        Err(_) => eprintln!("Cleanup timed out after {} seconds", CLEANUP_TOTAL_TIMEOUT_SECS),
+        Err(_) => eprintln!(
+            "Cleanup timed out after {} seconds",
+            CLEANUP_TOTAL_TIMEOUT_SECS
+        ),
     }
 
     // Now safe to kill CLI server process after cleanup completes
@@ -262,10 +274,16 @@ fn perform_cleanup(app_handle: &tauri::AppHandle, context: &str) -> Result<(), B
 /// * `app_handle` - The Tauri application handle
 /// * `context` - Human-readable description of the cleanup context for logging
 fn perform_cleanup_once(app_handle: &tauri::AppHandle, context: &str) {
-    if CLEANUP_DONE.compare_exchange(false, true, Ordering::SeqCst, Ordering::Relaxed).is_ok() {
+    if CLEANUP_DONE
+        .compare_exchange(false, true, Ordering::SeqCst, Ordering::Relaxed)
+        .is_ok()
+    {
         let _ = perform_cleanup(app_handle, context);
     } else {
-        println!("Cleanup already performed, skipping duplicate call from {}", context);
+        println!(
+            "Cleanup already performed, skipping duplicate call from {}",
+            context
+        );
     }
 }
 
