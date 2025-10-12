@@ -138,6 +138,9 @@ impl ServerRegistry {
     /// an atomic write operation (write to temp file, then rename). This ensures
     /// the registry file is never left in a corrupted state.
     ///
+    /// The read lock is released before performing disk I/O to avoid blocking writers
+    /// during potentially slow filesystem operations.
+    ///
     /// # Returns
     ///
     /// Returns `Ok(())` on success.
@@ -146,8 +149,13 @@ impl ServerRegistry {
     ///
     /// Returns an error if the file cannot be written or the directory cannot be created.
     pub async fn save_registry(&self) -> Result<(), Box<dyn std::error::Error>> {
-        let registry = self.entries.read().await;
-        self.save_entries_to_disk(&*registry).await
+        // Clone data under read lock, then release lock before disk I/O
+        let registry_snapshot = {
+            let registry = self.entries.read().await;
+            registry.clone()
+        };
+        // Lock is released here
+        self.save_entries_to_disk(&registry_snapshot).await
     }
 
     /// Helper to save entries to disk (used for transactional updates)
