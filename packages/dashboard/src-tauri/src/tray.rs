@@ -652,6 +652,7 @@ impl TrayManager {
             let mut circuit_breaker_opened_at: Option<std::time::Instant> = None;
 
             // Adaptive polling state
+            #[allow(unused_assignments)]
             let mut consecutive_stable_polls = 0;
             let mut current_poll_interval_secs = if base_poll_interval_secs == DEFAULT_SERVER_POLLING_INTERVAL_SECS {
                 FAST_POLLING_INTERVAL_SECS // Start with fast polling by default

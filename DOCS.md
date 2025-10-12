@@ -439,6 +439,28 @@ These variables configure the React dashboard frontend:
 # VITE_API_URL=http://localhost:4001  # Only set this if you need a custom URL
 ```
 
+### Dashboard Tauri Configuration
+
+These variables configure the Tauri desktop application:
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `ORKEE_TRAY_POLL_INTERVAL_SECS` | `5` | System tray polling interval in seconds (min: 1, max: 60) - controls how often the tray menu checks for server status updates |
+| `ORKEE_API_HOST` | `localhost` | API host for tray connections - for security, only localhost is allowed unless `ORKEE_ALLOW_REMOTE_API` is enabled |
+| `ORKEE_ALLOW_REMOTE_API` | `false` | Enable remote API access - allows connecting to non-localhost API hosts (not recommended for security) |
+
+#### Security Note
+The Tauri desktop app launches and manages its own local Orkee CLI server process as a sidecar. By default, it only connects to `localhost` for security. Remote API access should only be enabled in trusted environments.
+
+### Preview Server Configuration
+
+These variables control the preview server registry and process management:
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `ORKEE_STALE_TIMEOUT_MINUTES` | `5` | Timeout before server entries are considered stale (max: 240 minutes) - controls when inactive servers are cleaned up from the registry |
+| `ORKEE_PROCESS_START_TIME_TOLERANCE_SECS` | `5` | Tolerance for process start time validation (max: 60 seconds) - helps detect PID reuse on systems under heavy load |
+
 ### Task Master AI Variables (Optional)
 
 For AI-powered task management features, configure these API keys:
