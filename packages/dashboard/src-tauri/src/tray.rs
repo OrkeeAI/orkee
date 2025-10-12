@@ -21,7 +21,17 @@ const HTTP_CONNECT_TIMEOUT_SECS: u64 = 2;
 // Polling and debouncing constants
 // Default polling interval (can be overridden via ORKEE_TRAY_POLL_INTERVAL_SECS env var)
 const DEFAULT_SERVER_POLLING_INTERVAL_SECS: u64 = 5;
+// Fast polling when servers are changing (starting/stopping)
+const FAST_POLLING_INTERVAL_SECS: u64 = 1;
+// Slow polling when servers are stable
+const SLOW_POLLING_INTERVAL_SECS: u64 = 10;
+// Number of consecutive stable polls before switching to slow mode
+const STABLE_THRESHOLD: u32 = 3;
 const MENU_REBUILD_DEBOUNCE_SECS: u64 = 2;
+
+// Circuit breaker constants
+const MAX_CONSECUTIVE_FAILURES: u32 = 5;
+const CIRCUIT_BREAKER_RESET_SECS: u64 = 30;
 
 // Server restart polling constants
 const SERVER_RESTART_MAX_WAIT_SECS: u64 = 10;
@@ -108,6 +118,7 @@ pub struct TrayManager {
     pub api_port: u16,
     tray_icon: Arc<Mutex<Option<TrayIcon>>>,
     shutdown_signal: Arc<AtomicBool>,
+    http_client: Arc<reqwest::Client>,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
@@ -134,11 +145,18 @@ struct ServersResponse {
 
 impl TrayManager {
     pub fn new(app_handle: AppHandle, api_port: u16) -> Self {
+        // Create HTTP client once with connection pooling enabled by default
+        let http_client = Self::create_http_client().unwrap_or_else(|e| {
+            eprintln!("Failed to create HTTP client: {}. Using default client.", e);
+            reqwest::Client::new()
+        });
+
         Self {
             app_handle,
             api_port,
             tray_icon: Arc::new(Mutex::new(None)),
             shutdown_signal: Arc::new(AtomicBool::new(false)),
+            http_client: Arc::new(http_client),
         }
     }
 
@@ -340,7 +358,7 @@ impl TrayManager {
 
     fn open_server_in_browser(api_port: u16, server_id: String) {
         tauri::async_runtime::spawn(async move {
-            match Self::fetch_servers(api_port).await {
+            match Self::fetch_servers_static(api_port).await {
                 Ok(servers) => {
                     if let Some(server) = servers.iter().find(|s| s.id == server_id) {
                         if let Err(e) = open::that(&server.url) {
@@ -357,7 +375,7 @@ impl TrayManager {
 
     fn copy_server_url(app: AppHandle, api_port: u16, server_id: String) {
         tauri::async_runtime::spawn(async move {
-            match Self::fetch_servers(api_port).await {
+            match Self::fetch_servers_static(api_port).await {
                 Ok(servers) => {
                     if let Some(server) = servers.iter().find(|s| s.id == server_id) {
                         // Use the clipboard plugin to copy the URL
@@ -520,10 +538,26 @@ impl TrayManager {
         });
     }
 
-    async fn fetch_servers(api_port: u16) -> Result<Vec<ServerInfo>, Box<dyn std::error::Error + Send + Sync>> {
+    async fn fetch_servers_static(api_port: u16) -> Result<Vec<ServerInfo>, Box<dyn std::error::Error + Send + Sync>> {
         let client = Self::create_http_client()?;
         let url = format!("http://{}:{}/api/preview/servers", get_api_host(), api_port);
         let response = client.get(&url).send().await?;
+
+        if response.status().is_success() {
+            let api_response: ApiResponse<ServersResponse> = response.json().await?;
+            if let Some(data) = api_response.data {
+                Ok(data.servers)
+            } else {
+                Err("API response missing data field".into())
+            }
+        } else {
+            Err(format!("HTTP error: {}", response.status()).into())
+        }
+    }
+
+    async fn fetch_servers(&self) -> Result<Vec<ServerInfo>, Box<dyn std::error::Error + Send + Sync>> {
+        let url = format!("http://{}:{}/api/preview/servers", get_api_host(), self.api_port);
+        let response = self.http_client.get(&url).send().await?;
 
         if response.status().is_success() {
             let api_response: ApiResponse<ServersResponse> = response.json().await?;
@@ -537,8 +571,10 @@ impl TrayManager {
                     .map(|s| {
                         let project_id = s.project_id.clone();
                         let server_id = s.id.clone();
+                        let client = self.http_client.clone();
+                        let api_port = self.api_port;
                         async move {
-                            let name = Self::fetch_project_name(api_port, &project_id).await.ok();
+                            let name = Self::fetch_project_name_with_client(&client, api_port, &project_id).await.ok();
                             (server_id, name)
                         }
                     })
@@ -562,8 +598,7 @@ impl TrayManager {
         }
     }
 
-    async fn fetch_project_name(api_port: u16, project_id: &str) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
-        let client = Self::create_http_client()?;
+    async fn fetch_project_name_with_client(client: &reqwest::Client, api_port: u16, project_id: &str) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
         let url = format!("http://{}:{}/api/projects/{}", get_api_host(), api_port, encode(project_id));
         let response = client.get(&url).send().await?;
 
@@ -602,20 +637,29 @@ impl TrayManager {
     }
 
     pub fn start_server_polling(&self) {
-        let api_port = self.api_port;
         let app_handle = self.app_handle.clone();
         let tray_icon = self.tray_icon.clone();
         let shutdown_signal = self.shutdown_signal.clone();
+        let manager = self.clone();
 
         tauri::async_runtime::spawn(async move {
             let mut last_servers: Vec<ServerInfo> = vec![];
             let mut last_rebuild_time = std::time::Instant::now();
             let min_rebuild_interval = Duration::from_secs(MENU_REBUILD_DEBOUNCE_SECS);
-            let poll_interval_secs = Self::get_polling_interval_secs();
+            let base_poll_interval_secs = Self::get_polling_interval_secs();
             let mut consecutive_failures = 0;
-            const MAX_FAILURES_BEFORE_WARNING: u32 = 3;
+            let mut circuit_breaker_open = false;
+            let mut circuit_breaker_opened_at: Option<std::time::Instant> = None;
 
-            println!("Tray polling interval set to {} seconds", poll_interval_secs);
+            // Adaptive polling state
+            let mut consecutive_stable_polls = 0;
+            let mut current_poll_interval_secs = if base_poll_interval_secs == DEFAULT_SERVER_POLLING_INTERVAL_SECS {
+                FAST_POLLING_INTERVAL_SECS // Start with fast polling by default
+            } else {
+                base_poll_interval_secs // Respect custom polling interval
+            };
+
+            println!("Tray polling starting with adaptive interval: {} seconds", current_poll_interval_secs);
 
             loop {
                 // Check for shutdown signal
@@ -624,10 +668,9 @@ impl TrayManager {
                     break;
                 }
 
-                // Poll servers at configured interval to reduce resource usage
-                // Servers can be manually refreshed via the tray menu
+                // Adaptive polling: fast when changing, slow when stable
                 // Break sleep into 1-second chunks for responsive shutdown
-                for _ in 0..poll_interval_secs {
+                for _ in 0..current_poll_interval_secs {
                     tokio::time::sleep(Duration::from_secs(1)).await;
                     if shutdown_signal.load(Ordering::Relaxed) {
                         println!("Tray polling loop received shutdown signal during sleep, exiting");
@@ -635,10 +678,43 @@ impl TrayManager {
                     }
                 }
 
+                // Circuit breaker: check if we should attempt API call
+                if circuit_breaker_open {
+                    if let Some(opened_at) = circuit_breaker_opened_at {
+                        let elapsed = std::time::Instant::now().duration_since(opened_at);
+                        if elapsed >= Duration::from_secs(CIRCUIT_BREAKER_RESET_SECS) {
+                            println!("Circuit breaker: attempting to close after {} seconds", elapsed.as_secs());
+                            circuit_breaker_open = false;
+                            circuit_breaker_opened_at = None;
+                            consecutive_failures = 0;
+                        } else {
+                            // Skip API call while circuit breaker is open
+                            continue;
+                        }
+                    }
+                }
+
                 // Try to fetch servers from API
-                match Self::fetch_servers(api_port).await {
+                match manager.fetch_servers().await {
                     Ok(servers) => {
-                        if !servers_equal(&servers, &last_servers) {
+                        // Success - reset failure counter and close circuit breaker
+                        consecutive_failures = 0;
+                        if circuit_breaker_open {
+                            println!("Circuit breaker: closed after successful API call");
+                            circuit_breaker_open = false;
+                            circuit_breaker_opened_at = None;
+                        }
+
+                        let servers_changed = !servers_equal(&servers, &last_servers);
+
+                        if servers_changed {
+                            // Servers changed - switch to fast polling
+                            consecutive_stable_polls = 0;
+                            if base_poll_interval_secs == DEFAULT_SERVER_POLLING_INTERVAL_SECS && current_poll_interval_secs != FAST_POLLING_INTERVAL_SECS {
+                                current_poll_interval_secs = FAST_POLLING_INTERVAL_SECS;
+                                println!("Servers changing - switching to fast polling ({} seconds)", current_poll_interval_secs);
+                            }
+
                             let now = std::time::Instant::now();
                             if now.duration_since(last_rebuild_time) >= min_rebuild_interval {
                                 println!("Server list changed, updating menu...");
@@ -650,42 +726,49 @@ impl TrayManager {
                                         Ok(tray_guard) => {
                                             if let Some(tray) = tray_guard.as_ref() {
                                                 if let Err(e) = tray.set_menu(Some(new_menu)) {
-                                                    consecutive_failures += 1;
                                                     eprintln!("Failed to update tray menu: {}", e);
-                                                    if consecutive_failures >= MAX_FAILURES_BEFORE_WARNING {
-                                                        eprintln!("WARNING: Tray menu update has failed {} consecutive times", consecutive_failures);
-                                                    }
                                                 } else {
                                                     println!("Tray menu updated successfully");
                                                     last_servers = servers.clone();
                                                     last_rebuild_time = now;
-                                                    consecutive_failures = 0;
                                                 }
                                             }
                                         }
                                         Err(e) => {
-                                            consecutive_failures += 1;
                                             eprintln!("Failed to lock tray_icon during polling: {}", e);
-                                            if consecutive_failures >= MAX_FAILURES_BEFORE_WARNING {
-                                                eprintln!("WARNING: Tray icon lock has failed {} consecutive times", consecutive_failures);
-                                            }
                                         }
                                     }
                                 }
                                 Err(e) => {
-                                    consecutive_failures += 1;
                                     eprintln!("Failed to build menu: {}", e);
-                                    if consecutive_failures >= MAX_FAILURES_BEFORE_WARNING {
-                                        eprintln!("WARNING: Menu build has failed {} consecutive times", consecutive_failures);
-                                    }
                                 }
+                            }
+                        } else {
+                            // Servers haven't changed - increment stability counter
+                            consecutive_stable_polls += 1;
+
+                            // Switch to slow polling after threshold
+                            if base_poll_interval_secs == DEFAULT_SERVER_POLLING_INTERVAL_SECS
+                                && consecutive_stable_polls >= STABLE_THRESHOLD
+                                && current_poll_interval_secs != SLOW_POLLING_INTERVAL_SECS {
+                                current_poll_interval_secs = SLOW_POLLING_INTERVAL_SECS;
+                                println!("Servers stable for {} polls - switching to slow polling ({} seconds)",
+                                    consecutive_stable_polls, current_poll_interval_secs);
                             }
                         }
                     }
                 }
                 Err(e) => {
-                    // API might not be available yet
-                    eprintln!("Failed to fetch servers: {}", e);
+                    // API failure - increment counter and potentially open circuit breaker
+                    consecutive_failures += 1;
+                    eprintln!("Failed to fetch servers (attempt {}/{}): {}", consecutive_failures, MAX_CONSECUTIVE_FAILURES, e);
+
+                    if consecutive_failures >= MAX_CONSECUTIVE_FAILURES && !circuit_breaker_open {
+                        circuit_breaker_open = true;
+                        circuit_breaker_opened_at = Some(std::time::Instant::now());
+                        eprintln!("Circuit breaker: opened after {} consecutive failures. Will retry in {} seconds.",
+                            consecutive_failures, CIRCUIT_BREAKER_RESET_SECS);
+                    }
                 }
                 }
             }
