@@ -149,7 +149,10 @@ impl StorageManager {
 
         let active_count = projects
             .iter()
-            .filter(|p| p.status == crate::types::ProjectStatus::Planning || p.status == crate::types::ProjectStatus::Launched)
+            .filter(|p| {
+                p.status == crate::types::ProjectStatus::Planning
+                    || p.status == crate::types::ProjectStatus::Launched
+            })
             .count();
 
         let archived_count = projects

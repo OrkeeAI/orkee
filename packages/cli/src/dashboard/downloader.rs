@@ -113,7 +113,9 @@ fn install_dependencies(dashboard_dir: &PathBuf) -> Result<(), Box<dyn std::erro
 }
 
 /// Download and extract dashboard from GitHub releases
-pub async fn download_dashboard(mode: DashboardMode) -> Result<PathBuf, Box<dyn std::error::Error>> {
+pub async fn download_dashboard(
+    mode: DashboardMode,
+) -> Result<PathBuf, Box<dyn std::error::Error>> {
     let dashboard_dir = get_dashboard_dir();
     let version = env!("CARGO_PKG_VERSION");
 
@@ -128,12 +130,7 @@ pub async fn download_dashboard(mode: DashboardMode) -> Result<PathBuf, Box<dyn 
     };
 
     println!("{}", format!("📦 {} not found locally", mode_name).yellow());
-    println!(
-        "{} Downloading {} v{}...",
-        "⬇️".cyan(),
-        mode_name,
-        version
-    );
+    println!("{} Downloading {} v{}...", "⬇️".cyan(), mode_name, version);
 
     // Create dashboard directory if it doesn't exist
     fs::create_dir_all(&dashboard_dir)?;
@@ -254,7 +251,9 @@ pub async fn download_dashboard(mode: DashboardMode) -> Result<PathBuf, Box<dyn 
 }
 
 /// Ensure dashboard is installed, downloading if necessary
-pub async fn ensure_dashboard(dev_mode: bool) -> Result<(PathBuf, DashboardMode), Box<dyn std::error::Error>> {
+pub async fn ensure_dashboard(
+    dev_mode: bool,
+) -> Result<(PathBuf, DashboardMode), Box<dyn std::error::Error>> {
     let dashboard_dir = get_dashboard_dir();
 
     // Determine which mode to use
@@ -300,9 +299,11 @@ pub async fn ensure_dashboard(dev_mode: bool) -> Result<(PathBuf, DashboardMode)
                     "⚠️".yellow(),
                     e
                 );
-                download_dashboard(DashboardMode::Source).await.map(|path| (path, DashboardMode::Source))
+                download_dashboard(DashboardMode::Source)
+                    .await
+                    .map(|path| (path, DashboardMode::Source))
             }
-            Err(e) => Err(e)
+            Err(e) => Err(e),
         }
     }
 }

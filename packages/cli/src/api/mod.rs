@@ -146,8 +146,7 @@ pub async fn create_router_with_options(dashboard_path: Option<std::path::PathBu
 
         if dist_dir.exists() && index_path.exists() {
             // Serve static files with fallback to index.html for client-side routing
-            let serve_dir = ServeDir::new(&dist_dir)
-                .not_found_service(ServeFile::new(&index_path));
+            let serve_dir = ServeDir::new(&dist_dir).not_found_service(ServeFile::new(&index_path));
 
             router = router.fallback_service(serve_dir);
         }

@@ -48,7 +48,9 @@ pub async fn run_server() -> Result<(), Box<dyn std::error::Error>> {
     run_server_with_options(None).await
 }
 
-pub async fn run_server_with_options(dashboard_path: Option<std::path::PathBuf>) -> Result<(), Box<dyn std::error::Error>> {
+pub async fn run_server_with_options(
+    dashboard_path: Option<std::path::PathBuf>,
+) -> Result<(), Box<dyn std::error::Error>> {
     // Load .env file
     dotenvy::dotenv().ok();
 
@@ -79,7 +81,10 @@ pub async fn run_server_with_options(dashboard_path: Option<std::path::PathBuf>)
     }
 }
 
-async fn run_http_server(config: Config, dashboard_path: Option<std::path::PathBuf>) -> Result<(), Box<dyn std::error::Error>> {
+async fn run_http_server(
+    config: Config,
+    dashboard_path: Option<std::path::PathBuf>,
+) -> Result<(), Box<dyn std::error::Error>> {
     let app = create_application_router(config.clone(), dashboard_path).await?;
     let addr = SocketAddr::from(([127, 0, 0, 1], config.port));
 
@@ -96,7 +101,10 @@ async fn run_http_server(config: Config, dashboard_path: Option<std::path::PathB
     Ok(())
 }
 
-async fn run_dual_server_mode(config: Config, dashboard_path: Option<std::path::PathBuf>) -> Result<(), Box<dyn std::error::Error>> {
+async fn run_dual_server_mode(
+    config: Config,
+    dashboard_path: Option<std::path::PathBuf>,
+) -> Result<(), Box<dyn std::error::Error>> {
     // Initialize TLS manager
     let tls_manager = tls::TlsManager::new(config.tls.clone());
     let rustls_config = tls_manager.initialize().await?;

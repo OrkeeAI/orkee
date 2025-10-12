@@ -6,8 +6,8 @@ use axum::{
 use chrono::{DateTime, Utc};
 use orkee_preview::{
     types::{
-        ApiResponse, ServerLogsResponse, ServerStatusResponse, StartServerRequest,
-        StartServerResponse, ServersResponse, ServerStatusInfo,
+        ApiResponse, ServerLogsResponse, ServerStatusInfo, ServerStatusResponse, ServersResponse,
+        StartServerRequest, StartServerResponse,
     },
     PreviewManager, ServerInfo,
 };
@@ -197,23 +197,31 @@ pub async fn list_active_servers(
     let servers = state.preview_manager.list_servers().await;
 
     // Convert ServerInfo to a format suitable for the tray menu
-    let server_list: Vec<ServerStatusInfo> = servers.into_iter().map(|info| {
-        // Get the project name if available
-        let project_name = None; // Could be fetched from project manager if needed
+    let server_list: Vec<ServerStatusInfo> = servers
+        .into_iter()
+        .map(|info| {
+            // Get the project name if available
+            let project_name = None; // Could be fetched from project manager if needed
 
-        ServerStatusInfo {
-            id: info.id.to_string(),
-            project_id: info.project_id.clone(),
-            project_name,
-            port: info.port,
-            url: info.preview_url.clone().unwrap_or_else(|| format!("http://localhost:{}", info.port)),
-            status: format!("{:?}", info.status), // Convert enum to string
-            framework_name: info.framework_name.clone(),
-            started_at: None, // Could add timestamp tracking if needed
-        }
-    }).collect();
+            ServerStatusInfo {
+                id: info.id.to_string(),
+                project_id: info.project_id.clone(),
+                project_name,
+                port: info.port,
+                url: info
+                    .preview_url
+                    .clone()
+                    .unwrap_or_else(|| format!("http://localhost:{}", info.port)),
+                status: format!("{:?}", info.status), // Convert enum to string
+                framework_name: info.framework_name.clone(),
+                started_at: None, // Could add timestamp tracking if needed
+            }
+        })
+        .collect();
 
-    Json(ApiResponse::success(ServersResponse { servers: server_list }))
+    Json(ApiResponse::success(ServersResponse {
+        servers: server_list,
+    }))
 }
 
 /// Health check endpoint for the preview service

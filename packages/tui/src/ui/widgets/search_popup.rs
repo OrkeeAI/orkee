@@ -270,12 +270,14 @@ impl<'a> SearchPopupWidget<'a> {
         &self,
         current_status: &Option<orkee_projects::ProjectStatus>,
     ) -> String {
-        let active_indicator =
-            if matches!(current_status, Some(orkee_projects::ProjectStatus::Planning)) {
-                "●"
-            } else {
-                "○"
-            };
+        let active_indicator = if matches!(
+            current_status,
+            Some(orkee_projects::ProjectStatus::Planning)
+        ) {
+            "●"
+        } else {
+            "○"
+        };
         let archived_indicator = if matches!(
             current_status,
             Some(orkee_projects::ProjectStatus::Archived)

@@ -1,7 +1,7 @@
 use clap::{Parser, Subcommand};
 use colored::*;
-use std::process;
 use std::path::PathBuf;
+use std::process;
 
 mod cli;
 
@@ -31,9 +31,17 @@ struct Cli {
 enum Commands {
     /// Start the dashboard (backend + frontend)
     Dashboard {
-        #[arg(long, default_value = "0", help = "API server port (0 = auto-allocate)")]
+        #[arg(
+            long,
+            default_value = "0",
+            help = "API server port (0 = auto-allocate)"
+        )]
         api_port: u16,
-        #[arg(long, default_value = "0", help = "Dashboard UI port (0 = auto-allocate)")]
+        #[arg(
+            long,
+            default_value = "0",
+            help = "Dashboard UI port (0 = auto-allocate)"
+        )]
         ui_port: u16,
         #[arg(long, help = "Restart services (kill existing processes first)")]
         restart: bool,
@@ -66,9 +74,17 @@ enum Commands {
 enum Commands {
     /// Start the dashboard (backend + frontend)
     Dashboard {
-        #[arg(long, default_value = "0", help = "API server port (0 = auto-allocate)")]
+        #[arg(
+            long,
+            default_value = "0",
+            help = "API server port (0 = auto-allocate)"
+        )]
         api_port: u16,
-        #[arg(long, default_value = "0", help = "Dashboard UI port (0 = auto-allocate)")]
+        #[arg(
+            long,
+            default_value = "0",
+            help = "Dashboard UI port (0 = auto-allocate)"
+        )]
         ui_port: u16,
         #[arg(long, help = "Restart services (kill existing processes first)")]
         restart: bool,
@@ -389,7 +405,10 @@ async fn start_full_dashboard(
         };
 
         tokio::spawn(async move {
-            if let Err(e) = start_server_with_options(api_port, cors_origin_clone, dashboard_path_for_server).await {
+            if let Err(e) =
+                start_server_with_options(api_port, cors_origin_clone, dashboard_path_for_server)
+                    .await
+            {
                 eprintln!("{} Failed to start backend: {}", "Error:".red().bold(), e);
             }
         })
@@ -398,56 +417,67 @@ async fn start_full_dashboard(
     // Wait a moment for backend to start
     tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
 
-async fn find_local_dashboard() -> Result<std::path::PathBuf, Box<dyn std::error::Error>> {
-    // Try to find dashboard by walking up directories (for monorepo)
-    let mut current = std::env::current_dir()?;
+    async fn find_local_dashboard() -> Result<std::path::PathBuf, Box<dyn std::error::Error>> {
+        // Try to find dashboard by walking up directories (for monorepo)
+        let mut current = std::env::current_dir()?;
 
-    // Try current/packages/dashboard first
-    let try_path = current.join("packages/dashboard");
-    if try_path.exists() && try_path.join("package.json").exists() {
-        println!(
-            "{} Using local development dashboard from {}",
-            "🔧".cyan(),
-            try_path.display()
-        );
-        return Ok(try_path);
-    }
-
-    // Walk up parent directories to find monorepo root
-    for _ in 0..5 {  // Increased from 3 to 5 levels
-        if let Some(parent) = current.parent() {
-            current = parent.to_path_buf();
-            let try_path = current.join("packages/dashboard");
-            if try_path.exists() && try_path.join("package.json").exists() {
-                println!(
-                    "{} Using local development dashboard from {}",
-                    "🔧".cyan(),
-                    try_path.display()
-                );
-                return Ok(try_path);
-            }
-        } else {
-            break;
+        // Try current/packages/dashboard first
+        let try_path = current.join("packages/dashboard");
+        if try_path.exists() && try_path.join("package.json").exists() {
+            println!(
+                "{} Using local development dashboard from {}",
+                "🔧".cyan(),
+                try_path.display()
+            );
+            return Ok(try_path);
         }
-    }
 
-    // Fallback to downloaded dashboard
-    println!(
-        "{} Local dashboard not found, falling back to downloaded version",
-        "⚠️".yellow()
-    );
-    let (path, _mode) = ensure_dashboard(true).await?; // Use dev mode for source when local search fails
-    Ok(path)
-}
+        // Walk up parent directories to find monorepo root
+        for _ in 0..5 {
+            // Increased from 3 to 5 levels
+            if let Some(parent) = current.parent() {
+                current = parent.to_path_buf();
+                let try_path = current.join("packages/dashboard");
+                if try_path.exists() && try_path.join("package.json").exists() {
+                    println!(
+                        "{} Using local development dashboard from {}",
+                        "🔧".cyan(),
+                        try_path.display()
+                    );
+                    return Ok(try_path);
+                }
+            } else {
+                break;
+            }
+        }
+
+        // Fallback to downloaded dashboard
+        println!(
+            "{} Local dashboard not found, falling back to downloaded version",
+            "⚠️".yellow()
+        );
+        let (path, _mode) = ensure_dashboard(true).await?; // Use dev mode for source when local search fails
+        Ok(path)
+    }
 
     // Start frontend based on mode
     match dashboard_mode {
         DashboardMode::Dist => {
             // For dist mode, serve everything from the API server (single port)
-            println!("{}", "📦 Using single-port serving for production mode".cyan());
+            println!(
+                "{}",
+                "📦 Using single-port serving for production mode".cyan()
+            );
             println!("{}", "✅ Dashboard and API started!".green());
-            println!("{} http://localhost:{}", "🌐 Access the dashboard at:".cyan(), api_port);
-            println!("{} Running in production mode (pre-built assets)", "⚡".cyan());
+            println!(
+                "{} http://localhost:{}",
+                "🌐 Access the dashboard at:".cyan(),
+                api_port
+            );
+            println!(
+                "{} Running in production mode (pre-built assets)",
+                "⚡".cyan()
+            );
 
             // Just wait for the backend since it's serving everything
             let _ = backend_handle.await;
@@ -467,7 +497,10 @@ async fn find_local_dashboard() -> Result<std::path::PathBuf, Box<dyn std::error
                     println!("{}", "✅ Both backend and frontend started!".green());
                     println!("{} http://localhost:{}", "🔗 Backend API:".cyan(), api_port);
                     println!("{} http://localhost:{}", "🌐 Frontend UI:".cyan(), ui_port);
-                    println!("{} Running in development mode (with hot reload)", "🔄".cyan());
+                    println!(
+                        "{} Running in development mode (with hot reload)",
+                        "🔄".cyan()
+                    );
 
                     // Wait for both processes
                     let _ = tokio::join!(

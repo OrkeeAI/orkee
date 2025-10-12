@@ -1,10 +1,10 @@
+use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::fs;
 use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use serde::{Deserialize, Serialize};
-use chrono::{DateTime, Utc};
-use std::fs;
 use tracing::{debug, error, info, warn};
 
 use crate::types::DevServerStatus;
@@ -25,7 +25,7 @@ pub struct ServerRegistryEntry {
     pub actual_command: Option<String>,
     pub started_at: DateTime<Utc>,
     pub last_seen: DateTime<Utc>,
-    pub api_port: u16,  // Which Orkee API instance manages this server
+    pub api_port: u16, // Which Orkee API instance manages this server
 }
 
 /// The central server registry
@@ -53,7 +53,10 @@ impl ServerRegistry {
     /// Load the registry from disk
     pub async fn load_registry(&self) -> Result<(), Box<dyn std::error::Error>> {
         if !self.registry_path.exists() {
-            debug!("Server registry does not exist yet at {:?}", self.registry_path);
+            debug!(
+                "Server registry does not exist yet at {:?}",
+                self.registry_path
+            );
             return Ok(());
         }
 
@@ -83,7 +86,10 @@ impl ServerRegistry {
     }
 
     /// Register a new server or update an existing one
-    pub async fn register_server(&self, entry: ServerRegistryEntry) -> Result<(), Box<dyn std::error::Error>> {
+    pub async fn register_server(
+        &self,
+        entry: ServerRegistryEntry,
+    ) -> Result<(), Box<dyn std::error::Error>> {
         {
             let mut registry = self.entries.write().await;
             registry.insert(entry.id.clone(), entry);
@@ -93,7 +99,10 @@ impl ServerRegistry {
     }
 
     /// Remove a server from the registry
-    pub async fn unregister_server(&self, server_id: &str) -> Result<(), Box<dyn std::error::Error>> {
+    pub async fn unregister_server(
+        &self,
+        server_id: &str,
+    ) -> Result<(), Box<dyn std::error::Error>> {
         {
             let mut registry = self.entries.write().await;
             registry.remove(server_id);
@@ -115,7 +124,11 @@ impl ServerRegistry {
     }
 
     /// Update server status
-    pub async fn update_server_status(&self, server_id: &str, status: DevServerStatus) -> Result<(), Box<dyn std::error::Error>> {
+    pub async fn update_server_status(
+        &self,
+        server_id: &str,
+        status: DevServerStatus,
+    ) -> Result<(), Box<dyn std::error::Error>> {
         {
             let mut registry = self.entries.write().await;
             if let Some(entry) = registry.get_mut(server_id) {
@@ -181,7 +194,8 @@ impl ServerRegistry {
                         if let Ok(lock_data) = serde_json::from_str::<serde_json::Value>(&content) {
                             // Convert lock file to registry entry
                             if let Some(project_id) = lock_data["project_id"].as_str() {
-                                let server_id = path.file_stem()
+                                let server_id = path
+                                    .file_stem()
                                     .and_then(|s| s.to_str())
                                     .unwrap_or(project_id)
                                     .to_string();
@@ -190,14 +204,19 @@ impl ServerRegistry {
                                     id: server_id.clone(),
                                     project_id: project_id.to_string(),
                                     project_name: None,
-                                    project_root: PathBuf::from(lock_data["project_root"].as_str().unwrap_or("/")),
+                                    project_root: PathBuf::from(
+                                        lock_data["project_root"].as_str().unwrap_or("/"),
+                                    ),
                                     port: lock_data["port"].as_u64().unwrap_or(0) as u16,
                                     pid: lock_data["pid"].as_u64().map(|p| p as u32),
                                     status: DevServerStatus::Running,
-                                    preview_url: lock_data["preview_url"].as_str().map(|s| s.to_string()),
+                                    preview_url: lock_data["preview_url"]
+                                        .as_str()
+                                        .map(|s| s.to_string()),
                                     framework_name: None,
                                     actual_command: None,
-                                    started_at: lock_data["started_at"].as_str()
+                                    started_at: lock_data["started_at"]
+                                        .as_str()
                                         .and_then(|s| DateTime::parse_from_rfc3339(s).ok())
                                         .map(|dt| dt.with_timezone(&Utc))
                                         .unwrap_or_else(Utc::now),
@@ -230,7 +249,7 @@ impl ServerRegistry {
 /// Check if a process with the given PID is running
 fn is_process_running(pid: u32) -> bool {
     // Use sysinfo to check process
-    use sysinfo::{System, Pid};
+    use sysinfo::{Pid, System};
     let mut system = System::new();
     system.refresh_processes();
 

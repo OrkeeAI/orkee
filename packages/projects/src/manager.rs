@@ -342,7 +342,9 @@ pub async fn import_database(data: Vec<u8>) -> ManagerResult<crate::storage::Imp
 
     info!(
         "Database imported: {} projects imported, {} skipped, {} conflicts",
-        result.projects_imported, result.projects_skipped, result.conflicts.len()
+        result.projects_imported,
+        result.projects_skipped,
+        result.conflicts.len()
     );
 
     Ok(result)

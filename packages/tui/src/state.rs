@@ -996,7 +996,14 @@ impl AppState {
         let mut step2 = FormStep::new("Configuration".to_string());
 
         // Pre-populate status field
-        let status_options = vec!["planning".to_string(), "building".to_string(), "review".to_string(), "launched".to_string(), "on-hold".to_string(), "archived".to_string()];
+        let status_options = vec![
+            "planning".to_string(),
+            "building".to_string(),
+            "review".to_string(),
+            "launched".to_string(),
+            "on-hold".to_string(),
+            "archived".to_string(),
+        ];
         let status_selected = match project.status {
             ProjectStatus::Planning => 0,
             ProjectStatus::Building => 1,
