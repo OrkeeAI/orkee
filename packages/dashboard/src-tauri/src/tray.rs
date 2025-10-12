@@ -605,7 +605,7 @@ impl TrayManager {
         let manager = self.clone();
 
         tauri::async_runtime::spawn(async move {
-            let mut last_servers: Vec<ServerInfo> = vec![];
+            let mut last_servers_hash: u64 = 0; // Cache hash of last server list
             let mut last_rebuild_time = std::time::Instant::now();
             let min_rebuild_interval = Duration::from_secs(MENU_REBUILD_DEBOUNCE_SECS);
             let base_poll_interval_secs = Self::get_polling_interval_secs();
@@ -668,7 +668,9 @@ impl TrayManager {
                             circuit_breaker_opened_at = None;
                         }
 
-                        let servers_changed = !servers_equal(&servers, &last_servers);
+                        // Compute hash of current server list and compare with cached hash
+                        let current_hash = compute_servers_hash(&servers);
+                        let servers_changed = current_hash != last_servers_hash;
 
                         if servers_changed {
                             // Servers changed - switch to fast polling
@@ -692,7 +694,7 @@ impl TrayManager {
                                                     eprintln!("Failed to update tray menu: {}", e);
                                                 } else {
                                                     println!("Tray menu updated successfully");
-                                                    last_servers = servers.clone();
+                                                    last_servers_hash = current_hash; // Update cached hash
                                                     last_rebuild_time = now;
                                                 }
                                             }
@@ -739,26 +741,30 @@ impl TrayManager {
     }
 }
 
-fn servers_equal(a: &[ServerInfo], b: &[ServerInfo]) -> bool {
-    use std::collections::HashSet;
+/// Compute a hash of the server list for efficient comparison.
+///
+/// This function computes a stable hash based on server id, status, and port.
+/// The hash is order-independent by sorting servers before hashing.
+/// This avoids allocating HashSets on every poll.
+fn compute_servers_hash(servers: &[ServerInfo]) -> u64 {
+    use std::collections::hash_map::DefaultHasher;
+    use std::hash::{Hash, Hasher};
 
-    if a.len() != b.len() {
-        return false;
-    }
+    let mut hasher = DefaultHasher::new();
 
-    // Create sets of (id, status, port) tuples for comparison
-    // This is order-independent
-    let set_a: HashSet<(&str, &str, u16)> = a
+    // Create a sorted vector of (id, status, port) tuples for stable hashing
+    let mut tuples: Vec<(&str, &str, u16)> = servers
         .iter()
         .map(|s| (s.id.as_str(), s.status.as_str(), s.port))
         .collect();
 
-    let set_b: HashSet<(&str, &str, u16)> = b
-        .iter()
-        .map(|s| (s.id.as_str(), s.status.as_str(), s.port))
-        .collect();
+    // Sort to ensure order-independence
+    tuples.sort_unstable();
 
-    set_a == set_b
+    // Hash the sorted tuples
+    tuples.hash(&mut hasher);
+
+    hasher.finish()
 }
 
 #[cfg(test)]
@@ -783,21 +789,21 @@ mod tests {
     }
 
     #[test]
-    fn test_servers_equal_empty_lists() {
+    fn test_servers_hash_empty_lists() {
         let a: Vec<ServerInfo> = vec![];
         let b: Vec<ServerInfo> = vec![];
-        assert!(servers_equal(&a, &b));
+        assert_eq!(compute_servers_hash(&a), compute_servers_hash(&b));
     }
 
     #[test]
-    fn test_servers_equal_identical_single_server() {
+    fn test_servers_hash_identical_single_server() {
         let a = vec![create_test_server("server1", "proj1", "running", 3000)];
         let b = vec![create_test_server("server1", "proj1", "running", 3000)];
-        assert!(servers_equal(&a, &b));
+        assert_eq!(compute_servers_hash(&a), compute_servers_hash(&b));
     }
 
     #[test]
-    fn test_servers_equal_different_order() {
+    fn test_servers_hash_different_order() {
         let a = vec![
             create_test_server("server1", "proj1", "running", 3000),
             create_test_server("server2", "proj2", "running", 3001),
@@ -806,62 +812,63 @@ mod tests {
             create_test_server("server2", "proj2", "running", 3001),
             create_test_server("server1", "proj1", "running", 3000),
         ];
-        assert!(servers_equal(&a, &b));
+        // Hash should be the same regardless of order
+        assert_eq!(compute_servers_hash(&a), compute_servers_hash(&b));
     }
 
     #[test]
-    fn test_servers_equal_different_lengths() {
+    fn test_servers_hash_different_lengths() {
         let a = vec![create_test_server("server1", "proj1", "running", 3000)];
         let b = vec![
             create_test_server("server1", "proj1", "running", 3000),
             create_test_server("server2", "proj2", "running", 3001),
         ];
-        assert!(!servers_equal(&a, &b));
+        assert_ne!(compute_servers_hash(&a), compute_servers_hash(&b));
     }
 
     #[test]
-    fn test_servers_equal_different_status() {
+    fn test_servers_hash_different_status() {
         let a = vec![create_test_server("server1", "proj1", "running", 3000)];
         let b = vec![create_test_server("server1", "proj1", "stopped", 3000)];
-        assert!(!servers_equal(&a, &b));
+        assert_ne!(compute_servers_hash(&a), compute_servers_hash(&b));
     }
 
     #[test]
-    fn test_servers_equal_different_port() {
+    fn test_servers_hash_different_port() {
         let a = vec![create_test_server("server1", "proj1", "running", 3000)];
         let b = vec![create_test_server("server1", "proj1", "running", 3001)];
-        assert!(!servers_equal(&a, &b));
+        assert_ne!(compute_servers_hash(&a), compute_servers_hash(&b));
     }
 
     #[test]
-    fn test_servers_equal_different_id() {
+    fn test_servers_hash_different_id() {
         let a = vec![create_test_server("server1", "proj1", "running", 3000)];
         let b = vec![create_test_server("server2", "proj1", "running", 3000)];
-        assert!(!servers_equal(&a, &b));
+        assert_ne!(compute_servers_hash(&a), compute_servers_hash(&b));
     }
 
     #[test]
-    fn test_servers_equal_ignores_project_name() {
+    fn test_servers_hash_ignores_project_name() {
         let mut a = vec![create_test_server("server1", "proj1", "running", 3000)];
         let mut b = vec![create_test_server("server1", "proj1", "running", 3000)];
 
-        // Different project names should not affect equality
+        // Different project names should not affect hash
         a[0].project_name = Some("Name A".to_string());
         b[0].project_name = Some("Name B".to_string());
 
-        assert!(servers_equal(&a, &b));
+        assert_eq!(compute_servers_hash(&a), compute_servers_hash(&b));
     }
 
     #[test]
-    fn test_servers_equal_ignores_url() {
+    fn test_servers_hash_ignores_url() {
         let mut a = vec![create_test_server("server1", "proj1", "running", 3000)];
         let mut b = vec![create_test_server("server1", "proj1", "running", 3000)];
 
-        // Different URLs should not affect equality
+        // Different URLs should not affect hash
         a[0].url = "http://localhost:3000".to_string();
         b[0].url = "http://127.0.0.1:3000".to_string();
 
-        assert!(servers_equal(&a, &b));
+        assert_eq!(compute_servers_hash(&a), compute_servers_hash(&b));
     }
 
     #[test]
