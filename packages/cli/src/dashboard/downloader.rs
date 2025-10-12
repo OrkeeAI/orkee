@@ -115,9 +115,7 @@ fn validate_total_size(
 
 /// Validate that path nesting depth doesn't exceed maximum
 fn validate_nesting_depth(path: &Path, base_dir: &Path) -> Result<(), Box<dyn std::error::Error>> {
-    let relative_path = path
-        .strip_prefix(base_dir)
-        .unwrap_or(path);
+    let relative_path = path.strip_prefix(base_dir).unwrap_or(path);
 
     let depth = relative_path.components().count();
 
