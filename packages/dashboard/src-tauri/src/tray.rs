@@ -16,7 +16,11 @@ const HTTP_CONNECT_TIMEOUT_SECS: u64 = 2;
 // Polling and debouncing constants
 const SERVER_POLLING_INTERVAL_SECS: u64 = 5;
 const MENU_REBUILD_DEBOUNCE_SECS: u64 = 2;
-const SERVER_RESTART_WAIT_SECS: u64 = 1;
+
+// Server restart polling constants
+const SERVER_RESTART_MAX_WAIT_SECS: u64 = 10;
+const SERVER_RESTART_POLL_INTERVAL_MS: u64 = 100;
+const SERVER_RESTART_PORT_RELEASE_DELAY_MS: u64 = 500;
 
 #[derive(Clone)]
 pub struct TrayManager {
@@ -61,16 +65,14 @@ impl TrayManager {
     }
 
     /// Create an HTTP client with configured timeouts to prevent hangs
-    fn create_http_client() -> reqwest::Client {
+    ///
+    /// Returns an error if the client cannot be created with the specified configuration.
+    /// This should never fail in practice unless there are system-level issues.
+    fn create_http_client() -> Result<reqwest::Client, reqwest::Error> {
         reqwest::Client::builder()
             .timeout(Duration::from_secs(HTTP_REQUEST_TIMEOUT_SECS))
             .connect_timeout(Duration::from_secs(HTTP_CONNECT_TIMEOUT_SECS))
             .build()
-            .unwrap_or_else(|err| {
-                eprintln!("CRITICAL: Failed to create HTTP client with timeouts: {}", err);
-                eprintln!("This is a fatal configuration error - cannot proceed with unconfigured client");
-                panic!("HTTP client configuration failed: {}", err);
-            })
     }
 
     pub fn init(&mut self, app: &App) -> Result<(), Box<dyn std::error::Error>> {
@@ -296,7 +298,13 @@ impl TrayManager {
 
     fn stop_server(api_port: u16, project_id: String) {
         tauri::async_runtime::spawn(async move {
-            let client = Self::create_http_client();
+            let client = match Self::create_http_client() {
+                Ok(c) => c,
+                Err(e) => {
+                    eprintln!("Failed to create HTTP client for stopping server: {}", e);
+                    return;
+                }
+            };
             let url = format!("http://localhost:{}/api/preview/servers/{}/stop", api_port, project_id);
             match client.post(&url).send().await {
                 Ok(response) => {
@@ -313,7 +321,13 @@ impl TrayManager {
 
     fn restart_server(api_port: u16, project_id: String) {
         tauri::async_runtime::spawn(async move {
-            let client = Self::create_http_client();
+            let client = match Self::create_http_client() {
+                Ok(c) => c,
+                Err(e) => {
+                    eprintln!("Failed to create HTTP client for restarting server: {}", e);
+                    return;
+                }
+            };
 
             // Step 1: Stop the server
             let stop_url = format!("http://localhost:{}/api/preview/servers/{}/stop", api_port, project_id);
@@ -333,13 +347,11 @@ impl TrayManager {
 
             // Step 2: Poll and verify server is actually stopped
             let status_url = format!("http://localhost:{}/api/preview/servers/{}/status", api_port, project_id);
-            let max_wait_secs = 10;
-            let poll_interval_ms = 100;
-            let max_attempts = (max_wait_secs * 1000) / poll_interval_ms;
+            let max_attempts = (SERVER_RESTART_MAX_WAIT_SECS * 1000) / SERVER_RESTART_POLL_INTERVAL_MS;
 
             let mut stopped = false;
             for attempt in 0..max_attempts {
-                tokio::time::sleep(Duration::from_millis(poll_interval_ms)).await;
+                tokio::time::sleep(Duration::from_millis(SERVER_RESTART_POLL_INTERVAL_MS)).await;
 
                 // Check if server is no longer running
                 match client.get(&status_url).send().await {
@@ -351,7 +363,7 @@ impl TrayManager {
                                     if data.get("instance").is_none() {
                                         // Server is stopped
                                         stopped = true;
-                                        println!("Server confirmed stopped after {}ms", attempt * poll_interval_ms);
+                                        println!("Server confirmed stopped after {}ms", attempt * SERVER_RESTART_POLL_INTERVAL_MS);
                                         break;
                                     }
                                 }
@@ -359,27 +371,27 @@ impl TrayManager {
                         } else {
                             // Server not found (404 or similar) - it's stopped
                             stopped = true;
-                            println!("Server confirmed stopped (no longer exists) after {}ms", attempt * poll_interval_ms);
+                            println!("Server confirmed stopped (no longer exists) after {}ms", attempt * SERVER_RESTART_POLL_INTERVAL_MS);
                             break;
                         }
                     }
                     Err(_) => {
                         // API error might mean server is down, consider it stopped
                         stopped = true;
-                        println!("Server appears stopped (API unreachable) after {}ms", attempt * poll_interval_ms);
+                        println!("Server appears stopped (API unreachable) after {}ms", attempt * SERVER_RESTART_POLL_INTERVAL_MS);
                         break;
                     }
                 }
             }
 
             if !stopped {
-                eprintln!("Timeout waiting for server to stop after {} seconds", max_wait_secs);
+                eprintln!("Timeout waiting for server to stop after {} seconds", SERVER_RESTART_MAX_WAIT_SECS);
                 return;
             }
 
             // Step 3: Additional short delay for port release
             // This accounts for OS-level port cleanup after process termination
-            tokio::time::sleep(Duration::from_millis(500)).await;
+            tokio::time::sleep(Duration::from_millis(SERVER_RESTART_PORT_RELEASE_DELAY_MS)).await;
 
             // Step 4: Start the server
             let start_url = format!("http://localhost:{}/api/preview/servers/{}/start", api_port, project_id);
@@ -397,7 +409,7 @@ impl TrayManager {
     }
 
     async fn fetch_servers(api_port: u16) -> Result<Vec<ServerInfo>, Box<dyn std::error::Error + Send + Sync>> {
-        let client = Self::create_http_client();
+        let client = Self::create_http_client()?;
         let url = format!("http://localhost:{}/api/preview/servers", api_port);
         let response = client.get(&url).send().await?;
 
@@ -425,7 +437,7 @@ impl TrayManager {
     }
 
     async fn fetch_project_name(api_port: u16, project_id: &str) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
-        let client = Self::create_http_client();
+        let client = Self::create_http_client()?;
         let url = format!("http://localhost:{}/api/projects/{}", api_port, project_id);
         let response = client.get(&url).send().await?;
 

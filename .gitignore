@@ -31,6 +31,10 @@ node_modules/
 target/
 dist/
 
+# Binary executables
+packages/cli/orkee
+packages/dashboard/src-tauri/binaries/
+
 # Tasks
 .taskmaster/
 

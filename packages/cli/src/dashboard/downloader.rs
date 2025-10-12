@@ -27,8 +27,17 @@ fn validate_safe_path(path: &Path, base_dir: &Path) -> Result<(), Box<dyn std::e
     let canonical_path = if path.exists() {
         path.canonicalize()?
     } else {
-        // For non-existent paths, construct the full path manually
-        canonical_base.join(path.strip_prefix(&canonical_base).unwrap_or(path))
+        // For non-existent paths, construct them relative to canonical_base
+        if let Ok(relative) = path.strip_prefix(base_dir) {
+            // Path is under base_dir (before canonicalization) - construct relative to canonical base
+            canonical_base.join(relative)
+        } else if path.is_absolute() {
+            // Absolute path not under base_dir - use as-is for validation
+            path.to_path_buf()
+        } else {
+            // Relative path - join with canonical base
+            canonical_base.join(path)
+        }
     };
 
     // Check that the path is within the base directory
@@ -572,4 +581,113 @@ pub fn clean_dashboard() -> Result<(), Box<dyn std::error::Error>> {
         println!("{} Dashboard cache cleaned", "🧹".green());
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+    use tempfile::TempDir;
+
+    #[test]
+    fn test_validate_safe_path_allows_safe_paths() {
+        let temp_dir = TempDir::new().unwrap();
+        let base = temp_dir.path();
+
+        // Safe path within base
+        let safe_path = base.join("safe_file.txt");
+        assert!(validate_safe_path(&safe_path, base).is_ok());
+
+        // Safe nested path
+        let safe_nested = base.join("subdir").join("file.txt");
+        assert!(validate_safe_path(&safe_nested, base).is_ok());
+    }
+
+    #[test]
+    fn test_validate_safe_path_blocks_parent_directory_traversal() {
+        let temp_dir = TempDir::new().unwrap();
+        let base = temp_dir.path();
+
+        // Path with .. component
+        let traversal_path = base.join("..").join("etc").join("passwd");
+        assert!(validate_safe_path(&traversal_path, base).is_err());
+    }
+
+    #[test]
+    fn test_validate_safe_path_blocks_suspicious_components() {
+        let temp_dir = TempDir::new().unwrap();
+        let base = temp_dir.path();
+
+        // Path with suspicious .. in filename
+        let suspicious = base.join("file..txt");
+        assert!(validate_safe_path(&suspicious, base).is_err());
+
+        // Path starting with ..
+        let dot_dot = base.join("..hidden");
+        assert!(validate_safe_path(&dot_dot, base).is_err());
+    }
+
+    #[test]
+    fn test_validate_safe_path_allows_single_dot_files() {
+        let temp_dir = TempDir::new().unwrap();
+        let base = temp_dir.path();
+
+        // Hidden files with single dot are okay
+        let hidden_file = base.join(".gitignore");
+        assert!(validate_safe_path(&hidden_file, base).is_ok());
+    }
+
+    #[test]
+    fn test_validate_safe_path_with_existing_directories() {
+        let temp_dir = TempDir::new().unwrap();
+        let base = temp_dir.path();
+
+        // Create actual directories
+        let subdir = base.join("subdir");
+        fs::create_dir(&subdir).unwrap();
+
+        let file_in_subdir = subdir.join("file.txt");
+        assert!(validate_safe_path(&file_in_subdir, base).is_ok());
+    }
+
+    #[test]
+    fn test_validate_safe_path_canonical_resolution() {
+        let temp_dir = TempDir::new().unwrap();
+        let base = temp_dir.path();
+
+        // Create a subdirectory
+        let subdir = base.join("subdir");
+        fs::create_dir(&subdir).unwrap();
+
+        // Path with redundant components (should be resolved)
+        let redundant = base.join("subdir").join(".").join("file.txt");
+        assert!(validate_safe_path(&redundant, base).is_ok());
+    }
+
+    #[test]
+    fn test_validate_safe_path_blocks_absolute_paths_outside_base() {
+        let temp_dir = TempDir::new().unwrap();
+        let base = temp_dir.path();
+
+        // Absolute path outside base directory
+        let outside_path = Path::new("/etc/passwd");
+        assert!(validate_safe_path(outside_path, base).is_err());
+    }
+
+    #[test]
+    fn test_get_dashboard_dir_returns_valid_path() {
+        let result = get_dashboard_dir();
+        assert!(result.is_ok());
+
+        let path = result.unwrap();
+        assert!(path.to_str().unwrap().contains(".orkee"));
+        assert!(path.to_str().unwrap().contains("dashboard"));
+    }
+
+    #[test]
+    fn test_dashboard_mode_equality() {
+        assert_eq!(DashboardMode::Dist, DashboardMode::Dist);
+        assert_eq!(DashboardMode::Source, DashboardMode::Source);
+        assert_ne!(DashboardMode::Dist, DashboardMode::Source);
+    }
 }

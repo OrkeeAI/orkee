@@ -11,7 +11,8 @@
     "preview": "vite preview",
     "tauri": "tauri",
     "tauri:dev": "tauri dev",
-    "tauri:build": "tauri build"
+    "tauri:build": "tauri build",
+    "prepare-binaries": "./prepare-binaries.sh"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
