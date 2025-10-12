@@ -269,7 +269,7 @@ pub fn is_dashboard_installed(mode: DashboardMode) -> Result<bool, Box<dyn std::
 fn install_dependencies(dashboard_dir: &PathBuf) -> Result<(), Box<dyn std::error::Error>> {
     println!("{} Installing dashboard dependencies...", "📦".cyan());
 
-    let bun_check = std::process::Command::new("which").arg("bun").output();
+    let bun_check = std::process::Command::new("bun").arg("--version").output();
 
     if bun_check.is_ok() && bun_check.unwrap().status.success() {
         // Use production flag if not in dev mode
