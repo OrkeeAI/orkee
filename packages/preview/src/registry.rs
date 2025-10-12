@@ -7,6 +7,7 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 use tracing::{debug, error, info, warn};
 
+use crate::env::parse_env_or_default_with_validation;
 use crate::types::DevServerStatus;
 
 /// Central server registry that tracks ALL dev servers across all Orkee instances
@@ -48,22 +49,11 @@ impl ServerRegistry {
         let registry_path = home.join(".orkee").join("server-registry.json");
 
         // Read stale timeout from environment variable, default to 5 minutes
-        let stale_timeout_minutes = std::env::var("ORKEE_STALE_TIMEOUT_MINUTES")
-            .ok()
-            .and_then(|v| v.parse::<i64>().ok())
-            .unwrap_or(5);
-
         // Validate the timeout value (must be positive, max 1440 minutes = 24 hours)
-        let stale_timeout_minutes = if stale_timeout_minutes > 0 && stale_timeout_minutes <= 1440 {
-            stale_timeout_minutes
-        } else {
-            warn!(
-                "Invalid ORKEE_STALE_TIMEOUT_MINUTES value: {}. Using default of 5 minutes. \
-                Value must be between 1 and 1440 (24 hours).",
-                stale_timeout_minutes
-            );
-            5
-        };
+        let stale_timeout_minutes =
+            parse_env_or_default_with_validation("ORKEE_STALE_TIMEOUT_MINUTES", 5, |v| {
+                v > 0 && v <= 1440
+            });
 
         debug!(
             "Server registry stale timeout set to {} minutes",
@@ -103,42 +93,82 @@ impl ServerRegistry {
 
     /// Save the registry to disk
     pub async fn save_registry(&self) -> Result<(), Box<dyn std::error::Error>> {
+        let registry = self.entries.read().await;
+        self.save_entries_to_disk(&*registry).await
+    }
+
+    /// Helper to save entries to disk (used for transactional updates)
+    async fn save_entries_to_disk(
+        &self,
+        entries: &HashMap<String, ServerRegistryEntry>,
+    ) -> Result<(), Box<dyn std::error::Error>> {
         // Ensure the .orkee directory exists
         if let Some(parent) = self.registry_path.parent() {
             fs::create_dir_all(parent)?;
         }
 
-        let registry = self.entries.read().await;
-        let json = serde_json::to_string_pretty(&*registry)?;
-        fs::write(&self.registry_path, json)?;
+        let json = serde_json::to_string_pretty(entries)?;
 
-        debug!("Saved {} servers to registry", registry.len());
+        // Write to temporary file first for atomic operation
+        let temp_path = self.registry_path.with_extension("tmp");
+        fs::write(&temp_path, &json)?;
+
+        // Atomic rename to actual file
+        fs::rename(&temp_path, &self.registry_path)?;
+
+        debug!("Saved {} servers to registry", entries.len());
         Ok(())
     }
 
     /// Register a new server or update an existing one
+    /// Uses transactional update: save to disk first, then update memory
     pub async fn register_server(
         &self,
         entry: ServerRegistryEntry,
     ) -> Result<(), Box<dyn std::error::Error>> {
+        let entry_id = entry.id.clone();
+
+        // Create new state with the entry added
+        let new_entries = {
+            let mut registry = self.entries.read().await.clone();
+            registry.insert(entry_id.clone(), entry);
+            registry
+        };
+
+        // Save to disk first (transactional boundary)
+        self.save_entries_to_disk(&new_entries).await?;
+
+        // Only update memory if save succeeded
         {
             let mut registry = self.entries.write().await;
-            registry.insert(entry.id.clone(), entry);
+            *registry = new_entries;
         }
-        self.save_registry().await?;
+
         Ok(())
     }
 
     /// Remove a server from the registry
+    /// Uses transactional update: save to disk first, then update memory
     pub async fn unregister_server(
         &self,
         server_id: &str,
     ) -> Result<(), Box<dyn std::error::Error>> {
+        // Create new state with the entry removed
+        let new_entries = {
+            let mut registry = self.entries.read().await.clone();
+            registry.remove(server_id);
+            registry
+        };
+
+        // Save to disk first (transactional boundary)
+        self.save_entries_to_disk(&new_entries).await?;
+
+        // Only update memory if save succeeded
         {
             let mut registry = self.entries.write().await;
-            registry.remove(server_id);
+            *registry = new_entries;
         }
-        self.save_registry().await?;
+
         Ok(())
     }
 
@@ -155,19 +185,31 @@ impl ServerRegistry {
     }
 
     /// Update server status
+    /// Uses transactional update: save to disk first, then update memory
     pub async fn update_server_status(
         &self,
         server_id: &str,
         status: DevServerStatus,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        {
-            let mut registry = self.entries.write().await;
+        // Create new state with the status updated
+        let new_entries = {
+            let mut registry = self.entries.read().await.clone();
             if let Some(entry) = registry.get_mut(server_id) {
                 entry.status = status;
                 entry.last_seen = Utc::now();
             }
+            registry
+        };
+
+        // Save to disk first (transactional boundary)
+        self.save_entries_to_disk(&new_entries).await?;
+
+        // Only update memory if save succeeded
+        {
+            let mut registry = self.entries.write().await;
+            *registry = new_entries;
         }
-        self.save_registry().await?;
+
         Ok(())
     }
 
@@ -302,3 +344,252 @@ fn is_process_running(pid: u32) -> bool {
 // Singleton instance for global access
 use once_cell::sync::Lazy;
 pub static GLOBAL_REGISTRY: Lazy<ServerRegistry> = Lazy::new(ServerRegistry::new);
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tempfile::TempDir;
+
+    /// Helper to create a test registry with a temporary directory
+    fn create_test_registry() -> (ServerRegistry, TempDir) {
+        let temp_dir = TempDir::new().unwrap();
+        let registry_path = temp_dir.path().join("server-registry.json");
+
+        let registry = ServerRegistry {
+            registry_path,
+            entries: Arc::new(RwLock::new(HashMap::new())),
+            stale_timeout_minutes: 5,
+        };
+
+        (registry, temp_dir)
+    }
+
+    /// Helper to create a test server entry
+    fn create_test_entry(id: &str, project_id: &str, port: u16) -> ServerRegistryEntry {
+        ServerRegistryEntry {
+            id: id.to_string(),
+            project_id: project_id.to_string(),
+            project_name: Some(format!("Test Project {}", project_id)),
+            project_root: PathBuf::from("/test/path"),
+            port,
+            pid: Some(std::process::id()), // Use current process PID for testing
+            status: DevServerStatus::Running,
+            preview_url: Some(format!("http://localhost:{}", port)),
+            framework_name: Some("vite".to_string()),
+            actual_command: Some("npm run dev".to_string()),
+            started_at: Utc::now(),
+            last_seen: Utc::now(),
+            api_port: 4001,
+        }
+    }
+
+    #[tokio::test]
+    async fn test_register_and_get_server() {
+        let (registry, _temp_dir) = create_test_registry();
+        let entry = create_test_entry("server1", "proj1", 3000);
+
+        // Register server
+        registry.register_server(entry.clone()).await.unwrap();
+
+        // Get server back
+        let retrieved = registry.get_server("server1").await;
+        assert!(retrieved.is_some());
+        let retrieved = retrieved.unwrap();
+        assert_eq!(retrieved.id, "server1");
+        assert_eq!(retrieved.project_id, "proj1");
+        assert_eq!(retrieved.port, 3000);
+    }
+
+    #[tokio::test]
+    async fn test_register_multiple_servers() {
+        let (registry, _temp_dir) = create_test_registry();
+
+        let entry1 = create_test_entry("server1", "proj1", 3000);
+        let entry2 = create_test_entry("server2", "proj2", 3001);
+        let entry3 = create_test_entry("server3", "proj3", 3002);
+
+        registry.register_server(entry1).await.unwrap();
+        registry.register_server(entry2).await.unwrap();
+        registry.register_server(entry3).await.unwrap();
+
+        let servers = registry.get_all_servers().await;
+        assert_eq!(servers.len(), 3);
+    }
+
+    #[tokio::test]
+    async fn test_unregister_server() {
+        let (registry, _temp_dir) = create_test_registry();
+        let entry = create_test_entry("server1", "proj1", 3000);
+
+        // Register then unregister
+        registry.register_server(entry).await.unwrap();
+        assert!(registry.get_server("server1").await.is_some());
+
+        registry.unregister_server("server1").await.unwrap();
+        assert!(registry.get_server("server1").await.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_update_server_status() {
+        let (registry, _temp_dir) = create_test_registry();
+        let entry = create_test_entry("server1", "proj1", 3000);
+
+        registry.register_server(entry).await.unwrap();
+
+        // Update status
+        registry
+            .update_server_status("server1", DevServerStatus::Stopped)
+            .await
+            .unwrap();
+
+        let retrieved = registry.get_server("server1").await.unwrap();
+        assert_eq!(retrieved.status, DevServerStatus::Stopped);
+    }
+
+    #[tokio::test]
+    async fn test_transactional_register_persists_to_disk() {
+        let (registry, temp_dir) = create_test_registry();
+        let entry = create_test_entry("server1", "proj1", 3000);
+
+        // Register server
+        registry.register_server(entry).await.unwrap();
+
+        // Verify file was created
+        assert!(registry.registry_path.exists());
+
+        // Create new registry instance with same path
+        let registry2 = ServerRegistry {
+            registry_path: temp_dir.path().join("server-registry.json"),
+            entries: Arc::new(RwLock::new(HashMap::new())),
+            stale_timeout_minutes: 5,
+        };
+
+        // Load from disk
+        registry2.load_registry().await.unwrap();
+
+        // Verify server was loaded
+        let retrieved = registry2.get_server("server1").await;
+        assert!(retrieved.is_some());
+    }
+
+    #[tokio::test]
+    async fn test_transactional_unregister_persists_to_disk() {
+        let (registry, temp_dir) = create_test_registry();
+        let entry = create_test_entry("server1", "proj1", 3000);
+
+        // Register then unregister
+        registry.register_server(entry).await.unwrap();
+        registry.unregister_server("server1").await.unwrap();
+
+        // Create new registry instance
+        let registry2 = ServerRegistry {
+            registry_path: temp_dir.path().join("server-registry.json"),
+            entries: Arc::new(RwLock::new(HashMap::new())),
+            stale_timeout_minutes: 5,
+        };
+
+        registry2.load_registry().await.unwrap();
+
+        // Verify server was removed
+        assert!(registry2.get_server("server1").await.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_atomic_file_write() {
+        let (registry, _temp_dir) = create_test_registry();
+        let entry = create_test_entry("server1", "proj1", 3000);
+
+        // Register server (uses atomic write)
+        registry.register_server(entry).await.unwrap();
+
+        // Verify main file exists
+        assert!(registry.registry_path.exists());
+
+        // Verify temp file was cleaned up
+        let temp_path = registry.registry_path.with_extension("tmp");
+        assert!(!temp_path.exists());
+    }
+
+    #[tokio::test]
+    async fn test_update_existing_server() {
+        let (registry, _temp_dir) = create_test_registry();
+        let entry1 = create_test_entry("server1", "proj1", 3000);
+
+        registry.register_server(entry1).await.unwrap();
+
+        // Update with new port
+        let mut entry2 = create_test_entry("server1", "proj1", 4000);
+        entry2.status = DevServerStatus::Stopped;
+        registry.register_server(entry2).await.unwrap();
+
+        // Verify update
+        let retrieved = registry.get_server("server1").await.unwrap();
+        assert_eq!(retrieved.port, 4000);
+        assert_eq!(retrieved.status, DevServerStatus::Stopped);
+    }
+
+    #[tokio::test]
+    async fn test_get_all_servers_empty() {
+        let (registry, _temp_dir) = create_test_registry();
+        let servers = registry.get_all_servers().await;
+        assert_eq!(servers.len(), 0);
+    }
+
+    #[tokio::test]
+    async fn test_get_nonexistent_server() {
+        let (registry, _temp_dir) = create_test_registry();
+        let result = registry.get_server("nonexistent").await;
+        assert!(result.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_unregister_nonexistent_server() {
+        let (registry, _temp_dir) = create_test_registry();
+        // Should not panic or error
+        let result = registry.unregister_server("nonexistent").await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_update_status_nonexistent_server() {
+        let (registry, _temp_dir) = create_test_registry();
+        // Should not panic or error, just no-op
+        let result = registry
+            .update_server_status("nonexistent", DevServerStatus::Stopped)
+            .await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_stale_timeout_getter() {
+        let (registry, _temp_dir) = create_test_registry();
+        assert_eq!(registry.get_stale_timeout_minutes(), 5);
+    }
+
+    #[tokio::test]
+    async fn test_concurrent_access() {
+        let (registry, _temp_dir) = create_test_registry();
+        let registry = Arc::new(registry);
+
+        // Spawn multiple concurrent tasks
+        let mut handles = vec![];
+        for i in 0..10 {
+            let reg = registry.clone();
+            let handle = tokio::spawn(async move {
+                let entry =
+                    create_test_entry(&format!("server{}", i), &format!("proj{}", i), 3000 + i);
+                reg.register_server(entry).await.unwrap();
+            });
+            handles.push(handle);
+        }
+
+        // Wait for all tasks
+        for handle in handles {
+            handle.await.unwrap();
+        }
+
+        // Verify all servers were registered
+        let servers = registry.get_all_servers().await;
+        assert_eq!(servers.len(), 10);
+    }
+}

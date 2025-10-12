@@ -2,9 +2,28 @@ use tauri::Manager;
 use tauri_plugin_shell::ShellExt;
 use std::sync::Mutex;
 use std::time::Duration;
+use std::str::FromStr;
 
 mod tray;
 use tray::TrayManager;
+
+// Timeout constants for cleanup operations
+const CLEANUP_HTTP_TIMEOUT_SECS: u64 = 3;
+const CLEANUP_CONNECT_TIMEOUT_SECS: u64 = 1;
+const CLEANUP_TOTAL_TIMEOUT_SECS: u64 = 3;
+
+/// Parse an environment variable with fallback to another variable
+/// Tries the primary variable first, then falls back to the secondary, then to the default
+fn parse_env_with_fallback<T>(primary_var: &str, fallback_var: &str, default: T) -> T
+where
+    T: FromStr,
+{
+    std::env::var(primary_var)
+        .or_else(|_| std::env::var(fallback_var))
+        .ok()
+        .and_then(|v| v.parse::<T>().ok())
+        .unwrap_or(default)
+}
 
 // Store the CLI server process handle and ports globally
 struct CliServerState {
@@ -19,8 +38,8 @@ async fn cleanup_servers(api_port: u16) -> Result<(), Box<dyn std::error::Error>
 
     // Create HTTP client with short timeout
     let client = reqwest::Client::builder()
-        .timeout(Duration::from_secs(3))
-        .connect_timeout(Duration::from_secs(1))
+        .timeout(Duration::from_secs(CLEANUP_HTTP_TIMEOUT_SECS))
+        .connect_timeout(Duration::from_secs(CLEANUP_CONNECT_TIMEOUT_SECS))
         .build()?;
 
     // Try to stop all preview servers via API
@@ -107,11 +126,7 @@ pub fn run() {
             // Find available port dynamically
             let api_port = find_available_port();
             // Get UI port from environment or use default
-            let ui_port: u16 = std::env::var("ORKEE_UI_PORT")
-                .or_else(|_| std::env::var("VITE_PORT"))
-                .unwrap_or_else(|_| "5173".to_string())
-                .parse()
-                .unwrap_or(5173);
+            let ui_port: u16 = parse_env_with_fallback("ORKEE_UI_PORT", "VITE_PORT", 5173);
 
             println!("Using dynamic API port: {} and UI port: {}", api_port, ui_port);
 
@@ -187,6 +202,12 @@ pub fn run() {
                     // When the window is actually destroyed (app quitting)
                     // IMPORTANT: Block on cleanup to avoid race condition where CLI process
                     // is killed before dev servers are stopped
+
+                    // Stop the tray polling loop first
+                    if let Some(tray_manager) = window.app_handle().try_state::<TrayManager>() {
+                        tray_manager.stop_polling();
+                    }
+
                     if let Some(state) = window.app_handle().try_state::<CliServerState>() {
                         let api_port = state.api_port;
 
@@ -200,7 +221,7 @@ pub fn run() {
 
                         let cleanup_result = runtime.block_on(async {
                             tokio::time::timeout(
-                                Duration::from_secs(3),
+                                Duration::from_secs(CLEANUP_TOTAL_TIMEOUT_SECS),
                                 cleanup_servers(api_port)
                             ).await
                         });
@@ -208,7 +229,7 @@ pub fn run() {
                         match cleanup_result {
                             Ok(Ok(_)) => println!("Cleanup completed successfully"),
                             Ok(Err(e)) => eprintln!("Cleanup error: {}", e),
-                            Err(_) => eprintln!("Cleanup timed out after 3 seconds"),
+                            Err(_) => eprintln!("Cleanup timed out after {} seconds", CLEANUP_TOTAL_TIMEOUT_SECS),
                         }
 
                         // Now safe to kill CLI server process after cleanup completes
@@ -230,6 +251,11 @@ pub fn run() {
                 tauri::RunEvent::Exit => {
                     println!("App exit event received, performing cleanup...");
 
+                    // Stop the tray polling loop first
+                    if let Some(tray_manager) = app_handle.try_state::<TrayManager>() {
+                        tray_manager.stop_polling();
+                    }
+
                     // Get the CLI server state and perform cleanup
                     if let Some(state) = app_handle.try_state::<CliServerState>() {
                         let api_port = state.api_port;
@@ -239,7 +265,7 @@ pub fn run() {
                         let runtime = tokio::runtime::Runtime::new().unwrap();
                         let _ = runtime.block_on(async {
                             tokio::time::timeout(
-                                Duration::from_secs(3),
+                                Duration::from_secs(CLEANUP_TOTAL_TIMEOUT_SECS),
                                 cleanup_servers(api_port)
                             ).await
                         });

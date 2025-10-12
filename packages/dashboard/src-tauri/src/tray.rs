@@ -5,7 +5,18 @@ use tauri::{
     image::Image,
 };
 use std::sync::{Arc, Mutex};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::time::Duration;
 use serde::{Deserialize, Serialize};
+
+// Timeout constants for HTTP operations
+const HTTP_REQUEST_TIMEOUT_SECS: u64 = 5;
+const HTTP_CONNECT_TIMEOUT_SECS: u64 = 2;
+
+// Polling and debouncing constants
+const SERVER_POLLING_INTERVAL_SECS: u64 = 5;
+const MENU_REBUILD_DEBOUNCE_SECS: u64 = 2;
+const SERVER_RESTART_WAIT_SECS: u64 = 1;
 
 #[derive(Clone)]
 pub struct TrayManager {
@@ -13,6 +24,7 @@ pub struct TrayManager {
     pub api_port: u16,
     tray_icon: Arc<Mutex<Option<TrayIcon>>>,
     current_menu: Arc<Mutex<Option<Menu<Wry>>>>,
+    shutdown_signal: Arc<AtomicBool>,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
@@ -44,14 +56,15 @@ impl TrayManager {
             api_port,
             tray_icon: Arc::new(Mutex::new(None)),
             current_menu: Arc::new(Mutex::new(None)),
+            shutdown_signal: Arc::new(AtomicBool::new(false)),
         }
     }
 
     /// Create an HTTP client with configured timeouts to prevent hangs
     fn create_http_client() -> reqwest::Client {
         reqwest::Client::builder()
-            .timeout(std::time::Duration::from_secs(5))
-            .connect_timeout(std::time::Duration::from_secs(2))
+            .timeout(Duration::from_secs(HTTP_REQUEST_TIMEOUT_SECS))
+            .connect_timeout(Duration::from_secs(HTTP_CONNECT_TIMEOUT_SECS))
             .build()
             .unwrap_or_else(|_| reqwest::Client::new())
     }
@@ -306,7 +319,7 @@ impl TrayManager {
                         println!("Successfully stopped server: {}", project_id);
 
                         // Wait a moment for the server to fully stop
-                        tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+                        tokio::time::sleep(Duration::from_secs(SERVER_RESTART_WAIT_SECS)).await;
 
                         // Then start it again
                         let start_url = format!("http://localhost:{}/api/preview/servers/{}/start", api_port, project_id);
@@ -375,20 +388,38 @@ impl TrayManager {
         Ok(project_id.to_string())
     }
 
+    /// Stop the server polling loop
+    pub fn stop_polling(&self) {
+        self.shutdown_signal.store(true, Ordering::Relaxed);
+    }
+
     pub fn start_server_polling(&self) {
         let api_port = self.api_port;
         let app_handle = self.app_handle.clone();
         let tray_icon = self.tray_icon.clone();
+        let shutdown_signal = self.shutdown_signal.clone();
 
         tauri::async_runtime::spawn(async move {
             let mut last_servers: Vec<ServerInfo> = vec![];
             let mut last_rebuild_time = std::time::Instant::now();
-            let min_rebuild_interval = std::time::Duration::from_secs(2);
+            let min_rebuild_interval = Duration::from_secs(MENU_REBUILD_DEBOUNCE_SECS);
 
             loop {
+                // Check for shutdown signal
+                if shutdown_signal.load(Ordering::Relaxed) {
+                    println!("Tray polling loop received shutdown signal, exiting");
+                    break;
+                }
+
                 // Poll servers every 5 seconds to reduce resource usage
                 // Servers can be manually refreshed via the tray menu
-                tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+                tokio::time::sleep(Duration::from_secs(SERVER_POLLING_INTERVAL_SECS)).await;
+
+                // Check again after sleep in case shutdown was signaled during sleep
+                if shutdown_signal.load(Ordering::Relaxed) {
+                    println!("Tray polling loop received shutdown signal after sleep, exiting");
+                    break;
+                }
 
                 // Try to fetch servers from API
                 match Self::fetch_servers(api_port).await {
@@ -429,10 +460,11 @@ impl TrayManager {
                             last_servers = servers;
                         }
                     }
-                    Err(e) => {
-                        // API might not be available yet
-                        eprintln!("Failed to fetch servers: {}", e);
-                    }
+                }
+                Err(e) => {
+                    // API might not be available yet
+                    eprintln!("Failed to fetch servers: {}", e);
+                }
                 }
             }
         });
