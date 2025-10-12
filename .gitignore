@@ -30,6 +30,7 @@ node_modules/
 # Build outputs
 target/
 dist/
+*.tar.gz
 
 # Binary executables
 packages/cli/orkee
