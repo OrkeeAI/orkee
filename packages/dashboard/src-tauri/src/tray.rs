@@ -20,7 +20,6 @@ const MENU_REBUILD_DEBOUNCE_SECS: u64 = 2;
 // Server restart polling constants
 const SERVER_RESTART_MAX_WAIT_SECS: u64 = 10;
 const SERVER_RESTART_POLL_INTERVAL_MS: u64 = 100;
-const SERVER_RESTART_PORT_RELEASE_DELAY_MS: u64 = 500;
 
 #[derive(Clone)]
 pub struct TrayManager {
@@ -389,22 +388,46 @@ impl TrayManager {
                 return;
             }
 
-            // Step 3: Additional short delay for port release
-            // This accounts for OS-level port cleanup after process termination
-            tokio::time::sleep(Duration::from_millis(SERVER_RESTART_PORT_RELEASE_DELAY_MS)).await;
-
-            // Step 4: Start the server
+            // Step 3: Start the server with retry logic for port availability
+            // OS-level port cleanup can take time after process termination
+            // Instead of a fixed delay, we retry with exponential backoff if port isn't ready
             let start_url = format!("http://localhost:{}/api/preview/servers/{}/start", api_port, project_id);
-            match client.post(&start_url).send().await {
-                Ok(start_response) => {
-                    if start_response.status().is_success() {
-                        println!("Successfully restarted server: {}", project_id);
-                    } else {
-                        eprintln!("Failed to start server: HTTP {}", start_response.status());
+            let max_start_attempts = 5;
+            let mut start_delay_ms = SERVER_RESTART_POLL_INTERVAL_MS;
+
+            for attempt in 0..max_start_attempts {
+                if attempt > 0 {
+                    // Wait with exponential backoff before retrying
+                    tokio::time::sleep(Duration::from_millis(start_delay_ms)).await;
+                    start_delay_ms = (start_delay_ms * 2).min(2000); // Cap at 2 seconds
+                }
+
+                match client.post(&start_url).send().await {
+                    Ok(start_response) => {
+                        if start_response.status().is_success() {
+                            println!("Successfully restarted server: {} (attempt {})", project_id, attempt + 1);
+                            return;
+                        } else if start_response.status().as_u16() == 409 {
+                            // 409 Conflict typically means port is still in use
+                            println!("Port not yet available for server: {} (attempt {})", project_id, attempt + 1);
+                            continue;
+                        } else {
+                            eprintln!("Failed to start server: HTTP {} (attempt {})", start_response.status(), attempt + 1);
+                            if attempt == max_start_attempts - 1 {
+                                return;
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        eprintln!("Failed to start server: {} (attempt {})", e, attempt + 1);
+                        if attempt == max_start_attempts - 1 {
+                            return;
+                        }
                     }
                 }
-                Err(e) => eprintln!("Failed to start server: {}", e),
             }
+
+            eprintln!("Failed to restart server after {} attempts", max_start_attempts);
         });
     }
 

@@ -690,4 +690,82 @@ mod tests {
         assert_eq!(DashboardMode::Source, DashboardMode::Source);
         assert_ne!(DashboardMode::Dist, DashboardMode::Source);
     }
+
+    #[test]
+    fn test_is_dashboard_installed_checks_version_and_mode() {
+        // Test that the function checks both version and mode files
+        // We can't easily mock HOME, so we test the logic by creating files
+        // in the actual ~/.orkee/dashboard directory and cleaning up after
+
+        let dashboard_dir = match get_dashboard_dir() {
+            Ok(dir) => dir,
+            Err(_) => return, // Skip test if we can't get dashboard dir
+        };
+
+        // Save original state
+        let version_file = dashboard_dir.join(".version");
+        let mode_file = dashboard_dir.join(".mode");
+        let backup_version = dashboard_dir.join(".version.test_backup");
+        let backup_mode = dashboard_dir.join(".mode.test_backup");
+
+        // Backup existing files if they exist
+        if version_file.exists() {
+            let _ = fs::copy(&version_file, &backup_version);
+        }
+        if mode_file.exists() {
+            let _ = fs::copy(&mode_file, &backup_mode);
+        }
+
+        // Ensure dashboard directory exists
+        let _ = fs::create_dir_all(&dashboard_dir);
+
+        // Test 1: No version file - should return false
+        let _ = fs::remove_file(&version_file);
+        let _ = fs::remove_file(&mode_file);
+        let result = is_dashboard_installed(DashboardMode::Dist);
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), false);
+
+        // Test 2: Wrong version - should return false
+        fs::write(&version_file, "0.0.0").unwrap();
+        fs::write(&mode_file, "dist").unwrap();
+        let result = is_dashboard_installed(DashboardMode::Dist);
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), false);
+
+        // Test 3: Correct version, wrong mode - should return false
+        let current_version = env!("CARGO_PKG_VERSION");
+        fs::write(&version_file, current_version).unwrap();
+        fs::write(&mode_file, "source").unwrap();
+        let result = is_dashboard_installed(DashboardMode::Dist);
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), false);
+
+        // Test 4: Correct version and mode - should return true
+        fs::write(&version_file, current_version).unwrap();
+        fs::write(&mode_file, "dist").unwrap();
+        let result = is_dashboard_installed(DashboardMode::Dist);
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), true);
+
+        // Test 5: Correct version, no mode file (backwards compat) - should return true
+        fs::write(&version_file, current_version).unwrap();
+        let _ = fs::remove_file(&mode_file);
+        let result = is_dashboard_installed(DashboardMode::Dist);
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), true);
+
+        // Cleanup: restore original state
+        if backup_version.exists() {
+            let _ = fs::rename(&backup_version, &version_file);
+        } else {
+            let _ = fs::remove_file(&version_file);
+        }
+
+        if backup_mode.exists() {
+            let _ = fs::rename(&backup_mode, &mode_file);
+        } else {
+            let _ = fs::remove_file(&mode_file);
+        }
+    }
 }
