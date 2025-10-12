@@ -257,43 +257,6 @@ fn get_api_port(state: tauri::State<CliServerState>) -> u16 {
     state.api_port
 }
 
-/// Manually refresh the system tray menu.
-///
-/// This Tauri command triggers an update of the tray menu to reflect the latest
-/// server states. The tray menu normally updates automatically via polling, but
-/// this can be called for immediate refresh.
-///
-/// # Arguments
-///
-/// * `_app` - Tauri application handle (unused)
-/// * `tray_state` - Tauri-managed state containing the tray manager
-///
-/// # Returns
-///
-/// Returns `Ok(String)` with a success message, or `Err(String)` with an error message.
-#[tauri::command]
-async fn refresh_tray_menu(
-    _app: tauri::AppHandle,
-    tray_state: tauri::State<'_, TrayManager>,
-) -> Result<String, String> {
-    // Fetch latest servers from API
-    let api_port = tray_state.api_port;
-    let url = format!("http://localhost:{}/api/preview/servers", api_port);
-
-    match reqwest::get(&url).await {
-        Ok(response) => {
-            if response.status().is_success() {
-                // For now just log that we refreshed
-                println!("Tray menu refresh requested");
-                Ok("Menu refreshed".to_string())
-            } else {
-                Err("Failed to fetch servers".to_string())
-            }
-        }
-        Err(e) => Err(format!("Network error: {}", e))
-    }
-}
-
 /// Find an available port dynamically.
 ///
 /// Searches for an unused port on the system that can be bound for the API server.
@@ -443,7 +406,7 @@ pub fn run() {
 
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![get_api_port, refresh_tray_menu])
+        .invoke_handler(tauri::generate_handler![get_api_port])
         .on_window_event(|window, event| {
             match event {
                 tauri::WindowEvent::CloseRequested { api, .. } => {
