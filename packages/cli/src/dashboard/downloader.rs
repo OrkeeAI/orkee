@@ -505,10 +505,36 @@ pub async fn download_dashboard(
                 if let Some(filename) = path.file_name() {
                     let filename_str = filename.to_string_lossy();
                     if !filename_str.starts_with('.') && filename != "node_modules" {
-                        if path.is_dir() {
-                            fs::remove_dir_all(&path)?;
-                        } else {
-                            fs::remove_file(&path)?;
+                        // Use symlink_metadata to avoid following symlinks (TOCTOU mitigation)
+                        // This prevents race conditions where a file could be replaced with a
+                        // symlink between check and removal
+                        match fs::symlink_metadata(&path) {
+                            Ok(metadata) => {
+                                // Atomically determine type and remove based on metadata
+                                let remove_result = if metadata.is_dir() {
+                                    fs::remove_dir_all(&path)
+                                } else {
+                                    // Remove files and symlinks (symlinks are not followed)
+                                    fs::remove_file(&path)
+                                };
+
+                                // Handle errors gracefully - file might have been deleted
+                                // by another process between metadata read and removal
+                                if let Err(e) = remove_result {
+                                    // Only fail on errors other than "not found"
+                                    if e.kind() != std::io::ErrorKind::NotFound {
+                                        return Err(e.into());
+                                    }
+                                    // NotFound is ok - file was already deleted
+                                }
+                            }
+                            Err(e) => {
+                                // If we can't get metadata, skip this file
+                                // (might have been deleted between read_dir and this point)
+                                if e.kind() != std::io::ErrorKind::NotFound {
+                                    return Err(e.into());
+                                }
+                            }
                         }
                     }
                 }
