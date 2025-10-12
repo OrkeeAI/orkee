@@ -11,6 +11,12 @@ use cli::projects::ProjectsCommands;
 use orkee_cli::dashboard::downloader::ensure_dashboard;
 use orkee_cli::dashboard::DashboardMode;
 
+/// Maximum number of parent directories to search when looking for monorepo root
+const MAX_PARENT_SEARCH_DEPTH: usize = 5;
+
+/// Number of retries when attempting to find an available port
+const PORT_PICKER_RETRIES: usize = 5;
+
 #[derive(Subcommand)]
 enum PreviewCommands {
     /// Stop all running preview servers
@@ -442,8 +448,7 @@ async fn start_full_dashboard(
         }
 
         // Walk up parent directories to find monorepo root
-        for _ in 0..5 {
-            // Increased from 3 to 5 levels
+        for _ in 0..MAX_PARENT_SEARCH_DEPTH {
             if let Some(parent) = current.parent() {
                 current = parent.to_path_buf();
                 let try_path = current.join("packages/dashboard");
@@ -636,7 +641,7 @@ async fn kill_port(port: u16) -> Result<(), Box<dyn std::error::Error>> {
 }
 
 fn find_available_port(start: u16, end: u16) -> Option<u16> {
-    for _ in 0..5 {
+    for _ in 0..PORT_PICKER_RETRIES {
         // Try portpicker first for a random available port
         if let Some(port) = portpicker::pick_unused_port() {
             if port >= start && port <= end {
