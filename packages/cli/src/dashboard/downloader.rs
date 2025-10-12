@@ -100,7 +100,7 @@ fn validate_total_size(
 ) -> Result<u64, Box<dyn std::error::Error>> {
     let new_total = current_total
         .checked_add(new_size)
-        .ok_or_else(|| "Total size overflow during extraction")?;
+        .ok_or("Total size overflow during extraction")?;
 
     if new_total > MAX_TOTAL_SIZE_BYTES {
         return Err(format!(
@@ -186,10 +186,10 @@ fn validate_symlink(
 
 /// Get the path where dashboard assets should be stored
 fn get_dashboard_dir() -> Result<PathBuf, Box<dyn std::error::Error>> {
-    let home = dirs::home_dir().ok_or_else(|| {
+    let home = dirs::home_dir().ok_or(
         "Could not determine home directory. \
         Please ensure the HOME environment variable is set."
-    })?;
+    )?;
     let dashboard_dir = home.join(".orkee").join("dashboard");
 
     // Validate the dashboard directory path itself

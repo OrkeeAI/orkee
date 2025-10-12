@@ -201,7 +201,7 @@ impl PreviewManager {
         for entry in registry_servers {
             // Only add if not already in our local list
             let mut servers = manager.active_servers.write().await;
-            if !servers.contains_key(&entry.project_id) {
+            if let std::collections::hash_map::Entry::Vacant(e) = servers.entry(entry.project_id.clone()) {
                 let server_info = ServerInfo {
                     id: Uuid::new_v4(), // Generate new ID
                     project_id: entry.project_id.clone(),
@@ -213,7 +213,7 @@ impl PreviewManager {
                     actual_command: entry.actual_command,
                     framework_name: entry.framework_name,
                 };
-                servers.insert(entry.project_id, server_info);
+                e.insert(server_info);
             }
         }
 
@@ -551,7 +551,7 @@ impl PreviewManager {
                 tokio::spawn(async move {
                     let mut child = child_for_logs.write().await;
                     manager_for_logs
-                        .capture_process_logs_from_handle(&project_id_for_logs, &mut *child)
+                        .capture_process_logs_from_handle(&project_id_for_logs, &mut child)
                         .await;
                 });
 
@@ -775,14 +775,14 @@ impl PreviewManager {
         let registry_servers = GLOBAL_REGISTRY.get_all_servers().await;
         for entry in registry_servers {
             // Add servers from registry if not already in local list
-            if !all_servers.contains_key(&entry.project_id) {
+            if let std::collections::hash_map::Entry::Vacant(e) = all_servers.entry(entry.project_id.clone()) {
                 // Parse UUID with fallback to new UUID if invalid
                 let id = match Uuid::parse_str(&entry.id) {
                     Ok(uuid) => uuid,
-                    Err(e) => {
+                    Err(err) => {
                         warn!(
                             "Invalid UUID '{}' in registry entry for project {}: {}. Generating new UUID.",
-                            entry.id, entry.project_id, e
+                            entry.id, entry.project_id, err
                         );
                         Uuid::new_v4()
                     }
@@ -799,7 +799,7 @@ impl PreviewManager {
                     actual_command: entry.actual_command,
                     framework_name: entry.framework_name,
                 };
-                all_servers.insert(entry.project_id, server_info);
+                e.insert(server_info);
             }
         }
 

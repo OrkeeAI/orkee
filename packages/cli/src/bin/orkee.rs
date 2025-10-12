@@ -646,12 +646,7 @@ fn find_available_port(start: u16, end: u16) -> Option<u16> {
     }
 
     // Fallback: scan range for available port
-    for port in start..=end {
-        if std::net::TcpListener::bind(("127.0.0.1", port)).is_ok() {
-            return Some(port);
-        }
-    }
-    None
+    (start..=end).find(|&port| std::net::TcpListener::bind(("127.0.0.1", port)).is_ok())
 }
 
 fn save_port_info(api_port: u16, ui_port: u16) -> Result<(), Box<dyn std::error::Error>> {

@@ -57,6 +57,12 @@ pub struct ServerRegistry {
     stale_timeout_minutes: i64,
 }
 
+impl Default for ServerRegistry {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ServerRegistry {
     /// Create a new server registry instance.
     ///
@@ -173,7 +179,7 @@ impl ServerRegistry {
         // Write to process-unique temporary file to prevent cross-instance collisions
         let temp_path = self
             .registry_path
-            .with_extension(&format!("tmp.{}", std::process::id()));
+            .with_extension(format!("tmp.{}", std::process::id()));
         fs::write(&temp_path, &json)?;
 
         // Atomic rename to actual file with cleanup on failure
@@ -452,7 +458,7 @@ impl ServerRegistry {
         api_port: u16,
     ) -> Result<(), Box<dyn std::error::Error>> {
         let home = dirs::home_dir()
-            .ok_or_else(|| "Could not determine home directory for preview locks sync")?;
+            .ok_or("Could not determine home directory for preview locks sync")?;
         let locks_dir = home.join(".orkee").join("preview-locks");
 
         if !locks_dir.exists() {
@@ -689,7 +695,7 @@ pub fn start_periodic_cleanup() {
     // Get cleanup interval from environment variable (default: 5 minutes)
     let cleanup_interval_minutes =
         parse_env_or_default_with_validation("ORKEE_CLEANUP_INTERVAL_MINUTES", 5, |v| {
-            v >= 1 && v <= 60
+            (1..=60).contains(&v)
         });
 
     info!(
