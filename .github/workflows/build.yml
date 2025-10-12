@@ -98,7 +98,36 @@ jobs:
           cd ../..
           echo "Build completed, checking output..."
           ls -la target/${{ matrix.platform.target }}/release/ || true
-          
+
+      - name: Verify Binary
+        shell: bash
+        # Skip verification for cross-compiled builds (can't run ARM64 on x64 runners)
+        if: matrix.platform.use_cross != true
+        run: |
+          BINARY_PATH="target/${{ matrix.platform.target }}/release/${{ matrix.platform.binary }}"
+          echo "Verifying binary at: $BINARY_PATH"
+
+          # Make sure the binary exists
+          if [ ! -f "$BINARY_PATH" ]; then
+            echo "Error: Binary not found at $BINARY_PATH"
+            exit 1
+          fi
+
+          # Make it executable (needed on Unix-like systems)
+          chmod +x "$BINARY_PATH" 2>/dev/null || true
+
+          # Run smoke test
+          echo "Running smoke test: $BINARY_PATH --version"
+          "$BINARY_PATH" --version
+
+          # Verify exit code
+          if [ $? -eq 0 ]; then
+            echo "✓ Smoke test passed: Binary is functional"
+          else
+            echo "✗ Smoke test failed: Binary returned non-zero exit code"
+            exit 1
+          fi
+
       - name: Package Binary
         shell: bash
         run: |
