@@ -11,6 +11,8 @@ use std::sync::{Arc, Mutex};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 use serde::{Deserialize, Serialize};
+use urlencoding::encode;
+use futures::future::join_all;
 
 // Timeout constants for HTTP operations
 const HTTP_REQUEST_TIMEOUT_SECS: u64 = 5;
@@ -37,7 +39,6 @@ pub struct TrayManager {
     pub app_handle: AppHandle,
     pub api_port: u16,
     tray_icon: Arc<Mutex<Option<TrayIcon>>>,
-    current_menu: Arc<Mutex<Option<Menu<Wry>>>>,
     shutdown_signal: Arc<AtomicBool>,
 }
 
@@ -69,7 +70,6 @@ impl TrayManager {
             app_handle,
             api_port,
             tray_icon: Arc::new(Mutex::new(None)),
-            current_menu: Arc::new(Mutex::new(None)),
             shutdown_signal: Arc::new(AtomicBool::new(false)),
         }
     }
@@ -90,15 +90,6 @@ impl TrayManager {
 
         // Build initial menu
         let menu = Self::build_menu(&app.handle(), vec![])?;
-
-        // Store the menu
-        match self.current_menu.lock() {
-            Ok(mut current_menu) => *current_menu = Some(menu.clone()),
-            Err(e) => {
-                eprintln!("Failed to lock current_menu during init: {}", e);
-                return Err(format!("Mutex lock failed: {}", e).into());
-            }
-        }
 
         println!("Menu built successfully");
 
@@ -280,7 +271,11 @@ impl TrayManager {
             match Self::fetch_servers(api_port).await {
                 Ok(servers) => {
                     if let Some(server) = servers.iter().find(|s| s.id == server_id) {
-                        let _ = open::that(&server.url);
+                        if let Err(e) = open::that(&server.url) {
+                            eprintln!("Failed to open browser for {}: {}", server.url, e);
+                        }
+                    } else {
+                        eprintln!("Server {} no longer exists", server_id);
                     }
                 }
                 Err(e) => eprintln!("Failed to fetch servers: {}", e),
@@ -299,6 +294,8 @@ impl TrayManager {
                             Ok(_) => println!("Copied URL to clipboard: {}", server.url),
                             Err(e) => eprintln!("Failed to copy URL to clipboard: {}", e),
                         }
+                    } else {
+                        eprintln!("Server {} no longer exists", server_id);
                     }
                 }
                 Err(e) => eprintln!("Failed to fetch servers: {}", e),
@@ -315,7 +312,7 @@ impl TrayManager {
                     return;
                 }
             };
-            let url = format!("http://{}:{}/api/preview/servers/{}/stop", API_HOST, api_port, project_id);
+            let url = format!("http://{}:{}/api/preview/servers/{}/stop", API_HOST, api_port, encode(&project_id));
             match client.post(&url).send().await {
                 Ok(response) => {
                     if response.status().is_success() {
@@ -340,7 +337,7 @@ impl TrayManager {
             };
 
             // Step 1: Stop the server
-            let stop_url = format!("http://{}:{}/api/preview/servers/{}/stop", API_HOST, api_port, project_id);
+            let stop_url = format!("http://{}:{}/api/preview/servers/{}/stop", API_HOST, api_port, encode(&project_id));
             match client.post(&stop_url).send().await {
                 Ok(response) => {
                     if !response.status().is_success() {
@@ -356,7 +353,7 @@ impl TrayManager {
             }
 
             // Step 2: Poll and verify server is actually stopped
-            let status_url = format!("http://{}:{}/api/preview/servers/{}/status", API_HOST, api_port, project_id);
+            let status_url = format!("http://{}:{}/api/preview/servers/{}/status", API_HOST, api_port, encode(&project_id));
             let max_attempts = (SERVER_RESTART_MAX_WAIT_SECS * 1000) / SERVER_RESTART_POLL_INTERVAL_MS;
 
             let mut stopped = false;
@@ -402,7 +399,7 @@ impl TrayManager {
             // Step 3: Start the server with retry logic for port availability
             // OS-level port cleanup can take time after process termination
             // Instead of a fixed delay, we retry with exponential backoff if port isn't ready
-            let start_url = format!("http://{}:{}/api/preview/servers/{}/start", API_HOST, api_port, project_id);
+            let start_url = format!("http://{}:{}/api/preview/servers/{}/start", API_HOST, api_port, encode(&project_id));
             let max_start_attempts = 5;
             let mut start_delay_ms = SERVER_RESTART_POLL_INTERVAL_MS;
 
@@ -452,12 +449,24 @@ impl TrayManager {
             if let Some(data) = api_response.data {
                 let mut servers = data.servers;
 
-                // Enrich servers with project names from projects API
-                for server in &mut servers {
-                    if server.project_name.is_none() {
-                        if let Ok(project_name) = Self::fetch_project_name(api_port, &server.project_id).await {
-                            server.project_name = Some(project_name);
+                // Enrich servers with project names from projects API (parallel fetching)
+                let futures: Vec<_> = servers
+                    .iter()
+                    .filter(|s| s.project_name.is_none())
+                    .map(|s| {
+                        let project_id = s.project_id.clone();
+                        let server_id = s.id.clone();
+                        async move {
+                            let name = Self::fetch_project_name(api_port, &project_id).await.ok();
+                            (server_id, name)
                         }
+                    })
+                    .collect();
+
+                let results = join_all(futures).await;
+                for (server_id, name) in results {
+                    if let Some(server) = servers.iter_mut().find(|s| s.id == server_id) {
+                        server.project_name = name;
                     }
                 }
 
@@ -474,7 +483,7 @@ impl TrayManager {
 
     async fn fetch_project_name(api_port: u16, project_id: &str) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
         let client = Self::create_http_client()?;
-        let url = format!("http://{}:{}/api/projects/{}", API_HOST, api_port, project_id);
+        let url = format!("http://{}:{}/api/projects/{}", API_HOST, api_port, encode(project_id));
         let response = client.get(&url).send().await?;
 
         if response.status().is_success() {
@@ -534,12 +543,13 @@ impl TrayManager {
 
                 // Poll servers at configured interval to reduce resource usage
                 // Servers can be manually refreshed via the tray menu
-                tokio::time::sleep(Duration::from_secs(poll_interval_secs)).await;
-
-                // Check again after sleep in case shutdown was signaled during sleep
-                if shutdown_signal.load(Ordering::Relaxed) {
-                    println!("Tray polling loop received shutdown signal after sleep, exiting");
-                    break;
+                // Break sleep into 1-second chunks for responsive shutdown
+                for _ in 0..poll_interval_secs {
+                    tokio::time::sleep(Duration::from_secs(1)).await;
+                    if shutdown_signal.load(Ordering::Relaxed) {
+                        println!("Tray polling loop received shutdown signal during sleep, exiting");
+                        return;
+                    }
                 }
 
                 // Try to fetch servers from API
@@ -548,6 +558,9 @@ impl TrayManager {
                         // Check if servers have changed and enough time has passed since last rebuild
                         // This debouncing prevents rapid menu rebuilds during server state transitions
                         if !servers_equal(&servers, &last_servers) {
+                            // Update last_servers immediately to prevent race conditions
+                            last_servers = servers.clone();
+
                             let now = std::time::Instant::now();
                             if now.duration_since(last_rebuild_time) >= min_rebuild_interval {
                                 println!("Server list changed, updating menu...");
@@ -565,8 +578,6 @@ impl TrayManager {
                                                     eprintln!("Failed to update tray menu: {}", e);
                                                 } else {
                                                     println!("Tray menu updated successfully");
-                                                    // Only update last_servers if menu update succeeded
-                                                    last_servers = servers.clone();
                                                 }
                                             }
                                         }
@@ -799,5 +810,35 @@ mod tests {
         assert_eq!(response.servers.len(), 2);
         assert_eq!(response.servers[0].id, "server1");
         assert_eq!(response.servers[1].id, "server2");
+    }
+
+    #[test]
+    fn test_url_encoding_for_special_characters() {
+        use urlencoding::encode;
+
+        // Test cases that would cause URL injection without encoding
+        let dangerous_ids = vec![
+            "../../../etc/passwd",
+            "project?param=value",
+            "project#fragment",
+            "project/../../admin",
+            "project%2F..%2F..%2Fadmin",
+        ];
+
+        for project_id in dangerous_ids {
+            let encoded = encode(project_id);
+            let api_port = 4001;
+            let url = format!("http://{}:{}/api/preview/servers/{}/stop",
+                            API_HOST, api_port, encoded);
+
+            // Verify that special characters are properly encoded
+            assert!(!url.contains("../"), "URL should not contain path traversal sequences");
+            assert!(!url.contains("?"), "URL should not contain unencoded query parameters");
+            assert!(!url.contains("#"), "URL should not contain unencoded fragments");
+
+            // Verify the encoded path segment is in the correct position
+            assert!(url.starts_with(&format!("http://{}:{}/api/preview/servers/", API_HOST, api_port)));
+            assert!(url.ends_with("/stop"));
+        }
     }
 }
