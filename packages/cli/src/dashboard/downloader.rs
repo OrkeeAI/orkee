@@ -10,6 +10,11 @@ const GITHUB_REPO: &str = "OrkeeAI/orkee";
 const DASHBOARD_DIST_ASSET: &str = "orkee-dashboard-dist.tar.gz";
 const DASHBOARD_SOURCE_ASSET: &str = "orkee-dashboard-source.tar.gz";
 
+// Security limits for archive extraction
+const MAX_FILE_SIZE_BYTES: u64 = 100 * 1024 * 1024; // 100 MB per file
+const MAX_TOTAL_SIZE_BYTES: u64 = 500 * 1024 * 1024; // 500 MB total
+const MAX_NESTING_DEPTH: usize = 20; // Maximum directory nesting depth
+
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum DashboardMode {
     Dist,   // Pre-built production files
@@ -69,6 +74,113 @@ fn validate_safe_path(path: &Path, base_dir: &Path) -> Result<(), Box<dyn std::e
             }
             _ => {}
         }
+    }
+
+    Ok(())
+}
+
+/// Validate that a file size doesn't exceed the maximum allowed size
+fn validate_file_size(size: u64, path: &Path) -> Result<(), Box<dyn std::error::Error>> {
+    if size > MAX_FILE_SIZE_BYTES {
+        return Err(format!(
+            "File size {} bytes exceeds maximum allowed size of {} bytes for: {}",
+            size,
+            MAX_FILE_SIZE_BYTES,
+            path.display()
+        )
+        .into());
+    }
+    Ok(())
+}
+
+/// Validate that total extracted size doesn't exceed limits
+fn validate_total_size(
+    current_total: u64,
+    new_size: u64,
+) -> Result<u64, Box<dyn std::error::Error>> {
+    let new_total = current_total
+        .checked_add(new_size)
+        .ok_or_else(|| "Total size overflow during extraction")?;
+
+    if new_total > MAX_TOTAL_SIZE_BYTES {
+        return Err(format!(
+            "Total extraction size {} bytes exceeds maximum allowed size of {} bytes",
+            new_total, MAX_TOTAL_SIZE_BYTES
+        )
+        .into());
+    }
+
+    Ok(new_total)
+}
+
+/// Validate that path nesting depth doesn't exceed maximum
+fn validate_nesting_depth(path: &Path, base_dir: &Path) -> Result<(), Box<dyn std::error::Error>> {
+    let relative_path = path
+        .strip_prefix(base_dir)
+        .unwrap_or(path);
+
+    let depth = relative_path.components().count();
+
+    if depth > MAX_NESTING_DEPTH {
+        return Err(format!(
+            "Path nesting depth {} exceeds maximum allowed depth of {} for: {}",
+            depth,
+            MAX_NESTING_DEPTH,
+            path.display()
+        )
+        .into());
+    }
+
+    Ok(())
+}
+
+/// Validate symlinks after extraction to ensure they don't point outside base directory
+fn validate_symlink(
+    symlink_path: &Path,
+    base_dir: &Path,
+) -> Result<(), Box<dyn std::error::Error>> {
+    if !symlink_path.is_symlink() {
+        return Ok(());
+    }
+
+    // Read the symlink target
+    let target = fs::read_link(symlink_path)?;
+
+    // Resolve the absolute path of the symlink target
+    let absolute_target = if target.is_absolute() {
+        target.clone()
+    } else {
+        // For relative symlinks, resolve from the symlink's parent directory
+        if let Some(parent) = symlink_path.parent() {
+            parent.join(&target)
+        } else {
+            target.clone()
+        }
+    };
+
+    // Canonicalize to resolve any .. or . components
+    let canonical_target = if absolute_target.exists() {
+        absolute_target.canonicalize()?
+    } else {
+        // For non-existent targets, manually resolve the path
+        let canonical_base = base_dir.canonicalize()?;
+        if let Ok(relative) = absolute_target.strip_prefix(base_dir) {
+            canonical_base.join(relative)
+        } else {
+            absolute_target
+        }
+    };
+
+    let canonical_base = base_dir.canonicalize()?;
+
+    // Check if the symlink target is within the base directory
+    if !canonical_target.starts_with(&canonical_base) {
+        return Err(format!(
+            "Symlink points outside base directory: {} -> {}",
+            symlink_path.display(),
+            canonical_target.display()
+        )
+        .into());
     }
 
     Ok(())
@@ -347,11 +459,39 @@ pub async fn download_dashboard(
         }
         fs::create_dir_all(&staging_dir)?;
 
-        // Extract tar.gz to staging
+        // Extract tar.gz to staging with security validations
         let tar_gz = fs::File::open(&temp_file)?;
         let tar = GzDecoder::new(tar_gz);
         let mut archive = Archive::new(tar);
-        archive.unpack(&staging_dir)?;
+
+        // Track total extracted size to prevent disk exhaustion
+        let mut total_extracted_size: u64 = 0;
+
+        // Extract each entry with validation
+        for entry_result in archive.entries()? {
+            let mut entry = entry_result?;
+            let entry_path = entry.path()?;
+            let dest_path = staging_dir.join(&entry_path);
+
+            // Validate path safety
+            validate_safe_path(&dest_path, &staging_dir)?;
+
+            // Validate nesting depth
+            validate_nesting_depth(&dest_path, &staging_dir)?;
+
+            // Validate file size
+            let entry_size = entry.size();
+            validate_file_size(entry_size, &dest_path)?;
+
+            // Track and validate total size
+            total_extracted_size = validate_total_size(total_extracted_size, entry_size)?;
+
+            // Extract the entry
+            entry.unpack(&dest_path)?;
+
+            // Validate symlinks after extraction
+            validate_symlink(&dest_path, &staging_dir)?;
+        }
 
         // Extraction successful, now replace old files with new ones
         // Clear existing dashboard files (except .version, .mode, node_modules, backups, staging)
@@ -767,5 +907,120 @@ mod tests {
         } else {
             let _ = fs::remove_file(&mode_file);
         }
+    }
+
+    #[test]
+    fn test_validate_file_size_accepts_small_files() {
+        let temp_dir = TempDir::new().unwrap();
+        let file_path = temp_dir.path().join("small.txt");
+
+        // Small file should be accepted
+        assert!(validate_file_size(1024, &file_path).is_ok());
+        assert!(validate_file_size(1024 * 1024, &file_path).is_ok());
+    }
+
+    #[test]
+    fn test_validate_file_size_rejects_large_files() {
+        let temp_dir = TempDir::new().unwrap();
+        let file_path = temp_dir.path().join("large.txt");
+
+        // File larger than MAX_FILE_SIZE_BYTES should be rejected
+        let too_large = MAX_FILE_SIZE_BYTES + 1;
+        assert!(validate_file_size(too_large, &file_path).is_err());
+    }
+
+    #[test]
+    fn test_validate_total_size_tracks_accumulation() {
+        // Should accept sizes within limit
+        let result = validate_total_size(0, 1024);
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), 1024);
+
+        // Should accumulate correctly
+        let result = validate_total_size(1024, 2048);
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), 3072);
+    }
+
+    #[test]
+    fn test_validate_total_size_rejects_excessive_total() {
+        // Should reject when total exceeds MAX_TOTAL_SIZE_BYTES
+        let result = validate_total_size(MAX_TOTAL_SIZE_BYTES - 100, 200);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_validate_nesting_depth_accepts_shallow_paths() {
+        let temp_dir = TempDir::new().unwrap();
+        let base = temp_dir.path();
+
+        // Shallow paths should be accepted
+        let shallow = base.join("file.txt");
+        assert!(validate_nesting_depth(&shallow, base).is_ok());
+
+        let medium = base.join("a").join("b").join("c").join("file.txt");
+        assert!(validate_nesting_depth(&medium, base).is_ok());
+    }
+
+    #[test]
+    fn test_validate_nesting_depth_rejects_deep_paths() {
+        let temp_dir = TempDir::new().unwrap();
+        let base = temp_dir.path();
+
+        // Build a path deeper than MAX_NESTING_DEPTH
+        let mut deep_path = base.to_path_buf();
+        for i in 0..MAX_NESTING_DEPTH + 1 {
+            deep_path = deep_path.join(format!("dir{}", i));
+        }
+
+        assert!(validate_nesting_depth(&deep_path, base).is_err());
+    }
+
+    #[test]
+    fn test_validate_symlink_accepts_internal_links() {
+        let temp_dir = TempDir::new().unwrap();
+        let base = temp_dir.path();
+
+        // Create a file and symlink pointing to it
+        let target_file = base.join("target.txt");
+        fs::write(&target_file, "content").unwrap();
+
+        let symlink = base.join("link.txt");
+
+        #[cfg(unix)]
+        {
+            std::os::unix::fs::symlink(&target_file, &symlink).unwrap();
+            assert!(validate_symlink(&symlink, base).is_ok());
+        }
+    }
+
+    #[test]
+    fn test_validate_symlink_rejects_external_links() {
+        let temp_dir = TempDir::new().unwrap();
+        let base = temp_dir.path();
+
+        // Create symlink pointing outside base directory
+        let symlink = base.join("evil_link.txt");
+        let external_target = Path::new("/etc/passwd");
+
+        #[cfg(unix)]
+        {
+            let _ = std::os::unix::fs::symlink(external_target, &symlink);
+            if symlink.exists() {
+                assert!(validate_symlink(&symlink, base).is_err());
+            }
+        }
+    }
+
+    #[test]
+    fn test_validate_symlink_accepts_non_symlinks() {
+        let temp_dir = TempDir::new().unwrap();
+        let base = temp_dir.path();
+
+        // Regular files should pass validation
+        let regular_file = base.join("regular.txt");
+        fs::write(&regular_file, "content").unwrap();
+
+        assert!(validate_symlink(&regular_file, base).is_ok());
     }
 }

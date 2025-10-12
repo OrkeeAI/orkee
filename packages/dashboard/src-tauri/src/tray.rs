@@ -33,8 +33,73 @@ const SERVER_RESTART_POLL_INTERVAL_MS: u64 = 100;
 // API - it's a sidecar process running on 127.0.0.1. Using localhost is
 // intentional and correct for this architecture.
 // Can be overridden via ORKEE_API_HOST environment variable for extensibility.
+
+/// Validate that an API host is safe to connect to.
+///
+/// By default, only localhost addresses are allowed (localhost, 127.0.0.1, ::1).
+/// Remote hosts can be enabled by setting ORKEE_ALLOW_REMOTE_API=true environment variable.
+/// This prevents accidental exposure of the API to network access.
+fn validate_api_host(host: &str) -> Result<(), String> {
+    // Check for empty host
+    if host.is_empty() {
+        return Err("API host cannot be empty".to_string());
+    }
+
+    // Check for suspicious hosts that could be used in SSRF attacks
+    if host == "0.0.0.0" || host == "[::]" {
+        return Err(format!(
+            "Suspicious API host '{}' is not allowed. Use 'localhost' or '127.0.0.1' instead.",
+            host
+        ));
+    }
+
+    // Allow localhost variants by default
+    let is_localhost = host == "localhost"
+        || host == "127.0.0.1"
+        || host == "::1"
+        || host.starts_with("127.");
+
+    if is_localhost {
+        return Ok(());
+    }
+
+    // Check if remote API access is explicitly enabled
+    if std::env::var("ORKEE_ALLOW_REMOTE_API").is_ok() {
+        eprintln!("⚠️  WARNING: Remote API access is enabled for host: {}", host);
+        eprintln!("⚠️  This bypasses localhost-only security restrictions.");
+        eprintln!("⚠️  Ensure this is intentional and the host is trusted.");
+        return Ok(());
+    }
+
+    // Reject non-localhost hosts by default
+    Err(format!(
+        "API host '{}' is not a localhost address and remote access is not enabled.\n\
+        \n\
+        For security, Orkee only connects to localhost by default.\n\
+        \n\
+        To connect to a remote API (not recommended), set:\n\
+        export ORKEE_ALLOW_REMOTE_API=true\n\
+        \n\
+        Allowed localhost addresses:\n\
+        - localhost\n\
+        - 127.0.0.1\n\
+        - ::1\n\
+        - 127.x.x.x",
+        host
+    ))
+}
+
 fn get_api_host() -> String {
-    std::env::var("ORKEE_API_HOST").unwrap_or_else(|_| "localhost".to_string())
+    let host = std::env::var("ORKEE_API_HOST").unwrap_or_else(|_| "localhost".to_string());
+
+    // Validate the host before using it
+    if let Err(e) = validate_api_host(&host) {
+        eprintln!("❌ Invalid API host configuration: {}", e);
+        eprintln!("Falling back to localhost for security.");
+        return "localhost".to_string();
+    }
+
+    host
 }
 
 #[derive(Clone)]
@@ -857,5 +922,47 @@ mod tests {
             assert!(url.starts_with(&format!("http://{}:{}/api/preview/servers/", api_host, api_port)));
             assert!(url.ends_with("/stop"));
         }
+    }
+
+    #[test]
+    fn test_validate_api_host_allows_localhost() {
+        assert!(validate_api_host("localhost").is_ok());
+    }
+
+    #[test]
+    fn test_validate_api_host_allows_127_0_0_1() {
+        assert!(validate_api_host("127.0.0.1").is_ok());
+    }
+
+    #[test]
+    fn test_validate_api_host_allows_ipv6_loopback() {
+        assert!(validate_api_host("::1").is_ok());
+    }
+
+    #[test]
+    fn test_validate_api_host_blocks_remote_hosts_by_default() {
+        assert!(validate_api_host("example.com").is_err());
+        assert!(validate_api_host("192.168.1.1").is_err());
+        assert!(validate_api_host("10.0.0.1").is_err());
+    }
+
+    #[test]
+    fn test_validate_api_host_allows_remote_with_flag() {
+        std::env::set_var("ORKEE_ALLOW_REMOTE_API", "true");
+        assert!(validate_api_host("example.com").is_ok());
+        assert!(validate_api_host("192.168.1.1").is_ok());
+        std::env::remove_var("ORKEE_ALLOW_REMOTE_API");
+    }
+
+    #[test]
+    fn test_validate_api_host_blocks_empty_string() {
+        assert!(validate_api_host("").is_err());
+    }
+
+    #[test]
+    fn test_validate_api_host_blocks_suspicious_hosts() {
+        // Test potential SSRF attacks
+        assert!(validate_api_host("0.0.0.0").is_err());
+        assert!(validate_api_host("[::]").is_err());
     }
 }
