@@ -677,7 +677,12 @@ pub static GLOBAL_REGISTRY: Lazy<ServerRegistry> = Lazy::new(ServerRegistry::new
 /// environment variable (default: 5 minutes, min: 1, max: 60).
 ///
 /// This function should be called once during application initialization.
-/// Multiple calls are safe - subsequent calls will be ignored.
+/// Multiple calls are safe - subsequent calls will return `None`.
+///
+/// # Returns
+///
+/// Returns `Some(JoinHandle)` on first call to allow graceful shutdown.
+/// Returns `None` on subsequent calls (task already started).
 ///
 /// # Examples
 ///
@@ -686,11 +691,18 @@ pub static GLOBAL_REGISTRY: Lazy<ServerRegistry> = Lazy::new(ServerRegistry::new
 ///
 /// #[tokio::main]
 /// async fn main() {
-///     start_periodic_cleanup();
+///     // Start cleanup and store handle for shutdown
+///     let cleanup_handle = start_periodic_cleanup();
+///
 ///     // Application continues running...
+///
+///     // On shutdown:
+///     if let Some(handle) = cleanup_handle {
+///         handle.abort(); // Graceful shutdown
+///     }
 /// }
 /// ```
-pub fn start_periodic_cleanup() {
+pub fn start_periodic_cleanup() -> Option<tokio::task::JoinHandle<()>> {
     use once_cell::sync::OnceCell;
     use tokio::time::{interval, Duration};
 
@@ -699,7 +711,7 @@ pub fn start_periodic_cleanup() {
     // Only start the task once
     if CLEANUP_TASK_STARTED.get().is_some() {
         debug!("Periodic cleanup task already started");
-        return;
+        return None;
     }
 
     // Get cleanup interval from environment variable (default: 5 minutes)
@@ -716,8 +728,8 @@ pub fn start_periodic_cleanup() {
     // Mark as started
     let _ = CLEANUP_TASK_STARTED.set(());
 
-    // Spawn background task
-    tokio::spawn(async move {
+    // Spawn background task and return handle for graceful shutdown
+    let handle = tokio::spawn(async move {
         let mut interval = interval(Duration::from_secs(cleanup_interval_minutes * 60));
 
         loop {
@@ -731,6 +743,8 @@ pub fn start_periodic_cleanup() {
             }
         }
     });
+
+    Some(handle)
 }
 
 #[cfg(test)]
