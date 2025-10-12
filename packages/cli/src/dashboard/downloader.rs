@@ -924,14 +924,14 @@ mod tests {
         let _ = fs::remove_file(&mode_file);
         let result = is_dashboard_installed(DashboardMode::Dist);
         assert!(result.is_ok());
-        assert_eq!(result.unwrap(), false);
+        assert!(!result.unwrap());
 
         // Test 2: Wrong version - should return false
         fs::write(&version_file, "0.0.0").unwrap();
         fs::write(&mode_file, "dist").unwrap();
         let result = is_dashboard_installed(DashboardMode::Dist);
         assert!(result.is_ok());
-        assert_eq!(result.unwrap(), false);
+        assert!(!result.unwrap());
 
         // Test 3: Correct version, wrong mode - should return false
         let current_version = env!("CARGO_PKG_VERSION");
@@ -939,21 +939,21 @@ mod tests {
         fs::write(&mode_file, "source").unwrap();
         let result = is_dashboard_installed(DashboardMode::Dist);
         assert!(result.is_ok());
-        assert_eq!(result.unwrap(), false);
+        assert!(!result.unwrap());
 
         // Test 4: Correct version and mode - should return true
         fs::write(&version_file, current_version).unwrap();
         fs::write(&mode_file, "dist").unwrap();
         let result = is_dashboard_installed(DashboardMode::Dist);
         assert!(result.is_ok());
-        assert_eq!(result.unwrap(), true);
+        assert!(result.unwrap());
 
         // Test 5: Correct version, no mode file (backwards compat) - should return true
         fs::write(&version_file, current_version).unwrap();
         let _ = fs::remove_file(&mode_file);
         let result = is_dashboard_installed(DashboardMode::Dist);
         assert!(result.is_ok());
-        assert_eq!(result.unwrap(), true);
+        assert!(result.unwrap());
 
         // Cleanup: restore original state
         if backup_version.exists() {

@@ -12,7 +12,6 @@ use tempfile::TempDir;
 fn create_test_tarball(mode: DashboardMode) -> Vec<u8> {
     use flate2::write::GzEncoder;
     use flate2::Compression;
-    use std::io::Write;
     use tar::Builder;
     let mut tar_data = Vec::new();
     {
@@ -96,7 +95,7 @@ async fn test_is_dashboard_installed_returns_false_when_not_installed() {
     drop(temp_dir);
 
     assert!(result.is_ok());
-    assert_eq!(result.unwrap(), false);
+    assert!(!result.unwrap());
 }
 
 #[tokio::test]
@@ -117,7 +116,7 @@ async fn test_is_dashboard_installed_checks_version_match() {
 
     // Should return false because version doesn't match current version
     assert!(result.is_ok());
-    assert_eq!(result.unwrap(), false);
+    assert!(!result.unwrap());
 }
 
 #[tokio::test]
@@ -141,7 +140,7 @@ async fn test_is_dashboard_installed_checks_mode_match() {
 
     // Should return false because mode doesn't match
     assert!(result.is_ok());
-    assert_eq!(result.unwrap(), false);
+    assert!(!result.unwrap());
 }
 
 #[tokio::test]
@@ -164,7 +163,7 @@ async fn test_is_dashboard_installed_returns_true_when_matching() {
 
     // Should return true when version and mode match
     assert!(result.is_ok());
-    assert_eq!(result.unwrap(), true);
+    assert!(result.unwrap());
 }
 
 /// Test that rollback restores backup files when extraction fails
@@ -235,7 +234,7 @@ async fn test_ensure_dashboard_fallback_logic() {
 
     // Verify dashboard is not installed
     let installed = is_dashboard_installed(DashboardMode::Dist).unwrap();
-    assert_eq!(installed, false);
+    assert!(!installed);
 
     // Note: We can't easily test the full download flow without refactoring
     // to allow injecting a custom HTTP client or base URL. However, we can

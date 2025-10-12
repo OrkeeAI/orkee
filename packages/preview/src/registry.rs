@@ -916,7 +916,7 @@ mod tests {
         // Verify process-unique temp file was cleaned up
         let temp_path = registry
             .registry_path
-            .with_extension(&format!("tmp.{}", std::process::id()));
+            .with_extension(format!("tmp.{}", std::process::id()));
         assert!(!temp_path.exists());
 
         // Verify old-style temp file doesn't exist either
