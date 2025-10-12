@@ -3,6 +3,9 @@
  * Detects whether the app is running in a web browser or Tauri desktop environment
  */
 
+import { fetch as tauriFetch } from '@tauri-apps/plugin-http';
+import { invoke } from '@tauri-apps/api/core';
+
 /**
  * Check if the app is running in Tauri desktop mode
  * @returns true if running in Tauri, false if running in web browser
