@@ -76,10 +76,9 @@ impl ServerRegistry {
     /// Returns a new `ServerRegistry` instance with loaded entries (if any exist).
     pub fn new() -> Self {
         let home = dirs::home_dir().unwrap_or_else(|| {
-            // Fallback to current directory if home can't be determined
-            // Log warning and use a temp location
-            warn!("Could not determine home directory, using current directory");
-            std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."))
+            // Fallback to temp directory if home can't be determined
+            warn!("Could not determine home directory, using system temp directory");
+            std::env::temp_dir()
         });
         let registry_path = home.join(".orkee").join("server-registry.json");
 
@@ -169,9 +168,12 @@ impl ServerRegistry {
         &self,
         entries: &HashMap<String, ServerRegistryEntry>,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        // Ensure the .orkee directory exists
+        // Ensure the .orkee directory exists with proper error handling
         if let Some(parent) = self.registry_path.parent() {
-            fs::create_dir_all(parent)?;
+            if let Err(e) = fs::create_dir_all(parent) {
+                error!("Failed to create registry directory {:?}: {}", parent, e);
+                return Err(format!("Cannot create registry directory: {}", e).into());
+            }
         }
 
         let json = serde_json::to_string_pretty(entries)?;
@@ -469,8 +471,10 @@ impl ServerRegistry {
         &self,
         api_port: u16,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        let home =
-            dirs::home_dir().ok_or("Could not determine home directory for preview locks sync")?;
+        let home = dirs::home_dir().unwrap_or_else(|| {
+            warn!("Could not determine home directory for preview locks sync, using system temp directory");
+            std::env::temp_dir()
+        });
         let locks_dir = home.join(".orkee").join("preview-locks");
 
         if !locks_dir.exists() {
