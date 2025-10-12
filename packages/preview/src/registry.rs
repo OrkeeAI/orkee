@@ -217,9 +217,8 @@ impl ServerRegistry {
         &self,
         api_port: u16,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        let home = dirs::home_dir().ok_or_else(|| {
-            "Could not determine home directory for preview locks sync"
-        })?;
+        let home = dirs::home_dir()
+            .ok_or_else(|| "Could not determine home directory for preview locks sync")?;
         let locks_dir = home.join(".orkee").join("preview-locks");
 
         if !locks_dir.exists() {
