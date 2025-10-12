@@ -3,7 +3,7 @@ use flate2::read::GzDecoder;
 use indicatif::{ProgressBar, ProgressStyle};
 use std::fs;
 use std::io::Write;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use tar::Archive;
 
 const GITHUB_REPO: &str = "OrkeeAI/orkee";
@@ -16,13 +16,78 @@ pub enum DashboardMode {
     Source, // Source files requiring build
 }
 
+/// Validate that a path is safe and doesn't attempt path traversal
+fn validate_safe_path(path: &Path, base_dir: &Path) -> Result<(), Box<dyn std::error::Error>> {
+    // Canonicalize both paths to resolve any symlinks or relative components
+    let canonical_base = base_dir.canonicalize().or_else(|_| {
+        // If base doesn't exist yet, just use it as-is
+        Ok::<PathBuf, std::io::Error>(base_dir.to_path_buf())
+    })?;
+
+    let canonical_path = if path.exists() {
+        path.canonicalize()?
+    } else {
+        // For non-existent paths, construct the full path manually
+        canonical_base.join(path.strip_prefix(&canonical_base).unwrap_or(path))
+    };
+
+    // Check that the path is within the base directory
+    if !canonical_path.starts_with(&canonical_base) {
+        return Err(format!(
+            "Path traversal detected: {} is outside {}",
+            canonical_path.display(),
+            canonical_base.display()
+        )
+        .into());
+    }
+
+    // Check for dangerous path components
+    for component in path.components() {
+        match component {
+            std::path::Component::ParentDir => {
+                return Err("Path contains parent directory (..) component".into());
+            }
+            std::path::Component::Normal(name) => {
+                let name_str = name.to_string_lossy();
+                // Block paths that look suspicious
+                if name_str.contains("..") || name_str.starts_with('.') && name_str.len() > 1 && name_str.chars().nth(1) == Some('.') {
+                    return Err(format!("Suspicious path component: {}", name_str).into());
+                }
+            }
+            _ => {}
+        }
+    }
+
+    Ok(())
+}
+
 /// Get the path where dashboard assets should be stored
 fn get_dashboard_dir() -> Result<PathBuf, Box<dyn std::error::Error>> {
     let home = dirs::home_dir().ok_or_else(|| {
         "Could not determine home directory. \
         Please ensure the HOME environment variable is set."
     })?;
-    Ok(home.join(".orkee").join("dashboard"))
+    let dashboard_dir = home.join(".orkee").join("dashboard");
+
+    // Validate the dashboard directory path itself
+    let orkee_dir = home.join(".orkee");
+    if !orkee_dir.exists() {
+        fs::create_dir_all(&orkee_dir)?;
+    }
+
+    // Ensure the dashboard directory is within .orkee
+    let canonical_orkee = orkee_dir.canonicalize()?;
+    let dashboard_canonical = if dashboard_dir.exists() {
+        dashboard_dir.canonicalize()?
+    } else {
+        canonical_orkee.join("dashboard")
+    };
+
+    if !dashboard_canonical.starts_with(&canonical_orkee) {
+        return Err("Dashboard directory path validation failed".into());
+    }
+
+    Ok(dashboard_dir)
 }
 
 /// Check if dashboard assets are already downloaded and match the current version
@@ -234,7 +299,21 @@ pub async fn download_dashboard(
     // Download to temporary file
     let temp_file = dashboard_dir.join("dashboard.tar.gz.tmp");
 
-    // Perform download and extraction with guaranteed cleanup
+    // Backup old version and mode files for rollback
+    let version_file = dashboard_dir.join(".version");
+    let mode_file = dashboard_dir.join(".mode");
+    let backup_version = dashboard_dir.join(".version.backup");
+    let backup_mode = dashboard_dir.join(".mode.backup");
+
+    // Backup existing files if they exist
+    if version_file.exists() {
+        let _ = fs::copy(&version_file, &backup_version);
+    }
+    if mode_file.exists() {
+        let _ = fs::copy(&mode_file, &backup_mode);
+    }
+
+    // Perform download and extraction with guaranteed cleanup and rollback
     let extraction_result = async {
         let mut file = fs::File::create(&temp_file)?;
 
@@ -248,14 +327,28 @@ pub async fn download_dashboard(
         // Extract the archive
         println!("{} Extracting dashboard source...", "📂".cyan());
 
-        // Clear existing dashboard files (except .version and node_modules)
+        // Extract to a staging directory first to avoid corrupting existing install
+        let staging_dir = dashboard_dir.join(".staging");
+        if staging_dir.exists() {
+            fs::remove_dir_all(&staging_dir)?;
+        }
+        fs::create_dir_all(&staging_dir)?;
+
+        // Extract tar.gz to staging
+        let tar_gz = fs::File::open(&temp_file)?;
+        let tar = GzDecoder::new(tar_gz);
+        let mut archive = Archive::new(tar);
+        archive.unpack(&staging_dir)?;
+
+        // Extraction successful, now replace old files with new ones
+        // Clear existing dashboard files (except .version, .mode, node_modules, backups, staging)
         if dashboard_dir.exists() {
             for entry in fs::read_dir(&dashboard_dir)? {
                 let entry = entry?;
                 let path = entry.path();
                 if let Some(filename) = path.file_name() {
-                    if filename != ".version"
-                        && filename != "dashboard.tar.gz.tmp"
+                    let filename_str = filename.to_string_lossy();
+                    if !filename_str.starts_with('.')
                         && filename != "node_modules"
                     {
                         if path.is_dir() {
@@ -268,17 +361,38 @@ pub async fn download_dashboard(
             }
         }
 
-        // Extract tar.gz
-        let tar_gz = fs::File::open(&temp_file)?;
-        let tar = GzDecoder::new(tar_gz);
-        let mut archive = Archive::new(tar);
-        archive.unpack(&dashboard_dir)?;
+        // Move files from staging to dashboard directory with path validation
+        for entry in fs::read_dir(&staging_dir)? {
+            let entry = entry?;
+            let source = entry.path();
+            if let Some(filename) = source.file_name() {
+                let dest = dashboard_dir.join(filename);
+
+                // Validate destination path to prevent path traversal
+                validate_safe_path(&dest, &dashboard_dir)?;
+
+                // Remove destination if it exists (except node_modules)
+                if dest.exists() && filename != "node_modules" {
+                    if dest.is_dir() {
+                        fs::remove_dir_all(&dest)?;
+                    } else {
+                        fs::remove_file(&dest)?;
+                    }
+                }
+                fs::rename(&source, &dest)?;
+            }
+        }
+
+        // Clean up staging directory
+        if staging_dir.exists() {
+            let _ = fs::remove_dir_all(&staging_dir);
+        }
 
         Ok::<(), Box<dyn std::error::Error>>(())
     }
     .await;
 
-    // Always attempt to cleanup temp file, regardless of success or failure
+    // Cleanup: Always remove temp file and backups
     if temp_file.exists() {
         if let Err(e) = fs::remove_file(&temp_file) {
             eprintln!(
@@ -289,8 +403,44 @@ pub async fn download_dashboard(
         }
     }
 
-    // Propagate any errors from extraction
-    extraction_result?;
+    // Handle rollback on failure
+    if extraction_result.is_err() {
+        eprintln!("{} Download/extraction failed, rolling back...", "⚠️".yellow());
+
+        // Restore backup files
+        if backup_version.exists() {
+            if let Err(e) = fs::rename(&backup_version, &version_file) {
+                eprintln!("⚠️  Warning: Failed to restore version backup: {}", e);
+            } else {
+                eprintln!("✓ Restored version file from backup");
+            }
+        }
+        if backup_mode.exists() {
+            if let Err(e) = fs::rename(&backup_mode, &mode_file) {
+                eprintln!("⚠️  Warning: Failed to restore mode backup: {}", e);
+            } else {
+                eprintln!("✓ Restored mode file from backup");
+            }
+        }
+
+        // Clean up staging directory if it exists
+        let staging_dir = dashboard_dir.join(".staging");
+        if staging_dir.exists() {
+            let _ = fs::remove_dir_all(&staging_dir);
+        }
+
+        // Propagate the error
+        extraction_result?;
+        return Err("Download/extraction failed and rollback completed".into());
+    }
+
+    // Success - clean up backup files
+    if backup_version.exists() {
+        let _ = fs::remove_file(&backup_version);
+    }
+    if backup_mode.exists() {
+        let _ = fs::remove_file(&backup_mode);
+    }
 
     // Write version file
     let version_file = dashboard_dir.join(".version");
