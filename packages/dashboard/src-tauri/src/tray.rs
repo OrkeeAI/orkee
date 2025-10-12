@@ -166,14 +166,14 @@ impl TrayManager {
                     format!("{} - Port {}", server_name, server.port)
                 );
 
-                // Open in browser
+                // Open in browser - uses server.id for direct server reference
                 let open_item = MenuItemBuilder::with_id(
                     format!("open_{}", server.id),
                     "Open in Browser"
                 ).build(app_handle)?;
                 submenu_builder = submenu_builder.item(&open_item);
 
-                // Copy URL
+                // Copy URL - uses server.id for direct server reference
                 let copy_item = MenuItemBuilder::with_id(
                     format!("copy_{}", server.id),
                     format!("Copy URL ({})", server.url)
@@ -182,14 +182,14 @@ impl TrayManager {
 
                 submenu_builder = submenu_builder.separator();
 
-                // Restart server
+                // Restart server - uses project_id for project-level API operations
                 let restart_item = MenuItemBuilder::with_id(
                     format!("restart_{}", server.project_id),
                     "Restart Server"
                 ).build(app_handle)?;
                 submenu_builder = submenu_builder.item(&restart_item);
 
-                // Stop server
+                // Stop server - uses project_id for project-level API operations
                 let stop_item = MenuItemBuilder::with_id(
                     format!("stop_{}", server.project_id),
                     "Stop Server"
@@ -226,8 +226,12 @@ impl TrayManager {
             "show" => {
                 println!("Showing main window");
                 if let Some(window) = app.get_webview_window("main") {
-                    let _ = window.show();
-                    let _ = window.set_focus();
+                    if let Err(e) = window.show() {
+                        eprintln!("Failed to show window: {}", e);
+                    }
+                    if let Err(e) = window.set_focus() {
+                        eprintln!("Failed to set window focus: {}", e);
+                    }
                 }
             }
             "refresh" => {
