@@ -723,13 +723,14 @@ fn discover_api_port() -> Result<u16, Box<dyn std::error::Error>> {
     }
 
     // Priority 4: Fall back to default port with better error message
-    return Err(format!(
+    Err(
         "Could not discover API port. Please ensure the Orkee server is running.\n\
         You can specify the port using:\n\
         - ORKEE_API_PORT environment variable\n\
         - Or start the server with: orkee dashboard --api-port <PORT>"
+            .to_string()
+            .into(),
     )
-    .into());
 }
 
 async fn wait_for_port_available(port: u16) -> Result<(), Box<dyn std::error::Error>> {
