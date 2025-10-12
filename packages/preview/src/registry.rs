@@ -521,20 +521,21 @@ impl ServerRegistry {
 /// Returns the tolerance value used to determine if a process's start time matches
 /// the expected start time. This helps detect PID reuse on systems under heavy load.
 /// Can be configured via the `ORKEE_PROCESS_START_TIME_TOLERANCE_SECS` environment
-/// variable (default: 2 seconds, max: 5 seconds).
+/// variable (default: 1 second, max: 1 second).
 ///
 /// # Security Note
 ///
-/// The tolerance window must be kept small to prevent PID reuse attacks. On busy systems,
-/// PIDs can be reused within seconds, so a larger window increases the risk of false positives.
+/// The tolerance window must be kept minimal to prevent PID reuse attacks. On busy systems,
+/// PIDs can be reused within seconds, so even a 1-second window carries risk. Combined with
+/// parent PID validation, this provides defense-in-depth against PID reuse attacks.
 ///
 /// # Returns
 ///
 /// Returns the tolerance in seconds.
 fn get_start_time_tolerance_secs() -> u64 {
     use crate::env::parse_env_or_default_with_validation;
-    parse_env_or_default_with_validation("ORKEE_PROCESS_START_TIME_TOLERANCE_SECS", 2, |v| {
-        v > 0 && v <= 5
+    parse_env_or_default_with_validation("ORKEE_PROCESS_START_TIME_TOLERANCE_SECS", 1, |v| {
+        v > 0 && v <= 1
     })
 }
 
@@ -553,6 +554,26 @@ fn is_process_running_validated(
     let pid_obj = Pid::from_u32(pid);
 
     if let Some(process) = system.process(pid_obj) {
+        // Validate parent PID as defense-in-depth against PID reuse
+        // Development servers should have a parent process (shell/terminal/orkee)
+        // If parent is PID 1 (init/systemd), process is orphaned which is suspicious
+        if let Some(parent_pid) = process.parent() {
+            let parent_pid_u32 = parent_pid.as_u32();
+            if parent_pid_u32 == 1 {
+                warn!(
+                    "PID {} has suspicious parent PID 1 (init/systemd) - process may be orphaned or reused",
+                    pid
+                );
+                // Don't immediately fail - log warning but continue with other checks
+                // Some legitimate dev servers may be orphaned in edge cases
+            }
+        } else {
+            warn!(
+                "PID {} has no parent process - highly suspicious, likely PID reuse",
+                pid
+            );
+            return false;
+        }
         // Validate process name matches expected patterns (node/python/npm/etc.)
         let process_name = process.name().to_string().to_lowercase();
         let name_matches = expected_name_patterns.is_empty()
