@@ -311,33 +311,83 @@ impl TrayManager {
         tauri::async_runtime::spawn(async move {
             let client = Self::create_http_client();
 
-            // First stop the server
+            // Step 1: Stop the server
             let stop_url = format!("http://localhost:{}/api/preview/servers/{}/stop", api_port, project_id);
             match client.post(&stop_url).send().await {
                 Ok(response) => {
-                    if response.status().is_success() {
-                        println!("Successfully stopped server: {}", project_id);
+                    if !response.status().is_success() {
+                        eprintln!("Failed to stop server for restart: HTTP {}", response.status());
+                        return;
+                    }
+                    println!("Successfully stopped server: {}", project_id);
+                }
+                Err(e) => {
+                    eprintln!("Failed to stop server: {}", e);
+                    return;
+                }
+            }
 
-                        // Wait a moment for the server to fully stop
-                        tokio::time::sleep(Duration::from_secs(SERVER_RESTART_WAIT_SECS)).await;
+            // Step 2: Poll and verify server is actually stopped
+            let status_url = format!("http://localhost:{}/api/preview/servers/{}/status", api_port, project_id);
+            let max_wait_secs = 10;
+            let poll_interval_ms = 100;
+            let max_attempts = (max_wait_secs * 1000) / poll_interval_ms;
 
-                        // Then start it again
-                        let start_url = format!("http://localhost:{}/api/preview/servers/{}/start", api_port, project_id);
-                        match client.post(&start_url).send().await {
-                            Ok(start_response) => {
-                                if start_response.status().is_success() {
-                                    println!("Successfully restarted server: {}", project_id);
-                                } else {
-                                    eprintln!("Failed to restart server: HTTP {}", start_response.status());
+            let mut stopped = false;
+            for attempt in 0..max_attempts {
+                tokio::time::sleep(Duration::from_millis(poll_interval_ms)).await;
+
+                // Check if server is no longer running
+                match client.get(&status_url).send().await {
+                    Ok(response) => {
+                        if response.status().is_success() {
+                            // Server still exists, check its status
+                            if let Ok(status_json) = response.json::<serde_json::Value>().await {
+                                if let Some(data) = status_json.get("data") {
+                                    if data.get("instance").is_none() {
+                                        // Server is stopped
+                                        stopped = true;
+                                        println!("Server confirmed stopped after {}ms", attempt * poll_interval_ms);
+                                        break;
+                                    }
                                 }
                             }
-                            Err(e) => eprintln!("Failed to start server: {}", e),
+                        } else {
+                            // Server not found (404 or similar) - it's stopped
+                            stopped = true;
+                            println!("Server confirmed stopped (no longer exists) after {}ms", attempt * poll_interval_ms);
+                            break;
                         }
-                    } else {
-                        eprintln!("Failed to stop server for restart: HTTP {}", response.status());
+                    }
+                    Err(_) => {
+                        // API error might mean server is down, consider it stopped
+                        stopped = true;
+                        println!("Server appears stopped (API unreachable) after {}ms", attempt * poll_interval_ms);
+                        break;
                     }
                 }
-                Err(e) => eprintln!("Failed to restart server: {}", e),
+            }
+
+            if !stopped {
+                eprintln!("Timeout waiting for server to stop after {} seconds", max_wait_secs);
+                return;
+            }
+
+            // Step 3: Additional short delay for port release
+            // This accounts for OS-level port cleanup after process termination
+            tokio::time::sleep(Duration::from_millis(500)).await;
+
+            // Step 4: Start the server
+            let start_url = format!("http://localhost:{}/api/preview/servers/{}/start", api_port, project_id);
+            match client.post(&start_url).send().await {
+                Ok(start_response) => {
+                    if start_response.status().is_success() {
+                        println!("Successfully restarted server: {}", project_id);
+                    } else {
+                        eprintln!("Failed to start server: HTTP {}", start_response.status());
+                    }
+                }
+                Err(e) => eprintln!("Failed to start server: {}", e),
             }
         });
     }

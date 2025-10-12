@@ -10,35 +10,64 @@ use tracing::{debug, error, info, warn};
 use crate::env::parse_env_or_default_with_validation;
 use crate::types::DevServerStatus;
 
-/// Central server registry that tracks ALL dev servers across all Orkee instances
-/// This is stored in ~/.orkee/server-registry.json and is the single source of truth
+/// Entry in the central server registry.
+///
+/// Represents a development server tracked across all Orkee instances on the system.
+/// This is stored in `~/.orkee/server-registry.json` and serves as the single source
+/// of truth for all development servers.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ServerRegistryEntry {
+    /// Unique identifier for this server instance
     pub id: String,
+    /// Project identifier that this server is associated with
     pub project_id: String,
+    /// Optional human-readable project name
     pub project_name: Option<String>,
+    /// Absolute path to the project's root directory
     pub project_root: PathBuf,
+    /// Port number the server is listening on
     pub port: u16,
+    /// Process ID of the running server (if available)
     pub pid: Option<u32>,
+    /// Current status of the server (Running, Stopped, Error, etc.)
     pub status: DevServerStatus,
+    /// Full preview URL for accessing the server (e.g., "http://localhost:3000")
     pub preview_url: Option<String>,
+    /// Detected or configured framework name (e.g., "Vite", "Next.js")
     pub framework_name: Option<String>,
+    /// The actual command that was executed to start the server
     pub actual_command: Option<String>,
+    /// Timestamp when the server was originally started
     pub started_at: DateTime<Utc>,
+    /// Timestamp when the server was last seen active (for stale detection)
     pub last_seen: DateTime<Utc>,
-    pub api_port: u16, // Which Orkee API instance manages this server
+    /// Port of the Orkee API instance that manages this server
+    pub api_port: u16,
 }
 
-/// The central server registry
+/// Central registry for tracking all development servers across Orkee instances.
+///
+/// This registry provides a global view of all development servers running on the system,
+/// regardless of which Orkee instance started them. It persists to disk at
+/// `~/.orkee/server-registry.json` and uses transactional updates to ensure consistency.
 pub struct ServerRegistry {
     registry_path: PathBuf,
     entries: Arc<RwLock<HashMap<String, ServerRegistryEntry>>>,
-    /// Timeout in minutes before considering an entry stale (default: 5)
+    /// Timeout in minutes before considering an entry stale (default: 5, configurable via ORKEE_STALE_TIMEOUT_MINUTES)
     stale_timeout_minutes: i64,
 }
 
 impl ServerRegistry {
-    /// Create a new server registry instance
+    /// Create a new server registry instance.
+    ///
+    /// Initializes a new registry that persists to `~/.orkee/server-registry.json`.
+    /// If the registry file exists, it will be automatically loaded. The stale timeout
+    /// can be configured via the `ORKEE_STALE_TIMEOUT_MINUTES` environment variable
+    /// (default: 5 minutes, max: 1440 minutes/24 hours).
+    ///
+    /// # Returns
+    ///
+    /// Returns a new `ServerRegistry` instance with loaded entries (if any exist).
     pub fn new() -> Self {
         let home = dirs::home_dir().unwrap_or_else(|| {
             // Fallback to current directory if home can't be determined
@@ -71,7 +100,18 @@ impl ServerRegistry {
         registry
     }
 
-    /// Load the registry from disk
+    /// Load the registry from disk.
+    ///
+    /// Reads the registry file from `~/.orkee/server-registry.json` and loads all
+    /// server entries into memory. If the file doesn't exist, this is not an error.
+    ///
+    /// # Returns
+    ///
+    /// Returns `Ok(())` on success or if the file doesn't exist.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the file exists but cannot be read or contains invalid JSON.
     pub async fn load_registry(&self) -> Result<(), Box<dyn std::error::Error>> {
         if !self.registry_path.exists() {
             debug!(
@@ -91,7 +131,19 @@ impl ServerRegistry {
         Ok(())
     }
 
-    /// Save the registry to disk
+    /// Save the registry to disk.
+    ///
+    /// Writes the current registry state to `~/.orkee/server-registry.json` using
+    /// an atomic write operation (write to temp file, then rename). This ensures
+    /// the registry file is never left in a corrupted state.
+    ///
+    /// # Returns
+    ///
+    /// Returns `Ok(())` on success.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the file cannot be written or the directory cannot be created.
     pub async fn save_registry(&self) -> Result<(), Box<dyn std::error::Error>> {
         let registry = self.entries.read().await;
         self.save_entries_to_disk(&*registry).await
@@ -120,8 +172,25 @@ impl ServerRegistry {
         Ok(())
     }
 
-    /// Register a new server or update an existing one
-    /// Uses transactional update: save to disk first, then update memory
+    /// Register a new server or update an existing one.
+    ///
+    /// Adds a server to the registry or updates it if it already exists. This method
+    /// uses a transactional update pattern: the registry is saved to disk first, and
+    /// only if that succeeds is the in-memory state updated. This prevents inconsistencies
+    /// between disk and memory.
+    ///
+    /// # Arguments
+    ///
+    /// * `entry` - The server registry entry to add or update
+    ///
+    /// # Returns
+    ///
+    /// Returns `Ok(())` on success.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the registry cannot be saved to disk. If this occurs,
+    /// the in-memory state is left unchanged.
     pub async fn register_server(
         &self,
         entry: ServerRegistryEntry,
@@ -147,8 +216,23 @@ impl ServerRegistry {
         Ok(())
     }
 
-    /// Remove a server from the registry
-    /// Uses transactional update: save to disk first, then update memory
+    /// Remove a server from the registry.
+    ///
+    /// Removes a server entry from the registry. This method uses a transactional
+    /// update pattern: the registry is saved to disk first, and only if that succeeds
+    /// is the in-memory state updated.
+    ///
+    /// # Arguments
+    ///
+    /// * `server_id` - The unique identifier of the server to remove
+    ///
+    /// # Returns
+    ///
+    /// Returns `Ok(())` on success, even if the server was not found.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the registry cannot be saved to disk.
     pub async fn unregister_server(
         &self,
         server_id: &str,
@@ -172,20 +256,51 @@ impl ServerRegistry {
         Ok(())
     }
 
-    /// Get all servers from the registry
+    /// Get all servers from the registry.
+    ///
+    /// Returns a snapshot of all registered servers at the time of the call.
+    ///
+    /// # Returns
+    ///
+    /// Returns a `Vec<ServerRegistryEntry>` containing all server entries in the registry.
     pub async fn get_all_servers(&self) -> Vec<ServerRegistryEntry> {
         let registry = self.entries.read().await;
         registry.values().cloned().collect()
     }
 
-    /// Get a specific server by ID
+    /// Get a specific server by ID.
+    ///
+    /// Retrieves detailed information about a single server from the registry.
+    ///
+    /// # Arguments
+    ///
+    /// * `server_id` - The unique identifier of the server to retrieve
+    ///
+    /// # Returns
+    ///
+    /// Returns `Some(ServerRegistryEntry)` if found, or `None` if no server exists with this ID.
     pub async fn get_server(&self, server_id: &str) -> Option<ServerRegistryEntry> {
         let registry = self.entries.read().await;
         registry.get(server_id).cloned()
     }
 
-    /// Update server status
-    /// Uses transactional update: save to disk first, then update memory
+    /// Update the status of a server.
+    ///
+    /// Updates the status field of a server and refreshes its `last_seen` timestamp.
+    /// This method uses a transactional update pattern for consistency.
+    ///
+    /// # Arguments
+    ///
+    /// * `server_id` - The unique identifier of the server to update
+    /// * `status` - The new status to set
+    ///
+    /// # Returns
+    ///
+    /// Returns `Ok(())` on success, even if the server was not found.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the registry cannot be saved to disk.
     pub async fn update_server_status(
         &self,
         server_id: &str,
@@ -213,14 +328,36 @@ impl ServerRegistry {
         Ok(())
     }
 
-    /// Get the configured stale timeout in minutes
+    /// Get the configured stale timeout in minutes.
+    ///
+    /// Returns the timeout value used to determine when a server entry should be
+    /// considered stale. This value is configured via the `ORKEE_STALE_TIMEOUT_MINUTES`
+    /// environment variable (default: 5, max: 1440).
+    ///
+    /// # Returns
+    ///
+    /// Returns the stale timeout in minutes.
     pub fn get_stale_timeout_minutes(&self) -> i64 {
         self.stale_timeout_minutes
     }
 
-    /// Clean up stale entries based on configured timeout
-    /// Removes servers that haven't been seen recently and whose process is no longer running
-    /// Timeout can be configured via ORKEE_STALE_TIMEOUT_MINUTES environment variable (default: 5)
+    /// Clean up stale entries based on configured timeout.
+    ///
+    /// Removes server entries that haven't been seen recently (based on `last_seen` timestamp)
+    /// and whose process is no longer running. The timeout can be configured via the
+    /// `ORKEE_STALE_TIMEOUT_MINUTES` environment variable (default: 5 minutes).
+    ///
+    /// This method validates that processes are still running before removing entries,
+    /// preventing premature removal of servers that are still active but haven't been
+    /// recently polled.
+    ///
+    /// # Returns
+    ///
+    /// Returns `Ok(())` on success.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the registry cannot be saved to disk after cleanup.
     pub async fn cleanup_stale_entries(&self) -> Result<(), Box<dyn std::error::Error>> {
         let cutoff = Utc::now() - chrono::Duration::minutes(self.stale_timeout_minutes);
         let mut to_remove = Vec::new();
@@ -258,7 +395,27 @@ impl ServerRegistry {
         Ok(())
     }
 
-    /// Sync from preview-locks directory (for backwards compatibility)
+    /// Sync from preview-locks directory for backwards compatibility.
+    ///
+    /// Imports server entries from the legacy `~/.orkee/preview-locks` directory
+    /// into the central registry. This ensures servers started by older versions
+    /// of Orkee are properly tracked in the new registry system.
+    ///
+    /// Each lock file is validated before import:
+    /// - Process must still be running
+    /// - Process must be a legitimate development server (not PID reuse)
+    ///
+    /// # Arguments
+    ///
+    /// * `api_port` - The API port to associate with imported servers
+    ///
+    /// # Returns
+    ///
+    /// Returns `Ok(())` on success or if the preview-locks directory doesn't exist.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the registry cannot be saved after importing entries.
     pub async fn sync_from_preview_locks(
         &self,
         api_port: u16,

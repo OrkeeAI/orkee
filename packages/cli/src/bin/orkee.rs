@@ -165,7 +165,17 @@ async fn handle_command(command: Commands) -> Result<(), Box<dyn std::error::Err
 
             // Save port info for discovery when using dynamic ports
             if api_port == 0 || ui_port == 0 {
-                save_port_info(final_api_port, final_ui_port)?;
+                if let Err(e) = save_port_info(final_api_port, final_ui_port) {
+                    eprintln!(
+                        "{} Failed to save port configuration: {}",
+                        "⚠️".yellow(),
+                        e
+                    );
+                    eprintln!(
+                        "{} Port discovery may not work. Consider setting ORKEE_API_PORT and ORKEE_UI_PORT environment variables.",
+                        "ℹ️".cyan()
+                    );
+                }
             }
 
             if restart {
@@ -680,7 +690,8 @@ fn discover_api_port() -> Result<u16, Box<dyn std::error::Error>> {
     }
 
     // Priority 2: Read from saved port info file
-    if let Some(home_dir) = dirs::home_dir() {
+    let home_dir_result = dirs::home_dir();
+    if let Some(home_dir) = home_dir_result {
         let ports_file = home_dir.join(".orkee").join("ports.json");
         if let Ok(contents) = std::fs::read_to_string(&ports_file) {
             if let Ok(port_info) = serde_json::from_str::<serde_json::Value>(&contents) {
@@ -689,9 +700,22 @@ fn discover_api_port() -> Result<u16, Box<dyn std::error::Error>> {
                 }
             }
         }
+    } else {
+        eprintln!(
+            "{} Could not determine home directory for port discovery",
+            "⚠️".yellow()
+        );
+        eprintln!(
+            "{} Port configuration file (~/.orkee/ports.json) cannot be accessed",
+            "ℹ️".cyan()
+        );
     }
 
     // Priority 3: Fall back to default port
+    eprintln!(
+        "{} Using default API port 4001 (set ORKEE_API_PORT to specify a different port)",
+        "ℹ️".cyan()
+    );
     Ok(4001)
 }
 

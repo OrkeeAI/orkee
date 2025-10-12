@@ -26,16 +26,13 @@ fn get_dashboard_dir() -> Result<PathBuf, Box<dyn std::error::Error>> {
 }
 
 /// Check if dashboard assets are already downloaded and match the current version
-pub fn is_dashboard_installed(mode: DashboardMode) -> bool {
-    let dashboard_dir = match get_dashboard_dir() {
-        Ok(dir) => dir,
-        Err(_) => return false, // If home dir can't be determined, dashboard isn't installed
-    };
+pub fn is_dashboard_installed(mode: DashboardMode) -> Result<bool, Box<dyn std::error::Error>> {
+    let dashboard_dir = get_dashboard_dir()?;
     let version_file = dashboard_dir.join(".version");
     let mode_file = dashboard_dir.join(".mode");
 
     if !dashboard_dir.exists() || !version_file.exists() {
-        return false;
+        return Ok(false);
     }
 
     // Check if the mode matches
@@ -54,7 +51,7 @@ pub fn is_dashboard_installed(mode: DashboardMode) -> bool {
                     installed_mode,
                     expected_mode
                 );
-                return false;
+                return Ok(false);
             }
         }
     }
@@ -65,7 +62,7 @@ pub fn is_dashboard_installed(mode: DashboardMode) -> bool {
         let current_version = env!("CARGO_PKG_VERSION");
 
         if installed_version == current_version {
-            return true;
+            return Ok(true);
         } else {
             println!(
                 "{} Dashboard version mismatch (installed: {}, current: {})",
@@ -76,7 +73,7 @@ pub fn is_dashboard_installed(mode: DashboardMode) -> bool {
         }
     }
 
-    false
+    Ok(false)
 }
 
 /// Install dependencies in the dashboard directory
@@ -316,7 +313,7 @@ pub async fn ensure_dashboard(
         DashboardMode::Dist
     };
 
-    if is_dashboard_installed(mode) {
+    if is_dashboard_installed(mode)? {
         // For source mode, check if node_modules exists
         if mode == DashboardMode::Source {
             let node_modules = dashboard_dir.join("node_modules");

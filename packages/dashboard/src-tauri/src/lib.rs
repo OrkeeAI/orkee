@@ -12,8 +12,30 @@ const CLEANUP_HTTP_TIMEOUT_SECS: u64 = 3;
 const CLEANUP_CONNECT_TIMEOUT_SECS: u64 = 1;
 const CLEANUP_TOTAL_TIMEOUT_SECS: u64 = 3;
 
-/// Parse an environment variable with fallback to another variable
-/// Tries the primary variable first, then falls back to the secondary, then to the default
+/// Parse an environment variable with fallback support.
+///
+/// Attempts to parse an environment variable, falling back to a secondary variable
+/// and finally to a default value if neither is set or parsing fails.
+///
+/// # Arguments
+///
+/// * `primary_var` - The primary environment variable name to check
+/// * `fallback_var` - The fallback environment variable name if primary is not set
+/// * `default` - The default value to use if neither variable is set or parseable
+///
+/// # Type Parameters
+///
+/// * `T` - The type to parse the environment variable into (must implement `FromStr`)
+///
+/// # Returns
+///
+/// Returns the parsed value from the primary variable, fallback variable, or default value.
+///
+/// # Examples
+///
+/// ```
+/// let port: u16 = parse_env_with_fallback("ORKEE_UI_PORT", "VITE_PORT", 5173);
+/// ```
 fn parse_env_with_fallback<T>(primary_var: &str, fallback_var: &str, default: T) -> T
 where
     T: FromStr,
@@ -31,8 +53,25 @@ struct CliServerState {
     api_port: u16,
 }
 
-/// Perform cleanup of all dev servers and the CLI process
-/// This is called on app exit to ensure no orphaned processes
+/// Perform cleanup of all development servers.
+///
+/// Gracefully stops all running development servers via the preview API before
+/// the application exits. This prevents orphaned server processes. The cleanup
+/// uses short timeouts to avoid blocking application shutdown.
+///
+/// # Arguments
+///
+/// * `api_port` - The API port to connect to for stopping servers
+///
+/// # Returns
+///
+/// Returns `Ok(())` on success. Errors during cleanup are logged but not propagated
+/// to allow shutdown to continue.
+///
+/// # Errors
+///
+/// Returns an error if the HTTP request to stop servers fails, though this is
+/// typically logged and ignored during shutdown.
 async fn cleanup_servers(api_port: u16) -> Result<(), Box<dyn std::error::Error>> {
     println!("Starting cleanup of dev servers...");
 
@@ -60,7 +99,14 @@ async fn cleanup_servers(api_port: u16) -> Result<(), Box<dyn std::error::Error>
     Ok(())
 }
 
-/// Kill the CLI server process
+/// Terminate the Orkee CLI server process.
+///
+/// Sends a kill signal to stop the CLI server process. This should be called
+/// after cleanup of development servers to ensure graceful shutdown.
+///
+/// # Arguments
+///
+/// * `child` - The CLI server process handle to terminate
 fn kill_cli_process(child: tauri_plugin_shell::process::CommandChild) {
     println!("Stopping Orkee CLI server...");
     match child.kill() {
@@ -69,13 +115,37 @@ fn kill_cli_process(child: tauri_plugin_shell::process::CommandChild) {
     }
 }
 
-/// Tauri command to get the API port that the CLI server is running on
+/// Get the API port that the CLI server is running on.
+///
+/// This Tauri command is exposed to the frontend to allow it to discover
+/// which port the backend API is listening on.
+///
+/// # Arguments
+///
+/// * `state` - Tauri-managed state containing the CLI server information
+///
+/// # Returns
+///
+/// Returns the API port number as a `u16`.
 #[tauri::command]
 fn get_api_port(state: tauri::State<CliServerState>) -> u16 {
     state.api_port
 }
 
-/// Tauri command to manually refresh the tray menu
+/// Manually refresh the system tray menu.
+///
+/// This Tauri command triggers an update of the tray menu to reflect the latest
+/// server states. The tray menu normally updates automatically via polling, but
+/// this can be called for immediate refresh.
+///
+/// # Arguments
+///
+/// * `_app` - Tauri application handle (unused)
+/// * `tray_state` - Tauri-managed state containing the tray manager
+///
+/// # Returns
+///
+/// Returns `Ok(String)` with a success message, or `Err(String)` with an error message.
 #[tauri::command]
 async fn refresh_tray_menu(
     _app: tauri::AppHandle,
@@ -99,12 +169,41 @@ async fn refresh_tray_menu(
     }
 }
 
-/// Find an available port dynamically
-fn find_available_port() -> u16 {
+/// Find an available port dynamically.
+///
+/// Searches for an unused port on the system that can be bound for the API server.
+///
+/// # Returns
+///
+/// Returns `Ok(u16)` with an available port number.
+///
+/// # Errors
+///
+/// Returns `Err(String)` if no available port can be found in the system.
+fn find_available_port() -> Result<u16, String> {
     portpicker::pick_unused_port()
-        .expect("Failed to find an available port")
+        .ok_or_else(|| "Failed to find an available port in the system".to_string())
 }
 
+/// Main entry point for the Tauri application.
+///
+/// Initializes and runs the Orkee dashboard application with the following features:
+/// - Spawns the Orkee CLI server as a sidecar process
+/// - Manages system tray with server status
+/// - Handles graceful shutdown and cleanup
+/// - Configures window behavior (minimize to tray, macOS activation policy)
+///
+/// The application performs these key operations on startup:
+/// 1. Finds an available port for the API server
+/// 2. Spawns the CLI server with appropriate flags (dev mode in debug builds)
+/// 3. Initializes the system tray
+/// 4. Shows and focuses the main window
+/// 5. Opens DevTools in debug builds
+///
+/// On shutdown:
+/// 1. Stops the tray polling loop
+/// 2. Gracefully stops all development servers via API
+/// 3. Terminates the CLI server process
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -124,7 +223,14 @@ pub fn run() {
             app.set_activation_policy(tauri::ActivationPolicy::Regular);
 
             // Find available port dynamically
-            let api_port = find_available_port();
+            let api_port = match find_available_port() {
+                Ok(port) => port,
+                Err(e) => {
+                    eprintln!("Critical error: {}", e);
+                    eprintln!("Cannot start application without an available port");
+                    return Err(Box::new(std::io::Error::new(std::io::ErrorKind::AddrNotAvailable, e)));
+                }
+            };
             // Get UI port from environment or use default
             let ui_port: u16 = parse_env_with_fallback("ORKEE_UI_PORT", "VITE_PORT", 5173);
 
@@ -134,12 +240,18 @@ pub fn run() {
             let shell = app.shell();
 
             // Get the sidecar command for the orkee binary
-            let sidecar_command = shell.sidecar("orkee")
-                .expect("Failed to create sidecar command");
+            let sidecar_command = match shell.sidecar("orkee") {
+                Ok(cmd) => cmd,
+                Err(e) => {
+                    eprintln!("Failed to create sidecar command for orkee binary: {}", e);
+                    eprintln!("This usually means the orkee binary is not found or not properly configured");
+                    return Err(Box::new(e));
+                }
+            };
 
             // Spawn the CLI server with dashboard command
             #[cfg(debug_assertions)]
-            let (_rx, child) = sidecar_command
+            let (_rx, child) = match sidecar_command
                 .args([
                     "dashboard",
                     "--dev",  // Use local dashboard in dev mode
@@ -147,17 +259,31 @@ pub fn run() {
                     "--ui-port", &ui_port.to_string(),
                 ])
                 .spawn()
-                .expect("Failed to spawn orkee CLI server");
+            {
+                Ok((rx, child)) => (rx, child),
+                Err(e) => {
+                    eprintln!("Failed to spawn orkee CLI server process: {}", e);
+                    eprintln!("Check that the orkee binary has execute permissions and is not corrupted");
+                    return Err(Box::new(e));
+                }
+            };
 
             #[cfg(not(debug_assertions))]
-            let (_rx, child) = sidecar_command
+            let (_rx, child) = match sidecar_command
                 .args([
                     "dashboard",
                     "--api-port", &api_port.to_string(),
                     "--ui-port", &ui_port.to_string(),
                 ])
                 .spawn()
-                .expect("Failed to spawn orkee CLI server");
+            {
+                Ok((rx, child)) => (rx, child),
+                Err(e) => {
+                    eprintln!("Failed to spawn orkee CLI server process: {}", e);
+                    eprintln!("Check that the orkee binary has execute permissions and is not corrupted");
+                    return Err(Box::new(e));
+                }
+            };
 
             println!("Started Orkee CLI server on port {}", api_port);
 
@@ -183,8 +309,11 @@ pub fn run() {
 
             #[cfg(debug_assertions)]
             {
-                let window = app.get_webview_window("main").unwrap();
-                window.open_devtools();
+                if let Some(window) = app.get_webview_window("main") {
+                    window.open_devtools();
+                } else {
+                    eprintln!("Warning: Could not open devtools - main window not found");
+                }
             }
 
             Ok(())
@@ -195,7 +324,9 @@ pub fn run() {
                 tauri::WindowEvent::CloseRequested { api, .. } => {
                     // Instead of closing, hide the window (minimize to tray)
                     // Users can quit from the tray menu
-                    window.hide().unwrap();
+                    if let Err(e) = window.hide() {
+                        eprintln!("Failed to hide window on close: {}", e);
+                    }
                     api.prevent_close();
                 }
                 tauri::WindowEvent::Destroyed => {
@@ -213,11 +344,35 @@ pub fn run() {
 
                         // Block on cleanup to ensure it completes before killing CLI process
                         // This prevents orphaned dev server processes
-                        let runtime = tokio::runtime::Handle::try_current()
-                            .unwrap_or_else(|_| {
+                        let runtime = match tokio::runtime::Handle::try_current() {
+                            Ok(handle) => handle,
+                            Err(_) => {
                                 // If no runtime exists, create one
-                                tokio::runtime::Runtime::new().unwrap().handle().clone()
-                            });
+                                match tokio::runtime::Runtime::new() {
+                                    Ok(rt) => rt.handle().clone(),
+                                    Err(e) => {
+                                        eprintln!("Failed to create tokio runtime for cleanup: {}", e);
+                                        eprintln!("Skipping async cleanup - proceeding to kill CLI process");
+                                        // Continue with process termination even if cleanup fails
+                                        match state.process.lock() {
+                                            Ok(mut process) => {
+                                                if let Some(child) = process.take() {
+                                                    kill_cli_process(child);
+                                                }
+                                            }
+                                            Err(poisoned) => {
+                                                eprintln!("CRITICAL: Process mutex poisoned during shutdown");
+                                                let mut guard = poisoned.into_inner();
+                                                if let Some(child) = guard.take() {
+                                                    kill_cli_process(child);
+                                                }
+                                            }
+                                        }
+                                        return;
+                                    }
+                                }
+                            }
+                        };
 
                         let cleanup_result = runtime.block_on(async {
                             tokio::time::timeout(
@@ -260,7 +415,11 @@ pub fn run() {
             }
         })
         .build(tauri::generate_context!())
-        .expect("error while building tauri application")
+        .map_err(|e| {
+            eprintln!("FATAL: Error building Tauri application: {}", e);
+            std::process::exit(1);
+        })
+        .unwrap() // Safe: map_err calls exit, so this only runs on success
         .run(|app_handle, event| {
             // Handle app-level events including unexpected exits
             match event {
@@ -278,7 +437,28 @@ pub fn run() {
 
                         // Block on cleanup to ensure it completes before exit
                         // We use a short timeout to prevent hanging the exit
-                        let runtime = tokio::runtime::Runtime::new().unwrap();
+                        let runtime = match tokio::runtime::Runtime::new() {
+                            Ok(rt) => rt,
+                            Err(e) => {
+                                eprintln!("Failed to create tokio runtime for exit cleanup: {}", e);
+                                eprintln!("Proceeding directly to process termination");
+                                // Directly kill CLI process if runtime creation fails
+                                match state.process.lock() {
+                                    Ok(mut process) => {
+                                        if let Some(child) = process.take() {
+                                            kill_cli_process(child);
+                                        }
+                                    }
+                                    Err(poisoned) => {
+                                        let mut guard = poisoned.into_inner();
+                                        if let Some(child) = guard.take() {
+                                            kill_cli_process(child);
+                                        }
+                                    }
+                                }
+                                return;
+                            }
+                        };
                         let _ = runtime.block_on(async {
                             tokio::time::timeout(
                                 Duration::from_secs(CLEANUP_TOTAL_TIMEOUT_SECS),

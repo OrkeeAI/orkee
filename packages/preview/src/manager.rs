@@ -17,32 +17,55 @@ use tokio::sync::RwLock;
 use tracing::{error, info, warn};
 use uuid::Uuid;
 
-/// Result of spawning a server with metadata
+/// Result of spawning a development server process with associated metadata.
+///
+/// This struct contains the child process handle along with information about
+/// the command that was executed and the detected framework.
 #[derive(Debug)]
 pub struct SpawnResult {
+    /// The spawned child process handle
     pub child: Child,
+    /// The complete command string that was executed (e.g., "npm run dev")
     pub command: String,
+    /// The detected framework name (e.g., "Vite", "Next.js", "React")
     pub framework: String,
 }
 
-/// Crash-resistant preview server manager
+/// Crash-resistant preview server manager.
+///
+/// Manages multiple development servers across different projects, providing
+/// automatic process recovery, log capture, and lifecycle management. This manager
+/// is designed to be crash-resistant and can recover servers from previous sessions.
 #[derive(Clone)]
 pub struct PreviewManager {
     active_servers: Arc<RwLock<HashMap<String, ServerInfo>>>,
     server_logs: Arc<RwLock<HashMap<String, VecDeque<DevServerLog>>>>,
 }
 
-/// Minimal server information with process handle
+/// Information about a running development server.
+///
+/// Contains all relevant metadata about a development server including its process ID,
+/// port, status, and framework information. This struct is used to track and manage
+/// the lifecycle of development servers.
 #[derive(Debug)]
 pub struct ServerInfo {
+    /// Unique identifier for this server instance
     pub id: Uuid,
+    /// Project identifier that this server is associated with
     pub project_id: String,
+    /// Port number the server is listening on
     pub port: u16,
+    /// Process ID of the running server (if available)
     pub pid: Option<u32>,
+    /// Current status of the server (Running, Stopped, Error, etc.)
     pub status: DevServerStatus,
+    /// Full preview URL for accessing the server (e.g., "http://localhost:3000")
     pub preview_url: Option<String>,
+    /// Optional handle to the child process (not cloned)
     pub child: Option<Arc<RwLock<Child>>>,
+    /// The actual command that was executed to start the server
     pub actual_command: Option<String>,
+    /// Detected or configured framework name (e.g., "Vite", "Next.js")
     pub framework_name: Option<String>,
 }
 
@@ -69,7 +92,15 @@ impl Default for PreviewManager {
 }
 
 impl PreviewManager {
-    /// Create a new preview manager
+    /// Create a new preview manager without recovery.
+    ///
+    /// Creates a fresh preview manager instance with no active servers or logs.
+    /// For most use cases, prefer [`new_with_recovery`](Self::new_with_recovery) which
+    /// automatically recovers previously running servers.
+    ///
+    /// # Returns
+    ///
+    /// Returns a new `PreviewManager` instance with empty server and log collections.
     pub fn new() -> Self {
         Self {
             active_servers: Arc::new(RwLock::new(HashMap::new())),
@@ -77,7 +108,29 @@ impl PreviewManager {
         }
     }
 
-    /// Create a new manager and recover existing servers from lock files
+    /// Create a new manager and recover existing servers from lock files.
+    ///
+    /// This is the recommended way to create a `PreviewManager`. It performs the following:
+    /// 1. Syncs from preview-locks directory (backwards compatibility)
+    /// 2. Recovers servers from the central registry
+    /// 3. Validates that processes are still running before restoring them
+    ///
+    /// # Returns
+    ///
+    /// Returns a new `PreviewManager` instance with recovered servers loaded.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use orkee_preview::manager::PreviewManager;
+    ///
+    /// #[tokio::main]
+    /// async fn main() {
+    ///     let manager = PreviewManager::new_with_recovery().await;
+    ///     let servers = manager.list_servers().await;
+    ///     println!("Recovered {} servers", servers.len());
+    /// }
+    /// ```
     pub async fn new_with_recovery() -> Self {
         let manager = Self::new();
 
@@ -143,7 +196,41 @@ impl PreviewManager {
         }
     }
 
-    /// Get logs for a project
+    /// Get logs for a development server.
+    ///
+    /// Retrieves log entries for a specific project's development server. Logs can be
+    /// filtered by timestamp and limited to a maximum number of entries.
+    ///
+    /// # Arguments
+    ///
+    /// * `project_id` - The unique identifier of the project
+    /// * `since` - Optional timestamp to filter logs newer than this time
+    /// * `limit` - Optional maximum number of log entries to return
+    ///
+    /// # Returns
+    ///
+    /// Returns a `Vec<DevServerLog>` containing the filtered log entries. If no logs
+    /// exist for the project, returns an empty vector.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use orkee_preview::manager::PreviewManager;
+    /// use chrono::Utc;
+    ///
+    /// #[tokio::main]
+    /// async fn main() {
+    ///     let manager = PreviewManager::new_with_recovery().await;
+    ///
+    ///     // Get last 50 logs from the last 5 minutes
+    ///     let five_mins_ago = Utc::now() - chrono::Duration::minutes(5);
+    ///     let logs = manager.get_server_logs("my-project", Some(five_mins_ago), Some(50)).await;
+    ///
+    ///     for log in logs {
+    ///         println!("[{}] {}", log.log_type, log.message);
+    ///     }
+    /// }
+    /// ```
     pub async fn get_server_logs(
         &self,
         project_id: &str,
@@ -181,7 +268,14 @@ impl PreviewManager {
         }
     }
 
-    /// Clear logs for a project
+    /// Clear all logs for a project.
+    ///
+    /// Removes all log entries associated with a specific project. This is useful
+    /// for freeing memory or starting with a clean log state.
+    ///
+    /// # Arguments
+    ///
+    /// * `project_id` - The unique identifier of the project whose logs should be cleared
     pub async fn clear_server_logs(&self, project_id: &str) {
         let mut logs = self.server_logs.write().await;
         logs.remove(project_id);
@@ -315,7 +409,49 @@ impl PreviewManager {
         }
     }
 
-    /// Start a preview server for a project
+    /// Start a development server for a project.
+    ///
+    /// Spawns a new development server process for the specified project. This method:
+    /// - Detects the project type and framework automatically
+    /// - Allocates an available port (preferring consistent ports per project)
+    /// - Starts the appropriate development command (npm run dev, vite, etc.)
+    /// - Captures stdout/stderr logs automatically
+    /// - Creates persistence lock files for crash recovery
+    ///
+    /// If a server is already running for this project, returns the existing server info.
+    ///
+    /// # Arguments
+    ///
+    /// * `project_id` - Unique identifier for the project
+    /// * `project_root` - Absolute path to the project's root directory
+    ///
+    /// # Returns
+    ///
+    /// Returns `Ok(ServerInfo)` containing details about the started server, including
+    /// the allocated port and preview URL.
+    ///
+    /// # Errors
+    ///
+    /// * `PreviewError::PortInUse` - No available ports in range 8000-8999
+    /// * `PreviewError::ProcessSpawnError` - Failed to spawn the server process
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use orkee_preview::manager::PreviewManager;
+    /// use std::path::PathBuf;
+    ///
+    /// #[tokio::main]
+    /// async fn main() {
+    ///     let manager = PreviewManager::new_with_recovery().await;
+    ///     let project_root = PathBuf::from("/path/to/my-app");
+    ///
+    ///     match manager.start_server("my-app".to_string(), project_root).await {
+    ///         Ok(info) => println!("Server started at {}", info.preview_url.unwrap()),
+    ///         Err(e) => eprintln!("Failed to start server: {}", e),
+    ///     }
+    /// }
+    /// ```
     pub async fn start_server(
         &self,
         project_id: String,
@@ -407,7 +543,42 @@ impl PreviewManager {
         }
     }
 
-    /// Stop a preview server
+    /// Stop a running development server.
+    ///
+    /// Stops the development server for the specified project by:
+    /// - Sending a termination signal to the process
+    /// - Removing the server from active tracking
+    /// - Cleaning up lock files
+    /// - Removing from the central registry
+    ///
+    /// This method is safe to call even if the server is not running or has already stopped.
+    ///
+    /// # Arguments
+    ///
+    /// * `project_id` - The unique identifier of the project whose server should be stopped
+    ///
+    /// # Returns
+    ///
+    /// Returns `Ok(())` if the server was successfully stopped or was not running.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if lock file cleanup fails, though the server process is still terminated.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use orkee_preview::manager::PreviewManager;
+    ///
+    /// #[tokio::main]
+    /// async fn main() {
+    ///     let manager = PreviewManager::new_with_recovery().await;
+    ///
+    ///     if let Err(e) = manager.stop_server("my-app").await {
+    ///         eprintln!("Error stopping server: {}", e);
+    ///     }
+    /// }
+    /// ```
     pub async fn stop_server(&self, project_id: &str) -> PreviewResult<()> {
         info!("Stopping server for project: {}", project_id);
 
@@ -461,13 +632,52 @@ impl PreviewManager {
         Ok(())
     }
 
-    /// Get server status
+    /// Get the status of a development server.
+    ///
+    /// Retrieves information about a running or previously running development server
+    /// for the specified project.
+    ///
+    /// # Arguments
+    ///
+    /// * `project_id` - The unique identifier of the project
+    ///
+    /// # Returns
+    ///
+    /// Returns `Some(ServerInfo)` if a server exists for this project, or `None` if
+    /// no server has been started or it has been stopped and removed.
     pub async fn get_server_status(&self, project_id: &str) -> Option<ServerInfo> {
         let servers = self.active_servers.read().await;
         servers.get(project_id).cloned()
     }
 
-    /// List all active servers (from BOTH local AND central registry)
+    /// List all active development servers.
+    ///
+    /// Returns a combined list of servers from both the local manager and the central
+    /// registry. This provides a complete view of all development servers across all
+    /// Orkee instances on the system.
+    ///
+    /// # Returns
+    ///
+    /// Returns a `Vec<ServerInfo>` containing information about all tracked servers.
+    /// Servers from the central registry are included if they are not already in the
+    /// local list to avoid duplicates.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use orkee_preview::manager::PreviewManager;
+    ///
+    /// #[tokio::main]
+    /// async fn main() {
+    ///     let manager = PreviewManager::new_with_recovery().await;
+    ///     let servers = manager.list_servers().await;
+    ///
+    ///     for server in servers {
+    ///         println!("Project: {} - Status: {:?} - Port: {}",
+    ///             server.project_id, server.status, server.port);
+    ///     }
+    /// }
+    /// ```
     pub async fn list_servers(&self) -> Vec<ServerInfo> {
         // Get local servers first
         let local_servers = self.active_servers.read().await;
@@ -481,8 +691,20 @@ impl PreviewManager {
         for entry in registry_servers {
             // Add servers from registry if not already in local list
             if !all_servers.contains_key(&entry.project_id) {
+                // Parse UUID with fallback to new UUID if invalid
+                let id = match Uuid::parse_str(&entry.id) {
+                    Ok(uuid) => uuid,
+                    Err(e) => {
+                        warn!(
+                            "Invalid UUID '{}' in registry entry for project {}: {}. Generating new UUID.",
+                            entry.id, entry.project_id, e
+                        );
+                        Uuid::new_v4()
+                    }
+                };
+
                 let server_info = ServerInfo {
-                    id: Uuid::parse_str(&entry.id).unwrap_or_else(|_| Uuid::new_v4()),
+                    id,
                     project_id: entry.project_id.clone(),
                     port: entry.port,
                     pid: entry.pid,
@@ -816,8 +1038,13 @@ impl PreviewManager {
 
     /// Get lock file path for a project
     fn get_lock_file_path(&self, project_id: &str) -> PathBuf {
-        let home = std::env::var("HOME").unwrap_or_else(|_| ".".to_string());
-        PathBuf::from(home)
+        // Use dirs crate for more reliable home directory detection across platforms
+        let home_dir = dirs::home_dir().unwrap_or_else(|| {
+            warn!("Could not determine home directory, using current directory");
+            std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."))
+        });
+
+        home_dir
             .join(".orkee")
             .join("preview-locks")
             .join(format!("{}.json", project_id))
@@ -971,11 +1198,40 @@ impl PreviewManager {
         Ok(())
     }
 
-    /// Recover servers from lock files on startup
+    /// Recover development servers from lock files on startup.
+    ///
+    /// Scans the `~/.orkee/preview-locks` directory for lock files and attempts to
+    /// recover previously running development servers. This method:
+    /// - Validates that the process is still running using PID and start time
+    /// - Verifies the process is a legitimate development server (not PID reuse)
+    /// - Removes stale lock files for dead processes
+    ///
+    /// This is automatically called by [`new_with_recovery`](Self::new_with_recovery).
+    ///
+    /// # Returns
+    ///
+    /// Returns `Ok(())` on success. Errors during recovery are logged but do not
+    /// prevent the method from completing.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use orkee_preview::manager::PreviewManager;
+    ///
+    /// #[tokio::main]
+    /// async fn main() {
+    ///     let manager = PreviewManager::new();
+    ///     manager.recover_servers().await.expect("Failed to recover servers");
+    /// }
+    /// ```
     pub async fn recover_servers(&self) -> PreviewResult<()> {
-        let lock_dir = PathBuf::from(std::env::var("HOME").unwrap_or_else(|_| ".".to_string()))
-            .join(".orkee")
-            .join("preview-locks");
+        // Use dirs crate for more reliable home directory detection across platforms
+        let home_dir = dirs::home_dir().unwrap_or_else(|| {
+            warn!("Could not determine home directory for recovery, using current directory");
+            std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."))
+        });
+
+        let lock_dir = home_dir.join(".orkee").join("preview-locks");
 
         // Create directory if it doesn't exist
         if let Err(e) = fs::create_dir_all(&lock_dir).await {

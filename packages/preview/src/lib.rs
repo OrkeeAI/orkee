@@ -17,12 +17,35 @@ pub use types::{
     StartServerRequest, StartServerResponse,
 };
 
-/// Initialize the preview service with a crash-resistant manager
+/// Initialize the preview service with a crash-resistant manager.
+///
+/// Creates a new preview manager instance that automatically recovers any
+/// previously running development servers from lock files. This ensures
+/// that servers started in previous sessions are properly tracked.
+///
+/// # Returns
+///
+/// Returns a `PreviewResult<PreviewManager>` containing the initialized manager,
+/// or an error if initialization fails.
+///
+/// # Examples
+///
+/// ```no_run
+/// use orkee_preview::init;
+///
+/// #[tokio::main]
+/// async fn main() {
+///     let manager = init().await.expect("Failed to initialize preview manager");
+///     // Manager is now ready to start/stop development servers
+/// }
+/// ```
 pub async fn init() -> PreviewResult<PreviewManager> {
     Ok(PreviewManager::new_with_recovery().await)
 }
 
-/// Version information
+/// Version information for the preview crate.
+///
+/// This constant contains the version string from Cargo.toml at compile time.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 #[cfg(test)]
