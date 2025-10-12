@@ -25,24 +25,13 @@ where
     F: Fn(T) -> bool,
 {
     match std::env::var(var_name) {
-        Ok(raw_value) => {
-            match raw_value.parse::<T>() {
-                Ok(parsed_value) => {
-                    if validator(parsed_value) {
-                        parsed_value
-                    } else {
-                        tracing::warn!(
-                            "Environment variable {} has invalid value '{}', using default: {}",
-                            var_name,
-                            raw_value,
-                            default
-                        );
-                        default
-                    }
-                }
-                Err(_) => {
+        Ok(raw_value) => match raw_value.parse::<T>() {
+            Ok(parsed_value) => {
+                if validator(parsed_value) {
+                    parsed_value
+                } else {
                     tracing::warn!(
-                        "Environment variable {} has unparseable value '{}', using default: {}",
+                        "Environment variable {} has invalid value '{}', using default: {}",
                         var_name,
                         raw_value,
                         default
@@ -50,7 +39,16 @@ where
                     default
                 }
             }
-        }
+            Err(_) => {
+                tracing::warn!(
+                    "Environment variable {} has unparseable value '{}', using default: {}",
+                    var_name,
+                    raw_value,
+                    default
+                );
+                default
+            }
+        },
         Err(_) => {
             // Variable not set - no warning needed, this is expected behavior
             default
