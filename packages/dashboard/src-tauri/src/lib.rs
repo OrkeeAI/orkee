@@ -1,6 +1,6 @@
 use std::str::FromStr;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, Mutex};
+use std::sync::Mutex;
 use std::time::Duration;
 use tauri::Manager;
 use tauri_plugin_shell::process::CommandEvent;
@@ -8,9 +8,6 @@ use tauri_plugin_shell::ShellExt;
 
 mod tray;
 use tray::TrayManager;
-
-// Global runtime storage to prevent premature drop during cleanup
-static GLOBAL_RUNTIME: Mutex<Option<Arc<tokio::runtime::Runtime>>> = Mutex::new(None);
 
 // Track cleanup execution to prevent double cleanup
 static CLEANUP_DONE: AtomicBool = AtomicBool::new(false);
@@ -197,42 +194,33 @@ fn perform_cleanup(
 
     let api_port = state.api_port;
 
-    // Get or create tokio runtime for async cleanup
-    let runtime = match tokio::runtime::Handle::try_current() {
-        Ok(handle) => handle,
-        Err(_) => {
-            // Create new runtime if none exists
-            match tokio::runtime::Runtime::new() {
-                Ok(rt) => {
-                    // Store runtime in Arc to prevent drop
-                    let runtime = Arc::new(rt);
-                    *GLOBAL_RUNTIME.lock().unwrap() = Some(runtime.clone());
-                    runtime.handle().clone()
-                }
-                Err(e) => {
-                    eprintln!("Failed to create tokio runtime for cleanup: {}", e);
-                    eprintln!("Skipping async cleanup - proceeding to kill CLI process");
-                    // Kill CLI process directly without async cleanup
-                    match state.process.lock() {
-                        Ok(mut process) => {
-                            if let Some(child) = process.take() {
-                                kill_cli_process(child);
-                            }
-                        }
-                        Err(poisoned) => {
-                            recover_cli_process(
-                                poisoned,
-                                &format!("Cleanup without runtime ({})", context),
-                            );
-                        }
+    // Create a dedicated runtime for cleanup that we own and control
+    // This ensures the runtime won't be dropped before cleanup completes
+    let runtime = match tokio::runtime::Runtime::new() {
+        Ok(rt) => rt,
+        Err(e) => {
+            eprintln!("Failed to create tokio runtime for cleanup: {}", e);
+            eprintln!("Proceeding to kill CLI process directly");
+            // Kill CLI process directly without async cleanup
+            match state.process.lock() {
+                Ok(mut process) => {
+                    if let Some(child) = process.take() {
+                        kill_cli_process(child);
                     }
-                    return Err(Box::new(e));
+                }
+                Err(poisoned) => {
+                    recover_cli_process(
+                        poisoned,
+                        &format!("Cleanup without runtime ({})", context),
+                    );
                 }
             }
+            return Err(Box::new(e));
         }
     };
 
     // Block on cleanup to ensure dev servers are stopped before killing CLI
+    // Using block_on ensures the async operations complete before we continue
     let cleanup_result = runtime.block_on(async {
         tokio::time::timeout(
             Duration::from_secs(CLEANUP_TOTAL_TIMEOUT_SECS),
@@ -261,6 +249,9 @@ fn perform_cleanup(
             recover_cli_process(poisoned, &format!("After cleanup ({})", context));
         }
     }
+
+    // Explicitly drop the runtime to ensure all tasks are terminated
+    drop(runtime);
 
     Ok(())
 }
@@ -433,7 +424,9 @@ pub fn run() {
             let mut args = vec!["dashboard"];
             #[cfg(debug_assertions)]
             args.push("--dev");  // Use local dashboard in dev mode
-            args.extend(["--api-port", &api_port.to_string(), "--ui-port", &ui_port.to_string()]);
+            let api_port_str = api_port.to_string();
+            let ui_port_str = ui_port.to_string();
+            args.extend(["--api-port", &api_port_str, "--ui-port", &ui_port_str]);
 
             // Spawn the CLI server with dashboard command and log its output
             let child = match sidecar_command
