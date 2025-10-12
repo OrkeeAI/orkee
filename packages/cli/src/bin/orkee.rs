@@ -562,8 +562,9 @@ async fn restart_dashboard(
 
     println!("{}", "💀 Killed existing services".yellow());
 
-    // Wait longer for ports to be freed and processes to fully terminate
-    tokio::time::sleep(tokio::time::Duration::from_secs(3)).await;
+    // Wait for ports to actually be freed rather than using a fixed delay
+    wait_for_port_available(api_port).await?;
+    wait_for_port_available(ui_port).await?;
 
     // Start fresh
     start_full_dashboard(api_port, ui_port, dev).await
@@ -705,7 +706,7 @@ fn discover_api_port() -> Result<u16, Box<dyn std::error::Error>> {
 
     // Priority 3: Try to detect running server by checking common ports
     let common_ports = vec![4001, 4000, 4002, 3000, 8000, 8080, 9000];
-    use std::net::{TcpStream, SocketAddr};
+    use std::net::{SocketAddr, TcpStream};
     use std::time::Duration;
 
     for port in common_ports {
@@ -729,6 +730,26 @@ fn discover_api_port() -> Result<u16, Box<dyn std::error::Error>> {
         - Or start the server with: orkee dashboard --api-port <PORT>"
     )
     .into());
+}
+
+async fn wait_for_port_available(port: u16) -> Result<(), Box<dyn std::error::Error>> {
+    let max_retries = 20;
+    let retry_interval = tokio::time::Duration::from_millis(100);
+
+    for _ in 0..max_retries {
+        // Check if port is available by trying to bind to it
+        if std::net::TcpListener::bind(("127.0.0.1", port)).is_ok() {
+            return Ok(());
+        }
+        tokio::time::sleep(retry_interval).await;
+    }
+
+    Err(format!(
+        "Port {} did not become available after {} seconds",
+        port,
+        (max_retries as f64) * retry_interval.as_secs_f64()
+    )
+    .into())
 }
 
 async fn wait_for_backend_ready(api_port: u16) -> Result<(), Box<dyn std::error::Error>> {
