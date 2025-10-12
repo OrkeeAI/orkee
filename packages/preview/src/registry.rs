@@ -32,6 +32,8 @@ pub struct ServerRegistryEntry {
 pub struct ServerRegistry {
     registry_path: PathBuf,
     entries: Arc<RwLock<HashMap<String, ServerRegistryEntry>>>,
+    /// Timeout in minutes before considering an entry stale (default: 5)
+    stale_timeout_minutes: i64,
 }
 
 impl ServerRegistry {
@@ -40,9 +42,33 @@ impl ServerRegistry {
         let home = dirs::home_dir().expect("Could not determine home directory");
         let registry_path = home.join(".orkee").join("server-registry.json");
 
+        // Read stale timeout from environment variable, default to 5 minutes
+        let stale_timeout_minutes = std::env::var("ORKEE_STALE_TIMEOUT_MINUTES")
+            .ok()
+            .and_then(|v| v.parse::<i64>().ok())
+            .unwrap_or(5);
+
+        // Validate the timeout value (must be positive, max 1440 minutes = 24 hours)
+        let stale_timeout_minutes = if stale_timeout_minutes > 0 && stale_timeout_minutes <= 1440 {
+            stale_timeout_minutes
+        } else {
+            warn!(
+                "Invalid ORKEE_STALE_TIMEOUT_MINUTES value: {}. Using default of 5 minutes. \
+                Value must be between 1 and 1440 (24 hours).",
+                stale_timeout_minutes
+            );
+            5
+        };
+
+        debug!(
+            "Server registry stale timeout set to {} minutes",
+            stale_timeout_minutes
+        );
+
         let registry = Self {
             registry_path,
             entries: Arc::new(RwLock::new(HashMap::new())),
+            stale_timeout_minutes,
         };
 
         // Load existing registry on creation
@@ -140,9 +166,16 @@ impl ServerRegistry {
         Ok(())
     }
 
-    /// Clean up stale entries (servers that haven't been seen in 5 minutes)
+    /// Get the configured stale timeout in minutes
+    pub fn get_stale_timeout_minutes(&self) -> i64 {
+        self.stale_timeout_minutes
+    }
+
+    /// Clean up stale entries based on configured timeout
+    /// Removes servers that haven't been seen recently and whose process is no longer running
+    /// Timeout can be configured via ORKEE_STALE_TIMEOUT_MINUTES environment variable (default: 5)
     pub async fn cleanup_stale_entries(&self) -> Result<(), Box<dyn std::error::Error>> {
-        let cutoff = Utc::now() - chrono::Duration::minutes(5);
+        let cutoff = Utc::now() - chrono::Duration::minutes(self.stale_timeout_minutes);
         let mut to_remove = Vec::new();
 
         {

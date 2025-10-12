@@ -382,18 +382,25 @@ impl TrayManager {
 
         tauri::async_runtime::spawn(async move {
             let mut last_servers: Vec<ServerInfo> = vec![];
+            let mut last_rebuild_time = std::time::Instant::now();
+            let min_rebuild_interval = std::time::Duration::from_secs(2);
 
             loop {
-                // Poll servers every 3 seconds
-                tokio::time::sleep(std::time::Duration::from_secs(3)).await;
+                // Poll servers every 5 seconds to reduce resource usage
+                // Servers can be manually refreshed via the tray menu
+                tokio::time::sleep(std::time::Duration::from_secs(5)).await;
 
                 // Try to fetch servers from API
                 match Self::fetch_servers(api_port).await {
                     Ok(servers) => {
-                        // Check if servers have changed
+                        // Check if servers have changed and enough time has passed since last rebuild
+                        // This debouncing prevents rapid menu rebuilds during server state transitions
                         if !servers_equal(&servers, &last_servers) {
-                            println!("Server list changed, updating menu...");
-                            println!("Found {} servers", servers.len());
+                            let now = std::time::Instant::now();
+                            if now.duration_since(last_rebuild_time) >= min_rebuild_interval {
+                                println!("Server list changed, updating menu...");
+                                println!("Found {} servers", servers.len());
+                                last_rebuild_time = now;
 
                             // Rebuild the menu with new server information
                             match Self::build_menu(&app_handle, servers.clone()) {

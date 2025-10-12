@@ -1,6 +1,7 @@
 use tauri::Manager;
 use tauri_plugin_shell::ShellExt;
 use std::sync::Mutex;
+use std::time::Duration;
 
 mod tray;
 use tray::TrayManager;
@@ -9,6 +10,44 @@ use tray::TrayManager;
 struct CliServerState {
     process: Mutex<Option<tauri_plugin_shell::process::CommandChild>>,
     api_port: u16,
+}
+
+/// Perform cleanup of all dev servers and the CLI process
+/// This is called on app exit to ensure no orphaned processes
+async fn cleanup_servers(api_port: u16) -> Result<(), Box<dyn std::error::Error>> {
+    println!("Starting cleanup of dev servers...");
+
+    // Create HTTP client with short timeout
+    let client = reqwest::Client::builder()
+        .timeout(Duration::from_secs(3))
+        .connect_timeout(Duration::from_secs(1))
+        .build()?;
+
+    // Try to stop all preview servers via API
+    let stop_url = format!("http://localhost:{}/api/preview/servers/stop-all", api_port);
+    match client.post(&stop_url).send().await {
+        Ok(response) => {
+            if response.status().is_success() {
+                println!("Successfully stopped all dev servers");
+            } else {
+                eprintln!("Failed to stop dev servers: HTTP {}", response.status());
+            }
+        }
+        Err(e) => {
+            eprintln!("Failed to stop dev servers (API may be down): {}", e);
+        }
+    }
+
+    Ok(())
+}
+
+/// Kill the CLI server process
+fn kill_cli_process(child: tauri_plugin_shell::process::CommandChild) {
+    println!("Stopping Orkee CLI server...");
+    match child.kill() {
+        Ok(_) => println!("CLI server stopped successfully"),
+        Err(e) => eprintln!("Failed to kill CLI server: {}", e),
+    }
 }
 
 /// Tauri command to get the API port that the CLI server is running on
@@ -135,6 +174,7 @@ pub fn run() {
 
             Ok(())
         })
+        .invoke_handler(tauri::generate_handler![get_api_port, refresh_tray_menu])
         .on_window_event(|window, event| {
             match event {
                 tauri::WindowEvent::CloseRequested { api, .. } => {
@@ -146,10 +186,25 @@ pub fn run() {
                 tauri::WindowEvent::Destroyed => {
                     // When the window is actually destroyed (app quitting)
                     if let Some(state) = window.app_handle().try_state::<CliServerState>() {
+                        let api_port = state.api_port;
+
+                        // Cleanup dev servers asynchronously with timeout
+                        tauri::async_runtime::spawn(async move {
+                            // Use timeout to prevent hanging on exit
+                            match tokio::time::timeout(
+                                Duration::from_secs(5),
+                                cleanup_servers(api_port)
+                            ).await {
+                                Ok(Ok(_)) => println!("Cleanup completed successfully"),
+                                Ok(Err(e)) => eprintln!("Cleanup error: {}", e),
+                                Err(_) => eprintln!("Cleanup timed out after 5 seconds"),
+                            }
+                        });
+
+                        // Kill CLI server process
                         if let Ok(mut process) = state.process.lock() {
                             if let Some(child) = process.take() {
-                                println!("Stopping Orkee CLI server...");
-                                let _ = child.kill();
+                                kill_cli_process(child);
                             }
                         }
                     }
@@ -157,7 +212,42 @@ pub fn run() {
                 _ => {}
             }
         })
-        .invoke_handler(tauri::generate_handler![get_api_port, refresh_tray_menu])
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application")
+        .run(|app_handle, event| {
+            // Handle app-level events including unexpected exits
+            match event {
+                tauri::RunEvent::Exit => {
+                    println!("App exit event received, performing cleanup...");
+
+                    // Get the CLI server state and perform cleanup
+                    if let Some(state) = app_handle.try_state::<CliServerState>() {
+                        let api_port = state.api_port;
+
+                        // Block on cleanup to ensure it completes before exit
+                        // We use a short timeout to prevent hanging the exit
+                        let runtime = tokio::runtime::Runtime::new().unwrap();
+                        let _ = runtime.block_on(async {
+                            tokio::time::timeout(
+                                Duration::from_secs(3),
+                                cleanup_servers(api_port)
+                            ).await
+                        });
+
+                        // Kill CLI server process
+                        if let Ok(mut process) = state.process.lock() {
+                            if let Some(child) = process.take() {
+                                kill_cli_process(child);
+                            }
+                        }
+                    }
+                }
+                tauri::RunEvent::ExitRequested { api, .. } => {
+                    // Don't prevent exit, but ensure cleanup happens
+                    println!("Exit requested, cleanup will occur in Exit event");
+                    // Don't call prevent_exit - let it proceed to Exit event
+                }
+                _ => {}
+            }
+        });
 }

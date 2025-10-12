@@ -98,14 +98,32 @@ fn install_dependencies(dashboard_dir: &PathBuf) -> Result<(), Box<dyn std::erro
                 Ok(())
             }
             _ => Err(format!(
-                "Failed to install dependencies. Run 'bun install' manually in {}",
+                "❌ Failed to install dashboard dependencies\n\n\
+                The 'bun install' command failed in: {}\n\n\
+                Troubleshooting:\n\
+                  1. Try running manually: cd {} && bun install\n\
+                  2. Check if bun is working: bun --version\n\
+                  3. Clear cache and retry: rm -rf node_modules package-lock.json && bun install\n\
+                  4. Check bun logs for specific errors\n\n\
+                For production use, consider using the --dev=false flag to download pre-built assets",
+                dashboard_dir.display(),
                 dashboard_dir.display()
             )
             .into()),
         }
     } else {
         Err(format!(
-            "bun not found. Install bun and run 'bun install' in {}",
+            "❌ bun package manager not found\n\n\
+            Dashboard dependencies require bun to be installed.\n\n\
+            Installation:\n\
+              • macOS/Linux: curl -fsSL https://bun.sh/install | bash\n\
+              • Or visit: https://bun.sh/docs/installation\n\n\
+            After installing bun:\n\
+              1. Restart your terminal\n\
+              2. Verify installation: bun --version\n\
+              3. Run manually: cd {} && bun install\n\n\
+            Alternative:\n\
+              • Use --dev=false flag to download pre-built dashboard (no bun required)",
             dashboard_dir.display()
         )
         .into())
@@ -158,14 +176,42 @@ pub async fn download_dashboard(
     if !response.status().is_success() {
         if response.status() == reqwest::StatusCode::NOT_FOUND {
             return Err(format!(
-                "Dashboard source package not found for version {}. \
-                This might be a development version without published assets. \
-                Please ensure you have the dashboard source in packages/dashboard",
-                version
+                "❌ Dashboard package not found for version {} ({})\n\n\
+                Possible causes:\n\
+                  • This is a development version without published release assets\n\
+                  • The GitHub release doesn't include the {} asset\n\
+                  • Network issues prevented finding the release\n\n\
+                Troubleshooting:\n\
+                  1. Check if release exists: https://github.com/{}/releases/tag/v{}\n\
+                  2. For local development, ensure dashboard is in packages/dashboard/\n\
+                  3. Try running with --dev flag to use local dashboard\n\
+                  4. If building from source, run 'cd packages/dashboard && bun install && bun build'\n\n\
+                Download URL attempted: {}",
+                version,
+                response.status(),
+                asset_name,
+                GITHUB_REPO,
+                version,
+                download_url
             )
             .into());
         }
-        return Err(format!("Failed to download dashboard: {}", response.status()).into());
+
+        return Err(format!(
+            "❌ Failed to download dashboard from GitHub (HTTP {})\n\n\
+            Possible causes:\n\
+              • Network connectivity issues\n\
+              • GitHub API rate limiting\n\
+              • Temporary GitHub service issues\n\n\
+            Troubleshooting:\n\
+              1. Check your internet connection\n\
+              2. Try again in a few minutes\n\
+              3. Check GitHub status: https://www.githubstatus.com/\n\
+              4. For local development, use --dev flag to bypass download\n\n\
+            Download URL: {}",
+            response.status(),
+            download_url
+        ).into());
     }
 
     // Get content length for progress bar
@@ -295,13 +341,38 @@ pub async fn ensure_dashboard(
             Err(e) if mode == DashboardMode::Dist => {
                 // If dist download fails, fallback to source
                 println!(
-                    "{} Pre-built dashboard not available ({}), falling back to source",
-                    "⚠️".yellow(),
-                    e
+                    "\n{} Pre-built dashboard not available, attempting fallback to source...",
+                    "⚠️".yellow()
                 );
-                download_dashboard(DashboardMode::Source)
-                    .await
-                    .map(|path| (path, DashboardMode::Source))
+                println!("{} Original error: {}", "ℹ️".blue(), e);
+                println!("{} This fallback requires bun to be installed\n", "ℹ️".blue());
+
+                match download_dashboard(DashboardMode::Source).await {
+                    Ok(path) => {
+                        println!(
+                            "{} Successfully fell back to dashboard source mode",
+                            "✅".green()
+                        );
+                        Ok((path, DashboardMode::Source))
+                    }
+                    Err(fallback_error) => {
+                        Err(format!(
+                            "❌ Failed to download dashboard in both modes\n\n\
+                            Pre-built download error:\n{}\n\n\
+                            Source fallback error:\n{}\n\n\
+                            Troubleshooting:\n\
+                              1. Check your internet connection\n\
+                              2. Verify the release exists: https://github.com/{}/releases\n\
+                              3. For local development, use --dev flag to use packages/dashboard/\n\
+                              4. Try running from source: git clone the repo and run locally\n\
+                              5. Check GitHub status: https://www.githubstatus.com/",
+                            e,
+                            fallback_error,
+                            GITHUB_REPO
+                        )
+                        .into())
+                    }
+                }
             }
             Err(e) => Err(e),
         }
