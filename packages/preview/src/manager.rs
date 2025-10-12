@@ -1049,32 +1049,95 @@ impl PreviewManager {
         })
     }
 
-    /// Kill a process by PID
+    /// Kill a process by PID with graceful shutdown and verification
     async fn kill_process(&self, pid: u32) -> PreviewResult<()> {
         #[cfg(unix)]
         {
             use nix::sys::signal::{kill, Signal};
             use nix::unistd::Pid;
+            use sysinfo::{Pid as SysPid, System};
+            use tokio::time::{sleep, Duration};
 
-            let pid = Pid::from_raw(pid as i32);
-            match kill(pid, Signal::SIGTERM) {
+            let nix_pid = Pid::from_raw(pid as i32);
+            let sys_pid = SysPid::from_u32(pid);
+
+            // Send SIGTERM for graceful shutdown
+            match kill(nix_pid, Signal::SIGTERM) {
                 Ok(_) => {
-                    info!("Successfully killed process with PID: {}", pid);
-                    Ok(())
+                    info!("Sent SIGTERM to process with PID: {}", pid);
                 }
                 Err(e) => {
-                    warn!("Failed to kill process with PID {}: {}", pid, e);
-                    Err(PreviewError::ProcessKillError {
-                        pid: pid.as_raw() as u32,
-                        error: e.to_string(),
-                    })
+                    // Process might already be dead
+                    warn!("Failed to send SIGTERM to PID {}: {}", pid, e);
+                    return Err(PreviewError::ProcessKillError {
+                        pid,
+                        error: format!("Failed to send SIGTERM: {}", e),
+                    });
                 }
             }
+
+            // Wait up to 5 seconds for graceful shutdown
+            let mut attempts = 0;
+            let max_attempts = 10; // Check every 500ms for 5 seconds
+            while attempts < max_attempts {
+                sleep(Duration::from_millis(500)).await;
+
+                let mut system = System::new();
+                system.refresh_processes();
+
+                if system.process(sys_pid).is_none() {
+                    info!("Process {} terminated gracefully after SIGTERM", pid);
+                    return Ok(());
+                }
+
+                attempts += 1;
+            }
+
+            // Process still running, send SIGKILL
+            warn!(
+                "Process {} did not respond to SIGTERM, sending SIGKILL",
+                pid
+            );
+            match kill(nix_pid, Signal::SIGKILL) {
+                Ok(_) => {
+                    info!("Sent SIGKILL to process with PID: {}", pid);
+                }
+                Err(e) => {
+                    warn!("Failed to send SIGKILL to PID {}: {}", pid, e);
+                    return Err(PreviewError::ProcessKillError {
+                        pid,
+                        error: format!("Failed to send SIGKILL: {}", e),
+                    });
+                }
+            }
+
+            // Wait for forced termination (shorter timeout)
+            attempts = 0;
+            let max_force_attempts = 4; // Check every 500ms for 2 seconds
+            while attempts < max_force_attempts {
+                sleep(Duration::from_millis(500)).await;
+
+                let mut system = System::new();
+                system.refresh_processes();
+
+                if system.process(sys_pid).is_none() {
+                    info!("Process {} terminated after SIGKILL", pid);
+                    return Ok(());
+                }
+
+                attempts += 1;
+            }
+
+            // Process still exists after SIGKILL - this is very unusual
+            error!("Process {} did not terminate even after SIGKILL", pid);
+            Err(PreviewError::ProcessKillError {
+                pid,
+                error: "Process did not terminate even after SIGKILL".to_string(),
+            })
         }
 
         #[cfg(not(unix))]
         {
-            // On non-Unix systems, we can't easily kill processes
             warn!("Process killing not implemented for this platform");
             Ok(())
         }
