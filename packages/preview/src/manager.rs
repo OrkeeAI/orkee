@@ -91,6 +91,42 @@ impl Default for PreviewManager {
     }
 }
 
+/// Validate project_id to prevent path traversal attacks
+///
+/// Project IDs must contain only alphanumeric characters, hyphens, and underscores.
+/// This prevents attackers from using path traversal sequences like "../../../etc/passwd"
+/// to access arbitrary files on the filesystem.
+fn validate_project_id(project_id: &str) -> Result<(), PreviewError> {
+    if project_id.is_empty() {
+        return Err(PreviewError::InvalidProjectId {
+            project_id: project_id.to_string(),
+            reason: "Project ID cannot be empty".to_string(),
+        });
+    }
+
+    // Check for path traversal sequences
+    if project_id.contains("..") || project_id.contains('/') || project_id.contains('\\') {
+        return Err(PreviewError::InvalidProjectId {
+            project_id: project_id.to_string(),
+            reason: "Project ID cannot contain path traversal sequences (.. / \\)".to_string(),
+        });
+    }
+
+    // Only allow alphanumeric, dash, and underscore
+    if !project_id
+        .chars()
+        .all(|c| c.is_alphanumeric() || c == '-' || c == '_')
+    {
+        return Err(PreviewError::InvalidProjectId {
+            project_id: project_id.to_string(),
+            reason: "Project ID can only contain alphanumeric characters, hyphens, and underscores"
+                .to_string(),
+        });
+    }
+
+    Ok(())
+}
+
 impl PreviewManager {
     /// Create a new preview manager without recovery.
     ///
@@ -1047,17 +1083,20 @@ impl PreviewManager {
     // === PERSISTENCE METHODS ===
 
     /// Get lock file path for a project
-    fn get_lock_file_path(&self, project_id: &str) -> PathBuf {
+    fn get_lock_file_path(&self, project_id: &str) -> Result<PathBuf, PreviewError> {
+        // Validate project_id to prevent path traversal attacks
+        validate_project_id(project_id)?;
+
         // Use dirs crate for more reliable home directory detection across platforms
         let home_dir = dirs::home_dir().unwrap_or_else(|| {
             warn!("Could not determine home directory, using current directory");
             std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."))
         });
 
-        home_dir
+        Ok(home_dir
             .join(".orkee")
             .join("preview-locks")
-            .join(format!("{}.json", project_id))
+            .join(format!("{}.json", project_id)))
     }
 
     /// Check if a process is running and matches our spawned process
@@ -1137,7 +1176,7 @@ impl PreviewManager {
             project_root: project_root.to_string_lossy().to_string(),
         };
 
-        let lock_path = self.get_lock_file_path(&server_info.project_id);
+        let lock_path = self.get_lock_file_path(&server_info.project_id)?;
         let lock_json = serde_json::to_string_pretty(&lock_data)
             .map_err(|e| PreviewError::IoError(std::io::Error::other(e)))?;
 
@@ -1186,7 +1225,7 @@ impl PreviewManager {
 
     /// Remove lock file when stopping server
     async fn remove_lock_file(&self, project_id: &str) -> PreviewResult<()> {
-        let lock_path = self.get_lock_file_path(project_id);
+        let lock_path = self.get_lock_file_path(project_id)?;
         if lock_path.exists() {
             fs::remove_file(&lock_path)
                 .await
@@ -1332,5 +1371,68 @@ impl PreviewManager {
         }
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_validate_project_id_valid() {
+        // Valid project IDs
+        assert!(validate_project_id("my-project").is_ok());
+        assert!(validate_project_id("my_project").is_ok());
+        assert!(validate_project_id("project123").is_ok());
+        assert!(validate_project_id("Project-Name_123").is_ok());
+    }
+
+    #[test]
+    fn test_validate_project_id_path_traversal() {
+        // Path traversal attacks
+        assert!(validate_project_id("../../../etc/passwd").is_err());
+        assert!(validate_project_id("..\\..\\..\\windows\\system32").is_err());
+        assert!(validate_project_id("project/../etc/passwd").is_err());
+        assert!(validate_project_id("../project").is_err());
+        assert!(validate_project_id("project/subdir").is_err());
+        assert!(validate_project_id("project\\subdir").is_err());
+    }
+
+    #[test]
+    fn test_validate_project_id_empty() {
+        assert!(validate_project_id("").is_err());
+    }
+
+    #[test]
+    fn test_validate_project_id_special_characters() {
+        // Invalid special characters
+        assert!(validate_project_id("project@name").is_err());
+        assert!(validate_project_id("project name").is_err());
+        assert!(validate_project_id("project!name").is_err());
+        assert!(validate_project_id("project#name").is_err());
+        assert!(validate_project_id("project$name").is_err());
+        assert!(validate_project_id("project%name").is_err());
+    }
+
+    #[test]
+    fn test_get_lock_file_path_valid() {
+        let manager = PreviewManager::new();
+        let result = manager.get_lock_file_path("valid-project");
+        assert!(result.is_ok());
+        let path = result.unwrap();
+        assert!(path.to_string_lossy().contains("valid-project.json"));
+        assert!(path.to_string_lossy().contains(".orkee/preview-locks"));
+    }
+
+    #[test]
+    fn test_get_lock_file_path_prevents_traversal() {
+        let manager = PreviewManager::new();
+
+        // These should all fail validation
+        assert!(manager
+            .get_lock_file_path("../../../etc/passwd")
+            .is_err());
+        assert!(manager.get_lock_file_path("..\\..\\windows").is_err());
+        assert!(manager.get_lock_file_path("project/etc").is_err());
     }
 }
