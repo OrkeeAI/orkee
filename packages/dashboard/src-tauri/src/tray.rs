@@ -408,3 +408,191 @@ fn servers_equal(a: &[ServerInfo], b: &[ServerInfo]) -> bool {
 
     set_a == set_b
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn create_test_server(id: &str, project_id: &str, status: &str, port: u16) -> ServerInfo {
+        ServerInfo {
+            id: id.to_string(),
+            project_id: project_id.to_string(),
+            project_name: Some(format!("Project {}", project_id)),
+            port,
+            url: format!("http://localhost:{}", port),
+            status: status.to_string(),
+            framework_name: Some("test-framework".to_string()),
+            started_at: Some("2024-01-01T00:00:00Z".to_string()),
+        }
+    }
+
+    #[test]
+    fn test_servers_equal_empty_lists() {
+        let a: Vec<ServerInfo> = vec![];
+        let b: Vec<ServerInfo> = vec![];
+        assert!(servers_equal(&a, &b));
+    }
+
+    #[test]
+    fn test_servers_equal_identical_single_server() {
+        let a = vec![create_test_server("server1", "proj1", "running", 3000)];
+        let b = vec![create_test_server("server1", "proj1", "running", 3000)];
+        assert!(servers_equal(&a, &b));
+    }
+
+    #[test]
+    fn test_servers_equal_different_order() {
+        let a = vec![
+            create_test_server("server1", "proj1", "running", 3000),
+            create_test_server("server2", "proj2", "running", 3001),
+        ];
+        let b = vec![
+            create_test_server("server2", "proj2", "running", 3001),
+            create_test_server("server1", "proj1", "running", 3000),
+        ];
+        assert!(servers_equal(&a, &b));
+    }
+
+    #[test]
+    fn test_servers_equal_different_lengths() {
+        let a = vec![create_test_server("server1", "proj1", "running", 3000)];
+        let b = vec![
+            create_test_server("server1", "proj1", "running", 3000),
+            create_test_server("server2", "proj2", "running", 3001),
+        ];
+        assert!(!servers_equal(&a, &b));
+    }
+
+    #[test]
+    fn test_servers_equal_different_status() {
+        let a = vec![create_test_server("server1", "proj1", "running", 3000)];
+        let b = vec![create_test_server("server1", "proj1", "stopped", 3000)];
+        assert!(!servers_equal(&a, &b));
+    }
+
+    #[test]
+    fn test_servers_equal_different_port() {
+        let a = vec![create_test_server("server1", "proj1", "running", 3000)];
+        let b = vec![create_test_server("server1", "proj1", "running", 3001)];
+        assert!(!servers_equal(&a, &b));
+    }
+
+    #[test]
+    fn test_servers_equal_different_id() {
+        let a = vec![create_test_server("server1", "proj1", "running", 3000)];
+        let b = vec![create_test_server("server2", "proj1", "running", 3000)];
+        assert!(!servers_equal(&a, &b));
+    }
+
+    #[test]
+    fn test_servers_equal_ignores_project_name() {
+        let mut a = vec![create_test_server("server1", "proj1", "running", 3000)];
+        let mut b = vec![create_test_server("server1", "proj1", "running", 3000)];
+
+        // Different project names should not affect equality
+        a[0].project_name = Some("Name A".to_string());
+        b[0].project_name = Some("Name B".to_string());
+
+        assert!(servers_equal(&a, &b));
+    }
+
+    #[test]
+    fn test_servers_equal_ignores_url() {
+        let mut a = vec![create_test_server("server1", "proj1", "running", 3000)];
+        let mut b = vec![create_test_server("server1", "proj1", "running", 3000)];
+
+        // Different URLs should not affect equality
+        a[0].url = "http://localhost:3000".to_string();
+        b[0].url = "http://127.0.0.1:3000".to_string();
+
+        assert!(servers_equal(&a, &b));
+    }
+
+    #[test]
+    fn test_server_info_deserialization() {
+        let json = r#"{
+            "id": "test-id",
+            "project_id": "test-project",
+            "project_name": "Test Project",
+            "port": 3000,
+            "url": "http://localhost:3000",
+            "status": "running",
+            "framework_name": "vite",
+            "started_at": "2024-01-01T00:00:00Z"
+        }"#;
+
+        let server: ServerInfo = serde_json::from_str(json).expect("Failed to deserialize");
+        assert_eq!(server.id, "test-id");
+        assert_eq!(server.project_id, "test-project");
+        assert_eq!(server.project_name, Some("Test Project".to_string()));
+        assert_eq!(server.port, 3000);
+        assert_eq!(server.url, "http://localhost:3000");
+        assert_eq!(server.status, "running");
+        assert_eq!(server.framework_name, Some("vite".to_string()));
+    }
+
+    #[test]
+    fn test_server_info_deserialization_optional_fields() {
+        let json = r#"{
+            "id": "test-id",
+            "project_id": "test-project",
+            "port": 3000,
+            "url": "http://localhost:3000",
+            "status": "running"
+        }"#;
+
+        let server: ServerInfo = serde_json::from_str(json).expect("Failed to deserialize");
+        assert_eq!(server.id, "test-id");
+        assert_eq!(server.project_name, None);
+        assert_eq!(server.framework_name, None);
+        assert_eq!(server.started_at, None);
+    }
+
+    #[test]
+    fn test_api_response_with_data() {
+        let json = r#"{
+            "data": {"servers": []}
+        }"#;
+
+        let response: ApiResponse<ServersResponse> =
+            serde_json::from_str(json).expect("Failed to deserialize");
+        assert!(response.data.is_some());
+    }
+
+    #[test]
+    fn test_api_response_without_data() {
+        let json = r#"{}"#;
+
+        let response: ApiResponse<ServersResponse> =
+            serde_json::from_str(json).expect("Failed to deserialize");
+        assert!(response.data.is_none());
+    }
+
+    #[test]
+    fn test_servers_response_deserialization() {
+        let json = r#"{
+            "servers": [
+                {
+                    "id": "server1",
+                    "project_id": "proj1",
+                    "port": 3000,
+                    "url": "http://localhost:3000",
+                    "status": "running"
+                },
+                {
+                    "id": "server2",
+                    "project_id": "proj2",
+                    "port": 3001,
+                    "url": "http://localhost:3001",
+                    "status": "stopped"
+                }
+            ]
+        }"#;
+
+        let response: ServersResponse =
+            serde_json::from_str(json).expect("Failed to deserialize");
+        assert_eq!(response.servers.len(), 2);
+        assert_eq!(response.servers[0].id, "server1");
+        assert_eq!(response.servers[1].id, "server2");
+    }
+}
