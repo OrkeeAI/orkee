@@ -153,6 +153,93 @@ fn recover_cli_process(
     }
 }
 
+/// Perform cleanup of all servers and processes before shutdown.
+///
+/// Centralizes the cleanup logic to avoid duplication across different shutdown paths.
+/// This function stops the tray polling, gracefully stops dev servers, and terminates
+/// the CLI process.
+///
+/// # Arguments
+///
+/// * `app_handle` - The Tauri application handle
+/// * `context` - Human-readable description of the cleanup context for logging
+///
+/// # Returns
+///
+/// Returns `Ok(())` on successful cleanup. Errors are logged but don't prevent
+/// the process termination from completing.
+fn perform_cleanup(app_handle: &tauri::AppHandle, context: &str) -> Result<(), Box<dyn std::error::Error>> {
+    println!("Starting cleanup ({})...", context);
+
+    // Stop tray polling first
+    if let Some(tray_manager) = app_handle.try_state::<TrayManager>() {
+        tray_manager.stop_polling();
+    }
+
+    // Get the CLI server state
+    let Some(state) = app_handle.try_state::<CliServerState>() else {
+        println!("No CLI server state found, cleanup complete");
+        return Ok(()); // No cleanup needed if state doesn't exist
+    };
+
+    let api_port = state.api_port;
+
+    // Get or create tokio runtime for async cleanup
+    let runtime = match tokio::runtime::Handle::try_current() {
+        Ok(handle) => handle,
+        Err(_) => {
+            // Create new runtime if none exists
+            match tokio::runtime::Runtime::new() {
+                Ok(rt) => rt.handle().clone(),
+                Err(e) => {
+                    eprintln!("Failed to create tokio runtime for cleanup: {}", e);
+                    eprintln!("Skipping async cleanup - proceeding to kill CLI process");
+                    // Kill CLI process directly without async cleanup
+                    match state.process.lock() {
+                        Ok(mut process) => {
+                            if let Some(child) = process.take() {
+                                kill_cli_process(child);
+                            }
+                        }
+                        Err(poisoned) => {
+                            recover_cli_process(poisoned, &format!("Cleanup without runtime ({})", context));
+                        }
+                    }
+                    return Err(Box::new(e));
+                }
+            }
+        }
+    };
+
+    // Block on cleanup to ensure dev servers are stopped before killing CLI
+    let cleanup_result = runtime.block_on(async {
+        tokio::time::timeout(
+            Duration::from_secs(CLEANUP_TOTAL_TIMEOUT_SECS),
+            cleanup_servers(api_port)
+        ).await
+    });
+
+    match cleanup_result {
+        Ok(Ok(_)) => println!("Cleanup completed successfully"),
+        Ok(Err(e)) => eprintln!("Cleanup error: {}", e),
+        Err(_) => eprintln!("Cleanup timed out after {} seconds", CLEANUP_TOTAL_TIMEOUT_SECS),
+    }
+
+    // Now safe to kill CLI server process after cleanup completes
+    match state.process.lock() {
+        Ok(mut process) => {
+            if let Some(child) = process.take() {
+                kill_cli_process(child);
+            }
+        }
+        Err(poisoned) => {
+            recover_cli_process(poisoned, &format!("After cleanup ({})", context));
+        }
+    }
+
+    Ok(())
+}
+
 /// Get the API port that the CLI server is running on.
 ///
 /// This Tauri command is exposed to the frontend to allow it to discover
@@ -369,71 +456,7 @@ pub fn run() {
                 }
                 tauri::WindowEvent::Destroyed => {
                     // When the window is actually destroyed (app quitting)
-                    // IMPORTANT: Block on cleanup to avoid race condition where CLI process
-                    // is killed before dev servers are stopped
-
-                    // Stop the tray polling loop first
-                    if let Some(tray_manager) = window.app_handle().try_state::<TrayManager>() {
-                        tray_manager.stop_polling();
-                    }
-
-                    if let Some(state) = window.app_handle().try_state::<CliServerState>() {
-                        let api_port = state.api_port;
-
-                        // Block on cleanup to ensure it completes before killing CLI process
-                        // This prevents orphaned dev server processes
-                        let runtime = match tokio::runtime::Handle::try_current() {
-                            Ok(handle) => handle,
-                            Err(_) => {
-                                // If no runtime exists, create one
-                                match tokio::runtime::Runtime::new() {
-                                    Ok(rt) => rt.handle().clone(),
-                                    Err(e) => {
-                                        eprintln!("Failed to create tokio runtime for cleanup: {}", e);
-                                        eprintln!("Skipping async cleanup - proceeding to kill CLI process");
-                                        // Continue with process termination even if cleanup fails
-                                        match state.process.lock() {
-                                            Ok(mut process) => {
-                                                if let Some(child) = process.take() {
-                                                    kill_cli_process(child);
-                                                }
-                                            }
-                                            Err(poisoned) => {
-                                                recover_cli_process(poisoned, "Quick shutdown path (no async cleanup)");
-                                            }
-                                        }
-                                        return;
-                                    }
-                                }
-                            }
-                        };
-
-                        let cleanup_result = runtime.block_on(async {
-                            tokio::time::timeout(
-                                Duration::from_secs(CLEANUP_TOTAL_TIMEOUT_SECS),
-                                cleanup_servers(api_port)
-                            ).await
-                        });
-
-                        match cleanup_result {
-                            Ok(Ok(_)) => println!("Cleanup completed successfully"),
-                            Ok(Err(e)) => eprintln!("Cleanup error: {}", e),
-                            Err(_) => eprintln!("Cleanup timed out after {} seconds", CLEANUP_TOTAL_TIMEOUT_SECS),
-                        }
-
-                        // Now safe to kill CLI server process after cleanup completes
-                        match state.process.lock() {
-                            Ok(mut process) => {
-                                if let Some(child) = process.take() {
-                                    kill_cli_process(child);
-                                }
-                            }
-                            Err(poisoned) => {
-                                recover_cli_process(poisoned, "Normal shutdown path (after async cleanup)");
-                                eprintln!("✗ Action required: You may need to manually kill the orkee CLI process");
-                            }
-                        }
-                    }
+                    let _ = perform_cleanup(&window.app_handle(), "window destroyed");
                 }
                 _ => {}
             }
@@ -448,58 +471,7 @@ pub fn run() {
             // Handle app-level events including unexpected exits
             match event {
                 tauri::RunEvent::Exit => {
-                    println!("App exit event received, performing cleanup...");
-
-                    // Stop the tray polling loop first
-                    if let Some(tray_manager) = app_handle.try_state::<TrayManager>() {
-                        tray_manager.stop_polling();
-                    }
-
-                    // Get the CLI server state and perform cleanup
-                    if let Some(state) = app_handle.try_state::<CliServerState>() {
-                        let api_port = state.api_port;
-
-                        // Block on cleanup to ensure it completes before exit
-                        // We use a short timeout to prevent hanging the exit
-                        let runtime = match tokio::runtime::Runtime::new() {
-                            Ok(rt) => rt,
-                            Err(e) => {
-                                eprintln!("Failed to create tokio runtime for exit cleanup: {}", e);
-                                eprintln!("Proceeding directly to process termination");
-                                // Directly kill CLI process if runtime creation fails
-                                match state.process.lock() {
-                                    Ok(mut process) => {
-                                        if let Some(child) = process.take() {
-                                            kill_cli_process(child);
-                                        }
-                                    }
-                                    Err(poisoned) => {
-                                        recover_cli_process(poisoned, "Exit event path (runtime creation failed)");
-                                    }
-                                }
-                                return;
-                            }
-                        };
-                        let _ = runtime.block_on(async {
-                            tokio::time::timeout(
-                                Duration::from_secs(CLEANUP_TOTAL_TIMEOUT_SECS),
-                                cleanup_servers(api_port)
-                            ).await
-                        });
-
-                        // Kill CLI server process
-                        match state.process.lock() {
-                            Ok(mut process) => {
-                                if let Some(child) = process.take() {
-                                    kill_cli_process(child);
-                                }
-                            }
-                            Err(poisoned) => {
-                                recover_cli_process(poisoned, "App exit event (normal shutdown after cleanup)");
-                                eprintln!("✗ Action required: You may need to manually kill the orkee CLI process");
-                            }
-                        }
-                    }
+                    let _ = perform_cleanup(app_handle, "app exit");
                 }
                 tauri::RunEvent::ExitRequested { .. } => {
                     // Don't prevent exit, but ensure cleanup happens
