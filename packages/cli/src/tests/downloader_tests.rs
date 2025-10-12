@@ -23,8 +23,7 @@ fn create_test_tarball(mode: DashboardMode) -> Vec<u8> {
         match mode {
             DashboardMode::Dist => {
                 // Dist mode contains pre-built files in dist/
-                tar.append_dir_all("dist", ".")
-                    .ok();
+                tar.append_dir_all("dist", ".").ok();
 
                 // Add a minimal index.html
                 let index_html = b"<!DOCTYPE html><html><body>Dashboard</body></html>";
@@ -186,11 +185,13 @@ async fn test_download_rollback_simulation() {
     fs::copy(
         dashboard_dir.join(".version"),
         dashboard_dir.join(".version.backup"),
-    ).unwrap();
+    )
+    .unwrap();
     fs::copy(
         dashboard_dir.join(".mode"),
         dashboard_dir.join(".mode.backup"),
-    ).unwrap();
+    )
+    .unwrap();
 
     // Verify backups exist
     assert!(dashboard_dir.join(".version.backup").exists());
@@ -204,13 +205,15 @@ async fn test_download_rollback_simulation() {
         fs::rename(
             dashboard_dir.join(".version.backup"),
             dashboard_dir.join(".version"),
-        ).unwrap();
+        )
+        .unwrap();
     }
     if dashboard_dir.join(".mode.backup").exists() {
         fs::rename(
             dashboard_dir.join(".mode.backup"),
             dashboard_dir.join(".mode"),
-        ).unwrap();
+        )
+        .unwrap();
     }
 
     // Verify rollback succeeded - original version restored

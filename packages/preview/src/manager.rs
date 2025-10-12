@@ -201,7 +201,9 @@ impl PreviewManager {
         for entry in registry_servers {
             // Only add if not already in our local list
             let mut servers = manager.active_servers.write().await;
-            if let std::collections::hash_map::Entry::Vacant(e) = servers.entry(entry.project_id.clone()) {
+            if let std::collections::hash_map::Entry::Vacant(e) =
+                servers.entry(entry.project_id.clone())
+            {
                 let server_info = ServerInfo {
                     id: Uuid::new_v4(), // Generate new ID
                     project_id: entry.project_id.clone(),
@@ -775,7 +777,9 @@ impl PreviewManager {
         let registry_servers = GLOBAL_REGISTRY.get_all_servers().await;
         for entry in registry_servers {
             // Add servers from registry if not already in local list
-            if let std::collections::hash_map::Entry::Vacant(e) = all_servers.entry(entry.project_id.clone()) {
+            if let std::collections::hash_map::Entry::Vacant(e) =
+                all_servers.entry(entry.project_id.clone())
+            {
                 // Parse UUID with fallback to new UUID if invalid
                 let id = match Uuid::parse_str(&entry.id) {
                     Ok(uuid) => uuid,

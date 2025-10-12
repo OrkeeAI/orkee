@@ -220,7 +220,7 @@ fn validate_symlink(
 fn get_dashboard_dir() -> Result<PathBuf, Box<dyn std::error::Error>> {
     let home = dirs::home_dir().ok_or(
         "Could not determine home directory. \
-        Please ensure the HOME environment variable is set."
+        Please ensure the HOME environment variable is set.",
     )?;
     let dashboard_dir = home.join(".orkee").join("dashboard");
 

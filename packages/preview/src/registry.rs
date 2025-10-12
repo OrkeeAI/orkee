@@ -213,7 +213,9 @@ impl ServerRegistry {
             // By default, Windows files are only accessible by the owning user and administrators.
             // For more restrictive access, you would need to use the winapi crate to set ACLs,
             // but the default Windows security is generally sufficient for this use case.
-            debug!("Registry file created with Windows default permissions (user + administrators)");
+            debug!(
+                "Registry file created with Windows default permissions (user + administrators)"
+            );
         }
 
         debug!("Saved {} servers to registry", entries.len());
@@ -467,8 +469,8 @@ impl ServerRegistry {
         &self,
         api_port: u16,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        let home = dirs::home_dir()
-            .ok_or("Could not determine home directory for preview locks sync")?;
+        let home =
+            dirs::home_dir().ok_or("Could not determine home directory for preview locks sync")?;
         let locks_dir = home.join(".orkee").join("preview-locks");
 
         if !locks_dir.exists() {
