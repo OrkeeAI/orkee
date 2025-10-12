@@ -1531,9 +1531,7 @@ mod tests {
         let manager = PreviewManager::new();
 
         // These should all fail validation
-        assert!(manager
-            .get_lock_file_path("../../../etc/passwd")
-            .is_err());
+        assert!(manager.get_lock_file_path("../../../etc/passwd").is_err());
         assert!(manager.get_lock_file_path("..\\..\\windows").is_err());
         assert!(manager.get_lock_file_path("project/etc").is_err());
     }

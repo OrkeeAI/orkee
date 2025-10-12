@@ -544,7 +544,7 @@ fn is_process_running_validated(
     pid: u32,
     expected_start_time: Option<DateTime<Utc>>,
     expected_name_patterns: &[&str], // e.g., ["node", "python", "npm"]
-    expected_command: Option<&str>,   // Optional command-line validation
+    expected_command: Option<&str>,  // Optional command-line validation
 ) -> bool {
     use sysinfo::{Pid, System};
     let mut system = System::new();

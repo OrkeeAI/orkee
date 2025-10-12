@@ -140,9 +140,7 @@ pub async fn stop_server(
 }
 
 /// Stop all development servers
-pub async fn stop_all_servers(
-    State(state): State<PreviewState>,
-) -> Json<ApiResponse<()>> {
+pub async fn stop_all_servers(State(state): State<PreviewState>) -> Json<ApiResponse<()>> {
     info!("Stopping all development servers");
 
     let servers = state.preview_manager.list_servers().await;
@@ -156,7 +154,10 @@ pub async fn stop_all_servers(
                 stopped_count += 1;
             }
             Err(e) => {
-                error!("Failed to stop server for project {}: {}", server.project_id, e);
+                error!(
+                    "Failed to stop server for project {}: {}",
+                    server.project_id, e
+                );
                 errors.push(format!("{}: {}", server.project_id, e));
             }
         }
