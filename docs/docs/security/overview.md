@@ -347,15 +347,6 @@ Orkee security implementation follows industry standards:
 - **Zero Trust** security model concepts
 - **Industry best practices** for web application security
 
-## Security Resources
-
-For detailed information on specific security topics:
-
-- [Authentication](authentication) - User authentication and OAuth flows
-- [TLS/HTTPS Configuration](tls-https) - Transport layer security setup
-- [Rate Limiting](rate-limiting) - Request rate limiting and DoS protection
-- [Sandbox Modes](sandbox-modes) - Directory access controls and validation
-
 ## Security Support
 
 ### Reporting Security Issues

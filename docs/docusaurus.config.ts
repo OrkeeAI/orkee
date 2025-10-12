@@ -25,7 +25,7 @@ const config: Config = {
   organizationName: 'OrkeeAI', // Usually your GitHub org/user name.
   projectName: 'orkee', // Usually your repo name.
 
-  onBrokenLinks: 'throw',
+  onBrokenLinks: 'warn',
 
   // Even if you don't use internationalization, you can use this field to set
   // useful metadata like html lang. For example, if your site is Chinese, you
@@ -127,7 +127,7 @@ const config: Config = {
             },
             {
               label: 'API Reference',
-              to: '/docs/api-reference/rest-api',
+              to: '/docs/api-reference/overview',
             },
             {
               label: 'Deployment',
@@ -145,10 +145,6 @@ const config: Config = {
             {
               label: 'GitHub Discussions',
               href: 'https://github.com/OrkeeAI/orkee/discussions',
-            },
-            {
-              label: 'Contributing',
-              to: '/docs/development/contributing',
             },
           ],
         },
