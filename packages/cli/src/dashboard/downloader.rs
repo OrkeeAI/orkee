@@ -211,7 +211,8 @@ pub async fn download_dashboard(
             Download URL: {}",
             response.status(),
             download_url
-        ).into());
+        )
+        .into());
     }
 
     // Get content length for progress bar
@@ -345,7 +346,10 @@ pub async fn ensure_dashboard(
                     "⚠️".yellow()
                 );
                 println!("{} Original error: {}", "ℹ️".blue(), e);
-                println!("{} This fallback requires bun to be installed\n", "ℹ️".blue());
+                println!(
+                    "{} This fallback requires bun to be installed\n",
+                    "ℹ️".blue()
+                );
 
                 match download_dashboard(DashboardMode::Source).await {
                     Ok(path) => {
@@ -355,9 +359,8 @@ pub async fn ensure_dashboard(
                         );
                         Ok((path, DashboardMode::Source))
                     }
-                    Err(fallback_error) => {
-                        Err(format!(
-                            "❌ Failed to download dashboard in both modes\n\n\
+                    Err(fallback_error) => Err(format!(
+                        "❌ Failed to download dashboard in both modes\n\n\
                             Pre-built download error:\n{}\n\n\
                             Source fallback error:\n{}\n\n\
                             Troubleshooting:\n\
@@ -366,12 +369,9 @@ pub async fn ensure_dashboard(
                               3. For local development, use --dev flag to use packages/dashboard/\n\
                               4. Try running from source: git clone the repo and run locally\n\
                               5. Check GitHub status: https://www.githubstatus.com/",
-                            e,
-                            fallback_error,
-                            GITHUB_REPO
-                        )
-                        .into())
-                    }
+                        e, fallback_error, GITHUB_REPO
+                    )
+                    .into()),
                 }
             }
             Err(e) => Err(e),
