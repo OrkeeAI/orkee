@@ -164,7 +164,7 @@ jobs:
             orkee-${{ matrix.platform.target }}.tar.gz
             orkee-${{ matrix.platform.target }}.zip
           if-no-files-found: error
-          retention-days: 7
+          retention-days: 30
 
   package-dashboard:
     name: Package Dashboard (Source & Dist)
@@ -230,7 +230,7 @@ jobs:
           path: |
             orkee-dashboard-dist.tar.gz
             orkee-dashboard-source.tar.gz
-          retention-days: 7
+          retention-days: 30
 
   release:
     name: Create Release
