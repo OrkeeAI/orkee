@@ -13,8 +13,6 @@ ratatui = "0.28"
 crossterm = "0.27"
 tokio = { version = "1.0", features = ["full"] }
 serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
-clap = { version = "4.0", features = ["derive"] }
 orkee-projects = { path = "../projects" }
 chrono = "0.4"
 anyhow = "1.0"

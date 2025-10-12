@@ -32,7 +32,6 @@ serde_json = "1"
 portpicker = "0.1"
 tokio = { version = "1", features = ["full"] }
 reqwest = { version = "0.11", features = ["json"] }
-chrono = { version = "0.4", features = ["serde"] }
 image = "0.25"
 open = "5"
 urlencoding = "2.1"
