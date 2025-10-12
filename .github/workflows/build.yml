@@ -246,16 +246,41 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           path: artifacts
-          
+
       - name: List artifacts
         run: ls -laR artifacts/
-        
+
+      - name: Generate checksums
+        run: |
+          echo "Generating SHA256 checksums for all artifacts..."
+          cd artifacts
+
+          # Find all .tar.gz and .zip files and generate checksums
+          find . -type f \( -name "*.tar.gz" -o -name "*.zip" \) -exec sha256sum {} \; > ../checksums.txt
+
+          cd ..
+
+          echo "Checksums generated:"
+          cat checksums.txt
+
+          # Create a formatted checksums file for release notes
+          echo "# SHA256 Checksums" > checksums-formatted.txt
+          echo "" >> checksums-formatted.txt
+          echo "\`\`\`" >> checksums-formatted.txt
+          cat checksums.txt >> checksums-formatted.txt
+          echo "\`\`\`" >> checksums-formatted.txt
+
+          echo "Formatted checksums:"
+          cat checksums-formatted.txt
+
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
           files: |
             artifacts/**/*.tar.gz
             artifacts/**/*.zip
+            checksums.txt
+          body_path: checksums-formatted.txt
           generate_release_notes: true
           draft: false
           prerelease: ${{ contains(github.ref, '-rc') || contains(github.ref, '-beta') || contains(github.ref, '-alpha') }}
