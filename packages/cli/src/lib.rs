@@ -35,7 +35,7 @@ fn create_cors_origin(_allow_any_localhost: bool) -> AllowOrigin {
                 || origin_str == "https://tauri.localhost";
 
             if !allowed {
-                eprintln!("🚫 CORS blocked origin: {}", origin_str);
+                error!("CORS blocked origin: {}", origin_str);
             }
             allowed
         } else {

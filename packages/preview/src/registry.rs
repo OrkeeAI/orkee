@@ -39,7 +39,12 @@ pub struct ServerRegistry {
 impl ServerRegistry {
     /// Create a new server registry instance
     pub fn new() -> Self {
-        let home = dirs::home_dir().expect("Could not determine home directory");
+        let home = dirs::home_dir().unwrap_or_else(|| {
+            // Fallback to current directory if home can't be determined
+            // Log warning and use a temp location
+            warn!("Could not determine home directory, using current directory");
+            std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."))
+        });
         let registry_path = home.join(".orkee").join("server-registry.json");
 
         // Read stale timeout from environment variable, default to 5 minutes
@@ -212,7 +217,9 @@ impl ServerRegistry {
         &self,
         api_port: u16,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        let home = dirs::home_dir().expect("Could not determine home directory");
+        let home = dirs::home_dir().ok_or_else(|| {
+            "Could not determine home directory for preview locks sync"
+        })?;
         let locks_dir = home.join(".orkee").join("preview-locks");
 
         if !locks_dir.exists() {

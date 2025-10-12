@@ -185,23 +185,33 @@ pub fn run() {
                 }
                 tauri::WindowEvent::Destroyed => {
                     // When the window is actually destroyed (app quitting)
+                    // IMPORTANT: Block on cleanup to avoid race condition where CLI process
+                    // is killed before dev servers are stopped
                     if let Some(state) = window.app_handle().try_state::<CliServerState>() {
                         let api_port = state.api_port;
 
-                        // Cleanup dev servers asynchronously with timeout
-                        tauri::async_runtime::spawn(async move {
-                            // Use timeout to prevent hanging on exit
-                            match tokio::time::timeout(
-                                Duration::from_secs(5),
+                        // Block on cleanup to ensure it completes before killing CLI process
+                        // This prevents orphaned dev server processes
+                        let runtime = tokio::runtime::Handle::try_current()
+                            .unwrap_or_else(|_| {
+                                // If no runtime exists, create one
+                                tokio::runtime::Runtime::new().unwrap().handle().clone()
+                            });
+
+                        let cleanup_result = runtime.block_on(async {
+                            tokio::time::timeout(
+                                Duration::from_secs(3),
                                 cleanup_servers(api_port)
-                            ).await {
-                                Ok(Ok(_)) => println!("Cleanup completed successfully"),
-                                Ok(Err(e)) => eprintln!("Cleanup error: {}", e),
-                                Err(_) => eprintln!("Cleanup timed out after 5 seconds"),
-                            }
+                            ).await
                         });
 
-                        // Kill CLI server process
+                        match cleanup_result {
+                            Ok(Ok(_)) => println!("Cleanup completed successfully"),
+                            Ok(Err(e)) => eprintln!("Cleanup error: {}", e),
+                            Err(_) => eprintln!("Cleanup timed out after 3 seconds"),
+                        }
+
+                        // Now safe to kill CLI server process after cleanup completes
                         if let Ok(mut process) = state.process.lock() {
                             if let Some(child) = process.take() {
                                 kill_cli_process(child);

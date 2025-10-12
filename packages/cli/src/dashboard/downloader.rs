@@ -17,14 +17,20 @@ pub enum DashboardMode {
 }
 
 /// Get the path where dashboard assets should be stored
-fn get_dashboard_dir() -> PathBuf {
-    let home = dirs::home_dir().expect("Could not find home directory");
-    home.join(".orkee").join("dashboard")
+fn get_dashboard_dir() -> Result<PathBuf, Box<dyn std::error::Error>> {
+    let home = dirs::home_dir().ok_or_else(|| {
+        "Could not determine home directory. \
+        Please ensure the HOME environment variable is set."
+    })?;
+    Ok(home.join(".orkee").join("dashboard"))
 }
 
 /// Check if dashboard assets are already downloaded and match the current version
 pub fn is_dashboard_installed(mode: DashboardMode) -> bool {
-    let dashboard_dir = get_dashboard_dir();
+    let dashboard_dir = match get_dashboard_dir() {
+        Ok(dir) => dir,
+        Err(_) => return false, // If home dir can't be determined, dashboard isn't installed
+    };
     let version_file = dashboard_dir.join(".version");
     let mode_file = dashboard_dir.join(".mode");
 
@@ -134,7 +140,7 @@ fn install_dependencies(dashboard_dir: &PathBuf) -> Result<(), Box<dyn std::erro
 pub async fn download_dashboard(
     mode: DashboardMode,
 ) -> Result<PathBuf, Box<dyn std::error::Error>> {
-    let dashboard_dir = get_dashboard_dir();
+    let dashboard_dir = get_dashboard_dir()?;
     let version = env!("CARGO_PKG_VERSION");
 
     let asset_name = match mode {
@@ -301,7 +307,7 @@ pub async fn download_dashboard(
 pub async fn ensure_dashboard(
     dev_mode: bool,
 ) -> Result<(PathBuf, DashboardMode), Box<dyn std::error::Error>> {
-    let dashboard_dir = get_dashboard_dir();
+    let dashboard_dir = get_dashboard_dir()?;
 
     // Determine which mode to use
     let mode = if dev_mode || std::env::var("ORKEE_DEV_MODE").is_ok() {
@@ -381,14 +387,14 @@ pub async fn ensure_dashboard(
 
 /// Get the path to run dashboard dev server from
 #[allow(dead_code)]
-pub fn get_dashboard_path() -> PathBuf {
+pub fn get_dashboard_path() -> Result<PathBuf, Box<dyn std::error::Error>> {
     get_dashboard_dir()
 }
 
 /// Clean up downloaded dashboard assets
 #[allow(dead_code)]
 pub fn clean_dashboard() -> Result<(), Box<dyn std::error::Error>> {
-    let dashboard_dir = get_dashboard_dir();
+    let dashboard_dir = get_dashboard_dir()?;
     if dashboard_dir.exists() {
         fs::remove_dir_all(&dashboard_dir)?;
         println!("{} Dashboard cache cleaned", "🧹".green());

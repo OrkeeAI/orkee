@@ -2,6 +2,7 @@ use axum::{
     routing::{get, post},
     Router,
 };
+use tracing::error;
 
 pub mod cloud;
 pub mod config;
@@ -30,7 +31,7 @@ pub async fn create_router_with_options(dashboard_path: Option<std::path::PathBu
     let preview_manager = match orkee_preview::init().await {
         Ok(manager) => Arc::new(manager),
         Err(e) => {
-            eprintln!("Failed to initialize preview manager: {}", e);
+            error!("Failed to initialize preview manager: {}", e);
             // Return a router without preview functionality rather than panicking
             return Router::new()
                 .route("/api/health", get(health::health_check))
@@ -47,7 +48,7 @@ pub async fn create_router_with_options(dashboard_path: Option<std::path::PathBu
     let project_manager = match orkee_projects::manager::ProjectsManager::new().await {
         Ok(manager) => Arc::new(manager),
         Err(e) => {
-            eprintln!("Failed to initialize project manager: {}", e);
+            error!("Failed to initialize project manager: {}", e);
             // Return a router without preview functionality rather than panicking
             return Router::new()
                 .route("/api/health", get(health::health_check))
