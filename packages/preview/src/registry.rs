@@ -366,6 +366,7 @@ impl ServerRegistry {
                         pid,
                         Some(entry.started_at),
                         &["node", "python", "npm", "yarn", "bun", "pnpm", "deno"],
+                        entry.actual_command.as_deref(), // Use command for stronger validation
                     ) {
                         to_remove.push(id.clone());
                     }
@@ -475,6 +476,7 @@ impl ServerRegistry {
                                         pid,
                                         Some(entry.started_at),
                                         &["node", "python", "npm", "yarn", "bun", "pnpm", "deno"],
+                                        None, // Legacy lock files don't have command info
                                     ) {
                                         let mut registry = self.entries.write().await;
                                         registry.insert(server_id, entry);
@@ -500,15 +502,20 @@ impl ServerRegistry {
 /// Returns the tolerance value used to determine if a process's start time matches
 /// the expected start time. This helps detect PID reuse on systems under heavy load.
 /// Can be configured via the `ORKEE_PROCESS_START_TIME_TOLERANCE_SECS` environment
-/// variable (default: 5 seconds, max: 60 seconds).
+/// variable (default: 2 seconds, max: 5 seconds).
+///
+/// # Security Note
+///
+/// The tolerance window must be kept small to prevent PID reuse attacks. On busy systems,
+/// PIDs can be reused within seconds, so a larger window increases the risk of false positives.
 ///
 /// # Returns
 ///
 /// Returns the tolerance in seconds.
 fn get_start_time_tolerance_secs() -> u64 {
     use crate::env::parse_env_or_default_with_validation;
-    parse_env_or_default_with_validation("ORKEE_PROCESS_START_TIME_TOLERANCE_SECS", 5, |v| {
-        v > 0 && v <= 60
+    parse_env_or_default_with_validation("ORKEE_PROCESS_START_TIME_TOLERANCE_SECS", 2, |v| {
+        v > 0 && v <= 5
     })
 }
 
@@ -518,6 +525,7 @@ fn is_process_running_validated(
     pid: u32,
     expected_start_time: Option<DateTime<Utc>>,
     expected_name_patterns: &[&str], // e.g., ["node", "python", "npm"]
+    expected_command: Option<&str>,   // Optional command-line validation
 ) -> bool {
     use sysinfo::{Pid, System};
     let mut system = System::new();
@@ -539,6 +547,21 @@ fn is_process_running_validated(
                 pid, process_name, expected_name_patterns
             );
             return false;
+        }
+
+        // Validate command line if provided (stronger validation than just process name)
+        if let Some(expected_cmd) = expected_command {
+            let actual_cmd = process.cmd().join(" ");
+
+            // Check if the actual command contains the expected command
+            // We use contains instead of exact match to handle argument variations
+            if !actual_cmd.contains(expected_cmd.trim()) {
+                warn!(
+                    "PID {} exists but command line mismatch - expected '{}', got '{}' - likely PID reuse or process spoofing",
+                    pid, expected_cmd, actual_cmd
+                );
+                return false;
+            }
         }
 
         // Validate start time if available
