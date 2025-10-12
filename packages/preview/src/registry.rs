@@ -63,7 +63,7 @@ impl ServerRegistry {
     /// Initializes a new registry that persists to `~/.orkee/server-registry.json`.
     /// If the registry file exists, it will be automatically loaded. The stale timeout
     /// can be configured via the `ORKEE_STALE_TIMEOUT_MINUTES` environment variable
-    /// (default: 5 minutes, max: 1440 minutes/24 hours).
+    /// (default: 5 minutes, max: 240 minutes/4 hours).
     ///
     /// # Returns
     ///
@@ -78,10 +78,10 @@ impl ServerRegistry {
         let registry_path = home.join(".orkee").join("server-registry.json");
 
         // Read stale timeout from environment variable, default to 5 minutes
-        // Validate the timeout value (must be positive, max 1440 minutes = 24 hours)
+        // Validate the timeout value (must be positive, max 240 minutes = 4 hours)
         let stale_timeout_minutes =
             parse_env_or_default_with_validation("ORKEE_STALE_TIMEOUT_MINUTES", 5, |v| {
-                v > 0 && v <= 1440
+                v > 0 && v <= 240
             });
 
         debug!(
@@ -342,7 +342,7 @@ impl ServerRegistry {
     ///
     /// Returns the timeout value used to determine when a server entry should be
     /// considered stale. This value is configured via the `ORKEE_STALE_TIMEOUT_MINUTES`
-    /// environment variable (default: 5, max: 1440).
+    /// environment variable (default: 5, max: 240).
     ///
     /// # Returns
     ///

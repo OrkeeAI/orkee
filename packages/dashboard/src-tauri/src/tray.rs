@@ -66,7 +66,11 @@ impl TrayManager {
             .timeout(Duration::from_secs(HTTP_REQUEST_TIMEOUT_SECS))
             .connect_timeout(Duration::from_secs(HTTP_CONNECT_TIMEOUT_SECS))
             .build()
-            .unwrap_or_else(|_| reqwest::Client::new())
+            .unwrap_or_else(|err| {
+                eprintln!("CRITICAL: Failed to create HTTP client with timeouts: {}", err);
+                eprintln!("This is a fatal configuration error - cannot proceed with unconfigured client");
+                panic!("HTTP client configuration failed: {}", err);
+            })
     }
 
     pub fn init(&mut self, app: &App) -> Result<(), Box<dyn std::error::Error>> {

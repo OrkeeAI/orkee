@@ -50,7 +50,11 @@ fn validate_safe_path(path: &Path, base_dir: &Path) -> Result<(), Box<dyn std::e
             std::path::Component::Normal(name) => {
                 let name_str = name.to_string_lossy();
                 // Block paths that look suspicious
-                if name_str.contains("..") || name_str.starts_with('.') && name_str.len() > 1 && name_str.chars().nth(1) == Some('.') {
+                if name_str.contains("..")
+                    || name_str.starts_with('.')
+                        && name_str.len() > 1
+                        && name_str.chars().nth(1) == Some('.')
+                {
                     return Err(format!("Suspicious path component: {}", name_str).into());
                 }
             }
@@ -348,9 +352,7 @@ pub async fn download_dashboard(
                 let path = entry.path();
                 if let Some(filename) = path.file_name() {
                     let filename_str = filename.to_string_lossy();
-                    if !filename_str.starts_with('.')
-                        && filename != "node_modules"
-                    {
+                    if !filename_str.starts_with('.') && filename != "node_modules" {
                         if path.is_dir() {
                             fs::remove_dir_all(&path)?;
                         } else {
@@ -405,7 +407,10 @@ pub async fn download_dashboard(
 
     // Handle rollback on failure
     if extraction_result.is_err() {
-        eprintln!("{} Download/extraction failed, rolling back...", "⚠️".yellow());
+        eprintln!(
+            "{} Download/extraction failed, rolling back...",
+            "⚠️".yellow()
+        );
 
         // Restore backup files
         if backup_version.exists() {
