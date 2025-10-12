@@ -1,3 +1,6 @@
+// ABOUTME: System tray manager for Orkee desktop application
+// ABOUTME: Provides menu bar integration with live server monitoring and control
+
 use tauri::{
     App, AppHandle, Manager, Wry,
     menu::{MenuBuilder, MenuItemBuilder, Menu, SubmenuBuilder},
@@ -14,12 +17,20 @@ const HTTP_REQUEST_TIMEOUT_SECS: u64 = 5;
 const HTTP_CONNECT_TIMEOUT_SECS: u64 = 2;
 
 // Polling and debouncing constants
-const SERVER_POLLING_INTERVAL_SECS: u64 = 5;
+// Default polling interval (can be overridden via ORKEE_TRAY_POLL_INTERVAL_SECS env var)
+const DEFAULT_SERVER_POLLING_INTERVAL_SECS: u64 = 5;
 const MENU_REBUILD_DEBOUNCE_SECS: u64 = 2;
 
 // Server restart polling constants
 const SERVER_RESTART_MAX_WAIT_SECS: u64 = 10;
 const SERVER_RESTART_POLL_INTERVAL_MS: u64 = 100;
+
+// API Host Configuration
+// NOTE: All API calls use localhost because the Tauri desktop app launches
+// and manages its own local Orkee CLI server process. This is not a remote
+// API - it's a sidecar process running on 127.0.0.1. Using localhost is
+// intentional and correct for this architecture.
+const API_HOST: &str = "localhost";
 
 #[derive(Clone)]
 pub struct TrayManager {
@@ -304,7 +315,7 @@ impl TrayManager {
                     return;
                 }
             };
-            let url = format!("http://localhost:{}/api/preview/servers/{}/stop", api_port, project_id);
+            let url = format!("http://{}:{}/api/preview/servers/{}/stop", API_HOST, api_port, project_id);
             match client.post(&url).send().await {
                 Ok(response) => {
                     if response.status().is_success() {
@@ -329,7 +340,7 @@ impl TrayManager {
             };
 
             // Step 1: Stop the server
-            let stop_url = format!("http://localhost:{}/api/preview/servers/{}/stop", api_port, project_id);
+            let stop_url = format!("http://{}:{}/api/preview/servers/{}/stop", API_HOST, api_port, project_id);
             match client.post(&stop_url).send().await {
                 Ok(response) => {
                     if !response.status().is_success() {
@@ -345,7 +356,7 @@ impl TrayManager {
             }
 
             // Step 2: Poll and verify server is actually stopped
-            let status_url = format!("http://localhost:{}/api/preview/servers/{}/status", api_port, project_id);
+            let status_url = format!("http://{}:{}/api/preview/servers/{}/status", API_HOST, api_port, project_id);
             let max_attempts = (SERVER_RESTART_MAX_WAIT_SECS * 1000) / SERVER_RESTART_POLL_INTERVAL_MS;
 
             let mut stopped = false;
@@ -391,7 +402,7 @@ impl TrayManager {
             // Step 3: Start the server with retry logic for port availability
             // OS-level port cleanup can take time after process termination
             // Instead of a fixed delay, we retry with exponential backoff if port isn't ready
-            let start_url = format!("http://localhost:{}/api/preview/servers/{}/start", api_port, project_id);
+            let start_url = format!("http://{}:{}/api/preview/servers/{}/start", API_HOST, api_port, project_id);
             let max_start_attempts = 5;
             let mut start_delay_ms = SERVER_RESTART_POLL_INTERVAL_MS;
 
@@ -433,7 +444,7 @@ impl TrayManager {
 
     async fn fetch_servers(api_port: u16) -> Result<Vec<ServerInfo>, Box<dyn std::error::Error + Send + Sync>> {
         let client = Self::create_http_client()?;
-        let url = format!("http://localhost:{}/api/preview/servers", api_port);
+        let url = format!("http://{}:{}/api/preview/servers", API_HOST, api_port);
         let response = client.get(&url).send().await?;
 
         if response.status().is_success() {
@@ -463,7 +474,7 @@ impl TrayManager {
 
     async fn fetch_project_name(api_port: u16, project_id: &str) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
         let client = Self::create_http_client()?;
-        let url = format!("http://localhost:{}/api/projects/{}", api_port, project_id);
+        let url = format!("http://{}:{}/api/projects/{}", API_HOST, api_port, project_id);
         let response = client.get(&url).send().await?;
 
         if response.status().is_success() {
@@ -477,6 +488,22 @@ impl TrayManager {
 
         // Fallback to project_id if we can't fetch the name
         Ok(project_id.to_string())
+    }
+
+    /// Get the polling interval from environment variable or use default.
+    ///
+    /// The polling interval determines how often the tray menu checks for server updates.
+    /// Can be configured via the ORKEE_TRAY_POLL_INTERVAL_SECS environment variable.
+    ///
+    /// # Returns
+    ///
+    /// Returns the polling interval in seconds (default: 5, min: 1, max: 60).
+    fn get_polling_interval_secs() -> u64 {
+        std::env::var("ORKEE_TRAY_POLL_INTERVAL_SECS")
+            .ok()
+            .and_then(|v| v.parse::<u64>().ok())
+            .map(|v| v.clamp(1, 60)) // Min 1 second, max 60 seconds
+            .unwrap_or(DEFAULT_SERVER_POLLING_INTERVAL_SECS)
     }
 
     /// Stop the server polling loop
@@ -494,6 +521,9 @@ impl TrayManager {
             let mut last_servers: Vec<ServerInfo> = vec![];
             let mut last_rebuild_time = std::time::Instant::now();
             let min_rebuild_interval = Duration::from_secs(MENU_REBUILD_DEBOUNCE_SECS);
+            let poll_interval_secs = Self::get_polling_interval_secs();
+
+            println!("Tray polling interval set to {} seconds", poll_interval_secs);
 
             loop {
                 // Check for shutdown signal
@@ -502,9 +532,9 @@ impl TrayManager {
                     break;
                 }
 
-                // Poll servers every 5 seconds to reduce resource usage
+                // Poll servers at configured interval to reduce resource usage
                 // Servers can be manually refreshed via the tray menu
-                tokio::time::sleep(Duration::from_secs(SERVER_POLLING_INTERVAL_SECS)).await;
+                tokio::time::sleep(Duration::from_secs(poll_interval_secs)).await;
 
                 // Check again after sleep in case shutdown was signaled during sleep
                 if shutdown_signal.load(Ordering::Relaxed) {
