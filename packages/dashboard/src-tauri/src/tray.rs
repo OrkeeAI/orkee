@@ -74,7 +74,10 @@ fn validate_api_host(host: &str) -> Result<(), String> {
     }
 
     // Check if remote API access is explicitly enabled
-    if std::env::var("ORKEE_ALLOW_REMOTE_API").is_ok() {
+    if std::env::var("ORKEE_ALLOW_REMOTE_API")
+        .map(|v| v.to_lowercase() == "true" || v == "1")
+        .unwrap_or(false)
+    {
         eprintln!("⚠️  WARNING: Remote API access is enabled for host: {}", host);
         eprintln!("⚠️  This bypasses localhost-only security restrictions.");
         eprintln!("⚠️  Ensure this is intentional and the host is trusted.");
@@ -802,6 +805,10 @@ fn servers_equal(a: &[ServerInfo], b: &[ServerInfo]) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::Mutex;
+
+    // Global mutex to serialize environment variable tests
+    static ENV_TEST_MUTEX: Mutex<()> = Mutex::new(());
 
     fn create_test_server(id: &str, project_id: &str, status: &str, port: u16) -> ServerInfo {
         ServerInfo {
@@ -1034,16 +1041,67 @@ mod tests {
 
     #[test]
     fn test_validate_api_host_blocks_remote_hosts_by_default() {
+        // Serialize environment variable tests to avoid race conditions
+        let _guard = ENV_TEST_MUTEX.lock().unwrap();
+
+        // Ensure env var is not set for this test
+        std::env::remove_var("ORKEE_ALLOW_REMOTE_API");
+
         assert!(validate_api_host("example.com").is_err());
         assert!(validate_api_host("192.168.1.1").is_err());
         assert!(validate_api_host("10.0.0.1").is_err());
     }
 
     #[test]
-    fn test_validate_api_host_allows_remote_with_flag() {
+    fn test_validate_api_host_remote_access_flag_truthy_values() {
+        // Serialize environment variable tests to avoid race conditions
+        let _guard = ENV_TEST_MUTEX.lock().unwrap();
+
+        // Test that only "true" and "1" enable remote access
+
+        // Test "true" (lowercase)
         std::env::set_var("ORKEE_ALLOW_REMOTE_API", "true");
         assert!(validate_api_host("example.com").is_ok());
         assert!(validate_api_host("192.168.1.1").is_ok());
+        std::env::remove_var("ORKEE_ALLOW_REMOTE_API");
+
+        // Test "TRUE" (uppercase)
+        std::env::set_var("ORKEE_ALLOW_REMOTE_API", "TRUE");
+        assert!(validate_api_host("example.com").is_ok());
+        std::env::remove_var("ORKEE_ALLOW_REMOTE_API");
+
+        // Test "1"
+        std::env::set_var("ORKEE_ALLOW_REMOTE_API", "1");
+        assert!(validate_api_host("example.com").is_ok());
+        std::env::remove_var("ORKEE_ALLOW_REMOTE_API");
+    }
+
+    #[test]
+    fn test_validate_api_host_remote_access_flag_falsy_values() {
+        // Serialize environment variable tests to avoid race conditions
+        let _guard = ENV_TEST_MUTEX.lock().unwrap();
+
+        // Test that "false", "0", empty string, and other values do NOT enable remote access
+
+        // Test "false" (lowercase)
+        std::env::set_var("ORKEE_ALLOW_REMOTE_API", "false");
+        assert!(validate_api_host("example.com").is_err());
+        assert!(validate_api_host("192.168.1.1").is_err());
+        std::env::remove_var("ORKEE_ALLOW_REMOTE_API");
+
+        // Test "FALSE" (uppercase)
+        std::env::set_var("ORKEE_ALLOW_REMOTE_API", "FALSE");
+        assert!(validate_api_host("example.com").is_err());
+        std::env::remove_var("ORKEE_ALLOW_REMOTE_API");
+
+        // Test "0"
+        std::env::set_var("ORKEE_ALLOW_REMOTE_API", "0");
+        assert!(validate_api_host("example.com").is_err());
+        std::env::remove_var("ORKEE_ALLOW_REMOTE_API");
+
+        // Test empty string
+        std::env::set_var("ORKEE_ALLOW_REMOTE_API", "");
+        assert!(validate_api_host("example.com").is_err());
         std::env::remove_var("ORKEE_ALLOW_REMOTE_API");
     }
 
