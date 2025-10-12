@@ -3,6 +3,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use tauri::Manager;
+use tauri_plugin_shell::process::CommandEvent;
 use tauri_plugin_shell::ShellExt;
 
 mod tray;
@@ -320,6 +321,50 @@ fn find_available_port() -> Result<u16, String> {
         .ok_or_else(|| "Failed to find an available port in the system".to_string())
 }
 
+/// Log output from the CLI server sidecar process.
+///
+/// Spawns a background task that listens to the sidecar's stdout and stderr streams
+/// and logs them to the console. This is essential for debugging server startup issues
+/// and monitoring server behavior.
+///
+/// # Arguments
+///
+/// * `rx` - Receiver for command events (stdout, stderr, errors, termination)
+///
+/// # Notes
+///
+/// The task runs until the receiver is closed (when the sidecar process exits).
+/// Output is logged with appropriate prefixes to distinguish stdout from stderr.
+fn log_sidecar_output(mut rx: tauri::async_runtime::Receiver<CommandEvent>) {
+    tokio::spawn(async move {
+        while let Some(event) = rx.recv().await {
+            match event {
+                CommandEvent::Stdout(line) => {
+                    if let Ok(output) = String::from_utf8(line) {
+                        print!("[CLI Server] {}", output);
+                    }
+                }
+                CommandEvent::Stderr(line) => {
+                    if let Ok(output) = String::from_utf8(line) {
+                        eprint!("[CLI Server Error] {}", output);
+                    }
+                }
+                CommandEvent::Error(err) => {
+                    eprintln!("[CLI Server] Command error: {}", err);
+                }
+                CommandEvent::Terminated(payload) => {
+                    if let Some(code) = payload.code {
+                        println!("[CLI Server] Process terminated with exit code: {}", code);
+                    } else {
+                        println!("[CLI Server] Process terminated");
+                    }
+                }
+                _ => {}
+            }
+        }
+    });
+}
+
 /// Main entry point for the Tauri application.
 ///
 /// Initializes and runs the Orkee dashboard application with the following features:
@@ -384,9 +429,9 @@ pub fn run() {
                 }
             };
 
-            // Spawn the CLI server with dashboard command
+            // Spawn the CLI server with dashboard command and log its output
             #[cfg(debug_assertions)]
-            let (_rx, child) = match sidecar_command
+            let child = match sidecar_command
                 .args([
                     "dashboard",
                     "--dev",  // Use local dashboard in dev mode
@@ -395,7 +440,10 @@ pub fn run() {
                 ])
                 .spawn()
             {
-                Ok((rx, child)) => (rx, child),
+                Ok((rx, child)) => {
+                    log_sidecar_output(rx);
+                    child
+                }
                 Err(e) => {
                     eprintln!("Failed to spawn orkee CLI server process: {}", e);
                     eprintln!("Check that the orkee binary has execute permissions and is not corrupted");
@@ -404,7 +452,7 @@ pub fn run() {
             };
 
             #[cfg(not(debug_assertions))]
-            let (_rx, child) = match sidecar_command
+            let child = match sidecar_command
                 .args([
                     "dashboard",
                     "--api-port", &api_port.to_string(),
@@ -412,7 +460,10 @@ pub fn run() {
                 ])
                 .spawn()
             {
-                Ok((rx, child)) => (rx, child),
+                Ok((rx, child)) => {
+                    log_sidecar_output(rx);
+                    child
+                }
                 Err(e) => {
                     eprintln!("Failed to spawn orkee CLI server process: {}", e);
                     eprintln!("Check that the orkee binary has execute permissions and is not corrupted");
