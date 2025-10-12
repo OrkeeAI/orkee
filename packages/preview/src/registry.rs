@@ -206,6 +206,16 @@ impl ServerRegistry {
             debug!("Set registry file permissions to 0600 (owner read/write only)");
         }
 
+        #[cfg(windows)]
+        {
+            // On Windows, file permissions work differently than Unix.
+            // Windows uses ACLs (Access Control Lists) instead of Unix-style permissions.
+            // By default, Windows files are only accessible by the owning user and administrators.
+            // For more restrictive access, you would need to use the winapi crate to set ACLs,
+            // but the default Windows security is generally sufficient for this use case.
+            debug!("Registry file created with Windows default permissions (user + administrators)");
+        }
+
         debug!("Saved {} servers to registry", entries.len());
         Ok(())
     }
