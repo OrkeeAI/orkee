@@ -38,7 +38,7 @@ const CLEANUP_TOTAL_TIMEOUT_SECS: u64 = 3;
 ///
 /// # Examples
 ///
-/// ```
+/// ```ignore
 /// let port: u16 = parse_env_with_fallback("ORKEE_UI_PORT", "VITE_PORT", 5173);
 /// ```
 fn parse_env_with_fallback<T>(primary_var: &str, fallback_var: &str, default: T) -> T
