@@ -433,10 +433,19 @@ pub fn run() {
         .plugin(tauri_plugin_clipboard_manager::init())
         .setup(|app| {
             // Set the activation policy on macOS
-            // Options:
-            // - Accessory: No Dock icon, no Cmd+Tab (menu bar only) - CURRENT
-            // - Regular: Shows in Dock and Cmd+Tab (standard app)
+            //
+            // This API requires `macOSPrivateApi: true` in tauri.conf.json to access
+            // private macOS APIs for controlling app activation behavior.
+            //
+            // Activation Policy Options:
+            // - Regular: Shows in Dock and Cmd+Tab (standard app) - CURRENT
+            // - Accessory: No Dock icon, no Cmd+Tab (menu bar only)
             // - Prohibited: Hidden by default but can show in some contexts
+            //
+            // Fallback Behavior:
+            // If macOSPrivateApi is disabled or the API fails, the app will use macOS
+            // default behavior (Regular policy). The app will continue to function
+            // normally, but without custom activation policy control.
             #[cfg(target_os = "macos")]
             app.set_activation_policy(tauri::ActivationPolicy::Regular);
 
