@@ -5,6 +5,7 @@ use std::time::Duration;
 use tauri::Manager;
 use tauri_plugin_shell::process::CommandEvent;
 use tauri_plugin_shell::ShellExt;
+use tracing::{debug, error, info, warn};
 
 mod tray;
 use tray::TrayManager;
@@ -78,7 +79,7 @@ struct CliServerState {
 /// Returns an error if the HTTP request to stop servers fails, though this is
 /// typically logged and ignored during shutdown.
 async fn cleanup_servers(api_port: u16) -> Result<(), Box<dyn std::error::Error>> {
-    println!("Starting cleanup of dev servers...");
+    info!("Starting cleanup of dev servers...");
 
     // Create HTTP client with short timeout
     let client = reqwest::Client::builder()
@@ -91,13 +92,13 @@ async fn cleanup_servers(api_port: u16) -> Result<(), Box<dyn std::error::Error>
     match client.post(&stop_url).send().await {
         Ok(response) => {
             if response.status().is_success() {
-                println!("Successfully stopped all dev servers");
+                info!("Successfully stopped all dev servers");
             } else {
-                eprintln!("Failed to stop dev servers: HTTP {}", response.status());
+                error!("Failed to stop dev servers: HTTP {}", response.status());
             }
         }
         Err(e) => {
-            eprintln!("Failed to stop dev servers (API may be down): {}", e);
+            error!("Failed to stop dev servers (API may be down): {}", e);
         }
     }
 
@@ -113,10 +114,10 @@ async fn cleanup_servers(api_port: u16) -> Result<(), Box<dyn std::error::Error>
 ///
 /// * `child` - The CLI server process handle to terminate
 fn kill_cli_process(child: tauri_plugin_shell::process::CommandChild) {
-    println!("Stopping Orkee CLI server...");
+    info!("Stopping Orkee CLI server...");
     match child.kill() {
-        Ok(_) => println!("CLI server stopped successfully"),
-        Err(e) => eprintln!("Failed to kill CLI server: {}", e),
+        Ok(_) => info!("CLI server stopped successfully"),
+        Err(e) => error!("Failed to kill CLI server: {}", e),
     }
 }
 
@@ -142,21 +143,21 @@ fn recover_cli_process(
     >,
     location: &str,
 ) {
-    eprintln!("=== MUTEX POISONING DETECTED ===");
-    eprintln!("Location: {}", location);
-    eprintln!("Thread: {:?}", std::thread::current().id());
-    eprintln!("Status: CRITICAL - Process mutex was poisoned");
-    eprintln!("Cause: Another thread panicked while holding this mutex");
-    eprintln!("Action: Attempting recovery from poisoned state");
-    eprintln!("Note: Please report this issue if it occurs frequently at https://github.com/OrkeeAI/orkee/issues");
-    eprintln!("================================");
+    error!("=== MUTEX POISONING DETECTED ===");
+    error!("Location: {}", location);
+    error!("Thread: {:?}", std::thread::current().id());
+    error!("Status: CRITICAL - Process mutex was poisoned");
+    error!("Cause: Another thread panicked while holding this mutex");
+    error!("Action: Attempting recovery from poisoned state");
+    error!("Note: Please report this issue if it occurs frequently at https://github.com/OrkeeAI/orkee/issues");
+    error!("================================");
 
     let mut guard = poisoned.into_inner();
     if let Some(child) = guard.take() {
-        eprintln!("✓ Recovery successful: Process handle recovered from poisoned mutex");
+        info!("✓ Recovery successful: Process handle recovered from poisoned mutex");
         kill_cli_process(child);
     } else {
-        eprintln!("✗ FATAL: No process handle found in poisoned mutex - orphaned process likely");
+        error!("✗ FATAL: No process handle found in poisoned mutex - orphaned process likely");
     }
 }
 
@@ -179,7 +180,7 @@ fn perform_cleanup(
     app_handle: &tauri::AppHandle,
     context: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    println!("Starting cleanup ({})...", context);
+    info!("Starting cleanup ({})...", context);
 
     // Stop tray polling first
     if let Some(tray_manager) = app_handle.try_state::<TrayManager>() {
@@ -188,7 +189,7 @@ fn perform_cleanup(
 
     // Get the CLI server state
     let Some(state) = app_handle.try_state::<CliServerState>() else {
-        println!("No CLI server state found, cleanup complete");
+        debug!("No CLI server state found, cleanup complete");
         return Ok(()); // No cleanup needed if state doesn't exist
     };
 
@@ -199,8 +200,8 @@ fn perform_cleanup(
     let runtime = match tokio::runtime::Runtime::new() {
         Ok(rt) => rt,
         Err(e) => {
-            eprintln!("Failed to create tokio runtime for cleanup: {}", e);
-            eprintln!("Proceeding to kill CLI process directly");
+            error!("Failed to create tokio runtime for cleanup: {}", e);
+            warn!("Proceeding to kill CLI process directly");
             // Kill CLI process directly without async cleanup
             match state.process.lock() {
                 Ok(mut process) => {
@@ -230,9 +231,9 @@ fn perform_cleanup(
     });
 
     match cleanup_result {
-        Ok(Ok(_)) => println!("Cleanup completed successfully"),
-        Ok(Err(e)) => eprintln!("Cleanup error: {}", e),
-        Err(_) => eprintln!(
+        Ok(Ok(_)) => info!("Cleanup completed successfully"),
+        Ok(Err(e)) => error!("Cleanup error: {}", e),
+        Err(_) => error!(
             "Cleanup timed out after {} seconds",
             CLEANUP_TOTAL_TIMEOUT_SECS
         ),
@@ -272,7 +273,7 @@ fn perform_cleanup_once(app_handle: &tauri::AppHandle, context: &str) {
     {
         let _ = perform_cleanup(app_handle, context);
     } else {
-        println!(
+        debug!(
             "Cleanup already performed, skipping duplicate call from {}",
             context
         );
@@ -332,22 +333,22 @@ fn log_sidecar_output(mut rx: tauri::async_runtime::Receiver<CommandEvent>) {
             match event {
                 CommandEvent::Stdout(line) => {
                     if let Ok(output) = String::from_utf8(line) {
-                        print!("[CLI Server] {}", output);
+                        info!("[CLI Server] {}", output.trim_end());
                     }
                 }
                 CommandEvent::Stderr(line) => {
                     if let Ok(output) = String::from_utf8(line) {
-                        eprint!("[CLI Server Error] {}", output);
+                        warn!("[CLI Server Error] {}", output.trim_end());
                     }
                 }
                 CommandEvent::Error(err) => {
-                    eprintln!("[CLI Server] Command error: {}", err);
+                    error!("[CLI Server] Command error: {}", err);
                 }
                 CommandEvent::Terminated(payload) => {
                     if let Some(code) = payload.code {
-                        println!("[CLI Server] Process terminated with exit code: {}", code);
+                        info!("[CLI Server] Process terminated with exit code: {}", code);
                     } else {
-                        println!("[CLI Server] Process terminated");
+                        info!("[CLI Server] Process terminated");
                     }
                 }
                 _ => {}
@@ -377,6 +378,17 @@ fn log_sidecar_output(mut rx: tauri::async_runtime::Receiver<CommandEvent>) {
 /// 3. Terminates the CLI server process
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    // Initialize tracing subscriber for structured logging
+    // This enables logging from the tray module and other components
+    tracing_subscriber::fmt()
+        .with_env_filter(
+            tracing_subscriber::EnvFilter::try_from_default_env()
+                .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info"))
+        )
+        .with_target(false) // Don't show module paths in logs
+        .compact() // Use compact format for cleaner output
+        .init();
+
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_http::init())
@@ -397,15 +409,15 @@ pub fn run() {
             let api_port = match find_available_port() {
                 Ok(port) => port,
                 Err(e) => {
-                    eprintln!("Critical error: {}", e);
-                    eprintln!("Cannot start application without an available port");
+                    error!("Critical error: {}", e);
+                    error!("Cannot start application without an available port");
                     return Err(Box::new(std::io::Error::new(std::io::ErrorKind::AddrNotAvailable, e)));
                 }
             };
             // Get UI port from environment or use default
             let ui_port: u16 = parse_env_with_fallback("ORKEE_UI_PORT", "VITE_PORT", 5173);
 
-            println!("Using dynamic API port: {} and UI port: {}", api_port, ui_port);
+            info!("Using dynamic API port: {} and UI port: {}", api_port, ui_port);
 
             // Start the Orkee CLI server as a sidecar
             let shell = app.shell();
@@ -414,8 +426,8 @@ pub fn run() {
             let sidecar_command = match shell.sidecar("orkee") {
                 Ok(cmd) => cmd,
                 Err(e) => {
-                    eprintln!("Failed to create sidecar command for orkee binary: {}", e);
-                    eprintln!("This usually means the orkee binary is not found or not properly configured");
+                    error!("Failed to create sidecar command for orkee binary: {}", e);
+                    error!("This usually means the orkee binary is not found or not properly configured");
                     return Err(Box::new(e));
                 }
             };
@@ -438,13 +450,13 @@ pub fn run() {
                     child
                 }
                 Err(e) => {
-                    eprintln!("Failed to spawn orkee CLI server process: {}", e);
-                    eprintln!("Check that the orkee binary has execute permissions and is not corrupted");
+                    error!("Failed to spawn orkee CLI server process: {}", e);
+                    error!("Check that the orkee binary has execute permissions and is not corrupted");
                     return Err(Box::new(e));
                 }
             };
 
-            println!("Started Orkee CLI server on port {}", api_port);
+            info!("Started Orkee CLI server on port {}", api_port);
 
             // Store the process handle and port so we can access them later
             app.manage(CliServerState {
@@ -455,8 +467,8 @@ pub fn run() {
             // Initialize the tray
             let mut tray_manager = TrayManager::new(app.handle().clone(), api_port);
             match tray_manager.init(app) {
-                Ok(_) => println!("Tray initialized successfully"),
-                Err(e) => eprintln!("Failed to initialize tray: {}", e),
+                Ok(_) => info!("Tray initialized successfully"),
+                Err(e) => error!("Failed to initialize tray: {}", e),
             }
             app.manage(tray_manager);
 
@@ -471,7 +483,7 @@ pub fn run() {
                 if let Some(window) = app.get_webview_window("main") {
                     window.open_devtools();
                 } else {
-                    eprintln!("Warning: Could not open devtools - main window not found");
+                    warn!("Could not open devtools - main window not found");
                 }
             }
 
@@ -484,7 +496,7 @@ pub fn run() {
                     // Instead of closing, hide the window (minimize to tray)
                     // Users can quit from the tray menu
                     if let Err(e) = window.hide() {
-                        eprintln!("Failed to hide window on close: {}", e);
+                        error!("Failed to hide window on close: {}", e);
                     }
                     api.prevent_close();
                 }
@@ -497,7 +509,7 @@ pub fn run() {
         })
         .build(tauri::generate_context!())
         .map_err(|e| {
-            eprintln!("FATAL: Error building Tauri application: {}", e);
+            error!("FATAL: Error building Tauri application: {}", e);
             std::process::exit(1);
         })
         .unwrap() // Safe: map_err calls exit, so this only runs on success
@@ -509,7 +521,7 @@ pub fn run() {
                 }
                 tauri::RunEvent::ExitRequested { .. } => {
                     // Don't prevent exit, but ensure cleanup happens
-                    println!("Exit requested, cleanup will occur in Exit event");
+                    debug!("Exit requested, cleanup will occur in Exit event");
                     // Don't call prevent_exit - let it proceed to Exit event
                 }
                 _ => {}

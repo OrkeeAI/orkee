@@ -11,6 +11,7 @@ use tauri::{
     tray::{TrayIcon, TrayIconBuilder},
     App, AppHandle, Manager, Wry,
 };
+use tracing::{debug, error, info, warn};
 use urlencoding::encode;
 
 // Timeout constants for HTTP operations
@@ -79,12 +80,12 @@ fn validate_api_host(host: &str) -> Result<(), String> {
         .map(|v| v.to_lowercase() == "true" || v == "1")
         .unwrap_or(false)
     {
-        eprintln!(
-            "⚠️  WARNING: Remote API access is enabled for host: {}",
+        warn!(
+            "Remote API access is enabled for host: {}",
             host
         );
-        eprintln!("⚠️  This bypasses localhost-only security restrictions.");
-        eprintln!("⚠️  Ensure this is intentional and the host is trusted.");
+        warn!("This bypasses localhost-only security restrictions.");
+        warn!("Ensure this is intentional and the host is trusted.");
         return Ok(());
     }
 
@@ -111,8 +112,8 @@ fn get_api_host() -> String {
 
     // Validate the host before using it
     if let Err(e) = validate_api_host(&host) {
-        eprintln!("❌ Invalid API host configuration: {}", e);
-        eprintln!("Falling back to localhost for security.");
+        error!("Invalid API host configuration: {}", e);
+        warn!("Falling back to localhost for security.");
         return "localhost".to_string();
     }
 
@@ -174,7 +175,7 @@ impl TrayManager {
     pub fn new(app_handle: AppHandle, api_port: u16) -> Self {
         // Create HTTP client once with connection pooling enabled by default
         let http_client = Self::create_http_client().unwrap_or_else(|e| {
-            eprintln!("Failed to create HTTP client: {}. Using default client.", e);
+            error!("Failed to create HTTP client: {}. Using default client.", e);
             reqwest::Client::new()
         });
 
@@ -199,19 +200,19 @@ impl TrayManager {
     }
 
     pub fn init(&mut self, app: &App) -> Result<(), Box<dyn std::error::Error>> {
-        println!("Starting tray initialization...");
+        info!("Starting tray initialization...");
 
         // Build initial menu
         let menu = Self::build_menu(&app.handle(), vec![])?;
 
-        println!("Menu built successfully");
+        info!("Menu built successfully");
 
         // Load the template icon (white frame with transparent cutout for menu bar)
         // macOS will automatically adapt the color based on light/dark mode
         let icon_bytes = include_bytes!("../icons/icon-template.png");
         let icon = Image::from_bytes(icon_bytes)?;
 
-        println!("Icon loaded successfully");
+        info!("Icon loaded successfully");
 
         // Build the tray icon
         let api_port = self.api_port;
@@ -231,12 +232,12 @@ impl TrayManager {
         match self.tray_icon.lock() {
             Ok(mut tray_icon) => *tray_icon = Some(tray),
             Err(e) => {
-                eprintln!("Failed to lock tray_icon during init: {}", e);
+                error!("Failed to lock tray_icon during init: {}", e);
                 return Err(format!("Mutex lock failed: {}", e).into());
             }
         }
 
-        println!("Tray icon initialized and stored successfully");
+        info!("Tray icon initialized and stored successfully");
 
         // Start polling for server updates
         self.start_server_polling();
@@ -248,9 +249,9 @@ impl TrayManager {
         app_handle: &AppHandle,
         servers: Vec<ServerInfo>,
     ) -> Result<Menu<Wry>, Box<dyn std::error::Error>> {
-        println!("Building menu with {} servers", servers.len());
+        debug!("Building menu with {} servers", servers.len());
         for (i, server) in servers.iter().enumerate() {
-            println!(
+            debug!(
                 "  Server {}: id={}, project_id={}, port={}",
                 i, server.id, server.project_id, server.port
             );
@@ -266,7 +267,7 @@ impl TrayManager {
 
         // Servers section
         if servers.is_empty() {
-            println!("WARNING: Servers list is empty in build_menu!");
+            warn!("Servers list is empty in build_menu!");
             let no_servers = MenuItemBuilder::with_id("no_servers", "No servers running")
                 .enabled(false)
                 .build(app_handle)?;
@@ -337,54 +338,54 @@ impl TrayManager {
 
     fn handle_menu_event(app: &AppHandle, event: tauri::menu::MenuEvent, api_port: u16) {
         let event_id = event.id.as_ref();
-        println!("Menu event received: {}", event_id);
+        debug!("Menu event received: {}", event_id);
 
         match event_id {
             "quit" => {
-                println!("Quitting application");
+                info!("Quitting application");
                 app.exit(0);
             }
             "show" => {
-                println!("Showing main window");
+                info!("Showing main window");
                 if let Some(window) = app.get_webview_window("main") {
                     if let Err(e) = window.show() {
-                        eprintln!("Failed to show window: {}", e);
+                        error!("Failed to show window: {}", e);
                     }
                     if let Err(e) = window.set_focus() {
-                        eprintln!("Failed to set window focus: {}", e);
+                        error!("Failed to set window focus: {}", e);
                     }
                 }
             }
             "refresh" => {
-                println!("Refreshing server list");
+                info!("Refreshing server list");
                 // Refresh will happen automatically via polling
             }
             id if id.starts_with("open_") => {
                 if let Some(server_id) = id.strip_prefix("open_") {
                     Self::open_server_in_browser(api_port, server_id.to_string());
                 } else {
-                    eprintln!("Invalid menu event ID format: {}", id);
+                    error!("Invalid menu event ID format: {}", id);
                 }
             }
             id if id.starts_with("copy_") => {
                 if let Some(server_id) = id.strip_prefix("copy_") {
                     Self::copy_server_url(app.clone(), api_port, server_id.to_string());
                 } else {
-                    eprintln!("Invalid menu event ID format: {}", id);
+                    error!("Invalid menu event ID format: {}", id);
                 }
             }
             id if id.starts_with("restart_") => {
                 if let Some(project_id) = id.strip_prefix("restart_") {
                     Self::restart_server(api_port, project_id.to_string());
                 } else {
-                    eprintln!("Invalid menu event ID format: {}", id);
+                    error!("Invalid menu event ID format: {}", id);
                 }
             }
             id if id.starts_with("stop_") => {
                 if let Some(project_id) = id.strip_prefix("stop_") {
                     Self::stop_server(api_port, project_id.to_string());
                 } else {
-                    eprintln!("Invalid menu event ID format: {}", id);
+                    error!("Invalid menu event ID format: {}", id);
                 }
             }
             _ => {}
@@ -397,13 +398,13 @@ impl TrayManager {
                 Ok(servers) => {
                     if let Some(server) = servers.iter().find(|s| s.id == server_id) {
                         if let Err(e) = open::that(&server.url) {
-                            eprintln!("Failed to open browser for {}: {}", server.url, e);
+                            error!("Failed to open browser for {}: {}", server.url, e);
                         }
                     } else {
-                        eprintln!("Server {} no longer exists", server_id);
+                        warn!("Server {} no longer exists", server_id);
                     }
                 }
-                Err(e) => eprintln!("Failed to fetch servers: {}", e),
+                Err(e) => error!("Failed to fetch servers: {}", e),
             }
         });
     }
@@ -416,14 +417,14 @@ impl TrayManager {
                         // Use the clipboard plugin to copy the URL
                         use tauri_plugin_clipboard_manager::ClipboardExt;
                         match app.clipboard().write_text(&server.url) {
-                            Ok(_) => println!("Copied URL to clipboard: {}", server.url),
-                            Err(e) => eprintln!("Failed to copy URL to clipboard: {}", e),
+                            Ok(_) => info!("Copied URL to clipboard: {}", server.url),
+                            Err(e) => error!("Failed to copy URL to clipboard: {}", e),
                         }
                     } else {
-                        eprintln!("Server {} no longer exists", server_id);
+                        warn!("Server {} no longer exists", server_id);
                     }
                 }
-                Err(e) => eprintln!("Failed to fetch servers: {}", e),
+                Err(e) => error!("Failed to fetch servers: {}", e),
             }
         });
     }
@@ -433,7 +434,7 @@ impl TrayManager {
             let client = match Self::create_http_client() {
                 Ok(c) => c,
                 Err(e) => {
-                    eprintln!("Failed to create HTTP client for stopping server: {}", e);
+                    error!("Failed to create HTTP client for stopping server: {}", e);
                     return;
                 }
             };
@@ -446,12 +447,12 @@ impl TrayManager {
             match client.post(&url).send().await {
                 Ok(response) => {
                     if response.status().is_success() {
-                        println!("Successfully stopped server: {}", project_id);
+                        info!("Successfully stopped server: {}", project_id);
                     } else {
-                        eprintln!("Failed to stop server: HTTP {}", response.status());
+                        error!("Failed to stop server: HTTP {}", response.status());
                     }
                 }
-                Err(e) => eprintln!("Failed to stop server: {}", e),
+                Err(e) => error!("Failed to stop server: {}", e),
             }
         });
     }
@@ -461,7 +462,7 @@ impl TrayManager {
             let client = match Self::create_http_client() {
                 Ok(c) => c,
                 Err(e) => {
-                    eprintln!("Failed to create HTTP client for restarting server: {}", e);
+                    error!("Failed to create HTTP client for restarting server: {}", e);
                     return;
                 }
             };
@@ -476,16 +477,16 @@ impl TrayManager {
             match client.post(&stop_url).send().await {
                 Ok(response) => {
                     if !response.status().is_success() {
-                        eprintln!(
+                        error!(
                             "Failed to stop server for restart: HTTP {}",
                             response.status()
                         );
                         return;
                     }
-                    println!("Successfully stopped server: {}", project_id);
+                    info!("Successfully stopped server: {}", project_id);
                 }
                 Err(e) => {
-                    eprintln!("Failed to stop server: {}", e);
+                    error!("Failed to stop server: {}", e);
                     return;
                 }
             }
@@ -519,7 +520,7 @@ impl TrayManager {
                                     if data.get("instance").is_none() {
                                         // Server is stopped
                                         stopped = true;
-                                        println!(
+                                        debug!(
                                             "Server confirmed stopped after {}ms (attempt {})",
                                             elapsed_ms, attempt
                                         );
@@ -530,14 +531,14 @@ impl TrayManager {
                         } else {
                             // Server not found (404 or similar) - it's stopped
                             stopped = true;
-                            println!("Server confirmed stopped (no longer exists) after {}ms (attempt {})", elapsed_ms, attempt);
+                            debug!("Server confirmed stopped (no longer exists) after {}ms (attempt {})", elapsed_ms, attempt);
                             break;
                         }
                     }
                     Err(_) => {
                         // API error might mean server is down, consider it stopped
                         stopped = true;
-                        println!(
+                        debug!(
                             "Server appears stopped (API unreachable) after {}ms (attempt {})",
                             elapsed_ms, attempt
                         );
@@ -550,7 +551,7 @@ impl TrayManager {
             }
 
             if !stopped {
-                eprintln!(
+                error!(
                     "Timeout waiting for server to stop after {} seconds",
                     SERVER_RESTART_MAX_WAIT_SECS
                 );
@@ -579,7 +580,7 @@ impl TrayManager {
                 match client.post(&start_url).send().await {
                     Ok(start_response) => {
                         if start_response.status().is_success() {
-                            println!(
+                            info!(
                                 "Successfully restarted server: {} (attempt {})",
                                 project_id,
                                 attempt + 1
@@ -587,14 +588,14 @@ impl TrayManager {
                             return;
                         } else if start_response.status().as_u16() == 409 {
                             // 409 Conflict typically means port is still in use
-                            println!(
+                            debug!(
                                 "Port not yet available for server: {} (attempt {})",
                                 project_id,
                                 attempt + 1
                             );
                             continue;
                         } else {
-                            eprintln!(
+                            error!(
                                 "Failed to start server: HTTP {} (attempt {})",
                                 start_response.status(),
                                 attempt + 1
@@ -605,7 +606,7 @@ impl TrayManager {
                         }
                     }
                     Err(e) => {
-                        eprintln!("Failed to start server: {} (attempt {})", e, attempt + 1);
+                        error!("Failed to start server: {} (attempt {})", e, attempt + 1);
                         if attempt == max_start_attempts - 1 {
                             return;
                         }
@@ -613,7 +614,7 @@ impl TrayManager {
                 }
             }
 
-            eprintln!(
+            error!(
                 "Failed to restart server after {} attempts",
                 max_start_attempts
             );
@@ -680,8 +681,8 @@ impl TrayManager {
                     if (1..=60).contains(&parsed_value) {
                         parsed_value
                     } else {
-                        eprintln!(
-                            "⚠️  Warning: ORKEE_TRAY_POLL_INTERVAL_SECS has invalid value '{}' (must be 1-60), using default: {}",
+                        warn!(
+                            "ORKEE_TRAY_POLL_INTERVAL_SECS has invalid value '{}' (must be 1-60), using default: {}",
                             raw_value,
                             DEFAULT_SERVER_POLLING_INTERVAL_SECS
                         );
@@ -689,8 +690,8 @@ impl TrayManager {
                     }
                 }
                 Err(_) => {
-                    eprintln!(
-                        "⚠️  Warning: ORKEE_TRAY_POLL_INTERVAL_SECS has unparseable value '{}', using default: {}",
+                    warn!(
+                        "ORKEE_TRAY_POLL_INTERVAL_SECS has unparseable value '{}', using default: {}",
                         raw_value,
                         DEFAULT_SERVER_POLLING_INTERVAL_SECS
                     );
@@ -731,7 +732,7 @@ impl TrayManager {
                     base_poll_interval_secs // Respect custom polling interval
                 };
 
-            println!(
+            info!(
                 "Tray polling starting with adaptive interval: {} seconds",
                 current_poll_interval_secs
             );
@@ -739,7 +740,7 @@ impl TrayManager {
             loop {
                 // Check for shutdown signal
                 if shutdown_signal.load(Ordering::Relaxed) {
-                    println!("Tray polling loop received shutdown signal, exiting");
+                    info!("Tray polling loop received shutdown signal, exiting");
                     break;
                 }
 
@@ -748,7 +749,7 @@ impl TrayManager {
                 for _ in 0..current_poll_interval_secs {
                     tokio::time::sleep(Duration::from_secs(1)).await;
                     if shutdown_signal.load(Ordering::Relaxed) {
-                        println!(
+                        info!(
                             "Tray polling loop received shutdown signal during sleep, exiting"
                         );
                         return;
@@ -760,7 +761,7 @@ impl TrayManager {
                     if let Some(opened_at) = circuit_breaker_opened_at {
                         let elapsed = std::time::Instant::now().duration_since(opened_at);
                         if elapsed >= Duration::from_secs(CIRCUIT_BREAKER_RESET_SECS) {
-                            println!(
+                            debug!(
                                 "Circuit breaker: attempting to close after {} seconds",
                                 elapsed.as_secs()
                             );
@@ -780,7 +781,7 @@ impl TrayManager {
                         // Success - reset failure counter and close circuit breaker
                         consecutive_failures = 0;
                         if circuit_breaker_open {
-                            println!("Circuit breaker: closed after successful API call");
+                            debug!("Circuit breaker: closed after successful API call");
                             circuit_breaker_open = false;
                             circuit_breaker_opened_at = None;
                         }
@@ -796,7 +797,7 @@ impl TrayManager {
                                 && current_poll_interval_secs != FAST_POLLING_INTERVAL_SECS
                             {
                                 current_poll_interval_secs = FAST_POLLING_INTERVAL_SECS;
-                                println!(
+                                debug!(
                                     "Servers changing - switching to fast polling ({} seconds)",
                                     current_poll_interval_secs
                                 );
@@ -804,8 +805,8 @@ impl TrayManager {
 
                             let now = std::time::Instant::now();
                             if now.duration_since(last_rebuild_time) >= min_rebuild_interval {
-                                println!("Server list changed, updating menu...");
-                                println!("Found {} servers", servers.len());
+                                info!("Server list changed, updating menu...");
+                                debug!("Found {} servers", servers.len());
 
                                 match Self::build_menu(&app_handle, servers.clone()) {
                                     Ok(new_menu) => {
@@ -813,19 +814,19 @@ impl TrayManager {
                                             Ok(tray_guard) => {
                                                 if let Some(tray) = tray_guard.as_ref() {
                                                     if let Err(e) = tray.set_menu(Some(new_menu)) {
-                                                        eprintln!(
+                                                        error!(
                                                             "Failed to update tray menu: {}",
                                                             e
                                                         );
                                                     } else {
-                                                        println!("Tray menu updated successfully");
+                                                        info!("Tray menu updated successfully");
                                                         last_servers_hash = current_hash; // Update cached hash
                                                         last_rebuild_time = now;
                                                     }
                                                 }
                                             }
                                             Err(e) => {
-                                                eprintln!(
+                                                error!(
                                                     "Failed to lock tray_icon during polling: {}",
                                                     e
                                                 );
@@ -833,7 +834,7 @@ impl TrayManager {
                                         }
                                     }
                                     Err(e) => {
-                                        eprintln!("Failed to build menu: {}", e);
+                                        error!("Failed to build menu: {}", e);
                                     }
                                 }
                             }
@@ -848,7 +849,7 @@ impl TrayManager {
                                 && current_poll_interval_secs != SLOW_POLLING_INTERVAL_SECS
                             {
                                 current_poll_interval_secs = SLOW_POLLING_INTERVAL_SECS;
-                                println!("Servers stable for {} polls - switching to slow polling ({} seconds)",
+                                debug!("Servers stable for {} polls - switching to slow polling ({} seconds)",
                                 consecutive_stable_polls, current_poll_interval_secs);
                             }
                         }
@@ -856,7 +857,7 @@ impl TrayManager {
                     Err(e) => {
                         // API failure - increment counter and potentially open circuit breaker
                         consecutive_failures += 1;
-                        eprintln!(
+                        error!(
                             "Failed to fetch servers (attempt {}/{}): {}",
                             consecutive_failures, MAX_CONSECUTIVE_FAILURES, e
                         );
@@ -865,7 +866,7 @@ impl TrayManager {
                         {
                             circuit_breaker_open = true;
                             circuit_breaker_opened_at = Some(std::time::Instant::now());
-                            eprintln!("Circuit breaker: opened after {} consecutive failures. Will retry in {} seconds.",
+                            error!("Circuit breaker: opened after {} consecutive failures. Will retry in {} seconds.",
                             consecutive_failures, CIRCUIT_BREAKER_RESET_SECS);
                         }
                     }
