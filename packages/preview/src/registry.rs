@@ -814,12 +814,13 @@ pub static GLOBAL_REGISTRY: Lazy<ServerRegistry> = Lazy::new(ServerRegistry::new
 
 /// Start periodic cleanup of stale registry entries.
 ///
-/// Spawns a background task that runs every 5 minutes to clean up stale server
+/// Spawns a background task that runs every 2 minutes (by default) to clean up stale server
 /// entries from the global registry. This prevents memory leaks and keeps the
 /// registry in sync with actually running processes.
 ///
 /// The cleanup interval can be configured via `ORKEE_CLEANUP_INTERVAL_MINUTES`
-/// environment variable (default: 5 minutes, min: 1, max: 60).
+/// environment variable (default: 2 minutes, min: 1, max: 60). The default is set to
+/// half the stale timeout to ensure responsive cleanup.
 ///
 /// This function should be called once during application initialization.
 /// Multiple calls are safe - subsequent calls will return `None`.
@@ -859,9 +860,10 @@ pub fn start_periodic_cleanup() -> Option<tokio::task::JoinHandle<()>> {
         return None;
     }
 
-    // Get cleanup interval from environment variable (default: 5 minutes)
+    // Get cleanup interval from environment variable (default: 2 minutes, half of stale timeout)
+    // Running cleanup at half the stale timeout ensures more responsive cleanup
     let cleanup_interval_minutes =
-        parse_env_or_default_with_validation("ORKEE_CLEANUP_INTERVAL_MINUTES", 5, |v| {
+        parse_env_or_default_with_validation("ORKEE_CLEANUP_INTERVAL_MINUTES", 2, |v| {
             (1..=60).contains(&v)
         });
 
