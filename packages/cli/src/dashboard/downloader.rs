@@ -168,7 +168,8 @@ fn normalize_path(path: &Path) -> PathBuf {
 fn calculate_file_sha256(file_path: &Path) -> Result<String, Box<dyn std::error::Error>> {
     let mut file = fs::File::open(file_path)?;
     let mut hasher = Sha256::new();
-    let mut buffer = [0u8; 8192];
+    // 64KB buffer for improved I/O performance during checksum calculation
+    let mut buffer = [0u8; 65536];
 
     loop {
         let bytes_read = file.read(&mut buffer)?;
