@@ -303,6 +303,31 @@ For wider reach, consider distributing through platform package managers:
 
 These integrations would complement the existing npm distribution and native installers.
 
+### AppImage First-Run CLI Setup Prompt
+**Problem**: AppImage users must manually discover the CLI installation helper script since AppImages don't support post-install hooks.
+
+**Solution**: Add first-run detection in the Tauri desktop app to prompt AppImage users:
+
+**Implementation Approach:**
+1. **Detection**: Check if running from AppImage (`APPIMAGE` env var or `squashfs` mount detection)
+2. **CLI Check**: Test if `orkee` CLI is available in PATH (`which orkee` or equivalent)
+3. **First-Run Dialog**: Show modal on first launch (if AppImage + CLI not installed):
+   - Explain CLI/TUI features are available
+   - Provide "Install Now" button to launch helper script
+   - Include "Remind Me Later" and "Don't Show Again" options
+4. **State Persistence**: Store user choice in app config (`~/.orkee/config.json`)
+5. **Helper Integration**: Either:
+   - Bundle the `install-cli-from-appimage.sh` script in the app
+   - Open browser to script URL with instructions
+   - Provide terminal commands to copy/paste
+
+**Benefits:**
+- Improves discoverability of CLI/TUI features
+- Reduces user friction for AppImage installations
+- Provides guidance without requiring documentation reading
+
+**Complexity**: Medium - requires Rust backend detection + React frontend dialog + state management
+
 ## Additional Resources
 
 - [Tauri Windows Installer Docs](https://v2.tauri.app/distribute/windows-installer/)
