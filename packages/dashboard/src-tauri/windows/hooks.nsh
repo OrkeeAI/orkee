@@ -5,9 +5,9 @@
 !include "StrFunc.nsh"
 !include "WordFunc.nsh"
 
-; Initialize string functions
-${StrContains}
-${WordReplace}
+; Declare string functions we need
+${StrFunc_Define} StrContains
+${WordFunc_Define} WordReplace
 
 ; Constants
 !define MAX_PATH_LENGTH 2047        ; Windows environment variable length limit
