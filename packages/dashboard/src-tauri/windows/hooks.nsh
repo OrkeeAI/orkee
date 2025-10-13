@@ -32,10 +32,17 @@
     ; Check if our directory is already in PATH
     ${StrContains} $2 "$0" "$1"
     ${If} $2 == ""
-      ; Not found - add it to PATH
-      WriteRegExpandStr HKLM "SYSTEM\CurrentControlSet\Control\Session Manager\Environment" "Path" "$1;$0"
-      ; Broadcast WM_SETTINGCHANGE to notify system of PATH change
-      SendMessage ${HWND_BROADCAST} ${WM_SETTINGCHANGE} 0 "STR:Environment" /TIMEOUT=5000
+      ; Not found - check PATH length before adding
+      StrLen $3 "$1;$0"
+      ${If} $3 < 2047
+        ; Safe to add - under Windows PATH limit (2047 chars)
+        WriteRegExpandStr HKLM "SYSTEM\CurrentControlSet\Control\Session Manager\Environment" "Path" "$1;$0"
+        ; Broadcast WM_SETTINGCHANGE to notify system of PATH change
+        SendMessage ${HWND_BROADCAST} ${WM_SETTINGCHANGE} 0 "STR:Environment" /TIMEOUT=5000
+      ${Else}
+        ; PATH too long - warn user but don't fail installation
+        MessageBox MB_OK|MB_ICONEXCLAMATION "Warning: System PATH is too long to add Orkee automatically.$\n$\nYou can manually add this directory to PATH:$\n$0$\n$\nDesktop app will still work without CLI access."
+      ${EndIf}
     ${EndIf}
   ${Else}
     ; Per-user: Add to user PATH (HKCU)
@@ -47,10 +54,17 @@
     ; Check if our directory is already in PATH
     ${StrContains} $2 "$0" "$1"
     ${If} $2 == ""
-      ; Not found - add it to PATH
-      WriteRegExpandStr HKCU "Environment" "Path" "$1;$0"
-      ; Broadcast WM_SETTINGCHANGE to notify system of PATH change
-      SendMessage ${HWND_BROADCAST} ${WM_SETTINGCHANGE} 0 "STR:Environment" /TIMEOUT=5000
+      ; Not found - check PATH length before adding
+      StrLen $3 "$1;$0"
+      ${If} $3 < 2047
+        ; Safe to add - under Windows PATH limit (2047 chars)
+        WriteRegExpandStr HKCU "Environment" "Path" "$1;$0"
+        ; Broadcast WM_SETTINGCHANGE to notify system of PATH change
+        SendMessage ${HWND_BROADCAST} ${WM_SETTINGCHANGE} 0 "STR:Environment" /TIMEOUT=5000
+      ${Else}
+        ; PATH too long - warn user but don't fail installation
+        MessageBox MB_OK|MB_ICONEXCLAMATION "Warning: User PATH is too long to add Orkee automatically.$\n$\nYou can manually add this directory to PATH:$\n$0$\n$\nDesktop app will still work without CLI access."
+      ${EndIf}
     ${EndIf}
   ${EndIf}
 !macroend
