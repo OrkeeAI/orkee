@@ -285,3 +285,174 @@ pub async fn health_check() -> Json<ApiResponse<String>> {
         "Preview service is healthy".to_string(),
     ))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use orkee_preview::types::{DevServerStatus, ProjectType};
+    use uuid::Uuid;
+
+    fn create_test_server_info(id_str: &str, project_id: &str, port: u16) -> ServerInfo {
+        // Parse the id_str as a simple number and convert to a Uuid for testing
+        // Use a deterministic UUID based on the string
+        let id = if let Ok(num) = id_str.trim_start_matches("server").parse::<u32>() {
+            // Create a UUID from bytes, using num as seed
+            let mut bytes = [0u8; 16];
+            bytes[0..4].copy_from_slice(&num.to_le_bytes());
+            Uuid::from_bytes(bytes)
+        } else {
+            Uuid::new_v4()
+        };
+
+        ServerInfo {
+            id,
+            project_id: project_id.to_string(),
+            port,
+            pid: Some(std::process::id()),
+            status: DevServerStatus::Running,
+            preview_url: Some(format!("http://localhost:{}", port)),
+            child: None,
+            actual_command: Some("npm run dev".to_string()),
+            framework_name: Some("Vite".to_string()),
+            log_tasks: None,
+        }
+    }
+
+    #[test]
+    fn test_convert_server_info_to_instance_basic() {
+        let server_info = create_test_server_info("server1", "proj1", 3000);
+        let expected_id = server_info.id;
+
+        let instance = convert_server_info_to_instance(server_info.clone());
+
+        assert_eq!(instance.id, expected_id);
+        assert_eq!(instance.project_id, "proj1");
+        assert_eq!(instance.config.port, 3000);
+        assert_eq!(instance.config.dev_command, "npm run dev");
+        assert_eq!(instance.status, DevServerStatus::Running);
+        assert_eq!(instance.preview_url, Some("http://localhost:3000".to_string()));
+        assert_eq!(instance.pid, Some(std::process::id()));
+    }
+
+    #[test]
+    fn test_convert_server_info_framework_detection_nextjs() {
+        let mut server_info = create_test_server_info("server1", "proj1", 3000);
+        server_info.framework_name = Some("Next.js".to_string());
+
+        let instance = convert_server_info_to_instance(server_info);
+
+        assert_eq!(instance.config.project_type, ProjectType::Nextjs);
+        assert_eq!(instance.config.framework.as_ref().unwrap().name, "Next.js");
+    }
+
+    #[test]
+    fn test_convert_server_info_framework_detection_react() {
+        let mut server_info = create_test_server_info("server1", "proj1", 3000);
+        server_info.framework_name = Some("React Dev Server".to_string());
+
+        let instance = convert_server_info_to_instance(server_info);
+
+        assert_eq!(instance.config.project_type, ProjectType::React);
+    }
+
+    #[test]
+    fn test_convert_server_info_framework_detection_vue() {
+        let mut server_info = create_test_server_info("server1", "proj1", 3000);
+        server_info.framework_name = Some("Vue CLI Service".to_string());
+
+        let instance = convert_server_info_to_instance(server_info);
+
+        assert_eq!(instance.config.project_type, ProjectType::Vue);
+    }
+
+    #[test]
+    fn test_convert_server_info_framework_detection_static() {
+        let mut server_info = create_test_server_info("server1", "proj1", 3000);
+        server_info.framework_name = Some("Static HTTP Server".to_string());
+
+        let instance = convert_server_info_to_instance(server_info);
+
+        assert_eq!(instance.config.project_type, ProjectType::Static);
+    }
+
+    #[test]
+    fn test_convert_server_info_framework_detection_unknown() {
+        let mut server_info = create_test_server_info("server1", "proj1", 3000);
+        server_info.framework_name = Some("Unknown Framework".to_string());
+
+        let instance = convert_server_info_to_instance(server_info);
+
+        assert_eq!(instance.config.project_type, ProjectType::Unknown);
+    }
+
+    #[test]
+    fn test_convert_server_info_missing_framework() {
+        let mut server_info = create_test_server_info("server1", "proj1", 3000);
+        server_info.framework_name = None;
+
+        let instance = convert_server_info_to_instance(server_info);
+
+        assert_eq!(instance.config.framework.as_ref().unwrap().name, "Development Server");
+        assert_eq!(instance.config.project_type, ProjectType::Unknown);
+    }
+
+    #[test]
+    fn test_convert_server_info_missing_command() {
+        let mut server_info = create_test_server_info("server1", "proj1", 3000);
+        server_info.actual_command = None;
+
+        let instance = convert_server_info_to_instance(server_info);
+
+        assert_eq!(instance.config.dev_command, "unknown");
+    }
+
+    #[test]
+    fn test_convert_server_info_missing_preview_url() {
+        let mut server_info = create_test_server_info("server1", "proj1", 3000);
+        server_info.preview_url = None;
+
+        let instance = convert_server_info_to_instance(server_info);
+
+        assert_eq!(instance.preview_url, None);
+    }
+
+    #[test]
+    fn test_convert_server_info_preserves_pid() {
+        let server_info = create_test_server_info("server1", "proj1", 3000);
+        let expected_pid = server_info.pid;
+
+        let instance = convert_server_info_to_instance(server_info);
+
+        assert_eq!(instance.pid, expected_pid);
+    }
+
+    #[test]
+    fn test_convert_server_info_multiple_frameworks() {
+        // Test that framework detection works with partial matches
+        // Note: Detection is case-sensitive and uses contains()
+        let test_cases = vec![
+            ("Next", ProjectType::Nextjs),    // Must match "Next" (capital N)
+            ("Next.js", ProjectType::Nextjs),
+            ("React Dev Server", ProjectType::React),  // Must match "React" (capital R)
+            ("Vue CLI Service", ProjectType::Vue),     // Must match "Vue" (capital V)
+            ("Static server", ProjectType::Static),    // Must match "Static" (capital S)
+            ("HTTP Server", ProjectType::Static),      // Must match "HTTP Server"
+        ];
+
+        for (framework_name, expected_type) in test_cases {
+            let mut server_info = create_test_server_info("server1", "proj1", 3000);
+            server_info.framework_name = Some(framework_name.to_string());
+
+            let instance = convert_server_info_to_instance(server_info);
+
+            assert_eq!(
+                instance.config.project_type, expected_type,
+                "Framework '{}' should map to {:?}",
+                framework_name, expected_type
+            );
+        }
+    }
+
+    // Integration tests would go here using axum_test or similar
+    // For now, we're testing the conversion logic which is the core business logic
+}
