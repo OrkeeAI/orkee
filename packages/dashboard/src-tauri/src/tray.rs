@@ -303,7 +303,7 @@ impl TrayManager {
         info!("Starting tray initialization...");
 
         // Build initial menu
-        let menu = Self::build_menu(&app.handle(), vec![])?;
+        let menu = Self::build_menu(app.handle(), vec![])?;
 
         info!("Menu built successfully");
 

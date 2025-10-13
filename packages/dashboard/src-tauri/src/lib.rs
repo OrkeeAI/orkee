@@ -528,7 +528,7 @@ pub fn run() {
                 }
                 tauri::WindowEvent::Destroyed => {
                     // When the window is actually destroyed (app quitting)
-                    perform_cleanup_once(&window.app_handle(), "window destroyed");
+                    perform_cleanup_once(window.app_handle(), "window destroyed");
                 }
                 _ => {}
             }
