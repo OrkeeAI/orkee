@@ -1,11 +1,11 @@
 [package]
 name = "orkee-tui"
-version = "0.0.1"
-edition = "2021"
+version.workspace = true
+edition.workspace = true
 description = "Terminal user interface for Orkee"
-authors = ["Orkee Team"]
-license = "MIT"
-repository = "https://github.com/OrkeeAI/orkee"
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
 
 
 [dependencies]

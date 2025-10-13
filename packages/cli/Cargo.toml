@@ -1,11 +1,11 @@
 [package]
 name = "orkee-cli"
-version = "0.0.1"
-edition = "2021"
+version.workspace = true
+edition.workspace = true
 description = "CLI for Orkee project management"
-authors = ["Orkee Team"]
-license = "MIT"
-repository = "https://github.com/OrkeeAI/orkee"
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
 
 [dependencies]
 axum = { version = "0.7", features = ["macros"] }

@@ -1,11 +1,11 @@
 [package]
 name = "orkee-preview"
-version = "0.0.1"
-edition = "2021"
+version.workspace = true
+edition.workspace = true
 description = "Development server preview system for Orkee projects"
-authors = ["Orkee Team"]
-license = "MIT"
-repository = "https://github.com/OrkeeAI/orkee"
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
 
 [lib]
 name = "orkee_preview"
