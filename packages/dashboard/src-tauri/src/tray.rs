@@ -66,10 +66,21 @@ fn validate_api_host(host: &str) -> Result<(), String> {
         return Ok(());
     }
 
-    // Validate as IP address and check if it's loopback
+    // Strictly validate loopback addresses to prevent bypass attempts
     if let Ok(ip) = host.parse::<std::net::IpAddr>() {
-        if ip.is_loopback() {
-            return Ok(());
+        match ip {
+            std::net::IpAddr::V4(ipv4) => {
+                // Only accept 127.0.0.0/8 range (check first octet is 127)
+                if ipv4.octets()[0] == 127 {
+                    return Ok(());
+                }
+            }
+            std::net::IpAddr::V6(ipv6) => {
+                // Only accept ::1 (IPv6 loopback)
+                if ipv6 == std::net::Ipv6Addr::LOCALHOST {
+                    return Ok(());
+                }
+            }
         }
     }
 
@@ -1068,5 +1079,31 @@ mod tests {
         // Test potential SSRF attacks
         assert!(validate_api_host("0.0.0.0").is_err());
         assert!(validate_api_host("[::]").is_err());
+    }
+
+    #[test]
+    fn test_validate_api_host_allows_full_127_range() {
+        // Verify entire 127.0.0.0/8 range is accepted
+        assert!(validate_api_host("127.0.0.1").is_ok());
+        assert!(validate_api_host("127.0.0.2").is_ok());
+        assert!(validate_api_host("127.1.1.1").is_ok());
+        assert!(validate_api_host("127.255.255.255").is_ok());
+    }
+
+    #[test]
+    fn test_validate_api_host_blocks_near_loopback() {
+        // Verify addresses just outside 127.0.0.0/8 are rejected
+        assert!(validate_api_host("126.0.0.1").is_err());
+        assert!(validate_api_host("126.255.255.255").is_err());
+        assert!(validate_api_host("128.0.0.1").is_err());
+        assert!(validate_api_host("128.0.0.0").is_err());
+    }
+
+    #[test]
+    fn test_validate_api_host_blocks_ipv6_variations() {
+        // Only ::1 should be accepted, not other IPv6 addresses
+        assert!(validate_api_host("::2").is_err());
+        assert!(validate_api_host("fe80::1").is_err());
+        assert!(validate_api_host("::ffff:127.0.0.1").is_err()); // IPv4-mapped IPv6
     }
 }
