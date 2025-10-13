@@ -13,6 +13,7 @@ import { Switch } from '@/components/ui/switch'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Alert, AlertDescription } from '@/components/ui/alert'
+import { CliInstallationSettings } from '@/components/CliInstallationSettings'
 
 export function Settings() {
   const [isCloudEnabled, setIsCloudEnabled] = useState(false)
@@ -35,6 +36,9 @@ export function Settings() {
       <div className="grid gap-6">
         {/* Editor Settings - Always show */}
         <EditorSettings />
+
+        {/* CLI Installation Settings - macOS only */}
+        {navigator.platform.toLowerCase().includes('mac') && <CliInstallationSettings />}
 
         {/* Database Settings - Always show */}
         <DatabaseSettings />
