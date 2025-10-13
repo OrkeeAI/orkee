@@ -67,6 +67,9 @@ pub struct ServerInfo {
     pub actual_command: Option<String>,
     /// Detected or configured framework name (e.g., "Vite", "Next.js")
     pub framework_name: Option<String>,
+    /// Background tasks for log capture (stdout/stderr readers)
+    /// Must be aborted when server stops to prevent resource leaks
+    pub log_tasks: Option<Vec<tokio::task::JoinHandle<()>>>,
 }
 
 impl Clone for ServerInfo {
@@ -81,6 +84,7 @@ impl Clone for ServerInfo {
             child: None, // Don't clone the child process handle
             actual_command: self.actual_command.clone(),
             framework_name: self.framework_name.clone(),
+            log_tasks: None, // Don't clone the log capture tasks
         }
     }
 }
@@ -214,6 +218,7 @@ impl PreviewManager {
                     child: None,
                     actual_command: entry.actual_command,
                     framework_name: entry.framework_name,
+                    log_tasks: None,
                 };
                 e.insert(server_info);
             }
@@ -405,15 +410,21 @@ impl PreviewManager {
     ///
     /// This method takes stdout/stderr from the child process and spawns tasks
     /// to capture and log output. The child handle remains available for cleanup.
-    async fn capture_process_logs_from_handle(&self, project_id: &str, child: &mut Child) {
+    /// Returns JoinHandles for the spawned tasks so they can be aborted when stopping.
+    async fn capture_process_logs_from_handle(
+        &self,
+        project_id: &str,
+        child: &mut Child,
+    ) -> Vec<tokio::task::JoinHandle<()>> {
         let project_id_clone = project_id.to_string();
         let manager = self.clone();
+        let mut handles = Vec::new();
 
         // Get stdout handle
         if let Some(stdout) = child.stdout.take() {
             let project_id_stdout = project_id_clone.clone();
             let manager_stdout = manager.clone();
-            tokio::spawn(async move {
+            let handle = tokio::spawn(async move {
                 let reader = BufReader::new(stdout);
                 let mut lines = reader.lines();
                 while let Ok(Some(line)) = lines.next_line().await {
@@ -428,13 +439,14 @@ impl PreviewManager {
                         .await;
                 }
             });
+            handles.push(handle);
         }
 
         // Get stderr handle
         if let Some(stderr) = child.stderr.take() {
             let project_id_stderr = project_id_clone.clone();
             let manager_stderr = manager.clone();
-            tokio::spawn(async move {
+            let handle = tokio::spawn(async move {
                 let reader = BufReader::new(stderr);
                 let mut lines = reader.lines();
                 while let Ok(Some(line)) = lines.next_line().await {
@@ -457,7 +469,10 @@ impl PreviewManager {
                         .await;
                 }
             });
+            handles.push(handle);
         }
+
+        handles
     }
 
     /// Start a development server for a project.
@@ -535,6 +550,7 @@ impl PreviewManager {
             child: None,
             actual_command: None,
             framework_name: None,
+            log_tasks: None,
         };
 
         // Try to start the server
@@ -544,23 +560,20 @@ impl PreviewManager {
 
                 // Wrap child in Arc<RwLock<>> so we can store it and use it for log capture
                 let child_handle = Arc::new(RwLock::new(spawn_result.child));
-                let child_for_logs = child_handle.clone();
 
-                // Start capturing logs from the process
-                // The log capture will take stdout/stderr from the child
-                let project_id_for_logs = project_id.clone();
-                let manager_for_logs = self.clone();
-                tokio::spawn(async move {
-                    let mut child = child_for_logs.write().await;
-                    manager_for_logs
-                        .capture_process_logs_from_handle(&project_id_for_logs, &mut child)
-                        .await;
-                });
+                // Start capturing logs from the process and store the task handles
+                // This prevents resource leaks when servers are stopped
+                let log_handles = {
+                    let mut child = child_handle.write().await;
+                    self.capture_process_logs_from_handle(&project_id, &mut child)
+                        .await
+                };
 
                 let mut updated_info = server_info;
                 updated_info.pid = pid;
                 updated_info.status = DevServerStatus::Running;
                 updated_info.child = Some(child_handle); // Store the child handle
+                updated_info.log_tasks = Some(log_handles); // Store log capture task handles
                 updated_info.actual_command = Some(spawn_result.command);
                 updated_info.framework_name = Some(spawn_result.framework);
 
@@ -653,6 +666,18 @@ impl PreviewManager {
                 format!("Stopping server with PID: {:?}", info.pid),
             )
             .await;
+
+            // Abort log capture tasks to prevent resource leaks
+            if let Some(log_tasks) = info.log_tasks {
+                let task_count = log_tasks.len();
+                for task in log_tasks {
+                    task.abort();
+                }
+                info!(
+                    "Aborted {} log capture tasks for project {}",
+                    task_count, project_id
+                );
+            }
 
             // Try to kill using child handle first (preferred method)
             let mut killed_via_handle = false;
@@ -802,6 +827,7 @@ impl PreviewManager {
                     child: None,
                     actual_command: entry.actual_command,
                     framework_name: entry.framework_name,
+                    log_tasks: None,
                 };
                 e.insert(server_info);
             }
@@ -1469,6 +1495,7 @@ impl PreviewManager {
                 child: None,
                 actual_command: None,
                 framework_name: None,
+                log_tasks: None,
             };
 
             let mut servers = self.active_servers.write().await;
