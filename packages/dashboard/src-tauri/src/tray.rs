@@ -143,8 +143,9 @@ fn get_api_host() -> String {
 /// Sanitize text for safe display in system menu.
 ///
 /// Filters out potentially malicious characters and limits length to prevent
-/// menu injection attacks. Only allows alphanumeric characters, whitespace,
-/// and common safe punctuation.
+/// menu injection attacks. Supports Unicode characters (letters, numbers,
+/// punctuation from any language) while filtering control characters and
+/// dangerous escape sequences.
 ///
 /// # Arguments
 ///
@@ -155,7 +156,29 @@ fn get_api_host() -> String {
 /// Returns a sanitized string safe for menu display (max 100 characters).
 fn sanitize_menu_text(text: &str) -> String {
     text.chars()
-        .filter(|c| c.is_alphanumeric() || c.is_whitespace() || "-_.".contains(*c))
+        .filter(|c| {
+            // Allow Unicode letters (any language) and numbers
+            if c.is_alphabetic() || c.is_numeric() {
+                return true;
+            }
+
+            // Explicitly allow common safe ASCII punctuation and symbols
+            if matches!(
+                *c,
+                ' ' | '-' | '_' | '.' | ',' | ':' | ';' | '(' | ')' | '[' | ']' |
+                '/' | '\\' | '+' | '=' | '@' | '#' | '$' | '%' | '&' | '*' | '!' | '?'
+            ) {
+                return true;
+            }
+
+            // Filter out control characters and Unicode line/paragraph separators
+            if c.is_control() || matches!(c, '\u{2028}' | '\u{2029}') {
+                return false;
+            }
+
+            // Reject everything else to be safe (private use, surrogates, non-characters, etc.)
+            false
+        })
         .take(100)
         .collect()
 }
