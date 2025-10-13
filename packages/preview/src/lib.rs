@@ -10,7 +10,7 @@ pub mod types;
 
 // Re-export key types and functions for easier use
 pub use manager::{PreviewManager, ServerInfo};
-pub use registry::start_periodic_cleanup;
+pub use registry::{is_process_running_validated, start_periodic_cleanup};
 pub use types::{
     ApiResponse, DevServerConfig, DevServerInstance, DevServerLog, DevServerStatus, Framework,
     LogType, PackageManager, PreviewError, PreviewResult, ProjectDetectionResult, ProjectType,

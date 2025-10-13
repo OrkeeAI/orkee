@@ -750,7 +750,7 @@ fn get_start_time_tolerance_secs() -> u64 {
 
 /// Check if a process with the given PID is running and matches expected criteria
 /// This prevents PID reuse attacks where a new process reuses an old PID
-fn is_process_running_validated(
+pub fn is_process_running_validated(
     pid: u32,
     expected_start_time: Option<DateTime<Utc>>,
     expected_name_patterns: &[&str], // e.g., ["node", "python", "npm"]
