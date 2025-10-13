@@ -10,9 +10,23 @@ env:
   RUST_BACKTRACE: 1
 
 jobs:
+  shellcheck:
+    name: Shellcheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
+
+      - name: Run shellcheck
+        uses: ludeeus/action-shellcheck@00b27aa7cb85167568cb48a3838b75f4265f2bca # v2.0.0
+        with:
+          scandir: './packages/dashboard'
+          severity: warning
+          check_together: 'yes'
+
   build-tauri:
     name: Build - ${{ matrix.settings.platform }} (${{ matrix.settings.arch }})
     runs-on: ${{ matrix.settings.os }}
+    needs: [shellcheck]
     permissions:
       contents: write
     strategy:
