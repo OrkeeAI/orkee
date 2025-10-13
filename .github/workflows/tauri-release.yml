@@ -126,6 +126,45 @@ jobs:
           tauriScript: bun tauri
           args: --target ${{ matrix.settings.target }}
 
+      - name: Verify build artifacts
+        shell: bash
+        run: |
+          echo "Verifying Tauri build artifacts for ${{ matrix.settings.platform }}-${{ matrix.settings.arch }}..."
+
+          BUNDLE_DIR="packages/dashboard/src-tauri/target/${{ matrix.settings.target }}/release/bundle"
+
+          if [ ! -d "$BUNDLE_DIR" ]; then
+            echo "Error: Bundle directory not found: $BUNDLE_DIR"
+            exit 1
+          fi
+
+          echo "Bundle directory exists: $BUNDLE_DIR"
+          echo "Contents:"
+          ls -lah "$BUNDLE_DIR"
+
+          # Platform-specific artifact verification
+          if [ "${{ matrix.settings.platform }}" = "macos" ]; then
+            if [ ! -d "$BUNDLE_DIR/dmg" ] && [ ! -d "$BUNDLE_DIR/macos" ]; then
+              echo "Error: No macOS installer artifacts found (expected dmg/ or macos/ directory)"
+              exit 1
+            fi
+            echo "✓ macOS artifacts verified"
+          elif [ "${{ matrix.settings.platform }}" = "windows" ]; then
+            if [ ! -d "$BUNDLE_DIR/msi" ] && [ ! -d "$BUNDLE_DIR/nsis" ]; then
+              echo "Error: No Windows installer artifacts found (expected msi/ or nsis/ directory)"
+              exit 1
+            fi
+            echo "✓ Windows artifacts verified"
+          elif [ "${{ matrix.settings.platform }}" = "linux" ]; then
+            if [ ! -d "$BUNDLE_DIR/deb" ] && [ ! -d "$BUNDLE_DIR/rpm" ] && [ ! -d "$BUNDLE_DIR/appimage" ]; then
+              echo "Error: No Linux installer artifacts found (expected deb/, rpm/, or appimage/ directory)"
+              exit 1
+            fi
+            echo "✓ Linux artifacts verified"
+          fi
+
+          echo "Build verification complete"
+
       - name: Upload artifacts
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
