@@ -327,7 +327,7 @@ fn find_available_port() -> Result<u16, String> {
 /// The task runs until the receiver is closed (when the sidecar process exits).
 /// Output is logged with appropriate prefixes to distinguish stdout from stderr.
 fn log_sidecar_output(mut rx: tauri::async_runtime::Receiver<CommandEvent>) {
-    tokio::spawn(async move {
+    tauri::async_runtime::spawn(async move {
         while let Some(event) = rx.recv().await {
             match event {
                 CommandEvent::Stdout(line) => {
