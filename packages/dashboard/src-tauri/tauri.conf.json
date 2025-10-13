@@ -28,7 +28,9 @@
     "longDescription": "Orkee is an AI agent orchestration platform featuring a Rust CLI server and React dashboard for monitoring and managing AI agents.",
     "linux": {
       "deb": {
-        "depends": []
+        "depends": [],
+        "postInstallScript": "linux/postinstall.sh",
+        "preRemoveScript": "linux/preuninstall.sh"
       }
     },
     "macOS": {
@@ -38,7 +40,10 @@
     "windows": {
       "certificateThumbprint": null,
       "digestAlgorithm": "sha256",
-      "timestampUrl": ""
+      "timestampUrl": "",
+      "nsis": {
+        "installerHooks": "windows/hooks.nsh"
+      }
     }
   },
   "app": {
