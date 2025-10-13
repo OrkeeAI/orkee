@@ -243,7 +243,9 @@ impl ServerRegistry {
     /// - User SID cannot be retrieved
     /// - ACL creation fails
     /// - File handle cannot be opened
-    async fn set_registry_permissions(path: &std::path::Path) -> Result<(), Box<dyn std::error::Error>> {
+    async fn set_registry_permissions(
+        path: &std::path::Path,
+    ) -> Result<(), Box<dyn std::error::Error>> {
         #[cfg(unix)]
         {
             use std::os::unix::fs::PermissionsExt;

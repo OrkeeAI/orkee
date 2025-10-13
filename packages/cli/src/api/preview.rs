@@ -330,7 +330,10 @@ mod tests {
         assert_eq!(instance.config.port, 3000);
         assert_eq!(instance.config.dev_command, "npm run dev");
         assert_eq!(instance.status, DevServerStatus::Running);
-        assert_eq!(instance.preview_url, Some("http://localhost:3000".to_string()));
+        assert_eq!(
+            instance.preview_url,
+            Some("http://localhost:3000".to_string())
+        );
         assert_eq!(instance.pid, Some(std::process::id()));
     }
 
@@ -392,7 +395,10 @@ mod tests {
 
         let instance = convert_server_info_to_instance(server_info);
 
-        assert_eq!(instance.config.framework.as_ref().unwrap().name, "Development Server");
+        assert_eq!(
+            instance.config.framework.as_ref().unwrap().name,
+            "Development Server"
+        );
         assert_eq!(instance.config.project_type, ProjectType::Unknown);
     }
 
@@ -431,12 +437,12 @@ mod tests {
         // Test that framework detection works with partial matches
         // Note: Detection is case-sensitive and uses contains()
         let test_cases = vec![
-            ("Next", ProjectType::Nextjs),    // Must match "Next" (capital N)
+            ("Next", ProjectType::Nextjs), // Must match "Next" (capital N)
             ("Next.js", ProjectType::Nextjs),
-            ("React Dev Server", ProjectType::React),  // Must match "React" (capital R)
-            ("Vue CLI Service", ProjectType::Vue),     // Must match "Vue" (capital V)
-            ("Static server", ProjectType::Static),    // Must match "Static" (capital S)
-            ("HTTP Server", ProjectType::Static),      // Must match "HTTP Server"
+            ("React Dev Server", ProjectType::React), // Must match "React" (capital R)
+            ("Vue CLI Service", ProjectType::Vue),    // Must match "Vue" (capital V)
+            ("Static server", ProjectType::Static),   // Must match "Static" (capital S)
+            ("HTTP Server", ProjectType::Static),     // Must match "HTTP Server"
         ];
 
         for (framework_name, expected_type) in test_cases {

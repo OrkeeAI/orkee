@@ -607,7 +607,10 @@ async fn kill_port(port: u16) -> Result<(), Box<dyn std::error::Error>> {
                         if is_process_running_validated(
                             pid,
                             None, // We don't have start time info from lsof
-                            &["node", "python", "npm", "yarn", "bun", "pnpm", "deno", "orkee", "vite"],
+                            &[
+                                "node", "python", "npm", "yarn", "bun", "pnpm", "deno", "orkee",
+                                "vite",
+                            ],
                             None, // We don't have command line info from lsof
                         ) {
                             let _ = std::process::Command::new("kill")
@@ -648,7 +651,10 @@ async fn kill_port(port: u16) -> Result<(), Box<dyn std::error::Error>> {
                             if is_process_running_validated(
                                 pid,
                                 None, // We don't have start time info from netstat
-                                &["node", "python", "npm", "yarn", "bun", "pnpm", "deno", "orkee", "vite"],
+                                &[
+                                    "node", "python", "npm", "yarn", "bun", "pnpm", "deno",
+                                    "orkee", "vite",
+                                ],
                                 None, // We don't have command line info from netstat
                             ) {
                                 // Use taskkill to terminate the process
@@ -668,7 +674,10 @@ async fn kill_port(port: u16) -> Result<(), Box<dyn std::error::Error>> {
                                         );
                                     }
                                     Err(e) => {
-                                        eprintln!("Failed to execute taskkill for PID {}: {}", pid, e);
+                                        eprintln!(
+                                            "Failed to execute taskkill for PID {}: {}",
+                                            pid, e
+                                        );
                                     }
                                 }
                             } else {
