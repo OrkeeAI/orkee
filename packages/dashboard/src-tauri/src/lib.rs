@@ -8,6 +8,7 @@ use tauri_plugin_shell::ShellExt;
 use tracing::{debug, error, info, warn};
 
 mod tray;
+mod server_restart;
 use tray::TrayManager;
 
 // Track cleanup execution to prevent double cleanup
