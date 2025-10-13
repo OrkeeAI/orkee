@@ -1240,11 +1240,22 @@ impl PreviewManager {
                     let process_start_secs = process.start_time();
                     let expected_unix = expected.timestamp() as u64;
 
-                    // Allow 5 second tolerance for clock skew
-                    if process_start_secs.abs_diff(expected_unix) > 5 {
+                    // Use minimal tolerance (1 second) to prevent PID reuse attacks
+                    // Configurable via ORKEE_PROCESS_START_TIME_TOLERANCE_SECS (max 1 second)
+                    let tolerance_secs = crate::env::parse_env_or_default_with_validation(
+                        "ORKEE_PROCESS_START_TIME_TOLERANCE_SECS",
+                        1,
+                        |v| v > 0 && v <= 1,
+                    );
+
+                    if process_start_secs.abs_diff(expected_unix) > tolerance_secs {
                         warn!(
-                            "PID {} exists but start time mismatch - likely PID reuse",
-                            pid
+                            "PID {} exists but start time mismatch (process: {}, expected: {}, diff: {}s, tolerance: {}s) - likely PID reuse",
+                            pid,
+                            process_start_secs,
+                            expected_unix,
+                            process_start_secs.abs_diff(expected_unix),
+                            tolerance_secs
                         );
                         return false;
                     }
