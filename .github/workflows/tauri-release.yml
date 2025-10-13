@@ -1,0 +1,255 @@
+name: Build and Release Tauri Desktop App
+
+on:
+  push:
+    tags: ['desktop-v*']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release (e.g., 0.0.2)'
+        required: true
+        type: string
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+
+jobs:
+  build-tauri:
+    name: Build - ${{ matrix.settings.platform }} (${{ matrix.settings.arch }})
+    runs-on: ${{ matrix.settings.os }}
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        settings:
+          - platform: macos
+            arch: x86_64
+            os: macos-13  # Intel Mac
+            target: x86_64-apple-darwin
+
+          - platform: macos
+            arch: aarch64
+            os: macos-14  # M1 Mac
+            target: aarch64-apple-darwin
+
+          - platform: linux
+            arch: x86_64
+            os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+
+          - platform: windows
+            arch: x86_64
+            os: windows-latest
+            target: x86_64-pc-windows-msvc
+
+    steps:
+      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # v1
+        with:
+          targets: ${{ matrix.settings.target }}
+
+      - name: Install Linux dependencies
+        if: matrix.settings.platform == 'linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libgtk-3-dev \
+            libwebkit2gtk-4.1-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            patchelf
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@735343b667d3e6f658f44d0eca948eb6282f2b76 # v2.0.2
+        with:
+          bun-version: "1.2.23"
+
+      - name: Cache Cargo
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-tauri-${{ matrix.settings.target }}-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-tauri-${{ matrix.settings.target }}-
+            ${{ runner.os }}-tauri-
+
+      - name: Cache Bun dependencies
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('**/bun.lockb') }}
+          restore-keys: ${{ runner.os }}-bun-
+
+      - name: Install dashboard dependencies
+        run: |
+          cd packages/dashboard
+          bun install
+
+      - name: Build dashboard frontend
+        run: |
+          cd packages/dashboard
+          bun run build
+
+      - name: Prepare CLI binary for Tauri
+        shell: bash
+        run: |
+          bash packages/dashboard/prepare-binaries.sh
+
+      - name: Build Tauri app
+        uses: tauri-apps/tauri-action@78ecc2695fc737bea2e51ce12aabfb7e25db32a0 # v0.5.22
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          projectPath: packages/dashboard
+          tauriScript: bun tauri
+          args: --target ${{ matrix.settings.target }}
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: tauri-${{ matrix.settings.platform }}-${{ matrix.settings.arch }}
+          path: |
+            packages/dashboard/src-tauri/target/${{ matrix.settings.target }}/release/bundle/**/*
+          retention-days: 30
+
+  release:
+    name: Create GitHub Release
+    needs: [build-tauri]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/desktop-v')
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@cc203385981b70ca67e1cc392babf9cc229d5806 # v4.1.9
+        with:
+          path: artifacts
+
+      - name: List artifacts
+        run: ls -laR artifacts/
+
+      - name: Generate checksums
+        run: |
+          echo "Generating SHA256 checksums for all artifacts..."
+          cd artifacts
+
+          # Find all installer files
+          find . -type f \( \
+            -name "*.dmg" -o \
+            -name "*.pkg" -o \
+            -name "*.deb" -o \
+            -name "*.rpm" -o \
+            -name "*.AppImage" -o \
+            -name "*.msi" -o \
+            -name "*.exe" \
+          \) -exec sha256sum {} \; > ../checksums.txt
+
+          cd ..
+
+          echo "Checksums generated:"
+          cat checksums.txt
+
+          # Create formatted checksums for release notes
+          echo "# SHA256 Checksums" > checksums-formatted.txt
+          echo "" >> checksums-formatted.txt
+          echo "\`\`\`" >> checksums-formatted.txt
+          cat checksums.txt >> checksums-formatted.txt
+          echo "\`\`\`" >> checksums-formatted.txt
+
+      - name: Extract version from tag
+        id: get_version
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/desktop-v}
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Releasing version: $VERSION"
+
+      - name: Create Release Notes
+        id: release_notes
+        run: |
+          cat > release-notes.md << 'EOF'
+          ## Orkee Desktop v${{ steps.get_version.outputs.version }}
+
+          ### What's Included
+
+          This release includes the Orkee Desktop application with **full CLI and TUI access**.
+
+          #### Installation automatically provides:
+          - 🖥️ **Desktop GUI** - Native application with system tray
+          - 💻 **CLI Commands** - Full command-line interface (`orkee projects list`, etc.)
+          - 🎨 **TUI** - Terminal user interface (`orkee tui`)
+          - 🌐 **Web Dashboard** - Full web interface in native window
+
+          ### Installation
+
+          #### macOS
+          - Download `Orkee_x86_64.dmg` (Intel) or `Orkee_aarch64.dmg` (Apple Silicon)
+          - Open the DMG and drag Orkee to Applications
+          - The `orkee` CLI will be automatically installed to `/usr/local/bin`
+
+          #### Windows
+          - Download `Orkee_x64_en-US.msi`
+          - Run the installer
+          - The `orkee` CLI will be automatically added to your PATH
+
+          #### Linux
+          - **Debian/Ubuntu**: Download the `.deb` file and run `sudo dpkg -i Orkee_*_amd64.deb`
+          - **Fedora/RHEL**: Download the `.rpm` file and run `sudo rpm -i Orkee-*.x86_64.rpm`
+          - **AppImage**: Download the `.AppImage` file, make it executable, and run
+          - The `orkee` CLI will be automatically installed/linked
+
+          ### Verification
+
+          After installation, verify CLI access:
+          ```bash
+          orkee --version
+          orkee projects list
+          orkee tui
+          ```
+
+          ### Alternative: npm Installation
+
+          If you prefer using your browser instead of a native app window:
+          ```bash
+          npm install -g orkee
+          ```
+
+          **Note:** npm installation provides the same functionality (CLI, TUI, web dashboard).
+          The web dashboard opens in your default browser instead of a native window.
+
+          ---
+
+          EOF
+
+          cat checksums-formatted.txt >> release-notes.md
+
+      - name: Create Release
+        uses: softprops/action-gh-release@6da8fa9354ddfdc4aeace5fc48d7f679b5214090 # v2.4.1
+        with:
+          files: |
+            artifacts/**/*.dmg
+            artifacts/**/*.pkg
+            artifacts/**/*.deb
+            artifacts/**/*.rpm
+            artifacts/**/*.AppImage
+            artifacts/**/*.msi
+            artifacts/**/*.exe
+            checksums.txt
+          body_path: release-notes.md
+          generate_release_notes: false
+          draft: false
+          prerelease: ${{ contains(github.ref, '-rc') || contains(github.ref, '-beta') || contains(github.ref, '-alpha') }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
