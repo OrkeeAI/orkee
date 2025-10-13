@@ -520,8 +520,87 @@ Report security issues privately:
 - [x] Backup and recovery tested
 - [x] Monitoring and alerting configured
 
+## Desktop Application Installer Security
+
+### Installation Security Measures ✅
+
+**Implementation**: `packages/dashboard/src-tauri/`
+
+The Orkee Desktop application includes native installers with automatic CLI installation. Security considerations:
+
+#### Windows Installer
+- **PATH Modification**: Uses direct registry access (safer than setx)
+- **Permission Model**: Supports both per-user (%LOCALAPPDATA%) and per-machine (Program Files) installations
+- **Duplication Prevention**: Checks for existing PATH entries before adding
+- **Clean Uninstall**: Removes PATH entries on uninstall to prevent orphaned entries
+- **Risk**: Requires admin privileges for per-machine install (standard practice)
+
+#### macOS Installer
+- **Location Detection**: Checks multiple install locations (not hardcoded)
+- **Permission Model**: Requires admin privileges to write to `/usr/local/bin` (standard practice)
+- **Binary Verification**: Checks binary exists before copying
+- **Graceful Failure**: Non-fatal errors with helpful messages
+- **Risk**: Modifies `/usr/local/bin` (standard system location)
+
+#### Linux Installers (.deb/.rpm)
+- **Symlink Approach**: Prefers symlinks over copies (easier updates)
+- **Fallback Safety**: Falls back to copy if symlink fails
+- **Version Verification**: Optional version checking via ORKEE_VERSION env var
+- **Permission Handling**: Graceful degradation for insufficient permissions
+- **Risk**: Requires root for package installation (standard practice)
+
+#### Linux AppImage
+- **No Auto-Install**: AppImages don't support post-install hooks (by design)
+- **Manual Setup**: Clear documentation provided for manual CLI extraction
+- **User Control**: Users choose installation location (no sudo required)
+- **Risk**: Users must manually extract and install CLI binary
+
+### Installer Security Best Practices
+
+**Binary Verification:**
+- ✅ Installer scripts verify binary exists before operations
+- ✅ Target paths validated before file operations
+- ✅ Optional version verification for Linux packages
+
+**Path Security:**
+- ✅ No arbitrary path modification (only designated binary directories)
+- ✅ PATH duplication checks prevent accumulation
+- ✅ Clean uninstall removes PATH entries
+
+**Permission Handling:**
+- ✅ Graceful failure for insufficient permissions
+- ✅ Clear error messages guide users
+- ✅ Per-user options available (Windows, AppImage)
+
+**Script Quality:**
+- ✅ Shellcheck validation in CI pipeline
+- ✅ Portable shebang (`#!/usr/bin/env bash`)
+- ✅ Error handling with `set -e`
+
+### Verification & Trust
+
+**Binary Integrity:**
+Users can verify downloaded binaries:
+```bash
+# Verify checksum from GitHub releases
+sha256sum Orkee_*.dmg
+# Compare against checksums.txt in release assets
+```
+
+**Code Signing Status:**
+- ⚠️ Currently unsigned (requires Apple Developer certificate)
+- ⚠️ macOS Gatekeeper may show warnings
+- Future: Will add code signing for production releases
+
+**Script Auditing:**
+All installer scripts are:
+- Open source and auditable at `packages/dashboard/src-tauri/`
+- Validated by shellcheck in CI
+- Simple, readable bash scripts (no obfuscation)
+
 ## Related Documentation
 
+- **[packages/dashboard/src-tauri/INSTALLER_README.md](packages/dashboard/src-tauri/INSTALLER_README.md)** - Installer implementation details
 - **[PRODUCTION_STATUS_FINAL.md](PRODUCTION_STATUS_FINAL.md)** - Complete production readiness status
 - **[deployment/README.md](deployment/README.md)** - Deployment guide with security hardening
 - **[DOCS.md](DOCS.md)** - Complete configuration reference including security settings
