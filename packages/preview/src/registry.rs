@@ -249,16 +249,23 @@ impl ServerRegistry {
     ) -> Result<(), Box<dyn std::error::Error>> {
         let entry_id = entry.id.clone();
 
-        // Clone registry for disk I/O
+        // Clone current registry and apply changes to the clone
         let snapshot = {
-            let mut registry = self.entries.write().await;
-            registry.insert(entry_id, entry);
-            registry.clone()
+            let registry = self.entries.read().await;
+            let mut snapshot = registry.clone();
+            snapshot.insert(entry_id.clone(), entry);
+            snapshot
         };
         // Lock is released here before disk I/O
 
-        // Save to disk (transactional boundary)
+        // Save to disk first (transactional boundary)
         self.save_entries_to_disk(&snapshot).await?;
+
+        // Only update in-memory state after successful disk write
+        {
+            let mut registry = self.entries.write().await;
+            *registry = snapshot;
+        }
 
         Ok(())
     }
@@ -284,16 +291,23 @@ impl ServerRegistry {
         &self,
         server_id: &str,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        // Clone registry for disk I/O
+        // Clone current registry and apply changes to the clone
         let snapshot = {
-            let mut registry = self.entries.write().await;
-            registry.remove(server_id);
-            registry.clone()
+            let registry = self.entries.read().await;
+            let mut snapshot = registry.clone();
+            snapshot.remove(server_id);
+            snapshot
         };
         // Lock is released here before disk I/O
 
-        // Save to disk (transactional boundary)
+        // Save to disk first (transactional boundary)
         self.save_entries_to_disk(&snapshot).await?;
+
+        // Only update in-memory state after successful disk write
+        {
+            let mut registry = self.entries.write().await;
+            *registry = snapshot;
+        }
 
         Ok(())
     }
@@ -348,22 +362,29 @@ impl ServerRegistry {
         server_id: &str,
         status: DevServerStatus,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        // Clone registry for disk I/O
+        // Clone current registry and apply changes to the clone
         let snapshot = {
-            let mut registry = self.entries.write().await;
+            let registry = self.entries.read().await;
+            let mut snapshot = registry.clone();
 
-            // Update server status and timestamp
-            if let Some(entry) = registry.get_mut(server_id) {
+            // Update server status and timestamp in the clone
+            if let Some(entry) = snapshot.get_mut(server_id) {
                 entry.status = status;
                 entry.last_seen = Utc::now();
             }
 
-            registry.clone()
+            snapshot
         };
         // Lock is released here before disk I/O
 
-        // Save to disk (transactional boundary)
+        // Save to disk first (transactional boundary)
         self.save_entries_to_disk(&snapshot).await?;
+
+        // Only update in-memory state after successful disk write
+        {
+            let mut registry = self.entries.write().await;
+            *registry = snapshot;
+        }
 
         Ok(())
     }
@@ -401,9 +422,9 @@ impl ServerRegistry {
     pub async fn cleanup_stale_entries(&self) -> Result<(), Box<dyn std::error::Error>> {
         let cutoff = Utc::now() - chrono::Duration::minutes(self.stale_timeout_minutes);
 
-        // Clone registry for disk I/O
+        // Clone current registry and apply changes to the clone
         let (snapshot, removed_any) = {
-            let mut registry = self.entries.write().await;
+            let registry = self.entries.read().await;
             let mut to_remove = Vec::new();
 
             // Identify stale entries
@@ -425,22 +446,27 @@ impl ServerRegistry {
                 }
             }
 
-            // Remove stale entries
+            // Remove stale entries from the clone
             let removed_any = !to_remove.is_empty();
+            let mut snapshot = registry.clone();
             if removed_any {
                 for id in &to_remove {
                     warn!("Removing stale server entry: {}", id);
-                    registry.remove(id);
+                    snapshot.remove(id);
                 }
             }
 
-            (registry.clone(), removed_any)
+            (snapshot, removed_any)
         };
         // Lock is released here before disk I/O
 
-        // Save to disk if we removed entries
+        // Save to disk first if we removed entries (transactional boundary)
         if removed_any {
             self.save_entries_to_disk(&snapshot).await?;
+
+            // Only update in-memory state after successful disk write
+            let mut registry = self.entries.write().await;
+            *registry = snapshot;
         }
 
         Ok(())
