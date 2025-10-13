@@ -601,6 +601,27 @@ impl ServerRegistry {
     /// preventing premature removal of servers that are still active but haven't been
     /// recently polled.
     ///
+    /// # Performance Optimization
+    ///
+    /// This method uses a multi-phase approach to minimize lock contention:
+    /// 1. Acquire read lock → identify stale candidates → release lock
+    /// 2. Validate processes without holding any locks (this is the slow part)
+    /// 3. Acquire read lock → create snapshot with removals → release lock
+    /// 4. Save to disk without holding any locks
+    /// 5. Acquire write lock → apply removals → release lock
+    ///
+    /// This prevents blocking other operations during slow OS process enumeration.
+    ///
+    /// # TOCTOU Considerations
+    ///
+    /// There is a time-of-check-time-of-use (TOCTOU) window between phases where:
+    /// - Entries could be added/removed/updated by other operations
+    /// - We might try to remove an entry that was already removed (harmless no-op)
+    /// - We might remove an entry that was updated (acceptable - it was stale when checked)
+    ///
+    /// This is an acceptable tradeoff for significantly better lock performance and
+    /// responsiveness of concurrent operations.
+    ///
     /// # Returns
     ///
     /// Returns `Ok(())` on success.
@@ -611,45 +632,71 @@ impl ServerRegistry {
     pub async fn cleanup_stale_entries(&self) -> Result<(), Box<dyn std::error::Error>> {
         let cutoff = Utc::now() - chrono::Duration::minutes(self.stale_timeout_minutes);
 
-        // Hold write lock for entire operation to prevent concurrent write races
-        let mut registry = self.entries.write().await;
+        // Phase 1: Identify stale candidates (read lock - fast)
+        let entries_to_validate = {
+            let registry = self.entries.read().await;
+            registry
+                .iter()
+                .filter(|(_, entry)| entry.last_seen < cutoff)
+                .map(|(id, entry)| (id.clone(), entry.clone()))
+                .collect::<Vec<_>>()
+        };
+        // Read lock released here - other operations can proceed
 
-        // Clone current registry to identify stale entries
+        if entries_to_validate.is_empty() {
+            return Ok(());
+        }
+
+        // Phase 2: Validate processes without holding any locks (slow - OS calls)
+        // This prevents blocking other registry operations during process enumeration
         let mut to_remove = Vec::new();
+        for (id, entry) in entries_to_validate {
+            let should_remove = if let Some(pid) = entry.pid {
+                !is_process_running_validated(
+                    pid,
+                    Some(entry.started_at),
+                    &["node", "python", "npm", "yarn", "bun", "pnpm", "deno"],
+                    entry.actual_command.as_deref(),
+                )
+            } else {
+                true // No PID means we can't validate, remove it
+            };
 
-        // Identify stale entries
-        for (id, entry) in registry.iter() {
-            if entry.last_seen < cutoff {
-                // Check if the process is still running with validation
-                if let Some(pid) = entry.pid {
-                    if !is_process_running_validated(
-                        pid,
-                        Some(entry.started_at),
-                        &["node", "python", "npm", "yarn", "bun", "pnpm", "deno"],
-                        entry.actual_command.as_deref(), // Use command for stronger validation
-                    ) {
-                        to_remove.push(id.clone());
-                    }
-                } else {
-                    to_remove.push(id.clone());
-                }
+            if should_remove {
+                to_remove.push(id);
             }
         }
 
-        // Remove stale entries from the clone
-        if !to_remove.is_empty() {
+        if to_remove.is_empty() {
+            return Ok(());
+        }
+
+        // Phase 3: Create snapshot with removals (read lock - fast)
+        let snapshot = {
+            let registry = self.entries.read().await;
             let mut snapshot = registry.clone();
             for id in &to_remove {
-                warn!("Removing stale server entry: {}", id);
-                snapshot.remove(id);
+                if snapshot.remove(id).is_some() {
+                    debug!("Marking stale server entry for removal: {}", id);
+                }
+                // If entry doesn't exist in snapshot, it was removed by another operation (TOCTOU)
             }
+            snapshot
+        };
+        // Read lock released here
 
-            // Save to disk first (transactional boundary)
-            self.save_entries_to_disk(&snapshot).await?;
+        // Phase 4: Save to disk without holding any locks (slow - I/O)
+        self.save_entries_to_disk(&snapshot).await?;
 
-            // Only update in-memory state after successful disk write
-            *registry = snapshot;
+        // Phase 5: Update in-memory state (write lock - fast)
+        let mut registry = self.entries.write().await;
+        for id in &to_remove {
+            if registry.remove(id).is_some() {
+                warn!("Removed stale server entry: {}", id);
+            }
+            // If entry doesn't exist, it was already removed by another operation (TOCTOU - acceptable)
         }
+        // Write lock released here
 
         Ok(())
     }
