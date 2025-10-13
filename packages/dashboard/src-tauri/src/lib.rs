@@ -298,6 +298,193 @@ fn get_api_port(state: tauri::State<CliServerState>) -> u16 {
     state.api_port
 }
 
+/// Check if the orkee CLI binary is installed in the system PATH.
+///
+/// Uses the `which` command on Unix systems to determine if `orkee` is available.
+///
+/// # Returns
+///
+/// Returns `true` if the CLI is installed, `false` otherwise.
+#[tauri::command]
+fn check_cli_installed() -> bool {
+    #[cfg(unix)]
+    {
+        std::process::Command::new("which")
+            .arg("orkee")
+            .output()
+            .map(|output| output.status.success())
+            .unwrap_or(false)
+    }
+
+    #[cfg(not(unix))]
+    {
+        // On Windows, check using 'where' command
+        std::process::Command::new("where")
+            .arg("orkee")
+            .output()
+            .map(|output| output.status.success())
+            .unwrap_or(false)
+    }
+}
+
+/// Install the orkee CLI binary to /usr/local/bin on macOS.
+///
+/// Copies the binary from the app bundle to `/usr/local/bin/orkee` using sudo
+/// for privilege escalation. This allows users to access the CLI from any terminal.
+///
+/// # Arguments
+///
+/// * `app_handle` - The Tauri application handle to access resource paths
+///
+/// # Returns
+///
+/// Returns `Ok(String)` with success message, or `Err(String)` with error details.
+///
+/// # Errors
+///
+/// Returns error if:
+/// - Not running on macOS
+/// - Binary not found in app bundle
+/// - Sudo command fails
+/// - File operations fail
+#[tauri::command]
+async fn install_cli_macos(app_handle: tauri::AppHandle) -> Result<String, String> {
+    #[cfg(not(target_os = "macos"))]
+    {
+        return Err("This command is only available on macOS".to_string());
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        use std::path::PathBuf;
+
+        // Get the binary path from the app bundle
+        let resource_dir = app_handle.path().resource_dir()
+            .map_err(|e| format!("Failed to get resource directory: {}", e))?;
+
+        let source_path = resource_dir.join("orkee");
+
+        // Verify source binary exists
+        if !source_path.exists() {
+            return Err(format!(
+                "orkee binary not found in app bundle at: {}",
+                source_path.display()
+            ));
+        }
+
+        let target_path = "/usr/local/bin/orkee";
+
+        // Use osascript to prompt for admin password and run installation
+        // This provides a native macOS authentication dialog
+        let script = format!(
+            r#"do shell script "mkdir -p /usr/local/bin && cp '{}' '{}' && chmod +x '{}'" with administrator privileges"#,
+            source_path.display(),
+            target_path,
+            target_path
+        );
+
+        let output = std::process::Command::new("osascript")
+            .arg("-e")
+            .arg(&script)
+            .output()
+            .map_err(|e| format!("Failed to execute installation command: {}", e))?;
+
+        if output.status.success() {
+            Ok(format!("CLI successfully installed to {}", target_path))
+        } else {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            Err(format!("Installation failed: {}", stderr))
+        }
+    }
+}
+
+/// Get the user's preference for showing the CLI installation prompt.
+///
+/// Reads from ~/.orkee/config.json to determine if the prompt should be shown.
+///
+/// # Returns
+///
+/// Returns one of: "show", "later", or "never"
+#[tauri::command]
+fn get_cli_prompt_preference() -> String {
+    let home_dir = match dirs::home_dir() {
+        Some(dir) => dir,
+        None => return "show".to_string(), // Default to showing if can't read home
+    };
+
+    let config_path = home_dir.join(".orkee").join("config.json");
+
+    // If config doesn't exist, default to showing prompt
+    if !config_path.exists() {
+        return "show".to_string();
+    }
+
+    // Read and parse config
+    match std::fs::read_to_string(&config_path) {
+        Ok(contents) => {
+            match serde_json::from_str::<serde_json::Value>(&contents) {
+                Ok(config) => {
+                    config
+                        .get("cli_prompt_preference")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("show")
+                        .to_string()
+                }
+                Err(_) => "show".to_string(),
+            }
+        }
+        Err(_) => "show".to_string(),
+    }
+}
+
+/// Set the user's preference for showing the CLI installation prompt.
+///
+/// Writes to ~/.orkee/config.json to persist the user's choice.
+///
+/// # Arguments
+///
+/// * `preference` - One of: "show", "later", or "never"
+///
+/// # Returns
+///
+/// Returns `Ok(())` on success, or `Err(String)` with error details.
+#[tauri::command]
+fn set_cli_prompt_preference(preference: String) -> Result<(), String> {
+    let home_dir = dirs::home_dir()
+        .ok_or_else(|| "Could not determine home directory".to_string())?;
+
+    let orkee_dir = home_dir.join(".orkee");
+    let config_path = orkee_dir.join("config.json");
+
+    // Create .orkee directory if it doesn't exist
+    std::fs::create_dir_all(&orkee_dir)
+        .map_err(|e| format!("Failed to create .orkee directory: {}", e))?;
+
+    // Read existing config or create new one
+    let mut config = if config_path.exists() {
+        let contents = std::fs::read_to_string(&config_path)
+            .map_err(|e| format!("Failed to read config file: {}", e))?;
+        serde_json::from_str::<serde_json::Value>(&contents)
+            .unwrap_or(serde_json::json!({}))
+    } else {
+        serde_json::json!({})
+    };
+
+    // Update the preference
+    if let Some(obj) = config.as_object_mut() {
+        obj.insert("cli_prompt_preference".to_string(), serde_json::Value::String(preference));
+    }
+
+    // Write back to file
+    let contents = serde_json::to_string_pretty(&config)
+        .map_err(|e| format!("Failed to serialize config: {}", e))?;
+
+    std::fs::write(&config_path, contents)
+        .map_err(|e| format!("Failed to write config file: {}", e))?;
+
+    Ok(())
+}
+
 /// Find an available port dynamically.
 ///
 /// Searches for an unused port on the system that can be bound for the API server.
@@ -515,7 +702,13 @@ pub fn run() {
 
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![get_api_port])
+        .invoke_handler(tauri::generate_handler![
+            get_api_port,
+            check_cli_installed,
+            install_cli_macos,
+            get_cli_prompt_preference,
+            set_cli_prompt_preference
+        ])
         .on_window_event(|window, event| {
             match event {
                 tauri::WindowEvent::CloseRequested { api, .. } => {
