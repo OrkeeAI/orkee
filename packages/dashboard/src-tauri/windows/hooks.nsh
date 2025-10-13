@@ -5,10 +5,6 @@
 !include "StrFunc.nsh"
 !include "WordFunc.nsh"
 
-; Declare string functions we need
-${StrFunc_Define} StrContains
-${WordFunc_Define} WordReplace
-
 ; Constants
 !define MAX_PATH_LENGTH 2047        ; Windows environment variable length limit
 !define BROADCAST_TIMEOUT 10000     ; Timeout for WM_SETTINGCHANGE broadcast (milliseconds)
