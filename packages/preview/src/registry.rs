@@ -199,12 +199,45 @@ impl ServerRegistry {
 
         // Set restrictive file permissions (owner read/write only)
         // This prevents other local users from reading sensitive server info or injecting malicious entries
+        Self::set_registry_permissions(&self.registry_path)?;
+
+        debug!("Saved {} servers to registry", entries.len());
+        Ok(())
+    }
+
+    /// Set restrictive file permissions on the registry file.
+    ///
+    /// Configures the registry file to be readable and writable only by the current user
+    /// (owner). This prevents other local users from reading sensitive server information
+    /// or injecting malicious entries.
+    ///
+    /// # Platform-Specific Behavior
+    ///
+    /// - **Unix/Linux/macOS**: Sets file mode to 0600 (rw-------)
+    /// - **Windows**: Sets DACL to grant only the current user read/write access
+    ///
+    /// # Arguments
+    ///
+    /// * `path` - Path to the registry file to secure
+    ///
+    /// # Returns
+    ///
+    /// Returns `Ok(())` on success.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if permissions cannot be set. On Windows, this may fail if:
+    /// - Process token cannot be opened
+    /// - User SID cannot be retrieved
+    /// - ACL creation fails
+    /// - File handle cannot be opened
+    fn set_registry_permissions(path: &std::path::Path) -> Result<(), Box<dyn std::error::Error>> {
         #[cfg(unix)]
         {
             use std::os::unix::fs::PermissionsExt;
-            let mut perms = fs::metadata(&self.registry_path)?.permissions();
+            let mut perms = fs::metadata(path)?.permissions();
             perms.set_mode(0o600); // Owner read/write only (rw-------)
-            fs::set_permissions(&self.registry_path, perms)?;
+            fs::set_permissions(path, perms)?;
             debug!("Set registry file permissions to 0600 (owner read/write only)");
         }
 
@@ -280,8 +313,7 @@ impl ServerRegistry {
                 }
 
                 // Open the file handle for setting security
-                let path_wide: Vec<u16> = self
-                    .registry_path
+                let path_wide: Vec<u16> = path
                     .to_str()
                     .unwrap_or("")
                     .encode_utf16()
@@ -333,7 +365,6 @@ impl ServerRegistry {
             }
         }
 
-        debug!("Saved {} servers to registry", entries.len());
         Ok(())
     }
 
