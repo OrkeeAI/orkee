@@ -1,6 +1,7 @@
 // ABOUTME: Server restart logic for Tauri tray menu
 // ABOUTME: Handles stopping, verifying shutdown, and restarting development servers with retry logic
 
+use crate::tray::validate_project_id;
 use std::time::Duration;
 use tracing::{debug, error, info};
 use urlencoding::encode;
@@ -40,6 +41,12 @@ fn create_http_client() -> Result<reqwest::Client, reqwest::Error> {
 /// is done within the spawned task via logging.
 pub fn restart_server(api_port: u16, project_id: String) {
     tauri::async_runtime::spawn(async move {
+        // Validate project_id before making API calls
+        if let Err(e) = validate_project_id(&project_id) {
+            error!("Refusing to restart server with invalid project ID: {}", e);
+            return;
+        }
+
         let client = match create_http_client() {
             Ok(c) => c,
             Err(e) => {

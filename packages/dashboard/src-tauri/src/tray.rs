@@ -185,6 +185,51 @@ fn sanitize_menu_text(text: &str) -> String {
         .collect()
 }
 
+/// Validate project_id to prevent path traversal and injection attacks.
+///
+/// Checks that the project_id doesn't contain dangerous patterns that could
+/// be used for path traversal, URL injection, or other security exploits.
+///
+/// # Arguments
+///
+/// * `project_id` - The project ID to validate
+///
+/// # Returns
+///
+/// Returns `Ok(())` if valid, or `Err(String)` with an error message if invalid.
+pub(crate) fn validate_project_id(project_id: &str) -> Result<(), String> {
+    // Check for empty project_id
+    if project_id.is_empty() {
+        return Err("Project ID cannot be empty".to_string());
+    }
+
+    // Check for path traversal sequences
+    if project_id.contains("..") {
+        return Err(format!(
+            "Invalid project ID '{}': contains path traversal sequence",
+            project_id
+        ));
+    }
+
+    // Check for null bytes (can cause security issues in some contexts)
+    if project_id.contains('\0') {
+        return Err(format!(
+            "Invalid project ID '{}': contains null byte",
+            project_id
+        ));
+    }
+
+    // Check for newlines or control characters (can cause log injection)
+    if project_id.chars().any(|c| c.is_control()) {
+        return Err(format!(
+            "Invalid project ID '{}': contains control characters",
+            project_id
+        ));
+    }
+
+    Ok(())
+}
+
 #[derive(Clone)]
 pub struct TrayManager {
     pub app_handle: AppHandle,
@@ -491,6 +536,12 @@ impl TrayManager {
 
     fn stop_server(api_port: u16, project_id: String) {
         tauri::async_runtime::spawn(async move {
+            // Validate project_id before making API call
+            if let Err(e) = validate_project_id(&project_id) {
+                error!("Refusing to stop server with invalid project ID: {}", e);
+                return;
+            }
+
             let client = match Self::create_http_client() {
                 Ok(c) => c,
                 Err(e) => {

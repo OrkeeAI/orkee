@@ -397,6 +397,22 @@ pub fn run() {
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_clipboard_manager::init())
+        .plugin(tauri_plugin_single_instance::init(|app, argv, cwd| {
+            // When another instance tries to launch, bring existing window to front
+            info!("Another instance attempted to start (argv: {:?}, cwd: {:?})", argv, cwd);
+            info!("Bringing existing window to front instead");
+
+            if let Some(window) = app.get_webview_window("main") {
+                if let Err(e) = window.show() {
+                    error!("Failed to show window from second instance: {}", e);
+                }
+                if let Err(e) = window.set_focus() {
+                    error!("Failed to focus window from second instance: {}", e);
+                }
+            } else {
+                error!("Main window not found when handling second instance");
+            }
+        }))
         .setup(|app| {
             // Set the activation policy on macOS
             //
