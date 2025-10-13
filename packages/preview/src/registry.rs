@@ -266,14 +266,12 @@ impl ServerRegistry {
                 use windows::Win32::Foundation::PSID;
                 use windows::Win32::Security::Authorization::{
                     SetEntriesInAclW, SetSecurityInfo, EXPLICIT_ACCESS_W, SE_FILE_OBJECT,
+                    SET_ACCESS, TRUSTEE_IS_SID, TRUSTEE_W,
                 };
                 use windows::Win32::Security::{
                     GetTokenInformation, TokenUser, ACL, DACL_SECURITY_INFORMATION,
-                    PSECURITY_DESCRIPTOR, TOKEN_QUERY, TOKEN_USER,
-                };
-                use windows::Win32::Security::{
-                    GRANT_ACCESS, OBJECT_INHERIT_ACE, SET_ACCESS, SUB_CONTAINERS_AND_OBJECTS_INHERIT,
-                    TRUSTEE_IS_SID, TRUSTEE_W,
+                    OBJECT_INHERIT_ACE, SUB_CONTAINERS_AND_OBJECTS_INHERIT,
+                    TOKEN_QUERY, TOKEN_USER,
                 };
                 use windows::Win32::Storage::FileSystem::{
                     CreateFileW, FILE_GENERIC_READ, FILE_GENERIC_WRITE, FILE_SHARE_DELETE,
@@ -378,10 +376,10 @@ impl ServerRegistry {
                     file_handle.unwrap(),
                     SE_FILE_OBJECT,
                     DACL_SECURITY_INFORMATION,
-                    PSID::default(),
-                    PSID::default(),
+                    None,  // No owner SID change
+                    None,  // No group SID change
                     Some(new_acl as *const ACL),
-                    PSECURITY_DESCRIPTOR::default(),
+                    None,  // No security descriptor
                 );
 
                 // Clean up
