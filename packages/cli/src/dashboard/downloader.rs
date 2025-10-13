@@ -771,7 +771,8 @@ pub async fn download_dashboard(
     if temp_file.exists() {
         if let Err(e) = fs::remove_file(&temp_file) {
             eprintln!(
-                "⚠️  Warning: Failed to remove temporary file {}: {}",
+                "{} Warning: Failed to remove temporary file {}: {}",
+                "⚠️".yellow(),
                 temp_file.display(),
                 e
             );
@@ -788,16 +789,24 @@ pub async fn download_dashboard(
         // Restore backup files
         if backup_version.exists() {
             if let Err(e) = fs::rename(&backup_version, &version_file) {
-                eprintln!("⚠️  Warning: Failed to restore version backup: {}", e);
+                eprintln!(
+                    "{} Warning: Failed to restore version backup: {}",
+                    "⚠️".yellow(),
+                    e
+                );
             } else {
-                eprintln!("✓ Restored version file from backup");
+                eprintln!("{} Restored version file from backup", "✓".green());
             }
         }
         if backup_mode.exists() {
             if let Err(e) = fs::rename(&backup_mode, &mode_file) {
-                eprintln!("⚠️  Warning: Failed to restore mode backup: {}", e);
+                eprintln!(
+                    "{} Warning: Failed to restore mode backup: {}",
+                    "⚠️".yellow(),
+                    e
+                );
             } else {
-                eprintln!("✓ Restored mode file from backup");
+                eprintln!("{} Restored mode file from backup", "✓".green());
             }
         }
 
