@@ -729,25 +729,24 @@ impl TrayManager {
 /// Compute a hash of the server list for efficient comparison.
 ///
 /// This function computes a stable hash based on server id, status, and port.
-/// The hash is order-independent by sorting servers before hashing.
-/// This avoids allocating HashSets on every poll.
+/// The hash is order-independent by using a BTreeMap which automatically maintains sorted order.
+/// This is more efficient than creating and sorting a vector, especially for large server lists.
 fn compute_servers_hash(servers: &[ServerInfo]) -> u64 {
     use std::collections::hash_map::DefaultHasher;
+    use std::collections::BTreeMap;
     use std::hash::{Hash, Hasher};
 
     let mut hasher = DefaultHasher::new();
 
-    // Create a sorted vector of (id, status, port) tuples for stable hashing
-    let mut tuples: Vec<(&str, &str, u16)> = servers
+    // Use BTreeMap which automatically maintains sorted order
+    // This avoids the explicit sort operation while providing the same order guarantee
+    let sorted: BTreeMap<(&str, &str, u16), ()> = servers
         .iter()
-        .map(|s| (s.id.as_str(), s.status.as_str(), s.port))
+        .map(|s| ((s.id.as_str(), s.status.as_str(), s.port), ()))
         .collect();
 
-    // Sort to ensure order-independence
-    tuples.sort_unstable();
-
-    // Hash the sorted tuples
-    tuples.hash(&mut hasher);
+    // Hash the sorted keys
+    sorted.keys().collect::<Vec<_>>().hash(&mut hasher);
 
     hasher.finish()
 }

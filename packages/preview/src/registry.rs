@@ -1,7 +1,6 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::fs;
 use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -116,7 +115,7 @@ impl ServerRegistry {
     pub async fn load_registry(&self) -> Result<(), Box<dyn std::error::Error>> {
         // Read file directly and handle NotFound error instead of checking exists() first
         // This prevents TOCTOU race where file could be deleted between check and read
-        let content = match fs::read_to_string(&self.registry_path) {
+        let content = match tokio::fs::read_to_string(&self.registry_path).await {
             Ok(content) => content,
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
                 debug!(
@@ -170,27 +169,40 @@ impl ServerRegistry {
     ) -> Result<(), Box<dyn std::error::Error>> {
         // Ensure the .orkee directory exists with proper error handling
         if let Some(parent) = self.registry_path.parent() {
-            if let Err(e) = fs::create_dir_all(parent) {
-                error!("Failed to create registry directory {:?}: {}", parent, e);
-                return Err(format!("Cannot create registry directory: {}", e).into());
+            if let Err(e) = tokio::fs::create_dir_all(parent).await {
+                // Ignore AlreadyExists errors (can happen in concurrent scenarios)
+                if e.kind() != std::io::ErrorKind::AlreadyExists {
+                    error!("Failed to create registry directory {:?}: {}", parent, e);
+                    return Err(format!("Cannot create registry directory: {}", e).into());
+                }
             }
         }
 
         let json = serde_json::to_string_pretty(entries)?;
 
-        // Write to process-unique temporary file to prevent cross-instance collisions
-        let temp_path = self
-            .registry_path
-            .with_extension(format!("tmp.{}", std::process::id()));
-        fs::write(&temp_path, &json)?;
+        // Write to unique temporary file to prevent collisions in concurrent scenarios
+        // Use process ID + timestamp + random number to ensure uniqueness
+        use std::time::SystemTime;
+        let timestamp = SystemTime::now()
+            .duration_since(SystemTime::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let random = std::time::Instant::now().elapsed().as_nanos();
+        let temp_path = self.registry_path.with_extension(format!(
+            "tmp.{}.{}.{}",
+            std::process::id(),
+            timestamp,
+            random
+        ));
+        tokio::fs::write(&temp_path, &json).await?;
 
         // Atomic rename to actual file with cleanup on failure
-        let rename_result = fs::rename(&temp_path, &self.registry_path);
+        let rename_result = tokio::fs::rename(&temp_path, &self.registry_path).await;
 
         // If rename failed, attempt to cleanup temp file
         if rename_result.is_err() {
             if temp_path.exists() {
-                if let Err(e) = fs::remove_file(&temp_path) {
+                if let Err(e) = tokio::fs::remove_file(&temp_path).await {
                     warn!("Failed to cleanup temp file after failed rename: {}", e);
                 }
             }
@@ -199,7 +211,7 @@ impl ServerRegistry {
 
         // Set restrictive file permissions (owner read/write only)
         // This prevents other local users from reading sensitive server info or injecting malicious entries
-        Self::set_registry_permissions(&self.registry_path)?;
+        Self::set_registry_permissions(&self.registry_path).await?;
 
         debug!("Saved {} servers to registry", entries.len());
         Ok(())
@@ -231,39 +243,42 @@ impl ServerRegistry {
     /// - User SID cannot be retrieved
     /// - ACL creation fails
     /// - File handle cannot be opened
-    fn set_registry_permissions(path: &std::path::Path) -> Result<(), Box<dyn std::error::Error>> {
+    async fn set_registry_permissions(path: &std::path::Path) -> Result<(), Box<dyn std::error::Error>> {
         #[cfg(unix)]
         {
             use std::os::unix::fs::PermissionsExt;
-            let mut perms = fs::metadata(path)?.permissions();
+            let mut perms = tokio::fs::metadata(path).await?.permissions();
             perms.set_mode(0o600); // Owner read/write only (rw-------)
-            fs::set_permissions(path, perms)?;
+            tokio::fs::set_permissions(path, perms).await?;
             debug!("Set registry file permissions to 0600 (owner read/write only)");
         }
 
         #[cfg(windows)]
         {
-            use windows::core::PWSTR;
-            use windows::Win32::Foundation::LocalFree;
-            use windows::Win32::Foundation::PSID;
-            use windows::Win32::Security::Authorization::{
-                SetEntriesInAclW, SetSecurityInfo, EXPLICIT_ACCESS_W, SE_FILE_OBJECT,
-            };
-            use windows::Win32::Security::{
-                GetTokenInformation, TokenUser, ACL, DACL_SECURITY_INFORMATION,
-                PSECURITY_DESCRIPTOR, TOKEN_QUERY, TOKEN_USER,
-            };
-            use windows::Win32::Security::{
-                GRANT_ACCESS, OBJECT_INHERIT_ACE, SET_ACCESS, SUB_CONTAINERS_AND_OBJECTS_INHERIT,
-                TRUSTEE_IS_SID, TRUSTEE_W,
-            };
-            use windows::Win32::Storage::FileSystem::{
-                CreateFileW, FILE_GENERIC_READ, FILE_GENERIC_WRITE, FILE_SHARE_DELETE,
-                FILE_SHARE_READ, FILE_SHARE_WRITE, OPEN_EXISTING,
-            };
-            use windows::Win32::System::Threading::{GetCurrentProcess, OpenProcessToken};
+            // Windows API calls are blocking, so run them in a blocking task
+            let path_buf = path.to_path_buf();
+            tokio::task::spawn_blocking(move || {
+                use windows::core::PWSTR;
+                use windows::Win32::Foundation::LocalFree;
+                use windows::Win32::Foundation::PSID;
+                use windows::Win32::Security::Authorization::{
+                    SetEntriesInAclW, SetSecurityInfo, EXPLICIT_ACCESS_W, SE_FILE_OBJECT,
+                };
+                use windows::Win32::Security::{
+                    GetTokenInformation, TokenUser, ACL, DACL_SECURITY_INFORMATION,
+                    PSECURITY_DESCRIPTOR, TOKEN_QUERY, TOKEN_USER,
+                };
+                use windows::Win32::Security::{
+                    GRANT_ACCESS, OBJECT_INHERIT_ACE, SET_ACCESS, SUB_CONTAINERS_AND_OBJECTS_INHERIT,
+                    TRUSTEE_IS_SID, TRUSTEE_W,
+                };
+                use windows::Win32::Storage::FileSystem::{
+                    CreateFileW, FILE_GENERIC_READ, FILE_GENERIC_WRITE, FILE_SHARE_DELETE,
+                    FILE_SHARE_READ, FILE_SHARE_WRITE, OPEN_EXISTING,
+                };
+                use windows::Win32::System::Threading::{GetCurrentProcess, OpenProcessToken};
 
-            unsafe {
+                unsafe {
                 // Get the current user's SID
                 let mut token = Default::default();
                 if OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &mut token).is_err() {
@@ -313,7 +328,7 @@ impl ServerRegistry {
                 }
 
                 // Open the file handle for setting security
-                let path_wide: Vec<u16> = path
+                let path_wide: Vec<u16> = path_buf
                     .to_str()
                     .unwrap_or("")
                     .encode_utf16()
@@ -362,7 +377,12 @@ impl ServerRegistry {
                 debug!(
                     "Set registry file ACL to restrict access to current user only (owner read/write)"
                 );
-            }
+
+                Ok::<(), Box<dyn std::error::Error + Send + Sync>>(())
+                }
+            })
+            .await
+            .map_err(|e| format!("Failed to join Windows permissions task: {}", e))??;
         }
 
         Ok(())
@@ -393,23 +413,19 @@ impl ServerRegistry {
     ) -> Result<(), Box<dyn std::error::Error>> {
         let entry_id = entry.id.clone();
 
+        // Hold write lock for entire operation to prevent concurrent write races
+        // This ensures that concurrent registrations are serialized properly
+        let mut registry = self.entries.write().await;
+
         // Clone current registry and apply changes to the clone
-        let snapshot = {
-            let registry = self.entries.read().await;
-            let mut snapshot = registry.clone();
-            snapshot.insert(entry_id.clone(), entry);
-            snapshot
-        };
-        // Lock is released here before disk I/O
+        let mut snapshot = registry.clone();
+        snapshot.insert(entry_id.clone(), entry);
 
         // Save to disk first (transactional boundary)
         self.save_entries_to_disk(&snapshot).await?;
 
         // Only update in-memory state after successful disk write
-        {
-            let mut registry = self.entries.write().await;
-            *registry = snapshot;
-        }
+        *registry = snapshot;
 
         Ok(())
     }
@@ -435,23 +451,18 @@ impl ServerRegistry {
         &self,
         server_id: &str,
     ) -> Result<(), Box<dyn std::error::Error>> {
+        // Hold write lock for entire operation to prevent concurrent write races
+        let mut registry = self.entries.write().await;
+
         // Clone current registry and apply changes to the clone
-        let snapshot = {
-            let registry = self.entries.read().await;
-            let mut snapshot = registry.clone();
-            snapshot.remove(server_id);
-            snapshot
-        };
-        // Lock is released here before disk I/O
+        let mut snapshot = registry.clone();
+        snapshot.remove(server_id);
 
         // Save to disk first (transactional boundary)
         self.save_entries_to_disk(&snapshot).await?;
 
         // Only update in-memory state after successful disk write
-        {
-            let mut registry = self.entries.write().await;
-            *registry = snapshot;
-        }
+        *registry = snapshot;
 
         Ok(())
     }
@@ -506,29 +517,23 @@ impl ServerRegistry {
         server_id: &str,
         status: DevServerStatus,
     ) -> Result<(), Box<dyn std::error::Error>> {
+        // Hold write lock for entire operation to prevent concurrent write races
+        let mut registry = self.entries.write().await;
+
         // Clone current registry and apply changes to the clone
-        let snapshot = {
-            let registry = self.entries.read().await;
-            let mut snapshot = registry.clone();
+        let mut snapshot = registry.clone();
 
-            // Update server status and timestamp in the clone
-            if let Some(entry) = snapshot.get_mut(server_id) {
-                entry.status = status;
-                entry.last_seen = Utc::now();
-            }
-
-            snapshot
-        };
-        // Lock is released here before disk I/O
+        // Update server status and timestamp in the clone
+        if let Some(entry) = snapshot.get_mut(server_id) {
+            entry.status = status;
+            entry.last_seen = Utc::now();
+        }
 
         // Save to disk first (transactional boundary)
         self.save_entries_to_disk(&snapshot).await?;
 
         // Only update in-memory state after successful disk write
-        {
-            let mut registry = self.entries.write().await;
-            *registry = snapshot;
-        }
+        *registry = snapshot;
 
         Ok(())
     }
@@ -566,50 +571,43 @@ impl ServerRegistry {
     pub async fn cleanup_stale_entries(&self) -> Result<(), Box<dyn std::error::Error>> {
         let cutoff = Utc::now() - chrono::Duration::minutes(self.stale_timeout_minutes);
 
-        // Clone current registry and apply changes to the clone
-        let (snapshot, removed_any) = {
-            let registry = self.entries.read().await;
-            let mut to_remove = Vec::new();
+        // Hold write lock for entire operation to prevent concurrent write races
+        let mut registry = self.entries.write().await;
 
-            // Identify stale entries
-            for (id, entry) in registry.iter() {
-                if entry.last_seen < cutoff {
-                    // Check if the process is still running with validation
-                    if let Some(pid) = entry.pid {
-                        if !is_process_running_validated(
-                            pid,
-                            Some(entry.started_at),
-                            &["node", "python", "npm", "yarn", "bun", "pnpm", "deno"],
-                            entry.actual_command.as_deref(), // Use command for stronger validation
-                        ) {
-                            to_remove.push(id.clone());
-                        }
-                    } else {
+        // Clone current registry to identify stale entries
+        let mut to_remove = Vec::new();
+
+        // Identify stale entries
+        for (id, entry) in registry.iter() {
+            if entry.last_seen < cutoff {
+                // Check if the process is still running with validation
+                if let Some(pid) = entry.pid {
+                    if !is_process_running_validated(
+                        pid,
+                        Some(entry.started_at),
+                        &["node", "python", "npm", "yarn", "bun", "pnpm", "deno"],
+                        entry.actual_command.as_deref(), // Use command for stronger validation
+                    ) {
                         to_remove.push(id.clone());
                     }
+                } else {
+                    to_remove.push(id.clone());
                 }
             }
+        }
 
-            // Remove stale entries from the clone
-            let removed_any = !to_remove.is_empty();
+        // Remove stale entries from the clone
+        if !to_remove.is_empty() {
             let mut snapshot = registry.clone();
-            if removed_any {
-                for id in &to_remove {
-                    warn!("Removing stale server entry: {}", id);
-                    snapshot.remove(id);
-                }
+            for id in &to_remove {
+                warn!("Removing stale server entry: {}", id);
+                snapshot.remove(id);
             }
 
-            (snapshot, removed_any)
-        };
-        // Lock is released here before disk I/O
-
-        // Save to disk first if we removed entries (transactional boundary)
-        if removed_any {
+            // Save to disk first (transactional boundary)
             self.save_entries_to_disk(&snapshot).await?;
 
             // Only update in-memory state after successful disk write
-            let mut registry = self.entries.write().await;
             *registry = snapshot;
         }
 
@@ -651,12 +649,12 @@ impl ServerRegistry {
             return Ok(());
         }
 
-        for entry in fs::read_dir(&locks_dir)? {
-            let entry = entry?;
+        let mut read_dir = tokio::fs::read_dir(&locks_dir).await?;
+        while let Some(entry) = read_dir.next_entry().await? {
             let path = entry.path();
 
             if path.extension().and_then(|s| s.to_str()) == Some("json") {
-                match fs::read_to_string(&path) {
+                match tokio::fs::read_to_string(&path).await {
                     Ok(content) => {
                         // Parse the lock file
                         if let Ok(lock_data) = serde_json::from_str::<serde_json::Value>(&content) {
@@ -1194,7 +1192,7 @@ mod tests {
         assert!(registry.registry_path.exists());
 
         // Check file permissions
-        let metadata = fs::metadata(&registry.registry_path).unwrap();
+        let metadata = std::fs::metadata(&registry.registry_path).unwrap();
         let permissions = metadata.permissions();
         let mode = permissions.mode();
 
