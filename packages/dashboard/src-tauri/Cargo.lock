@@ -3233,12 +3233,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "orkee-config"
+version = "0.0.1"
+dependencies = [
+ "tracing",
+]
+
+[[package]]
 name = "orkee-desktop"
 version = "0.0.2"
 dependencies = [
  "futures",
  "image",
  "open",
+ "orkee-config",
  "portpicker",
  "reqwest 0.11.27",
  "serde",

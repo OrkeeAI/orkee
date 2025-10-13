@@ -1,5 +1,6 @@
+use orkee_config::constants;
+use orkee_config::env::parse_env_with_fallback;
 use std::panic::{catch_unwind, AssertUnwindSafe};
-use std::str::FromStr;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
 use std::time::Duration;
@@ -19,41 +20,6 @@ static CLEANUP_DONE: AtomicBool = AtomicBool::new(false);
 const CLEANUP_HTTP_TIMEOUT_SECS: u64 = 3;
 const CLEANUP_CONNECT_TIMEOUT_SECS: u64 = 1;
 const CLEANUP_TOTAL_TIMEOUT_SECS: u64 = 3;
-
-/// Parse an environment variable with fallback support.
-///
-/// Attempts to parse an environment variable, falling back to a secondary variable
-/// and finally to a default value if neither is set or parsing fails.
-///
-/// # Arguments
-///
-/// * `primary_var` - The primary environment variable name to check
-/// * `fallback_var` - The fallback environment variable name if primary is not set
-/// * `default` - The default value to use if neither variable is set or parseable
-///
-/// # Type Parameters
-///
-/// * `T` - The type to parse the environment variable into (must implement `FromStr`)
-///
-/// # Returns
-///
-/// Returns the parsed value from the primary variable, fallback variable, or default value.
-///
-/// # Examples
-///
-/// ```ignore
-/// let port: u16 = parse_env_with_fallback("ORKEE_UI_PORT", "VITE_PORT", 5173);
-/// ```
-fn parse_env_with_fallback<T>(primary_var: &str, fallback_var: &str, default: T) -> T
-where
-    T: FromStr,
-{
-    std::env::var(primary_var)
-        .or_else(|_| std::env::var(fallback_var))
-        .ok()
-        .and_then(|v| v.parse::<T>().ok())
-        .unwrap_or(default)
-}
 
 // Store the CLI server process handle and ports globally
 struct CliServerState {
@@ -459,7 +425,7 @@ pub fn run() {
                 }
             };
             // Get UI port from environment or use default
-            let ui_port: u16 = parse_env_with_fallback("ORKEE_UI_PORT", "VITE_PORT", 5173);
+            let ui_port: u16 = parse_env_with_fallback(constants::ORKEE_UI_PORT, "VITE_PORT", 5173);
 
             info!("Using dynamic API port: {} and UI port: {}", api_port, ui_port);
 

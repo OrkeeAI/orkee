@@ -1,6 +1,8 @@
 use crate::registry::{ServerRegistryEntry, GLOBAL_REGISTRY};
 use crate::types::*;
 use chrono::Utc;
+use orkee_config::constants;
+use orkee_config::env::parse_env_or_default_with_validation;
 use serde_json;
 use std::collections::hash_map::DefaultHasher;
 use std::collections::HashMap;
@@ -175,7 +177,7 @@ impl PreviewManager {
         let manager = Self::new();
 
         // Get the API port from environment variable or use default
-        let api_port = std::env::var("ORKEE_API_PORT")
+        let api_port = std::env::var(constants::ORKEE_API_PORT)
             .ok()
             .and_then(|p| p.parse().ok())
             .unwrap_or(4001);
@@ -1263,8 +1265,8 @@ impl PreviewManager {
 
                     // Use minimal tolerance (1 second) to prevent PID reuse attacks
                     // Configurable via ORKEE_PROCESS_START_TIME_TOLERANCE_SECS (max 1 second)
-                    let tolerance_secs = crate::env::parse_env_or_default_with_validation(
-                        "ORKEE_PROCESS_START_TIME_TOLERANCE_SECS",
+                    let tolerance_secs = parse_env_or_default_with_validation(
+                        constants::ORKEE_PROCESS_START_TIME_TOLERANCE_SECS,
                         1,
                         |v| v > 0 && v <= 1,
                     );
@@ -1348,7 +1350,7 @@ impl PreviewManager {
             actual_command: server_info.actual_command.clone(),
             started_at: Utc::now(),
             last_seen: Utc::now(),
-            api_port: std::env::var("ORKEE_API_PORT")
+            api_port: std::env::var(constants::ORKEE_API_PORT)
                 .ok()
                 .and_then(|p| p.parse().ok())
                 .unwrap_or(4001),

@@ -2426,6 +2426,7 @@ dependencies = [
  "inquire",
  "mockall 0.12.1",
  "orkee-cloud",
+ "orkee-config",
  "orkee-preview",
  "orkee-projects",
  "orkee-tui",
@@ -2490,6 +2491,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "orkee-config"
+version = "0.0.1"
+dependencies = [
+ "tracing",
+]
+
+[[package]]
 name = "orkee-mcp-server"
 version = "0.0.1"
 dependencies = [
@@ -2525,6 +2533,7 @@ dependencies = [
  "hyper 1.7.0",
  "nix 0.27.1",
  "once_cell",
+ "orkee-config",
  "orkee-projects",
  "regex",
  "serde",

@@ -1,7 +1,8 @@
 [workspace]
 members = [
     "packages/cli",
-    "packages/projects", 
+    "packages/config",
+    "packages/projects",
     "packages/cloud",
     "packages/preview",
     "packages/tui",

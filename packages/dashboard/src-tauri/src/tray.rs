@@ -1,6 +1,8 @@
 // ABOUTME: System tray manager for Orkee desktop application
 // ABOUTME: Provides menu bar integration with live server monitoring and control
 
+use orkee_config::constants;
+use orkee_config::env::parse_env_or_default_with_validation;
 use serde::{Deserialize, Serialize};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
@@ -96,7 +98,7 @@ fn validate_api_host(host: &str) -> Result<(), String> {
     }
 
     // Check if remote API access is explicitly enabled
-    if std::env::var("ORKEE_ALLOW_REMOTE_API")
+    if std::env::var(constants::ORKEE_ALLOW_REMOTE_API)
         .map(|v| v.to_lowercase() == "true" || v == "1")
         .unwrap_or(false)
     {
@@ -128,7 +130,7 @@ fn validate_api_host(host: &str) -> Result<(), String> {
 }
 
 fn get_api_host() -> String {
-    let host = std::env::var("ORKEE_API_HOST").unwrap_or_else(|_| "localhost".to_string());
+    let host = std::env::var(constants::ORKEE_API_HOST).unwrap_or_else(|_| "localhost".to_string());
 
     // Validate the host before using it
     if let Err(e) = validate_api_host(&host) {
@@ -569,31 +571,11 @@ impl TrayManager {
     ///
     /// Returns the polling interval in seconds (default: 5, min: 1, max: 60).
     fn get_polling_interval_secs() -> u64 {
-        match std::env::var("ORKEE_TRAY_POLL_INTERVAL_SECS") {
-            Ok(raw_value) => match raw_value.parse::<u64>() {
-                Ok(parsed_value) => {
-                    if (1..=60).contains(&parsed_value) {
-                        parsed_value
-                    } else {
-                        warn!(
-                            "ORKEE_TRAY_POLL_INTERVAL_SECS has invalid value '{}' (must be 1-60), using default: {}",
-                            raw_value,
-                            DEFAULT_SERVER_POLLING_INTERVAL_SECS
-                        );
-                        DEFAULT_SERVER_POLLING_INTERVAL_SECS
-                    }
-                }
-                Err(_) => {
-                    warn!(
-                        "ORKEE_TRAY_POLL_INTERVAL_SECS has unparseable value '{}', using default: {}",
-                        raw_value,
-                        DEFAULT_SERVER_POLLING_INTERVAL_SECS
-                    );
-                    DEFAULT_SERVER_POLLING_INTERVAL_SECS
-                }
-            },
-            Err(_) => DEFAULT_SERVER_POLLING_INTERVAL_SECS,
-        }
+        parse_env_or_default_with_validation(
+            constants::ORKEE_TRAY_POLL_INTERVAL_SECS,
+            DEFAULT_SERVER_POLLING_INTERVAL_SECS,
+            |v| (1..=60).contains(&v),
+        )
     }
 
     /// Get the HTTP request timeout from environment variable or use default.
@@ -605,31 +587,11 @@ impl TrayManager {
     ///
     /// Returns the request timeout in seconds (default: 5, min: 1, max: 30).
     fn get_http_request_timeout_secs() -> u64 {
-        match std::env::var("ORKEE_HTTP_REQUEST_TIMEOUT_SECS") {
-            Ok(raw_value) => match raw_value.parse::<u64>() {
-                Ok(parsed_value) => {
-                    if (1..=30).contains(&parsed_value) {
-                        parsed_value
-                    } else {
-                        warn!(
-                            "ORKEE_HTTP_REQUEST_TIMEOUT_SECS has invalid value '{}' (must be 1-30), using default: {}",
-                            raw_value,
-                            DEFAULT_HTTP_REQUEST_TIMEOUT_SECS
-                        );
-                        DEFAULT_HTTP_REQUEST_TIMEOUT_SECS
-                    }
-                }
-                Err(_) => {
-                    warn!(
-                        "ORKEE_HTTP_REQUEST_TIMEOUT_SECS has unparseable value '{}', using default: {}",
-                        raw_value,
-                        DEFAULT_HTTP_REQUEST_TIMEOUT_SECS
-                    );
-                    DEFAULT_HTTP_REQUEST_TIMEOUT_SECS
-                }
-            },
-            Err(_) => DEFAULT_HTTP_REQUEST_TIMEOUT_SECS,
-        }
+        parse_env_or_default_with_validation(
+            constants::ORKEE_HTTP_REQUEST_TIMEOUT_SECS,
+            DEFAULT_HTTP_REQUEST_TIMEOUT_SECS,
+            |v| (1..=30).contains(&v),
+        )
     }
 
     /// Get the HTTP connect timeout from environment variable or use default.
@@ -641,31 +603,11 @@ impl TrayManager {
     ///
     /// Returns the connect timeout in seconds (default: 2, min: 1, max: 10).
     fn get_http_connect_timeout_secs() -> u64 {
-        match std::env::var("ORKEE_HTTP_CONNECT_TIMEOUT_SECS") {
-            Ok(raw_value) => match raw_value.parse::<u64>() {
-                Ok(parsed_value) => {
-                    if (1..=10).contains(&parsed_value) {
-                        parsed_value
-                    } else {
-                        warn!(
-                            "ORKEE_HTTP_CONNECT_TIMEOUT_SECS has invalid value '{}' (must be 1-10), using default: {}",
-                            raw_value,
-                            DEFAULT_HTTP_CONNECT_TIMEOUT_SECS
-                        );
-                        DEFAULT_HTTP_CONNECT_TIMEOUT_SECS
-                    }
-                }
-                Err(_) => {
-                    warn!(
-                        "ORKEE_HTTP_CONNECT_TIMEOUT_SECS has unparseable value '{}', using default: {}",
-                        raw_value,
-                        DEFAULT_HTTP_CONNECT_TIMEOUT_SECS
-                    );
-                    DEFAULT_HTTP_CONNECT_TIMEOUT_SECS
-                }
-            },
-            Err(_) => DEFAULT_HTTP_CONNECT_TIMEOUT_SECS,
-        }
+        parse_env_or_default_with_validation(
+            constants::ORKEE_HTTP_CONNECT_TIMEOUT_SECS,
+            DEFAULT_HTTP_CONNECT_TIMEOUT_SECS,
+            |v| (1..=10).contains(&v),
+        )
     }
 
     /// Stop the server polling loop
@@ -1123,7 +1065,7 @@ mod tests {
         let _guard = ENV_TEST_MUTEX.lock().unwrap();
 
         // Ensure env var is not set for this test
-        std::env::remove_var("ORKEE_ALLOW_REMOTE_API");
+        std::env::remove_var(constants::ORKEE_ALLOW_REMOTE_API);
 
         assert!(validate_api_host("example.com").is_err());
         assert!(validate_api_host("192.168.1.1").is_err());
@@ -1138,20 +1080,20 @@ mod tests {
         // Test that only "true" and "1" enable remote access
 
         // Test "true" (lowercase)
-        std::env::set_var("ORKEE_ALLOW_REMOTE_API", "true");
+        std::env::set_var(constants::ORKEE_ALLOW_REMOTE_API, "true");
         assert!(validate_api_host("example.com").is_ok());
         assert!(validate_api_host("192.168.1.1").is_ok());
-        std::env::remove_var("ORKEE_ALLOW_REMOTE_API");
+        std::env::remove_var(constants::ORKEE_ALLOW_REMOTE_API);
 
         // Test "TRUE" (uppercase)
-        std::env::set_var("ORKEE_ALLOW_REMOTE_API", "TRUE");
+        std::env::set_var(constants::ORKEE_ALLOW_REMOTE_API, "TRUE");
         assert!(validate_api_host("example.com").is_ok());
-        std::env::remove_var("ORKEE_ALLOW_REMOTE_API");
+        std::env::remove_var(constants::ORKEE_ALLOW_REMOTE_API);
 
         // Test "1"
-        std::env::set_var("ORKEE_ALLOW_REMOTE_API", "1");
+        std::env::set_var(constants::ORKEE_ALLOW_REMOTE_API, "1");
         assert!(validate_api_host("example.com").is_ok());
-        std::env::remove_var("ORKEE_ALLOW_REMOTE_API");
+        std::env::remove_var(constants::ORKEE_ALLOW_REMOTE_API);
     }
 
     #[test]
@@ -1162,25 +1104,25 @@ mod tests {
         // Test that "false", "0", empty string, and other values do NOT enable remote access
 
         // Test "false" (lowercase)
-        std::env::set_var("ORKEE_ALLOW_REMOTE_API", "false");
+        std::env::set_var(constants::ORKEE_ALLOW_REMOTE_API, "false");
         assert!(validate_api_host("example.com").is_err());
         assert!(validate_api_host("192.168.1.1").is_err());
-        std::env::remove_var("ORKEE_ALLOW_REMOTE_API");
+        std::env::remove_var(constants::ORKEE_ALLOW_REMOTE_API);
 
         // Test "FALSE" (uppercase)
-        std::env::set_var("ORKEE_ALLOW_REMOTE_API", "FALSE");
+        std::env::set_var(constants::ORKEE_ALLOW_REMOTE_API, "FALSE");
         assert!(validate_api_host("example.com").is_err());
-        std::env::remove_var("ORKEE_ALLOW_REMOTE_API");
+        std::env::remove_var(constants::ORKEE_ALLOW_REMOTE_API);
 
         // Test "0"
-        std::env::set_var("ORKEE_ALLOW_REMOTE_API", "0");
+        std::env::set_var(constants::ORKEE_ALLOW_REMOTE_API, "0");
         assert!(validate_api_host("example.com").is_err());
-        std::env::remove_var("ORKEE_ALLOW_REMOTE_API");
+        std::env::remove_var(constants::ORKEE_ALLOW_REMOTE_API);
 
         // Test empty string
-        std::env::set_var("ORKEE_ALLOW_REMOTE_API", "");
+        std::env::set_var(constants::ORKEE_ALLOW_REMOTE_API, "");
         assert!(validate_api_host("example.com").is_err());
-        std::env::remove_var("ORKEE_ALLOW_REMOTE_API");
+        std::env::remove_var(constants::ORKEE_ALLOW_REMOTE_API);
     }
 
     #[test]

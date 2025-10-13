@@ -1,4 +1,6 @@
 use chrono::{DateTime, Utc};
+use orkee_config::constants;
+use orkee_config::env::parse_env_or_default_with_validation;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -6,7 +8,6 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 use tracing::{debug, error, info, warn};
 
-use crate::env::parse_env_or_default_with_validation;
 use crate::types::DevServerStatus;
 
 /// Entry in the central server registry.
@@ -84,7 +85,7 @@ impl ServerRegistry {
         // Read stale timeout from environment variable, default to 5 minutes
         // Validate the timeout value (must be positive, max 240 minutes = 4 hours)
         let stale_timeout_minutes =
-            parse_env_or_default_with_validation("ORKEE_STALE_TIMEOUT_MINUTES", 5, |v| {
+            parse_env_or_default_with_validation(constants::ORKEE_STALE_TIMEOUT_MINUTES, 5, |v| {
                 v > 0 && v <= 240
             });
 
@@ -781,10 +782,11 @@ impl ServerRegistry {
 ///
 /// Returns the tolerance in seconds.
 fn get_start_time_tolerance_secs() -> u64 {
-    use crate::env::parse_env_or_default_with_validation;
-    parse_env_or_default_with_validation("ORKEE_PROCESS_START_TIME_TOLERANCE_SECS", 5, |v| {
-        v > 0 && v <= 60
-    })
+    parse_env_or_default_with_validation(
+        constants::ORKEE_PROCESS_START_TIME_TOLERANCE_SECS,
+        5,
+        |v| v > 0 && v <= 60,
+    )
 }
 
 /// Check if a process with the given PID is running and matches expected criteria
@@ -933,7 +935,7 @@ pub fn start_periodic_cleanup() -> Option<tokio::task::JoinHandle<()>> {
     // Get cleanup interval from environment variable (default: 2 minutes, half of stale timeout)
     // Running cleanup at half the stale timeout ensures more responsive cleanup
     let cleanup_interval_minutes =
-        parse_env_or_default_with_validation("ORKEE_CLEANUP_INTERVAL_MINUTES", 2, |v| {
+        parse_env_or_default_with_validation(constants::ORKEE_CLEANUP_INTERVAL_MINUTES, 2, |v| {
             (1..=60).contains(&v)
         });
 

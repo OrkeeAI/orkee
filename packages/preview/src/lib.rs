@@ -3,7 +3,6 @@
 //! This crate provides functionality for managing development servers
 //! for various project types with crash-resistant operation.
 
-pub mod env;
 pub mod manager;
 pub mod registry;
 pub mod types;

@@ -20,6 +20,7 @@ dotenvy = "0.15"
 tracing = "0.1"
 thiserror = "2.0"
 anyhow = "1.0"
+orkee-config = { path = "../config" }
 orkee-projects = { path = "../projects" }
 orkee-cloud = { path = "../cloud", optional = true }
 orkee-preview = { path = "../preview" }
