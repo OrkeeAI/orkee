@@ -46,8 +46,9 @@ BINARIES_DIR="../dashboard/src-tauri/binaries"
 mkdir -p "$BINARIES_DIR"
 
 # Copy binary to Tauri binaries directory with platform-specific name
+# Use workspace root target directory (../../target from packages/cli)
 BINARY_NAME="orkee-$TARGET"
-cp "target/$TARGET/release/orkee$BINARY_EXT" "$BINARIES_DIR/$BINARY_NAME$BINARY_EXT"
+cp "../../target/$TARGET/release/orkee$BINARY_EXT" "$BINARIES_DIR/$BINARY_NAME$BINARY_EXT"
 
 echo "✓ Binary prepared: $BINARIES_DIR/$BINARY_NAME"
 echo ""
