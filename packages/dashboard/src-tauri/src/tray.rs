@@ -26,8 +26,8 @@ const DEFAULT_HTTP_CONNECT_TIMEOUT_SECS: u64 = 2;
 const DEFAULT_SERVER_POLLING_INTERVAL_SECS: u64 = 5;
 // Fast polling when servers are changing (starting/stopping)
 const FAST_POLLING_INTERVAL_SECS: u64 = 1;
-// Slow polling when servers are stable
-const SLOW_POLLING_INTERVAL_SECS: u64 = 10;
+// Slow polling when servers are stable (30s reduces resource usage for idle state)
+const SLOW_POLLING_INTERVAL_SECS: u64 = 30;
 // Number of consecutive stable polls before switching to slow mode
 const STABLE_THRESHOLD: u32 = 3;
 const MENU_REBUILD_DEBOUNCE_SECS: u64 = 2;

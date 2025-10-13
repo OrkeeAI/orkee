@@ -437,19 +437,23 @@ impl ServerRegistry {
     ) -> Result<(), Box<dyn std::error::Error>> {
         let entry_id = entry.id.clone();
 
-        // Hold write lock for entire operation to prevent concurrent write races
-        // This ensures that concurrent registrations are serialized properly
-        let mut registry = self.entries.write().await;
+        // Clone the current registry under read lock, then release
+        // This minimizes lock contention during disk I/O
+        let snapshot = {
+            let registry = self.entries.read().await;
+            let mut snapshot = registry.clone();
+            snapshot.insert(entry_id.clone(), entry.clone());
+            snapshot
+        };
+        // Read lock is released here
 
-        // Clone current registry and apply changes to the clone
-        let mut snapshot = registry.clone();
-        snapshot.insert(entry_id.clone(), entry);
-
-        // Save to disk first (transactional boundary)
+        // Save to disk without holding any locks (disk I/O can be slow)
         self.save_entries_to_disk(&snapshot).await?;
 
-        // Only update in-memory state after successful disk write
-        *registry = snapshot;
+        // Hold write lock briefly to update in-memory state
+        // Apply the same change to ensure consistency
+        let mut registry = self.entries.write().await;
+        registry.insert(entry_id, entry);
 
         Ok(())
     }
@@ -475,18 +479,21 @@ impl ServerRegistry {
         &self,
         server_id: &str,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        // Hold write lock for entire operation to prevent concurrent write races
-        let mut registry = self.entries.write().await;
+        // Clone the current registry under read lock, then release
+        let snapshot = {
+            let registry = self.entries.read().await;
+            let mut snapshot = registry.clone();
+            snapshot.remove(server_id);
+            snapshot
+        };
+        // Read lock is released here
 
-        // Clone current registry and apply changes to the clone
-        let mut snapshot = registry.clone();
-        snapshot.remove(server_id);
-
-        // Save to disk first (transactional boundary)
+        // Save to disk without holding any locks
         self.save_entries_to_disk(&snapshot).await?;
 
-        // Only update in-memory state after successful disk write
-        *registry = snapshot;
+        // Hold write lock briefly to update in-memory state
+        let mut registry = self.entries.write().await;
+        registry.remove(server_id);
 
         Ok(())
     }
@@ -541,23 +548,31 @@ impl ServerRegistry {
         server_id: &str,
         status: DevServerStatus,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        // Hold write lock for entire operation to prevent concurrent write races
-        let mut registry = self.entries.write().await;
+        let now = Utc::now();
 
-        // Clone current registry and apply changes to the clone
-        let mut snapshot = registry.clone();
+        // Clone the current registry under read lock, then release
+        let snapshot = {
+            let registry = self.entries.read().await;
+            let mut snapshot = registry.clone();
 
-        // Update server status and timestamp in the clone
-        if let Some(entry) = snapshot.get_mut(server_id) {
-            entry.status = status;
-            entry.last_seen = Utc::now();
-        }
+            // Update server status and timestamp in the clone
+            if let Some(entry) = snapshot.get_mut(server_id) {
+                entry.status = status.clone();
+                entry.last_seen = now;
+            }
+            snapshot
+        };
+        // Read lock is released here
 
-        // Save to disk first (transactional boundary)
+        // Save to disk without holding any locks
         self.save_entries_to_disk(&snapshot).await?;
 
-        // Only update in-memory state after successful disk write
-        *registry = snapshot;
+        // Hold write lock briefly to update in-memory state
+        let mut registry = self.entries.write().await;
+        if let Some(entry) = registry.get_mut(server_id) {
+            entry.status = status;
+            entry.last_seen = now;
+        }
 
         Ok(())
     }
