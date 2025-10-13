@@ -76,8 +76,10 @@ if [ -f "$BINARY_TARGET" ]; then
     echo "✓ orkee binary installed to $BINARY_TARGET"
     echo "✓ You can now use 'orkee' commands in your terminal"
 
-    # Show version
-    "$BINARY_TARGET" --version || echo "Warning: Could not verify orkee version"
+    # Show version (non-fatal if it fails)
+    if ! "$BINARY_TARGET" --version 2>/dev/null; then
+        echo "Note: Could not verify orkee version (binary may need first-run initialization)"
+    fi
 else
     echo "Error: Failed to install orkee binary"
     exit 1
