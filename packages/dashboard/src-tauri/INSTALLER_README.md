@@ -420,6 +420,71 @@ skip_path_setup:
 
 **Complexity**: Low - simple string validation checks
 
+## Known Limitations
+
+### 1. Windows: PATH Duplication Edge Case
+**File**: `windows/hooks.nsh:33`
+**Severity**: Low
+
+The `StrContains` check uses substring matching, which could theoretically create false positives:
+- Example: `C:\Orkee\bin` would match inside `C:\Orkee\binary\tools`
+- **Impact**: Worst case is a duplicate PATH entry, which is harmless
+- **Likelihood**: Very low due to specific path patterns (`Program Files\Orkee\bin`, `LocalAppData\Orkee\bin`)
+- **Mitigation**: Could implement exact path matching with delimiter checks, but adds complexity for minimal benefit
+
+**Current behavior**: Acceptable for typical use cases
+
+### 2. macOS: Multiple Installation Detection
+**File**: `macos/postinstall.sh:23-29`
+**Severity**: Low
+
+If multiple versions of Orkee.app exist in different locations, the script picks the first match:
+```bash
+for location in "${POSSIBLE_LOCATIONS[@]}"; do
+    if [ -d "$location" ]; then
+        APP_BUNDLE="$location"
+        break  # First match wins
+    fi
+done
+```
+
+**Scenarios**:
+- User has Orkee in both `/Applications` and `~/Applications`
+- Old versions not fully removed
+- **Impact**: May link to wrong version
+- **Likelihood**: Uncommon - users typically have one installation
+
+**Potential improvements**:
+- Accept installation path as installer argument
+- Use macOS installer's built-in `$3` variable (target location)
+- Check modification times and prefer newest
+- Prompt user if multiple found
+
+**Current behavior**: Works for standard single-installation scenarios
+
+### 3. Linux: Version Verification Regex Limitation
+**File**: `linux/postinstall.sh:13`
+**Severity**: Low
+
+The version verification regex only matches standard semver (X.Y.Z):
+```bash
+grep -oE '[0-9]+\.[0-9]+\.[0-9]+'
+```
+
+**Missing formats**:
+- Pre-release: `0.0.2-rc1`, `1.0.0-beta.2`
+- Build metadata: `1.0.0+20130313144700`
+- Two-part versions: `1.0` (unusual but valid)
+
+**Impact**: Version verification logs "unknown" for non-standard versions, but installation continues successfully. Does not affect functionality.
+
+**Fix**: Use more comprehensive regex:
+```bash
+grep -oE '[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.]+)?(\+[a-zA-Z0-9.]+)?'
+```
+
+**Current behavior**: Acceptable - verification is optional and only affects logging
+
 ## Additional Resources
 
 - [Tauri Windows Installer Docs](https://v2.tauri.app/distribute/windows-installer/)
