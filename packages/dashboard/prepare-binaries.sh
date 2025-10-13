@@ -61,9 +61,43 @@ fi
 
 echo "Building for target: $TARGET"
 
+# Verify Rust toolchain has the target installed
+echo "Verifying Rust toolchain has target $TARGET..."
+if ! rustup target list --installed | grep -q "^${TARGET}$"; then
+    echo "Error: Rust target $TARGET is not installed"
+    echo ""
+    echo "Install the target with:"
+    echo "  rustup target add $TARGET"
+    echo ""
+    echo "Or install all common targets:"
+    echo "  rustup target add aarch64-apple-darwin x86_64-apple-darwin x86_64-unknown-linux-gnu x86_64-pc-windows-msvc"
+    exit 1
+fi
+echo "✓ Target $TARGET is installed"
+
 # Build CLI binary
 cd "$(dirname "$0")/../cli"
-cargo build --release --target "$TARGET"
+echo "Running: cargo build --release --target $TARGET"
+if ! cargo build --release --target "$TARGET" 2>&1; then
+    echo ""
+    echo "=========================================="
+    echo "Error: Cargo build failed for target $TARGET"
+    echo "=========================================="
+    echo ""
+    echo "Common causes:"
+    echo "  1. Missing system dependencies (e.g., libssl-dev, pkg-config)"
+    echo "  2. Compiler not available for target platform"
+    echo "  3. Cargo.toml dependencies incompatible with target"
+    echo "  4. Insufficient disk space or memory"
+    echo ""
+    echo "Troubleshooting:"
+    echo "  - Check cargo output above for specific error messages"
+    echo "  - Verify system dependencies: https://www.rust-lang.org/tools/install"
+    echo "  - Try building without --release flag for more detailed errors"
+    echo "  - Check available targets: rustup target list --installed"
+    echo ""
+    exit 1
+fi
 
 # Verify binary was created
 BINARY_PATH="../../target/$TARGET/release/orkee$BINARY_EXT"

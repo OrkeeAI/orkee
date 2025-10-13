@@ -19,21 +19,21 @@ echo "Orkee CLI Installation Helper for AppImage"
 echo "==========================================="
 echo ""
 
-# Find AppImage in current directory
-APPIMAGE=$(find . -maxdepth 1 -name "Orkee*.AppImage" -o -name "orkee*.AppImage" | head -n1)
-
-if [ -z "$APPIMAGE" ]; then
-    echo -e "${RED}Error: No Orkee AppImage found in current directory${NC}"
-    echo ""
-    echo "Please download the Orkee AppImage and run this script from the same directory."
-    echo "Or specify the AppImage path as an argument:"
-    echo "  $0 /path/to/Orkee.AppImage"
-    exit 1
-fi
-
-# Allow override via command line argument
+# Check command line argument first (more efficient)
 if [ $# -gt 0 ] && [ -n "${1:-}" ]; then
     APPIMAGE="$1"
+else
+    # Only search for AppImage if no argument provided
+    APPIMAGE=$(find . -maxdepth 1 -name "Orkee*.AppImage" -o -name "orkee*.AppImage" | head -n1)
+
+    if [ -z "$APPIMAGE" ]; then
+        echo -e "${RED}Error: No Orkee AppImage found in current directory${NC}"
+        echo ""
+        echo "Please download the Orkee AppImage and run this script from the same directory."
+        echo "Or specify the AppImage path as an argument:"
+        echo "  $0 /path/to/Orkee.AppImage"
+        exit 1
+    fi
 fi
 
 # Verify AppImage exists and is executable
