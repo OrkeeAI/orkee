@@ -144,30 +144,41 @@ async fn handle_command(command: Commands) -> Result<(), Box<dyn std::error::Err
             dev,
         } => {
             // Determine ports: specified > environment > dynamic
-            let final_api_port = if api_port != 0 {
+            // Hold listeners to prevent TOCTOU race when using dynamic ports
+            let (_api_listener_guard, final_api_port) = if api_port != 0 {
                 // User specified a port
-                api_port
+                (None, api_port)
             } else if let Ok(port) = std::env::var("ORKEE_API_PORT")
                 .and_then(|p| p.parse::<u16>().map_err(|_| std::env::VarError::NotPresent))
             {
                 // Environment variable set
-                port
+                (None, port)
             } else {
-                // Dynamic allocation
-                find_available_port(4001, 4100).unwrap_or(4001)
+                // Dynamic allocation - hold listener to prevent race
+                if let Some(listener) = find_available_port(4001, 4100) {
+                    let port = listener.local_addr()?.port();
+                    (Some(listener), port)
+                } else {
+                    (None, 4001)
+                }
             };
 
-            let final_ui_port = if ui_port != 0 {
+            let (_ui_listener_guard, final_ui_port) = if ui_port != 0 {
                 // User specified a port
-                ui_port
+                (None, ui_port)
             } else if let Ok(port) = std::env::var("ORKEE_UI_PORT")
                 .and_then(|p| p.parse::<u16>().map_err(|_| std::env::VarError::NotPresent))
             {
                 // Environment variable set
-                port
+                (None, port)
             } else {
-                // Dynamic allocation
-                find_available_port(5173, 5273).unwrap_or(5173)
+                // Dynamic allocation - hold listener to prevent race
+                if let Some(listener) = find_available_port(5173, 5273) {
+                    let port = listener.local_addr()?.port();
+                    (Some(listener), port)
+                } else {
+                    (None, 5173)
+                }
             };
 
             // Save port info for discovery when using dynamic ports
@@ -180,6 +191,11 @@ async fn handle_command(command: Commands) -> Result<(), Box<dyn std::error::Err
                     );
                 }
             }
+
+            // Listeners are dropped here, right before starting services
+            // This minimizes the race window to the absolute minimum
+            drop(_api_listener_guard);
+            drop(_ui_listener_guard);
 
             if restart {
                 restart_dashboard(final_api_port, final_ui_port, dev).await
@@ -671,18 +687,22 @@ async fn kill_port(port: u16) -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-fn find_available_port(start: u16, end: u16) -> Option<u16> {
+fn find_available_port(start: u16, end: u16) -> Option<std::net::TcpListener> {
     for _ in 0..PORT_PICKER_RETRIES {
         // Try portpicker first for a random available port
         if let Some(port) = portpicker::pick_unused_port() {
             if port >= start && port <= end {
-                return Some(port);
+                // Bind and return the listener to prevent TOCTOU race
+                if let Ok(listener) = std::net::TcpListener::bind(("127.0.0.1", port)) {
+                    return Some(listener);
+                }
             }
         }
     }
 
     // Fallback: scan range for available port
-    (start..=end).find(|&port| std::net::TcpListener::bind(("127.0.0.1", port)).is_ok())
+    // Bind and return the listener to prevent TOCTOU race
+    (start..=end).find_map(|port| std::net::TcpListener::bind(("127.0.0.1", port)).ok())
 }
 
 fn save_port_info(api_port: u16, ui_port: u16) -> Result<(), Box<dyn std::error::Error>> {
