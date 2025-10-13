@@ -116,6 +116,7 @@ jobs:
 
       - name: Build Tauri app
         uses: tauri-apps/tauri-action@78ecc2695fc737bea2e51ce12aabfb7e25db32a0 # v0.5.22
+        timeout-minutes: 60
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}

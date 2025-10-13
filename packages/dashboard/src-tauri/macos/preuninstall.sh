@@ -15,8 +15,12 @@ echo "Removing orkee CLI binary..."
 
 # Remove binary if it exists
 if [ -f "$BINARY_TARGET" ]; then
-    rm "$BINARY_TARGET"
-    echo "✓ orkee binary removed from $BINARY_TARGET"
+    if rm "$BINARY_TARGET" 2>/dev/null; then
+        echo "✓ orkee binary removed from $BINARY_TARGET"
+    else
+        echo "Warning: Could not remove $BINARY_TARGET (insufficient permissions)"
+        echo "You may need to manually remove it: sudo rm $BINARY_TARGET"
+    fi
 else
     echo "orkee binary not found at $BINARY_TARGET (already removed or never installed)"
 fi

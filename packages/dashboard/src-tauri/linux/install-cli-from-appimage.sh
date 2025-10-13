@@ -32,7 +32,7 @@ if [ -z "$APPIMAGE" ]; then
 fi
 
 # Allow override via command line argument
-if [ -n "$1" ]; then
+if [ $# -gt 0 ] && [ -n "${1:-}" ]; then
     APPIMAGE="$1"
 fi
 
