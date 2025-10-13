@@ -1,8 +1,13 @@
-#!/bin/bash
-set -e
-
+#!/usr/bin/env bash
 # ABOUTME: Builds CLI binary and copies it to Tauri binaries directory for bundling
 # ABOUTME: This ensures the Tauri app has the correct CLI binary for the current platform
+
+set -euo pipefail
+
+# Enable debug mode if DEBUG env var is set
+if [ "${DEBUG:-}" = "1" ]; then
+    set -x
+fi
 
 echo "Preparing CLI binary for Tauri..."
 

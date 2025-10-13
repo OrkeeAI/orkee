@@ -2,7 +2,12 @@
 # ABOUTME: Linux post-install script for Orkee desktop app
 # ABOUTME: Creates symlink to orkee binary in /usr/local/bin for CLI access
 
-set -e
+set -euo pipefail
+
+# Enable debug mode if DEBUG env var is set
+if [ "${DEBUG:-}" = "1" ]; then
+    set -x
+fi
 
 # Verify binary version matches expected version (if VERSION env var is set)
 verify_binary_version() {

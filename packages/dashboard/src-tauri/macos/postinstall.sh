@@ -2,7 +2,12 @@
 # ABOUTME: macOS post-install script for Orkee desktop app
 # ABOUTME: Copies orkee binary to /usr/local/bin for system-wide CLI access
 
-set -e
+set -euo pipefail
+
+# Enable debug mode if DEBUG env var is set
+if [ "${DEBUG:-}" = "1" ]; then
+    set -x
+fi
 
 # This script runs after the .app bundle is installed
 # The binary is located inside the app bundle at:

@@ -2,7 +2,12 @@
 # ABOUTME: macOS pre-uninstall script for Orkee desktop app
 # ABOUTME: Removes orkee binary from /usr/local/bin
 
-set -e
+set -euo pipefail
+
+# Enable debug mode if DEBUG env var is set
+if [ "${DEBUG:-}" = "1" ]; then
+    set -x
+fi
 
 BINARY_TARGET="/usr/local/bin/orkee"
 

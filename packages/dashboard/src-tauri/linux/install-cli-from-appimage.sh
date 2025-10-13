@@ -2,7 +2,12 @@
 # ABOUTME: Helper script to extract and install orkee CLI from AppImage
 # ABOUTME: Automates manual AppImage CLI extraction for easier user setup
 
-set -e
+set -euo pipefail
+
+# Enable debug mode if DEBUG env var is set
+if [ "${DEBUG:-}" = "1" ]; then
+    set -x
+fi
 
 # Colors for output
 RED='\033[0;31m'

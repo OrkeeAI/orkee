@@ -1,6 +1,10 @@
 ; ABOUTME: NSIS installer hooks for Windows Orkee desktop app
 ; ABOUTME: Adds orkee binary to system PATH during installation
 
+; Constants
+!define MAX_PATH_LENGTH 2047        ; Windows environment variable length limit
+!define BROADCAST_TIMEOUT 10000     ; Timeout for WM_SETTINGCHANGE broadcast (milliseconds)
+
 !macro NSIS_HOOK_POSTINSTALL
   ; Copy bundled orkee.exe to a stable location
   ; The sidecar binary is embedded in the app, but we want it accessible from terminal
@@ -34,11 +38,11 @@
     ${If} $2 == ""
       ; Not found - check PATH length before adding
       StrLen $3 "$1;$0"
-      ${If} $3 < 2047
-        ; Safe to add - under Windows PATH limit (2047 chars)
+      ${If} $3 < ${MAX_PATH_LENGTH}
+        ; Safe to add - under Windows PATH limit
         WriteRegExpandStr HKLM "SYSTEM\CurrentControlSet\Control\Session Manager\Environment" "Path" "$1;$0"
-        ; Broadcast WM_SETTINGCHANGE to notify system of PATH change (10s timeout for heavily loaded systems)
-        SendMessage ${HWND_BROADCAST} ${WM_SETTINGCHANGE} 0 "STR:Environment" /TIMEOUT=10000
+        ; Broadcast WM_SETTINGCHANGE to notify system of PATH change
+        SendMessage ${HWND_BROADCAST} ${WM_SETTINGCHANGE} 0 "STR:Environment" /TIMEOUT=${BROADCAST_TIMEOUT}
       ${Else}
         ; PATH too long - warn user but don't fail installation
         MessageBox MB_OK|MB_ICONEXCLAMATION "Warning: System PATH is too long to add Orkee automatically.$\n$\nYou can manually add this directory to PATH:$\n$0$\n$\nDesktop app will still work without CLI access."
@@ -56,11 +60,11 @@
     ${If} $2 == ""
       ; Not found - check PATH length before adding
       StrLen $3 "$1;$0"
-      ${If} $3 < 2047
-        ; Safe to add - under Windows PATH limit (2047 chars)
+      ${If} $3 < ${MAX_PATH_LENGTH}
+        ; Safe to add - under Windows PATH limit
         WriteRegExpandStr HKCU "Environment" "Path" "$1;$0"
-        ; Broadcast WM_SETTINGCHANGE to notify system of PATH change (10s timeout for heavily loaded systems)
-        SendMessage ${HWND_BROADCAST} ${WM_SETTINGCHANGE} 0 "STR:Environment" /TIMEOUT=10000
+        ; Broadcast WM_SETTINGCHANGE to notify system of PATH change
+        SendMessage ${HWND_BROADCAST} ${WM_SETTINGCHANGE} 0 "STR:Environment" /TIMEOUT=${BROADCAST_TIMEOUT}
       ${Else}
         ; PATH too long - warn user but don't fail installation
         MessageBox MB_OK|MB_ICONEXCLAMATION "Warning: User PATH is too long to add Orkee automatically.$\n$\nYou can manually add this directory to PATH:$\n$0$\n$\nDesktop app will still work without CLI access."
@@ -99,8 +103,8 @@
       ; Write updated PATH back to registry
       WriteRegExpandStr HKLM "SYSTEM\CurrentControlSet\Control\Session Manager\Environment" "Path" "$1"
 
-      ; Broadcast WM_SETTINGCHANGE to notify system of PATH change (10s timeout for heavily loaded systems)
-      SendMessage ${HWND_BROADCAST} ${WM_SETTINGCHANGE} 0 "STR:Environment" /TIMEOUT=10000
+      ; Broadcast WM_SETTINGCHANGE to notify system of PATH change
+      SendMessage ${HWND_BROADCAST} ${WM_SETTINGCHANGE} 0 "STR:Environment" /TIMEOUT=${BROADCAST_TIMEOUT}
     ${EndIf}
   ${Else}
     ; Per-user: Remove from user PATH (HKCU)
@@ -117,8 +121,8 @@
       ; Write updated PATH back to registry
       WriteRegExpandStr HKCU "Environment" "Path" "$1"
 
-      ; Broadcast WM_SETTINGCHANGE to notify system of PATH change (10s timeout for heavily loaded systems)
-      SendMessage ${HWND_BROADCAST} ${WM_SETTINGCHANGE} 0 "STR:Environment" /TIMEOUT=10000
+      ; Broadcast WM_SETTINGCHANGE to notify system of PATH change
+      SendMessage ${HWND_BROADCAST} ${WM_SETTINGCHANGE} 0 "STR:Environment" /TIMEOUT=${BROADCAST_TIMEOUT}
     ${EndIf}
   ${EndIf}
 !macroend
