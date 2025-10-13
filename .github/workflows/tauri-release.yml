@@ -116,7 +116,7 @@ jobs:
           bash packages/dashboard/prepare-binaries.sh
 
       - name: Build Tauri app
-        uses: tauri-apps/tauri-action@78ecc2695fc737bea2e51ce12aabfb7e25db32a0 # v0.5.22
+        uses: tauri-apps/tauri-action@v0.5.23
         timeout-minutes: 60
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
