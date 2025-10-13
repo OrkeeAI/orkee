@@ -17,7 +17,8 @@ pass() { echo -e "${GREEN}✓${NC} $1"; ((TESTS_PASSED++)); }
 fail() { echo -e "${RED}✗${NC} $1: $2"; ((TESTS_FAILED++)); }
 test_file() {
     local file="$1"
-    local name="$(basename "$file")"
+    local name
+    name="$(basename "$file")"
     if [ ! -f "$file" ]; then
         fail "$name" "not found"
         return 1
