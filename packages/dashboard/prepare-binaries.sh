@@ -6,6 +6,15 @@ set -e
 
 echo "Preparing CLI binary for Tauri..."
 
+# Verify cargo is available
+if ! command -v cargo &> /dev/null; then
+    echo "Error: cargo not found in PATH"
+    echo "Please install Rust from https://rustup.rs/"
+    exit 1
+fi
+
+echo "✓ Cargo found: $(cargo --version)"
+
 # Allow target override via environment variable (for CI cross-compilation)
 if [ -n "$TAURI_TARGET" ]; then
     TARGET="$TAURI_TARGET"
