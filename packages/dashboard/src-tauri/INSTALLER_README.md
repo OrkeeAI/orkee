@@ -328,6 +328,98 @@ These integrations would complement the existing npm distribution and native ins
 
 **Complexity**: Medium - requires Rust backend detection + React frontend dialog + state management
 
+### Binary Signature Verification (Security Enhancement)
+**Priority**: Medium - Enhances supply chain security and installation trust
+
+**Problem**: Currently, installers verify binary existence but not authenticity. Users have no cryptographic assurance that binaries haven't been tampered with.
+
+**Proposed Solution**: Add GPG signature verification to installer scripts
+
+**Implementation Approach:**
+
+**macOS/Linux:**
+1. **Generate GPG Key**: Create project GPG key for signing binaries
+2. **Sign Binaries**: Sign orkee binary during CI build (`gpg --detach-sign --armor orkee`)
+3. **Bundle Signature**: Include `.sig` file alongside binary in installers
+4. **Verify in Scripts**: Add verification step in post-install scripts:
+   ```bash
+   # Import public key (embedded or from keyserver)
+   gpg --import orkee-public.key
+
+   # Verify signature
+   if gpg --verify orkee.sig orkee; then
+       echo "✓ Binary signature verified"
+   else
+       echo "Warning: Binary signature verification failed"
+       # Provide user choice: continue or abort
+   fi
+   ```
+
+**Windows:**
+- Already partially addressed by code signing (when implemented)
+- GPG verification can complement Authenticode signatures
+
+**Benefits:**
+- Protects against supply chain attacks
+- Verifies binary integrity (not just code signing)
+- Works alongside (not instead of) platform code signing
+- Open standard (GPG) provides transparency
+
+**Challenges:**
+- Adds complexity to CI/CD pipeline
+- Requires secure key management
+- User experience: how to handle verification failures?
+- May need fallback for users without GPG installed
+
+**References:**
+- [GPG Binary Signing Best Practices](https://www.gnupg.org/)
+- [Reproducible Builds Project](https://reproducible-builds.org/)
+
+### Windows Registry Key Validation
+**Priority**: Low - Defensive programming against edge cases
+
+**Problem**: Windows installer assumes PATH registry values are well-formed strings. Corrupted or malformed PATH entries could cause unexpected behavior.
+
+**Proposed Solution**: Add validation before PATH modification
+
+**Implementation Approach:**
+```nsis
+; Read current PATH
+ReadRegStr $1 HKLM "SYSTEM\CurrentControlSet\Control\Session Manager\Environment" "Path"
+
+; Validate PATH format
+${If} $1 == ""
+  ; Empty PATH - safe to initialize
+  StrCpy $1 "$0"
+${ElseIf} ${StrContains} $1 ";" ","
+  ; Malformed - contains both ; and , separators (should only be ;)
+  MessageBox MB_OK|MB_ICONWARNING "Warning: PATH appears corrupted. Manual setup required."
+  Goto skip_path_setup
+${ElseIf} ${StrLen} $1 > 3000
+  ; Suspiciously long PATH (beyond reasonable use)
+  MessageBox MB_OK|MB_ICONWARNING "Warning: PATH is unusually long. Skipping automatic setup."
+  Goto skip_path_setup
+${Else}
+  ; PATH looks valid - proceed with normal setup
+  ; ... existing logic ...
+${EndIf}
+
+skip_path_setup:
+; Continue installation without PATH setup
+```
+
+**Benefits:**
+- Prevents installer from corrupting already-broken PATH
+- Graceful handling of edge cases
+- Better error messages for users with system issues
+
+**Challenges:**
+- Edge cases are rare (very low priority)
+- Hard to test without intentionally corrupting registry
+- May be overly defensive
+
+**Complexity**: Low - simple string validation checks
+
 ## Additional Resources
 
 - [Tauri Windows Installer Docs](https://v2.tauri.app/distribute/windows-installer/)
