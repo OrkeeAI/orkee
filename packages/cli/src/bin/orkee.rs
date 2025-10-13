@@ -582,10 +582,11 @@ async fn kill_port(port: u16) -> Result<(), Box<dyn std::error::Error>> {
                 let pid_string = String::from_utf8_lossy(&output.stdout);
                 // Handle multiple PIDs (one per line)
                 for pid_line in pid_string.lines() {
-                    let pid = pid_line.trim();
-                    if !pid.is_empty() {
+                    let pid_str = pid_line.trim();
+                    // Validate PID is numeric before passing to shell command
+                    if let Ok(pid) = pid_str.parse::<u32>() {
                         let _ = std::process::Command::new("kill")
-                            .args(["-9", pid])
+                            .args(["-9", &pid.to_string()])
                             .output();
                         println!("🔪 Killed process {} on port {}", pid, port);
                     }
