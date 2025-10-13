@@ -20,6 +20,11 @@ path = "src/main.rs"
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
+# NOTE: macos-private-api is required for set_activation_policy() to control macOS app behavior
+# This allows setting Regular policy (shows in Dock/Cmd+Tab) vs Accessory (menu bar only)
+# While this uses private APIs, it's a documented Tauri feature for production apps
+# Alternative: Accept default Accessory behavior (menu bar only, no Dock icon)
+# Risk: Private API changes could break functionality in future macOS versions
 tauri = { version = "2", features = ["macos-private-api", "tray-icon", "image-png"] }
 tauri-plugin-shell = "2"
 tauri-plugin-http = "2"

@@ -229,9 +229,14 @@ impl TrayManager {
         // Store the tray icon
         match self.tray_icon.lock() {
             Ok(mut tray_icon) => *tray_icon = Some(tray),
-            Err(e) => {
-                error!("Failed to lock tray_icon during init: {}", e);
-                return Err(format!("Mutex lock failed: {}", e).into());
+            Err(poisoned) => {
+                // Mutex was poisoned by a panic in another thread
+                // Recover the guard and continue - the Option is likely None anyway
+                warn!("Tray icon mutex was poisoned during init, attempting recovery");
+                warn!("This indicates a previous panic while holding the mutex");
+                let mut guard = poisoned.into_inner();
+                *guard = Some(tray);
+                warn!("Successfully recovered from poisoned mutex");
             }
         }
 
