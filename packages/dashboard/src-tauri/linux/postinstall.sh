@@ -57,6 +57,13 @@ echo "Installing orkee CLI binary..."
 # Create /usr/local/bin if it doesn't exist
 mkdir -p /usr/local/bin
 
+# Re-verify binary exists right before use (prevents TOCTOU race condition)
+if [ ! -f "$BINARY_SOURCE" ]; then
+    echo "Warning: Binary disappeared between detection and installation"
+    echo "Desktop app will still work. CLI access may not be available."
+    exit 0  # Don't fail installation
+fi
+
 # Create symlink (or copy if symlink fails)
 if ln -sf "$BINARY_SOURCE" "$BINARY_TARGET" 2>/dev/null; then
     echo "✓ Created symlink: $BINARY_TARGET -> $BINARY_SOURCE"
