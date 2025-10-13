@@ -35,11 +35,7 @@
     },
     "macOS": {
       "frameworks": [],
-      "minimumSystemVersion": "10.13",
-      "files": {
-        "Scripts/postinstall": "macos/postinstall.sh",
-        "Scripts/preuninstall": "macos/preuninstall.sh"
-      }
+      "minimumSystemVersion": "10.13"
     },
     "windows": {
       "certificateThumbprint": null,

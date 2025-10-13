@@ -22,13 +22,14 @@ The installer scripts handle copying/linking the bundled CLI binary to system PA
   - `NSIS_HOOK_PREUNINSTALL`: Removes binary
 
 ### macOS (`macos/postinstall.sh`, `macos/preuninstall.sh`)
-- **Type**: Bash scripts executed by macOS installer
+- **Type**: Bash scripts (NOT currently functional - see limitation below)
 - **Location**: `/usr/local/bin/orkee`
 - **PATH Setup**: `/usr/local/bin` is already in PATH on macOS
 - **Permissions**: Requires admin privileges for `/usr/local/bin` access
 - **Scripts**:
   - `postinstall.sh`: Copies binary from app bundle to `/usr/local/bin`
   - `preuninstall.sh`: Removes binary from `/usr/local/bin`
+- **⚠️ Known Limitation**: Tauri creates DMG installers for macOS, which don't support post-install scripts. Scripts are included but won't execute automatically. See manual setup below.
 
 ### Linux (`linux/postinstall.sh`, `linux/preuninstall.sh`)
 - **Type**: Bash scripts executed by package manager (.deb/.rpm only)
@@ -51,13 +52,12 @@ cd packages/dashboard
 bash prepare-binaries.sh
 bun run tauri:build
 
-# Install the .dmg
+# Install the .dmg (drag app to Applications folder)
 open src-tauri/target/release/bundle/dmg/Orkee_*.dmg
 
-# Verify CLI access
-orkee --version
-orkee projects list
-orkee tui
+# ⚠️ IMPORTANT: CLI access requires manual setup on macOS
+# DMG installers don't support automatic CLI installation
+# See "macOS Manual CLI Setup" section below
 ```
 
 ### Windows
@@ -149,6 +149,47 @@ orkee tui
 rm -rf squashfs-root
 ```
 
+### macOS Manual CLI Setup
+
+**Why Manual Setup?** Tauri creates DMG installers for macOS, which are disk images (not PKG installers). DMG files don't support post-install scripts - users simply drag the app to their Applications folder. This means the CLI binary must be installed manually.
+
+**Option 1: Copy from App Bundle (Recommended)**
+```bash
+# After installing Orkee.app to /Applications
+sudo cp /Applications/Orkee.app/Contents/MacOS/orkee /usr/local/bin/orkee
+sudo chmod +x /usr/local/bin/orkee
+
+# Verify CLI access
+orkee --version
+orkee projects list
+orkee tui
+```
+
+**Option 2: Copy without sudo (per-user)**
+```bash
+# Create user bin directory if needed
+mkdir -p ~/.local/bin
+
+# Copy binary from app bundle
+cp /Applications/Orkee.app/Contents/MacOS/orkee ~/.local/bin/orkee
+chmod +x ~/.local/bin/orkee
+
+# Add to PATH if needed
+echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.zshrc
+source ~/.zshrc
+
+# Verify CLI access
+orkee --version
+```
+
+**Option 3: Use npm instead**
+If manual setup is inconvenient, consider using the npm package which automatically handles CLI installation:
+```bash
+npm install -g orkee
+```
+
+The npm package provides identical functionality (CLI, TUI, web dashboard) and automatically adds `orkee` to your PATH.
+
 ## Configuration
 
 The installer hooks are referenced in `tauri.conf.json`:
@@ -163,17 +204,14 @@ The installer hooks are referenced in `tauri.conf.json`:
       }
     },
     "macOS": {
-      "files": {
-        "Scripts/postinstall": "macos/postinstall.sh",
-        "Scripts/preuninstall": "macos/preuninstall.sh"
-      }
+      "minimumSystemVersion": "10.13"
+      // Note: DMG installers don't support post-install scripts
+      // CLI installation must be done manually (see docs above)
     },
     "linux": {
       "deb": {
-        "files": {
-          "usr/share/orkee/postinstall.sh": "linux/postinstall.sh",
-          "usr/share/orkee/preuninstall.sh": "linux/preuninstall.sh"
-        }
+        "postInstallScript": "linux/postinstall.sh",
+        "preRemoveScript": "linux/preuninstall.sh"
       }
     }
   }
@@ -303,30 +341,41 @@ For wider reach, consider distributing through platform package managers:
 
 These integrations would complement the existing npm distribution and native installers.
 
-### AppImage First-Run CLI Setup Prompt
-**Problem**: AppImage users must manually discover the CLI installation helper script since AppImages don't support post-install hooks.
+### First-Run CLI Setup Helper (macOS & AppImage)
+**Problem**: macOS DMG and Linux AppImage installations don't support automatic CLI setup:
+- **macOS**: DMG files are disk images, not installers - no post-install scripts
+- **AppImage**: Portable format without installation hooks
 
-**Solution**: Add first-run detection in the Tauri desktop app to prompt AppImage users:
+Users must manually discover CLI installation steps, which hurts discoverability.
+
+**Proposed Solution**: Add first-run detection in the Tauri desktop app to offer automatic CLI setup
 
 **Implementation Approach:**
-1. **Detection**: Check if running from AppImage (`APPIMAGE` env var or `squashfs` mount detection)
+1. **Platform Detection**: Check if running on macOS or from AppImage (`APPIMAGE` env var)
 2. **CLI Check**: Test if `orkee` CLI is available in PATH (`which orkee` or equivalent)
-3. **First-Run Dialog**: Show modal on first launch (if AppImage + CLI not installed):
+3. **First-Run Dialog**: Show modal on first launch (if unsupported platform + CLI not installed):
    - Explain CLI/TUI features are available
-   - Provide "Install Now" button to launch helper script
+   - Provide "Install Now" button to trigger installation
    - Include "Remind Me Later" and "Don't Show Again" options
-4. **State Persistence**: Store user choice in app config (`~/.orkee/config.json`)
-5. **Helper Integration**: Either:
-   - Bundle the `install-cli-from-appimage.sh` script in the app
-   - Open browser to script URL with instructions
-   - Provide terminal commands to copy/paste
+4. **Installation Logic**:
+   - **macOS**: Use Tauri dialog to request admin password, copy binary to `/usr/local/bin`
+   - **AppImage**: Bundle and execute `install-cli-from-appimage.sh` helper script
+5. **State Persistence**: Store user choice in app config (`~/.orkee/config.json`)
+6. **Error Handling**: Provide fallback manual instructions if automated install fails
 
 **Benefits:**
 - Improves discoverability of CLI/TUI features
-- Reduces user friction for AppImage installations
+- Reduces user friction for macOS and AppImage installations
 - Provides guidance without requiring documentation reading
+- Maintains security (user must approve admin actions)
 
-**Complexity**: Medium - requires Rust backend detection + React frontend dialog + state management
+**Complexity**: Medium-High
+- Rust backend: Platform detection, CLI checking, binary copying with privileges
+- Frontend: React dialog component, state management
+- Security: Proper privilege escalation handling
+- Testing: Manual testing across macOS versions and AppImage environments
+
+**Status**: Tracked as future enhancement - to be implemented in separate PR
 
 ### Binary Signature Verification (Security Enhancement)
 **Priority**: Medium - Enhances supply chain security and installation trust
