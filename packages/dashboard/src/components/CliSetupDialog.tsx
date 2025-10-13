@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { invoke } from '@tauri-apps/api/core'
-import { Terminal, X, RefreshCw, CheckCircle2, AlertCircle } from 'lucide-react'
+import { Terminal, RefreshCw, CheckCircle2, AlertCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -28,7 +28,7 @@ export function CliSetupDialog({ open, onOpenChange }: CliSetupDialogProps) {
     setErrorMessage('')
 
     try {
-      const result = await invoke<string>('install_cli_macos')
+      await invoke<string>('install_cli_macos')
       setInstallState('success')
 
       // Save preference to "never" show again after successful install
