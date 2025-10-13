@@ -816,19 +816,20 @@ impl TrayManager {
                                         eprintln!("Failed to build menu: {}", e);
                                     }
                                 }
-                            } else {
-                                // Servers haven't changed - increment stability counter
-                                consecutive_stable_polls += 1;
+                            }
+                            // If rebuild interval hasn't elapsed, skip rebuild but keep fast polling
+                        } else {
+                            // Servers haven't changed - increment stability counter
+                            consecutive_stable_polls += 1;
 
-                                // Switch to slow polling after threshold
-                                if base_poll_interval_secs == DEFAULT_SERVER_POLLING_INTERVAL_SECS
-                                    && consecutive_stable_polls >= STABLE_THRESHOLD
-                                    && current_poll_interval_secs != SLOW_POLLING_INTERVAL_SECS
-                                {
-                                    current_poll_interval_secs = SLOW_POLLING_INTERVAL_SECS;
-                                    println!("Servers stable for {} polls - switching to slow polling ({} seconds)",
-                                    consecutive_stable_polls, current_poll_interval_secs);
-                                }
+                            // Switch to slow polling after threshold
+                            if base_poll_interval_secs == DEFAULT_SERVER_POLLING_INTERVAL_SECS
+                                && consecutive_stable_polls >= STABLE_THRESHOLD
+                                && current_poll_interval_secs != SLOW_POLLING_INTERVAL_SECS
+                            {
+                                current_poll_interval_secs = SLOW_POLLING_INTERVAL_SECS;
+                                println!("Servers stable for {} polls - switching to slow polling ({} seconds)",
+                                consecutive_stable_polls, current_poll_interval_secs);
                             }
                         }
                     }
