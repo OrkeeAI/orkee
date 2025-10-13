@@ -29,10 +29,8 @@
     "linux": {
       "deb": {
         "depends": [],
-        "files": {
-          "usr/share/orkee/postinstall.sh": "linux/postinstall.sh",
-          "usr/share/orkee/preuninstall.sh": "linux/preuninstall.sh"
-        }
+        "postInstallScript": "linux/postinstall.sh",
+        "preRemoveScript": "linux/preuninstall.sh"
       }
     },
     "macOS": {
