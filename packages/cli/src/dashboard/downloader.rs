@@ -488,9 +488,9 @@ pub async fn download_dashboard(
 
         // Extract to a staging directory first to avoid corrupting existing install
         let staging_dir = dashboard_dir.join(".staging");
-        if staging_dir.exists() {
-            fs::remove_dir_all(&staging_dir)?;
-        }
+        // Remove staging directory without checking existence first (TOCTOU mitigation)
+        // Ignore error if directory doesn't exist
+        let _ = fs::remove_dir_all(&staging_dir);
         fs::create_dir_all(&staging_dir)?;
 
         // Extract tar.gz to staging with security validations
@@ -583,21 +583,34 @@ pub async fn download_dashboard(
                 validate_safe_path(&dest, &dashboard_dir)?;
 
                 // Remove destination if it exists (except node_modules)
-                if dest.exists() && filename != "node_modules" {
-                    if dest.is_dir() {
-                        fs::remove_dir_all(&dest)?;
-                    } else {
-                        fs::remove_file(&dest)?;
+                // Use symlink_metadata to avoid TOCTOU race and following symlinks
+                if filename != "node_modules" {
+                    match fs::symlink_metadata(&dest) {
+                        Ok(metadata) => {
+                            let remove_result = if metadata.is_dir() {
+                                fs::remove_dir_all(&dest)
+                            } else {
+                                fs::remove_file(&dest)
+                            };
+                            // Ignore NotFound errors (concurrent deletion)
+                            if let Err(e) = remove_result {
+                                if e.kind() != std::io::ErrorKind::NotFound {
+                                    return Err(e.into());
+                                }
+                            }
+                        }
+                        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+                            // Destination doesn't exist, which is fine
+                        }
+                        Err(e) => return Err(e.into()),
                     }
                 }
                 fs::rename(&source, &dest)?;
             }
         }
 
-        // Clean up staging directory
-        if staging_dir.exists() {
-            let _ = fs::remove_dir_all(&staging_dir);
-        }
+        // Clean up staging directory (TOCTOU mitigation)
+        let _ = fs::remove_dir_all(&staging_dir);
 
         Ok::<(), Box<dyn std::error::Error>>(())
     }
@@ -637,11 +650,9 @@ pub async fn download_dashboard(
             }
         }
 
-        // Clean up staging directory if it exists
+        // Clean up staging directory (TOCTOU mitigation)
         let staging_dir = dashboard_dir.join(".staging");
-        if staging_dir.exists() {
-            let _ = fs::remove_dir_all(&staging_dir);
-        }
+        let _ = fs::remove_dir_all(&staging_dir);
 
         // Propagate the error
         extraction_result?;
@@ -776,11 +787,18 @@ pub fn get_dashboard_path() -> Result<PathBuf, Box<dyn std::error::Error>> {
 #[allow(dead_code)]
 pub fn clean_dashboard() -> Result<(), Box<dyn std::error::Error>> {
     let dashboard_dir = get_dashboard_dir()?;
-    if dashboard_dir.exists() {
-        fs::remove_dir_all(&dashboard_dir)?;
-        println!("{} Dashboard cache cleaned", "🧹".green());
+    // Remove without checking existence first (TOCTOU mitigation)
+    match fs::remove_dir_all(&dashboard_dir) {
+        Ok(_) => {
+            println!("{} Dashboard cache cleaned", "🧹".green());
+            Ok(())
+        }
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+            // Directory doesn't exist, which is fine - nothing to clean
+            Ok(())
+        }
+        Err(e) => Err(e.into()),
     }
-    Ok(())
 }
 
 #[cfg(test)]
