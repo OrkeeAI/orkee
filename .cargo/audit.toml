@@ -1,0 +1,17 @@
+# cargo-audit configuration
+#
+# This file configures security audit behavior for the Orkee project.
+# See: https://rustsec.org/advisories/
+
+[advisories]
+# Ignore advisories for dependencies we don't actively use
+
+# RUSTSEC-2023-0071: Marvin Attack in rsa crate (via sqlx-mysql)
+# Reason: We only use SQLite, not MySQL. The vulnerability is in MySQL-specific
+#         code that we never execute. No fix is available upstream.
+# Severity: Medium (5.9)
+# Decision: Ignore until sqlx provides an updated MySQL implementation or we can
+#           fully remove the MySQL dependency from the build.
+ignore = [
+    "RUSTSEC-2023-0071"
+]
