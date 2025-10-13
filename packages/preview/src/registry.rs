@@ -752,21 +752,23 @@ impl ServerRegistry {
 /// Returns the tolerance value used to determine if a process's start time matches
 /// the expected start time. This helps detect PID reuse on systems under heavy load.
 /// Can be configured via the `ORKEE_PROCESS_START_TIME_TOLERANCE_SECS` environment
-/// variable (default: 1 second, max: 1 second).
+/// variable (default: 5 seconds, max: 60 seconds).
 ///
 /// # Security Note
 ///
-/// The tolerance window must be kept minimal to prevent PID reuse attacks. On busy systems,
-/// PIDs can be reused within seconds, so even a 1-second window carries risk. Combined with
-/// parent PID validation, this provides defense-in-depth against PID reuse attacks.
+/// The tolerance window balances security against system load variability. On heavily
+/// loaded systems, process start time reporting can be delayed by several seconds.
+/// The default of 5 seconds provides reasonable tolerance while still detecting most
+/// PID reuse scenarios. Combined with parent PID validation and command-line validation,
+/// this provides defense-in-depth against PID reuse attacks even with a larger window.
 ///
 /// # Returns
 ///
 /// Returns the tolerance in seconds.
 fn get_start_time_tolerance_secs() -> u64 {
     use crate::env::parse_env_or_default_with_validation;
-    parse_env_or_default_with_validation("ORKEE_PROCESS_START_TIME_TOLERANCE_SECS", 1, |v| {
-        v > 0 && v <= 1
+    parse_env_or_default_with_validation("ORKEE_PROCESS_START_TIME_TOLERANCE_SECS", 5, |v| {
+        v > 0 && v <= 60
     })
 }
 
