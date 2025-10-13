@@ -407,7 +407,8 @@ impl ServerRegistry {
                 }
             })
             .await
-            .map_err(|e| format!("Failed to join Windows permissions task: {}", e))??;
+            .map_err(|e| format!("Failed to join Windows permissions task: {}", e))?
+            .map_err(|e| e.to_string())?;
         }
 
         Ok(())
