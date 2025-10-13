@@ -138,6 +138,9 @@ jobs:
         key: ${{ runner.os }}-tauri-${{ hashFiles('**/Cargo.lock') }}
         restore-keys: ${{ runner.os }}-tauri-
 
+    - name: Prepare CLI binary for Tauri
+      run: bash packages/dashboard/prepare-binaries.sh
+
     - name: Run Clippy (Tauri)
       run: cargo clippy --package orkee-desktop -- -D warnings
       working-directory: packages/dashboard/src-tauri

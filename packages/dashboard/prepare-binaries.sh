@@ -10,7 +10,8 @@ echo "Preparing CLI binary for Tauri..."
 OS=$(uname -s)
 ARCH=$(uname -m)
 
-# Determine target triple
+# Determine target triple and binary extension
+BINARY_EXT=""
 if [ "$OS" = "Darwin" ]; then
     if [ "$ARCH" = "arm64" ]; then
         TARGET="aarch64-apple-darwin"
@@ -26,6 +27,9 @@ elif [ "$OS" = "Linux" ]; then
         echo "Unsupported Linux architecture: $ARCH"
         exit 1
     fi
+elif [[ "$OS" =~ ^(MINGW|MSYS|CYGWIN) ]]; then
+    TARGET="x86_64-pc-windows-msvc"
+    BINARY_EXT=".exe"
 else
     echo "Unsupported OS: $OS"
     exit 1
@@ -43,7 +47,7 @@ mkdir -p "$BINARIES_DIR"
 
 # Copy binary to Tauri binaries directory with platform-specific name
 BINARY_NAME="orkee-$TARGET"
-cp "target/$TARGET/release/orkee" "$BINARIES_DIR/$BINARY_NAME"
+cp "target/$TARGET/release/orkee$BINARY_EXT" "$BINARIES_DIR/$BINARY_NAME$BINARY_EXT"
 
 echo "✓ Binary prepared: $BINARIES_DIR/$BINARY_NAME"
 echo ""
