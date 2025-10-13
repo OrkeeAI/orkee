@@ -17,8 +17,9 @@ use urlencoding::encode;
 use crate::server_restart;
 
 // Timeout constants for HTTP operations
-const HTTP_REQUEST_TIMEOUT_SECS: u64 = 5;
-const HTTP_CONNECT_TIMEOUT_SECS: u64 = 2;
+// Defaults can be overridden via environment variables (see get_http_timeout_secs)
+const DEFAULT_HTTP_REQUEST_TIMEOUT_SECS: u64 = 5;
+const DEFAULT_HTTP_CONNECT_TIMEOUT_SECS: u64 = 2;
 
 // Polling and debouncing constants
 // Default polling interval (can be overridden via ORKEE_TRAY_POLL_INTERVAL_SECS env var)
@@ -209,12 +210,19 @@ impl TrayManager {
 
     /// Create an HTTP client with configured timeouts to prevent hangs
     ///
+    /// Timeouts can be configured via environment variables:
+    /// - ORKEE_HTTP_REQUEST_TIMEOUT_SECS (default: 5, min: 1, max: 30)
+    /// - ORKEE_HTTP_CONNECT_TIMEOUT_SECS (default: 2, min: 1, max: 10)
+    ///
     /// Returns an error if the client cannot be created with the specified configuration.
     /// This should never fail in practice unless there are system-level issues.
     fn create_http_client() -> Result<reqwest::Client, reqwest::Error> {
+        let request_timeout = Duration::from_secs(Self::get_http_request_timeout_secs());
+        let connect_timeout = Duration::from_secs(Self::get_http_connect_timeout_secs());
+
         reqwest::Client::builder()
-            .timeout(Duration::from_secs(HTTP_REQUEST_TIMEOUT_SECS))
-            .connect_timeout(Duration::from_secs(HTTP_CONNECT_TIMEOUT_SECS))
+            .timeout(request_timeout)
+            .connect_timeout(connect_timeout)
             .build()
     }
 
@@ -559,6 +567,78 @@ impl TrayManager {
                 }
             },
             Err(_) => DEFAULT_SERVER_POLLING_INTERVAL_SECS,
+        }
+    }
+
+    /// Get the HTTP request timeout from environment variable or use default.
+    ///
+    /// Timeout for total HTTP request duration (connection + data transfer).
+    /// Can be configured via the ORKEE_HTTP_REQUEST_TIMEOUT_SECS environment variable.
+    ///
+    /// # Returns
+    ///
+    /// Returns the request timeout in seconds (default: 5, min: 1, max: 30).
+    fn get_http_request_timeout_secs() -> u64 {
+        match std::env::var("ORKEE_HTTP_REQUEST_TIMEOUT_SECS") {
+            Ok(raw_value) => match raw_value.parse::<u64>() {
+                Ok(parsed_value) => {
+                    if (1..=30).contains(&parsed_value) {
+                        parsed_value
+                    } else {
+                        warn!(
+                            "ORKEE_HTTP_REQUEST_TIMEOUT_SECS has invalid value '{}' (must be 1-30), using default: {}",
+                            raw_value,
+                            DEFAULT_HTTP_REQUEST_TIMEOUT_SECS
+                        );
+                        DEFAULT_HTTP_REQUEST_TIMEOUT_SECS
+                    }
+                }
+                Err(_) => {
+                    warn!(
+                        "ORKEE_HTTP_REQUEST_TIMEOUT_SECS has unparseable value '{}', using default: {}",
+                        raw_value,
+                        DEFAULT_HTTP_REQUEST_TIMEOUT_SECS
+                    );
+                    DEFAULT_HTTP_REQUEST_TIMEOUT_SECS
+                }
+            },
+            Err(_) => DEFAULT_HTTP_REQUEST_TIMEOUT_SECS,
+        }
+    }
+
+    /// Get the HTTP connect timeout from environment variable or use default.
+    ///
+    /// Timeout for establishing TCP connection to server.
+    /// Can be configured via the ORKEE_HTTP_CONNECT_TIMEOUT_SECS environment variable.
+    ///
+    /// # Returns
+    ///
+    /// Returns the connect timeout in seconds (default: 2, min: 1, max: 10).
+    fn get_http_connect_timeout_secs() -> u64 {
+        match std::env::var("ORKEE_HTTP_CONNECT_TIMEOUT_SECS") {
+            Ok(raw_value) => match raw_value.parse::<u64>() {
+                Ok(parsed_value) => {
+                    if (1..=10).contains(&parsed_value) {
+                        parsed_value
+                    } else {
+                        warn!(
+                            "ORKEE_HTTP_CONNECT_TIMEOUT_SECS has invalid value '{}' (must be 1-10), using default: {}",
+                            raw_value,
+                            DEFAULT_HTTP_CONNECT_TIMEOUT_SECS
+                        );
+                        DEFAULT_HTTP_CONNECT_TIMEOUT_SECS
+                    }
+                }
+                Err(_) => {
+                    warn!(
+                        "ORKEE_HTTP_CONNECT_TIMEOUT_SECS has unparseable value '{}', using default: {}",
+                        raw_value,
+                        DEFAULT_HTTP_CONNECT_TIMEOUT_SECS
+                    );
+                    DEFAULT_HTTP_CONNECT_TIMEOUT_SECS
+                }
+            },
+            Err(_) => DEFAULT_HTTP_CONNECT_TIMEOUT_SECS,
         }
     }
 

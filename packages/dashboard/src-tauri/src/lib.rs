@@ -1,3 +1,4 @@
+use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::str::FromStr;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
@@ -261,7 +262,9 @@ fn perform_cleanup(
 /// Perform cleanup exactly once, preventing double cleanup from multiple shutdown paths.
 ///
 /// Uses atomic compare-and-swap to ensure cleanup runs only once even if called
-/// from both WindowEvent::Destroyed and RunEvent::Exit handlers.
+/// from both WindowEvent::Destroyed and RunEvent::Exit handlers. Wraps the cleanup
+/// in `catch_unwind` to handle panics gracefully - if cleanup panics, the flag is
+/// reset to allow retry attempts.
 ///
 /// # Arguments
 ///
@@ -272,7 +275,38 @@ fn perform_cleanup_once(app_handle: &tauri::AppHandle, context: &str) {
         .compare_exchange(false, true, Ordering::SeqCst, Ordering::Relaxed)
         .is_ok()
     {
-        let _ = perform_cleanup(app_handle, context);
+        // Wrap cleanup in catch_unwind to handle panics gracefully
+        // This prevents the CLEANUP_DONE flag from being stuck in 'true' state
+        // if cleanup panics, allowing retry attempts
+        let app_handle_clone = app_handle.clone();
+        let context_owned = context.to_string();
+
+        let panic_result = catch_unwind(AssertUnwindSafe(move || {
+            perform_cleanup(&app_handle_clone, &context_owned)
+        }));
+
+        match panic_result {
+            Ok(_) => {
+                // Cleanup completed successfully (or with non-panic errors)
+                debug!("Cleanup completed for context: {}", context);
+            }
+            Err(panic_payload) => {
+                // Cleanup panicked - reset flag to allow retry
+                error!("=== CLEANUP PANIC DETECTED ===");
+                error!("Context: {}", context);
+                error!("Thread: {:?}", std::thread::current().id());
+                error!("Status: CRITICAL - Cleanup function panicked");
+                error!("Action: Resetting CLEANUP_DONE flag to allow retry");
+                error!("Panic payload: {:?}", panic_payload);
+                error!("================================");
+
+                // Reset the flag to allow cleanup retry
+                CLEANUP_DONE.store(false, Ordering::SeqCst);
+
+                // Log that the flag was reset
+                warn!("CLEANUP_DONE flag reset to false - cleanup can be retried");
+            }
+        }
     } else {
         debug!(
             "Cleanup already performed, skipping duplicate call from {}",

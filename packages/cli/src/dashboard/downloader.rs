@@ -312,15 +312,40 @@ async fn verify_checksum(
 }
 
 /// Validate symlinks after extraction to ensure they don't point outside base directory
+///
+/// This function validates symlinks on both Unix and Windows platforms. On Windows, it handles:
+/// - File symlinks (require admin privileges or Developer Mode)
+/// - Directory symlinks (require admin privileges)
+/// - Junctions (work without special privileges, detected as symlinks)
+///
+/// # Platform-Specific Notes
+///
+/// **Windows**: `is_symlink()` returns true for symlinks and junctions. `read_link()` works for
+/// all three types. NTFS junction points are automatically validated by this function.
+///
+/// **Unix/Linux/macOS**: Standard symbolic link validation.
+///
+/// # Arguments
+///
+/// * `symlink_path` - The path to validate (may or may not be a symlink)
+/// * `base_dir` - The base directory that symlinks must point within
+///
+/// # Returns
+///
+/// Returns `Ok(())` if the path is not a symlink or if it points within `base_dir`.
+/// Returns `Err` if the symlink points outside `base_dir` (path traversal attempt).
 fn validate_symlink(
     symlink_path: &Path,
     base_dir: &Path,
 ) -> Result<(), Box<dyn std::error::Error>> {
+    // Note: is_symlink() returns true for Windows junctions, directory symlinks, and file symlinks
     if !symlink_path.is_symlink() {
         return Ok(());
     }
 
     // Read the symlink target
+    // On Windows: Works for file symlinks, directory symlinks, and junctions
+    // On Unix: Works for all symbolic links
     let target = fs::read_link(symlink_path)?;
 
     // Resolve the absolute path of the symlink target
@@ -328,6 +353,7 @@ fn validate_symlink(
         target.clone()
     } else {
         // For relative symlinks, resolve from the symlink's parent directory
+        // Windows junctions are typically absolute, but directory/file symlinks can be relative
         if let Some(parent) = symlink_path.parent() {
             parent.join(&target)
         } else {
@@ -352,6 +378,7 @@ fn validate_symlink(
     };
 
     // Check if the symlink target is within the base directory
+    // This validation works for all symlink types on both Windows and Unix
     if !canonical_target.starts_with(&canonical_base) {
         return Err(format!(
             "Symlink points outside base directory: {} -> {}",
@@ -360,6 +387,13 @@ fn validate_symlink(
         )
         .into());
     }
+
+    // TODO: Add Windows-specific testing for all three symlink types:
+    // - File symlinks (require admin or Developer Mode)
+    // - Directory symlinks (require admin)
+    // - Junction points (no special privileges required)
+    // Current implementation should work for all types, but needs Windows-specific
+    // integration tests to verify behavior with each type.
 
     Ok(())
 }

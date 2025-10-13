@@ -283,26 +283,34 @@ impl ServerRegistry {
                 unsafe {
                 // Get the current user's SID
                 let mut token = Default::default();
-                if OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &mut token).is_err() {
-                    error!("Failed to open process token for ACL setup");
-                    return Err("Failed to open process token".into());
+                if let Err(e) = OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &mut token) {
+                    error!(
+                        "Failed to open process token for ACL setup: {:?} (error code: {})",
+                        e,
+                        e.code().0
+                    );
+                    return Err(format!("Failed to open process token: {:?}", e).into());
                 }
 
                 let mut token_info_length = 0u32;
                 let _ = GetTokenInformation(token, TokenUser, None, 0, &mut token_info_length);
 
                 let mut token_info = vec![0u8; token_info_length as usize];
-                if GetTokenInformation(
+                if let Err(e) = GetTokenInformation(
                     token,
                     TokenUser,
                     Some(token_info.as_mut_ptr() as *mut _),
                     token_info_length,
                     &mut token_info_length,
                 )
-                .is_err()
                 {
-                    error!("Failed to get token information for ACL setup");
-                    return Err("Failed to get token information".into());
+                    error!(
+                        "Failed to get token information for ACL setup: {:?} (error code: {}, buffer size: {})",
+                        e,
+                        e.code().0,
+                        token_info_length
+                    );
+                    return Err(format!("Failed to get token information: {:?}", e).into());
                 }
 
                 let token_user = &*(token_info.as_ptr() as *const TOKEN_USER);
@@ -324,9 +332,13 @@ impl ServerRegistry {
 
                 // Create new ACL with only current user access
                 let mut new_acl: *mut ACL = std::ptr::null_mut();
-                if SetEntriesInAclW(Some(&mut [ea]), None, &mut new_acl as *mut *mut ACL).is_err() {
-                    error!("Failed to create ACL for registry file");
-                    return Err("Failed to create ACL".into());
+                if let Err(e) = SetEntriesInAclW(Some(&mut [ea]), None, &mut new_acl as *mut *mut ACL) {
+                    error!(
+                        "Failed to create ACL for registry file: {:?} (error code: {})",
+                        e,
+                        e.code().0
+                    );
+                    return Err(format!("Failed to create ACL: {:?}", e).into());
                 }
 
                 // Open the file handle for setting security
@@ -348,11 +360,16 @@ impl ServerRegistry {
                 );
 
                 if let Err(e) = file_handle {
-                    error!("Failed to open registry file for ACL setup: {:?}", e);
+                    error!(
+                        "Failed to open registry file for ACL setup: {:?} (error code: {}, path: {:?})",
+                        e,
+                        e.code().0,
+                        path_buf
+                    );
                     if !new_acl.is_null() {
                         let _ = LocalFree(windows::Win32::Foundation::HLOCAL(new_acl as *mut _));
                     }
-                    return Err("Failed to open file for ACL setup".into());
+                    return Err(format!("Failed to open file for ACL setup: {:?}", e).into());
                 }
 
                 // Set the DACL on the file (owner read/write only, no one else)
@@ -371,9 +388,14 @@ impl ServerRegistry {
                     let _ = LocalFree(windows::Win32::Foundation::HLOCAL(new_acl as *mut _));
                 }
 
-                if result.is_err() {
-                    error!("Failed to set ACL on registry file");
-                    return Err("Failed to set file ACL".into());
+                if let Err(e) = result {
+                    error!(
+                        "Failed to set ACL on registry file: {:?} (error code: {}, path: {:?})",
+                        e,
+                        e.code().0,
+                        path_buf
+                    );
+                    return Err(format!("Failed to set file ACL: {:?}", e).into());
                 }
 
                 debug!(
