@@ -6,19 +6,39 @@ set -e
 
 # This script runs after the .app bundle is installed
 # The binary is located inside the app bundle at:
-# /Applications/Orkee.app/Contents/MacOS/orkee
+# <install_location>/Orkee.app/Contents/MacOS/orkee
 
-APP_BUNDLE="/Applications/Orkee.app"
-BINARY_SOURCE="$APP_BUNDLE/Contents/MacOS/orkee"
 BINARY_TARGET="/usr/local/bin/orkee"
 
 echo "Installing orkee CLI binary..."
 
-# Check if app bundle exists
-if [ ! -d "$APP_BUNDLE" ]; then
-    echo "Error: Orkee.app not found at $APP_BUNDLE"
-    exit 1
+# Try common install locations
+POSSIBLE_LOCATIONS=(
+    "/Applications/Orkee.app"
+    "$HOME/Applications/Orkee.app"
+    "/opt/Orkee.app"
+    "/usr/local/Orkee.app"
+)
+
+APP_BUNDLE=""
+for location in "${POSSIBLE_LOCATIONS[@]}"; do
+    if [ -d "$location" ]; then
+        APP_BUNDLE="$location"
+        break
+    fi
+done
+
+# Check if app bundle was found
+if [ -z "$APP_BUNDLE" ]; then
+    echo "Warning: Could not locate Orkee.app in standard locations"
+    echo "Searched: ${POSSIBLE_LOCATIONS[*]}"
+    echo "Desktop app will still work. For CLI access, manually copy:"
+    echo "  <Orkee.app>/Contents/MacOS/orkee -> /usr/local/bin/orkee"
+    exit 0  # Don't fail installation
 fi
+
+BINARY_SOURCE="$APP_BUNDLE/Contents/MacOS/orkee"
+echo "Found Orkee.app at: $APP_BUNDLE"
 
 # Check if binary exists in bundle
 if [ ! -f "$BINARY_SOURCE" ]; then
