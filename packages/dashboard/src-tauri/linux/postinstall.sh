@@ -9,27 +9,6 @@ if [ "${DEBUG:-}" = "1" ]; then
     set -x
 fi
 
-# Verify binary version matches expected version (if VERSION env var is set)
-verify_binary_version() {
-    local binary_path="$1"
-
-    if [ -n "$ORKEE_VERSION" ]; then
-        local actual_version
-        actual_version=$("$binary_path" --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -n1 || echo "unknown")
-
-        if [ "$actual_version" != "$ORKEE_VERSION" ] && [ "$actual_version" != "unknown" ]; then
-            echo "Warning: Binary version ($actual_version) doesn't match expected version ($ORKEE_VERSION)"
-            return 1
-        fi
-
-        echo "✓ Binary version verified: $actual_version"
-    else
-        echo "Note: Version verification skipped (ORKEE_VERSION not set)"
-    fi
-
-    return 0
-}
-
 # Detect the actual install location (varies by package format)
 # AppImage: typically in /opt or user's home
 # .deb: /usr/bin or /opt
@@ -96,9 +75,6 @@ fi
 # Verify installation
 if [ -f "$BINARY_TARGET" ] || [ -L "$BINARY_TARGET" ]; then
     echo "✓ orkee CLI is now available"
-
-    # Verify binary version if specified
-    verify_binary_version "$BINARY_TARGET" || echo "Note: Version mismatch detected but installation will continue"
 
     # Show version
     "$BINARY_TARGET" --version 2>/dev/null || echo "Desktop app installed successfully"

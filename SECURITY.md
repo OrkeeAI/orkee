@@ -546,7 +546,6 @@ The Orkee Desktop application includes native installers with automatic CLI inst
 #### Linux Installers (.deb/.rpm)
 - **Symlink Approach**: Prefers symlinks over copies (easier updates)
 - **Fallback Safety**: Falls back to copy if symlink fails
-- **Version Verification**: Optional version checking via ORKEE_VERSION env var
 - **Permission Handling**: Graceful degradation for insufficient permissions
 - **Risk**: Requires root for package installation (standard practice)
 
@@ -561,7 +560,6 @@ The Orkee Desktop application includes native installers with automatic CLI inst
 **Binary Verification:**
 - ✅ Installer scripts verify binary exists before operations
 - ✅ Target paths validated before file operations
-- ✅ Optional version verification for Linux packages
 
 **Path Security:**
 - ✅ No arbitrary path modification (only designated binary directories)
