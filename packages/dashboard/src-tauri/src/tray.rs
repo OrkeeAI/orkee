@@ -674,11 +674,31 @@ impl TrayManager {
     ///
     /// Returns the polling interval in seconds (default: 5, min: 1, max: 60).
     fn get_polling_interval_secs() -> u64 {
-        std::env::var("ORKEE_TRAY_POLL_INTERVAL_SECS")
-            .ok()
-            .and_then(|v| v.parse::<u64>().ok())
-            .map(|v| v.clamp(1, 60)) // Min 1 second, max 60 seconds
-            .unwrap_or(DEFAULT_SERVER_POLLING_INTERVAL_SECS)
+        match std::env::var("ORKEE_TRAY_POLL_INTERVAL_SECS") {
+            Ok(raw_value) => match raw_value.parse::<u64>() {
+                Ok(parsed_value) => {
+                    if (1..=60).contains(&parsed_value) {
+                        parsed_value
+                    } else {
+                        eprintln!(
+                            "⚠️  Warning: ORKEE_TRAY_POLL_INTERVAL_SECS has invalid value '{}' (must be 1-60), using default: {}",
+                            raw_value,
+                            DEFAULT_SERVER_POLLING_INTERVAL_SECS
+                        );
+                        DEFAULT_SERVER_POLLING_INTERVAL_SECS
+                    }
+                }
+                Err(_) => {
+                    eprintln!(
+                        "⚠️  Warning: ORKEE_TRAY_POLL_INTERVAL_SECS has unparseable value '{}', using default: {}",
+                        raw_value,
+                        DEFAULT_SERVER_POLLING_INTERVAL_SECS
+                    );
+                    DEFAULT_SERVER_POLLING_INTERVAL_SECS
+                }
+            },
+            Err(_) => DEFAULT_SERVER_POLLING_INTERVAL_SECS,
+        }
     }
 
     /// Stop the server polling loop
