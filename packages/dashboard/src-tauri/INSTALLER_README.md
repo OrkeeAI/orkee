@@ -93,8 +93,31 @@ orkee tui
 ```
 
 ### Linux (AppImage)
-AppImages don't support post-install hooks, so CLI access requires manual setup:
+AppImages don't support post-install hooks, so CLI access requires setup.
 
+#### Option 1: Automated Setup (Recommended)
+Download and run the helper script:
+
+```bash
+# Download the AppImage
+chmod +x Orkee*.AppImage
+
+# Download and run the helper script
+curl -fsSL https://raw.githubusercontent.com/OrkeeAI/orkee/main/packages/dashboard/src-tauri/linux/install-cli-from-appimage.sh | bash
+
+# Or if you have the repository cloned:
+bash packages/dashboard/src-tauri/linux/install-cli-from-appimage.sh
+
+# Follow the interactive prompts to choose installation location
+```
+
+The script will:
+- Extract the orkee binary from the AppImage
+- Install it to `/usr/local/bin` or `~/.local/bin` (your choice)
+- Verify the installation
+- Alert you if PATH updates are needed
+
+#### Option 2: Manual Setup
 ```bash
 # Download and make executable
 chmod +x Orkee*.AppImage
@@ -105,11 +128,11 @@ chmod +x Orkee*.AppImage
 
 # Copy to system PATH (choose one method):
 
-# Option 1: Copy to /usr/local/bin (recommended, requires sudo)
+# Method A: Copy to /usr/local/bin (recommended, requires sudo)
 sudo cp squashfs-root/usr/bin/orkee /usr/local/bin/orkee
 sudo chmod +x /usr/local/bin/orkee
 
-# Option 2: Copy to ~/.local/bin (no sudo needed)
+# Method B: Copy to ~/.local/bin (no sudo needed)
 mkdir -p ~/.local/bin
 cp squashfs-root/usr/bin/orkee ~/.local/bin/orkee
 chmod +x ~/.local/bin/orkee
