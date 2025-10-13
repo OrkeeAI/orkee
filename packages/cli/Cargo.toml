@@ -41,6 +41,7 @@ tar = "0.4"
 flate2 = "1.0"
 indicatif = "0.17"
 dirs = "5.0"
+sha2 = "0.10"
 # TLS dependencies
 axum-server = { version = "0.6", features = ["tls-rustls"] }
 rustls = "0.21"

@@ -1,8 +1,9 @@
 use colored::*;
 use flate2::read::GzDecoder;
 use indicatif::{ProgressBar, ProgressStyle};
+use sha2::{Digest, Sha256};
 use std::fs;
-use std::io::Write;
+use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 use tar::Archive;
@@ -161,6 +162,153 @@ fn normalize_path(path: &Path) -> PathBuf {
     }
 
     normalized
+}
+
+/// Calculate SHA256 checksum of a file
+fn calculate_file_sha256(file_path: &Path) -> Result<String, Box<dyn std::error::Error>> {
+    let mut file = fs::File::open(file_path)?;
+    let mut hasher = Sha256::new();
+    let mut buffer = [0u8; 8192];
+
+    loop {
+        let bytes_read = file.read(&mut buffer)?;
+        if bytes_read == 0 {
+            break;
+        }
+        hasher.update(&buffer[..bytes_read]);
+    }
+
+    let result = hasher.finalize();
+    Ok(format!("{:x}", result))
+}
+
+/// Fetch checksums.txt from GitHub release
+async fn fetch_checksums(
+    version: &str,
+    client: &reqwest::Client,
+) -> Result<String, Box<dyn std::error::Error>> {
+    let checksum_url = format!(
+        "https://github.com/{}/releases/download/v{}/checksums.txt",
+        GITHUB_REPO, version
+    );
+
+    let response = client.get(&checksum_url).send().await?;
+
+    if !response.status().is_success() {
+        return Err(format!(
+            "Failed to fetch checksums.txt (HTTP {}). Checksum verification unavailable.",
+            response.status()
+        )
+        .into());
+    }
+
+    let checksums_text = response.text().await?;
+    Ok(checksums_text)
+}
+
+/// Parse checksums.txt to find the expected SHA256 for a specific file
+fn parse_checksum(
+    checksums_text: &str,
+    asset_name: &str,
+) -> Result<String, Box<dyn std::error::Error>> {
+    // Checksums.txt format: "<sha256>  ./artifacts/<folder>/<filename>"
+    // Example: "abc123...  ./artifacts/orkee-dashboard-packages/orkee-dashboard-dist.tar.gz"
+
+    for line in checksums_text.lines() {
+        let line = line.trim();
+        if line.is_empty() {
+            continue;
+        }
+
+        // Split on whitespace
+        let parts: Vec<&str> = line.split_whitespace().collect();
+        if parts.len() < 2 {
+            continue;
+        }
+
+        let checksum = parts[0];
+        let file_path = parts[1];
+
+        // Check if this line is for our asset
+        if file_path.ends_with(asset_name) {
+            // Validate checksum format (should be 64 hex characters for SHA256)
+            if checksum.len() == 64 && checksum.chars().all(|c| c.is_ascii_hexdigit()) {
+                return Ok(checksum.to_lowercase());
+            } else {
+                return Err(
+                    format!("Invalid checksum format for {}: {}", asset_name, checksum).into(),
+                );
+            }
+        }
+    }
+
+    Err(format!(
+        "Checksum not found in checksums.txt for asset: {}",
+        asset_name
+    )
+    .into())
+}
+
+/// Verify downloaded file matches expected checksum
+async fn verify_checksum(
+    file_path: &Path,
+    asset_name: &str,
+    version: &str,
+    client: &reqwest::Client,
+) -> Result<(), Box<dyn std::error::Error>> {
+    println!("{} Verifying download integrity...", "🔒".cyan());
+
+    // Fetch checksums.txt from GitHub release
+    let checksums_text = match fetch_checksums(version, client).await {
+        Ok(text) => text,
+        Err(e) => {
+            println!("{} Checksum verification unavailable: {}", "⚠️".yellow(), e);
+            println!("{} Skipping checksum verification", "⚠️".yellow());
+            return Ok(()); // Don't fail if checksums.txt is unavailable
+        }
+    };
+
+    // Parse expected checksum for our asset
+    let expected_checksum = match parse_checksum(&checksums_text, asset_name) {
+        Ok(checksum) => checksum,
+        Err(e) => {
+            println!(
+                "{} Failed to find checksum for {}: {}",
+                "⚠️".yellow(),
+                asset_name,
+                e
+            );
+            println!("{} Skipping checksum verification", "⚠️".yellow());
+            return Ok(()); // Don't fail if we can't find the checksum
+        }
+    };
+
+    // Calculate actual checksum of downloaded file
+    let actual_checksum = calculate_file_sha256(file_path)?;
+
+    // Compare checksums
+    if actual_checksum.to_lowercase() != expected_checksum.to_lowercase() {
+        return Err(format!(
+            "❌ Checksum verification failed for {}\n\n\
+            This indicates the downloaded file may be corrupted or tampered with.\n\n\
+            Expected: {}\n\
+            Actual:   {}\n\n\
+            Security Implications:\n\
+              • The download may have been intercepted (man-in-the-middle attack)\n\
+              • The file may be corrupted during transit\n\
+              • The GitHub release assets may have been compromised\n\n\
+            Recommended Actions:\n\
+              1. Retry the download (temporary network issue)\n\
+              2. Check GitHub release integrity: https://github.com/{}/releases/tag/v{}\n\
+              3. Report this issue if it persists\n\
+              4. Verify your network connection is secure (not on public WiFi)",
+            asset_name, expected_checksum, actual_checksum, GITHUB_REPO, version
+        )
+        .into());
+    }
+
+    println!("{} Checksum verification passed ✓", "✅".green());
+    Ok(())
 }
 
 /// Validate symlinks after extraction to ensure they don't point outside base directory
@@ -482,6 +630,9 @@ pub async fn download_dashboard(
         drop(file); // Ensure file handle is closed before extraction
 
         pb.finish_with_message("Download complete");
+
+        // Verify checksum before extraction to prevent compromised downloads
+        verify_checksum(&temp_file, asset_name, version, &client).await?;
 
         // Extract the archive
         println!("{} Extracting dashboard source...", "📂".cyan());
