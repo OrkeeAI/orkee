@@ -194,10 +194,13 @@ struct ServersResponse {
 impl TrayManager {
     pub fn new(app_handle: AppHandle, api_port: u16) -> Self {
         // Create HTTP client once with connection pooling enabled by default
-        let http_client = Self::create_http_client().unwrap_or_else(|e| {
-            error!("Failed to create HTTP client: {}. Using default client.", e);
-            reqwest::Client::new()
-        });
+        // Panic if creation fails since this indicates a serious system-level issue
+        // and the application cannot function properly without a configured HTTP client
+        let http_client = Self::create_http_client().expect(
+            "Failed to create HTTP client with configured timeouts. \
+            This indicates a system-level issue. The application cannot \
+            function properly without a working HTTP client.",
+        );
 
         Self {
             app_handle,
