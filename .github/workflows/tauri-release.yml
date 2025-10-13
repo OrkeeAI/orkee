@@ -101,6 +101,8 @@ jobs:
 
       - name: Prepare CLI binary for Tauri
         shell: bash
+        env:
+          TAURI_TARGET: ${{ matrix.settings.target }}
         run: |
           bash packages/dashboard/prepare-binaries.sh
 

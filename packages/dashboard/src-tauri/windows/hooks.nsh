@@ -69,8 +69,42 @@
   ; Remove bin directory if empty
   RMDir "$0"
 
-  ; Note: We intentionally don't remove from PATH to avoid breaking
-  ; user's environment if they have other Orkee installations.
-  ; The PATH entry won't cause issues after uninstall since the
-  ; directory will be deleted.
+  ; Clean up PATH entries
+  ${If} $R0 == "perMachine"
+    ; System-wide: Remove from system PATH (HKLM)
+    ReadRegStr $1 HKLM "SYSTEM\CurrentControlSet\Control\Session Manager\Environment" "Path"
+
+    ; Check if our directory is in PATH
+    ${StrContains} $2 "$0" "$1"
+    ${If} $2 != ""
+      ; Remove the directory from PATH
+      ${WordReplace} $1 ";$0" "" "+" $1
+      ${WordReplace} $1 "$0;" "" "+" $1
+      ${WordReplace} $1 "$0" "" "+" $1
+
+      ; Write updated PATH back to registry
+      WriteRegExpandStr HKLM "SYSTEM\CurrentControlSet\Control\Session Manager\Environment" "Path" "$1"
+
+      ; Broadcast WM_SETTINGCHANGE to notify system of PATH change
+      SendMessage ${HWND_BROADCAST} ${WM_SETTINGCHANGE} 0 "STR:Environment" /TIMEOUT=5000
+    ${EndIf}
+  ${Else}
+    ; Per-user: Remove from user PATH (HKCU)
+    ReadRegStr $1 HKCU "Environment" "Path"
+
+    ; Check if our directory is in PATH
+    ${StrContains} $2 "$0" "$1"
+    ${If} $2 != ""
+      ; Remove the directory from PATH
+      ${WordReplace} $1 ";$0" "" "+" $1
+      ${WordReplace} $1 "$0;" "" "+" $1
+      ${WordReplace} $1 "$0" "" "+" $1
+
+      ; Write updated PATH back to registry
+      WriteRegExpandStr HKCU "Environment" "Path" "$1"
+
+      ; Broadcast WM_SETTINGCHANGE to notify system of PATH change
+      SendMessage ${HWND_BROADCAST} ${WM_SETTINGCHANGE} 0 "STR:Environment" /TIMEOUT=5000
+    ${EndIf}
+  ${EndIf}
 !macroend
