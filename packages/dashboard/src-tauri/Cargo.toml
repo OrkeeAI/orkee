@@ -47,6 +47,7 @@ urlencoding = "2.1"
 futures = "0.3"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
+dirs = "6"
 
 [profile.release]
 panic = "unwind"      # Allow panic recovery and mutex poisoning detection
