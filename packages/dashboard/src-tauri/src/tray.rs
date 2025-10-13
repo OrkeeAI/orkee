@@ -316,6 +316,7 @@ impl TrayManager {
 
         // Build the tray icon
         let api_port = self.api_port;
+        let http_client = self.http_client.clone();
 
         let tray = TrayIconBuilder::new()
             .icon(icon)
@@ -324,7 +325,7 @@ impl TrayManager {
             .tooltip("Orkee - Development Server Manager")
             .show_menu_on_left_click(true)
             .on_menu_event(move |app, event| {
-                Self::handle_menu_event(app, event, api_port);
+                Self::handle_menu_event(app, event, api_port, http_client.clone());
             })
             .build(app)?;
 
@@ -441,7 +442,7 @@ impl TrayManager {
         Ok(menu_builder.build()?)
     }
 
-    fn handle_menu_event(app: &AppHandle, event: tauri::menu::MenuEvent, api_port: u16) {
+    fn handle_menu_event(app: &AppHandle, event: tauri::menu::MenuEvent, api_port: u16, http_client: Arc<reqwest::Client>) {
         let event_id = event.id.as_ref();
         debug!("Menu event received: {}", event_id);
 
@@ -488,7 +489,7 @@ impl TrayManager {
             }
             id if id.starts_with("stop_") => {
                 if let Some(project_id) = id.strip_prefix("stop_") {
-                    Self::stop_server(api_port, project_id.to_string());
+                    Self::stop_server(http_client, api_port, project_id.to_string());
                 } else {
                     error!("Invalid menu event ID format: {}", id);
                 }
@@ -534,7 +535,7 @@ impl TrayManager {
         });
     }
 
-    fn stop_server(api_port: u16, project_id: String) {
+    fn stop_server(http_client: Arc<reqwest::Client>, api_port: u16, project_id: String) {
         tauri::async_runtime::spawn(async move {
             // Validate project_id before making API call
             if let Err(e) = validate_project_id(&project_id) {
@@ -542,20 +543,13 @@ impl TrayManager {
                 return;
             }
 
-            let client = match Self::create_http_client() {
-                Ok(c) => c,
-                Err(e) => {
-                    error!("Failed to create HTTP client for stopping server: {}", e);
-                    return;
-                }
-            };
             let url = format!(
                 "http://{}:{}/api/preview/servers/{}/stop",
                 get_api_host(),
                 api_port,
                 encode(&project_id)
             );
-            match client.post(&url).send().await {
+            match http_client.post(&url).send().await {
                 Ok(response) => {
                     if response.status().is_success() {
                         info!("Successfully stopped server: {}", project_id);

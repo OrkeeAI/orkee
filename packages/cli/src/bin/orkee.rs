@@ -770,7 +770,10 @@ fn discover_api_port() -> Result<u16, Box<dyn std::error::Error>> {
 
     for port in common_ports {
         // Try to connect to the port with a short timeout
-        let addr: SocketAddr = format!("127.0.0.1:{}", port).parse().unwrap();
+        let addr: SocketAddr = match format!("127.0.0.1:{}", port).parse() {
+            Ok(a) => a,
+            Err(_) => continue, // Skip this port if parsing fails
+        };
         if TcpStream::connect_timeout(&addr, Duration::from_millis(100)).is_ok() {
             eprintln!(
                 "{} Found service running on port {} - assuming it's Orkee server",
