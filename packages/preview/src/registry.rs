@@ -210,14 +210,127 @@ impl ServerRegistry {
 
         #[cfg(windows)]
         {
-            // On Windows, file permissions work differently than Unix.
-            // Windows uses ACLs (Access Control Lists) instead of Unix-style permissions.
-            // By default, Windows files are only accessible by the owning user and administrators.
-            // For more restrictive access, you would need to use the winapi crate to set ACLs,
-            // but the default Windows security is generally sufficient for this use case.
-            debug!(
-                "Registry file created with Windows default permissions (user + administrators)"
-            );
+            use windows::core::PWSTR;
+            use windows::Win32::Foundation::LocalFree;
+            use windows::Win32::Foundation::PSID;
+            use windows::Win32::Security::Authorization::{
+                SetEntriesInAclW, SetSecurityInfo, EXPLICIT_ACCESS_W, SE_FILE_OBJECT,
+            };
+            use windows::Win32::Security::{
+                GetTokenInformation, TokenUser, ACL, DACL_SECURITY_INFORMATION,
+                PSECURITY_DESCRIPTOR, TOKEN_QUERY, TOKEN_USER,
+            };
+            use windows::Win32::Security::{
+                GRANT_ACCESS, OBJECT_INHERIT_ACE, SET_ACCESS, SUB_CONTAINERS_AND_OBJECTS_INHERIT,
+                TRUSTEE_IS_SID, TRUSTEE_W,
+            };
+            use windows::Win32::Storage::FileSystem::{
+                CreateFileW, FILE_GENERIC_READ, FILE_GENERIC_WRITE, FILE_SHARE_DELETE,
+                FILE_SHARE_READ, FILE_SHARE_WRITE, OPEN_EXISTING,
+            };
+            use windows::Win32::System::Threading::{GetCurrentProcess, OpenProcessToken};
+
+            unsafe {
+                // Get the current user's SID
+                let mut token = Default::default();
+                if OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &mut token).is_err() {
+                    error!("Failed to open process token for ACL setup");
+                    return Err("Failed to open process token".into());
+                }
+
+                let mut token_info_length = 0u32;
+                let _ = GetTokenInformation(token, TokenUser, None, 0, &mut token_info_length);
+
+                let mut token_info = vec![0u8; token_info_length as usize];
+                if GetTokenInformation(
+                    token,
+                    TokenUser,
+                    Some(token_info.as_mut_ptr() as *mut _),
+                    token_info_length,
+                    &mut token_info_length,
+                )
+                .is_err()
+                {
+                    error!("Failed to get token information for ACL setup");
+                    return Err("Failed to get token information".into());
+                }
+
+                let token_user = &*(token_info.as_ptr() as *const TOKEN_USER);
+                let user_sid = PSID(token_user.User.Sid.0);
+
+                // Create an explicit access structure for the current user (read/write only)
+                let mut ea = EXPLICIT_ACCESS_W {
+                    grfAccessPermissions: FILE_GENERIC_READ.0 | FILE_GENERIC_WRITE.0,
+                    grfAccessMode: SET_ACCESS,
+                    grfInheritance: OBJECT_INHERIT_ACE | SUB_CONTAINERS_AND_OBJECTS_INHERIT,
+                    Trustee: TRUSTEE_W {
+                        pMultipleTrustee: std::ptr::null_mut(),
+                        MultipleTrusteeOperation: Default::default(),
+                        TrusteeForm: TRUSTEE_IS_SID,
+                        TrusteeType: Default::default(),
+                        ptstrName: PWSTR(user_sid.0 as *mut _),
+                    },
+                };
+
+                // Create new ACL with only current user access
+                let mut new_acl: *mut ACL = std::ptr::null_mut();
+                if SetEntriesInAclW(Some(&mut [ea]), None, &mut new_acl as *mut *mut ACL).is_err() {
+                    error!("Failed to create ACL for registry file");
+                    return Err("Failed to create ACL".into());
+                }
+
+                // Open the file handle for setting security
+                let path_wide: Vec<u16> = self
+                    .registry_path
+                    .to_str()
+                    .unwrap_or("")
+                    .encode_utf16()
+                    .chain(std::iter::once(0))
+                    .collect();
+
+                let file_handle = CreateFileW(
+                    windows::core::PCWSTR(path_wide.as_ptr()),
+                    (FILE_GENERIC_READ.0 | FILE_GENERIC_WRITE.0),
+                    FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+                    None,
+                    OPEN_EXISTING,
+                    Default::default(),
+                    None,
+                );
+
+                if let Err(e) = file_handle {
+                    error!("Failed to open registry file for ACL setup: {:?}", e);
+                    if !new_acl.is_null() {
+                        let _ = LocalFree(windows::Win32::Foundation::HLOCAL(new_acl as *mut _));
+                    }
+                    return Err("Failed to open file for ACL setup".into());
+                }
+
+                // Set the DACL on the file (owner read/write only, no one else)
+                let result = SetSecurityInfo(
+                    file_handle.unwrap(),
+                    SE_FILE_OBJECT,
+                    DACL_SECURITY_INFORMATION,
+                    PSID::default(),
+                    PSID::default(),
+                    Some(new_acl as *const ACL),
+                    PSECURITY_DESCRIPTOR::default(),
+                );
+
+                // Clean up
+                if !new_acl.is_null() {
+                    let _ = LocalFree(windows::Win32::Foundation::HLOCAL(new_acl as *mut _));
+                }
+
+                if result.is_err() {
+                    error!("Failed to set ACL on registry file");
+                    return Err("Failed to set file ACL".into());
+                }
+
+                debug!(
+                    "Set registry file ACL to restrict access to current user only (owner read/write)"
+                );
+            }
         }
 
         debug!("Saved {} servers to registry", entries.len());
