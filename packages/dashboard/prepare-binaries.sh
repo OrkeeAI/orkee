@@ -109,6 +109,26 @@ fi
 
 echo "✓ Binary built successfully: $BINARY_PATH"
 
+# Verify binary is executable and functional (smoke test)
+echo "Running smoke test..."
+if [ -x "$BINARY_PATH" ]; then
+    echo "✓ Binary is executable"
+
+    # Try to run --version (should work without any server setup)
+    if "$BINARY_PATH" --version > /dev/null 2>&1; then
+        VERSION=$("$BINARY_PATH" --version 2>/dev/null || echo "unknown")
+        echo "✓ Binary smoke test passed: $VERSION"
+    else
+        echo "Warning: Binary executes but --version failed"
+        echo "Binary may not be fully functional, but continuing..."
+    fi
+else
+    echo "Error: Binary exists but is not executable"
+    echo "Binary path: $BINARY_PATH"
+    echo "Permissions: $(ls -l "$BINARY_PATH" 2>/dev/null || echo 'cannot read')"
+    exit 1
+fi
+
 # Create binaries directory if it doesn't exist
 BINARIES_DIR="../dashboard/src-tauri/binaries"
 mkdir -p "$BINARIES_DIR"

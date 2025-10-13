@@ -471,7 +471,41 @@ skip_path_setup:
 
 ## Known Limitations
 
-### 1. Windows: PATH Duplication Edge Case
+### 1. Windows: PATH Mutation Race Condition
+**File**: `windows/hooks.nsh:60, 82`
+**Severity**: Low
+**Type**: NSIS Framework Limitation
+
+**Problem**: If another installer modifies the Windows PATH registry between reading and writing, those changes will be lost.
+
+**Scenario**:
+1. Orkee installer reads PATH from registry
+2. Another installer (running simultaneously) modifies PATH
+3. Orkee installer writes PATH back, overwriting the other installer's changes
+
+**Impact**:
+- Changes made by concurrent installers may be lost
+- Unlikely in practice - most users don't run multiple installers simultaneously
+- Worst case: User needs to reinstall the other application
+
+**Root Cause**: NSIS framework limitation - no atomic read-modify-write operations for registry
+
+**Mitigation Options Considered**:
+- **Mutex/Lock**: NSIS doesn't provide cross-process synchronization primitives
+- **Transaction API**: Windows offers `TxF` (Transactional NTFS) but deprecated since Windows Vista
+- **Registry Transactions**: Not available through NSIS
+- **Retry Logic**: Could add retry with delay, but doesn't eliminate race - only reduces probability
+
+**Current Behavior**: Acceptable for typical use cases. Race window is small (milliseconds), and simultaneous installer execution is rare.
+
+**Recommendation**: Document this limitation. Users experiencing PATH issues after installation should:
+1. Close all installers before running Orkee installer
+2. Manually verify PATH after installation: `echo %PATH%`
+3. Reinstall affected applications if needed
+
+**Future Consideration**: Consider migrating to WiX Toolset (if Tauri adds support), which provides better registry manipulation primitives.
+
+### 2. Windows: PATH Duplication Edge Case
 **File**: `windows/hooks.nsh:33`
 **Severity**: Low
 
@@ -483,7 +517,7 @@ The `StrContains` check uses substring matching, which could theoretically creat
 
 **Current behavior**: Acceptable for typical use cases
 
-### 2. macOS: Multiple Installation Detection
+### 3. macOS: Multiple Installation Detection
 **File**: `macos/postinstall.sh:23-29`
 **Severity**: Low
 
@@ -511,7 +545,7 @@ done
 
 **Current behavior**: Works for standard single-installation scenarios
 
-### 3. Linux: Version Verification Regex Limitation
+### 4. Linux: Version Verification Regex Limitation
 **File**: `linux/postinstall.sh:13`
 **Severity**: Low
 

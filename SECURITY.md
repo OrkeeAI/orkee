@@ -529,10 +529,11 @@ Report security issues privately:
 The Orkee Desktop application includes native installers with automatic CLI installation. Security considerations:
 
 #### Windows Installer
-- **PATH Modification**: Uses direct registry access (safer than setx)
+- **PATH Modification**: Uses `WriteRegExpandStr` for direct registry manipulation
 - **Permission Model**: Supports both per-user (%LOCALAPPDATA%) and per-machine (Program Files) installations
 - **Duplication Prevention**: Checks for existing PATH entries before adding
 - **Clean Uninstall**: Removes PATH entries on uninstall to prevent orphaned entries
+- **Known Limitation**: No atomic read-modify-write (NSIS framework limitation) - see INSTALLER_README.md
 - **Risk**: Requires admin privileges for per-machine install (standard practice)
 
 #### macOS Installer
