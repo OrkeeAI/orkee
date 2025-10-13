@@ -99,9 +99,11 @@ jobs:
 
   # Tauri tests - Desktop app with system dependencies
   # Longer running due to Tauri framework overhead
+  # Only runs on release branches to save CI resources
   test-tauri:
     name: Test Tauri (Desktop App)
     runs-on: ${{ matrix.platform }}
+    if: startsWith(github.ref, 'refs/heads/release/')
     permissions:
       contents: read
     strategy:
@@ -150,7 +152,7 @@ jobs:
       working-directory: packages/dashboard/src-tauri
 
   # Summary job - required for branch protection
-  # This job succeeds only if all test jobs pass
+  # This job succeeds only if all test jobs pass or are skipped
   ci-success:
     name: CI Success
     runs-on: ubuntu-latest
@@ -167,7 +169,8 @@ jobs:
             echo "test-rust failed"
             exit 1
           fi
-          if [ "${{ needs.test-tauri.result }}" != "success" ]; then
+          # Allow test-tauri to be skipped (when not on release branch) or successful
+          if [ "${{ needs.test-tauri.result }}" != "success" ] && [ "${{ needs.test-tauri.result }}" != "skipped" ]; then
             echo "test-tauri failed"
             exit 1
           fi
