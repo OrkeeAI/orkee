@@ -18,6 +18,8 @@ verify_binary_version() {
         fi
 
         echo "✓ Binary version verified: $actual_version"
+    else
+        echo "Note: Version verification skipped (ORKEE_VERSION not set)"
     fi
 
     return 0
