@@ -600,14 +600,9 @@ impl PreviewManager {
             Err(e) => {
                 error!("Failed to start server for project {}: {}", project_id, e);
 
-                let mut error_info = server_info;
-                error_info.status = DevServerStatus::Error;
-
-                // Store the error state
-                {
-                    let mut servers = self.active_servers.write().await;
-                    servers.insert(project_id, error_info.clone());
-                }
+                // Don't store failed server attempts in active_servers to avoid port allocation leaks.
+                // The port was never actually bound, so storing the error entry would mislead
+                // other parts of the system into thinking the port is in use.
 
                 Err(e)
             }
