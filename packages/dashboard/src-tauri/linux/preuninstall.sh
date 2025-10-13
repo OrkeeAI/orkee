@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # ABOUTME: Linux pre-uninstall script for Orkee desktop app
 # ABOUTME: Removes orkee binary/symlink from /usr/local/bin
 

@@ -197,6 +197,43 @@ git tag desktop-v0.0.2
 git push origin desktop-v0.0.2
 ```
 
+## npm vs Desktop Installation
+
+Orkee provides two distribution methods with identical functionality:
+
+### Desktop App (Native Installers)
+- **Installation**: Platform-specific installers (.dmg, .msi, .deb, .rpm, .AppImage)
+- **CLI Access**: Automatically added to system PATH during installation
+- **Dashboard UI**: Opens in native Tauri window
+- **Target Audience**: End users who prefer native app experience
+- **Updates**: Manual download of new installers
+- **Uninstall**: Standard OS uninstall procedures (removes CLI from PATH)
+
+### npm Package
+- **Installation**: `npm install -g orkee`
+- **CLI Access**: Automatically added to PATH by npm
+- **Dashboard UI**: Opens in default browser
+- **Target Audience**: Developers, CI/CD environments, users comfortable with terminal
+- **Updates**: `npm update -g orkee`
+- **Uninstall**: `npm uninstall -g orkee`
+
+### Key Differences
+
+| Feature | Desktop App | npm Package |
+|---------|-------------|-------------|
+| GUI Container | Native window (Tauri) | Browser window |
+| Installation | OS-specific installer | npm command |
+| Auto-updates | Manual | Via npm |
+| System Integration | Native (system tray, dock) | CLI only |
+| Disk Space | ~50MB (includes Chromium) | ~25MB (uses system browser) |
+| CLI/TUI Access | ✅ Automatic | ✅ Automatic |
+| Web Dashboard | ✅ Included | ✅ Included |
+
+### Recommendation
+- **Desktop App**: Best for end users, provides native feel
+- **npm Package**: Best for developers, lighter weight, easier updates
+- **Both work identically**: Same CLI commands, TUI, and functionality
+
 ## Additional Resources
 
 - [Tauri Windows Installer Docs](https://v2.tauri.app/distribute/windows-installer/)

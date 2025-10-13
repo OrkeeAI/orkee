@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # ABOUTME: macOS pre-uninstall script for Orkee desktop app
 # ABOUTME: Removes orkee binary from /usr/local/bin
 

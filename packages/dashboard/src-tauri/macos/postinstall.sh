@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # ABOUTME: macOS post-install script for Orkee desktop app
 # ABOUTME: Copies orkee binary to /usr/local/bin for system-wide CLI access
 

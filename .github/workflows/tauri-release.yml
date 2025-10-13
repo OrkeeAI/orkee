@@ -4,11 +4,6 @@ on:
   push:
     tags: ['desktop-v*']
   workflow_dispatch:
-    inputs:
-      version:
-        description: 'Version to release (e.g., 0.0.2)'
-        required: true
-        type: string
 
 env:
   CARGO_TERM_COLOR: always
