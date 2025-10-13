@@ -32,7 +32,17 @@ const STABLE_THRESHOLD: u32 = 3;
 const MENU_REBUILD_DEBOUNCE_SECS: u64 = 2;
 
 // Circuit breaker constants
+// Maximum failures before opening the circuit breaker (5 consecutive failures)
+// Rationale: Balances responsiveness with fault tolerance. Too low (e.g., 2-3) causes
+// excessive circuit opening on transient issues; too high (e.g., 10+) delays error
+// detection and wastes resources on failing endpoints.
 const MAX_CONSECUTIVE_FAILURES: u32 = 5;
+
+// Time to wait before attempting to close the circuit breaker (30 seconds)
+// Rationale: Allows sufficient time for transient issues to resolve (e.g., server
+// restart, network recovery) while maintaining reasonable responsiveness. Shorter
+// periods (e.g., 10s) may retry too quickly; longer periods (e.g., 60s+) reduce
+// responsiveness to recovered services.
 const CIRCUIT_BREAKER_RESET_SECS: u64 = 30;
 
 // API Host Configuration
@@ -573,7 +583,6 @@ impl TrayManager {
             let mut circuit_breaker_opened_at: Option<std::time::Instant> = None;
 
             // Adaptive polling state
-            #[allow(unused_assignments)]
             let mut consecutive_stable_polls = 0;
             let mut current_poll_interval_secs =
                 if base_poll_interval_secs == DEFAULT_SERVER_POLLING_INTERVAL_SECS {
