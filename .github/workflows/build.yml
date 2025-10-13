@@ -10,9 +10,40 @@ env:
   RUST_BACKTRACE: 1
 
 jobs:
+  audit:
+    name: Security Audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # v1
+
+      - name: Install cargo-audit
+        run: cargo install cargo-audit --locked
+
+      - name: Run Rust security audit
+        run: cargo audit
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@735343b667d3e6f658f44d0eca948eb6282f2b76 # v2.0.2
+        with:
+          bun-version: "1.2.23"
+
+      - name: Install dashboard dependencies
+        run: |
+          cd packages/dashboard
+          bun install
+
+      - name: Run Bun security audit
+        run: |
+          cd packages/dashboard
+          bun audit
+
   build:
     name: Build - ${{ matrix.platform.name }}
     runs-on: ${{ matrix.platform.os }}
+    needs: [audit]
     strategy:
       fail-fast: false
       matrix:
@@ -49,10 +80,10 @@ jobs:
             command: cargo
             
     steps:
-      - uses: actions/checkout@v4
-      
+      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
+
       - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # v1
         with:
           targets: ${{ matrix.platform.target }}
           
@@ -76,7 +107,7 @@ jobs:
           EOF
           
       - name: Cache Cargo
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: |
             ~/.cargo/bin/
@@ -98,7 +129,36 @@ jobs:
           cd ../..
           echo "Build completed, checking output..."
           ls -la target/${{ matrix.platform.target }}/release/ || true
-          
+
+      - name: Verify Binary
+        shell: bash
+        # Skip verification for cross-compiled builds (can't run ARM64 on x64 runners)
+        if: matrix.platform.use_cross != true
+        run: |
+          BINARY_PATH="target/${{ matrix.platform.target }}/release/${{ matrix.platform.binary }}"
+          echo "Verifying binary at: $BINARY_PATH"
+
+          # Make sure the binary exists
+          if [ ! -f "$BINARY_PATH" ]; then
+            echo "Error: Binary not found at $BINARY_PATH"
+            exit 1
+          fi
+
+          # Make it executable (needed on Unix-like systems)
+          chmod +x "$BINARY_PATH" 2>/dev/null || true
+
+          # Run smoke test
+          echo "Running smoke test: $BINARY_PATH --version"
+          "$BINARY_PATH" --version
+
+          # Verify exit code
+          if [ $? -eq 0 ]; then
+            echo "✓ Smoke test passed: Binary is functional"
+          else
+            echo "✗ Smoke test failed: Binary returned non-zero exit code"
+            exit 1
+          fi
+
       - name: Package Binary
         shell: bash
         run: |
@@ -128,43 +188,81 @@ jobs:
           fi
           
       - name: Upload Artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: orkee-${{ matrix.platform.target }}
           path: |
             orkee-${{ matrix.platform.target }}.tar.gz
             orkee-${{ matrix.platform.target }}.zip
           if-no-files-found: error
-          retention-days: 7
+          retention-days: 30
 
   package-dashboard:
-    name: Package Dashboard Source
+    name: Package Dashboard (Source & Dist)
     runs-on: ubuntu-latest
+    needs: [audit]
     steps:
-      - uses: actions/checkout@v4
-      
+      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@735343b667d3e6f658f44d0eca948eb6282f2b76 # v2.0.2
+        with:
+          bun-version: "1.2.23"
+
+      - name: Build Dashboard
+        run: |
+          echo "Building dashboard production bundle..."
+          cd packages/dashboard
+
+          # Install dependencies
+          bun install
+
+          # Build production bundle
+          bun run build
+
+          # Check build output
+          echo "Build output:"
+          ls -la dist/
+          du -sh dist/
+
+          cd ../..
+
+      - name: Create dashboard dist package
+        run: |
+          echo "Creating dashboard dist package..."
+          cd packages/dashboard
+
+          # Package the built files
+          tar czf ../../orkee-dashboard-dist.tar.gz dist/
+
+          cd ../..
+          echo "Dashboard dist package created:"
+          ls -lh orkee-dashboard-dist.tar.gz
+
       - name: Create dashboard source package
         run: |
           echo "Creating dashboard source package..."
           cd packages/dashboard
-          
-          # Create tarball of dashboard source
+
+          # Create tarball of dashboard source (for developers)
           tar czf ../../orkee-dashboard-source.tar.gz \
             --exclude="node_modules" \
             --exclude="dist" \
             --exclude=".turbo" \
             .
-          
+
           cd ../..
-          echo "Dashboard package created:"
+          echo "Dashboard source package created:"
           ls -lh orkee-dashboard-source.tar.gz
-      
-      - name: Upload Dashboard Package
-        uses: actions/upload-artifact@v4
+
+      - name: Upload Dashboard Packages
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: orkee-dashboard-source
-          path: orkee-dashboard-source.tar.gz
-          retention-days: 7
+          name: orkee-dashboard-packages
+          path: |
+            orkee-dashboard-dist.tar.gz
+            orkee-dashboard-source.tar.gz
+          retention-days: 30
 
   release:
     name: Create Release
@@ -174,22 +272,47 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
-      
+      - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
+
       - name: Download all artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@cc203385981b70ca67e1cc392babf9cc229d5806 # v4.1.9
         with:
           path: artifacts
-          
+
       - name: List artifacts
         run: ls -laR artifacts/
-        
+
+      - name: Generate checksums
+        run: |
+          echo "Generating SHA256 checksums for all artifacts..."
+          cd artifacts
+
+          # Find all .tar.gz and .zip files and generate checksums
+          find . -type f \( -name "*.tar.gz" -o -name "*.zip" \) -exec sha256sum {} \; > ../checksums.txt
+
+          cd ..
+
+          echo "Checksums generated:"
+          cat checksums.txt
+
+          # Create a formatted checksums file for release notes
+          echo "# SHA256 Checksums" > checksums-formatted.txt
+          echo "" >> checksums-formatted.txt
+          echo "\`\`\`" >> checksums-formatted.txt
+          cat checksums.txt >> checksums-formatted.txt
+          echo "\`\`\`" >> checksums-formatted.txt
+
+          echo "Formatted checksums:"
+          cat checksums-formatted.txt
+
       - name: Create Release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@6da8fa9354ddfdc4aeace5fc48d7f679b5214090 # v2.4.1
         with:
           files: |
             artifacts/**/*.tar.gz
             artifacts/**/*.zip
+            checksums.txt
+          body_path: checksums-formatted.txt
           generate_release_notes: true
           draft: false
           prerelease: ${{ contains(github.ref, '-rc') || contains(github.ref, '-beta') || contains(github.ref, '-alpha') }}

@@ -1,9 +1,9 @@
 import { TaskProvider, TaskProviderType, TaskProviderConfig } from '../types';
-import { TaskmasterProvider } from './taskmaster';
 
 export class TaskProviderFactory {
   private static providers = new Map<TaskProviderType, any>([
-    [TaskProviderType.Taskmaster, TaskmasterProvider],
+    // Add providers here as they are implemented
+    // Example: [TaskProviderType.Manual, ManualProvider],
   ]);
 
   static create(config: TaskProviderConfig): TaskProvider {
@@ -11,11 +11,6 @@ export class TaskProviderFactory {
     
     if (!ProviderClass) {
       throw new Error(`Unknown task provider type: ${config.type}`);
-    }
-    
-    // Create provider with options if it's TaskmasterProvider
-    if (config.type === TaskProviderType.Taskmaster && config.options?.apiBaseUrl) {
-      return new ProviderClass(config.options.apiBaseUrl);
     }
     
     const provider = new ProviderClass();

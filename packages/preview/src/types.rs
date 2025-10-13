@@ -178,6 +178,9 @@ pub enum PreviewError {
     #[error("Project not found: {project_id}")]
     ProjectNotFound { project_id: String },
 
+    #[error("Invalid project ID '{project_id}': {reason}")]
+    InvalidProjectId { project_id: String, reason: String },
+
     #[error("Server already running for project: {project_id}")]
     ServerAlreadyRunning { project_id: String },
 
@@ -261,4 +264,23 @@ impl<T> ApiResponse<T> {
             error: Some(error.to_string()),
         }
     }
+}
+
+/// Server information for status display (e.g., tray menu)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ServerStatusInfo {
+    pub id: String,
+    pub project_id: String,
+    pub project_name: Option<String>,
+    pub port: u16,
+    pub url: String,
+    pub status: String,
+    pub framework_name: Option<String>,
+    pub started_at: Option<DateTime<Utc>>,
+}
+
+/// Response containing list of servers
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ServersResponse {
+    pub servers: Vec<ServerStatusInfo>,
 }

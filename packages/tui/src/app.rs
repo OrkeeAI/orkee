@@ -330,7 +330,7 @@ impl App {
                                 match c {
                                     '1' | 'p' => {
                                         search_popup.toggle_status_filter(Some(
-                                            orkee_projects::ProjectStatus::PreLaunch,
+                                            orkee_projects::ProjectStatus::Planning,
                                         ));
                                     }
                                     '2' | 'r' => {
@@ -345,11 +345,20 @@ impl App {
                                         // Space key - cycle through status options
                                         let current_status = search_popup.get_status_filter();
                                         let next_status = match current_status {
-                                            None => Some(orkee_projects::ProjectStatus::PreLaunch),
-                                            Some(orkee_projects::ProjectStatus::PreLaunch) => {
+                                            None => Some(orkee_projects::ProjectStatus::Planning),
+                                            Some(orkee_projects::ProjectStatus::Planning) => {
+                                                Some(orkee_projects::ProjectStatus::Building)
+                                            }
+                                            Some(orkee_projects::ProjectStatus::Building) => {
+                                                Some(orkee_projects::ProjectStatus::Review)
+                                            }
+                                            Some(orkee_projects::ProjectStatus::Review) => {
                                                 Some(orkee_projects::ProjectStatus::Launched)
                                             }
                                             Some(orkee_projects::ProjectStatus::Launched) => {
+                                                Some(orkee_projects::ProjectStatus::OnHold)
+                                            }
+                                            Some(orkee_projects::ProjectStatus::OnHold) => {
                                                 Some(orkee_projects::ProjectStatus::Archived)
                                             }
                                             Some(orkee_projects::ProjectStatus::Archived) => None,

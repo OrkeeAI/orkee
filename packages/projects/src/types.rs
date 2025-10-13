@@ -17,16 +17,22 @@ pub struct GitRepositoryInfo {
 #[serde(rename_all = "kebab-case")]
 pub enum ProjectStatus {
     #[default]
-    PreLaunch,
+    Planning,
+    Building,
+    Review,
     Launched,
+    OnHold,
     Archived,
 }
 
 impl fmt::Display for ProjectStatus {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            ProjectStatus::PreLaunch => write!(f, "Pre-Launch"),
+            ProjectStatus::Planning => write!(f, "Planning"),
+            ProjectStatus::Building => write!(f, "Building"),
+            ProjectStatus::Review => write!(f, "Review"),
             ProjectStatus::Launched => write!(f, "Launched"),
+            ProjectStatus::OnHold => write!(f, "On-Hold"),
             ProjectStatus::Archived => write!(f, "Archived"),
         }
     }

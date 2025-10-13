@@ -12,7 +12,13 @@ import { invoke } from '@tauri-apps/api/core';
  */
 export function isTauriApp(): boolean {
   // @ts-expect-error - __TAURI__ is injected by Tauri at runtime
-  return typeof window !== 'undefined' && window.__TAURI__ !== undefined
+  const hasTauri = typeof window !== 'undefined' && window.__TAURI__ !== undefined;
+  console.log('[Platform] Detection:', {
+    hasWindow: typeof window !== 'undefined',
+    hasTauriGlobal: typeof window !== 'undefined' ? window.__TAURI__ !== undefined : false,
+    windowKeys: typeof window !== 'undefined' ? Object.keys(window).filter(k => k.includes('TAURI') || k.includes('tauri')) : []
+  });
+  return hasTauri;
 }
 
 /**
@@ -90,20 +96,27 @@ export const platformFeatures = {
  * In web mode, returns the default port from env or 4001
  */
 export async function getApiPort(): Promise<number> {
-  if (isTauriApp()) {
+  const isTauri = isTauriApp();
+  console.log('[Platform] isTauriApp:', isTauri);
+
+  if (isTauri) {
     try {
+      console.log('[Platform] Invoking get_api_port command...');
       // Query Tauri for the actual port the CLI server is using
       const port = await invoke<number>('get_api_port');
+      console.log('[Platform] Got dynamic API port from Tauri:', port);
       return port;
     } catch (error) {
-      console.error('Failed to get API port from Tauri:', error);
+      console.error('[Platform] Failed to get API port from Tauri:', error);
       return 4001; // Fallback
     }
   }
 
   // Web mode: use env var or default
   const envPort = import.meta.env.VITE_ORKEE_API_PORT;
-  return envPort ? parseInt(envPort) : 4001;
+  const port = envPort ? parseInt(envPort) : 4001;
+  console.log('[Platform] Web mode - using port:', port);
+  return port;
 }
 
 /**

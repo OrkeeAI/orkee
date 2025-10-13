@@ -200,8 +200,11 @@ export function ProjectEditDialog({ project, open, onOpenChange, onProjectUpdate
                         <SelectValue placeholder="Select status" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="pre-launch">Pre-Launch</SelectItem>
+                        <SelectItem value="planning">Planning</SelectItem>
+                        <SelectItem value="building">Building</SelectItem>
+                        <SelectItem value="review">Review</SelectItem>
                         <SelectItem value="launched">Launched</SelectItem>
+                        <SelectItem value="on-hold">On-Hold</SelectItem>
                         <SelectItem value="archived">Archived</SelectItem>
                       </SelectContent>
                     </Select>

@@ -20,15 +20,36 @@ path = "src/main.rs"
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
-tauri = { version = "2", features = [] }
+# Configuration
+orkee-config = { path = "../../config" }
+
+# NOTE: macos-private-api is required for set_activation_policy() to control macOS app behavior
+# This allows setting Regular policy (shows in Dock/Cmd+Tab) vs Accessory (menu bar only)
+# While this uses private APIs, it's a documented Tauri feature for production apps
+# Alternative: Accept default Accessory behavior (menu bar only, no Dock icon)
+# Risk: Private API changes could break functionality in future macOS versions
+tauri = { version = "2", features = ["macos-private-api", "tray-icon", "image-png"] }
 tauri-plugin-shell = "2"
 tauri-plugin-http = "2"
+tauri-plugin-notification = "2"
+tauri-plugin-process = "2"
+tauri-plugin-dialog = "2"
+tauri-plugin-clipboard-manager = "2"
+tauri-plugin-single-instance = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 portpicker = "0.1"
+tokio = { version = "1", features = ["full"] }
+reqwest = { version = "0.11", features = ["json"] }
+image = "0.25"
+open = "5"
+urlencoding = "2.1"
+futures = "0.3"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
 
 [profile.release]
-panic = "abort"
+panic = "unwind"      # Allow panic recovery and mutex poisoning detection
 codegen-units = 1
 lto = true
 opt-level = "s"

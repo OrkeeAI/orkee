@@ -1,4 +1,5 @@
 use crate::config::{Config, SandboxMode};
+use orkee_config::constants;
 use std::fs;
 use std::path::{Component, Path, PathBuf};
 use thiserror::Error;
@@ -81,8 +82,8 @@ impl PathValidator {
             ".env.production",
         ];
 
-        let home_dir = std::env::var("HOME")
-            .or_else(|_| std::env::var("USERPROFILE"))
+        let home_dir = std::env::var(constants::HOME)
+            .or_else(|_| std::env::var(constants::USERPROFILE))
             .unwrap_or_default();
 
         // Expand allowed paths
@@ -126,8 +127,8 @@ impl PathValidator {
         debug!("Validating path: {}", path);
 
         // Step 1: Expand path (handle ~, etc.)
-        let home_dir = std::env::var("HOME")
-            .or_else(|_| std::env::var("USERPROFILE"))
+        let home_dir = std::env::var(constants::HOME)
+            .or_else(|_| std::env::var(constants::USERPROFILE))
             .unwrap_or_default();
         let expanded = Self::expand_path_static(path, &home_dir)?;
 
@@ -322,8 +323,8 @@ impl PathValidator {
 
     pub fn get_safe_default_path(&self) -> String {
         // Return a safe default path to start browsing from
-        let home_dir = std::env::var("HOME")
-            .or_else(|_| std::env::var("USERPROFILE"))
+        let home_dir = std::env::var(constants::HOME)
+            .or_else(|_| std::env::var(constants::USERPROFILE))
             .unwrap_or_default();
 
         // Try to use the first allowed path as default

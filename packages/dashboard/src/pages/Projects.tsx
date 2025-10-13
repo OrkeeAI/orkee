@@ -35,7 +35,17 @@ import { previewService } from '@/services/api';
 
 type ViewType = 'card' | 'list';
 type SortType = 'rank' | 'priority' | 'alpha';
-type StatusFilter = 'pre-launch' | 'launched' | 'archived';
+type StatusFilter = 'planning' | 'building' | 'review' | 'launched' | 'on-hold' | 'archived';
+
+// Type for preview server response
+interface PreviewServer {
+  project_id: string;
+  [key: string]: unknown;
+}
+
+interface ServersResponse {
+  servers: PreviewServer[];
+}
 
 // Helper function to get git repository info
 const getRepositoryInfo = (project: Project): { owner: string; repo: string } | null => {
@@ -191,7 +201,7 @@ export function Projects() {
   const [searchTerm, setSearchTerm] = useState('');
   const [sortBy, setSortBy] = useState<SortType>('rank');
   const [viewType, setViewType] = useState<ViewType>('list');
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>('active');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('planning');
 
   // React Query hooks
   const { data: allProjects = [], isLoading, error, isError } = useProjects();
@@ -215,19 +225,47 @@ export function Projects() {
 
   const loadActiveServers = async () => {
     try {
-      const activeServerIds = await previewService.getActiveServers();
+      console.log('Loading active servers...');
+      const result = await previewService.getActiveServers();
+      console.log('Got result:', result, 'Type:', typeof result, 'Is array?', Array.isArray(result));
+
+      // Handle both array response and object response
+      let activeServerIds: string[];
+      if (Array.isArray(result)) {
+        activeServerIds = result;
+      } else if (result && typeof result === 'object' && 'servers' in result) {
+        // If it's an object with servers property, extract project_ids
+        const serversResponse = result as ServersResponse;
+        if (Array.isArray(serversResponse.servers)) {
+          activeServerIds = serversResponse.servers.map((s) => s.project_id);
+          console.log('Extracted project IDs from servers:', activeServerIds);
+        } else {
+          console.error('servers is not an array!', serversResponse.servers);
+          setActiveServers(new Set());
+          return;
+        }
+      } else {
+        console.error('Unexpected result type!', result);
+        setActiveServers(new Set());
+        return;
+      }
+
       setActiveServers(new Set(activeServerIds));
     } catch (err) {
       console.error('Failed to load active servers:', err);
+      setActiveServers(new Set());
     }
   };
 
   // Calculate project counts by status
   const projectCounts = useMemo(() => {
-    const preLaunch = allProjects.filter(project => project.status === 'pre-launch').length;
+    const planning = allProjects.filter(project => project.status === 'planning').length;
+    const building = allProjects.filter(project => project.status === 'building').length;
+    const review = allProjects.filter(project => project.status === 'review').length;
     const launched = allProjects.filter(project => project.status === 'launched').length;
+    const onHold = allProjects.filter(project => project.status === 'on-hold').length;
     const archived = allProjects.filter(project => project.status === 'archived').length;
-    return { preLaunch, launched, archived };
+    return { planning, building, review, launched, onHold, archived };
   }, [allProjects]);
 
   // Filter and sort projects
@@ -443,10 +481,13 @@ export function Projects() {
       <GlobalSyncStatus className="mb-6" />
 
       <Tabs value={statusFilter} onValueChange={(value) => setStatusFilter(value as StatusFilter)}>
-        <TabsList className="grid w-full grid-cols-3 max-w-2xl">
-          <TabsTrigger value="pre-launch">Pre-Launch ({projectCounts.preLaunch})</TabsTrigger>
-          <TabsTrigger value="launched">Launched ({projectCounts.launched})</TabsTrigger>
-          <TabsTrigger value="archived">Archived ({projectCounts.archived})</TabsTrigger>
+        <TabsList className="grid w-full grid-cols-6 gap-1">
+          <TabsTrigger value="planning" className="text-xs sm:text-sm">Planning ({projectCounts.planning})</TabsTrigger>
+          <TabsTrigger value="building" className="text-xs sm:text-sm">Building ({projectCounts.building})</TabsTrigger>
+          <TabsTrigger value="review" className="text-xs sm:text-sm">Review ({projectCounts.review})</TabsTrigger>
+          <TabsTrigger value="launched" className="text-xs sm:text-sm">Launched ({projectCounts.launched})</TabsTrigger>
+          <TabsTrigger value="on-hold" className="text-xs sm:text-sm">On-Hold ({projectCounts.onHold})</TabsTrigger>
+          <TabsTrigger value="archived" className="text-xs sm:text-sm">Archived ({projectCounts.archived})</TabsTrigger>
         </TabsList>
 
         <TabsContent value={statusFilter} className="mt-6">

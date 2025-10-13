@@ -360,13 +360,21 @@ async fn execute_projects_tool(request: ProjectsRequest, context: &ToolContext) 
                 Ok(mut projects) => {
                     // Filter by status
                     if request.status != "all" {
-                        let status_filter = match request.status.as_str() {
-                            "pre-launch" => ProjectStatus::PreLaunch,
-                            "launched" => ProjectStatus::Launched,
-                            "archived" => ProjectStatus::Archived,
-                            _ => ProjectStatus::PreLaunch,
-                        };
-                        projects.retain(|p| p.status == status_filter);
+                        if request.status == "active" {
+                            // Active means not archived
+                            projects.retain(|p| p.status != ProjectStatus::Archived);
+                        } else {
+                            let status_filter = match request.status.as_str() {
+                                "planning" => ProjectStatus::Planning,
+                                "building" => ProjectStatus::Building,
+                                "review" => ProjectStatus::Review,
+                                "launched" => ProjectStatus::Launched,
+                                "on-hold" => ProjectStatus::OnHold,
+                                "archived" => ProjectStatus::Archived,
+                                _ => ProjectStatus::Planning,
+                            };
+                            projects.retain(|p| p.status == status_filter);
+                        }
                     }
 
                     // Filter by git repository presence
@@ -468,8 +476,11 @@ async fn execute_project_manage_tool(
                     cleanup_script: request.cleanup_script.clone(),
                     tags: request.tags.clone(),
                     status: request.status.as_ref().and_then(|s| match s.as_str() {
-                        "pre-launch" => Some(ProjectStatus::PreLaunch),
+                        "planning" => Some(ProjectStatus::Planning),
+                        "building" => Some(ProjectStatus::Building),
+                        "review" => Some(ProjectStatus::Review),
                         "launched" => Some(ProjectStatus::Launched),
+                        "on-hold" => Some(ProjectStatus::OnHold),
                         "archived" => Some(ProjectStatus::Archived),
                         _ => None,
                     }),
@@ -514,8 +525,11 @@ async fn execute_project_manage_tool(
                     cleanup_script: request.cleanup_script.clone(),
                     tags: request.tags.clone(),
                     status: request.status.as_ref().and_then(|s| match s.as_str() {
-                        "pre-launch" => Some(ProjectStatus::PreLaunch),
+                        "planning" => Some(ProjectStatus::Planning),
+                        "building" => Some(ProjectStatus::Building),
+                        "review" => Some(ProjectStatus::Review),
                         "launched" => Some(ProjectStatus::Launched),
+                        "on-hold" => Some(ProjectStatus::OnHold),
                         "archived" => Some(ProjectStatus::Archived),
                         _ => None,
                     }),

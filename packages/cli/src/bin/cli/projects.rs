@@ -92,8 +92,11 @@ async fn list_projects() -> Result<(), Box<dyn std::error::Error>> {
 
     for project in &projects {
         let status_text = match project.status {
-            ProjectStatus::PreLaunch => "Pre-Launch",
+            ProjectStatus::Planning => "Planning",
+            ProjectStatus::Building => "Building",
+            ProjectStatus::Review => "Review",
             ProjectStatus::Launched => "Launched",
+            ProjectStatus::OnHold => "On-Hold",
             ProjectStatus::Archived => "Archived",
         };
 
@@ -186,7 +189,14 @@ async fn add_project(
 
     let status = Select::new(
         "Status:",
-        vec![ProjectStatus::PreLaunch, ProjectStatus::Launched, ProjectStatus::Archived],
+        vec![
+            ProjectStatus::Planning,
+            ProjectStatus::Building,
+            ProjectStatus::Review,
+            ProjectStatus::Launched,
+            ProjectStatus::OnHold,
+            ProjectStatus::Archived,
+        ],
     )
     .prompt()?;
 
@@ -292,7 +302,14 @@ async fn edit_project(id: &str) -> Result<(), Box<dyn std::error::Error>> {
         Some(description)
     };
 
-    let status_options = vec![ProjectStatus::PreLaunch, ProjectStatus::Launched, ProjectStatus::Archived];
+    let status_options = vec![
+        ProjectStatus::Planning,
+        ProjectStatus::Building,
+        ProjectStatus::Review,
+        ProjectStatus::Launched,
+        ProjectStatus::OnHold,
+        ProjectStatus::Archived,
+    ];
     let status = Select::new("Status:", status_options).prompt()?;
 
     let priority_options = vec![Priority::High, Priority::Medium, Priority::Low];
@@ -437,9 +454,12 @@ fn print_project_details(project: &Project) {
     println!("{:<15} {}", "Path:".cyan(), project.project_root);
 
     let status_colored = match project.status {
-        ProjectStatus::PreLaunch => "Pre-Launch".cyan(),
+        ProjectStatus::Planning => "Planning".cyan(),
+        ProjectStatus::Building => "Building".blue(),
+        ProjectStatus::Review => "Review".magenta(),
         ProjectStatus::Launched => "Launched".green(),
-        ProjectStatus::Archived => "Archived".yellow(),
+        ProjectStatus::OnHold => "On-Hold".yellow(),
+        ProjectStatus::Archived => "Archived".bright_black(),
     };
     println!("{:<15} {}", "Status:".cyan(), status_colored);
 

@@ -1,17 +1,16 @@
 use crate::manager::{
     create_project as manager_create_project, delete_project as manager_delete_project,
-    export_database as manager_export_database, import_database as manager_import_database,
-    get_all_projects, get_project as manager_get_project,
-    get_project_by_name as manager_get_project_by_name,
-    get_project_by_path as manager_get_project_by_path, update_project as manager_update_project,
-    ManagerError,
+    export_database as manager_export_database, get_all_projects,
+    get_project as manager_get_project, get_project_by_name as manager_get_project_by_name,
+    get_project_by_path as manager_get_project_by_path, import_database as manager_import_database,
+    update_project as manager_update_project, ManagerError,
 };
 use crate::types::{ProjectCreateInput, ProjectUpdateInput};
 use axum::{
-    extract::{Json, Path},
-    http::{StatusCode, header},
-    response::{IntoResponse, Json as ResponseJson, Response},
     body::Body,
+    extract::{Json, Path},
+    http::{header, StatusCode},
+    response::{IntoResponse, Json as ResponseJson, Response},
 };
 use serde::{Deserialize, Serialize};
 use std::process::Command;
@@ -1032,7 +1031,9 @@ pub async fn import_database(body: axum::body::Bytes) -> impl IntoResponse {
 
             info!(
                 "Database import successful: {} imported, {} skipped, {} conflicts",
-                result.projects_imported, result.projects_skipped, result.conflicts.len()
+                result.projects_imported,
+                result.projects_skipped,
+                result.conflicts.len()
             );
 
             (StatusCode::OK, ResponseJson(ApiResponse::success(response))).into_response()
@@ -1076,7 +1077,7 @@ mod tests {
                 cleanup_script: None,
                 tags: Some(vec!["api".to_string(), "test".to_string()]),
                 description: Some("Test project for API".to_string()),
-                status: Some(ProjectStatus::PreLaunch),
+                status: Some(ProjectStatus::Planning),
                 rank: None,
                 priority: None,
                 task_source: None,

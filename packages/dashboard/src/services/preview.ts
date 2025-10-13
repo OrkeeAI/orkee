@@ -186,21 +186,52 @@ class PreviewService {
    * Get all active servers (for debugging)
    */
   async getActiveServers(): Promise<string[]> {
-    const response = await apiClient.get<ApiResponse<string[]>>(
-      `${this.baseUrl}/servers`
-    );
+    try {
+      const response = await apiClient.get<ApiResponse<{servers: Array<{project_id: string}>}>>(
+        `${this.baseUrl}/servers`
+      );
 
-    if (response.error) {
-      console.warn('Failed to get active servers:', response.error);
+      console.log('Raw API response:', response);
+
+      if (response.error) {
+        console.warn('Failed to get active servers:', response.error);
+        return [];
+      }
+
+      const apiResponse = response.data;
+      console.log('API response data:', apiResponse);
+
+      if (!apiResponse || typeof apiResponse !== 'object') {
+        console.error('Invalid API response:', apiResponse);
+        return [];
+      }
+
+      if (!apiResponse.success) {
+        console.warn('API request was not successful:', apiResponse);
+        return [];
+      }
+
+      if (!apiResponse.data) {
+        console.warn('No data in API response');
+        return [];
+      }
+
+      // Extract project_ids from the servers array
+      const servers = apiResponse.data.servers;
+      console.log('Servers from response:', servers);
+
+      if (!Array.isArray(servers)) {
+        console.error('Expected servers to be an array, got:', typeof servers, servers);
+        return [];
+      }
+
+      const projectIds = servers.map(server => server.project_id);
+      console.log('Extracted project IDs:', projectIds);
+      return projectIds;
+    } catch (error) {
+      console.error('Exception in getActiveServers:', error);
       return [];
     }
-
-    const apiResponse = response.data;
-    if (!apiResponse.success || !apiResponse.data) {
-      return [];
-    }
-
-    return apiResponse.data;
   }
 
   /**

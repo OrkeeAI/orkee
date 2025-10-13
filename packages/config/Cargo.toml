@@ -1,0 +1,11 @@
+[package]
+name = "orkee-config"
+version = "0.0.1"
+edition = "2021"
+description = "Configuration and environment variable management for Orkee"
+authors = ["Orkee Team"]
+license = "MIT"
+repository = "https://github.com/OrkeeAI/orkee"
+
+[dependencies]
+tracing = "0.1"

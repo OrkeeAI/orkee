@@ -439,7 +439,7 @@ RATE_LIMIT_BURST_SIZE=2
 
 ### Network Security
 
-1. **Use HTTPS** in production (see [TLS Configuration](../security/tls-https))
+1. **Use HTTPS** in production
 2. **Configure firewalls** to restrict access
 3. **Use reverse proxy** for additional security
 4. **Regular security scanning**
@@ -497,8 +497,3 @@ RATE_LIMIT_PROJECTS_RPM=60 orkee dashboard
 SECURITY_HEADERS_ENABLED=false orkee dashboard
 ```
 
-For additional security topics:
-
-- [TLS/HTTPS Configuration](../security/tls-https) for encryption setup
-- [Authentication](../security/authentication) for user authentication
-- [Sandbox Modes](../security/sandbox-modes) for detailed sandboxing information

@@ -1,6 +1,7 @@
 {
   "name": "orkee",
   "private": true,
+  "packageManager": "bun@1.2.23",
   "workspaces": [
     "packages/*",
     "docs"
@@ -8,6 +9,8 @@
   "scripts": {
     "build": "turbo build",
     "dev": "turbo dev",
+    "dev:tauri": "cd packages/dashboard && bun tauri:dev",
+    "dev:web": "cd packages/cli && cargo run --bin orkee -- dashboard --dev",
     "lint": "turbo lint",
     "test": "turbo test"
   },

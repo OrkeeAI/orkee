@@ -350,8 +350,6 @@ If you're building from source to contribute:
 4. **Run quality checks**: `turbo lint && turbo test`
 5. **Submit a pull request** with a clear description
 
-See our [Contributing Guide](../../development/contributing) for detailed guidelines.
-
 ## Next Steps
 
 - [Quick Start Guide](../quick-start) - Get up and running

@@ -30,6 +30,11 @@ node_modules/
 # Build outputs
 target/
 dist/
+*.tar.gz
+
+# Binary executables
+packages/cli/orkee
+packages/dashboard/src-tauri/binaries/
 
 # Tasks
 .taskmaster/

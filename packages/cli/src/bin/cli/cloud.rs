@@ -223,10 +223,17 @@ pub async fn handle_cloud_command(command: CloudCommands) -> anyhow::Result<()> 
                                 cleanup_script: project.cleanup_script.clone(),
                                 tags: project.tags.clone().unwrap_or_default(),
                                 status: match project.status {
-                                    orkee_projects::ProjectStatus::PreLaunch => {
-                                        "pre-launch".to_string()
+                                    orkee_projects::ProjectStatus::Planning => {
+                                        "planning".to_string()
                                     }
-                                    orkee_projects::ProjectStatus::Launched => "launched".to_string(),
+                                    orkee_projects::ProjectStatus::Building => {
+                                        "building".to_string()
+                                    }
+                                    orkee_projects::ProjectStatus::Review => "review".to_string(),
+                                    orkee_projects::ProjectStatus::Launched => {
+                                        "launched".to_string()
+                                    }
+                                    orkee_projects::ProjectStatus::OnHold => "on-hold".to_string(),
                                     orkee_projects::ProjectStatus::Archived => {
                                         "archived".to_string()
                                     }
@@ -305,10 +312,21 @@ pub async fn handle_cloud_command(command: CloudCommands) -> anyhow::Result<()> 
                                         cleanup_script: project.cleanup_script.clone(),
                                         tags: project.tags.clone().unwrap_or_default(),
                                         status: match project.status {
-                                            orkee_projects::ProjectStatus::PreLaunch => {
-                                                "pre-launch".to_string()
+                                            orkee_projects::ProjectStatus::Planning => {
+                                                "planning".to_string()
                                             }
-                                            orkee_projects::ProjectStatus::Launched => "launched".to_string(),
+                                            orkee_projects::ProjectStatus::Building => {
+                                                "building".to_string()
+                                            }
+                                            orkee_projects::ProjectStatus::Review => {
+                                                "review".to_string()
+                                            }
+                                            orkee_projects::ProjectStatus::Launched => {
+                                                "launched".to_string()
+                                            }
+                                            orkee_projects::ProjectStatus::OnHold => {
+                                                "on-hold".to_string()
+                                            }
                                             orkee_projects::ProjectStatus::Archived => {
                                                 "archived".to_string()
                                             }
@@ -550,10 +568,17 @@ pub async fn handle_cloud_command(command: CloudCommands) -> anyhow::Result<()> 
                                 cleanup_script: project.cleanup_script.clone(),
                                 tags: project.tags.clone().unwrap_or_default(),
                                 status: match project.status {
-                                    orkee_projects::ProjectStatus::PreLaunch => {
-                                        "pre-launch".to_string()
+                                    orkee_projects::ProjectStatus::Planning => {
+                                        "planning".to_string()
                                     }
-                                    orkee_projects::ProjectStatus::Launched => "launched".to_string(),
+                                    orkee_projects::ProjectStatus::Building => {
+                                        "building".to_string()
+                                    }
+                                    orkee_projects::ProjectStatus::Review => "review".to_string(),
+                                    orkee_projects::ProjectStatus::Launched => {
+                                        "launched".to_string()
+                                    }
+                                    orkee_projects::ProjectStatus::OnHold => "on-hold".to_string(),
                                     orkee_projects::ProjectStatus::Archived => {
                                         "archived".to_string()
                                     }

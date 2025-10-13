@@ -1,7 +1,10 @@
 import { isTauriApp, platformFetch, getApiPort } from '@/lib/platform';
 
-// Default API configuration (used in web mode and as fallback)
-const API_PORT = import.meta.env.VITE_ORKEE_API_PORT || '4001';
+console.log('[API] Module loaded - checking platform...');
+console.log('[API] isTauriApp():', isTauriApp());
+
+// Default API configuration
+const API_PORT = parseInt(import.meta.env.VITE_ORKEE_API_PORT || '4001');
 const DEFAULT_API_BASE_URL = import.meta.env.VITE_API_URL || `http://localhost:${API_PORT}`;
 
 // Cache for the dynamically determined API base URL
@@ -9,7 +12,7 @@ let cachedApiBaseUrl: string | null = null;
 
 /**
  * Get the appropriate API base URL based on the platform
- * In web mode: uses the configured API_BASE_URL (with proxy)
+ * In web mode: uses generated port config or env var (direct connection)
  * In desktop mode: queries Tauri for the dynamic port and connects directly
  */
 async function getApiBaseUrl(): Promise<string> {
@@ -19,15 +22,23 @@ async function getApiBaseUrl(): Promise<string> {
   }
 
   if (isTauriApp()) {
-    // Get the dynamically assigned port from Tauri
-    const port = await getApiPort();
-    cachedApiBaseUrl = `http://localhost:${port}`;
-    console.log(`Using dynamic API port: ${port}`);
-    return cachedApiBaseUrl;
+    try {
+      // Get the dynamically assigned port from Tauri
+      const port = await getApiPort();
+      cachedApiBaseUrl = `http://localhost:${port}`;
+      console.log(`Using dynamic API port: ${port}`);
+      return cachedApiBaseUrl;
+    } catch (error) {
+      console.error('Failed to get API port from Tauri:', error);
+      // Fallback to default
+      cachedApiBaseUrl = DEFAULT_API_BASE_URL;
+      return cachedApiBaseUrl;
+    }
   }
 
-  // Web mode: use default
+  // Web mode: use env var or default
   cachedApiBaseUrl = DEFAULT_API_BASE_URL;
+  console.log(`Using API port: ${API_PORT}`);
   return cachedApiBaseUrl;
 }
 

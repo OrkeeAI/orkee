@@ -149,7 +149,9 @@ fn validate_script(script: &str, field_name: &str) -> Result<(), ValidationError
         ));
     }
 
-    // Check for dangerous commands
+    // Check for truly dangerous commands that could destroy the system
+    // Note: Scripts run in user's own environment, so this is mainly to prevent
+    // accidental foot-guns rather than malicious code injection
     let script_lower = script.to_lowercase();
     for dangerous in DANGEROUS_COMMANDS {
         if script_lower.contains(&dangerous.to_lowercase()) {
@@ -159,19 +161,6 @@ fn validate_script(script: &str, field_name: &str) -> Result<(), ValidationError
                     "Script contains potentially dangerous command: {}",
                     dangerous
                 ),
-            ));
-        }
-    }
-
-    // Check for shell injection patterns
-    const INJECTION_PATTERNS: &[&str] =
-        &["$(", "${", "`", "&&", "||", ";", "|", ">", "<", ">>", "<<"];
-
-    for pattern in INJECTION_PATTERNS {
-        if script.contains(pattern) {
-            return Err(ValidationError::new(
-                field_name,
-                format!("Script contains potentially dangerous pattern: {}", pattern),
             ));
         }
     }
@@ -410,7 +399,7 @@ mod tests {
             cleanup_script: None,
             tags: Some(vec!["rust".to_string(), "web".to_string()]),
             description: Some("A test project".to_string()),
-            status: Some(ProjectStatus::PreLaunch),
+            status: Some(ProjectStatus::Planning),
             rank: None,
             priority: None,
             task_source: None,

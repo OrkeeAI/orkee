@@ -48,6 +48,16 @@ async fn test_projects_list_endpoint() {
     // Set HOME to temp dir so the database is created there
     env::set_var("HOME", temp_dir.path());
 
+    // Ensure .orkee directory exists in temp dir
+    let orkee_dir = temp_dir.path().join(".orkee");
+    std::fs::create_dir_all(&orkee_dir).unwrap();
+
+    // Delete any existing database file to ensure clean state
+    let db_path = orkee_dir.join("orkee.db");
+    if db_path.exists() {
+        let _ = std::fs::remove_file(&db_path);
+    }
+
     let app = api::create_router().await;
 
     let request = Request::builder()

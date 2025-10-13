@@ -1,7 +1,8 @@
 [workspace]
 members = [
     "packages/cli",
-    "packages/projects", 
+    "packages/config",
+    "packages/projects",
     "packages/cloud",
     "packages/preview",
     "packages/tui",
@@ -30,3 +31,11 @@ mockall = "0.12"
 tempfile = "3.8"
 tokio-test = "0.4"
 pretty_assertions = "1.4"
+
+# Optimized release profile balancing size and performance
+[profile.release]
+opt-level = "s"       # Balanced optimization for both speed and size
+lto = true            # Enable Link Time Optimization
+codegen-units = 1     # Single codegen unit for better optimization
+strip = true          # Strip symbols from binary
+panic = "unwind"      # Allow panic recovery and mutex poisoning detection

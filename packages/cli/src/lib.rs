@@ -19,39 +19,38 @@ mod tests;
 
 use config::Config;
 
-fn create_cors_origin(allow_any_localhost: bool) -> AllowOrigin {
-    if allow_any_localhost {
-        // Use a predicate to allow any localhost origin dynamically
-        AllowOrigin::predicate(|origin: &HeaderValue, _: &_| {
-            if let Ok(origin_str) = origin.to_str() {
-                origin_str.starts_with("http://localhost:")
-                    || origin_str.starts_with("http://127.0.0.1:")
-                    || origin_str.starts_with("http://[::1]:")
-            } else {
-                false
-            }
-        })
-    } else {
-        // Use the restricted list
-        let allowed_origins = [
-            "http://localhost:5173",
-            "http://localhost:5174",
-            "http://localhost:5175",
-            "http://localhost:3000",
-            "http://127.0.0.1:5173",
-            "http://127.0.0.1:3000",
-            "http://[::1]:5173",
-        ];
+fn create_cors_origin(_allow_any_localhost: bool) -> AllowOrigin {
+    // Always allow any localhost origin for development flexibility
+    // This supports dynamic ports without configuration
+    AllowOrigin::predicate(|origin: &HeaderValue, _: &_| {
+        if let Ok(origin_str) = origin.to_str() {
+            let allowed = origin_str.starts_with("http://localhost:")
+                || origin_str.starts_with("http://127.0.0.1:")
+                || origin_str.starts_with("http://[::1]:")
+                || origin_str.starts_with("https://localhost:")
+                || origin_str.starts_with("https://127.0.0.1:")
+                || origin_str.starts_with("https://[::1]:")
+                || origin_str == "tauri://localhost"
+                || origin_str == "http://tauri.localhost"
+                || origin_str == "https://tauri.localhost";
 
-        AllowOrigin::list(
-            allowed_origins
-                .iter()
-                .map(|origin| HeaderValue::from_str(origin).unwrap()),
-        )
-    }
+            if !allowed {
+                error!("CORS blocked origin: {}", origin_str);
+            }
+            allowed
+        } else {
+            false
+        }
+    })
 }
 
 pub async fn run_server() -> Result<(), Box<dyn std::error::Error>> {
+    run_server_with_options(None).await
+}
+
+pub async fn run_server_with_options(
+    dashboard_path: Option<std::path::PathBuf>,
+) -> Result<(), Box<dyn std::error::Error>> {
     // Load .env file
     dotenvy::dotenv().ok();
 
@@ -75,15 +74,18 @@ pub async fn run_server() -> Result<(), Box<dyn std::error::Error>> {
 
     if config.tls.enabled {
         // TLS mode: run both HTTP (redirect) and HTTPS (main app) servers
-        run_dual_server_mode(config).await
+        run_dual_server_mode(config, dashboard_path).await
     } else {
         // HTTP only mode
-        run_http_server(config).await
+        run_http_server(config, dashboard_path).await
     }
 }
 
-async fn run_http_server(config: Config) -> Result<(), Box<dyn std::error::Error>> {
-    let app = create_application_router(config.clone()).await?;
+async fn run_http_server(
+    config: Config,
+    dashboard_path: Option<std::path::PathBuf>,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let app = create_application_router(config.clone(), dashboard_path).await?;
     let addr = SocketAddr::from(([127, 0, 0, 1], config.port));
 
     info!("Starting HTTP server on {}", addr);
@@ -99,13 +101,16 @@ async fn run_http_server(config: Config) -> Result<(), Box<dyn std::error::Error
     Ok(())
 }
 
-async fn run_dual_server_mode(config: Config) -> Result<(), Box<dyn std::error::Error>> {
+async fn run_dual_server_mode(
+    config: Config,
+    dashboard_path: Option<std::path::PathBuf>,
+) -> Result<(), Box<dyn std::error::Error>> {
     // Initialize TLS manager
     let tls_manager = tls::TlsManager::new(config.tls.clone());
     let rustls_config = tls_manager.initialize().await?;
 
     // Create main application router
-    let app = create_application_router(config.clone()).await?;
+    let app = create_application_router(config.clone(), dashboard_path).await?;
 
     // Create HTTP redirect router (simpler router that just redirects to HTTPS)
     let redirect_app = create_redirect_router(config.clone()).await?;
@@ -171,6 +176,7 @@ async fn start_http_redirect_server(
 
 async fn create_application_router(
     config: Config,
+    dashboard_path: Option<std::path::PathBuf>,
 ) -> Result<axum::Router, Box<dyn std::error::Error>> {
     // Create CORS layer with specific headers only
     let allowed_headers = AllowHeaders::list([
@@ -191,7 +197,7 @@ async fn create_application_router(
         .max_age(Duration::from_secs(3600));
 
     // Create the router with all middleware layers (in order: outermost to innermost)
-    let mut app_builder = api::create_router().await;
+    let mut app_builder = api::create_router_with_options(dashboard_path).await;
 
     // Add CORS layer
     app_builder = app_builder.layer(cors);

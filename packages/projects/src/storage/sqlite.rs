@@ -119,10 +119,15 @@ impl SqliteStorage {
 
         let status_str: String = row.try_get("status")?;
         let status = match status_str.as_str() {
-            "pre-launch" => ProjectStatus::PreLaunch,
+            "planning" => ProjectStatus::Planning,
+            "building" => ProjectStatus::Building,
+            "review" => ProjectStatus::Review,
             "launched" => ProjectStatus::Launched,
+            "on-hold" => ProjectStatus::OnHold,
             "archived" => ProjectStatus::Archived,
-            _ => ProjectStatus::PreLaunch,
+            // Legacy compatibility
+            "pre-launch" => ProjectStatus::Planning,
+            _ => ProjectStatus::Planning,
         };
 
         let priority_str: String = row.try_get("priority")?;
@@ -175,8 +180,11 @@ impl SqliteStorage {
     /// Convert project status to string
     fn status_to_string(status: &ProjectStatus) -> &'static str {
         match status {
-            ProjectStatus::PreLaunch => "pre-launch",
+            ProjectStatus::Planning => "planning",
+            ProjectStatus::Building => "building",
+            ProjectStatus::Review => "review",
             ProjectStatus::Launched => "launched",
+            ProjectStatus::OnHold => "on-hold",
             ProjectStatus::Archived => "archived",
         }
     }
@@ -236,7 +244,7 @@ impl ProjectStorage for SqliteStorage {
             .map(serde_json::to_string)
             .transpose()?;
 
-        let status_str = Self::status_to_string(&input.status.unwrap_or(ProjectStatus::PreLaunch));
+        let status_str = Self::status_to_string(&input.status.unwrap_or(ProjectStatus::Planning));
         let priority_str = Self::priority_to_string(&input.priority.unwrap_or(Priority::Medium));
         let task_source_str = input.task_source.as_ref().map(Self::task_source_to_string);
 
@@ -820,7 +828,7 @@ mod tests {
             name: "Test Project".to_string(),
             project_root: "/tmp/test".to_string(),
             description: Some("A test project".to_string()),
-            status: Some(ProjectStatus::PreLaunch),
+            status: Some(ProjectStatus::Planning),
             priority: Some(Priority::High),
             rank: Some(1),
             setup_script: Some("npm install".to_string()),
@@ -834,7 +842,7 @@ mod tests {
 
         let project = storage.create_project(input).await.unwrap();
         assert_eq!(project.name, "Test Project");
-        assert_eq!(project.status, ProjectStatus::PreLaunch);
+        assert_eq!(project.status, ProjectStatus::Planning);
         assert_eq!(project.priority, Priority::High);
 
         let retrieved = storage.get_project(&project.id).await.unwrap();

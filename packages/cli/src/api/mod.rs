@@ -2,6 +2,7 @@ use axum::{
     routing::{get, post},
     Router,
 };
+use tracing::error;
 
 pub mod cloud;
 pub mod config;
@@ -13,6 +14,10 @@ pub mod preview;
 pub mod taskmaster;
 
 pub async fn create_router() -> Router {
+    create_router_with_options(None).await
+}
+
+pub async fn create_router_with_options(dashboard_path: Option<std::path::PathBuf>) -> Router {
     use crate::config::Config;
     use path_validator::PathValidator;
     use preview::PreviewState;
@@ -26,7 +31,7 @@ pub async fn create_router() -> Router {
     let preview_manager = match orkee_preview::init().await {
         Ok(manager) => Arc::new(manager),
         Err(e) => {
-            eprintln!("Failed to initialize preview manager: {}", e);
+            error!("Failed to initialize preview manager: {}", e);
             // Return a router without preview functionality rather than panicking
             return Router::new()
                 .route("/api/health", get(health::health_check))
@@ -43,7 +48,7 @@ pub async fn create_router() -> Router {
     let project_manager = match orkee_projects::manager::ProjectsManager::new().await {
         Ok(manager) => Arc::new(manager),
         Err(e) => {
-            eprintln!("Failed to initialize project manager: {}", e);
+            error!("Failed to initialize project manager: {}", e);
             // Return a router without preview functionality rather than panicking
             return Router::new()
                 .route("/api/health", get(health::health_check))
@@ -66,6 +71,7 @@ pub async fn create_router() -> Router {
     let preview_router = Router::new()
         .route("/health", get(preview::health_check))
         .route("/servers", get(preview::list_active_servers))
+        .route("/servers/stop-all", post(preview::stop_all_servers))
         .route("/servers/:project_id/start", post(preview::start_server))
         .route("/servers/:project_id/stop", post(preview::stop_server))
         .route(
@@ -118,7 +124,7 @@ pub async fn create_router() -> Router {
         .route("/usage", get(cloud::get_usage_stats))
         .layer(axum::Extension(cloud::CloudState::new()));
 
-    Router::new()
+    let mut router = Router::new()
         .route("/api/health", get(health::health_check))
         .route("/api/status", get(health::status_check))
         .route("/api/config", get(config::get_config))
@@ -131,5 +137,22 @@ pub async fn create_router() -> Router {
         .nest("/api/preview", preview_router)
         .nest("/api/cloud", cloud_router)
         .nest("/api/taskmaster", taskmaster_router)
-        .layer(axum::Extension(path_validator))
+        .layer(axum::Extension(path_validator));
+
+    // If dashboard path is provided, serve static files
+    if let Some(dashboard_path) = dashboard_path {
+        use tower_http::services::{ServeDir, ServeFile};
+
+        let dist_dir = dashboard_path.join("dist");
+        let index_path = dist_dir.join("index.html");
+
+        if dist_dir.exists() && index_path.exists() {
+            // Serve static files with fallback to index.html for client-side routing
+            let serve_dir = ServeDir::new(&dist_dir).not_found_service(ServeFile::new(&index_path));
+
+            router = router.fallback_service(serve_dir);
+        }
+    }
+
+    router
 }

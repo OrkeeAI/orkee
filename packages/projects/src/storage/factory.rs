@@ -149,7 +149,10 @@ impl StorageManager {
 
         let active_count = projects
             .iter()
-            .filter(|p| p.status == crate::types::ProjectStatus::PreLaunch || p.status == crate::types::ProjectStatus::Launched)
+            .filter(|p| {
+                p.status == crate::types::ProjectStatus::Planning
+                    || p.status == crate::types::ProjectStatus::Launched
+            })
             .count();
 
         let archived_count = projects
@@ -211,7 +214,7 @@ pub trait ProjectStorageExt: ProjectStorage {
     /// Get active projects only (Pre-Launch and Launched)
     async fn list_active_projects(&self) -> StorageResult<Vec<crate::types::Project>> {
         let filter = super::ProjectFilter {
-            status: Some(crate::types::ProjectStatus::PreLaunch),
+            status: Some(crate::types::ProjectStatus::Planning),
             ..Default::default()
         };
         let mut projects = self.list_projects_with_filter(filter).await?;
@@ -309,7 +312,7 @@ mod tests {
             name: "Test Project".to_string(),
             project_root: "/tmp/test".to_string(),
             description: Some("Test".to_string()),
-            status: Some(ProjectStatus::PreLaunch),
+            status: Some(ProjectStatus::Planning),
             priority: None,
             rank: None,
             setup_script: None,
@@ -355,7 +358,7 @@ mod tests {
             name: "Test Project".to_string(),
             project_root: "/tmp/test".to_string(),
             description: None,
-            status: Some(ProjectStatus::PreLaunch),
+            status: Some(ProjectStatus::Planning),
             priority: None,
             rank: None,
             setup_script: None,
@@ -376,7 +379,7 @@ mod tests {
 
         // Test counting
         let active_count = storage
-            .count_by_status(ProjectStatus::PreLaunch)
+            .count_by_status(ProjectStatus::Planning)
             .await
             .unwrap();
         assert_eq!(active_count, 1);

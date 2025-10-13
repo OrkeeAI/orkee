@@ -442,4 +442,3 @@ For more specific configuration scenarios, see:
 
 - [Security Configuration](security-settings) for security-focused settings
 - [Cloud Sync](cloud-sync) for cloud integration configuration
-- [TLS/HTTPS Configuration](../security/tls-https) for HTTPS setup
