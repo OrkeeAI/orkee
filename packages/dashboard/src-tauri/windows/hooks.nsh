@@ -37,8 +37,8 @@
       ${If} $3 < 2047
         ; Safe to add - under Windows PATH limit (2047 chars)
         WriteRegExpandStr HKLM "SYSTEM\CurrentControlSet\Control\Session Manager\Environment" "Path" "$1;$0"
-        ; Broadcast WM_SETTINGCHANGE to notify system of PATH change
-        SendMessage ${HWND_BROADCAST} ${WM_SETTINGCHANGE} 0 "STR:Environment" /TIMEOUT=5000
+        ; Broadcast WM_SETTINGCHANGE to notify system of PATH change (10s timeout for heavily loaded systems)
+        SendMessage ${HWND_BROADCAST} ${WM_SETTINGCHANGE} 0 "STR:Environment" /TIMEOUT=10000
       ${Else}
         ; PATH too long - warn user but don't fail installation
         MessageBox MB_OK|MB_ICONEXCLAMATION "Warning: System PATH is too long to add Orkee automatically.$\n$\nYou can manually add this directory to PATH:$\n$0$\n$\nDesktop app will still work without CLI access."
@@ -59,8 +59,8 @@
       ${If} $3 < 2047
         ; Safe to add - under Windows PATH limit (2047 chars)
         WriteRegExpandStr HKCU "Environment" "Path" "$1;$0"
-        ; Broadcast WM_SETTINGCHANGE to notify system of PATH change
-        SendMessage ${HWND_BROADCAST} ${WM_SETTINGCHANGE} 0 "STR:Environment" /TIMEOUT=5000
+        ; Broadcast WM_SETTINGCHANGE to notify system of PATH change (10s timeout for heavily loaded systems)
+        SendMessage ${HWND_BROADCAST} ${WM_SETTINGCHANGE} 0 "STR:Environment" /TIMEOUT=10000
       ${Else}
         ; PATH too long - warn user but don't fail installation
         MessageBox MB_OK|MB_ICONEXCLAMATION "Warning: User PATH is too long to add Orkee automatically.$\n$\nYou can manually add this directory to PATH:$\n$0$\n$\nDesktop app will still work without CLI access."
@@ -99,8 +99,8 @@
       ; Write updated PATH back to registry
       WriteRegExpandStr HKLM "SYSTEM\CurrentControlSet\Control\Session Manager\Environment" "Path" "$1"
 
-      ; Broadcast WM_SETTINGCHANGE to notify system of PATH change
-      SendMessage ${HWND_BROADCAST} ${WM_SETTINGCHANGE} 0 "STR:Environment" /TIMEOUT=5000
+      ; Broadcast WM_SETTINGCHANGE to notify system of PATH change (10s timeout for heavily loaded systems)
+      SendMessage ${HWND_BROADCAST} ${WM_SETTINGCHANGE} 0 "STR:Environment" /TIMEOUT=10000
     ${EndIf}
   ${Else}
     ; Per-user: Remove from user PATH (HKCU)
@@ -117,8 +117,8 @@
       ; Write updated PATH back to registry
       WriteRegExpandStr HKCU "Environment" "Path" "$1"
 
-      ; Broadcast WM_SETTINGCHANGE to notify system of PATH change
-      SendMessage ${HWND_BROADCAST} ${WM_SETTINGCHANGE} 0 "STR:Environment" /TIMEOUT=5000
+      ; Broadcast WM_SETTINGCHANGE to notify system of PATH change (10s timeout for heavily loaded systems)
+      SendMessage ${HWND_BROADCAST} ${WM_SETTINGCHANGE} 0 "STR:Environment" /TIMEOUT=10000
     ${EndIf}
   ${EndIf}
 !macroend
