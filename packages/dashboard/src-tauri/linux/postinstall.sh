@@ -57,7 +57,13 @@ BINARY_TARGET="/usr/local/bin/orkee"
 echo "Installing orkee CLI binary..."
 
 # Create /usr/local/bin if it doesn't exist
-mkdir -p /usr/local/bin
+if ! mkdir -p /usr/local/bin 2>/dev/null; then
+    echo "Warning: Could not create /usr/local/bin (insufficient permissions)"
+    echo "Desktop app will still work. For CLI access, run with sudo:"
+    echo "  sudo mkdir -p /usr/local/bin"
+    echo "  sudo ln -s $BINARY_SOURCE /usr/local/bin/orkee"
+    exit 0  # Don't fail installation
+fi
 
 # Re-verify binary exists right before use (prevents TOCTOU race condition)
 if [ ! -f "$BINARY_SOURCE" ]; then
@@ -70,7 +76,11 @@ fi
 if ln -sf "$BINARY_SOURCE" "$BINARY_TARGET" 2>/dev/null; then
     echo "✓ Created symlink: $BINARY_TARGET -> $BINARY_SOURCE"
 elif cp "$BINARY_SOURCE" "$BINARY_TARGET" 2>/dev/null; then
-    chmod +x "$BINARY_TARGET"
+    if ! chmod +x "$BINARY_TARGET" 2>/dev/null; then
+        echo "Warning: Binary copied but could not make it executable"
+        echo "Desktop app will still work. For CLI access, run: sudo chmod +x $BINARY_TARGET"
+        exit 0  # Don't fail installation
+    fi
     echo "✓ Copied binary to $BINARY_TARGET"
 else
     echo "Warning: Could not install CLI binary (insufficient permissions)"

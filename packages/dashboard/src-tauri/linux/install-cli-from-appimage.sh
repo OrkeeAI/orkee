@@ -107,21 +107,45 @@ echo -e "Installing to: ${GREEN}$TARGET_PATH${NC}"
 if [ ! -d "$TARGET_DIR" ]; then
     echo "Creating directory: $TARGET_DIR"
     if [ "$NEEDS_SUDO" = true ]; then
-        sudo mkdir -p "$TARGET_DIR"
+        if ! sudo mkdir -p "$TARGET_DIR"; then
+            echo -e "${RED}Error: Failed to create directory $TARGET_DIR${NC}"
+            rm -rf squashfs-root
+            exit 1
+        fi
     else
-        mkdir -p "$TARGET_DIR"
+        if ! mkdir -p "$TARGET_DIR"; then
+            echo -e "${RED}Error: Failed to create directory $TARGET_DIR${NC}"
+            rm -rf squashfs-root
+            exit 1
+        fi
     fi
 fi
 
 # Copy binary
 if [ "$NEEDS_SUDO" = true ]; then
     echo "Copying binary (requires sudo)..."
-    sudo cp "$EXTRACTED_BINARY" "$TARGET_PATH"
-    sudo chmod +x "$TARGET_PATH"
+    if ! sudo cp "$EXTRACTED_BINARY" "$TARGET_PATH"; then
+        echo -e "${RED}Error: Failed to copy binary to $TARGET_PATH${NC}"
+        rm -rf squashfs-root
+        exit 1
+    fi
+    if ! sudo chmod +x "$TARGET_PATH"; then
+        echo -e "${RED}Error: Failed to make binary executable${NC}"
+        rm -rf squashfs-root
+        exit 1
+    fi
 else
     echo "Copying binary..."
-    cp "$EXTRACTED_BINARY" "$TARGET_PATH"
-    chmod +x "$TARGET_PATH"
+    if ! cp "$EXTRACTED_BINARY" "$TARGET_PATH"; then
+        echo -e "${RED}Error: Failed to copy binary to $TARGET_PATH${NC}"
+        rm -rf squashfs-root
+        exit 1
+    fi
+    if ! chmod +x "$TARGET_PATH"; then
+        echo -e "${RED}Error: Failed to make binary executable${NC}"
+        rm -rf squashfs-root
+        exit 1
+    fi
 fi
 
 # Clean up extracted files
