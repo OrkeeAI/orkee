@@ -241,6 +241,29 @@ jobs:
           - 🎨 **TUI** - Terminal user interface (`orkee tui`)
           - 🌐 **Web Dashboard** - Full web interface in native window
 
+          ### ⚠️ Security Notice: Unsigned Binaries
+
+          **These installers are NOT code-signed.** You will see security warnings:
+
+          **macOS:**
+          - **Warning**: "Orkee.app can't be opened because it is from an unidentified developer"
+          - **Workaround**: Right-click the app → Open → Click "Open" in the dialog
+          - **Alternative**: System Settings → Privacy & Security → "Open Anyway" button
+          - **Technical**: `xattr -cr /Applications/Orkee.app` to remove quarantine flag
+
+          **Windows:**
+          - **Warning**: "Windows protected your PC" (SmartScreen) or "Unknown publisher"
+          - **Workaround**: Click "More info" → "Run anyway"
+          - **Note**: Warnings may persist for each installer run
+
+          **Linux:**
+          - No code signing warnings (Linux distros don't require code signing for manual installs)
+          - Verify integrity using SHA256 checksums below
+
+          **Why unsigned?** Code signing requires paid certificates (Apple Developer Program: $99/year, Windows CA: $200+/year). We plan to add code signing for official releases once funding is available.
+
+          **Security**: Verify downloads using SHA256 checksums provided below. All binaries are built via GitHub Actions with public audit logs.
+
           ### Installation
 
           #### macOS
