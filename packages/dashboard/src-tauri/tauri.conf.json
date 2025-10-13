@@ -33,12 +33,6 @@
           "usr/share/orkee/postinstall.sh": "linux/postinstall.sh",
           "usr/share/orkee/preuninstall.sh": "linux/preuninstall.sh"
         }
-      },
-      "appimage": {
-        "files": {
-          "usr/share/orkee/postinstall.sh": "linux/postinstall.sh",
-          "usr/share/orkee/preuninstall.sh": "linux/preuninstall.sh"
-        }
       }
     },
     "macOS": {

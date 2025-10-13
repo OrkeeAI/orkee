@@ -31,13 +31,14 @@ The installer scripts handle copying/linking the bundled CLI binary to system PA
   - `preuninstall.sh`: Removes binary from `/usr/local/bin`
 
 ### Linux (`linux/postinstall.sh`, `linux/preuninstall.sh`)
-- **Type**: Bash scripts executed by package manager
+- **Type**: Bash scripts executed by package manager (.deb/.rpm only)
 - **Location**: `/usr/local/bin/orkee` (symlink or copy)
 - **PATH Setup**: `/usr/local/bin` is typically in PATH
 - **Fallback**: If symlink fails, copies binary instead
 - **Scripts**:
   - `postinstall.sh`: Creates symlink or copies binary
   - `preuninstall.sh`: Removes symlink/binary
+- **Note**: AppImage format does not support post-install hooks - see manual setup below
 
 ## Testing
 
@@ -73,7 +74,7 @@ orkee projects list
 orkee tui
 ```
 
-### Linux
+### Linux (.deb/.rpm)
 ```bash
 # Build the app
 cd packages/dashboard
@@ -89,6 +90,40 @@ sudo rpm -i src-tauri/target/release/bundle/rpm/orkee-*.rpm
 orkee --version
 orkee projects list
 orkee tui
+```
+
+### Linux (AppImage)
+AppImages don't support post-install hooks, so CLI access requires manual setup:
+
+```bash
+# Download and make executable
+chmod +x Orkee*.AppImage
+
+# Extract the bundled orkee binary
+./Orkee*.AppImage --appimage-extract
+# This creates: squashfs-root/usr/bin/orkee
+
+# Copy to system PATH (choose one method):
+
+# Option 1: Copy to /usr/local/bin (recommended, requires sudo)
+sudo cp squashfs-root/usr/bin/orkee /usr/local/bin/orkee
+sudo chmod +x /usr/local/bin/orkee
+
+# Option 2: Copy to ~/.local/bin (no sudo needed)
+mkdir -p ~/.local/bin
+cp squashfs-root/usr/bin/orkee ~/.local/bin/orkee
+chmod +x ~/.local/bin/orkee
+# Add to PATH if needed:
+echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc
+source ~/.bashrc
+
+# Verify CLI access
+orkee --version
+orkee projects list
+orkee tui
+
+# Clean up extracted files (optional)
+rm -rf squashfs-root
 ```
 
 ## Configuration
@@ -139,6 +174,12 @@ The installer hooks are referenced in `tauri.conf.json`:
 - Verify binary exists: `ls -l /usr/local/bin/orkee`
 - Try running directly: `/usr/local/bin/orkee --version`
 - Add to PATH manually if needed: `export PATH="/usr/local/bin:$PATH"`
+
+### AppImage: CLI not available
+- AppImages don't automatically install CLI access - follow manual setup instructions above
+- Extract the binary: `./Orkee*.AppImage --appimage-extract`
+- Copy to a directory in your PATH: `/usr/local/bin` or `~/.local/bin`
+- Make executable: `chmod +x /usr/local/bin/orkee`
 
 ## Security Considerations
 
