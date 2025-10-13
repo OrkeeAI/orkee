@@ -47,13 +47,29 @@ if [ ! -f "$BINARY_SOURCE" ]; then
 fi
 
 # Create /usr/local/bin if it doesn't exist
-mkdir -p /usr/local/bin
+if ! mkdir -p /usr/local/bin 2>/dev/null; then
+    echo "Error: Could not create /usr/local/bin (insufficient permissions)"
+    echo "Desktop app will still work. For CLI access, run with sudo:"
+    echo "  sudo mkdir -p /usr/local/bin"
+    echo "  sudo cp \"$BINARY_SOURCE\" \"$BINARY_TARGET\""
+    exit 0  # Don't fail installation
+fi
 
 # Copy binary to /usr/local/bin (requires admin privileges)
-cp "$BINARY_SOURCE" "$BINARY_TARGET"
+if ! cp "$BINARY_SOURCE" "$BINARY_TARGET" 2>/dev/null; then
+    echo "Error: Could not copy binary to $BINARY_TARGET (insufficient permissions)"
+    echo "Desktop app will still work. For CLI access, run:"
+    echo "  sudo cp \"$BINARY_SOURCE\" \"$BINARY_TARGET\""
+    exit 0  # Don't fail installation
+fi
 
 # Make it executable
-chmod +x "$BINARY_TARGET"
+if ! chmod +x "$BINARY_TARGET" 2>/dev/null; then
+    echo "Warning: Could not make binary executable"
+    echo "Desktop app will still work. For CLI access, run:"
+    echo "  sudo chmod +x \"$BINARY_TARGET\""
+    exit 0  # Don't fail installation
+fi
 
 # Verify installation
 if [ -f "$BINARY_TARGET" ]; then
