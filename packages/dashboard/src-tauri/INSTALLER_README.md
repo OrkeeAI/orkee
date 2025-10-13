@@ -257,6 +257,52 @@ Orkee provides two distribution methods with identical functionality:
 - **npm Package**: Best for developers, lighter weight, easier updates
 - **Both work identically**: Same CLI commands, TUI, and functionality
 
+## Future Improvements
+
+### Code Signing (Required for Production)
+Current installers are **not code-signed**. For production releases, code signing is essential:
+
+**macOS:**
+- **Issue**: Users see "unidentified developer" warning, app won't run without right-click override
+- **Solution**: Apple Developer Program membership ($99/year) + code signing certificate
+- **Implementation**: Add `APPLE_CERTIFICATE`, `APPLE_CERTIFICATE_PASSWORD`, and `APPLE_ID` to GitHub secrets
+- **Gatekeeper**: Signed apps bypass security warnings
+- **Notarization**: Required for macOS 10.15+ (automated via Tauri action)
+
+**Windows:**
+- **Issue**: SmartScreen warnings, "Unknown publisher" messages
+- **Solution**: Code signing certificate from trusted CA (Sectigo, DigiCert, etc.)
+- **Implementation**: Add `WINDOWS_CERTIFICATE`, `WINDOWS_CERTIFICATE_PASSWORD` to GitHub secrets
+- **Benefits**: Builds user trust, removes security warnings
+
+**Linux:**
+- **Status**: Not typically required, but GPG signatures recommended for repositories
+- **Implementation**: Sign packages with GPG key for package manager distribution
+
+**References:**
+- [Tauri Code Signing Guide](https://v2.tauri.app/distribute/sign/)
+- [Apple Developer Program](https://developer.apple.com/programs/)
+- [Windows Code Signing](https://learn.microsoft.com/en-us/windows/win32/seccrypto/cryptography-tools)
+
+### Package Manager Distribution
+For wider reach, consider distributing through platform package managers:
+
+**Windows:**
+- **WinGet**: Microsoft's official package manager
+- **Chocolatey**: Popular community package manager
+- **Scoop**: Command-line installer for Windows
+
+**macOS:**
+- **Homebrew**: De facto standard for macOS packages
+- **MacPorts**: Alternative package manager
+
+**Linux:**
+- **Flathub**: Universal Flatpak repository
+- **Snap Store**: Canonical's universal package format
+- **AUR**: Arch User Repository (community-maintained)
+
+These integrations would complement the existing npm distribution and native installers.
+
 ## Additional Resources
 
 - [Tauri Windows Installer Docs](https://v2.tauri.app/distribute/windows-installer/)
