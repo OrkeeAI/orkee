@@ -250,6 +250,16 @@ fn parse_checksum(
 }
 
 /// Verify downloaded file matches expected checksum
+///
+/// Checksum verification is MANDATORY for all release downloads. This prevents:
+/// - Man-in-the-middle attacks during download
+/// - Installation of corrupted or tampered files
+/// - Supply chain attacks via compromised downloads
+///
+/// Verification will fail if:
+/// - checksums.txt cannot be fetched from the release
+/// - The asset checksum is not found in checksums.txt
+/// - The calculated checksum doesn't match the expected checksum
 async fn verify_checksum(
     file_path: &Path,
     asset_name: &str,
@@ -258,30 +268,42 @@ async fn verify_checksum(
 ) -> Result<(), Box<dyn std::error::Error>> {
     println!("{} Verifying download integrity...", "🔒".cyan());
 
-    // Fetch checksums.txt from GitHub release
-    let checksums_text = match fetch_checksums(version, client).await {
-        Ok(text) => text,
-        Err(e) => {
-            println!("{} Checksum verification unavailable: {}", "⚠️".yellow(), e);
-            println!("{} Skipping checksum verification", "⚠️".yellow());
-            return Ok(()); // Don't fail if checksums.txt is unavailable
-        }
-    };
+    // Fetch checksums.txt from GitHub release - MANDATORY for releases
+    let checksums_text = fetch_checksums(version, client).await.map_err(|e| {
+        format!(
+            "❌ Checksum verification REQUIRED but failed to fetch checksums.txt\n\n\
+            Error: {}\n\n\
+            Security Policy:\n\
+              • Checksum verification is mandatory for all release downloads\n\
+              • This protects against tampered or corrupted downloads\n\
+              • Downloads cannot proceed without valid checksums\n\n\
+            Troubleshooting:\n\
+              1. Verify the release exists: https://github.com/{}/releases/tag/v{}\n\
+              2. Check if checksums.txt is included in the release assets\n\
+              3. Ensure you have network access to GitHub\n\
+              4. For local development, use --dev flag to bypass downloads\n\n\
+            If this is a legitimate release, please report this issue.",
+            e, GITHUB_REPO, version
+        )
+    })?;
 
-    // Parse expected checksum for our asset
-    let expected_checksum = match parse_checksum(&checksums_text, asset_name) {
-        Ok(checksum) => checksum,
-        Err(e) => {
-            println!(
-                "{} Failed to find checksum for {}: {}",
-                "⚠️".yellow(),
-                asset_name,
-                e
-            );
-            println!("{} Skipping checksum verification", "⚠️".yellow());
-            return Ok(()); // Don't fail if we can't find the checksum
-        }
-    };
+    // Parse expected checksum for our asset - MANDATORY for releases
+    let expected_checksum = parse_checksum(&checksums_text, asset_name).map_err(|e| {
+        format!(
+            "❌ Checksum verification REQUIRED but checksum not found for {}\n\n\
+            Error: {}\n\n\
+            Security Policy:\n\
+              • Every release asset must have a corresponding checksum\n\
+              • Missing checksums prevent installation for security\n\
+              • This protects against incomplete or corrupted releases\n\n\
+            Troubleshooting:\n\
+              1. Verify checksums.txt includes this asset: https://github.com/{}/releases/tag/v{}\n\
+              2. Check if {} is listed in checksums.txt\n\
+              3. For local development, use --dev flag to bypass downloads\n\n\
+            If this is a legitimate release, please report this issue.",
+            asset_name, e, GITHUB_REPO, version, asset_name
+        )
+    })?;
 
     // Calculate actual checksum of downloaded file
     let actual_checksum = calculate_file_sha256(file_path)?;
