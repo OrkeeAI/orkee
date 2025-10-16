@@ -13,10 +13,10 @@ interface TelemetryContextType {
   updateSettings: (settings: TelemetrySettings) => Promise<void>;
   completeOnboarding: (settings: TelemetrySettings) => Promise<void>;
   deleteAllData: () => Promise<void>;
-  trackEvent: (eventName: string, eventData?: Record<string, any>) => void;
+  trackEvent: (eventName: string, eventData?: Record<string, unknown>) => void;
   trackError: (errorName: string, errorMessage: string, stackTrace?: string) => void;
-  trackPageView: (pageName: string, properties?: Record<string, any>) => void;
-  trackAction: (action: string, properties?: Record<string, any>) => void;
+  trackPageView: (pageName: string, properties?: Record<string, unknown>) => void;
+  trackAction: (action: string, properties?: Record<string, unknown>) => void;
   refreshStatus: () => Promise<void>;
 }
 
@@ -86,7 +86,7 @@ export function TelemetryProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  const trackEvent = useCallback((eventName: string, eventData?: Record<string, any>) => {
+  const trackEvent = useCallback((eventName: string, eventData?: Record<string, unknown>) => {
     telemetryService.trackEvent(eventName, eventData);
   }, []);
 
@@ -94,11 +94,11 @@ export function TelemetryProvider({ children }: { children: React.ReactNode }) {
     telemetryService.trackError(errorName, errorMessage, stackTrace);
   }, []);
 
-  const trackPageView = useCallback((pageName: string, properties?: Record<string, any>) => {
+  const trackPageView = useCallback((pageName: string, properties?: Record<string, unknown>) => {
     telemetryService.trackPageView(pageName, properties);
   }, []);
 
-  const trackAction = useCallback((action: string, properties?: Record<string, any>) => {
+  const trackAction = useCallback((action: string, properties?: Record<string, unknown>) => {
     telemetryService.trackAction(action, properties);
   }, []);
 
@@ -131,6 +131,7 @@ export function TelemetryProvider({ children }: { children: React.ReactNode }) {
   );
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useTelemetry() {
   const context = useContext(TelemetryContext);
   if (context === undefined) {
@@ -140,6 +141,7 @@ export function useTelemetry() {
 }
 
 // Higher-order component for tracking page views
+// eslint-disable-next-line react-refresh/only-export-components
 export function withPageTracking<P extends object>(
   Component: React.ComponentType<P>,
   pageName: string

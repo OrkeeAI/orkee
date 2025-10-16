@@ -18,7 +18,7 @@ export interface TelemetryStatus {
 
 interface TelemetryEvent {
   event_name: string;
-  event_data?: Record<string, any>;
+  event_data?: Record<string, unknown>;
   timestamp: string;
 }
 
@@ -147,7 +147,7 @@ class TelemetryService {
   }
 
   // Track a usage event
-  async trackEvent(eventName: string, eventData?: Record<string, any>) {
+  async trackEvent(eventName: string, eventData?: Record<string, unknown>) {
     // Check if telemetry is enabled
     if (!this.settings?.usage_metrics) {
       return;
@@ -192,12 +192,12 @@ class TelemetryService {
   }
 
   // Track page views
-  trackPageView(pageName: string, properties?: Record<string, any>) {
+  trackPageView(pageName: string, properties?: Record<string, unknown>) {
     this.trackEvent(`page_view.${pageName}`, properties);
   }
 
   // Track user actions
-  trackAction(action: string, properties?: Record<string, any>) {
+  trackAction(action: string, properties?: Record<string, unknown>) {
     this.trackEvent(`action.${action}`, properties);
   }
 

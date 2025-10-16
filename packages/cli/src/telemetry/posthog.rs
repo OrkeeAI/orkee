@@ -5,10 +5,13 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use chrono::{DateTime, Utc};
 
-// PostHog API Key - This should be your project's API key from PostHog
+// PostHog Project API Key (phc_...)
+// This is the PUBLIC project key that's safe to expose in client-side code.
+// It only allows sending events (write-only), not reading data or admin operations.
 // Get this from: https://app.posthog.com/project/settings
-// For now, using a placeholder - you'll need to replace this with your actual key
-pub const POSTHOG_API_KEY: &str = "phc_YOUR_PROJECT_API_KEY";
+//
+// NOTE: Do NOT use your Personal API Key (phx_...) here - that's for admin operations only!
+pub const POSTHOG_API_KEY: &str = "phc_c5SkoGFaYkPXC6KSk8atvDdlPZGbOgS5ttiY0sqM9ve";
 
 // PostHog event structure
 #[derive(Debug, Serialize)]
