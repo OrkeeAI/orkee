@@ -9,3 +9,6 @@ mod health_tests;
 
 #[cfg(test)]
 mod downloader_tests;
+
+#[cfg(test)]
+mod telemetry_tests;
