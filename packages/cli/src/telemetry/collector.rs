@@ -131,10 +131,11 @@ impl TelemetryCollector {
 
         // Send to PostHog endpoint
         // PostHog uses /batch endpoint for batch events
-        let batch_endpoint = if self.endpoint.ends_with("/capture") {
-            self.endpoint.replace("/capture", "/batch")
+        let endpoint = self.endpoint.trim_end_matches('/');
+        let batch_endpoint = if endpoint.ends_with("/capture") {
+            endpoint.replace("/capture", "/batch")
         } else {
-            format!("{}/batch", self.endpoint)
+            format!("{}/batch", endpoint)
         };
 
         let timeout_secs = self.manager.get_http_timeout_secs();

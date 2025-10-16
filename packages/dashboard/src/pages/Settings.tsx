@@ -478,11 +478,13 @@ function PrivacySettings() {
   const { settings, updateSettings, deleteAllData, trackAction } = useTelemetry();
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleToggle = async (field: keyof typeof settings, value: boolean) => {
     if (!settings) return;
 
     setIsSaving(true);
+    setError(null);
     try {
       const newSettings = {
         ...settings,
@@ -501,8 +503,10 @@ function PrivacySettings() {
         setting: field,
         enabled: value,
       });
-    } catch (error) {
-      console.error('Failed to update telemetry settings:', error);
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to update telemetry settings';
+      setError(errorMessage);
+      console.error('Failed to update telemetry settings:', err);
     } finally {
       setIsSaving(false);
     }
@@ -516,12 +520,15 @@ function PrivacySettings() {
     if (!confirmed) return;
 
     setIsDeleting(true);
+    setError(null);
     try {
       await deleteAllData();
       alert('All telemetry data has been deleted successfully.');
-    } catch (error) {
-      alert('Failed to delete telemetry data. Please try again.');
-      console.error('Failed to delete telemetry data:', error);
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to delete telemetry data';
+      setError(errorMessage);
+      alert(`Failed to delete telemetry data: ${errorMessage}`);
+      console.error('Failed to delete telemetry data:', err);
     } finally {
       setIsDeleting(false);
     }
@@ -546,6 +553,14 @@ function PrivacySettings() {
             We never collect project names, file paths, or personal data.
           </AlertDescription>
         </Alert>
+
+        {/* Error Display */}
+        {error && (
+          <Alert variant="destructive">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
 
         {/* Telemetry Options */}
         <div className="space-y-4">

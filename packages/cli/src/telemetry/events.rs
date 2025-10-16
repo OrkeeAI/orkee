@@ -225,7 +225,7 @@ pub async fn mark_events_as_sent(
     let mut tx = pool.begin().await?;
 
     for event_id in event_ids {
-        sqlx::query!(
+        let result = sqlx::query!(
             r#"
             UPDATE telemetry_events
             SET sent_at = datetime('now')
@@ -234,7 +234,12 @@ pub async fn mark_events_as_sent(
             event_id
         )
         .execute(&mut *tx)
-        .await?;
+        .await;
+
+        if let Err(e) = result {
+            tx.rollback().await?;
+            return Err(e.into());
+        }
     }
 
     tx.commit().await?;
@@ -249,7 +254,7 @@ pub async fn increment_retry_count(
     let mut tx = pool.begin().await?;
 
     for event_id in event_ids {
-        sqlx::query!(
+        let result = sqlx::query!(
             r#"
             UPDATE telemetry_events
             SET retry_count = COALESCE(retry_count, 0) + 1
@@ -258,7 +263,12 @@ pub async fn increment_retry_count(
             event_id
         )
         .execute(&mut *tx)
-        .await?;
+        .await;
+
+        if let Err(e) = result {
+            tx.rollback().await?;
+            return Err(e.into());
+        }
     }
 
     tx.commit().await?;
@@ -273,7 +283,7 @@ pub async fn mark_failed_events_as_sent(
     let mut tx = pool.begin().await?;
 
     for event_id in event_ids {
-        sqlx::query!(
+        let result = sqlx::query!(
             r#"
             UPDATE telemetry_events
             SET sent_at = datetime('now')
@@ -282,7 +292,12 @@ pub async fn mark_failed_events_as_sent(
             event_id
         )
         .execute(&mut *tx)
-        .await?;
+        .await;
+
+        if let Err(e) = result {
+            tx.rollback().await?;
+            return Err(e.into());
+        }
     }
 
     tx.commit().await?;
