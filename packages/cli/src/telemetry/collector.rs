@@ -2,7 +2,7 @@
 // ABOUTME: Handles event collection, buffering, and transmission to telemetry endpoint
 
 use super::config::TelemetryManager;
-use super::events::{cleanup_old_events, get_unsent_events, mark_events_as_sent};
+use super::events::{cleanup_old_events, get_unsent_events, increment_retry_count, mark_events_as_sent};
 use super::posthog::create_posthog_batch;
 use reqwest::Client;
 use serde::Deserialize;
@@ -138,24 +138,27 @@ impl TelemetryCollector {
             .send()
             .await;
 
+        let event_ids: Vec<String> = filtered_events.iter().map(|e| e.id.clone()).collect();
+
         match response {
             Ok(resp) => {
                 if resp.status().is_success() {
-                    // Mark events as sent
-                    let event_ids: Vec<String> =
-                        filtered_events.iter().map(|e| e.id.clone()).collect();
+                    // Mark events as sent on success
                     mark_events_as_sent(&self.pool, &event_ids).await?;
                     info!(
                         "Successfully sent {} telemetry events to PostHog",
                         filtered_events.len()
                     );
                 } else {
+                    // Increment retry count on HTTP error
                     error!("PostHog endpoint returned error: {}", resp.status());
+                    increment_retry_count(&self.pool, &event_ids).await?;
                 }
             }
             Err(e) => {
-                // Don't fail if telemetry endpoint is unreachable
+                // Increment retry count on network error
                 debug!("Failed to send telemetry to PostHog: {}", e);
+                increment_retry_count(&self.pool, &event_ids).await?;
             }
         }
 
@@ -171,4 +174,117 @@ pub async fn send_buffered_events(
     let endpoint = manager.get_endpoint();
     let collector = TelemetryCollector::new(manager, pool, endpoint);
     collector.send_buffered_events_internal().await
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::telemetry::events::{TelemetryEvent, EventType};
+    use sqlx::sqlite::SqlitePoolOptions;
+    use sqlx::Row;
+
+    async fn setup_test_db() -> SqlitePool {
+        let pool = SqlitePoolOptions::new()
+            .connect("sqlite::memory:")
+            .await
+            .unwrap();
+
+        // Run migrations
+        sqlx::migrate!("../projects/migrations")
+            .run(&pool)
+            .await
+            .unwrap();
+
+        pool
+    }
+
+    async fn insert_event_with_retry_count(
+        pool: &SqlitePool,
+        event: &TelemetryEvent,
+        retry_count: i64,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let event_data_json = event.event_data.as_ref().map(|v| v.to_string());
+        let event_type_str = match event.event_type {
+            EventType::Usage => "usage",
+            EventType::Error => "error",
+            EventType::Performance => "performance",
+        };
+        let timestamp_str = event.timestamp.to_rfc3339();
+
+        sqlx::query(
+            r#"
+            INSERT INTO telemetry_events (
+                id, event_type, event_name, event_data, anonymous, session_id, created_at, retry_count
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            "#,
+        )
+        .bind(&event.id)
+        .bind(event_type_str)
+        .bind(&event.event_name)
+        .bind(event_data_json)
+        .bind(event.anonymous)
+        .bind(&event.session_id)
+        .bind(timestamp_str)
+        .bind(retry_count)
+        .execute(pool)
+        .await?;
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_events_accumulate_on_failure_without_retry_logic() {
+        let pool = setup_test_db().await;
+
+        // Create test events
+        let event1 = TelemetryEvent::new(EventType::Usage, "test_event".to_string());
+        let event2 = TelemetryEvent::new(EventType::Usage, "test_event".to_string());
+
+        // Insert with retry count simulating failed attempts
+        insert_event_with_retry_count(&pool, &event1, 5).await.unwrap();
+        insert_event_with_retry_count(&pool, &event2, 10).await.unwrap();
+
+        // Query for unsent events
+        let unsent = sqlx::query("SELECT id, retry_count FROM telemetry_events WHERE sent_at IS NULL")
+            .fetch_all(&pool)
+            .await
+            .unwrap();
+
+        // Without proper retry logic, events accumulate indefinitely
+        assert_eq!(unsent.len(), 2);
+
+        let retry_counts: Vec<i64> = unsent.iter()
+            .map(|row| row.get::<i64, _>("retry_count"))
+            .collect();
+
+        assert!(retry_counts.contains(&5));
+        assert!(retry_counts.contains(&10));
+    }
+
+    #[tokio::test]
+    async fn test_events_excluded_after_max_retries() {
+        let pool = setup_test_db().await;
+
+        // Create test events with different retry counts
+        let event1 = TelemetryEvent::new(EventType::Usage, "test_event_1".to_string());
+        let event2 = TelemetryEvent::new(EventType::Usage, "test_event_2".to_string());
+        let event3 = TelemetryEvent::new(EventType::Usage, "test_event_3".to_string());
+        let event4 = TelemetryEvent::new(EventType::Usage, "test_event_4".to_string());
+
+        // Insert events with various retry counts
+        insert_event_with_retry_count(&pool, &event1, 0).await.unwrap(); // Should be included
+        insert_event_with_retry_count(&pool, &event2, 2).await.unwrap(); // Should be included
+        insert_event_with_retry_count(&pool, &event3, 3).await.unwrap(); // Should be excluded (reached max)
+        insert_event_with_retry_count(&pool, &event4, 5).await.unwrap(); // Should be excluded (exceeded max)
+
+        // Use the same function that collector uses
+        let events = get_unsent_events(&pool, 50).await.unwrap();
+
+        // Only events with retry_count < 3 should be returned
+        assert_eq!(events.len(), 2);
+        assert!(events.iter().any(|e| e.event_name == "test_event_1"));
+        assert!(events.iter().any(|e| e.event_name == "test_event_2"));
+        assert!(!events.iter().any(|e| e.event_name == "test_event_3"));
+        assert!(!events.iter().any(|e| e.event_name == "test_event_4"));
+    }
 }

@@ -151,11 +151,13 @@ pub async fn track_error(
     Ok(())
 }
 
-/// Get unsent events from the database
+/// Get unsent events from the database, excluding those that have exceeded max retry attempts
 pub async fn get_unsent_events(
     pool: &SqlitePool,
     limit: i64,
 ) -> Result<Vec<TelemetryEvent>, Box<dyn std::error::Error>> {
+    const MAX_RETRY_COUNT: i64 = 3;
+
     let rows = sqlx::query!(
         r#"
         SELECT
@@ -168,9 +170,11 @@ pub async fn get_unsent_events(
             created_at
         FROM telemetry_events
         WHERE sent_at IS NULL
+        AND COALESCE(retry_count, 0) < ?
         ORDER BY created_at ASC
         LIMIT ?
         "#,
+        MAX_RETRY_COUNT,
         limit
     )
     .fetch_all(pool)
@@ -218,6 +222,54 @@ pub async fn mark_events_as_sent(
     event_ids: &[String],
 ) -> Result<(), Box<dyn std::error::Error>> {
     // Use a transaction to batch updates for better performance
+    let mut tx = pool.begin().await?;
+
+    for event_id in event_ids {
+        sqlx::query!(
+            r#"
+            UPDATE telemetry_events
+            SET sent_at = datetime('now')
+            WHERE id = ?
+            "#,
+            event_id
+        )
+        .execute(&mut *tx)
+        .await?;
+    }
+
+    tx.commit().await?;
+    Ok(())
+}
+
+/// Increment retry count for events
+pub async fn increment_retry_count(
+    pool: &SqlitePool,
+    event_ids: &[String],
+) -> Result<(), Box<dyn std::error::Error>> {
+    let mut tx = pool.begin().await?;
+
+    for event_id in event_ids {
+        sqlx::query!(
+            r#"
+            UPDATE telemetry_events
+            SET retry_count = COALESCE(retry_count, 0) + 1
+            WHERE id = ?
+            "#,
+            event_id
+        )
+        .execute(&mut *tx)
+        .await?;
+    }
+
+    tx.commit().await?;
+    Ok(())
+}
+
+/// Mark failed events as sent after max retries to prevent infinite accumulation
+pub async fn mark_failed_events_as_sent(
+    pool: &SqlitePool,
+    event_ids: &[String],
+) -> Result<(), Box<dyn std::error::Error>> {
     let mut tx = pool.begin().await?;
 
     for event_id in event_ids {
