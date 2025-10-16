@@ -187,3 +187,80 @@ async fn test_router_cors_preflight() {
         status
     );
 }
+
+#[tokio::test]
+async fn test_delete_telemetry_data_without_confirmation() {
+    let app = api::create_router().await;
+
+    // Try to delete without confirmation
+    let body = json!({
+        "confirm": false
+    });
+
+    let request = Request::builder()
+        .method(Method::DELETE)
+        .uri("/api/telemetry/data")
+        .header("content-type", "application/json")
+        .body(Body::from(serde_json::to_string(&body).unwrap()))
+        .unwrap();
+
+    let response = app.oneshot(request).await.unwrap();
+
+    // If telemetry manager initialized, should return BAD_REQUEST when confirm is false
+    // If telemetry manager failed to init, returns 404
+    assert!(
+        response.status() == StatusCode::BAD_REQUEST || response.status() == StatusCode::NOT_FOUND,
+        "Expected BAD_REQUEST or NOT_FOUND, got {}",
+        response.status()
+    );
+}
+
+#[tokio::test]
+async fn test_delete_telemetry_data_with_confirmation() {
+    let app = api::create_router().await;
+
+    // Delete with confirmation
+    let body = json!({
+        "confirm": true
+    });
+
+    let request = Request::builder()
+        .method(Method::DELETE)
+        .uri("/api/telemetry/data")
+        .header("content-type", "application/json")
+        .body(Body::from(serde_json::to_string(&body).unwrap()))
+        .unwrap();
+
+    let response = app.oneshot(request).await.unwrap();
+
+    // If telemetry manager initialized, should return OK when confirm is true
+    // If telemetry manager failed to init, returns 404
+    assert!(
+        response.status() == StatusCode::OK || response.status() == StatusCode::NOT_FOUND,
+        "Expected OK or NOT_FOUND, got {}",
+        response.status()
+    );
+}
+
+#[tokio::test]
+async fn test_delete_telemetry_data_missing_body() {
+    let app = api::create_router().await;
+
+    // Try to delete without body
+    let request = Request::builder()
+        .method(Method::DELETE)
+        .uri("/api/telemetry/data")
+        .header("content-type", "application/json")
+        .body(Body::empty())
+        .unwrap();
+
+    let response = app.oneshot(request).await.unwrap();
+
+    // If telemetry manager initialized, should return BAD_REQUEST when body is missing
+    // If telemetry manager failed to init, returns 404
+    assert!(
+        response.status() == StatusCode::BAD_REQUEST || response.status() == StatusCode::NOT_FOUND,
+        "Expected BAD_REQUEST or NOT_FOUND, got {}",
+        response.status()
+    );
+}

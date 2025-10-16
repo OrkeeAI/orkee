@@ -105,6 +105,16 @@ pub async fn update_telemetry_settings(
     Extension(telemetry_manager): Extension<Arc<TelemetryManager>>,
     Json(request): Json<UpdateTelemetrySettingsRequest>,
 ) -> Result<Json<ApiResponse<TelemetrySettingsResponse>>, (StatusCode, Json<ApiResponse<()>>)> {
+    // Validate: non_anonymous_metrics requires at least one telemetry type to be enabled
+    if request.non_anonymous_metrics && !request.error_reporting && !request.usage_metrics {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(ApiResponse::<()>::error(
+                "Non-anonymous metrics require either error_reporting or usage_metrics to be enabled".to_string(),
+            )),
+        ));
+    }
+
     let mut settings = telemetry_manager.get_settings().await;
 
     // Update settings
@@ -143,6 +153,16 @@ pub async fn complete_telemetry_onboarding(
     Extension(telemetry_manager): Extension<Arc<TelemetryManager>>,
     Json(request): Json<UpdateTelemetrySettingsRequest>,
 ) -> Result<Json<ApiResponse<TelemetrySettingsResponse>>, (StatusCode, Json<ApiResponse<()>>)> {
+    // Validate: non_anonymous_metrics requires at least one telemetry type to be enabled
+    if request.non_anonymous_metrics && !request.error_reporting && !request.usage_metrics {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(ApiResponse::<()>::error(
+                "Non-anonymous metrics require either error_reporting or usage_metrics to be enabled".to_string(),
+            )),
+        ));
+    }
+
     match telemetry_manager
         .complete_onboarding(
             request.error_reporting,
@@ -172,11 +192,31 @@ pub async fn complete_telemetry_onboarding(
     }
 }
 
+/// Request body for deleting telemetry data
+#[derive(Debug, Deserialize)]
+pub struct DeleteTelemetryDataRequest {
+    /// Must be set to true to confirm deletion
+    pub confirm: bool,
+}
+
 /// DELETE /api/telemetry/data
 /// Deletes all telemetry data
+/// Requires explicit confirmation in request body: {"confirm": true}
 pub async fn delete_telemetry_data(
     Extension(telemetry_manager): Extension<Arc<TelemetryManager>>,
+    Json(request): Json<DeleteTelemetryDataRequest>,
 ) -> Result<Json<ApiResponse<String>>, (StatusCode, Json<ApiResponse<()>>)> {
+    // Require explicit confirmation
+    if !request.confirm {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(ApiResponse::<()>::error(
+                "Deletion requires explicit confirmation. Send {\"confirm\": true} in request body."
+                    .to_string(),
+            )),
+        ));
+    }
+
     match telemetry_manager.delete_all_data().await {
         Ok(count) => {
             info!("Deleted {} telemetry events", count);

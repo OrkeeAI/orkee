@@ -45,6 +45,8 @@ pub struct TelemetryConfig {
     pub debug_mode: bool,
     pub batch_size: usize,
     pub flush_interval_secs: u64,
+    pub retention_days: i64,
+    pub http_timeout_secs: u64,
 }
 
 impl TelemetryConfig {
@@ -78,6 +80,8 @@ impl TelemetryConfig {
             debug_mode,
             batch_size: 50,
             flush_interval_secs: 300, // 5 minutes
+            retention_days: 30, // Keep telemetry data for 30 days
+            http_timeout_secs: 30, // HTTP request timeout
         }
     }
 }
@@ -251,5 +255,17 @@ impl TelemetryManager {
             .await;
 
         Ok(result.rows_affected())
+    }
+
+    pub fn get_retention_days(&self) -> i64 {
+        self.config.retention_days
+    }
+
+    pub fn get_http_timeout_secs(&self) -> u64 {
+        self.config.http_timeout_secs
+    }
+
+    pub fn get_flush_interval_secs(&self) -> u64 {
+        self.config.flush_interval_secs
     }
 }

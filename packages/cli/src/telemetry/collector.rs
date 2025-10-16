@@ -39,9 +39,11 @@ impl TelemetryCollector {
     /// Start the background task to periodically send telemetry events
     pub async fn start_background_task(self: Arc<Self>) {
         let collector = self.clone();
+        let flush_interval_secs = collector.manager.get_flush_interval_secs();
+        let retention_days = collector.manager.get_retention_days();
 
         tokio::spawn(async move {
-            let mut flush_interval = interval(Duration::from_secs(300)); // 5 minutes
+            let mut flush_interval = interval(Duration::from_secs(flush_interval_secs));
 
             loop {
                 flush_interval.tick().await;
@@ -58,8 +60,8 @@ impl TelemetryCollector {
                     error!("Failed to send telemetry events: {}", e);
                 }
 
-                // Clean up old events (keep for 30 days)
-                if let Err(e) = cleanup_old_events(&collector.pool, 30).await {
+                // Clean up old events based on configured retention
+                if let Err(e) = cleanup_old_events(&collector.pool, retention_days).await {
                     error!("Failed to cleanup old telemetry events: {}", e);
                 }
             }
@@ -126,11 +128,12 @@ impl TelemetryCollector {
             format!("{}/batch", self.endpoint)
         };
 
+        let timeout_secs = self.manager.get_http_timeout_secs();
         let response = self.client
             .post(&batch_endpoint)
             .json(&batch)
             .header("Content-Type", "application/json")
-            .timeout(Duration::from_secs(30))
+            .timeout(Duration::from_secs(timeout_secs))
             .send()
             .await;
 

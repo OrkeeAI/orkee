@@ -137,6 +137,8 @@ class TelemetryService {
   async deleteAllData(): Promise<void> {
     const response = await fetch(`${API_BASE_URL}/telemetry/data`, {
       method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ confirm: true }),
     });
 
     const result = await response.json();
