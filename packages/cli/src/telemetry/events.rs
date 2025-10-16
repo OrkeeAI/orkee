@@ -211,18 +211,23 @@ pub async fn mark_events_as_sent(
     pool: &SqlitePool,
     event_ids: &[String],
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let ids = event_ids.join(",");
-    let query = format!(
-        "UPDATE telemetry_events SET sent_at = datetime('now') WHERE id IN ({})",
-        event_ids.iter().map(|_| "?").collect::<Vec<_>>().join(",")
-    );
+    // Use a transaction to batch updates for better performance
+    let mut tx = pool.begin().await?;
 
-    let mut q = sqlx::query(&query);
-    for id in event_ids {
-        q = q.bind(id);
+    for event_id in event_ids {
+        sqlx::query!(
+            r#"
+            UPDATE telemetry_events
+            SET sent_at = datetime('now')
+            WHERE id = ?
+            "#,
+            event_id
+        )
+        .execute(&mut *tx)
+        .await?;
     }
 
-    q.execute(pool).await?;
+    tx.commit().await?;
     Ok(())
 }
 
