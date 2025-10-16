@@ -1,7 +1,7 @@
 // ABOUTME: Telemetry service for frontend tracking and API communication
 // ABOUTME: Handles telemetry settings, event tracking, and onboarding
 
-import { API_BASE_URL } from './api';
+import { apiRequest } from './api';
 
 export interface TelemetrySettings {
   error_reporting: boolean;
@@ -61,9 +61,8 @@ class TelemetryService {
       // Send events to backend for processing
       await Promise.all(
         events.map(event =>
-          fetch(`${API_BASE_URL}/telemetry/track`, {
+          apiRequest('/api/telemetry/track', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               ...event,
               session_id: this.sessionId,
@@ -79,10 +78,9 @@ class TelemetryService {
   }
 
   async getStatus(): Promise<TelemetryStatus> {
-    const response = await fetch(`${API_BASE_URL}/telemetry/status`);
-    const result = await response.json();
+    const result = await apiRequest<TelemetryStatus>('/api/telemetry/status');
 
-    if (result.success) {
+    if (result.success && result.data) {
       this.settings = result.data.settings;
       return result.data;
     }
@@ -91,10 +89,9 @@ class TelemetryService {
   }
 
   async getSettings(): Promise<TelemetrySettings> {
-    const response = await fetch(`${API_BASE_URL}/telemetry/settings`);
-    const result = await response.json();
+    const result = await apiRequest<TelemetrySettings>('/api/telemetry/settings');
 
-    if (result.success) {
+    if (result.success && result.data) {
       this.settings = result.data;
       return result.data;
     }
@@ -103,13 +100,10 @@ class TelemetryService {
   }
 
   async updateSettings(settings: TelemetrySettings): Promise<void> {
-    const response = await fetch(`${API_BASE_URL}/telemetry/settings`, {
+    const result = await apiRequest('/api/telemetry/settings', {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(settings),
     });
-
-    const result = await response.json();
 
     if (!result.success) {
       throw new Error(result.error || 'Failed to update telemetry settings');
@@ -119,13 +113,10 @@ class TelemetryService {
   }
 
   async completeOnboarding(settings: TelemetrySettings): Promise<void> {
-    const response = await fetch(`${API_BASE_URL}/telemetry/onboarding/complete`, {
+    const result = await apiRequest('/api/telemetry/onboarding/complete', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(settings),
     });
-
-    const result = await response.json();
 
     if (!result.success) {
       throw new Error(result.error || 'Failed to complete onboarding');
@@ -135,13 +126,10 @@ class TelemetryService {
   }
 
   async deleteAllData(): Promise<void> {
-    const response = await fetch(`${API_BASE_URL}/telemetry/data`, {
+    const result = await apiRequest('/api/telemetry/data', {
       method: 'DELETE',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ confirm: true }),
     });
-
-    const result = await response.json();
 
     if (!result.success) {
       throw new Error(result.error || 'Failed to delete telemetry data');
