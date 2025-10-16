@@ -60,8 +60,8 @@ impl TelemetryEvent {
 
     pub fn with_identity(mut self, machine_id: Option<String>, user_id: Option<String>) -> Self {
         self.machine_id = machine_id;
-        self.user_id = user_id;
         self.anonymous = user_id.is_none();
+        self.user_id = user_id;
         self
     }
 
@@ -72,6 +72,7 @@ impl TelemetryEvent {
             EventType::Error => "error",
             EventType::Performance => "performance",
         };
+        let timestamp_str = self.timestamp.to_rfc3339();
 
         sqlx::query!(
             r#"
@@ -91,7 +92,7 @@ impl TelemetryEvent {
             event_data_json,
             self.anonymous,
             self.session_id,
-            self.timestamp.to_rfc3339(),
+            timestamp_str,
         )
         .execute(pool)
         .await?;
@@ -182,18 +183,19 @@ pub async fn get_unsent_events(
         };
 
         let event_data = row.event_data
-            .and_then(|json_str| serde_json::from_str(&json_str).ok());
+            .as_deref()
+            .and_then(|json_str| serde_json::from_str(json_str).ok());
 
         let timestamp = DateTime::parse_from_rfc3339(&row.created_at)
             .unwrap_or_else(|_| Utc::now().into())
             .with_timezone(&Utc);
 
         events.push(TelemetryEvent {
-            id: row.id,
+            id: row.id.unwrap_or_else(|| Uuid::new_v4().to_string()),
             event_type,
             event_name: row.event_name,
             event_data,
-            anonymous: row.anonymous.unwrap_or(true),
+            anonymous: row.anonymous,
             session_id: row.session_id,
             timestamp,
             machine_id: None,

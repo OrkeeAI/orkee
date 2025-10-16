@@ -62,14 +62,10 @@ impl TelemetryConfig {
         // Telemetry is only enabled if BOTH the env var is true AND we have an API key
         let enabled = env_enabled && has_api_key;
 
-        // Hardcoded endpoint - users shouldn't be able to change this
-        // Using PostHog for privacy-focused analytics
-        #[cfg(debug_assertions)]
+        // PostHog endpoint - can be overridden for self-hosted instances
+        // Defaults to PostHog Cloud for privacy-focused analytics
         let endpoint = env::var("ORKEE_TELEMETRY_ENDPOINT")
             .unwrap_or_else(|_| "https://app.posthog.com/capture".to_string());
-
-        #[cfg(not(debug_assertions))]
-        let endpoint = "https://app.posthog.com/capture".to_string();
 
         let debug_mode = env::var("ORKEE_TELEMETRY_DEBUG")
             .unwrap_or_else(|_| "false".to_string())
@@ -126,11 +122,11 @@ impl TelemetryManager {
 
         if let Some(row) = row {
             Ok(TelemetrySettings {
-                first_run: row.first_run.unwrap_or(true),
-                onboarding_completed: row.onboarding_completed.unwrap_or(false),
-                error_reporting: row.error_reporting.unwrap_or(false),
-                usage_metrics: row.usage_metrics.unwrap_or(false),
-                non_anonymous_metrics: row.non_anonymous_metrics.unwrap_or(false),
+                first_run: row.first_run,
+                onboarding_completed: row.onboarding_completed,
+                error_reporting: row.error_reporting,
+                usage_metrics: row.usage_metrics,
+                non_anonymous_metrics: row.non_anonymous_metrics,
                 machine_id: row.machine_id,
                 user_id: row.user_id,
                 created_at: DateTime::parse_from_rfc3339(&row.created_at)
@@ -225,6 +221,10 @@ impl TelemetryManager {
         self.config.enabled
     }
 
+    pub fn get_endpoint(&self) -> String {
+        self.config.endpoint.clone()
+    }
+
     pub async fn is_any_telemetry_enabled(&self) -> bool {
         if !self.config.enabled {
             return false;
@@ -237,5 +237,19 @@ impl TelemetryManager {
     pub async fn should_show_onboarding(&self) -> bool {
         let settings = self.settings.read().await;
         settings.first_run && !settings.onboarding_completed
+    }
+
+    pub async fn delete_all_data(&self) -> Result<u64, Box<dyn std::error::Error>> {
+        // Delete all telemetry events
+        let result = sqlx::query!("DELETE FROM telemetry_events")
+            .execute(&self.pool)
+            .await?;
+
+        // Reset statistics if table exists
+        let _ = sqlx::query!("DELETE FROM telemetry_stats")
+            .execute(&self.pool)
+            .await;
+
+        Ok(result.rows_affected())
     }
 }
