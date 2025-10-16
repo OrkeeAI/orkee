@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "\n            UPDATE telemetry_events\n            SET retry_count = COALESCE(retry_count, 0) + 1\n            WHERE id = ?\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": []
+  },
+  "hash": "21c7442fe8f5dd61ea9a29dc00eace003b334e9f963fda653943f2a9a82c894d"
+}

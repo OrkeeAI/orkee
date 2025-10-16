@@ -2,7 +2,10 @@
 // ABOUTME: Handles event collection, buffering, and transmission to telemetry endpoint
 
 use super::config::TelemetryManager;
-use super::events::{cleanup_old_events, get_unsent_events, increment_retry_count, mark_events_as_sent};
+use super::events::{
+    cleanup_old_events, cleanup_old_unsent_events, get_unsent_events, increment_retry_count,
+    mark_events_as_sent,
+};
 use super::posthog::create_posthog_batch;
 use reqwest::Client;
 use serde::Deserialize;
@@ -60,9 +63,15 @@ impl TelemetryCollector {
                     error!("Failed to send telemetry events: {}", e);
                 }
 
-                // Clean up old events based on configured retention
+                // Clean up old sent events based on configured retention
                 if let Err(e) = cleanup_old_events(&collector.pool, retention_days).await {
-                    error!("Failed to cleanup old telemetry events: {}", e);
+                    error!("Failed to cleanup old sent telemetry events: {}", e);
+                }
+
+                // Clean up old unsent events (7 days) to prevent unbounded growth
+                // when PostHog is down or unreachable
+                if let Err(e) = cleanup_old_unsent_events(&collector.pool, 7).await {
+                    error!("Failed to cleanup old unsent telemetry events: {}", e);
                 }
             }
         });

@@ -7,8 +7,8 @@ use tempfile::TempDir;
 use crate::telemetry::{
     config::{TelemetryConfig, TelemetryManager},
     events::{
-        cleanup_old_events, get_unsent_events, mark_events_as_sent, track_error, track_event,
-        EventType, TelemetryEvent,
+        cleanup_old_events, cleanup_old_unsent_events, get_unsent_events, mark_events_as_sent,
+        track_error, track_event, EventType, TelemetryEvent,
     },
 };
 
@@ -440,6 +440,44 @@ async fn test_cleanup_old_events_respects_retention() {
     let events = get_unsent_events(&pool, 10).await.unwrap();
     assert_eq!(events.len(), 1);
     assert_eq!(events[0].event_name, "recent_event");
+}
+
+#[tokio::test]
+#[serial]
+async fn test_cleanup_old_unsent_events_prevents_unbounded_growth() {
+    let (pool, _temp_dir) = setup_test_db().await;
+
+    // Create an old unsent event (simulating a failed send from 10 days ago)
+    let old_event = TelemetryEvent::new(EventType::Usage, "old_unsent_event".to_string());
+    old_event.save_to_db(&pool).await.unwrap();
+
+    // Manually update created_at to 10 days ago (exceeds 7-day threshold)
+    let old_events = get_unsent_events(&pool, 10).await.unwrap();
+    sqlx::query("UPDATE telemetry_events SET created_at = datetime('now', '-10 days') WHERE id = ?")
+        .bind(&old_events[0].id)
+        .execute(&pool)
+        .await
+        .unwrap();
+
+    // Create a recent unsent event (from today)
+    let recent_event = TelemetryEvent::new(EventType::Usage, "recent_unsent_event".to_string());
+    recent_event.save_to_db(&pool).await.unwrap();
+
+    // Verify both events exist and are unsent
+    let all_unsent = sqlx::query("SELECT id FROM telemetry_events WHERE sent_at IS NULL")
+        .fetch_all(&pool)
+        .await
+        .unwrap();
+    assert_eq!(all_unsent.len(), 2);
+
+    // Clean up old unsent events (7+ days)
+    let deleted = cleanup_old_unsent_events(&pool, 7).await.unwrap();
+    assert_eq!(deleted, 1);
+
+    // Verify only recent unsent event remains
+    let events = get_unsent_events(&pool, 10).await.unwrap();
+    assert_eq!(events.len(), 1);
+    assert_eq!(events[0].event_name, "recent_unsent_event");
 }
 
 #[tokio::test]

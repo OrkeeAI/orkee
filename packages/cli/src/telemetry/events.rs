@@ -307,3 +307,23 @@ pub async fn cleanup_old_events(
 
     Ok(result.rows_affected())
 }
+
+/// Clean up old unsent events that have been stuck for too long
+/// This prevents unbounded growth when PostHog is down or unreachable
+pub async fn cleanup_old_unsent_events(
+    pool: &SqlitePool,
+    days_to_keep: i64,
+) -> Result<u64, Box<dyn std::error::Error>> {
+    let result = sqlx::query!(
+        r#"
+        DELETE FROM telemetry_events
+        WHERE sent_at IS NULL
+        AND datetime(created_at) < datetime('now', '-' || ? || ' days')
+        "#,
+        days_to_keep
+    )
+    .execute(pool)
+    .await?;
+
+    Ok(result.rows_affected())
+}
