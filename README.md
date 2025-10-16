@@ -50,14 +50,46 @@ The **Dashboard** and **Desktop App** require the CLI server to be running. The 
 
 ## Installation
 
+### Option 1: npm (CLI + TUI + Web Dashboard)
+
 ```bash
-# Install from npm (coming soon)
+# Install globally via npm
 npm install -g orkee
 
-# Or install from source
+# Verify installation
+orkee --version
+
+# Start the dashboard
+orkee dashboard
+
+# Or use the terminal interface
+orkee tui
+```
+
+The npm package automatically downloads the appropriate binary for your platform (macOS, Linux, Windows).
+
+### Option 2: Desktop App (Native GUI + CLI + TUI)
+
+Download the native desktop application for your platform from the [latest release](https://github.com/OrkeeAI/orkee/releases):
+
+- **macOS**: `Orkee_x86_64.dmg` (Intel) or `Orkee_aarch64.dmg` (Apple Silicon)
+- **Windows**: `Orkee_x64_en-US.msi`
+- **Linux**: `.deb` (Debian/Ubuntu), `.rpm` (Fedora/RHEL), or `.AppImage`
+
+The desktop app includes:
+- 🖥️ Native desktop application with system tray
+- 💻 Full CLI access (`orkee` command)
+- 🎨 Terminal UI (`orkee tui`)
+- 🌐 Web dashboard in native window
+
+**Note**: Desktop installers are currently unsigned. See the [release notes](https://github.com/OrkeeAI/orkee/releases) for platform-specific installation instructions and security workarounds.
+
+### Option 3: Build from Source
+
+```bash
 git clone https://github.com/OrkeeAI/orkee.git
 cd orkee
-pnpm install
+bun install
 turbo build
 
 # Build with cloud sync features (optional)
@@ -68,7 +100,7 @@ cargo build --features cloud
 
 ```bash
 # Install dependencies
-pnpm install
+bun install
 
 # Choose your interface:
 
@@ -215,7 +247,7 @@ The desktop app is designed to run in the background:
 ### Prerequisites
 
 - [Node.js](https://nodejs.org/) (v18 or later)
-- [pnpm](https://pnpm.io/) (v8 or later)
+- [Bun](https://bun.sh/) (v1.0 or later)
 - [Rust](https://rustup.rs/) (latest stable)
 
 ### Development Setup
@@ -223,7 +255,7 @@ The desktop app is designed to run in the background:
 ```bash
 git clone https://github.com/OrkeeAI/orkee.git
 cd orkee
-pnpm install
+bun install
 ```
 
 ### Available Commands
@@ -260,17 +292,17 @@ cargo run --bin orkee -- --help              # See all available commands
 cargo test                                   # Run Rust tests
 
 # Dashboard-specific commands (run from packages/dashboard/)
-pnpm dev                      # Start Vite dev server (uses ORKEE_UI_PORT or 5173)
-ORKEE_UI_PORT=3000 pnpm dev  # Start on custom port
-pnpm build                    # Production build
-pnpm lint                     # Run ESLint
+bun run dev                   # Start Vite dev server (uses ORKEE_UI_PORT or 5173)
+ORKEE_UI_PORT=3000 bun run dev  # Start on custom port
+bun run build                 # Production build
+bun run lint                  # Run ESLint
 
 # Tauri Desktop App commands (run from repository root or packages/dashboard/)
 turbo dev:tauri              # Start Tauri dev app (from root)
-pnpm tauri dev               # Start Tauri dev app (from packages/dashboard/)
-pnpm tauri build             # Build production desktop app
-pnpm tauri build --debug     # Build with debug symbols
-pnpm tauri icon              # Generate app icons from source image
+bun tauri dev                # Start Tauri dev app (from packages/dashboard/)
+bun tauri build              # Build production desktop app
+bun tauri build --debug      # Build with debug symbols
+bun tauri icon               # Generate app icons from source image
 ```
 
 ### Dashboard Development Mode
