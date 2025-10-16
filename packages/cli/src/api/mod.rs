@@ -12,6 +12,7 @@ pub mod health;
 pub mod path_validator;
 pub mod preview;
 pub mod taskmaster;
+pub mod telemetry;
 
 pub async fn create_router() -> Router {
     create_router_with_options(None).await
@@ -124,6 +125,26 @@ pub async fn create_router_with_options(dashboard_path: Option<std::path::PathBu
         .route("/usage", get(cloud::get_usage_stats))
         .layer(axum::Extension(cloud::CloudState::new()));
 
+    // Initialize telemetry manager
+    // If it fails, log the error but continue without telemetry endpoints
+    let telemetry_router = match crate::telemetry::init_telemetry_manager().await {
+        Ok(manager) => {
+            let telemetry_manager = Arc::new(manager);
+            Router::new()
+                .route("/status", get(telemetry::get_telemetry_status))
+                .route("/settings", get(telemetry::get_telemetry_settings))
+                .route("/settings", axum::routing::put(telemetry::update_telemetry_settings))
+                .route("/onboarding/complete", post(telemetry::complete_telemetry_onboarding))
+                .route("/data", axum::routing::delete(telemetry::delete_telemetry_data))
+                .layer(axum::Extension(telemetry_manager))
+        }
+        Err(e) => {
+            error!("Failed to initialize telemetry manager: {}", e);
+            // Return empty router - telemetry endpoints won't be available
+            Router::new()
+        }
+    };
+
     let mut router = Router::new()
         .route("/api/health", get(health::health_check))
         .route("/api/status", get(health::status_check))
@@ -137,6 +158,7 @@ pub async fn create_router_with_options(dashboard_path: Option<std::path::PathBu
         .nest("/api/preview", preview_router)
         .nest("/api/cloud", cloud_router)
         .nest("/api/taskmaster", taskmaster_router)
+        .nest("/api/telemetry", telemetry_router)
         .layer(axum::Extension(path_validator));
 
     // If dashboard path is provided, serve static files

@@ -2,16 +2,17 @@
 // ABOUTME: Handles event collection, buffering, and transmission to telemetry endpoint
 
 use super::config::TelemetryManager;
-use super::events::{get_unsent_events, mark_events_as_sent, cleanup_old_events, TelemetryEvent};
-use super::posthog::{create_posthog_batch, PostHogBatch};
+use super::events::{get_unsent_events, mark_events_as_sent, cleanup_old_events};
+use super::posthog::create_posthog_batch;
 use reqwest::Client;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use sqlx::SqlitePool;
 use std::sync::Arc;
 use tokio::time::{interval, Duration};
 use tracing::{debug, error, info};
 
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 struct PostHogResponse {
     status: i32,
     #[serde(default)]
@@ -80,7 +81,8 @@ impl TelemetryCollector {
 
         // Filter events based on user settings
         let mut filtered_events = Vec::new();
-        for mut event in events {
+        for event in &events {
+            let mut event = event.clone();
             match event.event_type {
                 super::events::EventType::Error => {
                     if settings.error_reporting {
@@ -158,7 +160,7 @@ pub async fn send_buffered_events(
     manager: Arc<TelemetryManager>,
     pool: SqlitePool,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let endpoint = manager.config.endpoint.clone();
+    let endpoint = manager.get_endpoint();
     let collector = TelemetryCollector::new(manager, pool, endpoint);
     collector.send_buffered_events_internal().await
 }

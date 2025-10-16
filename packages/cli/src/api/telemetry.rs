@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tracing::{error, info};
 
-use crate::telemetry::{TelemetryManager, TelemetrySettings};
+use crate::telemetry::TelemetryManager;
 
 #[derive(Debug, Serialize)]
 pub struct TelemetryStatusResponse {
@@ -67,7 +67,7 @@ pub async fn get_telemetry_status(
     Extension(telemetry_manager): Extension<Arc<TelemetryManager>>,
 ) -> impl IntoResponse {
     let settings = telemetry_manager.get_settings().await;
-    let should_show_onboarding = telemetry_manager.should_show_onboarding().await;
+    let _should_show_onboarding = telemetry_manager.should_show_onboarding().await;
 
     let response = TelemetryStatusResponse {
         first_run: settings.first_run,
@@ -104,7 +104,7 @@ pub async fn get_telemetry_settings(
 pub async fn update_telemetry_settings(
     Extension(telemetry_manager): Extension<Arc<TelemetryManager>>,
     Json(request): Json<UpdateTelemetrySettingsRequest>,
-) -> impl IntoResponse {
+) -> Result<Json<ApiResponse<TelemetrySettingsResponse>>, (StatusCode, Json<ApiResponse<()>>)> {
     let mut settings = telemetry_manager.get_settings().await;
 
     // Update settings
@@ -121,19 +121,18 @@ pub async fn update_telemetry_settings(
     match telemetry_manager.update_settings(settings).await {
         Ok(_) => {
             info!("Telemetry settings updated successfully");
-            Json(ApiResponse::success(TelemetrySettingsResponse {
+            Ok(Json(ApiResponse::success(TelemetrySettingsResponse {
                 error_reporting: request.error_reporting,
                 usage_metrics: request.usage_metrics,
                 non_anonymous_metrics: request.non_anonymous_metrics,
-            }))
+            })))
         }
         Err(e) => {
             error!("Failed to update telemetry settings: {}", e);
-            (
+            Err((
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(ApiResponse::<()>::error(format!("Failed to update settings: {}", e))),
-            )
-                .into_response()
+            ))
         }
     }
 }
@@ -143,7 +142,7 @@ pub async fn update_telemetry_settings(
 pub async fn complete_telemetry_onboarding(
     Extension(telemetry_manager): Extension<Arc<TelemetryManager>>,
     Json(request): Json<UpdateTelemetrySettingsRequest>,
-) -> impl IntoResponse {
+) -> Result<Json<ApiResponse<TelemetrySettingsResponse>>, (StatusCode, Json<ApiResponse<()>>)> {
     match telemetry_manager
         .complete_onboarding(
             request.error_reporting,
@@ -154,22 +153,21 @@ pub async fn complete_telemetry_onboarding(
     {
         Ok(_) => {
             info!("Telemetry onboarding completed");
-            Json(ApiResponse::success(TelemetrySettingsResponse {
+            Ok(Json(ApiResponse::success(TelemetrySettingsResponse {
                 error_reporting: request.error_reporting,
                 usage_metrics: request.usage_metrics,
                 non_anonymous_metrics: request.non_anonymous_metrics,
-            }))
+            })))
         }
         Err(e) => {
             error!("Failed to complete telemetry onboarding: {}", e);
-            (
+            Err((
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(ApiResponse::<()>::error(format!(
                     "Failed to complete onboarding: {}",
                     e
                 ))),
-            )
-                .into_response()
+            ))
         }
     }
 }
@@ -177,36 +175,25 @@ pub async fn complete_telemetry_onboarding(
 /// DELETE /api/telemetry/data
 /// Deletes all telemetry data
 pub async fn delete_telemetry_data(
-    Extension(pool): Extension<sqlx::SqlitePool>,
-) -> impl IntoResponse {
-    // Delete all telemetry events
-    match sqlx::query!("DELETE FROM telemetry_events")
-        .execute(&pool)
-        .await
-    {
-        Ok(result) => {
-            info!("Deleted {} telemetry events", result.rows_affected());
-
-            // Reset statistics
-            let _ = sqlx::query!("DELETE FROM telemetry_stats")
-                .execute(&pool)
-                .await;
-
-            Json(ApiResponse::success(format!(
+    Extension(telemetry_manager): Extension<Arc<TelemetryManager>>,
+) -> Result<Json<ApiResponse<String>>, (StatusCode, Json<ApiResponse<()>>)> {
+    match telemetry_manager.delete_all_data().await {
+        Ok(count) => {
+            info!("Deleted {} telemetry events", count);
+            Ok(Json(ApiResponse::success(format!(
                 "Deleted {} telemetry events",
-                result.rows_affected()
-            )))
+                count
+            ))))
         }
         Err(e) => {
             error!("Failed to delete telemetry data: {}", e);
-            (
+            Err((
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(ApiResponse::<()>::error(format!(
                     "Failed to delete telemetry data: {}",
                     e
                 ))),
-            )
-                .into_response()
+            ))
         }
     }
 }

@@ -1,9 +1,8 @@
 // ABOUTME: PostHog-specific telemetry integration
 // ABOUTME: Formats events for PostHog's API and handles authentication
 
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use serde_json::Value;
-use chrono::{DateTime, Utc};
 
 // PostHog Project API Key (phc_...) - Loaded from Environment
 // This is the PUBLIC project key that's safe to expose in client-side code.
