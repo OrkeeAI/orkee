@@ -3,19 +3,25 @@
 const fs = require('fs');
 const path = require('path');
 
-// Read Cargo.toml
-const cargoPath = path.join(__dirname, '..', 'Cargo.toml');
+// Read workspace root Cargo.toml (since CLI uses workspace inheritance)
+const cargoPath = path.join(__dirname, '..', '..', '..', 'Cargo.toml');
 const cargoContent = fs.readFileSync(cargoPath, 'utf8');
 
-// Extract version from Cargo.toml
-const versionMatch = cargoContent.match(/^version\s*=\s*"([^"]+)"/m);
+// Extract version from [workspace.package] section
+const workspaceMatch = cargoContent.match(/\[workspace\.package\]([\s\S]*?)(?=\n\[|$)/);
+if (!workspaceMatch) {
+  console.error('Could not find [workspace.package] section in root Cargo.toml');
+  process.exit(1);
+}
+
+const versionMatch = workspaceMatch[1].match(/version\s*=\s*"([^"]+)"/);
 if (!versionMatch) {
-  console.error('Could not find version in Cargo.toml');
+  console.error('Could not find version in [workspace.package]');
   process.exit(1);
 }
 
 const version = versionMatch[1];
-console.log(`Found Cargo version: ${version}`);
+console.log(`Found workspace version: ${version}`);
 
 // Read package.json
 const packagePath = path.join(__dirname, '..', 'package.json');
