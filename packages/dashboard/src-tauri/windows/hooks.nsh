@@ -1,13 +1,55 @@
 ; ABOUTME: NSIS installer hooks for Windows Orkee desktop app
 ; ABOUTME: Adds orkee binary to system PATH during installation
 
-; Include required string function libraries
-!include "StrFunc.nsh"
-!include "WordFunc.nsh"
+; Include required libraries
+!include "LogicLib.nsh"
 
 ; Constants
 !define MAX_PATH_LENGTH 2047        ; Windows environment variable length limit
 !define BROADCAST_TIMEOUT 10000     ; Timeout for WM_SETTINGCHANGE broadcast (milliseconds)
+
+; Helper function to check if string contains substring
+Function StrContains
+  Exch 1
+  Exch
+  Exch $R0 ; input string
+  Exch
+  Exch $R1 ; substring to find
+  Push $R2
+  Push $R3
+
+  StrLen $R3 $R1
+  StrCpy $R2 0
+
+  loop:
+    StrCpy $R4 $R0 $R3 $R2
+    StrCmp $R4 "" notfound
+    StrCmp $R4 $R1 found
+    IntOp $R2 $R2 + 1
+    Goto loop
+
+  found:
+    StrCpy $R0 "1"
+    Goto done
+
+  notfound:
+    StrCpy $R0 ""
+
+  done:
+  Pop $R3
+  Pop $R2
+  Pop $R1
+  Exch $R0
+FunctionEnd
+
+!macro StrContains output substring input
+  Push "${input}"
+  Push "${substring}"
+  Call StrContains
+  Pop "${output}"
+!macroend
+
+!define StrContains "!insertmacro StrContains"
 
 !macro NSIS_HOOK_POSTINSTALL
   ; Copy bundled orkee.exe to a stable location
@@ -49,17 +91,11 @@
     ; Check if our directory is already in PATH
     ${StrContains} $3 "$0" "$2"
     ${If} $3 == ""
-      ; Not found - check PATH length before adding
-      StrLen $4 "$2;$0"
-      ${If} $4 < ${MAX_PATH_LENGTH}
-        ; Safe to add - under Windows PATH limit
-        WriteRegExpandStr HKLM "SYSTEM\CurrentControlSet\Control\Session Manager\Environment" "Path" "$2;$0"
-        ; Broadcast WM_SETTINGCHANGE to notify system of PATH change
-        SendMessage ${HWND_BROADCAST} ${WM_SETTINGCHANGE} 0 "STR:Environment" /TIMEOUT=${BROADCAST_TIMEOUT}
-      ${Else}
-        ; PATH too long - warn user but don't fail installation
-        MessageBox MB_OK|MB_ICONEXCLAMATION "Warning: System PATH is too long to add Orkee automatically.$\n$\nYou can manually add this directory to PATH:$\n$0$\n$\nDesktop app will still work without CLI access."
-      ${EndIf}
+      ; Not found - add it
+      StrCpy $2 "$2;$0"
+      WriteRegExpandStr HKLM "SYSTEM\CurrentControlSet\Control\Session Manager\Environment" "Path" "$2"
+      ; Broadcast WM_SETTINGCHANGE to notify system of PATH change
+      SendMessage ${HWND_BROADCAST} ${WM_SETTINGCHANGE} 0 "STR:Environment" /TIMEOUT=${BROADCAST_TIMEOUT}
     ${EndIf}
   ${Else}
     ; Per-user: Add to user PATH (HKCU)
@@ -71,17 +107,11 @@
     ; Check if our directory is already in PATH
     ${StrContains} $3 "$0" "$2"
     ${If} $3 == ""
-      ; Not found - check PATH length before adding
-      StrLen $4 "$2;$0"
-      ${If} $4 < ${MAX_PATH_LENGTH}
-        ; Safe to add - under Windows PATH limit
-        WriteRegExpandStr HKCU "Environment" "Path" "$2;$0"
-        ; Broadcast WM_SETTINGCHANGE to notify system of PATH change
-        SendMessage ${HWND_BROADCAST} ${WM_SETTINGCHANGE} 0 "STR:Environment" /TIMEOUT=${BROADCAST_TIMEOUT}
-      ${Else}
-        ; PATH too long - warn user but don't fail installation
-        MessageBox MB_OK|MB_ICONEXCLAMATION "Warning: User PATH is too long to add Orkee automatically.$\n$\nYou can manually add this directory to PATH:$\n$0$\n$\nDesktop app will still work without CLI access."
-      ${EndIf}
+      ; Not found - add it
+      StrCpy $2 "$2;$0"
+      WriteRegExpandStr HKCU "Environment" "Path" "$2"
+      ; Broadcast WM_SETTINGCHANGE to notify system of PATH change
+      SendMessage ${HWND_BROADCAST} ${WM_SETTINGCHANGE} 0 "STR:Environment" /TIMEOUT=${BROADCAST_TIMEOUT}
     ${EndIf}
   ${EndIf}
 !macroend
@@ -114,10 +144,25 @@
     ; Check if our directory is in PATH
     ${StrContains} $3 "$0" "$2"
     ${If} $3 != ""
-      ; Remove the directory from PATH (try all possible positions)
-      ${WordReplace} $2 ";$0" "" "+" $2
-      ${WordReplace} $2 "$0;" "" "+" $2
-      ${WordReplace} $2 "$0" "" "+" $2
+      ; Remove the directory from PATH
+      ; This is simplified - just removing our specific directory
+      Push $2
+      Push ";$0"
+      Push ""
+      Call StrReplace
+      Pop $2
+
+      Push $2
+      Push "$0;"
+      Push ""
+      Call StrReplace
+      Pop $2
+
+      Push $2
+      Push "$0"
+      Push ""
+      Call StrReplace
+      Pop $2
 
       ; Write updated PATH back to registry
       WriteRegExpandStr HKLM "SYSTEM\CurrentControlSet\Control\Session Manager\Environment" "Path" "$2"
@@ -132,10 +177,24 @@
     ; Check if our directory is in PATH
     ${StrContains} $3 "$0" "$2"
     ${If} $3 != ""
-      ; Remove the directory from PATH (try all possible positions)
-      ${WordReplace} $2 ";$0" "" "+" $2
-      ${WordReplace} $2 "$0;" "" "+" $2
-      ${WordReplace} $2 "$0" "" "+" $2
+      ; Remove the directory from PATH
+      Push $2
+      Push ";$0"
+      Push ""
+      Call StrReplace
+      Pop $2
+
+      Push $2
+      Push "$0;"
+      Push ""
+      Call StrReplace
+      Pop $2
+
+      Push $2
+      Push "$0"
+      Push ""
+      Call StrReplace
+      Pop $2
 
       ; Write updated PATH back to registry
       WriteRegExpandStr HKCU "Environment" "Path" "$2"
@@ -145,3 +204,47 @@
     ${EndIf}
   ${EndIf}
 !macroend
+
+; String replace function
+Function StrReplace
+  Exch $R4 ; replacement
+  Exch
+  Exch $R3 ; string to replace
+  Exch
+  Exch 2
+  Exch $R1 ; input string
+  Push $R2
+  Push $R5
+  Push $R6
+  Push $R7
+
+  StrCpy $R2 ""
+  StrLen $R5 $R1
+  StrLen $R6 $R3
+  StrLen $R7 $R4
+
+  Loop:
+    StrCpy $R0 $R1 $R6
+    StrCmp $R0 $R3 Replace
+    StrCmp $R0 "" Done
+    StrCpy $R0 $R1 1
+    StrCpy $R2 "$R2$R0"
+    StrCpy $R1 $R1 "" 1
+    Goto Loop
+
+  Replace:
+    StrCpy $R2 "$R2$R4"
+    StrCpy $R1 $R1 "" $R6
+    Goto Loop
+
+  Done:
+    StrCpy $R1 "$R2$R1"
+    Pop $R7
+    Pop $R6
+    Pop $R5
+    Pop $R2
+    Pop $R0
+    Pop $R4
+    Pop $R3
+    Exch $R1
+FunctionEnd
