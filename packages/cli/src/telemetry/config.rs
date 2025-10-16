@@ -49,11 +49,18 @@ pub struct TelemetryConfig {
 
 impl TelemetryConfig {
     pub fn from_env() -> Self {
+        // Check if PostHog API key is available
+        // If no key, disable telemetry gracefully
+        let has_api_key = super::posthog::get_posthog_api_key().is_some();
+
         // Check if telemetry is globally disabled via environment variable
-        let enabled = env::var("ORKEE_TELEMETRY_ENABLED")
+        let env_enabled = env::var("ORKEE_TELEMETRY_ENABLED")
             .unwrap_or_else(|_| "true".to_string())
             .parse::<bool>()
             .unwrap_or(true);
+
+        // Telemetry is only enabled if BOTH the env var is true AND we have an API key
+        let enabled = env_enabled && has_api_key;
 
         // Hardcoded endpoint - users shouldn't be able to change this
         // Using PostHog for privacy-focused analytics

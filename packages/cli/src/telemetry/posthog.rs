@@ -5,13 +5,25 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use chrono::{DateTime, Utc};
 
-// PostHog Project API Key (phc_...)
+// PostHog Project API Key (phc_...) - Loaded from Environment
 // This is the PUBLIC project key that's safe to expose in client-side code.
 // It only allows sending events (write-only), not reading data or admin operations.
 // Get this from: https://app.posthog.com/project/settings
 //
+// The key is loaded in this priority order:
+// 1. Compile-time: POSTHOG_API_KEY environment variable during build
+// 2. Runtime: POSTHOG_API_KEY environment variable at execution
+//
+// If no key is available, telemetry will be disabled gracefully.
+//
 // NOTE: Do NOT use your Personal API Key (phx_...) here - that's for admin operations only!
-pub const POSTHOG_API_KEY: &str = "phc_c5SkoGFaYkPXC6KSk8atvDdlPZGbOgS5ttiY0sqM9ve";
+pub fn get_posthog_api_key() -> Option<String> {
+    // Try compile-time environment variable first (set during build)
+    option_env!("POSTHOG_API_KEY")
+        .map(String::from)
+        // Fall back to runtime environment variable
+        .or_else(|| std::env::var("POSTHOG_API_KEY").ok())
+}
 
 // PostHog event structure
 #[derive(Debug, Serialize)]
@@ -75,7 +87,7 @@ impl From<super::events::TelemetryEvent> for PostHogEvent {
         };
 
         PostHogEvent {
-            api_key: POSTHOG_API_KEY.to_string(),
+            api_key: get_posthog_api_key().unwrap_or_default(),
             event: event_name,
             properties: PostHogProperties {
                 distinct_id: distinct_id.clone(),
@@ -96,7 +108,7 @@ impl From<super::events::TelemetryEvent> for PostHogEvent {
 // Convert multiple telemetry events to PostHog batch
 pub fn create_posthog_batch(events: Vec<super::events::TelemetryEvent>) -> PostHogBatch {
     PostHogBatch {
-        api_key: POSTHOG_API_KEY.to_string(),
+        api_key: get_posthog_api_key().unwrap_or_default(),
         batch: events.into_iter().map(PostHogEvent::from).collect(),
     }
 }

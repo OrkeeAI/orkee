@@ -127,6 +127,8 @@ jobs:
             
       - name: Build
         shell: bash
+        env:
+          POSTHOG_API_KEY: ${{ secrets.POSTHOG_API_KEY }}
         run: |
           echo "Building orkee for ${{ matrix.platform.target }}..."
           cd packages/cli
