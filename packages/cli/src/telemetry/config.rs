@@ -46,6 +46,7 @@ pub struct TelemetryConfig {
     pub batch_size: usize,
     pub flush_interval_secs: u64,
     pub retention_days: i64,
+    pub unsent_retention_days: i64,
     pub http_timeout_secs: u64,
 }
 
@@ -80,7 +81,8 @@ impl TelemetryConfig {
             debug_mode,
             batch_size: 50,
             flush_interval_secs: 300, // 5 minutes
-            retention_days: 30,       // Keep telemetry data for 30 days
+            retention_days: 30,       // Keep sent telemetry data for 30 days
+            unsent_retention_days: 7, // Clean up unsent events after 7 days
             http_timeout_secs: 30,    // HTTP request timeout
         }
     }
@@ -278,6 +280,10 @@ impl TelemetryManager {
 
     pub fn get_flush_interval_secs(&self) -> u64 {
         self.config.flush_interval_secs
+    }
+
+    pub fn get_unsent_retention_days(&self) -> i64 {
+        self.config.unsent_retention_days
     }
 
     pub async fn track_event(

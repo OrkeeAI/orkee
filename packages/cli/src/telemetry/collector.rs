@@ -12,7 +12,7 @@ use serde::Deserialize;
 use sqlx::SqlitePool;
 use std::sync::Arc;
 use tokio::time::{interval, Duration};
-use tracing::{debug, error, info};
+use tracing::{debug, error, info, warn};
 
 #[derive(Debug, Deserialize)]
 #[allow(dead_code)]
@@ -44,6 +44,7 @@ impl TelemetryCollector {
         let collector = self.clone();
         let flush_interval_secs = collector.manager.get_flush_interval_secs();
         let retention_days = collector.manager.get_retention_days();
+        let unsent_retention_days = collector.manager.get_unsent_retention_days();
 
         tokio::spawn(async move {
             let mut flush_interval = interval(Duration::from_secs(flush_interval_secs));
@@ -68,9 +69,9 @@ impl TelemetryCollector {
                     error!("Failed to cleanup old sent telemetry events: {}", e);
                 }
 
-                // Clean up old unsent events (7 days) to prevent unbounded growth
+                // Clean up old unsent events to prevent unbounded growth
                 // when PostHog is down or unreachable
-                if let Err(e) = cleanup_old_unsent_events(&collector.pool, 7).await {
+                if let Err(e) = cleanup_old_unsent_events(&collector.pool, unsent_retention_days).await {
                     error!("Failed to cleanup old unsent telemetry events: {}", e);
                 }
             }
@@ -167,7 +168,7 @@ impl TelemetryCollector {
             }
             Err(e) => {
                 // Increment retry count on network error
-                debug!("Failed to send telemetry to PostHog: {}", e);
+                warn!("Failed to send telemetry to PostHog: {}", e);
                 increment_retry_count(&self.pool, &event_ids).await?;
             }
         }
