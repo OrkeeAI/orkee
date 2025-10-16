@@ -453,11 +453,13 @@ async fn test_cleanup_old_unsent_events_prevents_unbounded_growth() {
 
     // Manually update created_at to 10 days ago (exceeds 7-day threshold)
     let old_events = get_unsent_events(&pool, 10).await.unwrap();
-    sqlx::query("UPDATE telemetry_events SET created_at = datetime('now', '-10 days') WHERE id = ?")
-        .bind(&old_events[0].id)
-        .execute(&pool)
-        .await
-        .unwrap();
+    sqlx::query(
+        "UPDATE telemetry_events SET created_at = datetime('now', '-10 days') WHERE id = ?",
+    )
+    .bind(&old_events[0].id)
+    .execute(&pool)
+    .await
+    .unwrap();
 
     // Create a recent unsent event (from today)
     let recent_event = TelemetryEvent::new(EventType::Usage, "recent_unsent_event".to_string());
@@ -707,5 +709,8 @@ async fn test_concurrent_settings_updates_no_race_condition() {
     assert_eq!(final_settings.error_reporting, db_settings.error_reporting);
     assert_eq!(final_settings.usage_metrics, db_settings.usage_metrics);
     assert_eq!(final_settings.machine_id, db_settings.machine_id);
-    assert_eq!(final_settings.non_anonymous_metrics, db_settings.non_anonymous_metrics);
+    assert_eq!(
+        final_settings.non_anonymous_metrics,
+        db_settings.non_anonymous_metrics
+    );
 }

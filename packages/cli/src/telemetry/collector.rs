@@ -189,7 +189,7 @@ pub async fn send_buffered_events(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::telemetry::events::{TelemetryEvent, EventType};
+    use crate::telemetry::events::{EventType, TelemetryEvent};
     use sqlx::sqlite::SqlitePoolOptions;
     use sqlx::Row;
 
@@ -251,19 +251,25 @@ mod tests {
         let event2 = TelemetryEvent::new(EventType::Usage, "test_event".to_string());
 
         // Insert with retry count simulating failed attempts
-        insert_event_with_retry_count(&pool, &event1, 5).await.unwrap();
-        insert_event_with_retry_count(&pool, &event2, 10).await.unwrap();
-
-        // Query for unsent events
-        let unsent = sqlx::query("SELECT id, retry_count FROM telemetry_events WHERE sent_at IS NULL")
-            .fetch_all(&pool)
+        insert_event_with_retry_count(&pool, &event1, 5)
             .await
             .unwrap();
+        insert_event_with_retry_count(&pool, &event2, 10)
+            .await
+            .unwrap();
+
+        // Query for unsent events
+        let unsent =
+            sqlx::query("SELECT id, retry_count FROM telemetry_events WHERE sent_at IS NULL")
+                .fetch_all(&pool)
+                .await
+                .unwrap();
 
         // Without proper retry logic, events accumulate indefinitely
         assert_eq!(unsent.len(), 2);
 
-        let retry_counts: Vec<i64> = unsent.iter()
+        let retry_counts: Vec<i64> = unsent
+            .iter()
             .map(|row| row.get::<i64, _>("retry_count"))
             .collect();
 
@@ -282,10 +288,18 @@ mod tests {
         let event4 = TelemetryEvent::new(EventType::Usage, "test_event_4".to_string());
 
         // Insert events with various retry counts
-        insert_event_with_retry_count(&pool, &event1, 0).await.unwrap(); // Should be included
-        insert_event_with_retry_count(&pool, &event2, 2).await.unwrap(); // Should be included
-        insert_event_with_retry_count(&pool, &event3, 3).await.unwrap(); // Should be excluded (reached max)
-        insert_event_with_retry_count(&pool, &event4, 5).await.unwrap(); // Should be excluded (exceeded max)
+        insert_event_with_retry_count(&pool, &event1, 0)
+            .await
+            .unwrap(); // Should be included
+        insert_event_with_retry_count(&pool, &event2, 2)
+            .await
+            .unwrap(); // Should be included
+        insert_event_with_retry_count(&pool, &event3, 3)
+            .await
+            .unwrap(); // Should be excluded (reached max)
+        insert_event_with_retry_count(&pool, &event4, 5)
+            .await
+            .unwrap(); // Should be excluded (exceeded max)
 
         // Use the same function that collector uses
         let events = get_unsent_events(&pool, 50).await.unwrap();
