@@ -71,7 +71,9 @@ impl TelemetryCollector {
 
                 // Clean up old unsent events to prevent unbounded growth
                 // when PostHog is down or unreachable
-                if let Err(e) = cleanup_old_unsent_events(&collector.pool, unsent_retention_days).await {
+                if let Err(e) =
+                    cleanup_old_unsent_events(&collector.pool, unsent_retention_days).await
+                {
                     error!("Failed to cleanup old unsent telemetry events: {}", e);
                 }
             }
