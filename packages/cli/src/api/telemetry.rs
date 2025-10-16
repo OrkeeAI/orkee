@@ -240,3 +240,47 @@ pub async fn delete_telemetry_data(
         }
     }
 }
+
+/// Request body for tracking an event
+#[derive(Debug, Deserialize)]
+pub struct TrackEventRequest {
+    pub event_name: String,
+    #[serde(default)]
+    pub event_data: Option<serde_json::Value>,
+    pub timestamp: String,
+    pub session_id: String,
+}
+
+/// POST /api/telemetry/track
+/// Tracks a telemetry event from the frontend
+pub async fn track_event(
+    Extension(telemetry_manager): Extension<Arc<TelemetryManager>>,
+    Json(request): Json<TrackEventRequest>,
+) -> Result<Json<ApiResponse<String>>, (StatusCode, Json<ApiResponse<()>>)> {
+    // Check if telemetry is enabled
+    if !telemetry_manager.is_telemetry_enabled() {
+        return Ok(Json(ApiResponse::success("Telemetry disabled".to_string())));
+    }
+
+    // Track the event
+    match telemetry_manager
+        .track_event(
+            &request.event_name,
+            request.event_data,
+            Some(request.session_id),
+        )
+        .await
+    {
+        Ok(_) => Ok(Json(ApiResponse::success("Event tracked".to_string()))),
+        Err(e) => {
+            error!("Failed to track telemetry event: {}", e);
+            Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ApiResponse::<()>::error(format!(
+                    "Failed to track event: {}",
+                    e
+                ))),
+            ))
+        }
+    }
+}

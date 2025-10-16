@@ -279,4 +279,26 @@ impl TelemetryManager {
     pub fn get_flush_interval_secs(&self) -> u64 {
         self.config.flush_interval_secs
     }
+
+    pub async fn track_event(
+        &self,
+        event_name: &str,
+        event_data: Option<serde_json::Value>,
+        session_id: Option<String>,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        // Convert event_data to HashMap if present
+        let properties = event_data.and_then(|data| {
+            if let serde_json::Value::Object(map) = data {
+                Some(
+                    map.into_iter()
+                        .map(|(k, v)| (k, v))
+                        .collect::<std::collections::HashMap<String, serde_json::Value>>(),
+                )
+            } else {
+                None
+            }
+        });
+
+        super::events::track_event(&self.pool, event_name, properties, session_id).await
+    }
 }

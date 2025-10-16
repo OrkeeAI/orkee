@@ -145,6 +145,7 @@ pub async fn create_router_with_options(dashboard_path: Option<std::path::PathBu
                     "/data",
                     axum::routing::delete(telemetry::delete_telemetry_data),
                 )
+                .route("/track", post(telemetry::track_event))
                 .layer(axum::Extension(telemetry_manager))
         }
         Err(e) => {
