@@ -625,3 +625,49 @@ async fn test_event_timestamps() {
     let timestamp = events[0].timestamp;
     assert!(timestamp >= before && timestamp <= after);
 }
+
+// ============================================================================
+// Concurrency Tests
+// ============================================================================
+
+#[tokio::test]
+#[serial]
+async fn test_concurrent_settings_updates_no_race_condition() {
+    let (pool, _temp_dir) = setup_test_db().await;
+
+    let manager = TelemetryManager::new(pool.clone()).await.unwrap();
+
+    // Spawn multiple concurrent update tasks
+    let mut handles = vec![];
+
+    for i in 0..10 {
+        let manager_clone = manager.clone();
+        let handle = tokio::spawn(async move {
+            let mut settings = manager_clone.get_settings().await;
+            settings.error_reporting = i % 2 == 0;
+            settings.usage_metrics = i % 3 == 0;
+            settings.machine_id = Some(format!("machine-{}", i));
+
+            manager_clone.update_settings(settings).await.unwrap();
+        });
+        handles.push(handle);
+    }
+
+    // Wait for all tasks to complete
+    for handle in handles {
+        handle.await.unwrap();
+    }
+
+    // Verify final state is consistent between DB and cache
+    let final_settings = manager.get_settings().await;
+
+    // Create a new manager to load from DB
+    let new_manager = TelemetryManager::new(pool).await.unwrap();
+    let db_settings = new_manager.get_settings().await;
+
+    // Both should match - no DB/cache divergence
+    assert_eq!(final_settings.error_reporting, db_settings.error_reporting);
+    assert_eq!(final_settings.usage_metrics, db_settings.usage_metrics);
+    assert_eq!(final_settings.machine_id, db_settings.machine_id);
+    assert_eq!(final_settings.non_anonymous_metrics, db_settings.non_anonymous_metrics);
+}

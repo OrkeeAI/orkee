@@ -86,6 +86,7 @@ impl TelemetryConfig {
     }
 }
 
+#[derive(Clone)]
 pub struct TelemetryManager {
     settings: Arc<RwLock<TelemetrySettings>>,
     config: TelemetryConfig,
@@ -190,11 +191,13 @@ impl TelemetryManager {
         &self,
         new_settings: TelemetrySettings,
     ) -> Result<(), Box<dyn std::error::Error>> {
+        // Acquire write lock BEFORE database save to prevent race conditions
+        let mut settings = self.settings.write().await;
+
         // Save to database
         Self::save_settings(&self.pool, &new_settings).await?;
 
         // Update in-memory cache
-        let mut settings = self.settings.write().await;
         *settings = new_settings;
 
         Ok(())
