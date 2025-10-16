@@ -1,12 +1,12 @@
 // ABOUTME: Telemetry event types and tracking functions
 // ABOUTME: Defines event structures for usage, error, and performance telemetry
 
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use uuid::Uuid;
-use chrono::{DateTime, Utc};
 use sqlx::SqlitePool;
 use std::collections::HashMap;
+use uuid::Uuid;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -133,7 +133,10 @@ pub async fn track_error(
     let mut event = TelemetryEvent::new(EventType::Error, error_name.to_string());
 
     let mut error_data = HashMap::new();
-    error_data.insert("message".to_string(), Value::String(error_message.to_string()));
+    error_data.insert(
+        "message".to_string(),
+        Value::String(error_message.to_string()),
+    );
     if let Some(trace) = stack_trace {
         error_data.insert("stack_trace".to_string(), Value::String(trace));
     }
@@ -182,7 +185,8 @@ pub async fn get_unsent_events(
             _ => EventType::Usage,
         };
 
-        let event_data = row.event_data
+        let event_data = row
+            .event_data
             .as_deref()
             .and_then(|json_str| serde_json::from_str(json_str).ok());
 

@@ -1,13 +1,13 @@
 // ABOUTME: Telemetry configuration and settings management
 // ABOUTME: Handles user preferences for opt-in telemetry with privacy controls
 
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use sqlx::SqlitePool;
 use std::env;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use uuid::Uuid;
-use sqlx::SqlitePool;
-use chrono::{DateTime, Utc};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TelemetrySettings {
@@ -80,8 +80,8 @@ impl TelemetryConfig {
             debug_mode,
             batch_size: 50,
             flush_interval_secs: 300, // 5 minutes
-            retention_days: 30, // Keep telemetry data for 30 days
-            http_timeout_secs: 30, // HTTP request timeout
+            retention_days: 30,       // Keep telemetry data for 30 days
+            http_timeout_secs: 30,    // HTTP request timeout
         }
     }
 }
@@ -104,7 +104,9 @@ impl TelemetryManager {
         })
     }
 
-    async fn load_settings(pool: &SqlitePool) -> Result<TelemetrySettings, Box<dyn std::error::Error>> {
+    async fn load_settings(
+        pool: &SqlitePool,
+    ) -> Result<TelemetrySettings, Box<dyn std::error::Error>> {
         let row = sqlx::query!(
             r#"
             SELECT
@@ -148,7 +150,10 @@ impl TelemetryManager {
         }
     }
 
-    async fn save_settings(pool: &SqlitePool, settings: &TelemetrySettings) -> Result<(), Box<dyn std::error::Error>> {
+    async fn save_settings(
+        pool: &SqlitePool,
+        settings: &TelemetrySettings,
+    ) -> Result<(), Box<dyn std::error::Error>> {
         sqlx::query!(
             r#"
             INSERT OR REPLACE INTO telemetry_settings (
@@ -181,7 +186,10 @@ impl TelemetryManager {
         self.settings.read().await.clone()
     }
 
-    pub async fn update_settings(&self, new_settings: TelemetrySettings) -> Result<(), Box<dyn std::error::Error>> {
+    pub async fn update_settings(
+        &self,
+        new_settings: TelemetrySettings,
+    ) -> Result<(), Box<dyn std::error::Error>> {
         // Save to database
         Self::save_settings(&self.pool, &new_settings).await?;
 

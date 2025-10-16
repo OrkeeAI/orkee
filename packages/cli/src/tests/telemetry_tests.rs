@@ -1,12 +1,15 @@
+use chrono::Utc;
 use serial_test::serial;
 use sqlx::SqlitePool;
 use std::env;
 use tempfile::TempDir;
-use chrono::Utc;
 
 use crate::telemetry::{
     config::{TelemetryConfig, TelemetryManager},
-    events::{TelemetryEvent, EventType, track_event, track_error, get_unsent_events, mark_events_as_sent, cleanup_old_events},
+    events::{
+        cleanup_old_events, get_unsent_events, mark_events_as_sent, track_error, track_event,
+        EventType, TelemetryEvent,
+    },
 };
 
 async fn setup_test_db() -> (SqlitePool, TempDir) {
@@ -80,7 +83,10 @@ async fn test_complete_onboarding_generates_machine_id() {
     let manager = TelemetryManager::new(pool).await.unwrap();
 
     // Complete onboarding with telemetry enabled
-    manager.complete_onboarding(true, true, false).await.unwrap();
+    manager
+        .complete_onboarding(true, true, false)
+        .await
+        .unwrap();
 
     let settings = manager.get_settings().await;
 
@@ -101,7 +107,10 @@ async fn test_onboarding_without_telemetry_no_machine_id() {
     let manager = TelemetryManager::new(pool).await.unwrap();
 
     // Complete onboarding with all telemetry disabled
-    manager.complete_onboarding(false, false, false).await.unwrap();
+    manager
+        .complete_onboarding(false, false, false)
+        .await
+        .unwrap();
 
     let settings = manager.get_settings().await;
 
@@ -146,7 +155,10 @@ async fn test_machine_id_is_valid_uuid() {
     let (pool, _temp_dir) = setup_test_db().await;
 
     let manager = TelemetryManager::new(pool).await.unwrap();
-    manager.complete_onboarding(true, false, false).await.unwrap();
+    manager
+        .complete_onboarding(true, false, false)
+        .await
+        .unwrap();
 
     let settings = manager.get_settings().await;
     let machine_id = settings.machine_id.unwrap();
@@ -162,7 +174,10 @@ async fn test_machine_id_stability_across_sessions() {
 
     let machine_id = {
         let manager = TelemetryManager::new(pool.clone()).await.unwrap();
-        manager.complete_onboarding(true, false, false).await.unwrap();
+        manager
+            .complete_onboarding(true, false, false)
+            .await
+            .unwrap();
         let settings = manager.get_settings().await;
         settings.machine_id.clone()
     };
@@ -186,16 +201,15 @@ async fn test_error_events_filtered_when_disabled() {
     let manager = TelemetryManager::new(pool.clone()).await.unwrap();
 
     // Disable error reporting
-    manager.complete_onboarding(false, true, false).await.unwrap();
+    manager
+        .complete_onboarding(false, true, false)
+        .await
+        .unwrap();
 
     // Track an error event
-    track_error(
-        &pool,
-        "test_error",
-        "This is a test error",
-        None,
-        None,
-    ).await.unwrap();
+    track_error(&pool, "test_error", "This is a test error", None, None)
+        .await
+        .unwrap();
 
     // Verify event was saved
     let events = get_unsent_events(&pool, 10).await.unwrap();
@@ -216,10 +230,15 @@ async fn test_usage_events_filtered_when_disabled() {
     let manager = TelemetryManager::new(pool.clone()).await.unwrap();
 
     // Enable only error reporting
-    manager.complete_onboarding(true, false, false).await.unwrap();
+    manager
+        .complete_onboarding(true, false, false)
+        .await
+        .unwrap();
 
     // Track a usage event
-    track_event(&pool, "button_click", None, None).await.unwrap();
+    track_event(&pool, "button_click", None, None)
+        .await
+        .unwrap();
 
     // Verify event was saved
     let events = get_unsent_events(&pool, 10).await.unwrap();
@@ -237,7 +256,10 @@ async fn test_anonymous_mode_strips_user_id() {
     let (_pool, _temp_dir) = setup_test_db().await;
 
     let mut event = TelemetryEvent::new(EventType::Usage, "test_event".to_string());
-    event = event.with_identity(Some("machine-123".to_string()), Some("user-456".to_string()));
+    event = event.with_identity(
+        Some("machine-123".to_string()),
+        Some("user-456".to_string()),
+    );
 
     // With non_anonymous_metrics = false, user_id should be ignored
     // (This is enforced in the collector when filtering events)
@@ -314,13 +336,18 @@ async fn test_event_storage_handles_unicode() {
 async fn test_json_injection_in_event_data() {
     let (pool, _temp_dir) = setup_test_db().await;
 
-    use std::collections::HashMap;
     use serde_json::Value;
+    use std::collections::HashMap;
 
     let mut props = HashMap::new();
-    props.insert("malicious".to_string(), Value::String("'; DROP TABLE telemetry_events; --".to_string()));
+    props.insert(
+        "malicious".to_string(),
+        Value::String("'; DROP TABLE telemetry_events; --".to_string()),
+    );
 
-    track_event(&pool, "test_event", Some(props), None).await.unwrap();
+    track_event(&pool, "test_event", Some(props), None)
+        .await
+        .unwrap();
 
     // Verify table still exists
     let events = get_unsent_events(&pool, 10).await.unwrap();
@@ -390,16 +417,16 @@ async fn test_cleanup_old_events_respects_retention() {
 
     // Mark it as sent with an old timestamp
     let old_events = get_unsent_events(&pool, 10).await.unwrap();
-    mark_events_as_sent(&pool, &[old_events[0].id.clone()]).await.unwrap();
+    mark_events_as_sent(&pool, &[old_events[0].id.clone()])
+        .await
+        .unwrap();
 
     // Manually update sent_at to 40 days ago
-    sqlx::query(
-        "UPDATE telemetry_events SET sent_at = datetime('now', '-40 days') WHERE id = ?"
-    )
-    .bind(&old_events[0].id)
-    .execute(&pool)
-    .await
-    .unwrap();
+    sqlx::query("UPDATE telemetry_events SET sent_at = datetime('now', '-40 days') WHERE id = ?")
+        .bind(&old_events[0].id)
+        .execute(&pool)
+        .await
+        .unwrap();
 
     // Create a recent event
     let recent_event = TelemetryEvent::new(EventType::Usage, "recent_event".to_string());
@@ -426,7 +453,10 @@ async fn test_opt_out_stops_event_collection() {
     let manager = TelemetryManager::new(pool.clone()).await.unwrap();
 
     // Opt in first
-    manager.complete_onboarding(true, true, false).await.unwrap();
+    manager
+        .complete_onboarding(true, true, false)
+        .await
+        .unwrap();
     assert!(manager.is_any_telemetry_enabled().await);
 
     // Opt out
@@ -500,7 +530,10 @@ fn test_telemetry_config_explicitly_disabled() {
 #[serial]
 fn test_telemetry_config_custom_endpoint() {
     env::set_var("POSTHOG_API_KEY", "test-key");
-    env::set_var("ORKEE_TELEMETRY_ENDPOINT", "https://custom.posthog.com/capture");
+    env::set_var(
+        "ORKEE_TELEMETRY_ENDPOINT",
+        "https://custom.posthog.com/capture",
+    );
 
     let config = TelemetryConfig::from_env();
 
@@ -534,12 +567,9 @@ async fn test_event_with_session_id() {
     let (pool, _temp_dir) = setup_test_db().await;
 
     let session_id = uuid::Uuid::new_v4().to_string();
-    track_event(
-        &pool,
-        "test_event",
-        None,
-        Some(session_id.clone()),
-    ).await.unwrap();
+    track_event(&pool, "test_event", None, Some(session_id.clone()))
+        .await
+        .unwrap();
 
     let events = get_unsent_events(&pool, 10).await.unwrap();
     assert_eq!(events.len(), 1);
@@ -558,15 +588,23 @@ async fn test_error_event_with_stack_trace() {
         "Something went wrong",
         Some(stack_trace.to_string()),
         None,
-    ).await.unwrap();
+    )
+    .await
+    .unwrap();
 
     let events = get_unsent_events(&pool, 10).await.unwrap();
     assert_eq!(events.len(), 1);
 
     // Verify error data
     let event_data = events[0].event_data.as_ref().unwrap();
-    assert_eq!(event_data.get("message").and_then(|v| v.as_str()), Some("Something went wrong"));
-    assert_eq!(event_data.get("stack_trace").and_then(|v| v.as_str()), Some(stack_trace));
+    assert_eq!(
+        event_data.get("message").and_then(|v| v.as_str()),
+        Some("Something went wrong")
+    );
+    assert_eq!(
+        event_data.get("stack_trace").and_then(|v| v.as_str()),
+        Some(stack_trace)
+    );
 }
 
 #[tokio::test]

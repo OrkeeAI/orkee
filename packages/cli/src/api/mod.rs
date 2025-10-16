@@ -133,9 +133,18 @@ pub async fn create_router_with_options(dashboard_path: Option<std::path::PathBu
             Router::new()
                 .route("/status", get(telemetry::get_telemetry_status))
                 .route("/settings", get(telemetry::get_telemetry_settings))
-                .route("/settings", axum::routing::put(telemetry::update_telemetry_settings))
-                .route("/onboarding/complete", post(telemetry::complete_telemetry_onboarding))
-                .route("/data", axum::routing::delete(telemetry::delete_telemetry_data))
+                .route(
+                    "/settings",
+                    axum::routing::put(telemetry::update_telemetry_settings),
+                )
+                .route(
+                    "/onboarding/complete",
+                    post(telemetry::complete_telemetry_onboarding),
+                )
+                .route(
+                    "/data",
+                    axum::routing::delete(telemetry::delete_telemetry_data),
+                )
                 .layer(axum::Extension(telemetry_manager))
         }
         Err(e) => {

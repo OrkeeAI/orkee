@@ -2,7 +2,7 @@
 // ABOUTME: Handles event collection, buffering, and transmission to telemetry endpoint
 
 use super::config::TelemetryManager;
-use super::events::{get_unsent_events, mark_events_as_sent, cleanup_old_events};
+use super::events::{cleanup_old_events, get_unsent_events, mark_events_as_sent};
 use super::posthog::create_posthog_batch;
 use reqwest::Client;
 use serde::Deserialize;
@@ -95,7 +95,7 @@ impl TelemetryCollector {
                         }
                         filtered_events.push(event);
                     }
-                },
+                }
                 super::events::EventType::Usage | super::events::EventType::Performance => {
                     if settings.usage_metrics {
                         event.machine_id = settings.machine_id.clone();
@@ -105,7 +105,7 @@ impl TelemetryCollector {
                         }
                         filtered_events.push(event);
                     }
-                },
+                }
             }
         }
 
@@ -129,7 +129,8 @@ impl TelemetryCollector {
         };
 
         let timeout_secs = self.manager.get_http_timeout_secs();
-        let response = self.client
+        let response = self
+            .client
             .post(&batch_endpoint)
             .json(&batch)
             .header("Content-Type", "application/json")
@@ -141,13 +142,17 @@ impl TelemetryCollector {
             Ok(resp) => {
                 if resp.status().is_success() {
                     // Mark events as sent
-                    let event_ids: Vec<String> = filtered_events.iter().map(|e| e.id.clone()).collect();
+                    let event_ids: Vec<String> =
+                        filtered_events.iter().map(|e| e.id.clone()).collect();
                     mark_events_as_sent(&self.pool, &event_ids).await?;
-                    info!("Successfully sent {} telemetry events to PostHog", filtered_events.len());
+                    info!(
+                        "Successfully sent {} telemetry events to PostHog",
+                        filtered_events.len()
+                    );
                 } else {
                     error!("PostHog endpoint returned error: {}", resp.status());
                 }
-            },
+            }
             Err(e) => {
                 // Don't fail if telemetry endpoint is unreachable
                 debug!("Failed to send telemetry to PostHog: {}", e);

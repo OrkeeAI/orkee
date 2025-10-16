@@ -4,14 +4,14 @@
 use sqlx::SqlitePool;
 use std::path::PathBuf;
 
+pub mod collector;
 pub mod config;
 pub mod events;
-pub mod collector;
 pub mod posthog;
 
-pub use config::{TelemetryConfig, TelemetrySettings, TelemetryManager};
-pub use events::{TelemetryEvent, EventType, track_event, track_error};
-pub use collector::{TelemetryCollector, send_buffered_events};
+pub use collector::{send_buffered_events, TelemetryCollector};
+pub use config::{TelemetryConfig, TelemetryManager, TelemetrySettings};
+pub use events::{track_error, track_event, EventType, TelemetryEvent};
 
 /// Initialize the telemetry manager with the shared database connection
 pub async fn init_telemetry_manager() -> Result<TelemetryManager, Box<dyn std::error::Error>> {

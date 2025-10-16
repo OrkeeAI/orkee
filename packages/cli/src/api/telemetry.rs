@@ -141,7 +141,10 @@ pub async fn update_telemetry_settings(
             error!("Failed to update telemetry settings: {}", e);
             Err((
                 StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ApiResponse::<()>::error(format!("Failed to update settings: {}", e))),
+                Json(ApiResponse::<()>::error(format!(
+                    "Failed to update settings: {}",
+                    e
+                ))),
             ))
         }
     }

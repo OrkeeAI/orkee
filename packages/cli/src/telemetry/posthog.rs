@@ -71,8 +71,12 @@ impl From<super::events::TelemetryEvent> for PostHogEvent {
         // Extract error data if present
         let (error_message, stack_trace) = if let Some(ref data) = event.event_data {
             (
-                data.get("message").and_then(|v| v.as_str()).map(String::from),
-                data.get("stack_trace").and_then(|v| v.as_str()).map(String::from),
+                data.get("message")
+                    .and_then(|v| v.as_str())
+                    .map(String::from),
+                data.get("stack_trace")
+                    .and_then(|v| v.as_str())
+                    .map(String::from),
             )
         } else {
             (None, None)
