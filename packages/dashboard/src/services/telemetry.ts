@@ -22,6 +22,10 @@ interface TelemetryEvent {
   timestamp: string;
 }
 
+// Maximum number of events to keep in memory
+// Prevents unbounded memory growth when backend is down
+const MAX_QUEUE_SIZE = 100;
+
 class TelemetryService {
   private sessionId: string;
   private eventQueue: TelemetryEvent[] = [];
@@ -45,6 +49,19 @@ class TelemetryService {
     this.flushInterval = window.setInterval(() => {
       this.flushEvents();
     }, 30000);
+  }
+
+  private addToQueue(event: TelemetryEvent) {
+    // Add event to queue
+    this.eventQueue.push(event);
+
+    // Enforce maximum queue size by dropping oldest events
+    // This prevents unbounded memory growth when backend is down
+    if (this.eventQueue.length > MAX_QUEUE_SIZE) {
+      const dropped = this.eventQueue.length - MAX_QUEUE_SIZE;
+      this.eventQueue.splice(0, dropped);
+      console.debug(`Telemetry queue full, dropped ${dropped} oldest event(s)`);
+    }
   }
 
   private async flushEvents() {
@@ -149,8 +166,8 @@ class TelemetryService {
       timestamp: new Date().toISOString(),
     };
 
-    // Add to queue for batching
-    this.eventQueue.push(event);
+    // Add to queue for batching (with size limit enforcement)
+    this.addToQueue(event);
 
     // If queue is getting large, flush immediately
     if (this.eventQueue.length >= 20) {
@@ -174,8 +191,8 @@ class TelemetryService {
       timestamp: new Date().toISOString(),
     };
 
-    // Add to queue for batching
-    this.eventQueue.push(event);
+    // Add to queue for batching (with size limit enforcement)
+    this.addToQueue(event);
 
     // Errors should be sent quickly
     this.flushEvents();
