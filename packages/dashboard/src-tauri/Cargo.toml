@@ -1,6 +1,6 @@
 [package]
 name = "orkee-desktop"
-version = "0.0.6"
+version = "0.0.7"
 description = "Orkee Desktop Application"
 authors = ["Orkee AI"]
 edition = "2021"
