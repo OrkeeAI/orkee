@@ -227,7 +227,7 @@ pub async fn get_unsent_events(
     Ok(events)
 }
 
-/// Mark events as sent
+/// Mark events as sent using a transaction with individual parameterized updates
 pub async fn mark_events_as_sent(
     pool: &SqlitePool,
     event_ids: &[String],
@@ -236,24 +236,24 @@ pub async fn mark_events_as_sent(
         return Ok(());
     }
 
-    // Use batched UPDATE with IN clause for better performance
-    // Build query with proper number of placeholders for parameter binding
-    let placeholders = vec!["?"; event_ids.len()].join(", ");
-    let query_str = format!(
-        "UPDATE telemetry_events SET sent_at = datetime('now') WHERE id IN ({})",
-        placeholders
-    );
+    // Use transaction to batch updates efficiently
+    // This avoids SQL injection risks from dynamic query construction
+    let mut tx = pool.begin().await?;
 
-    let mut query = sqlx::query(&query_str);
     for event_id in event_ids {
-        query = query.bind(event_id);
+        sqlx::query!(
+            "UPDATE telemetry_events SET sent_at = datetime('now') WHERE id = ?",
+            event_id
+        )
+        .execute(&mut *tx)
+        .await?;
     }
 
-    query.execute(pool).await?;
+    tx.commit().await?;
     Ok(())
 }
 
-/// Increment retry count for events
+/// Increment retry count for events using a transaction with individual parameterized updates
 pub async fn increment_retry_count(
     pool: &SqlitePool,
     event_ids: &[String],
@@ -262,24 +262,24 @@ pub async fn increment_retry_count(
         return Ok(());
     }
 
-    // Use batched UPDATE with IN clause for better performance
-    // Build query with proper number of placeholders for parameter binding
-    let placeholders = vec!["?"; event_ids.len()].join(", ");
-    let query_str = format!(
-        "UPDATE telemetry_events SET retry_count = COALESCE(retry_count, 0) + 1 WHERE id IN ({})",
-        placeholders
-    );
+    // Use transaction to batch updates efficiently
+    // This avoids SQL injection risks from dynamic query construction
+    let mut tx = pool.begin().await?;
 
-    let mut query = sqlx::query(&query_str);
     for event_id in event_ids {
-        query = query.bind(event_id);
+        sqlx::query!(
+            "UPDATE telemetry_events SET retry_count = COALESCE(retry_count, 0) + 1 WHERE id = ?",
+            event_id
+        )
+        .execute(&mut *tx)
+        .await?;
     }
 
-    query.execute(pool).await?;
+    tx.commit().await?;
     Ok(())
 }
 
-/// Mark failed events as sent after max retries to prevent infinite accumulation
+/// Mark failed events as sent after max retries using a transaction with individual parameterized updates
 pub async fn mark_failed_events_as_sent(
     pool: &SqlitePool,
     event_ids: &[String],
@@ -288,20 +288,20 @@ pub async fn mark_failed_events_as_sent(
         return Ok(());
     }
 
-    // Use batched UPDATE with IN clause for better performance
-    // Build query with proper number of placeholders for parameter binding
-    let placeholders = vec!["?"; event_ids.len()].join(", ");
-    let query_str = format!(
-        "UPDATE telemetry_events SET sent_at = datetime('now') WHERE id IN ({})",
-        placeholders
-    );
+    // Use transaction to batch updates efficiently
+    // This avoids SQL injection risks from dynamic query construction
+    let mut tx = pool.begin().await?;
 
-    let mut query = sqlx::query(&query_str);
     for event_id in event_ids {
-        query = query.bind(event_id);
+        sqlx::query!(
+            "UPDATE telemetry_events SET sent_at = datetime('now') WHERE id = ?",
+            event_id
+        )
+        .execute(&mut *tx)
+        .await?;
     }
 
-    query.execute(pool).await?;
+    tx.commit().await?;
     Ok(())
 }
 
