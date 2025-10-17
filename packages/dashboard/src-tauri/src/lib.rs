@@ -356,13 +356,20 @@ async fn install_cli_macos(app_handle: tauri::AppHandle) -> Result<String, Strin
 
     #[cfg(target_os = "macos")]
     {
-        use std::path::PathBuf;
-
-        // Get the binary path from the app bundle
+        // Get the binary path from the app bundle (MacOS directory, not Resources)
+        // On macOS, Tauri places externalBin files in Contents/MacOS/
         let resource_dir = app_handle.path().resource_dir()
             .map_err(|e| format!("Failed to get resource directory: {}", e))?;
 
-        let source_path = resource_dir.join("orkee");
+        // Navigate from Resources to MacOS directory
+        // resource_dir is typically /Applications/Orkee.app/Contents/Resources
+        // We need /Applications/Orkee.app/Contents/MacOS
+        let macos_dir = resource_dir
+            .parent() // Go up to Contents/
+            .ok_or_else(|| "Failed to get Contents directory".to_string())?
+            .join("MacOS");
+
+        let source_path = macos_dir.join("orkee");
 
         // Verify source binary exists
         if !source_path.exists() {
