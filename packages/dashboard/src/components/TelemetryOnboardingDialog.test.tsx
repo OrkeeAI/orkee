@@ -2,7 +2,7 @@
 // ABOUTME: Validates user interactions, form state, and API integration
 
 import React from 'react';
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 
 // Mock telemetry service with simple stubs
@@ -48,13 +48,11 @@ vi.mock('@/components/ui/button', () => ({
     children,
     onClick,
     disabled,
-    variant,
     className,
   }: {
     children: React.ReactNode;
     onClick?: () => void;
     disabled?: boolean;
-    variant?: string;
     className?: string;
   }) => (
     <button onClick={onClick} disabled={disabled} className={className}>
