@@ -83,7 +83,7 @@ impl TelemetryConfig {
             flush_interval_secs: 300, // 5 minutes
             retention_days: 30,       // Keep sent telemetry data for 30 days
             unsent_retention_days: 7, // Clean up unsent events after 7 days
-            http_timeout_secs: 30,    // HTTP request timeout
+            http_timeout_secs: 10,    // HTTP request timeout - PostHog should respond quickly
         }
     }
 }
