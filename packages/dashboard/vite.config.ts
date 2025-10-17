@@ -5,6 +5,7 @@ import path from 'path'
 export default defineConfig({
   plugins: [react()],
   envDir: path.resolve(__dirname, '../../'),
+  base: './', // Use relative paths for assets - required for Tauri
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
@@ -15,16 +16,6 @@ export default defineConfig({
     // Pass the dynamic API port to the frontend
     'import.meta.env.VITE_ORKEE_API_PORT': JSON.stringify(process.env.ORKEE_API_PORT || ''),
     'import.meta.env.VITE_ORKEE_UI_PORT': JSON.stringify(process.env.ORKEE_UI_PORT || ''),
-  },
-  build: {
-    rollupOptions: {
-      external: [
-        // Mark Tauri packages as external - they're only available in Tauri builds
-        // and should not be bundled in the web version
-        '@tauri-apps/api/core',
-        '@tauri-apps/plugin-http',
-      ],
-    },
   },
   server: {
     port: parseInt(process.env.ORKEE_UI_PORT || process.env.VITE_PORT || '5173'),
