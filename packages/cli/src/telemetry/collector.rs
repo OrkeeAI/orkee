@@ -34,7 +34,11 @@ impl TelemetryCollector {
         Self {
             manager,
             pool,
-            client: Client::new(),
+            client: Client::builder()
+                .pool_max_idle_per_host(2)
+                .timeout(Duration::from_secs(10))
+                .build()
+                .unwrap_or_else(|_| Client::new()),
             endpoint,
         }
     }
