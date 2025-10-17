@@ -28,4 +28,13 @@ export default defineConfig({
       },
     },
   },
+  build: {
+    rollupOptions: {
+      external: [
+        '@tauri-apps/api',
+        '@tauri-apps/api/core',
+        '@tauri-apps/plugin-http',
+      ],
+    },
+  },
 })
