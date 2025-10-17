@@ -163,6 +163,17 @@ impl TelemetryCollector {
             return Ok(());
         }
 
+        // Re-check settings before sending to prevent race condition
+        // If user disabled all telemetry between fetching and filtering,
+        // mark events as sent without transmitting them
+        let current_settings = self.manager.get_settings().await;
+        if !current_settings.error_reporting && !current_settings.usage_metrics {
+            let event_ids: Vec<String> = events.iter().map(|e| e.id.clone()).collect();
+            mark_events_as_sent(&self.pool, &event_ids).await?;
+            debug!("Telemetry disabled during processing, marking events as sent without transmission");
+            return Ok(());
+        }
+
         // Create PostHog batch
         let batch = create_posthog_batch(filtered_events.clone());
 
