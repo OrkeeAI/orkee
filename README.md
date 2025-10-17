@@ -76,7 +76,14 @@ Download the native desktop application for your platform:
 - **Apple Silicon**: [Orkee_0.0.6_aarch64.dmg](https://github.com/OrkeeAI/orkee/releases/download/desktop-v0.0.6/Orkee_0.0.6_aarch64.dmg) (12 MB)
 - **Intel**: [Orkee_0.0.6_x64.dmg](https://github.com/OrkeeAI/orkee/releases/download/desktop-v0.0.6/Orkee_0.0.6_x64.dmg) (12 MB)
 
-**Installation**: Double-click the .dmg file and drag Orkee to your Applications folder. On first launch, you may need to right-click and select "Open" to bypass Gatekeeper (app is unsigned).
+**Installation (IMPORTANT):**
+1. Double-click the .dmg file and drag Orkee to your Applications folder
+2. **Remove quarantine attributes (REQUIRED):**
+   ```bash
+   sudo xattr -cr /Applications/Orkee.app
+   ```
+   This command is necessary because the app is unsigned. macOS Gatekeeper will block the app without this step.
+3. Launch Orkee from Applications folder or Spotlight
 
 #### Windows
 - **Installer (recommended)**: [Orkee_0.0.6_x64_en-US.msi](https://github.com/OrkeeAI/orkee/releases/download/desktop-v0.0.6/Orkee_0.0.6_x64_en-US.msi) (10 MB)
