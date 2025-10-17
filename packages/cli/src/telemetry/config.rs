@@ -193,14 +193,14 @@ impl TelemetryManager {
         &self,
         new_settings: TelemetrySettings,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        // Acquire write lock BEFORE database save to prevent race conditions
+        // Acquire write lock FIRST to prevent TOCTOU race conditions
         let mut settings = self.settings.write().await;
 
-        // Save to database
-        Self::save_settings(&self.pool, &new_settings).await?;
-
-        // Update in-memory cache
+        // Update in-memory cache while holding the lock
         *settings = new_settings;
+
+        // Save to database while still holding the lock
+        Self::save_settings(&self.pool, &settings).await?;
 
         Ok(())
     }
