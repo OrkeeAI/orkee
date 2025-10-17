@@ -76,8 +76,25 @@ impl From<super::events::TelemetryEvent> for PostHogEvent {
     fn from(event: super::events::TelemetryEvent) -> Self {
         let event_name = match event.event_type {
             super::events::EventType::Usage => event.event_name,
-            super::events::EventType::Error => format!("error_{}", event.event_name),
-            super::events::EventType::Performance => format!("perf_{}", event.event_name),
+            super::events::EventType::Error => {
+                // Strip existing error prefixes to avoid double-prefixing
+                // Frontend uses "error." while backend uses "error_"
+                let base_name = event
+                    .event_name
+                    .strip_prefix("error.")
+                    .or_else(|| event.event_name.strip_prefix("error_"))
+                    .unwrap_or(&event.event_name);
+                format!("error_{}", base_name)
+            }
+            super::events::EventType::Performance => {
+                // Strip existing perf prefixes for consistency
+                let base_name = event
+                    .event_name
+                    .strip_prefix("perf.")
+                    .or_else(|| event.event_name.strip_prefix("perf_"))
+                    .unwrap_or(&event.event_name);
+                format!("perf_{}", base_name)
+            }
         };
 
         // Extract error data if present
@@ -131,6 +148,7 @@ pub fn create_posthog_batch(events: Vec<super::events::TelemetryEvent>) -> PostH
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::telemetry::{EventType, TelemetryEvent};
     use serial_test::serial;
     use std::env;
 
@@ -186,5 +204,68 @@ mod tests {
         let key = get_posthog_api_key();
         assert!(key.is_none(), "Should reject empty API key");
         env::remove_var("POSTHOG_API_KEY");
+    }
+
+    #[test]
+    fn test_error_event_name_with_dot_prefix() {
+        // Frontend sends: error.api_failure
+        // Expected PostHog event name: error_api_failure (not error_error.api_failure)
+        let event = TelemetryEvent::new(EventType::Error, "error.api_failure".to_string());
+
+        let posthog_event = PostHogEvent::from(event);
+        assert_eq!(
+            posthog_event.event, "error_api_failure",
+            "Should strip 'error.' prefix and add 'error_' prefix"
+        );
+    }
+
+    #[test]
+    fn test_error_event_name_with_underscore_prefix() {
+        // Event already has error_ prefix
+        // Expected PostHog event name: error_api_failure (not error_error_api_failure)
+        let event = TelemetryEvent::new(EventType::Error, "error_api_failure".to_string());
+
+        let posthog_event = PostHogEvent::from(event);
+        assert_eq!(
+            posthog_event.event, "error_api_failure",
+            "Should not double-prefix when 'error_' already exists"
+        );
+    }
+
+    #[test]
+    fn test_error_event_name_without_prefix() {
+        // Event without prefix
+        // Expected PostHog event name: error_api_failure
+        let event = TelemetryEvent::new(EventType::Error, "api_failure".to_string());
+
+        let posthog_event = PostHogEvent::from(event);
+        assert_eq!(
+            posthog_event.event, "error_api_failure",
+            "Should add 'error_' prefix when no prefix exists"
+        );
+    }
+
+    #[test]
+    fn test_usage_event_name_preserved() {
+        // Usage events should not get any prefix
+        let event = TelemetryEvent::new(EventType::Usage, "button_click".to_string());
+
+        let posthog_event = PostHogEvent::from(event);
+        assert_eq!(
+            posthog_event.event, "button_click",
+            "Usage events should preserve original name"
+        );
+    }
+
+    #[test]
+    fn test_performance_event_name_with_prefix() {
+        // Performance events should get perf_ prefix
+        let event = TelemetryEvent::new(EventType::Performance, "page_load".to_string());
+
+        let posthog_event = PostHogEvent::from(event);
+        assert_eq!(
+            posthog_event.event, "perf_page_load",
+            "Performance events should get 'perf_' prefix"
+        );
     }
 }
