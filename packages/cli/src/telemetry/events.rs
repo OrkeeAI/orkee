@@ -232,28 +232,24 @@ pub async fn mark_events_as_sent(
     pool: &SqlitePool,
     event_ids: &[String],
 ) -> Result<(), Box<dyn std::error::Error>> {
-    // Use a transaction to batch updates for better performance
-    let mut tx = pool.begin().await?;
-
-    for event_id in event_ids {
-        let result = sqlx::query!(
-            r#"
-            UPDATE telemetry_events
-            SET sent_at = datetime('now')
-            WHERE id = ?
-            "#,
-            event_id
-        )
-        .execute(&mut *tx)
-        .await;
-
-        if let Err(e) = result {
-            tx.rollback().await?;
-            return Err(e.into());
-        }
+    if event_ids.is_empty() {
+        return Ok(());
     }
 
-    tx.commit().await?;
+    // Use batched UPDATE with IN clause for better performance
+    // Build query with proper number of placeholders for parameter binding
+    let placeholders = vec!["?"; event_ids.len()].join(", ");
+    let query_str = format!(
+        "UPDATE telemetry_events SET sent_at = datetime('now') WHERE id IN ({})",
+        placeholders
+    );
+
+    let mut query = sqlx::query(&query_str);
+    for event_id in event_ids {
+        query = query.bind(event_id);
+    }
+
+    query.execute(pool).await?;
     Ok(())
 }
 
@@ -262,27 +258,24 @@ pub async fn increment_retry_count(
     pool: &SqlitePool,
     event_ids: &[String],
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let mut tx = pool.begin().await?;
-
-    for event_id in event_ids {
-        let result = sqlx::query!(
-            r#"
-            UPDATE telemetry_events
-            SET retry_count = COALESCE(retry_count, 0) + 1
-            WHERE id = ?
-            "#,
-            event_id
-        )
-        .execute(&mut *tx)
-        .await;
-
-        if let Err(e) = result {
-            tx.rollback().await?;
-            return Err(e.into());
-        }
+    if event_ids.is_empty() {
+        return Ok(());
     }
 
-    tx.commit().await?;
+    // Use batched UPDATE with IN clause for better performance
+    // Build query with proper number of placeholders for parameter binding
+    let placeholders = vec!["?"; event_ids.len()].join(", ");
+    let query_str = format!(
+        "UPDATE telemetry_events SET retry_count = COALESCE(retry_count, 0) + 1 WHERE id IN ({})",
+        placeholders
+    );
+
+    let mut query = sqlx::query(&query_str);
+    for event_id in event_ids {
+        query = query.bind(event_id);
+    }
+
+    query.execute(pool).await?;
     Ok(())
 }
 
@@ -291,27 +284,24 @@ pub async fn mark_failed_events_as_sent(
     pool: &SqlitePool,
     event_ids: &[String],
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let mut tx = pool.begin().await?;
-
-    for event_id in event_ids {
-        let result = sqlx::query!(
-            r#"
-            UPDATE telemetry_events
-            SET sent_at = datetime('now')
-            WHERE id = ?
-            "#,
-            event_id
-        )
-        .execute(&mut *tx)
-        .await;
-
-        if let Err(e) = result {
-            tx.rollback().await?;
-            return Err(e.into());
-        }
+    if event_ids.is_empty() {
+        return Ok(());
     }
 
-    tx.commit().await?;
+    // Use batched UPDATE with IN clause for better performance
+    // Build query with proper number of placeholders for parameter binding
+    let placeholders = vec!["?"; event_ids.len()].join(", ");
+    let query_str = format!(
+        "UPDATE telemetry_events SET sent_at = datetime('now') WHERE id IN ({})",
+        placeholders
+    );
+
+    let mut query = sqlx::query(&query_str);
+    for event_id in event_ids {
+        query = query.bind(event_id);
+    }
+
+    query.execute(pool).await?;
     Ok(())
 }
 

@@ -420,4 +420,133 @@ mod tests {
                 .unwrap();
         assert_eq!(sent_failed.get::<i64, _>("count"), 2);
     }
+
+    #[tokio::test]
+    async fn test_batched_mark_events_as_sent() {
+        let pool = setup_test_db().await;
+
+        // Create multiple events
+        let event1 = TelemetryEvent::new(EventType::Usage, "batch_test_1".to_string());
+        let event2 = TelemetryEvent::new(EventType::Usage, "batch_test_2".to_string());
+        let event3 = TelemetryEvent::new(EventType::Error, "batch_test_3".to_string());
+        let event4 = TelemetryEvent::new(EventType::Usage, "batch_test_4".to_string());
+
+        // Save all events
+        event1.save_to_db(&pool).await.unwrap();
+        event2.save_to_db(&pool).await.unwrap();
+        event3.save_to_db(&pool).await.unwrap();
+        event4.save_to_db(&pool).await.unwrap();
+
+        // Verify all are unsent
+        let unsent_before =
+            sqlx::query("SELECT COUNT(*) as count FROM telemetry_events WHERE sent_at IS NULL")
+                .fetch_one(&pool)
+                .await
+                .unwrap();
+        assert_eq!(unsent_before.get::<i64, _>("count"), 4);
+
+        // Mark events 1, 2, and 4 as sent using batched operation
+        let event_ids = vec![event1.id.clone(), event2.id.clone(), event4.id.clone()];
+        use crate::telemetry::events::mark_events_as_sent;
+        mark_events_as_sent(&pool, &event_ids).await.unwrap();
+
+        // Verify 3 events were marked as sent
+        let sent_after =
+            sqlx::query("SELECT COUNT(*) as count FROM telemetry_events WHERE sent_at IS NOT NULL")
+                .fetch_one(&pool)
+                .await
+                .unwrap();
+        assert_eq!(sent_after.get::<i64, _>("count"), 3);
+
+        // Verify the correct events were marked
+        let sent_events = sqlx::query("SELECT event_name FROM telemetry_events WHERE sent_at IS NOT NULL")
+            .fetch_all(&pool)
+            .await
+            .unwrap();
+
+        let sent_names: Vec<String> = sent_events
+            .iter()
+            .map(|row| row.get::<String, _>("event_name"))
+            .collect();
+
+        assert!(sent_names.contains(&"batch_test_1".to_string()));
+        assert!(sent_names.contains(&"batch_test_2".to_string()));
+        assert!(sent_names.contains(&"batch_test_4".to_string()));
+        assert!(!sent_names.contains(&"batch_test_3".to_string()));
+    }
+
+    #[tokio::test]
+    async fn test_batched_increment_retry_count() {
+        let pool = setup_test_db().await;
+
+        // Create events with different initial retry counts
+        let event1 = TelemetryEvent::new(EventType::Usage, "retry_test_1".to_string());
+        let event2 = TelemetryEvent::new(EventType::Usage, "retry_test_2".to_string());
+        let event3 = TelemetryEvent::new(EventType::Error, "retry_test_3".to_string());
+        let event4 = TelemetryEvent::new(EventType::Usage, "retry_test_4".to_string());
+
+        // Insert with different retry counts
+        insert_event_with_retry_count(&pool, &event1, 0)
+            .await
+            .unwrap();
+        insert_event_with_retry_count(&pool, &event2, 1)
+            .await
+            .unwrap();
+        insert_event_with_retry_count(&pool, &event3, 2)
+            .await
+            .unwrap();
+        insert_event_with_retry_count(&pool, &event4, 0)
+            .await
+            .unwrap();
+
+        // Increment retry count for events 1, 2, and 3 using batched operation
+        let event_ids = vec![event1.id.clone(), event2.id.clone(), event3.id.clone()];
+        use crate::telemetry::events::increment_retry_count;
+        increment_retry_count(&pool, &event_ids).await.unwrap();
+
+        // Verify retry counts were incremented correctly
+        let event1_count = sqlx::query("SELECT retry_count FROM telemetry_events WHERE id = ?")
+            .bind(&event1.id)
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+        assert_eq!(event1_count.get::<i64, _>("retry_count"), 1); // 0 + 1
+
+        let event2_count = sqlx::query("SELECT retry_count FROM telemetry_events WHERE id = ?")
+            .bind(&event2.id)
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+        assert_eq!(event2_count.get::<i64, _>("retry_count"), 2); // 1 + 1
+
+        let event3_count = sqlx::query("SELECT retry_count FROM telemetry_events WHERE id = ?")
+            .bind(&event3.id)
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+        assert_eq!(event3_count.get::<i64, _>("retry_count"), 3); // 2 + 1
+
+        // Event 4 should remain unchanged
+        let event4_count = sqlx::query("SELECT retry_count FROM telemetry_events WHERE id = ?")
+            .bind(&event4.id)
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+        assert_eq!(event4_count.get::<i64, _>("retry_count"), 0); // unchanged
+    }
+
+    #[tokio::test]
+    async fn test_batched_operations_with_empty_arrays() {
+        let pool = setup_test_db().await;
+
+        // Test that empty arrays are handled gracefully
+        use crate::telemetry::events::{increment_retry_count, mark_events_as_sent, mark_failed_events_as_sent};
+
+        let empty: Vec<String> = vec![];
+
+        // Should not error with empty arrays
+        mark_events_as_sent(&pool, &empty).await.unwrap();
+        increment_retry_count(&pool, &empty).await.unwrap();
+        mark_failed_events_as_sent(&pool, &empty).await.unwrap();
+    }
 }
