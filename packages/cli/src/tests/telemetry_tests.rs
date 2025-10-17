@@ -682,10 +682,11 @@ async fn test_timestamp_parsing_fallback_on_corruption() {
         .unwrap();
 
     // Verify the corrupted timestamp was stored
-    let corrupted_check = sqlx::query("SELECT created_at FROM telemetry_events WHERE event_name = 'test_event'")
-        .fetch_one(&pool)
-        .await
-        .unwrap();
+    let corrupted_check =
+        sqlx::query("SELECT created_at FROM telemetry_events WHERE event_name = 'test_event'")
+            .fetch_one(&pool)
+            .await
+            .unwrap();
     let stored_timestamp: String = corrupted_check.get("created_at");
     assert_eq!(stored_timestamp, "invalid-timestamp");
 
@@ -700,8 +701,11 @@ async fn test_timestamp_parsing_fallback_on_corruption() {
 
     // Timestamp should be the current time (fallback behavior)
     let timestamp = events[0].timestamp;
-    assert!(timestamp >= before_fetch && timestamp <= after_fetch,
-        "Expected timestamp to be current time (fallback), but got {:?}", timestamp);
+    assert!(
+        timestamp >= before_fetch && timestamp <= after_fetch,
+        "Expected timestamp to be current time (fallback), but got {:?}",
+        timestamp
+    );
 }
 
 // ============================================================================

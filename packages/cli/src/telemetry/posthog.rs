@@ -167,7 +167,10 @@ mod tests {
     fn test_invalid_api_key_wrong_prefix() {
         env::set_var("POSTHOG_API_KEY", "phx_1234567890abcdef");
         let key = get_posthog_api_key();
-        assert!(key.is_none(), "Should reject API key with wrong prefix (phx_)");
+        assert!(
+            key.is_none(),
+            "Should reject API key with wrong prefix (phx_)"
+        );
         env::remove_var("POSTHOG_API_KEY");
     }
 

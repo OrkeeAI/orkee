@@ -347,7 +347,8 @@ async fn test_track_event_endpoint_missing_required_fields() {
 
     // Should return 422 UNPROCESSABLE_ENTITY for invalid JSON or 404 if telemetry not initialized
     assert!(
-        response.status() == StatusCode::UNPROCESSABLE_ENTITY || response.status() == StatusCode::NOT_FOUND,
+        response.status() == StatusCode::UNPROCESSABLE_ENTITY
+            || response.status() == StatusCode::NOT_FOUND,
         "Expected UNPROCESSABLE_ENTITY or NOT_FOUND, got {}",
         response.status()
     );

@@ -78,10 +78,8 @@ impl TelemetryCollector {
                 {
                     Ok(rows) => {
                         if !rows.is_empty() {
-                            let failed_event_ids: Vec<String> = rows
-                                .iter()
-                                .map(|row| row.get::<String, _>("id"))
-                                .collect();
+                            let failed_event_ids: Vec<String> =
+                                rows.iter().map(|row| row.get::<String, _>("id")).collect();
 
                             if let Err(e) =
                                 mark_failed_events_as_sent(&collector.pool, &failed_event_ids).await
@@ -459,10 +457,11 @@ mod tests {
         assert_eq!(sent_after.get::<i64, _>("count"), 3);
 
         // Verify the correct events were marked
-        let sent_events = sqlx::query("SELECT event_name FROM telemetry_events WHERE sent_at IS NOT NULL")
-            .fetch_all(&pool)
-            .await
-            .unwrap();
+        let sent_events =
+            sqlx::query("SELECT event_name FROM telemetry_events WHERE sent_at IS NOT NULL")
+                .fetch_all(&pool)
+                .await
+                .unwrap();
 
         let sent_names: Vec<String> = sent_events
             .iter()
@@ -540,7 +539,9 @@ mod tests {
         let pool = setup_test_db().await;
 
         // Test that empty arrays are handled gracefully
-        use crate::telemetry::events::{increment_retry_count, mark_events_as_sent, mark_failed_events_as_sent};
+        use crate::telemetry::events::{
+            increment_retry_count, mark_events_as_sent, mark_failed_events_as_sent,
+        };
 
         let empty: Vec<String> = vec![];
 
