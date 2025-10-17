@@ -488,7 +488,7 @@ async fn test_opt_out_stops_event_collection() {
     let (pool, _temp_dir) = setup_test_db().await;
 
     // Set API key for this test
-    env::set_var("POSTHOG_API_KEY", "test-key");
+    env::set_var("POSTHOG_API_KEY", "phc_test1234567890");
 
     let manager = TelemetryManager::new(pool.clone()).await.unwrap();
 
@@ -540,7 +540,7 @@ fn test_telemetry_config_from_env_defaults() {
 #[test]
 #[serial]
 fn test_telemetry_config_with_api_key() {
-    env::set_var("POSTHOG_API_KEY", "test-key");
+    env::set_var("POSTHOG_API_KEY", "phc_test1234567890");
     env::remove_var("ORKEE_TELEMETRY_ENABLED");
 
     let config = TelemetryConfig::from_env();

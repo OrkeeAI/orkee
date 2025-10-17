@@ -18,10 +18,22 @@ use serde_json::Value;
 // NOTE: Do NOT use your Personal API Key (phx_...) here - that's for admin operations only!
 pub fn get_posthog_api_key() -> Option<String> {
     // Try compile-time environment variable first (set during build)
-    option_env!("POSTHOG_API_KEY")
+    let key = option_env!("POSTHOG_API_KEY")
         .map(String::from)
         // Fall back to runtime environment variable
-        .or_else(|| std::env::var("POSTHOG_API_KEY").ok())
+        .or_else(|| std::env::var("POSTHOG_API_KEY").ok())?;
+
+    // Validate PostHog public key format (phc_...)
+    // PostHog project API keys start with "phc_" and are at least 20 characters
+    if key.starts_with("phc_") && key.len() > 10 {
+        Some(key)
+    } else {
+        tracing::warn!(
+            "Invalid PostHog API key format. Expected 'phc_...' (project key), got prefix: {}",
+            key.chars().take(5).collect::<String>()
+        );
+        None
+    }
 }
 
 // PostHog event structure
@@ -113,5 +125,66 @@ pub fn create_posthog_batch(events: Vec<super::events::TelemetryEvent>) -> PostH
     PostHogBatch {
         api_key: get_posthog_api_key().unwrap_or_default(),
         batch: events.into_iter().map(PostHogEvent::from).collect(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serial_test::serial;
+    use std::env;
+
+    #[test]
+    #[serial]
+    fn test_valid_posthog_api_key() {
+        env::set_var("POSTHOG_API_KEY", "phc_1234567890abcdef");
+        let key = get_posthog_api_key();
+        assert!(key.is_some());
+        assert_eq!(key.unwrap(), "phc_1234567890abcdef");
+        env::remove_var("POSTHOG_API_KEY");
+    }
+
+    #[test]
+    #[serial]
+    fn test_invalid_api_key_wrong_prefix() {
+        env::set_var("POSTHOG_API_KEY", "phx_1234567890abcdef");
+        let key = get_posthog_api_key();
+        assert!(key.is_none(), "Should reject API key with wrong prefix (phx_)");
+        env::remove_var("POSTHOG_API_KEY");
+    }
+
+    #[test]
+    #[serial]
+    fn test_invalid_api_key_too_short() {
+        env::set_var("POSTHOG_API_KEY", "phc_12345");
+        let key = get_posthog_api_key();
+        assert!(key.is_none(), "Should reject API key that is too short");
+        env::remove_var("POSTHOG_API_KEY");
+    }
+
+    #[test]
+    #[serial]
+    fn test_invalid_api_key_no_prefix() {
+        env::set_var("POSTHOG_API_KEY", "1234567890abcdef");
+        let key = get_posthog_api_key();
+        assert!(key.is_none(), "Should reject API key without phc_ prefix");
+        env::remove_var("POSTHOG_API_KEY");
+    }
+
+    #[test]
+    #[serial]
+    fn test_no_api_key_set() {
+        env::remove_var("POSTHOG_API_KEY");
+        let key = get_posthog_api_key();
+        assert!(key.is_none(), "Should return None when no API key is set");
+    }
+
+    #[test]
+    #[serial]
+    fn test_empty_api_key() {
+        env::set_var("POSTHOG_API_KEY", "");
+        let key = get_posthog_api_key();
+        assert!(key.is_none(), "Should reject empty API key");
+        env::remove_var("POSTHOG_API_KEY");
     }
 }
