@@ -205,6 +205,33 @@ impl TelemetryManager {
         Ok(())
     }
 
+    pub async fn update_settings_atomic(
+        &self,
+        error_reporting: bool,
+        usage_metrics: bool,
+        non_anonymous_metrics: bool,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        // Acquire write lock FIRST to prevent TOCTOU race conditions
+        // This ensures the read-modify-write operation is atomic
+        let mut settings = self.settings.write().await;
+
+        // Generate machine ID if enabling telemetry for the first time
+        if (error_reporting || usage_metrics) && settings.machine_id.is_none() {
+            settings.machine_id = Some(Self::generate_machine_id());
+        }
+
+        // Update settings while holding the write lock
+        settings.error_reporting = error_reporting;
+        settings.usage_metrics = usage_metrics;
+        settings.non_anonymous_metrics = non_anonymous_metrics;
+        settings.updated_at = Utc::now();
+
+        // Save to database while still holding the lock
+        Self::save_settings(&self.pool, &settings).await?;
+
+        Ok(())
+    }
+
     pub async fn complete_onboarding(
         &self,
         error_reporting: bool,

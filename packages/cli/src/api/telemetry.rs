@@ -115,20 +115,17 @@ pub async fn update_telemetry_settings(
         ));
     }
 
-    let mut settings = telemetry_manager.get_settings().await;
-
-    // Update settings
-    settings.error_reporting = request.error_reporting;
-    settings.usage_metrics = request.usage_metrics;
-    settings.non_anonymous_metrics = request.non_anonymous_metrics;
-
-    // Generate machine ID if enabling telemetry for the first time
-    if (request.error_reporting || request.usage_metrics) && settings.machine_id.is_none() {
-        settings.machine_id = Some(uuid::Uuid::new_v4().to_string());
-    }
-
-    // Save settings
-    match telemetry_manager.update_settings(settings).await {
+    // Use atomic update to prevent race conditions
+    // This acquires the write lock FIRST, then reads, modifies, and writes
+    // preventing TOCTOU (time-of-check-time-of-use) issues
+    match telemetry_manager
+        .update_settings_atomic(
+            request.error_reporting,
+            request.usage_metrics,
+            request.non_anonymous_metrics,
+        )
+        .await
+    {
         Ok(_) => {
             info!("Telemetry settings updated successfully");
             Ok(Json(ApiResponse::success(TelemetrySettingsResponse {
