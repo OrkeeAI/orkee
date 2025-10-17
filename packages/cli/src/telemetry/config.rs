@@ -333,4 +333,20 @@ impl TelemetryManager {
 
         super::events::track_event(&self.pool, event_name, properties, session_id).await
     }
+
+    #[cfg(test)]
+    pub async fn new_with_test_db() -> Result<Self, Box<dyn std::error::Error>> {
+        use sqlx::sqlite::SqlitePoolOptions;
+
+        // Create in-memory database for testing
+        let pool = SqlitePoolOptions::new()
+            .max_connections(1)
+            .connect("sqlite::memory:")
+            .await?;
+
+        // Run migrations to set up schema
+        sqlx::migrate!("../projects/migrations").run(&pool).await?;
+
+        Self::new(pool).await
+    }
 }

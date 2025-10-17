@@ -28,6 +28,10 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
+      // Force all packages to use the same React instance to avoid "Invalid hook call" errors
+      // This ensures Radix UI and other dependencies use the same React as our tests
+      'react': path.resolve(__dirname, '../../node_modules/react'),
+      'react-dom': path.resolve(__dirname, '../../node_modules/react-dom'),
     },
   },
 });

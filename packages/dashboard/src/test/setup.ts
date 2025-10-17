@@ -14,8 +14,12 @@ vi.mock('@tauri-apps/plugin-http', () => ({
   fetch: vi.fn(),
 }));
 
+// Set up global window object for testing
+if (typeof window === 'undefined') {
+  (global as any).window = {} as any;
+}
+
 // Mock window.__TAURI__ object that Tauri apps use
-(global as any).window = (global as any).window || {};
 (global as any).window.__TAURI__ = {
   invoke: vi.fn().mockResolvedValue(4001),
   event: {
@@ -23,6 +27,11 @@ vi.mock('@tauri-apps/plugin-http', () => ({
     emit: vi.fn(),
   },
 };
+
+// Mock window.setInterval and window.clearInterval for telemetry service
+(global as any).window.setInterval = vi.fn(() => 1);
+(global as any).window.clearInterval = vi.fn();
+(global as any).window.addEventListener = vi.fn();
 
 // Mock window.matchMedia for responsive UI tests
 Object.defineProperty(window, 'matchMedia', {
