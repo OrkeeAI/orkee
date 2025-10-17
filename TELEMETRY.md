@@ -250,6 +250,25 @@ let enabled = env_enabled && has_api_key;
 1. `ORKEE_TELEMETRY_ENABLED` is true (or unset)
 2. `POSTHOG_API_KEY` is available
 
+### API Key Priority
+
+The `POSTHOG_API_KEY` can be set in two ways with the following priority order:
+
+1. **Compile-time**: `POSTHOG_API_KEY` environment variable set during `cargo build`
+   ```bash
+   POSTHOG_API_KEY="phc_your_key" cargo build --release
+   ```
+
+2. **Runtime**: `POSTHOG_API_KEY` environment variable at execution
+   ```bash
+   export POSTHOG_API_KEY="phc_your_key"
+   orkee dashboard
+   ```
+
+The compile-time value takes priority if both are set. If neither is available, telemetry is disabled gracefully and the application continues to function normally.
+
+**Validation**: The key must start with `phc_` (PostHog project key) and be at least 11 characters long. Keys with invalid format are rejected and telemetry is disabled.
+
 ## PostHog Integration
 
 ### API Key Types
