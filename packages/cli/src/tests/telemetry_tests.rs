@@ -1,6 +1,6 @@
 use chrono::Utc;
 use serial_test::serial;
-use sqlx::SqlitePool;
+use sqlx::{Row, SqlitePool};
 use std::env;
 use tempfile::TempDir;
 
@@ -664,6 +664,44 @@ async fn test_event_timestamps() {
 
     let timestamp = events[0].timestamp;
     assert!(timestamp >= before && timestamp <= after);
+}
+
+#[tokio::test]
+#[serial]
+async fn test_timestamp_parsing_fallback_on_corruption() {
+    let (pool, _temp_dir) = setup_test_db().await;
+
+    // Create and save a valid event
+    let event = TelemetryEvent::new(EventType::Usage, "test_event".to_string());
+    event.save_to_db(&pool).await.unwrap();
+
+    // Corrupt the timestamp in the database to simulate data corruption
+    sqlx::query("UPDATE telemetry_events SET created_at = 'invalid-timestamp' WHERE event_name = 'test_event'")
+        .execute(&pool)
+        .await
+        .unwrap();
+
+    // Verify the corrupted timestamp was stored
+    let corrupted_check = sqlx::query("SELECT created_at FROM telemetry_events WHERE event_name = 'test_event'")
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+    let stored_timestamp: String = corrupted_check.get("created_at");
+    assert_eq!(stored_timestamp, "invalid-timestamp");
+
+    // get_unsent_events should still work, falling back to current time
+    let before_fetch = Utc::now();
+    let events = get_unsent_events(&pool, 10).await.unwrap();
+    let after_fetch = Utc::now();
+
+    // Event should still be loaded
+    assert_eq!(events.len(), 1);
+    assert_eq!(events[0].event_name, "test_event");
+
+    // Timestamp should be the current time (fallback behavior)
+    let timestamp = events[0].timestamp;
+    assert!(timestamp >= before_fetch && timestamp <= after_fetch,
+        "Expected timestamp to be current time (fallback), but got {:?}", timestamp);
 }
 
 // ============================================================================

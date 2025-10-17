@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sqlx::SqlitePool;
 use std::collections::HashMap;
+use tracing::warn;
 use uuid::Uuid;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -194,12 +195,22 @@ pub async fn get_unsent_events(
             .as_deref()
             .and_then(|json_str| serde_json::from_str(json_str).ok());
 
-        let timestamp = DateTime::parse_from_rfc3339(&row.created_at)
-            .unwrap_or_else(|_| Utc::now().into())
-            .with_timezone(&Utc);
+        let event_id = row.id.unwrap_or_else(|| Uuid::new_v4().to_string());
+        let timestamp = match DateTime::parse_from_rfc3339(&row.created_at) {
+            Ok(dt) => dt.with_timezone(&Utc),
+            Err(e) => {
+                warn!(
+                    "Failed to parse timestamp for telemetry event {}: '{}' (error: {}). Using current time as fallback. This may indicate database corruption.",
+                    event_id,
+                    row.created_at,
+                    e
+                );
+                Utc::now()
+            }
+        };
 
         events.push(TelemetryEvent {
-            id: row.id.unwrap_or_else(|| Uuid::new_v4().to_string()),
+            id: event_id,
             event_type,
             event_name: row.event_name,
             event_data,
