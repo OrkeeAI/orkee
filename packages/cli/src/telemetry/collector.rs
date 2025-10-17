@@ -4,12 +4,12 @@
 use super::config::TelemetryManager;
 use super::events::{
     cleanup_old_events, cleanup_old_unsent_events, get_unsent_events, increment_retry_count,
-    mark_events_as_sent,
+    mark_events_as_sent, mark_failed_events_as_sent,
 };
 use super::posthog::create_posthog_batch;
 use reqwest::Client;
 use serde::Deserialize;
-use sqlx::SqlitePool;
+use sqlx::{Row, SqlitePool};
 use std::sync::Arc;
 use tokio::time::{interval, Duration};
 use tracing::{debug, error, info, warn};
@@ -62,6 +62,42 @@ impl TelemetryCollector {
 
                 if let Err(e) = collector.send_buffered_events_internal().await {
                     error!("Failed to send telemetry events: {}", e);
+                }
+
+                // Mark failed events (retry_count >= 3) as sent to prevent accumulation
+                // This prevents failed events from lingering in the database
+                match sqlx::query(
+                    r#"
+                    SELECT id FROM telemetry_events
+                    WHERE COALESCE(retry_count, 0) >= 3
+                    AND sent_at IS NULL
+                    "#,
+                )
+                .fetch_all(&collector.pool)
+                .await
+                {
+                    Ok(rows) => {
+                        if !rows.is_empty() {
+                            let failed_event_ids: Vec<String> = rows
+                                .iter()
+                                .map(|row| row.get::<String, _>("id"))
+                                .collect();
+
+                            if let Err(e) =
+                                mark_failed_events_as_sent(&collector.pool, &failed_event_ids).await
+                            {
+                                error!("Failed to mark failed telemetry events as sent: {}", e);
+                            } else {
+                                info!(
+                                    "Marked {} failed telemetry events as sent",
+                                    failed_event_ids.len()
+                                );
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        error!("Failed to query for failed telemetry events: {}", e);
+                    }
                 }
 
                 // Clean up old sent events based on configured retention
@@ -313,5 +349,75 @@ mod tests {
         assert!(events.iter().any(|e| e.event_name == "test_event_2"));
         assert!(!events.iter().any(|e| e.event_name == "test_event_3"));
         assert!(!events.iter().any(|e| e.event_name == "test_event_4"));
+    }
+
+    #[tokio::test]
+    async fn test_failed_events_marked_as_sent() {
+        let pool = setup_test_db().await;
+
+        // Create events that have exceeded max retries
+        let event1 = TelemetryEvent::new(EventType::Usage, "failed_event_1".to_string());
+        let event2 = TelemetryEvent::new(EventType::Error, "failed_event_2".to_string());
+        let event3 = TelemetryEvent::new(EventType::Usage, "active_event".to_string());
+
+        // Insert events: two with retry_count >= 3, one with retry_count < 3
+        insert_event_with_retry_count(&pool, &event1, 3)
+            .await
+            .unwrap();
+        insert_event_with_retry_count(&pool, &event2, 5)
+            .await
+            .unwrap();
+        insert_event_with_retry_count(&pool, &event3, 2)
+            .await
+            .unwrap();
+
+        // Verify all events are unsent initially
+        let unsent_before =
+            sqlx::query("SELECT COUNT(*) as count FROM telemetry_events WHERE sent_at IS NULL")
+                .fetch_one(&pool)
+                .await
+                .unwrap();
+        assert_eq!(unsent_before.get::<i64, _>("count"), 3);
+
+        // Get failed event IDs (retry_count >= 3 and not sent)
+        let failed_event_rows = sqlx::query(
+            r#"
+            SELECT id FROM telemetry_events
+            WHERE COALESCE(retry_count, 0) >= 3
+            AND sent_at IS NULL
+            "#,
+        )
+        .fetch_all(&pool)
+        .await
+        .unwrap();
+
+        let failed_event_ids: Vec<String> = failed_event_rows
+            .iter()
+            .map(|row| row.get::<String, _>("id"))
+            .collect();
+
+        assert_eq!(failed_event_ids.len(), 2);
+
+        // Mark failed events as sent (simulating cleanup)
+        use crate::telemetry::events::mark_failed_events_as_sent;
+        mark_failed_events_as_sent(&pool, &failed_event_ids)
+            .await
+            .unwrap();
+
+        // Verify failed events are now marked as sent
+        let unsent_after =
+            sqlx::query("SELECT COUNT(*) as count FROM telemetry_events WHERE sent_at IS NULL")
+                .fetch_one(&pool)
+                .await
+                .unwrap();
+        assert_eq!(unsent_after.get::<i64, _>("count"), 1); // Only active_event remains unsent
+
+        // Verify the sent events have retry_count >= 3
+        let sent_failed =
+            sqlx::query("SELECT COUNT(*) as count FROM telemetry_events WHERE sent_at IS NOT NULL AND COALESCE(retry_count, 0) >= 3")
+                .fetch_one(&pool)
+                .await
+                .unwrap();
+        assert_eq!(sent_failed.get::<i64, _>("count"), 2);
     }
 }
