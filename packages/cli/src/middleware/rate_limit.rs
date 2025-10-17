@@ -28,13 +28,13 @@ type RateLimiterStorage = Arc<Mutex<HashMap<String, RateLimiterInstance>>>;
 #[derive(Debug, Clone)]
 pub struct RateLimitConfig {
     pub enabled: bool,
-    pub health_rpm: u32,     // Health endpoints
-    pub browse_rpm: u32,     // Directory browsing
-    pub projects_rpm: u32,   // Project CRUD
-    pub preview_rpm: u32,    // Preview operations
-    pub telemetry_rpm: u32,  // Telemetry tracking endpoints
-    pub global_rpm: u32,     // Global fallback
-    pub burst_size: u32,     // Burst size multiplier
+    pub health_rpm: u32,    // Health endpoints
+    pub browse_rpm: u32,    // Directory browsing
+    pub projects_rpm: u32,  // Project CRUD
+    pub preview_rpm: u32,   // Preview operations
+    pub telemetry_rpm: u32, // Telemetry tracking endpoints
+    pub global_rpm: u32,    // Global fallback
+    pub burst_size: u32,    // Burst size multiplier
 }
 
 impl Default for RateLimitConfig {
@@ -45,7 +45,7 @@ impl Default for RateLimitConfig {
             browse_rpm: 20,
             projects_rpm: 30,
             preview_rpm: 10,
-            telemetry_rpm: 15,  // More restrictive for DoS prevention
+            telemetry_rpm: 15, // More restrictive for DoS prevention
             global_rpm: 30,
             burst_size: 5,
         }
