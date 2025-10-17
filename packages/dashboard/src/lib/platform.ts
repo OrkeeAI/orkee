@@ -3,9 +3,6 @@
  * Detects whether the app is running in a web browser or Tauri desktop environment
  */
 
-import { fetch as tauriFetch } from '@tauri-apps/plugin-http';
-import { invoke } from '@tauri-apps/api/core';
-
 /**
  * Check if the app is running in Tauri desktop mode
  * @returns true if running in Tauri, false if running in web browser
@@ -102,6 +99,8 @@ export async function getApiPort(): Promise<number> {
   if (isTauri) {
     try {
       console.log('[Platform] Invoking get_api_port command...');
+      // Dynamically import Tauri modules only when needed
+      const { invoke } = await import('@tauri-apps/api/core');
       // Query Tauri for the actual port the CLI server is using
       const port = await invoke<number>('get_api_port');
       console.log('[Platform] Got dynamic API port from Tauri:', port);
@@ -126,6 +125,8 @@ export async function getApiPort(): Promise<number> {
  */
 export async function platformFetch(url: string, options?: RequestInit): Promise<Response> {
   if (isTauriApp()) {
+    // Dynamically import Tauri HTTP plugin only when needed
+    const { fetch: tauriFetch } = await import('@tauri-apps/plugin-http');
     // Use Tauri's fetch which bypasses CORS restrictions
     return tauriFetch(url, options);
   }
