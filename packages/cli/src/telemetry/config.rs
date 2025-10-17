@@ -295,7 +295,10 @@ impl TelemetryManager {
         // Convert event_data to HashMap if present
         let properties = event_data.and_then(|data| {
             if let serde_json::Value::Object(map) = data {
-                Some(map.into_iter().collect::<std::collections::HashMap<String, serde_json::Value>>())
+                Some(
+                    map.into_iter()
+                        .collect::<std::collections::HashMap<String, serde_json::Value>>(),
+                )
             } else {
                 None
             }
