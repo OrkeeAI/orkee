@@ -28,12 +28,13 @@ type RateLimiterStorage = Arc<Mutex<HashMap<String, RateLimiterInstance>>>;
 #[derive(Debug, Clone)]
 pub struct RateLimitConfig {
     pub enabled: bool,
-    pub health_rpm: u32,   // Health endpoints
-    pub browse_rpm: u32,   // Directory browsing
-    pub projects_rpm: u32, // Project CRUD
-    pub preview_rpm: u32,  // Preview operations
-    pub global_rpm: u32,   // Global fallback
-    pub burst_size: u32,   // Burst size multiplier
+    pub health_rpm: u32,     // Health endpoints
+    pub browse_rpm: u32,     // Directory browsing
+    pub projects_rpm: u32,   // Project CRUD
+    pub preview_rpm: u32,    // Preview operations
+    pub telemetry_rpm: u32,  // Telemetry tracking endpoints
+    pub global_rpm: u32,     // Global fallback
+    pub burst_size: u32,     // Burst size multiplier
 }
 
 impl Default for RateLimitConfig {
@@ -44,6 +45,7 @@ impl Default for RateLimitConfig {
             browse_rpm: 20,
             projects_rpm: 30,
             preview_rpm: 10,
+            telemetry_rpm: 15,  // More restrictive for DoS prevention
             global_rpm: 30,
             burst_size: 5,
         }
@@ -73,6 +75,7 @@ impl RateLimitLayer {
             EndpointCategory::Browse => self.config.browse_rpm,
             EndpointCategory::Projects => self.config.projects_rpm,
             EndpointCategory::Preview => self.config.preview_rpm,
+            EndpointCategory::Telemetry => self.config.telemetry_rpm,
             EndpointCategory::Other => self.config.global_rpm,
         };
 
@@ -111,6 +114,7 @@ enum EndpointCategory {
     Browse,
     Projects,
     Preview,
+    Telemetry,
     Other,
 }
 
@@ -121,6 +125,7 @@ impl EndpointCategory {
             EndpointCategory::Browse => "browse",
             EndpointCategory::Projects => "projects",
             EndpointCategory::Preview => "preview",
+            EndpointCategory::Telemetry => "telemetry",
             EndpointCategory::Other => "other",
         }
     }
@@ -136,6 +141,8 @@ fn categorize_endpoint(path: &str) -> EndpointCategory {
         EndpointCategory::Projects
     } else if path.contains("/preview") {
         EndpointCategory::Preview
+    } else if path.contains("/telemetry") {
+        EndpointCategory::Telemetry
     } else {
         EndpointCategory::Other
     }
@@ -233,6 +240,14 @@ mod tests {
             EndpointCategory::Preview
         ));
         assert!(matches!(
+            categorize_endpoint("/api/telemetry/track"),
+            EndpointCategory::Telemetry
+        ));
+        assert!(matches!(
+            categorize_endpoint("/api/telemetry/settings"),
+            EndpointCategory::Telemetry
+        ));
+        assert!(matches!(
             categorize_endpoint("/api/other"),
             EndpointCategory::Other
         ));
@@ -246,6 +261,7 @@ mod tests {
             browse_rpm: 20,
             projects_rpm: 30,
             preview_rpm: 10,
+            telemetry_rpm: 15,
             global_rpm: 30,
             burst_size: 5,
         };
@@ -284,6 +300,7 @@ mod tests {
         assert_eq!(config.browse_rpm, 20);
         assert_eq!(config.projects_rpm, 30);
         assert_eq!(config.preview_rpm, 10);
+        assert_eq!(config.telemetry_rpm, 15);
         assert_eq!(config.global_rpm, 30);
         assert_eq!(config.burst_size, 5);
     }
