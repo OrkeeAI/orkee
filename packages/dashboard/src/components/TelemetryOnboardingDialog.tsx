@@ -131,6 +131,19 @@ export function TelemetryOnboardingDialog({
                   </div>
                 </div>
 
+                <p className="text-sm text-muted-foreground border-t pt-3 mt-3">
+                  Data is sent to PostHog, a privacy-focused analytics platform, for processing and analysis.
+                  You can learn more about their privacy practices at{' '}
+                  <a
+                    href="https://posthog.com/privacy"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-primary hover:underline"
+                  >
+                    posthog.com/privacy
+                  </a>.
+                </p>
+
                 <p className="text-sm">
                   This helps us prioritize improvements. You can change these preferences anytime in Settings.
                 </p>
