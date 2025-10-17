@@ -21,6 +21,9 @@ pub async fn init_telemetry_manager() -> Result<TelemetryManager, Box<dyn std::e
 
 /// Get the shared database connection pool
 async fn get_database_pool() -> Result<SqlitePool, Box<dyn std::error::Error>> {
+    use sqlx::sqlite::SqlitePoolOptions;
+    use std::time::Duration;
+
     let db_path = get_database_path()?;
 
     // Ensure parent directory exists
@@ -29,7 +32,14 @@ async fn get_database_pool() -> Result<SqlitePool, Box<dyn std::error::Error>> {
     }
 
     let database_url = format!("sqlite://{}?mode=rwc", db_path.display());
-    let pool = SqlitePool::connect(&database_url).await?;
+
+    // Configure connection pool with limits to prevent resource exhaustion
+    // Telemetry is a background feature and doesn't need many connections
+    let pool = SqlitePoolOptions::new()
+        .max_connections(3) // Limit connections: 1 for collector, 1 for API, 1 spare
+        .acquire_timeout(Duration::from_secs(10))
+        .connect(&database_url)
+        .await?;
 
     // Run migrations from the projects package to ensure telemetry tables exist
     sqlx::migrate!("../projects/migrations").run(&pool).await?;
