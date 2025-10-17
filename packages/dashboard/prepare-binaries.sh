@@ -21,7 +21,7 @@ fi
 echo "✓ Cargo found: $(cargo --version)"
 
 # Allow target override via environment variable (for CI cross-compilation)
-if [ -n "$TAURI_TARGET" ]; then
+if [ -n "${TAURI_TARGET:-}" ]; then
     TARGET="$TAURI_TARGET"
     echo "Using target from TAURI_TARGET environment variable: $TARGET"
 else

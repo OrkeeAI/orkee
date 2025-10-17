@@ -103,7 +103,13 @@ export function TelemetryProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
-    fetchStatus();
+    // Delay telemetry status fetch to ensure Tauri runtime is fully initialized
+    // This prevents "no reactor running" panic on macOS during app startup
+    const timer = setTimeout(() => {
+      fetchStatus();
+    }, 100);
+
+    return () => clearTimeout(timer);
   }, [fetchStatus]);
 
   const shouldShowOnboarding = !loading && status?.first_run && !status?.onboarding_completed;
