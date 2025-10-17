@@ -1,6 +1,6 @@
 {
   "name": "orkee",
-  "version": "0.0.5",
+  "version": "0.0.6",
   "description": "Orkee - AI agent orchestration platform with CLI, TUI, and dashboard",
   "keywords": [
     "ai",
