@@ -587,6 +587,53 @@ user_id = "user-123"
 | `orkee cloud list` | List cloud projects |
 | `orkee cloud restore --project <id>` | Restore project from cloud |
 
+## Telemetry
+
+Orkee includes optional, privacy-first telemetry to help improve the product. All telemetry is **opt-in** and disabled by default.
+
+### User Privacy
+
+- **Completely Opt-In**: All telemetry is disabled until you explicitly enable it
+- **Granular Controls**: Choose what to share (errors, usage, or nothing)
+- **Anonymous by Default**: Only an anonymous machine ID is used
+- **Local Storage**: Data buffered locally before transmission
+- **Transparent**: Full source code available in `packages/cli/src/telemetry/`
+
+### What is NOT Collected
+
+We never collect:
+- Personal information (name, email, address)
+- File contents or source code
+- Project names or file paths
+- Credentials, API keys, or secrets
+- Browsing history
+
+### What IS Collected (When Opted-In)
+
+**Error Reporting** (optional):
+- Error messages and stack traces
+- Application version and platform
+- Anonymous machine ID
+
+**Usage Metrics** (optional):
+- Feature usage (e.g., "project created")
+- Application version and platform
+- Anonymous machine ID
+
+### Disabling Telemetry
+
+Telemetry can be disabled:
+
+1. **During First Run**: Decline during the onboarding dialog
+2. **In Settings**: Toggle telemetry options in application settings
+3. **Via Environment**: `export ORKEE_TELEMETRY_ENABLED=false`
+4. **Delete Data**: Remove all collected data:
+   ```bash
+   sqlite3 ~/.orkee/orkee.db "DELETE FROM telemetry_events; DELETE FROM telemetry_stats;"
+   ```
+
+For complete implementation details and maintainer documentation, see [`TELEMETRY.md`](./TELEMETRY.md).
+
 ## Security Configuration
 
 ### Directory Browsing Sandbox

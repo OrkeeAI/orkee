@@ -4,7 +4,7 @@ import { useCloudAuth, useCloudSync } from '@/hooks/useCloud'
 import { cloudService, formatLastSync } from '@/services/cloud'
 import { fetchConfig } from '@/services/config'
 import { exportDatabase, importDatabase, type ImportResult } from '@/services/database'
-import { Cloud, User, RefreshCw, Download, Upload, Code2, ExternalLink, Database, AlertTriangle } from 'lucide-react'
+import { Cloud, User, RefreshCw, Download, Upload, Code2, ExternalLink, Database, AlertTriangle, Shield, Trash2 } from 'lucide-react'
 import { useState, useEffect, useRef } from 'react'
 import { SUPPORTED_EDITORS, getDefaultEditorSettings, findEditorById } from '@/lib/editor-utils'
 import type { EditorSettings } from '@/lib/editor-utils'
@@ -14,6 +14,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { CliInstallationSettings } from '@/components/CliInstallationSettings'
+import { useTelemetry } from '@/contexts/TelemetryContext'
 
 export function Settings() {
   const [isCloudEnabled, setIsCloudEnabled] = useState(false)
@@ -42,6 +43,9 @@ export function Settings() {
 
         {/* Database Settings - Always show */}
         <DatabaseSettings />
+
+        {/* Privacy & Telemetry Settings - Always show */}
+        <PrivacySettings />
 
         {/* Cloud Settings */}
         {isCloudEnabled && <CloudSettings />}
@@ -464,6 +468,188 @@ function DatabaseSettings() {
             </AlertDescription>
           </Alert>
         )}
+      </div>
+    </div>
+  );
+}
+
+// Privacy & Telemetry Settings Component
+function PrivacySettings() {
+  const { settings, updateSettings, deleteAllData, trackAction } = useTelemetry();
+  const [isSaving, setIsSaving] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleToggle = async (field: keyof typeof settings, value: boolean) => {
+    if (!settings) return;
+
+    setIsSaving(true);
+    setError(null);
+    try {
+      const newSettings = {
+        ...settings,
+        [field]: value,
+      };
+
+      // If disabling non-anonymous metrics, ensure it's disabled
+      if (field === 'usage_metrics' && !value) {
+        newSettings.non_anonymous_metrics = false;
+      }
+
+      await updateSettings(newSettings);
+
+      // Track the change
+      trackAction('telemetry_settings_changed', {
+        setting: field,
+        enabled: value,
+      });
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to update telemetry settings';
+      setError(errorMessage);
+      console.error('Failed to update telemetry settings:', err);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleDeleteAllData = async () => {
+    const confirmed = window.confirm(
+      'Are you sure you want to delete all telemetry data? This action cannot be undone.'
+    );
+
+    if (!confirmed) return;
+
+    setIsDeleting(true);
+    setError(null);
+    try {
+      await deleteAllData();
+      alert('All telemetry data has been deleted successfully.');
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to delete telemetry data';
+      setError(errorMessage);
+      alert(`Failed to delete telemetry data: ${errorMessage}`);
+      console.error('Failed to delete telemetry data:', err);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  if (!settings) {
+    return null;
+  }
+
+  return (
+    <div className="rounded-lg border p-6">
+      <div className="flex items-center gap-2 mb-4">
+        <Shield className="h-5 w-5 text-primary" />
+        <h2 className="text-xl font-semibold">Privacy & Telemetry</h2>
+      </div>
+
+      <div className="space-y-6">
+        <Alert>
+          <Shield className="h-4 w-4" />
+          <AlertDescription>
+            We respect your privacy. All telemetry is opt-in and you can change your preferences anytime.
+            We never collect project names, file paths, or personal data.
+          </AlertDescription>
+        </Alert>
+
+        {/* Error Display */}
+        {error && (
+          <Alert variant="destructive">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
+
+        {/* Telemetry Options */}
+        <div className="space-y-4">
+          {/* Error Reporting */}
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5">
+              <Label htmlFor="privacy-error">Error Reporting</Label>
+              <p className="text-sm text-muted-foreground">
+                Help us fix bugs by sharing crash reports and error logs
+              </p>
+            </div>
+            <Switch
+              id="privacy-error"
+              checked={settings.error_reporting}
+              onCheckedChange={(value) => handleToggle('error_reporting', value)}
+              disabled={isSaving}
+            />
+          </div>
+
+          {/* Usage Metrics */}
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5">
+              <Label htmlFor="privacy-usage">Usage Metrics</Label>
+              <p className="text-sm text-muted-foreground">
+                Share anonymous usage statistics to help improve the product
+              </p>
+            </div>
+            <Switch
+              id="privacy-usage"
+              checked={settings.usage_metrics}
+              onCheckedChange={(value) => handleToggle('usage_metrics', value)}
+              disabled={isSaving}
+            />
+          </div>
+
+          {/* Non-anonymous Metrics */}
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5">
+              <Label htmlFor="privacy-non-anonymous">Non-anonymous Metrics</Label>
+              <p className="text-sm text-muted-foreground">
+                Include an identifier to help us provide better support
+              </p>
+            </div>
+            <Switch
+              id="privacy-non-anonymous"
+              checked={settings.non_anonymous_metrics}
+              onCheckedChange={(value) => handleToggle('non_anonymous_metrics', value)}
+              disabled={isSaving || !settings.usage_metrics}
+            />
+          </div>
+        </div>
+
+        {/* Data Management */}
+        <div className="pt-4 border-t">
+          <h3 className="text-sm font-medium mb-3">Data Management</h3>
+          <div className="flex gap-2">
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={handleDeleteAllData}
+              disabled={isDeleting}
+            >
+              {isDeleting ? (
+                <>
+                  <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                <>
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Delete All Telemetry Data
+                </>
+              )}
+            </Button>
+          </div>
+          <p className="text-xs text-muted-foreground mt-2">
+            Permanently remove all collected telemetry data from our servers
+          </p>
+        </div>
+
+        {/* Status */}
+        <div className="text-xs text-muted-foreground">
+          <p>
+            Status:{' '}
+            {settings.error_reporting || settings.usage_metrics
+              ? 'Telemetry is active'
+              : 'All telemetry is disabled'}
+          </p>
+        </div>
       </div>
     </div>
   );

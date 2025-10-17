@@ -7,6 +7,7 @@ import { Layout } from '@/components/layout/Layout'
 import { ConnectionProvider } from '@/contexts/ConnectionContext'
 import { CloudProvider } from '@/contexts/CloudContext'
 import { ThemeProvider } from '@/contexts/ThemeContext'
+import { TelemetryProvider, useTelemetry } from '@/contexts/TelemetryContext'
 import { queryClient } from '@/lib/queryClient'
 import { Projects } from '@/pages/Projects'
 import { ProjectDetail } from '@/pages/ProjectDetail'
@@ -14,9 +15,20 @@ import { Settings } from '@/pages/Settings'
 import OAuthCallback from '@/pages/OAuthCallback'
 import { PopupCloseHandler } from '@/components/PopupCloseHandler'
 import { CliSetupDialog } from '@/components/CliSetupDialog'
+import { TelemetryOnboardingDialog } from '@/components/TelemetryOnboardingDialog'
 
-function App() {
-  const [showCliDialog, setShowCliDialog] = useState(false)
+// Inner app component that can use telemetry hooks
+function AppWithTelemetry() {
+  const { shouldShowOnboarding } = useTelemetry();
+  const [showCliDialog, setShowCliDialog] = useState(false);
+  const [showTelemetryDialog, setShowTelemetryDialog] = useState(false);
+
+  useEffect(() => {
+    // Check if we should show the telemetry onboarding
+    if (shouldShowOnboarding) {
+      setShowTelemetryDialog(true);
+    }
+  }, [shouldShowOnboarding]);
 
   useEffect(() => {
     // Check if we should show the CLI setup dialog (macOS only)
@@ -45,37 +57,52 @@ function App() {
       }
     }
 
-    checkCliSetup()
-  }, [])
+    // Only check CLI setup after telemetry onboarding is handled
+    if (!shouldShowOnboarding) {
+      checkCliSetup()
+    }
+  }, [shouldShowOnboarding])
 
+  return (
+    <BrowserRouter>
+      <PopupCloseHandler />
+      <TelemetryOnboardingDialog
+        open={showTelemetryDialog}
+        onOpenChange={setShowTelemetryDialog}
+      />
+      <CliSetupDialog
+        open={showCliDialog}
+        onOpenChange={setShowCliDialog}
+      />
+      <Routes>
+        {/* OAuth callback route - outside Layout */}
+        <Route path="/oauth/callback" element={<OAuthCallback />} />
+
+        {/* Main app routes - inside Layout */}
+        <Route path="/*" element={
+          <Layout>
+            <Routes>
+              <Route path="/" element={<Navigate to="/projects" replace />} />
+              <Route path="/projects" element={<Projects />} />
+              <Route path="/projects/:id" element={<ProjectDetail />} />
+              <Route path="/settings" element={<Settings />} />
+            </Routes>
+          </Layout>
+        } />
+      </Routes>
+    </BrowserRouter>
+  );
+}
+
+function App() {
   return (
     <ThemeProvider>
       <QueryClientProvider client={queryClient}>
         <ConnectionProvider>
           <CloudProvider>
-            <BrowserRouter>
-              <PopupCloseHandler />
-              <CliSetupDialog
-                open={showCliDialog}
-                onOpenChange={setShowCliDialog}
-              />
-              <Routes>
-                {/* OAuth callback route - outside Layout */}
-                <Route path="/oauth/callback" element={<OAuthCallback />} />
-
-                {/* Main app routes - inside Layout */}
-                <Route path="/*" element={
-                  <Layout>
-                    <Routes>
-                      <Route path="/" element={<Navigate to="/projects" replace />} />
-                      <Route path="/projects" element={<Projects />} />
-                      <Route path="/projects/:id" element={<ProjectDetail />} />
-                      <Route path="/settings" element={<Settings />} />
-                    </Routes>
-                  </Layout>
-                } />
-              </Routes>
-            </BrowserRouter>
+            <TelemetryProvider>
+              <AppWithTelemetry />
+            </TelemetryProvider>
           </CloudProvider>
         </ConnectionProvider>
         {/* Only show devtools in development */}

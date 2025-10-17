@@ -3234,15 +3234,16 @@ dependencies = [
 
 [[package]]
 name = "orkee-config"
-version = "0.0.1"
+version = "0.0.3"
 dependencies = [
  "tracing",
 ]
 
 [[package]]
 name = "orkee-desktop"
-version = "0.0.2"
+version = "0.0.3"
 dependencies = [
+ "dirs",
  "futures",
  "image",
  "open",

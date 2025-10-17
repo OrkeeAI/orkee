@@ -12,6 +12,7 @@ pub mod config;
 pub mod dashboard;
 pub mod error;
 pub mod middleware;
+pub mod telemetry;
 pub mod tls;
 
 #[cfg(test)]
