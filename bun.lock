@@ -28,7 +28,7 @@
     },
     "packages/cli": {
       "name": "orkee",
-      "version": "0.0.1",
+      "version": "0.0.6",
       "bin": {
         "orkee": "./scripts/install.js",
       },
@@ -38,7 +38,7 @@
     },
     "packages/dashboard": {
       "name": "@orkee/dashboard",
-      "version": "0.0.2",
+      "version": "0.0.3",
       "dependencies": {
         "@dnd-kit/core": "^6.3.1",
         "@dnd-kit/sortable": "^10.0.0",
@@ -61,6 +61,7 @@
         "@tanstack/react-query": "^5.17.0",
         "@tanstack/react-query-devtools": "^5.17.0",
         "@tauri-apps/api": "^2.8.0",
+        "@tauri-apps/plugin-http": "^2.5.2",
         "@tauri-apps/plugin-shell": "^2.3.1",
         "class-variance-authority": "^0.7.1",
         "clsx": "^2.1.1",
@@ -950,6 +951,8 @@
     "@tauri-apps/cli-win32-ia32-msvc": ["@tauri-apps/cli-win32-ia32-msvc@2.8.4", "", { "os": "win32", "cpu": "ia32" }, "sha512-yj7WDxkL1t9Uzr2gufQ1Hl7hrHuFKTNEOyascbc109EoiAqCp0tgZ2IykQqOZmZOHU884UAWI1pVMqBhS/BfhA=="],
 
     "@tauri-apps/cli-win32-x64-msvc": ["@tauri-apps/cli-win32-x64-msvc@2.8.4", "", { "os": "win32", "cpu": "x64" }, "sha512-XuvGB4ehBdd7QhMZ9qbj/8icGEatDuBNxyYHbLKsTYh90ggUlPa/AtaqcC1Fo69lGkTmq9BOKrs1aWSi7xDonA=="],
+
+    "@tauri-apps/plugin-http": ["@tauri-apps/plugin-http@2.5.2", "", { "dependencies": { "@tauri-apps/api": "^2.8.0" } }, "sha512-x1mQKHSLDk4mS2S938OTeyk8L7QyLpCrKZCZcjkljGsvTvRMojCvI9SeJ1kaxc7t8xSilkC7WdId8xER9TIGLg=="],
 
     "@tauri-apps/plugin-shell": ["@tauri-apps/plugin-shell@2.3.1", "", { "dependencies": { "@tauri-apps/api": "^2.8.0" } }, "sha512-jjs2WGDO/9z2pjNlydY/F5yYhNsscv99K5lCmU5uKjsVvQ3dRlDhhtVYoa4OLDmktLtQvgvbQjCFibMl6tgGfw=="],
 
