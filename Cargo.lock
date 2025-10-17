@@ -2405,7 +2405,7 @@ checksum = "04744f49eae99ab78e0d5c0b603ab218f515ea8cfe5a456d7629ad883a3b6e7d"
 
 [[package]]
 name = "orkee-cli"
-version = "0.0.3"
+version = "0.0.4"
 dependencies = [
  "anyhow",
  "axum",
@@ -2460,7 +2460,7 @@ dependencies = [
 
 [[package]]
 name = "orkee-cloud"
-version = "0.0.3"
+version = "0.0.4"
 dependencies = [
  "anyhow",
  "argon2",
@@ -2493,14 +2493,14 @@ dependencies = [
 
 [[package]]
 name = "orkee-config"
-version = "0.0.3"
+version = "0.0.4"
 dependencies = [
  "tracing",
 ]
 
 [[package]]
 name = "orkee-mcp-server"
-version = "0.0.3"
+version = "0.0.4"
 dependencies = [
  "anyhow",
  "clap",
@@ -2523,7 +2523,7 @@ dependencies = [
 
 [[package]]
 name = "orkee-preview"
-version = "0.0.3"
+version = "0.0.4"
 dependencies = [
  "anyhow",
  "axum",
@@ -2553,7 +2553,7 @@ dependencies = [
 
 [[package]]
 name = "orkee-projects"
-version = "0.0.3"
+version = "0.0.4"
 dependencies = [
  "async-trait",
  "axum",
@@ -2582,7 +2582,7 @@ dependencies = [
 
 [[package]]
 name = "orkee-tui"
-version = "0.0.3"
+version = "0.0.4"
 dependencies = [
  "anyhow",
  "chrono",
