@@ -123,8 +123,14 @@ impl ServerRegistry {
     ///
     /// Returns an error if the file exists but cannot be read or contains invalid JSON.
     pub async fn load_registry(&self) -> Result<(), Box<dyn std::error::Error>> {
-        // Read file directly and handle NotFound error instead of checking exists() first
-        // This prevents TOCTOU race where file could be deleted between check and read
+        // Read file directly and handle NotFound error instead of checking exists() first.
+        // This prevents TOCTOU race where file could be deleted between check and read.
+        //
+        // Note: There's still a theoretical race window between reading and parsing where
+        // the file could be modified by another process. However, this is acceptable because:
+        // 1. Proper fix would require OS-level file locking (complex, platform-specific)
+        // 2. Race impact is low (worst case: load stale data, fixed on next write)
+        // 3. Registry is single-writer in practice (one Orkee instance per user)
         let content = match tokio::fs::read_to_string(&self.registry_path).await {
             Ok(content) => content,
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
