@@ -31,32 +31,42 @@ fn copy_orkee_binary() -> Result<(), String> {
             )
         })?;
 
-    // Determine the target architecture
-    let target_arch = env::var("CARGO_CFG_TARGET_ARCH").unwrap_or_else(|_| {
-        // Fallback to current platform
-        if cfg!(target_arch = "aarch64") {
-            "aarch64".to_string()
-        } else if cfg!(target_arch = "x86_64") {
-            "x86_64".to_string()
-        } else {
-            panic!("Unsupported architecture - please file a bug report");
-        }
-    });
+    // Get the Rust target triple from CARGO_CFG_TARGET
+    // This gives us the full triple like "x86_64-unknown-linux-gnu"
+    let target_triple = env::var("TARGET").unwrap_or_else(|_| {
+        // Fallback: construct from CARGO_CFG_TARGET_ARCH and CARGO_CFG_TARGET_OS
+        let arch = env::var("CARGO_CFG_TARGET_ARCH").unwrap_or_else(|_| {
+            if cfg!(target_arch = "aarch64") {
+                "aarch64".to_string()
+            } else if cfg!(target_arch = "x86_64") {
+                "x86_64".to_string()
+            } else {
+                panic!("Unsupported architecture");
+            }
+        });
 
-    let target_os = env::var("CARGO_CFG_TARGET_OS").unwrap_or_else(|_| {
-        if cfg!(target_os = "macos") {
-            "apple-darwin".to_string()
-        } else if cfg!(target_os = "linux") {
-            "unknown-linux-gnu".to_string()
-        } else if cfg!(target_os = "windows") {
-            "pc-windows-msvc".to_string()
-        } else {
-            panic!("Unsupported OS - please file a bug report");
-        }
-    });
+        let os = env::var("CARGO_CFG_TARGET_OS").unwrap_or_else(|_| {
+            if cfg!(target_os = "macos") {
+                "macos".to_string()
+            } else if cfg!(target_os = "linux") {
+                "linux".to_string()
+            } else if cfg!(target_os = "windows") {
+                "windows".to_string()
+            } else {
+                panic!("Unsupported OS");
+            }
+        });
 
-    // Construct target triple
-    let target_triple = format!("{}-{}", target_arch, target_os);
+        // Map OS to full target triple suffix
+        let suffix = match os.as_str() {
+            "macos" => "apple-darwin",
+            "linux" => "unknown-linux-gnu",
+            "windows" => "pc-windows-msvc",
+            _ => panic!("Unsupported OS: {}", os),
+        };
+
+        format!("{}-{}", arch, suffix)
+    });
 
     // Check if binary already exists in binaries/ directory
     // (prepare-binaries.sh may have already placed it there)
