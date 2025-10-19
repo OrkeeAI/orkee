@@ -462,9 +462,7 @@ impl ServerRegistry {
                     return false;
                 }
                 // Check if it's the exact same server (same PID and same port)
-                existing.pid.is_some()
-                    && existing.pid == entry_pid
-                    && existing.port == entry_port
+                existing.pid.is_some() && existing.pid == entry_pid && existing.port == entry_port
             });
 
             if is_duplicate {
