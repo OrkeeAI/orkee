@@ -103,10 +103,7 @@ fn validate_api_host(host: &str) -> Result<(), String> {
         .map(|v| v.to_lowercase() == "true" || v == "1")
         .unwrap_or(false)
     {
-        warn!(
-            "Remote API access is enabled for host: {}",
-            host
-        );
+        warn!("Remote API access is enabled for host: {}", host);
         warn!("This bypasses localhost-only security restrictions.");
         warn!("Ensure this is intentional and the host is trusted.");
         return Ok(());
@@ -168,8 +165,28 @@ fn sanitize_menu_text(text: &str) -> String {
             // Explicitly allow common safe ASCII punctuation and symbols
             if matches!(
                 *c,
-                ' ' | '-' | '_' | '.' | ',' | ':' | ';' | '(' | ')' | '[' | ']' |
-                '/' | '\\' | '+' | '=' | '@' | '#' | '$' | '%' | '&' | '*' | '!' | '?'
+                ' ' | '-'
+                    | '_'
+                    | '.'
+                    | ','
+                    | ':'
+                    | ';'
+                    | '('
+                    | ')'
+                    | '['
+                    | ']'
+                    | '/'
+                    | '\\'
+                    | '+'
+                    | '='
+                    | '@'
+                    | '#'
+                    | '$'
+                    | '%'
+                    | '&'
+                    | '*'
+                    | '!'
+                    | '?'
             ) {
                 return true;
             }
@@ -377,7 +394,10 @@ impl TrayManager {
                 // Build submenu for this server
                 let mut submenu_builder = SubmenuBuilder::new(
                     app_handle,
-                    format!("{} - Port {}{}", sanitized_name, server.port, source_indicator),
+                    format!(
+                        "{} - Port {}{}",
+                        sanitized_name, server.port, source_indicator
+                    ),
                 );
 
                 // Open in browser - uses server.id for direct server reference
@@ -408,9 +428,11 @@ impl TrayManager {
                         submenu_builder = submenu_builder.item(&restart_item);
 
                         // Stop server - uses project_id for project-level API operations
-                        let stop_item =
-                            MenuItemBuilder::with_id(format!("stop_{}", server.project_id), "Stop Server")
-                                .build(app_handle)?;
+                        let stop_item = MenuItemBuilder::with_id(
+                            format!("stop_{}", server.project_id),
+                            "Stop Server",
+                        )
+                        .build(app_handle)?;
                         submenu_builder = submenu_builder.item(&stop_item);
                     }
                     ServerSource::External | ServerSource::Discovered => {
@@ -449,7 +471,12 @@ impl TrayManager {
         Ok(menu_builder.build()?)
     }
 
-    fn handle_menu_event(app: &AppHandle, event: tauri::menu::MenuEvent, api_port: u16, http_client: Arc<reqwest::Client>) {
+    fn handle_menu_event(
+        app: &AppHandle,
+        event: tauri::menu::MenuEvent,
+        api_port: u16,
+        http_client: Arc<reqwest::Client>,
+    ) {
         let event_id = event.id.as_ref();
         debug!("Menu event received: {}", event_id);
 
@@ -489,14 +516,24 @@ impl TrayManager {
             }
             id if id.starts_with("restart_external_") => {
                 if let Some(server_id) = id.strip_prefix("restart_external_") {
-                    Self::restart_external_server(app.clone(), http_client.clone(), api_port, server_id.to_string());
+                    Self::restart_external_server(
+                        app.clone(),
+                        http_client.clone(),
+                        api_port,
+                        server_id.to_string(),
+                    );
                 } else {
                     error!("Invalid menu event ID format: {}", id);
                 }
             }
             id if id.starts_with("stop_external_") => {
                 if let Some(server_id) = id.strip_prefix("stop_external_") {
-                    Self::stop_external_server(app.clone(), http_client.clone(), api_port, server_id.to_string());
+                    Self::stop_external_server(
+                        app.clone(),
+                        http_client.clone(),
+                        api_port,
+                        server_id.to_string(),
+                    );
                 } else {
                     error!("Invalid menu event ID format: {}", id);
                 }
@@ -556,7 +593,12 @@ impl TrayManager {
         });
     }
 
-    fn stop_server(app: AppHandle, http_client: Arc<reqwest::Client>, api_port: u16, project_id: String) {
+    fn stop_server(
+        app: AppHandle,
+        http_client: Arc<reqwest::Client>,
+        api_port: u16,
+        project_id: String,
+    ) {
         tauri::async_runtime::spawn(async move {
             // Validate project_id before making API call
             if let Err(e) = validate_project_id(&project_id) {
@@ -591,7 +633,12 @@ impl TrayManager {
         });
     }
 
-    fn restart_external_server(app: AppHandle, http_client: Arc<reqwest::Client>, api_port: u16, server_id: String) {
+    fn restart_external_server(
+        app: AppHandle,
+        http_client: Arc<reqwest::Client>,
+        api_port: u16,
+        server_id: String,
+    ) {
         tauri::async_runtime::spawn(async move {
             let url = format!(
                 "http://{}:{}/api/preview/servers/external/{}/restart",
@@ -609,7 +656,10 @@ impl TrayManager {
                             tray_manager.force_refresh();
                         }
                     } else {
-                        error!("Failed to restart external server: HTTP {}", response.status());
+                        error!(
+                            "Failed to restart external server: HTTP {}",
+                            response.status()
+                        );
                     }
                 }
                 Err(e) => error!("Failed to restart external server: {}", e),
@@ -617,7 +667,12 @@ impl TrayManager {
         });
     }
 
-    fn stop_external_server(app: AppHandle, http_client: Arc<reqwest::Client>, api_port: u16, server_id: String) {
+    fn stop_external_server(
+        app: AppHandle,
+        http_client: Arc<reqwest::Client>,
+        api_port: u16,
+        server_id: String,
+    ) {
         tauri::async_runtime::spawn(async move {
             let url = format!(
                 "http://{}:{}/api/preview/servers/external/{}/stop",
@@ -759,22 +814,20 @@ impl TrayManager {
                     debug!("Force refresh: Found {} servers", servers.len());
 
                     match Self::build_menu(&app_handle, servers) {
-                        Ok(new_menu) => {
-                            match tray_icon.lock() {
-                                Ok(tray_guard) => {
-                                    if let Some(tray) = tray_guard.as_ref() {
-                                        if let Err(e) = tray.set_menu(Some(new_menu)) {
-                                            error!("Force refresh: Failed to update tray menu: {}", e);
-                                        } else {
-                                            info!("Force refresh: Tray menu updated successfully");
-                                        }
+                        Ok(new_menu) => match tray_icon.lock() {
+                            Ok(tray_guard) => {
+                                if let Some(tray) = tray_guard.as_ref() {
+                                    if let Err(e) = tray.set_menu(Some(new_menu)) {
+                                        error!("Force refresh: Failed to update tray menu: {}", e);
+                                    } else {
+                                        info!("Force refresh: Tray menu updated successfully");
                                     }
                                 }
-                                Err(e) => {
-                                    error!("Force refresh: Failed to lock tray_icon: {}", e);
-                                }
                             }
-                        }
+                            Err(e) => {
+                                error!("Force refresh: Failed to lock tray_icon: {}", e);
+                            }
+                        },
                         Err(e) => {
                             error!("Force refresh: Failed to build menu: {}", e);
                         }
@@ -828,9 +881,7 @@ impl TrayManager {
                 for _ in 0..current_poll_interval_secs {
                     tokio::time::sleep(Duration::from_secs(1)).await;
                     if shutdown_signal.load(Ordering::Relaxed) {
-                        info!(
-                            "Tray polling loop received shutdown signal during sleep, exiting"
-                        );
+                        info!("Tray polling loop received shutdown signal during sleep, exiting");
                         return;
                     }
                 }
@@ -893,10 +944,7 @@ impl TrayManager {
                                             Ok(tray_guard) => {
                                                 if let Some(tray) = tray_guard.as_ref() {
                                                     if let Err(e) = tray.set_menu(Some(new_menu)) {
-                                                        error!(
-                                                            "Failed to update tray menu: {}",
-                                                            e
-                                                        );
+                                                        error!("Failed to update tray menu: {}", e);
                                                     } else {
                                                         info!("Tray menu updated successfully");
                                                         last_servers_hash = current_hash; // Update cached hash

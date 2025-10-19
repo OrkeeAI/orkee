@@ -8,8 +8,8 @@ use tauri_plugin_shell::process::CommandEvent;
 use tauri_plugin_shell::ShellExt;
 use tracing::{debug, error, info, warn};
 
-mod tray;
 mod server_restart;
+mod tray;
 use tray::TrayManager;
 
 // Track cleanup execution to prevent double cleanup
@@ -260,7 +260,9 @@ async fn install_cli_macos(app_handle: tauri::AppHandle) -> Result<String, Strin
     {
         // Get the binary path from the app bundle (MacOS directory, not Resources)
         // On macOS, Tauri places externalBin files in Contents/MacOS/
-        let resource_dir = app_handle.path().resource_dir()
+        let resource_dir = app_handle
+            .path()
+            .resource_dir()
             .map_err(|e| format!("Failed to get resource directory: {}", e))?;
 
         // Navigate from Resources to MacOS directory
@@ -330,18 +332,14 @@ fn get_cli_prompt_preference() -> String {
 
     // Read and parse config
     match std::fs::read_to_string(&config_path) {
-        Ok(contents) => {
-            match serde_json::from_str::<serde_json::Value>(&contents) {
-                Ok(config) => {
-                    config
-                        .get("cli_prompt_preference")
-                        .and_then(|v| v.as_str())
-                        .unwrap_or("show")
-                        .to_string()
-                }
-                Err(_) => "show".to_string(),
-            }
-        }
+        Ok(contents) => match serde_json::from_str::<serde_json::Value>(&contents) {
+            Ok(config) => config
+                .get("cli_prompt_preference")
+                .and_then(|v| v.as_str())
+                .unwrap_or("show")
+                .to_string(),
+            Err(_) => "show".to_string(),
+        },
         Err(_) => "show".to_string(),
     }
 }
@@ -359,8 +357,8 @@ fn get_cli_prompt_preference() -> String {
 /// Returns `Ok(())` on success, or `Err(String)` with error details.
 #[tauri::command]
 fn set_cli_prompt_preference(preference: String) -> Result<(), String> {
-    let home_dir = dirs::home_dir()
-        .ok_or_else(|| "Could not determine home directory".to_string())?;
+    let home_dir =
+        dirs::home_dir().ok_or_else(|| "Could not determine home directory".to_string())?;
 
     let orkee_dir = home_dir.join(".orkee");
     let config_path = orkee_dir.join("config.json");
@@ -373,15 +371,17 @@ fn set_cli_prompt_preference(preference: String) -> Result<(), String> {
     let mut config = if config_path.exists() {
         let contents = std::fs::read_to_string(&config_path)
             .map_err(|e| format!("Failed to read config file: {}", e))?;
-        serde_json::from_str::<serde_json::Value>(&contents)
-            .unwrap_or(serde_json::json!({}))
+        serde_json::from_str::<serde_json::Value>(&contents).unwrap_or(serde_json::json!({}))
     } else {
         serde_json::json!({})
     };
 
     // Update the preference
     if let Some(obj) = config.as_object_mut() {
-        obj.insert("cli_prompt_preference".to_string(), serde_json::Value::String(preference));
+        obj.insert(
+            "cli_prompt_preference".to_string(),
+            serde_json::Value::String(preference),
+        );
     }
 
     // Write back to file
@@ -507,7 +507,7 @@ pub fn run() {
     tracing_subscriber::fmt()
         .with_env_filter(
             tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info"))
+                .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info")),
         )
         .with_target(false) // Don't show module paths in logs
         .compact() // Use compact format for cleaner output

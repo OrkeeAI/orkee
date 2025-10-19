@@ -120,7 +120,10 @@ pub fn restart_server(app: tauri::AppHandle, api_port: u16, project_id: String) 
                     } else {
                         // Server not found (404 or similar) - it's stopped
                         stopped = true;
-                        debug!("Server confirmed stopped (no longer exists) after {}ms (attempt {})", elapsed_ms, attempt);
+                        debug!(
+                            "Server confirmed stopped (no longer exists) after {}ms (attempt {})",
+                            elapsed_ms, attempt
+                        );
                         break;
                     }
                 }
