@@ -665,7 +665,7 @@ impl PreviewManager {
             servers.get(project_id).cloned()
         };
 
-        if let Some(info) = server_info {
+        if let Some(mut info) = server_info {
             // Add stop log
             self.add_log(
                 project_id,
@@ -673,6 +673,13 @@ impl PreviewManager {
                 format!("Stopping server with PID: {:?}", info.pid),
             )
             .await;
+
+            // Immediately set status to Stopping for instant UI feedback
+            info.status = DevServerStatus::Stopping;
+            {
+                let mut servers = self.active_servers.write().await;
+                servers.insert(project_id.to_string(), info.clone());
+            }
 
             // Abort log capture tasks to prevent resource leaks
             if let Some(log_tasks) = info.log_tasks {
@@ -731,51 +738,64 @@ impl PreviewManager {
                 }
             }
 
-            // Wait for process to actually terminate before removing from registry
-            if let Some(pid) = info.pid {
-                let max_wait_ms = 5000; // Wait up to 5 seconds
-                let poll_interval_ms = 50; // Check every 50ms
-                let mut elapsed_ms = 0;
+            // Spawn background task to monitor process termination
+            // This prevents blocking the API response while waiting for process to die
+            let manager = self.clone();
+            let project_id_owned = project_id.to_string();
+            let pid_to_monitor = info.pid;
 
-                while elapsed_ms < max_wait_ms {
-                    if !self.is_process_running(pid) {
-                        info!("Process {} confirmed terminated after {}ms", pid, elapsed_ms);
-                        self.add_log(
-                            project_id,
-                            LogType::System,
-                            format!("Process {} terminated (verified)", pid),
-                        )
-                        .await;
-                        break;
+            tokio::spawn(async move {
+                // Wait for process to actually terminate before removing from registry
+                if let Some(pid) = pid_to_monitor {
+                    let max_wait_ms = 5000; // Wait up to 5 seconds
+                    let poll_interval_ms = 50; // Check every 50ms
+                    let mut elapsed_ms = 0;
+
+                    while elapsed_ms < max_wait_ms {
+                        if !manager.is_process_running(pid) {
+                            info!("Process {} confirmed terminated after {}ms", pid, elapsed_ms);
+                            manager
+                                .add_log(
+                                    &project_id_owned,
+                                    LogType::System,
+                                    format!("Process {} terminated (verified)", pid),
+                                )
+                                .await;
+                            break;
+                        }
+
+                        tokio::time::sleep(tokio::time::Duration::from_millis(poll_interval_ms))
+                            .await;
+                        elapsed_ms += poll_interval_ms;
                     }
 
-                    tokio::time::sleep(tokio::time::Duration::from_millis(poll_interval_ms)).await;
-                    elapsed_ms += poll_interval_ms;
+                    if elapsed_ms >= max_wait_ms {
+                        warn!(
+                            "Process {} for project {} did not terminate within {}ms, proceeding anyway",
+                            pid, project_id_owned, max_wait_ms
+                        );
+                    }
                 }
 
-                if elapsed_ms >= max_wait_ms {
+                // Remove from active servers (only after process is actually stopped)
+                {
+                    let mut servers = manager.active_servers.write().await;
+                    servers.remove(&project_id_owned);
+                }
+
+                // Remove lock file
+                if let Err(e) = manager.remove_lock_file(&project_id_owned).await {
                     warn!(
-                        "Process {} for project {} did not terminate within {}ms, proceeding anyway",
-                        pid, project_id, max_wait_ms
+                        "Failed to remove lock file for project {}: {}",
+                        project_id_owned, e
                     );
                 }
-            }
 
-            // Remove from active servers (only after process is actually stopped)
-            {
-                let mut servers = self.active_servers.write().await;
-                servers.remove(project_id);
-            }
-
-            // Remove lock file
-            if let Err(e) = self.remove_lock_file(project_id).await {
-                warn!(
-                    "Failed to remove lock file for project {}: {}",
-                    project_id, e
+                info!(
+                    "Successfully stopped server for project: {}",
+                    project_id_owned
                 );
-            }
-
-            info!("Successfully stopped server for project: {}", project_id);
+            });
         }
 
         Ok(())
