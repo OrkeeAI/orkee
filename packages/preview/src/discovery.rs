@@ -2,6 +2,7 @@
 // ABOUTME: Scans ports and identifies running processes to track manual server launches
 
 use chrono::Utc;
+use futures::stream::{self, StreamExt};
 use nix::libc;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -47,14 +48,14 @@ pub async fn discover_external_servers() -> Vec<DiscoveredServer> {
         ports_to_scan.len()
     );
 
-    // Scan all ports in parallel for better performance
-    let tasks: Vec<_> = ports_to_scan
-        .into_iter()
+    // Scan ports with limited concurrency to avoid overwhelming the system
+    // buffer_unordered limits to 5 concurrent scans while maintaining unordered results
+    let discovered: Vec<_> = stream::iter(ports_to_scan)
         .map(discover_server_on_port)
-        .collect();
-
-    let results = futures::future::join_all(tasks).await;
-    let discovered: Vec<_> = results.into_iter().flatten().collect();
+        .buffer_unordered(5)
+        .filter_map(|result| async move { result })
+        .collect()
+        .await;
 
     debug!("Discovered {} new external servers", discovered.len());
     discovered
@@ -97,23 +98,29 @@ async fn discover_server_on_port(port: u16) -> Option<DiscoveredServer> {
 
     // Verify the process belongs to the current user (security check)
     if let Some(process_uid) = process.user_id() {
+        // SAFETY: getuid() is always safe to call - it's a simple syscall with no preconditions
+        // that reads the real user ID of the calling process from the kernel
         let current_uid = unsafe { libc::getuid() };
         let uid_str = process_uid.to_string();
-        let parsed_uid = uid_str.parse::<u32>().unwrap_or_else(|e| {
-            warn!(
-                "Failed to parse UID '{}' for process {}: {} - denying access for security",
-                uid_str, pid, e
-            );
-            // Return invalid UID that will never match current_uid
-            u32::MAX
-        });
 
-        if parsed_uid != current_uid {
-            debug!(
-                "Skipping process {} - owned by different user (UID {} vs {})",
-                pid, parsed_uid, current_uid
-            );
-            return None;
+        // Parse UID and deny access if parsing fails (fail-secure)
+        match uid_str.parse::<u32>() {
+            Ok(parsed_uid) => {
+                if parsed_uid != current_uid {
+                    debug!(
+                        "Skipping process {} - owned by different user (UID {} vs {})",
+                        pid, parsed_uid, current_uid
+                    );
+                    return None;
+                }
+            }
+            Err(e) => {
+                warn!(
+                    "Failed to parse UID '{}' for process {}: {} - denying access for security",
+                    uid_str, pid, e
+                );
+                return None;
+            }
         }
     }
 
@@ -243,7 +250,10 @@ async fn try_proc_net_tcp_for_port(port: u16) -> Option<u32> {
 
 #[cfg(target_os = "linux")]
 async fn find_pid_by_inode(inode: u64) -> Option<u32> {
-    // Wrap blocking IO in spawn_blocking to prevent blocking the executor
+    // Wrap blocking IO in spawn_blocking to prevent blocking the async executor.
+    // The /proc filesystem reads are synchronous and can be slow on systems with many processes,
+    // potentially hundreds of directories to traverse. Running this on the main executor thread
+    // would block other async tasks, so we offload it to a dedicated blocking thread pool.
     tokio::task::spawn_blocking(move || {
         use std::fs;
 
@@ -271,10 +281,20 @@ async fn find_pid_by_inode(inode: u64) -> Option<u32> {
     .flatten()
 }
 
-/// Fallback for unsupported platforms
+/// Fallback for unsupported platforms (Windows)
+///
+/// External server discovery is currently not supported on Windows.
+/// The implementation requires platform-specific port-to-PID mapping:
+/// - macOS: Uses `lsof` command
+/// - Linux: Parses `/proc/net/tcp` and `/proc/<pid>/fd` symlinks
+/// - Windows: Would require netstat parsing or WinAPI calls (not yet implemented)
+///
+/// TODO: Implement Windows support using one of these approaches:
+/// - Parse `netstat -ano` output to map port to PID
+/// - Use Windows API (GetExtendedTcpTable) via windows-rs crate
 #[cfg(not(any(target_os = "macos", target_os = "linux")))]
 async fn find_process_on_port(_port: u16) -> Option<u32> {
-    warn!("Port scanning not supported on this platform");
+    warn!("Port scanning not supported on this platform - external server discovery disabled");
     None
 }
 
