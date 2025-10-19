@@ -66,6 +66,7 @@ fn default_server_source() -> crate::types::ServerSource {
 /// `~/.orkee/server-registry.json` and uses transactional updates to ensure consistency.
 pub struct ServerRegistry {
     registry_path: PathBuf,
+    lock_file_path: PathBuf,
     entries: Arc<RwLock<HashMap<String, ServerRegistryEntry>>>,
     /// Timeout in minutes before considering an entry stale (default: 5, configurable via ORKEE_STALE_TIMEOUT_MINUTES)
     stale_timeout_minutes: i64,
@@ -95,6 +96,7 @@ impl ServerRegistry {
             std::env::temp_dir()
         });
         let registry_path = home.join(".orkee").join("server-registry.json");
+        let lock_file_path = home.join(".orkee").join("server-registry.lock");
 
         // Read stale timeout from environment variable, default to 5 minutes
         // Validate the timeout value (must be positive, max 240 minutes = 4 hours)
@@ -110,6 +112,7 @@ impl ServerRegistry {
 
         Self {
             registry_path,
+            lock_file_path,
             entries: Arc::new(RwLock::new(HashMap::new())),
             stale_timeout_minutes,
         }
@@ -128,14 +131,11 @@ impl ServerRegistry {
     ///
     /// Returns an error if the file exists but cannot be read or contains invalid JSON.
     pub async fn load_registry(&self) -> Result<(), Box<dyn std::error::Error>> {
-        // Read file directly and handle NotFound error instead of checking exists() first.
-        // This prevents TOCTOU race where file could be deleted between check and read.
-        //
-        // Note: There's still a theoretical race window between reading and parsing where
-        // the file could be modified by another process. However, this is acceptable because:
-        // 1. Proper fix would require OS-level file locking (complex, platform-specific)
-        // 2. Race impact is low (worst case: load stale data, fixed on next write)
-        // 3. Registry is single-writer in practice (one Orkee instance per user)
+        // Acquire exclusive lock to prevent TOCTOU races with concurrent writers
+        // (discovery, multiple Orkee instances)
+        let _lock = self.acquire_registry_lock().await?;
+
+        // Read file with lock held to ensure consistency
         let content = match tokio::fs::read_to_string(&self.registry_path).await {
             Ok(content) => content,
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
@@ -143,6 +143,7 @@ impl ServerRegistry {
                     "Server registry does not exist yet at {:?}",
                     self.registry_path
                 );
+                // Lock is automatically released when _lock is dropped
                 return Ok(());
             }
             Err(e) => return Err(e.into()),
@@ -154,6 +155,7 @@ impl ServerRegistry {
         *registry = entries;
 
         info!("Loaded {} servers from registry", registry.len());
+        // Lock is automatically released when _lock is dropped here
         Ok(())
     }
 
@@ -188,6 +190,9 @@ impl ServerRegistry {
         &self,
         entries: &HashMap<String, ServerRegistryEntry>,
     ) -> Result<(), Box<dyn std::error::Error>> {
+        // Acquire exclusive lock to prevent TOCTOU races with concurrent readers/writers
+        let _lock = self.acquire_registry_lock().await?;
+
         // Ensure the .orkee directory exists with proper error handling
         if let Some(parent) = self.registry_path.parent() {
             if let Err(e) = tokio::fs::create_dir_all(parent).await {
@@ -235,6 +240,7 @@ impl ServerRegistry {
         Self::set_registry_permissions(&self.registry_path).await?;
 
         debug!("Saved {} servers to registry", entries.len());
+        // Lock is automatically released when _lock is dropped here
         Ok(())
     }
 
@@ -430,6 +436,51 @@ impl ServerRegistry {
         }
 
         Ok(())
+    }
+
+    /// Acquire an exclusive lock on the registry file.
+    ///
+    /// Creates a lock file and acquires an exclusive file lock using flock (Unix) or
+    /// LockFile (Windows). This prevents TOCTOU races when multiple processes (discovery,
+    /// multiple Orkee instances) are reading/writing the registry concurrently.
+    ///
+    /// The lock file is created if it doesn't exist and permissions are set appropriately.
+    ///
+    /// # Returns
+    ///
+    /// Returns a locked `std::fs::File` handle that will automatically release the lock
+    /// when dropped (RAII pattern).
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the lock file cannot be created or the lock cannot be acquired.
+    async fn acquire_registry_lock(&self) -> Result<std::fs::File, anyhow::Error> {
+        // Ensure .orkee directory exists
+        if let Some(parent) = self.lock_file_path.parent() {
+            tokio::fs::create_dir_all(parent).await.ok();
+        }
+
+        // Open/create lock file (blocking operation)
+        let lock_path = self.lock_file_path.clone();
+        let lock_file = tokio::task::spawn_blocking(move || {
+            std::fs::OpenOptions::new()
+                .create(true)
+                .write(true)
+                .truncate(false)
+                .open(&lock_path)
+        })
+        .await??;
+
+        // Acquire exclusive lock (blocking operation)
+        let locked_file = tokio::task::spawn_blocking(move || {
+            use fs2::FileExt;
+            lock_file.lock_exclusive()?;
+            Ok::<std::fs::File, anyhow::Error>(lock_file)
+        })
+        .await??;
+
+        debug!("Acquired exclusive lock on registry file");
+        Ok(locked_file)
     }
 
     /// Register a new server or update an existing one.
@@ -1066,9 +1117,11 @@ mod tests {
     fn create_test_registry() -> (ServerRegistry, TempDir) {
         let temp_dir = TempDir::new().unwrap();
         let registry_path = temp_dir.path().join("server-registry.json");
+        let lock_file_path = temp_dir.path().join("server-registry.lock");
 
         let registry = ServerRegistry {
             registry_path,
+            lock_file_path,
             entries: Arc::new(RwLock::new(HashMap::new())),
             stale_timeout_minutes: 5,
         };
@@ -1174,6 +1227,7 @@ mod tests {
         // Create new registry instance with same path
         let registry2 = ServerRegistry {
             registry_path: temp_dir.path().join("server-registry.json"),
+            lock_file_path: temp_dir.path().join("server-registry.lock"),
             entries: Arc::new(RwLock::new(HashMap::new())),
             stale_timeout_minutes: 5,
         };
@@ -1196,8 +1250,12 @@ mod tests {
         registry.unregister_server("server1").await.unwrap();
 
         // Create new registry instance
+        let registry_path = temp_dir.path().join("server-registry.json");
+        let lock_file_path = temp_dir.path().join("server-registry.lock");
+
         let registry2 = ServerRegistry {
-            registry_path: temp_dir.path().join("server-registry.json"),
+            registry_path,
+            lock_file_path,
             entries: Arc::new(RwLock::new(HashMap::new())),
             stale_timeout_minutes: 5,
         };
