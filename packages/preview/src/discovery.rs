@@ -131,16 +131,61 @@ async fn discover_server_on_port(port: u16) -> Option<DiscoveredServer> {
         }
     }
 
-    // Extract command line
-    let command: Vec<String> = process.cmd().iter().map(|s| s.to_string()).collect();
-    if command.is_empty() {
+    // Validate parent PID as defense against PID reuse
+    // Development servers should have a parent process (shell/terminal/orkee)
+    // If parent is PID 1 (init/systemd), process is orphaned which is suspicious
+    if let Some(parent_pid) = process.parent() {
+        let parent_pid_u32 = parent_pid.as_u32();
+        if parent_pid_u32 == 1 {
+            warn!(
+                "Skipping PID {} - suspicious parent PID 1 (init/systemd), likely orphaned or PID reuse attack",
+                pid
+            );
+            // For discovery, we're more cautious than registry - reject suspicious processes
+            return None;
+        }
+    } else {
+        warn!(
+            "Skipping PID {} - no parent process, highly suspicious PID reuse attack vector",
+            pid
+        );
         return None;
     }
 
-    // Check if this looks like a development server
+    // Validate process name matches expected development server patterns
+    let process_name = process.name().to_string().to_lowercase();
+    let expected_patterns = [
+        "node", "deno", "bun", "python", "ruby", "php", "java", "dotnet", "go", "cargo", "npm",
+        "yarn", "pnpm", "next", "vite", "webpack", "parcel", "rollup", "django", "flask", "rails",
+        "spring", "express",
+    ];
+
+    let name_matches = expected_patterns
+        .iter()
+        .any(|pattern| process_name.contains(pattern));
+
+    if !name_matches {
+        warn!(
+            "Skipping PID {} - process name '{}' doesn't match expected dev server patterns - possible malicious process squatting on port {}",
+            pid, process_name, port
+        );
+        return None;
+    }
+
+    // Extract command line
+    let command: Vec<String> = process.cmd().iter().map(|s| s.to_string()).collect();
+    if command.is_empty() {
+        warn!(
+            "Skipping PID {} - empty command line, suspicious for port {} listener",
+            pid, port
+        );
+        return None;
+    }
+
+    // Check if this looks like a development server (additional command-line validation)
     if !is_likely_dev_server(&command) {
         debug!(
-            "Process {} on port {} doesn't look like a dev server: {:?}",
+            "Skipping process {} on port {} - command doesn't match dev server patterns: {:?}",
             pid, port, command
         );
         return None;
@@ -506,11 +551,60 @@ pub async fn register_discovered_server(
 pub fn load_env_from_directory(dir: &Path) -> HashMap<String, String> {
     let mut env_vars = HashMap::new();
 
+    // Canonicalize and validate the base directory to prevent path traversal
+    let canonical_dir = match dir.canonicalize() {
+        Ok(path) => path,
+        Err(e) => {
+            warn!(
+                "Failed to canonicalize directory {:?}: {} - refusing to load env files",
+                dir, e
+            );
+            return env_vars;
+        }
+    };
+
+    // Validate the canonical path is a safe location
+    // Allow user's home directory and system temp directories (for tests)
+    let is_safe_location = if let Some(home_dir) = dirs::home_dir() {
+        canonical_dir.starts_with(&home_dir)
+    } else {
+        false
+    } || std::env::temp_dir()
+        .canonicalize()
+        .map(|temp| canonical_dir.starts_with(&temp))
+        .unwrap_or(false);
+
+    if !is_safe_location {
+        warn!(
+            "Directory {:?} is outside safe locations (home or temp) - refusing to load env files for security",
+            canonical_dir
+        );
+        return env_vars;
+    }
+
     // Check for common .env files (in priority order)
     let env_files = [".env.local", ".env.development", ".env"];
 
     for env_file in &env_files {
-        let env_path = dir.join(env_file);
+        let env_path = canonical_dir.join(env_file);
+
+        // Additional path traversal check: ensure the final path is still under canonical_dir
+        match env_path.canonicalize() {
+            Ok(canonical_env_path) => {
+                if !canonical_env_path.starts_with(&canonical_dir) {
+                    warn!(
+                        "Env file path {:?} escapes base directory {:?} - skipping for security",
+                        env_path, canonical_dir
+                    );
+                    continue;
+                }
+            }
+            Err(_) => {
+                // File doesn't exist, which is fine - skip it
+                continue;
+            }
+        }
+
         if env_path.exists() {
             // Use dotenvy to parse the .env file properly
             match dotenvy::from_path_iter(&env_path) {
