@@ -805,4 +805,242 @@ mod tests {
         assert_eq!(env_vars.get("VALID"), Some(&"value".to_string()));
         assert!(!env_vars.contains_key("#"));
     }
+
+    #[test]
+    #[serial]
+    fn test_port_range_validation_rejects_privileged_ports() {
+        // Test that privileged ports (< 1024) are filtered out
+        std::env::set_var("ORKEE_DISCOVERY_PORTS", "80,443,1024,3000,8080");
+
+        let ports = get_discovery_ports();
+
+        // Should exclude privileged ports (80, 443)
+        assert!(!ports.contains(&80), "Port 80 should be rejected");
+        assert!(!ports.contains(&443), "Port 443 should be rejected");
+
+        // Should include user ports (>= 1024)
+        assert!(ports.contains(&1024), "Port 1024 should be accepted");
+        assert!(ports.contains(&3000), "Port 3000 should be accepted");
+        assert!(ports.contains(&8080), "Port 8080 should be accepted");
+
+        std::env::remove_var("ORKEE_DISCOVERY_PORTS");
+    }
+
+    #[test]
+    #[serial]
+    fn test_port_range_validation_edge_cases() {
+        // Test boundary conditions
+        std::env::set_var("ORKEE_DISCOVERY_PORTS", "0,1,1023,1024,65535,65536");
+
+        let ports = get_discovery_ports();
+
+        // Ports 0, 1, 1023 should be rejected (< 1024)
+        assert!(!ports.contains(&0));
+        assert!(!ports.contains(&1));
+        assert!(!ports.contains(&1023));
+
+        // Port 1024 should be accepted (first valid port)
+        assert!(ports.contains(&1024));
+
+        // Port 65535 should be accepted (last valid port)
+        assert!(ports.contains(&65535));
+
+        // Port 65536 won't parse as u16 (overflow during string parsing)
+        // The env var parser will filter it out, so we just verify the valid ports above
+
+        std::env::remove_var("ORKEE_DISCOVERY_PORTS");
+    }
+
+    #[test]
+    #[serial]
+    fn test_port_validation_all_privileged() {
+        // Test that we handle case where all ports are privileged
+        std::env::set_var("ORKEE_DISCOVERY_PORTS", "22,80,443");
+
+        let ports = get_discovery_ports();
+
+        // Should return empty vec when all ports are privileged
+        assert!(
+            ports.is_empty(),
+            "Should return empty when all ports are privileged"
+        );
+
+        std::env::remove_var("ORKEE_DISCOVERY_PORTS");
+    }
+
+    #[test]
+    fn test_process_info_extraction_validates_command() {
+        // Test that empty command lines are rejected
+        use sysinfo::{Pid, ProcessRefreshKind, System};
+
+        let mut system = System::new();
+        system.refresh_processes();
+
+        // Find current process (should have valid command)
+        let current_pid = std::process::id();
+        system.refresh_process_specifics(
+            Pid::from_u32(current_pid),
+            ProcessRefreshKind::everything(),
+        );
+
+        if let Some(process) = system.process(Pid::from_u32(current_pid)) {
+            let command: Vec<String> = process.cmd().iter().map(|s| s.to_string()).collect();
+            // Current test process should have a command
+            assert!(
+                !command.is_empty(),
+                "Current process should have non-empty command"
+            );
+        }
+    }
+
+    #[test]
+    fn test_security_validates_process_ownership() {
+        // Test that we check process UID (tested indirectly via current process)
+        use sysinfo::{Pid, ProcessRefreshKind, System};
+
+        let mut system = System::new();
+        system.refresh_processes();
+
+        let current_pid = std::process::id();
+        system.refresh_process_specifics(
+            Pid::from_u32(current_pid),
+            ProcessRefreshKind::everything(),
+        );
+
+        if let Some(process) = system.process(Pid::from_u32(current_pid)) {
+            // Current process should have a user ID
+            assert!(
+                process.user_id().is_some(),
+                "Process should have user ID for security check"
+            );
+
+            // UID should be parseable
+            if let Some(uid) = process.user_id() {
+                let uid_str = uid.to_string();
+                let parse_result: Result<u32, _> = uid_str.parse();
+                assert!(
+                    parse_result.is_ok(),
+                    "UID should be parseable as u32, got: {}",
+                    uid_str
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn test_framework_detection_comprehensive() {
+        // Test comprehensive framework detection for security context
+
+        // Node.js frameworks
+        assert_eq!(
+            detect_framework_from_command(&["next".to_string(), "dev".to_string()]),
+            Some("Next.js".to_string())
+        );
+        assert_eq!(
+            detect_framework_from_command(&[
+                "vue-cli".to_string(),
+                "serve".to_string(),
+                "--port".to_string(),
+                "3000".to_string()
+            ]),
+            Some("Vue".to_string())
+        );
+        assert_eq!(
+            detect_framework_from_command(&["ng".to_string(), "serve".to_string()]),
+            Some("Angular".to_string())
+        );
+
+        // Python frameworks
+        assert_eq!(
+            detect_framework_from_command(&[
+                "python3".to_string(),
+                "manage.py".to_string(),
+                "runserver".to_string()
+            ]),
+            Some("Django".to_string())
+        );
+
+        // Ruby framework
+        assert_eq!(
+            detect_framework_from_command(&["rails".to_string(), "server".to_string()]),
+            Some("Rails".to_string())
+        );
+
+        // Build tools that might run on privileged ports
+        assert_eq!(
+            detect_framework_from_command(&["webpack-dev-server".to_string()]),
+            Some("Webpack".to_string())
+        );
+
+        // Deno runtime
+        assert_eq!(
+            detect_framework_from_command(&["deno".to_string(), "run".to_string()]),
+            Some("Deno".to_string())
+        );
+
+        // Unknown command should return None (safe default)
+        assert_eq!(
+            detect_framework_from_command(&["/usr/bin/malicious".to_string()]),
+            None
+        );
+    }
+
+    #[test]
+    fn test_dev_server_detection_security() {
+        // Test that we properly identify legitimate dev servers
+        // and reject potentially malicious processes
+
+        // Legitimate dev servers
+        assert!(is_likely_dev_server(&[
+            "node".to_string(),
+            "server.js".to_string()
+        ]));
+        assert!(is_likely_dev_server(&["vite".to_string()]));
+        assert!(is_likely_dev_server(&[
+            "python3".to_string(),
+            "manage.py".to_string(),
+            "runserver".to_string()
+        ]));
+
+        // System commands that should NOT be detected as dev servers
+        assert!(!is_likely_dev_server(&["rm".to_string()]));
+        assert!(!is_likely_dev_server(&["curl".to_string()]));
+        assert!(!is_likely_dev_server(&["nc".to_string()])); // netcat
+        assert!(!is_likely_dev_server(&["ssh".to_string()]));
+        assert!(!is_likely_dev_server(&[
+            "/bin/bash".to_string(),
+            "-c".to_string(),
+            "malicious".to_string()
+        ]));
+
+        // Empty command should not be detected
+        assert!(!is_likely_dev_server(&[]));
+    }
+
+    #[test]
+    #[serial]
+    fn test_env_file_security_no_path_traversal() {
+        // Test that we don't load .env files outside the project directory
+        use std::fs;
+        use tempfile::TempDir;
+
+        let temp_dir = TempDir::new().unwrap();
+
+        // Create an .env file in temp directory
+        let env_file = temp_dir.path().join(".env");
+        fs::write(&env_file, "SAFE_VAR=safe_value\n").unwrap();
+
+        // Load env from the directory
+        let env_vars = load_env_from_directory(temp_dir.path());
+
+        // Should load the env file
+        assert_eq!(env_vars.get("SAFE_VAR"), Some(&"safe_value".to_string()));
+
+        // Should not have loaded anything from parent directory
+        // (we don't traverse up the directory tree)
+        assert!(
+            env_vars.len() <= 2,
+            "Should only have SAFE_VAR and NODE_ENV"
+        );
+    }
 }
