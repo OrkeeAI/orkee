@@ -59,6 +59,7 @@ dirs = "5.0"
 once_cell = "1.19"
 sysinfo = "0.30"
 futures = "0.3"
+dotenvy = "0.15"
 
 # Windows-specific dependencies
 [target.'cfg(windows)'.dependencies]

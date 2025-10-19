@@ -8,7 +8,7 @@ use std::path::{Path, PathBuf};
 use std::process::Stdio;
 use sysinfo::{Pid, ProcessRefreshKind, System};
 use tokio::process::Command;
-use tracing::debug;
+use tracing::{debug, warn};
 
 use crate::registry::{ServerRegistryEntry, GLOBAL_REGISTRY};
 use crate::types::{DevServerStatus, ServerSource};
@@ -39,8 +39,6 @@ pub struct DiscoveredServer {
 
 /// Discover external servers running on common development ports
 pub async fn discover_external_servers() -> Vec<DiscoveredServer> {
-    let mut discovered = Vec::new();
-
     // Get ports to scan from environment or use defaults
     let ports_to_scan = get_discovery_ports();
 
@@ -49,23 +47,17 @@ pub async fn discover_external_servers() -> Vec<DiscoveredServer> {
         ports_to_scan.len()
     );
 
-    for port in ports_to_scan {
-        if let Some(server) = discover_server_on_port(port).await {
-            // Check if this server is already registered
-            if !is_server_already_registered(server.pid, port).await {
-                discovered.push(server);
-            }
-        }
-    }
+    // Scan all ports in parallel for better performance
+    let tasks: Vec<_> = ports_to_scan
+        .into_iter()
+        .map(discover_server_on_port)
+        .collect();
+
+    let results = futures::future::join_all(tasks).await;
+    let discovered: Vec<_> = results.into_iter().flatten().collect();
 
     debug!("Discovered {} new external servers", discovered.len());
     discovered
-}
-
-/// Check if a server is already registered in the global registry
-async fn is_server_already_registered(pid: u32, port: u16) -> bool {
-    let servers = GLOBAL_REGISTRY.get_all_servers().await;
-    servers.iter().any(|s| s.pid == Some(pid) || s.port == port)
 }
 
 /// Get list of ports to scan from environment or use defaults
@@ -73,7 +65,19 @@ fn get_discovery_ports() -> Vec<u16> {
     if let Ok(ports_str) = std::env::var("ORKEE_DISCOVERY_PORTS") {
         ports_str
             .split(',')
-            .filter_map(|s| s.trim().parse().ok())
+            .filter_map(|s| {
+                let port: u16 = s.trim().parse().ok()?;
+                // Only allow user ports (1024-65535) to prevent privilege escalation
+                if port >= 1024 {
+                    Some(port)
+                } else {
+                    warn!(
+                        "Ignoring privileged port {} from ORKEE_DISCOVERY_PORTS",
+                        port
+                    );
+                    None
+                }
+            })
             .collect()
     } else {
         DEFAULT_DISCOVERY_PORTS.to_vec()
@@ -94,8 +98,21 @@ async fn discover_server_on_port(port: u16) -> Option<DiscoveredServer> {
     // Verify the process belongs to the current user (security check)
     if let Some(process_uid) = process.user_id() {
         let current_uid = unsafe { libc::getuid() };
-        if process_uid.to_string().parse::<u32>().ok()? != current_uid {
-            debug!("Skipping process {} - owned by different user", pid);
+        let uid_str = process_uid.to_string();
+        let parsed_uid = uid_str.parse::<u32>().unwrap_or_else(|e| {
+            warn!(
+                "Failed to parse UID '{}' for process {}: {} - denying access for security",
+                uid_str, pid, e
+            );
+            // Return invalid UID that will never match current_uid
+            u32::MAX
+        });
+
+        if parsed_uid != current_uid {
+            debug!(
+                "Skipping process {} - owned by different user (UID {} vs {})",
+                pid, parsed_uid, current_uid
+            );
             return None;
         }
     }
@@ -226,26 +243,32 @@ async fn try_proc_net_tcp_for_port(port: u16) -> Option<u32> {
 
 #[cfg(target_os = "linux")]
 async fn find_pid_by_inode(inode: u64) -> Option<u32> {
-    use std::fs;
+    // Wrap blocking IO in spawn_blocking to prevent blocking the executor
+    tokio::task::spawn_blocking(move || {
+        use std::fs;
 
-    let proc_dir = fs::read_dir("/proc").ok()?;
+        let proc_dir = fs::read_dir("/proc").ok()?;
 
-    for entry in proc_dir.flatten() {
-        let pid_str = entry.file_name();
-        if let Ok(pid) = pid_str.to_str()?.parse::<u32>() {
-            let fd_dir = format!("/proc/{}/fd", pid);
-            if let Ok(fd_entries) = fs::read_dir(fd_dir) {
-                for fd_entry in fd_entries.flatten() {
-                    if let Ok(link) = fs::read_link(fd_entry.path()) {
-                        if link.to_str()? == format!("socket:[{}]", inode) {
-                            return Some(pid);
+        for entry in proc_dir.flatten() {
+            let pid_str = entry.file_name();
+            if let Ok(pid) = pid_str.to_str()?.parse::<u32>() {
+                let fd_dir = format!("/proc/{}/fd", pid);
+                if let Ok(fd_entries) = fs::read_dir(fd_dir) {
+                    for fd_entry in fd_entries.flatten() {
+                        if let Ok(link) = fs::read_link(fd_entry.path()) {
+                            if link.to_str()? == format!("socket:[{}]", inode) {
+                                return Some(pid);
+                            }
                         }
                     }
                 }
             }
         }
-    }
-    None
+        None
+    })
+    .await
+    .ok()
+    .flatten()
 }
 
 /// Fallback for unsupported platforms
@@ -374,27 +397,29 @@ pub async fn register_discovered_server(
 pub fn load_env_from_directory(dir: &Path) -> HashMap<String, String> {
     let mut env_vars = HashMap::new();
 
-    // Check for common .env files
-    let env_files = [".env", ".env.local", ".env.development"];
+    // Check for common .env files (in priority order)
+    let env_files = [".env.local", ".env.development", ".env"];
 
     for env_file in &env_files {
         let env_path = dir.join(env_file);
         if env_path.exists() {
-            if let Ok(contents) = std::fs::read_to_string(&env_path) {
-                for line in contents.lines() {
-                    let line = line.trim();
-
-                    // Skip comments and empty lines
-                    if line.is_empty() || line.starts_with('#') {
-                        continue;
+            // Use dotenvy to parse the .env file properly
+            match dotenvy::from_path_iter(&env_path) {
+                Ok(iter) => {
+                    for item in iter {
+                        match item {
+                            Ok((key, value)) => {
+                                // Only insert if not already set (priority order)
+                                env_vars.entry(key).or_insert(value);
+                            }
+                            Err(e) => {
+                                warn!("Failed to parse env entry in {:?}: {}", env_path, e);
+                            }
+                        }
                     }
-
-                    // Parse KEY=VALUE
-                    if let Some((key, value)) = line.split_once('=') {
-                        let key = key.trim();
-                        let value = value.trim().trim_matches('"').trim_matches('\'');
-                        env_vars.insert(key.to_string(), value.to_string());
-                    }
+                }
+                Err(e) => {
+                    warn!("Failed to load env file {:?}: {}", env_path, e);
                 }
             }
         }

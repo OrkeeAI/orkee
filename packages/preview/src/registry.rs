@@ -445,11 +445,36 @@ impl ServerRegistry {
         entry: ServerRegistryEntry,
     ) -> Result<(), Box<dyn std::error::Error>> {
         let entry_id = entry.id.clone();
+        let entry_pid = entry.pid;
+        let entry_port = entry.port;
 
         // Clone the current registry under read lock, then release
         // This minimizes lock contention during disk I/O
         let snapshot = {
             let registry = self.entries.read().await;
+
+            // Check for duplicate server (same PID AND port) to prevent race conditions
+            // This makes the operation idempotent and safe for concurrent calls
+            // We check both PID and port to uniquely identify a server process
+            let is_duplicate = registry.values().any(|existing| {
+                // Skip checking against the same server ID (allows updates)
+                if existing.id == entry_id {
+                    return false;
+                }
+                // Check if it's the exact same server (same PID and same port)
+                existing.pid.is_some()
+                    && existing.pid == entry_pid
+                    && existing.port == entry_port
+            });
+
+            if is_duplicate {
+                debug!(
+                    "Server already registered (PID: {:?}, Port: {}), skipping",
+                    entry_pid, entry_port
+                );
+                return Ok(());
+            }
+
             let mut snapshot = registry.clone();
             snapshot.insert(entry_id.clone(), entry.clone());
             snapshot
