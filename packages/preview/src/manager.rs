@@ -535,13 +535,59 @@ impl PreviewManager {
     ) -> PreviewResult<ServerInfo> {
         info!("Starting preview server for: {}", project_id);
 
-        // Check if server already exists
+        // Check if server already exists or is in the process of stopping
         {
             let servers = self.active_servers.read().await;
             if let Some(existing) = servers.get(&project_id) {
-                if existing.status == DevServerStatus::Running {
-                    info!("Server already running for project: {}", project_id);
-                    return Ok(existing.clone());
+                match existing.status {
+                    DevServerStatus::Running => {
+                        info!("Server already running for project: {}", project_id);
+                        return Ok(existing.clone());
+                    }
+                    DevServerStatus::Stopping => {
+                        info!(
+                            "Server is currently stopping for project: {}, waiting for it to finish...",
+                            project_id
+                        );
+                        // Release read lock before waiting
+                        drop(servers);
+
+                        // Wait for the background task to complete cleanup
+                        // This prevents race condition where start() is called while stop() is in progress
+                        let max_wait_ms = 6000; // Wait slightly longer than stop's 5s timeout
+                        let poll_interval_ms = 100;
+                        let mut elapsed_ms = 0;
+
+                        while elapsed_ms < max_wait_ms {
+                            tokio::time::sleep(tokio::time::Duration::from_millis(
+                                poll_interval_ms,
+                            ))
+                            .await;
+                            elapsed_ms += poll_interval_ms;
+
+                            let servers = self.active_servers.read().await;
+                            if !servers.contains_key(&project_id) {
+                                info!(
+                                    "Previous server stopped after {}ms, proceeding with start",
+                                    elapsed_ms
+                                );
+                                break;
+                            }
+                        }
+
+                        if elapsed_ms >= max_wait_ms {
+                            warn!(
+                                "Server for project {} is still stopping after {}ms - cannot start yet",
+                                project_id, max_wait_ms
+                            );
+                            return Err(PreviewError::ServerAlreadyRunning {
+                                project_id: project_id.clone(),
+                            });
+                        }
+                    }
+                    _ => {
+                        // Other states (Starting, Crashed, etc.) - allow restart
+                    }
                 }
             }
         }
