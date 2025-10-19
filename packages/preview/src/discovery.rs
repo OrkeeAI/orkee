@@ -1,5 +1,8 @@
 // ABOUTME: Discovery service for detecting externally launched development servers
 // ABOUTME: Scans ports and identifies running processes to track manual server launches
+//
+// TODO: Standardize error handling - consider using PreviewResult instead of Box<dyn Error>
+// for consistency with manager.rs and better error context.
 
 use chrono::Utc;
 use futures::stream::{self, StreamExt};

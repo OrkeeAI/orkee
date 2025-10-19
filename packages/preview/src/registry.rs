@@ -1,3 +1,8 @@
+// TODO: Standardize error handling across preview package
+// Currently registry.rs uses Box<dyn std::error::Error> while manager.rs uses PreviewError.
+// Consider migrating registry functions to use PreviewResult<T> for consistency and better
+// error context. This would require adding registry-specific error variants to PreviewError.
+
 use chrono::{DateTime, Utc};
 use orkee_config::constants;
 use orkee_config::env::parse_env_or_default_with_validation;
