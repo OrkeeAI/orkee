@@ -557,11 +557,6 @@ impl TrayManager {
     }
 
     fn stop_server(app: AppHandle, http_client: Arc<reqwest::Client>, api_port: u16, project_id: String) {
-        // Trigger immediate tray refresh to show "Stopping" status
-        if let Some(tray_manager) = app.try_state::<TrayManager>() {
-            tray_manager.force_refresh();
-        }
-
         tauri::async_runtime::spawn(async move {
             // Validate project_id before making API call
             if let Err(e) = validate_project_id(&project_id) {
@@ -579,6 +574,12 @@ impl TrayManager {
                 Ok(response) => {
                     if response.status().is_success() {
                         info!("Successfully stopped server: {}", project_id);
+
+                        // Refresh tray immediately to show "Stopping" status
+                        // This happens after backend has updated status, so refresh gets correct state
+                        if let Some(tray_manager) = app.try_state::<TrayManager>() {
+                            tray_manager.force_refresh();
+                        }
                     } else {
                         error!("Failed to stop server: HTTP {}", response.status());
                     }
