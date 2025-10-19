@@ -744,7 +744,7 @@ impl PreviewManager {
     /// Get the status of a development server.
     ///
     /// Retrieves information about a running or previously running development server
-    /// for the specified project.
+    /// for the specified project. Checks both local servers and the central registry.
     ///
     /// # Arguments
     ///
@@ -755,8 +755,46 @@ impl PreviewManager {
     /// Returns `Some(ServerInfo)` if a server exists for this project, or `None` if
     /// no server has been started or it has been stopped and removed.
     pub async fn get_server_status(&self, project_id: &str) -> Option<ServerInfo> {
-        let servers = self.active_servers.read().await;
-        servers.get(project_id).cloned()
+        // Check local servers first
+        {
+            let servers = self.active_servers.read().await;
+            if let Some(server_info) = servers.get(project_id) {
+                return Some(server_info.clone());
+            }
+        }
+
+        // If not found locally, check the global registry
+        let registry_servers = GLOBAL_REGISTRY.get_all_servers().await;
+        for entry in registry_servers {
+            if entry.project_id == project_id {
+                // Parse UUID with fallback to new UUID if invalid
+                let id = match Uuid::parse_str(&entry.id) {
+                    Ok(uuid) => uuid,
+                    Err(err) => {
+                        warn!(
+                            "Invalid UUID '{}' in registry entry for project {}: {}. Generating new UUID.",
+                            entry.id, entry.project_id, err
+                        );
+                        Uuid::new_v4()
+                    }
+                };
+
+                return Some(ServerInfo {
+                    id,
+                    project_id: entry.project_id.clone(),
+                    port: entry.port,
+                    pid: entry.pid,
+                    status: entry.status,
+                    preview_url: entry.preview_url,
+                    child: None,
+                    actual_command: entry.actual_command,
+                    framework_name: entry.framework_name,
+                    log_tasks: None,
+                });
+            }
+        }
+
+        None
     }
 
     /// List all active development servers.
