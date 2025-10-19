@@ -170,7 +170,7 @@ async fn find_process_on_port(port: u16) -> Option<u32> {
 #[cfg(target_os = "linux")]
 async fn try_ss_for_port(port: u16) -> Option<u32> {
     let output = Command::new("ss")
-        .args(&["-tlnp", &format!("sport = :{}", port)])
+        .args(["-tlnp", &format!("sport = :{}", port)])
         .stdout(Stdio::piped())
         .stderr(Stdio::null())
         .output()
