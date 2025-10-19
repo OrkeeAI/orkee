@@ -55,8 +55,22 @@ fn copy_orkee_binary() -> Result<(), String> {
         }
     });
 
-    // Source: workspace target/release/orkee
-    let source = workspace_root.join("target").join("release").join("orkee");
+    // Construct target triple for locating the binary
+    // When cross-compiling with --target, cargo puts binaries in target/$TARGET/release/
+    // When building normally, they go in target/release/
+    let target_triple = format!("{}-{}", target_arch, target_os);
+
+    // Try target-specific directory first (cross-compile), then fall back to default
+    let mut source = workspace_root
+        .join("target")
+        .join(&target_triple)
+        .join("release")
+        .join("orkee");
+
+    // If not in target-specific directory, check default location
+    if !source.exists() {
+        source = workspace_root.join("target").join("release").join("orkee");
+    }
 
     // Check if source exists
     if !source.exists() {
