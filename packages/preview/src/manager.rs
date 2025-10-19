@@ -753,7 +753,10 @@ impl PreviewManager {
 
                     while elapsed_ms < max_wait_ms {
                         if !manager.is_process_running(pid) {
-                            info!("Process {} confirmed terminated after {}ms", pid, elapsed_ms);
+                            info!(
+                                "Process {} confirmed terminated after {}ms",
+                                pid, elapsed_ms
+                            );
                             manager
                                 .add_log(
                                     &project_id_owned,
