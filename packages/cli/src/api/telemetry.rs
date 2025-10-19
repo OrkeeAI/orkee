@@ -333,12 +333,8 @@ mod tests {
             assert!(result.is_ok(), "Task should complete successfully");
         }
 
-        // Verify final state is consistent (one of the updates should have won)
-        let final_settings = manager.get_settings().await;
-        assert!(
-            final_settings.first_run || !final_settings.first_run,
-            "Settings should be in valid state"
-        );
+        // Verify final state is retrievable (one of the updates should have won)
+        let _final_settings = manager.get_settings().await;
     }
 
     /// Test error handling for invalid telemetry settings combinations

@@ -3,74 +3,22 @@ use orkee_config::env::parse_env_with_fallback;
 use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
-use std::time::Duration;
 use tauri::Manager;
 use tauri_plugin_shell::process::CommandEvent;
 use tauri_plugin_shell::ShellExt;
 use tracing::{debug, error, info, warn};
 
-mod tray;
 mod server_restart;
+mod tray;
 use tray::TrayManager;
 
 // Track cleanup execution to prevent double cleanup
 static CLEANUP_DONE: AtomicBool = AtomicBool::new(false);
 
-// Timeout constants for cleanup operations
-const CLEANUP_HTTP_TIMEOUT_SECS: u64 = 3;
-const CLEANUP_CONNECT_TIMEOUT_SECS: u64 = 1;
-const CLEANUP_TOTAL_TIMEOUT_SECS: u64 = 3;
-
 // Store the CLI server process handle and ports globally
 struct CliServerState {
     process: Mutex<Option<tauri_plugin_shell::process::CommandChild>>,
     api_port: u16,
-}
-
-/// Perform cleanup of all development servers.
-///
-/// Gracefully stops all running development servers via the preview API before
-/// the application exits. This prevents orphaned server processes. The cleanup
-/// uses short timeouts to avoid blocking application shutdown.
-///
-/// # Arguments
-///
-/// * `api_port` - The API port to connect to for stopping servers
-///
-/// # Returns
-///
-/// Returns `Ok(())` on success. Errors during cleanup are logged but not propagated
-/// to allow shutdown to continue.
-///
-/// # Errors
-///
-/// Returns an error if the HTTP request to stop servers fails, though this is
-/// typically logged and ignored during shutdown.
-async fn cleanup_servers(api_port: u16) -> Result<(), Box<dyn std::error::Error>> {
-    info!("Starting cleanup of dev servers...");
-
-    // Create HTTP client with short timeout
-    let client = reqwest::Client::builder()
-        .timeout(Duration::from_secs(CLEANUP_HTTP_TIMEOUT_SECS))
-        .connect_timeout(Duration::from_secs(CLEANUP_CONNECT_TIMEOUT_SECS))
-        .build()?;
-
-    // Try to stop all preview servers via API
-    let stop_url = format!("http://localhost:{}/api/preview/servers/stop-all", api_port);
-    match client.post(&stop_url).send().await {
-        Ok(response) => {
-            if response.status().is_success() {
-                info!("Successfully stopped all dev servers");
-            } else {
-                error!("Failed to stop dev servers: HTTP {}", response.status());
-            }
-        }
-        Err(e) => {
-            error!("Failed to stop dev servers (API may be down): {}", e);
-        }
-    }
-
-    Ok(())
 }
 
 /// Terminate the Orkee CLI server process.
@@ -149,6 +97,7 @@ fn perform_cleanup(
     context: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
     info!("Starting cleanup ({})...", context);
+    info!("Dev servers will continue running in the background");
 
     // Stop tray polling first
     if let Some(tray_manager) = app_handle.try_state::<TrayManager>() {
@@ -161,53 +110,8 @@ fn perform_cleanup(
         return Ok(()); // No cleanup needed if state doesn't exist
     };
 
-    let api_port = state.api_port;
-
-    // Create a dedicated runtime for cleanup that we own and control
-    // This ensures the runtime won't be dropped before cleanup completes
-    let runtime = match tokio::runtime::Runtime::new() {
-        Ok(rt) => rt,
-        Err(e) => {
-            error!("Failed to create tokio runtime for cleanup: {}", e);
-            warn!("Proceeding to kill CLI process directly");
-            // Kill CLI process directly without async cleanup
-            match state.process.lock() {
-                Ok(mut process) => {
-                    if let Some(child) = process.take() {
-                        kill_cli_process(child);
-                    }
-                }
-                Err(poisoned) => {
-                    recover_cli_process(
-                        poisoned,
-                        &format!("Cleanup without runtime ({})", context),
-                    );
-                }
-            }
-            return Err(Box::new(e));
-        }
-    };
-
-    // Block on cleanup to ensure dev servers are stopped before killing CLI
-    // Using block_on ensures the async operations complete before we continue
-    let cleanup_result = runtime.block_on(async {
-        tokio::time::timeout(
-            Duration::from_secs(CLEANUP_TOTAL_TIMEOUT_SECS),
-            cleanup_servers(api_port),
-        )
-        .await
-    });
-
-    match cleanup_result {
-        Ok(Ok(_)) => info!("Cleanup completed successfully"),
-        Ok(Err(e)) => error!("Cleanup error: {}", e),
-        Err(_) => error!(
-            "Cleanup timed out after {} seconds",
-            CLEANUP_TOTAL_TIMEOUT_SECS
-        ),
-    }
-
-    // Now safe to kill CLI server process after cleanup completes
+    // Kill CLI server process
+    // Dev servers will continue running and will be recovered from registry on next launch
     match state.process.lock() {
         Ok(mut process) => {
             if let Some(child) = process.take() {
@@ -215,13 +119,11 @@ fn perform_cleanup(
             }
         }
         Err(poisoned) => {
-            recover_cli_process(poisoned, &format!("After cleanup ({})", context));
+            recover_cli_process(poisoned, &format!("Cleanup ({})", context));
         }
     }
 
-    // Explicitly drop the runtime to ensure all tasks are terminated
-    drop(runtime);
-
+    info!("Cleanup complete");
     Ok(())
 }
 
@@ -358,7 +260,9 @@ async fn install_cli_macos(app_handle: tauri::AppHandle) -> Result<String, Strin
     {
         // Get the binary path from the app bundle (MacOS directory, not Resources)
         // On macOS, Tauri places externalBin files in Contents/MacOS/
-        let resource_dir = app_handle.path().resource_dir()
+        let resource_dir = app_handle
+            .path()
+            .resource_dir()
             .map_err(|e| format!("Failed to get resource directory: {}", e))?;
 
         // Navigate from Resources to MacOS directory
@@ -428,18 +332,14 @@ fn get_cli_prompt_preference() -> String {
 
     // Read and parse config
     match std::fs::read_to_string(&config_path) {
-        Ok(contents) => {
-            match serde_json::from_str::<serde_json::Value>(&contents) {
-                Ok(config) => {
-                    config
-                        .get("cli_prompt_preference")
-                        .and_then(|v| v.as_str())
-                        .unwrap_or("show")
-                        .to_string()
-                }
-                Err(_) => "show".to_string(),
-            }
-        }
+        Ok(contents) => match serde_json::from_str::<serde_json::Value>(&contents) {
+            Ok(config) => config
+                .get("cli_prompt_preference")
+                .and_then(|v| v.as_str())
+                .unwrap_or("show")
+                .to_string(),
+            Err(_) => "show".to_string(),
+        },
         Err(_) => "show".to_string(),
     }
 }
@@ -457,8 +357,8 @@ fn get_cli_prompt_preference() -> String {
 /// Returns `Ok(())` on success, or `Err(String)` with error details.
 #[tauri::command]
 fn set_cli_prompt_preference(preference: String) -> Result<(), String> {
-    let home_dir = dirs::home_dir()
-        .ok_or_else(|| "Could not determine home directory".to_string())?;
+    let home_dir =
+        dirs::home_dir().ok_or_else(|| "Could not determine home directory".to_string())?;
 
     let orkee_dir = home_dir.join(".orkee");
     let config_path = orkee_dir.join("config.json");
@@ -471,15 +371,17 @@ fn set_cli_prompt_preference(preference: String) -> Result<(), String> {
     let mut config = if config_path.exists() {
         let contents = std::fs::read_to_string(&config_path)
             .map_err(|e| format!("Failed to read config file: {}", e))?;
-        serde_json::from_str::<serde_json::Value>(&contents)
-            .unwrap_or(serde_json::json!({}))
+        serde_json::from_str::<serde_json::Value>(&contents).unwrap_or(serde_json::json!({}))
     } else {
         serde_json::json!({})
     };
 
     // Update the preference
     if let Some(obj) = config.as_object_mut() {
-        obj.insert("cli_prompt_preference".to_string(), serde_json::Value::String(preference));
+        obj.insert(
+            "cli_prompt_preference".to_string(),
+            serde_json::Value::String(preference),
+        );
     }
 
     // Write back to file
@@ -490,6 +392,33 @@ fn set_cli_prompt_preference(preference: String) -> Result<(), String> {
         .map_err(|e| format!("Failed to write config file: {}", e))?;
 
     Ok(())
+}
+
+/// Force an immediate refresh of the system tray menu
+///
+/// Triggers the tray manager to fetch the latest server list and update
+/// the menu immediately, bypassing the polling interval. Useful for instant
+/// UI updates when servers start or stop.
+///
+/// # Arguments
+///
+/// * `app_handle` - Tauri application handle to access the tray manager
+///
+/// # Returns
+///
+/// Returns `Ok(())` if the refresh was triggered successfully.
+///
+/// # Errors
+///
+/// Returns `Err(String)` if the tray manager is not available in app state.
+#[tauri::command]
+fn force_refresh_tray(app_handle: tauri::AppHandle) -> Result<(), String> {
+    if let Some(tray_manager) = app_handle.try_state::<TrayManager>() {
+        tray_manager.force_refresh();
+        Ok(())
+    } else {
+        Err("Tray manager not available".to_string())
+    }
 }
 
 /// Find an available port dynamically.
@@ -578,7 +507,7 @@ pub fn run() {
     tracing_subscriber::fmt()
         .with_env_filter(
             tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info"))
+                .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info")),
         )
         .with_target(false) // Don't show module paths in logs
         .compact() // Use compact format for cleaner output
@@ -714,7 +643,8 @@ pub fn run() {
             check_cli_installed,
             install_cli_macos,
             get_cli_prompt_preference,
-            set_cli_prompt_preference
+            set_cli_prompt_preference,
+            force_refresh_tray
         ])
         .on_window_event(|window, event| {
             match event {

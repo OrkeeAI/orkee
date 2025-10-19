@@ -141,13 +141,25 @@ pub async fn stop_server(
 
 /// Stop all development servers
 pub async fn stop_all_servers(State(state): State<PreviewState>) -> Json<ApiResponse<()>> {
-    info!("Stopping all development servers");
+    info!("Stopping all Orkee-managed development servers");
 
     let servers = state.preview_manager.list_servers().await;
     let mut errors = Vec::new();
     let mut stopped_count = 0;
+    let mut skipped_count = 0;
 
     for server in servers {
+        // Only stop servers that were started by Orkee
+        // External and discovered servers should keep running
+        if server.source != orkee_preview::types::ServerSource::Orkee {
+            info!(
+                "Skipping server for project {} (source: {:?})",
+                server.project_id, server.source
+            );
+            skipped_count += 1;
+            continue;
+        }
+
         match state.preview_manager.stop_server(&server.project_id).await {
             Ok(_) => {
                 info!("Stopped server for project: {}", server.project_id);
@@ -164,7 +176,10 @@ pub async fn stop_all_servers(State(state): State<PreviewState>) -> Json<ApiResp
     }
 
     if errors.is_empty() {
-        info!("Successfully stopped {} servers", stopped_count);
+        info!(
+            "Successfully stopped {} Orkee-managed servers ({} external/discovered servers left running)",
+            stopped_count, skipped_count
+        );
         Json(ApiResponse::success(()))
     } else {
         let error_msg = format!(
@@ -270,6 +285,7 @@ pub async fn list_active_servers(
                 status: format!("{:?}", info.status), // Convert enum to string
                 framework_name: info.framework_name.clone(),
                 started_at: None, // Could add timestamp tracking if needed
+                source: info.source,
             }
         })
         .collect();
@@ -277,6 +293,155 @@ pub async fn list_active_servers(
     Json(ApiResponse::success(ServersResponse {
         servers: server_list,
     }))
+}
+
+/// Discover external servers running on common development ports
+pub async fn discover_servers(State(state): State<PreviewState>) -> Json<ApiResponse<Vec<String>>> {
+    info!("Triggering external server discovery");
+
+    // Run discovery
+    let discovered = orkee_preview::discover_external_servers().await;
+
+    let mut registered_ids = Vec::new();
+
+    // Try to match each discovered server to a project
+    for server in discovered {
+        // Try to find a matching project by path
+        let matched_project = match state.project_manager.list_projects().await {
+            Ok(projects) => projects.into_iter().find(|p| {
+                server
+                    .working_dir
+                    .to_string_lossy()
+                    .contains(&p.project_root)
+            }),
+            Err(e) => {
+                error!("Failed to list projects for matching: {}", e);
+                None
+            }
+        };
+
+        let (project_id, project_name) = if let Some(ref project) = matched_project {
+            (Some(project.id.clone()), Some(project.name.clone()))
+        } else {
+            (None, None)
+        };
+
+        // Register the server
+        match state
+            .preview_manager
+            .register_external_server(server, project_id, project_name)
+            .await
+        {
+            Ok(server_id) => {
+                info!("Registered external server: {}", server_id);
+                registered_ids.push(server_id);
+            }
+            Err(e) => {
+                error!("Failed to register external server: {}", e);
+            }
+        }
+    }
+
+    info!("Registered {} external servers", registered_ids.len());
+
+    Json(ApiResponse::success(registered_ids))
+}
+
+/// Restart an external server using its project configuration
+pub async fn restart_external_server(
+    Path(server_id): Path<String>,
+    State(state): State<PreviewState>,
+) -> Json<ApiResponse<()>> {
+    info!("Restarting external server: {}", server_id);
+
+    // Get all servers to find the one we want
+    let servers = state.preview_manager.list_servers().await;
+    let server = servers.iter().find(|s| s.id.to_string() == server_id);
+
+    let server = match server {
+        Some(s) => s,
+        None => {
+            error!("Server not found: {}", server_id);
+            return Json(ApiResponse::error("Server not found"));
+        }
+    };
+
+    // Check if server has a matched project
+    let project_id = match &server.matched_project_id {
+        Some(id) => id,
+        None => {
+            error!("Cannot restart server {} - no matched project", server_id);
+            return Json(ApiResponse::error(
+                "Cannot restart server - not matched to a project. Please use the dashboard to associate it with a project first.",
+            ));
+        }
+    };
+
+    // Get project configuration
+    let project = match state.project_manager.get_project(project_id).await {
+        Ok(Some(p)) => p,
+        Ok(None) => {
+            error!("Project not found: {}", project_id);
+            return Json(ApiResponse::error("Associated project not found"));
+        }
+        Err(e) => {
+            error!("Failed to get project {}: {}", project_id, e);
+            return Json(ApiResponse::error(format!("Failed to get project: {}", e)));
+        }
+    };
+
+    // Get dev script
+    let dev_script = match &project.dev_script {
+        Some(script) => script,
+        None => {
+            error!("Project {} has no dev_script configured", project_id);
+            return Json(ApiResponse::error(
+                "Project has no dev_script configured. Please add one in the project settings.",
+            ));
+        }
+    };
+
+    // Load environment variables from project directory
+    let project_root = std::path::PathBuf::from(&project.project_root);
+    let env_vars = orkee_preview::load_env_from_directory(&project_root);
+
+    // Restart the server
+    match state
+        .preview_manager
+        .restart_external_server(&server_id, &project_root, dev_script, &env_vars)
+        .await
+    {
+        Ok(()) => {
+            info!("Successfully restarted external server {}", server_id);
+            Json(ApiResponse::success(()))
+        }
+        Err(e) => {
+            error!("Failed to restart external server {}: {}", server_id, e);
+            Json(ApiResponse::error(format!(
+                "Failed to restart server: {}",
+                e
+            )))
+        }
+    }
+}
+
+/// Stop and unregister an external server
+pub async fn stop_external_server(
+    Path(server_id): Path<String>,
+    State(state): State<PreviewState>,
+) -> Json<ApiResponse<()>> {
+    info!("Stopping external server: {}", server_id);
+
+    match state.preview_manager.stop_external_server(&server_id).await {
+        Ok(()) => {
+            info!("Successfully stopped external server {}", server_id);
+            Json(ApiResponse::success(()))
+        }
+        Err(e) => {
+            error!("Failed to stop external server {}: {}", server_id, e);
+            Json(ApiResponse::error(format!("Failed to stop server: {}", e)))
+        }
+    }
 }
 
 /// Health check endpoint for the preview service
@@ -315,6 +480,8 @@ mod tests {
             actual_command: Some("npm run dev".to_string()),
             framework_name: Some("Vite".to_string()),
             log_tasks: None,
+            source: orkee_preview::ServerSource::Orkee,
+            matched_project_id: None,
         }
     }
 

@@ -16,7 +16,7 @@ use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::Child;
 use tokio::process::Command;
 use tokio::sync::RwLock;
-use tracing::{error, info, warn};
+use tracing::{debug, error, info, warn};
 use uuid::Uuid;
 
 /// Result of spawning a development server process with associated metadata.
@@ -72,6 +72,10 @@ pub struct ServerInfo {
     /// Background tasks for log capture (stdout/stderr readers)
     /// Must be aborted when server stops to prevent resource leaks
     pub log_tasks: Option<Vec<tokio::task::JoinHandle<()>>>,
+    /// Source of the server (Orkee, External, or Discovered)
+    pub source: crate::types::ServerSource,
+    /// ID of the matched project (for external/discovered servers)
+    pub matched_project_id: Option<String>,
 }
 
 impl Clone for ServerInfo {
@@ -87,6 +91,8 @@ impl Clone for ServerInfo {
             actual_command: self.actual_command.clone(),
             framework_name: self.framework_name.clone(),
             log_tasks: None, // Don't clone the log capture tasks
+            source: self.source,
+            matched_project_id: self.matched_project_id.clone(),
         }
     }
 }
@@ -221,6 +227,8 @@ impl PreviewManager {
                     actual_command: entry.actual_command,
                     framework_name: entry.framework_name,
                     log_tasks: None,
+                    source: entry.source,
+                    matched_project_id: entry.matched_project_id.clone(),
                 };
                 e.insert(server_info);
             }
@@ -527,13 +535,59 @@ impl PreviewManager {
     ) -> PreviewResult<ServerInfo> {
         info!("Starting preview server for: {}", project_id);
 
-        // Check if server already exists
+        // Check if server already exists or is in the process of stopping
         {
             let servers = self.active_servers.read().await;
             if let Some(existing) = servers.get(&project_id) {
-                if existing.status == DevServerStatus::Running {
-                    info!("Server already running for project: {}", project_id);
-                    return Ok(existing.clone());
+                match existing.status {
+                    DevServerStatus::Running => {
+                        info!("Server already running for project: {}", project_id);
+                        return Ok(existing.clone());
+                    }
+                    DevServerStatus::Stopping => {
+                        info!(
+                            "Server is currently stopping for project: {}, waiting for it to finish...",
+                            project_id
+                        );
+                        // Release read lock before waiting
+                        drop(servers);
+
+                        // Wait for the background task to complete cleanup
+                        // This prevents race condition where start() is called while stop() is in progress
+                        let max_wait_ms = 6000; // Wait slightly longer than stop's 5s timeout
+                        let poll_interval_ms = 100;
+                        let mut elapsed_ms = 0;
+
+                        while elapsed_ms < max_wait_ms {
+                            tokio::time::sleep(tokio::time::Duration::from_millis(
+                                poll_interval_ms,
+                            ))
+                            .await;
+                            elapsed_ms += poll_interval_ms;
+
+                            let servers = self.active_servers.read().await;
+                            if !servers.contains_key(&project_id) {
+                                info!(
+                                    "Previous server stopped after {}ms, proceeding with start",
+                                    elapsed_ms
+                                );
+                                break;
+                            }
+                        }
+
+                        if elapsed_ms >= max_wait_ms {
+                            warn!(
+                                "Server for project {} is still stopping after {}ms - cannot start yet",
+                                project_id, max_wait_ms
+                            );
+                            return Err(PreviewError::ServerAlreadyRunning {
+                                project_id: project_id.clone(),
+                            });
+                        }
+                    }
+                    _ => {
+                        // Other states (Starting, Crashed, etc.) - allow restart
+                    }
                 }
             }
         }
@@ -553,6 +607,8 @@ impl PreviewManager {
             actual_command: None,
             framework_name: None,
             log_tasks: None,
+            source: crate::types::ServerSource::Orkee,
+            matched_project_id: None,
         };
 
         // Try to start the server
@@ -655,7 +711,7 @@ impl PreviewManager {
             servers.get(project_id).cloned()
         };
 
-        if let Some(info) = server_info {
+        if let Some(mut info) = server_info {
             // Add stop log
             self.add_log(
                 project_id,
@@ -663,6 +719,13 @@ impl PreviewManager {
                 format!("Stopping server with PID: {:?}", info.pid),
             )
             .await;
+
+            // Immediately set status to Stopping for instant UI feedback
+            info.status = DevServerStatus::Stopping;
+            {
+                let mut servers = self.active_servers.write().await;
+                servers.insert(project_id.to_string(), info.clone());
+            }
 
             // Abort log capture tasks to prevent resource leaks
             if let Some(log_tasks) = info.log_tasks {
@@ -682,13 +745,13 @@ impl PreviewManager {
                 match child_handle.write().await.kill().await {
                     Ok(_) => {
                         info!(
-                            "Successfully killed process for project {} using child handle",
+                            "Successfully sent kill signal to process for project {} using child handle",
                             project_id
                         );
                         self.add_log(
                             project_id,
                             LogType::System,
-                            "Process terminated via child handle".to_string(),
+                            "Kill signal sent via child handle".to_string(),
                         )
                         .await;
                         killed_via_handle = true;
@@ -721,21 +784,79 @@ impl PreviewManager {
                 }
             }
 
-            // Remove from active servers
-            {
-                let mut servers = self.active_servers.write().await;
-                servers.remove(project_id);
-            }
+            // Spawn background task to monitor process termination
+            // This prevents blocking the API response while waiting for process to die
+            let manager = self.clone();
+            let project_id_owned = project_id.to_string();
+            let pid_to_monitor = info.pid;
 
-            // Remove lock file
-            if let Err(e) = self.remove_lock_file(project_id).await {
-                warn!(
-                    "Failed to remove lock file for project {}: {}",
-                    project_id, e
+            tokio::spawn(async move {
+                // Wait for process to actually terminate before removing from registry
+                if let Some(pid) = pid_to_monitor {
+                    let max_wait_ms = 5000; // Wait up to 5 seconds
+                    let poll_interval_ms = 50; // Check every 50ms
+                    let mut elapsed_ms = 0;
+
+                    while elapsed_ms < max_wait_ms {
+                        if !manager.is_process_running(pid) {
+                            info!(
+                                "Process {} confirmed terminated after {}ms",
+                                pid, elapsed_ms
+                            );
+                            manager
+                                .add_log(
+                                    &project_id_owned,
+                                    LogType::System,
+                                    format!("Process {} terminated (verified)", pid),
+                                )
+                                .await;
+                            break;
+                        }
+
+                        tokio::time::sleep(tokio::time::Duration::from_millis(poll_interval_ms))
+                            .await;
+                        elapsed_ms += poll_interval_ms;
+                    }
+
+                    if elapsed_ms >= max_wait_ms {
+                        warn!(
+                            "Process {} for project {} did not terminate within {}ms, proceeding anyway",
+                            pid, project_id_owned, max_wait_ms
+                        );
+                    }
+                }
+
+                // Remove from active servers (only after process is actually stopped)
+                {
+                    let mut servers = manager.active_servers.write().await;
+                    servers.remove(&project_id_owned);
+                }
+
+                // Clean up logs to prevent unbounded memory growth
+                {
+                    let mut logs = manager.server_logs.write().await;
+                    if let Some(removed_logs) = logs.remove(&project_id_owned) {
+                        debug!(
+                            "Cleaned up {} log entries for stopped server: {}",
+                            removed_logs.len(),
+                            project_id_owned
+                        );
+                    }
+                }
+
+                // Remove lock file
+                if let Err(e) = manager.remove_lock_file(&project_id_owned).await {
+                    warn!(
+                        "Failed to remove lock file for project {}: {}",
+                        project_id_owned, e
+                    );
+                }
+
+                info!(
+                    "Successfully stopped server for project: {}",
+                    project_id_owned
                 );
-            }
-
-            info!("Successfully stopped server for project: {}", project_id);
+            });
         }
 
         Ok(())
@@ -790,6 +911,8 @@ impl PreviewManager {
                     actual_command: entry.actual_command,
                     framework_name: entry.framework_name,
                     log_tasks: None,
+                    source: entry.source,
+                    matched_project_id: entry.matched_project_id.clone(),
                 });
             }
         }
@@ -863,6 +986,8 @@ impl PreviewManager {
                     actual_command: entry.actual_command,
                     framework_name: entry.framework_name,
                     log_tasks: None,
+                    source: entry.source,
+                    matched_project_id: entry.matched_project_id.clone(),
                 };
                 e.insert(server_info);
             }
@@ -912,8 +1037,27 @@ impl PreviewManager {
     }
 
     /// Check if port is available
+    /// Checks both TCP binding and global registry to prevent conflicts with external servers
     async fn is_port_available(&self, port: u16) -> bool {
-        std::net::TcpListener::bind(("127.0.0.1", port)).is_ok()
+        // First check if we can bind to the port
+        if std::net::TcpListener::bind(("127.0.0.1", port)).is_err() {
+            return false;
+        }
+
+        // Also check the global registry for external/discovered servers
+        // This prevents race conditions where an external server is registered but not yet in active_servers
+        let all_servers = GLOBAL_REGISTRY.get_all_servers().await;
+        for server in all_servers {
+            if server.port == port {
+                debug!(
+                    "Port {} is in use by server {} (source: {:?})",
+                    port, server.id, server.source
+                );
+                return false;
+            }
+        }
+
+        true
     }
 
     /// Spawn a server process based on project type
@@ -1266,12 +1410,23 @@ impl PreviewManager {
             .join(format!("{}.json", project_id)))
     }
 
+    /// Check if a process is running by PID (simple check, no validation)
+    /// Used for confirming process termination after kill signal
+    fn is_process_running(&self, pid: u32) -> bool {
+        use sysinfo::{Pid, System};
+
+        let mut system = System::new();
+        system.refresh_processes();
+        system.process(Pid::from_u32(pid)).is_some()
+    }
+
     /// Check if a process is running and matches our spawned process
     /// This prevents PID reuse attacks where a new process reuses an old PID
     fn is_process_running_validated(
         &self,
         pid: u32,
         expected_start_time: Option<chrono::DateTime<Utc>>,
+        expected_cwd: Option<&Path>,
     ) -> bool {
         #[cfg(unix)]
         {
@@ -1317,6 +1472,33 @@ impl PreviewManager {
                             expected_unix,
                             process_start_secs.abs_diff(expected_unix),
                             tolerance_secs
+                        );
+                        return false;
+                    }
+                }
+
+                // Validate current working directory if we have it
+                // This is the most reliable way to detect PID reuse
+                if let Some(expected_path) = expected_cwd {
+                    if let Some(process_cwd) = process.cwd() {
+                        // Canonicalize both paths for comparison
+                        let expected_canonical = expected_path.canonicalize().ok();
+                        let process_canonical = process_cwd.canonicalize().ok();
+
+                        if expected_canonical.is_none()
+                            || process_canonical.is_none()
+                            || expected_canonical != process_canonical
+                        {
+                            warn!(
+                                "PID {} exists but cwd mismatch (process: {:?}, expected: {:?}) - likely PID reuse",
+                                pid, process_cwd, expected_path
+                            );
+                            return false;
+                        }
+                    } else {
+                        warn!(
+                            "PID {} exists but cannot read cwd (process may have changed directories) - rejecting for security",
+                            pid
                         );
                         return false;
                     }
@@ -1392,6 +1574,8 @@ impl PreviewManager {
                 .ok()
                 .and_then(|p| p.parse().ok())
                 .unwrap_or(4001),
+            source: server_info.source,
+            matched_project_id: server_info.matched_project_id.clone(),
         };
 
         if let Err(e) = GLOBAL_REGISTRY.register_server(registry_entry).await {
@@ -1518,7 +1702,13 @@ impl PreviewManager {
         };
 
         // Check if process is still running with validation
-        if self.is_process_running_validated(lock_data.pid, Some(lock_data.started_at)) {
+        // Pass project_root for cwd validation to prevent PID reuse
+        let project_root_path = Path::new(&lock_data.project_root);
+        if self.is_process_running_validated(
+            lock_data.pid,
+            Some(lock_data.started_at),
+            Some(project_root_path),
+        ) {
             // Restore to active_servers
             let server_info = ServerInfo {
                 id: Uuid::new_v4(),
@@ -1531,6 +1721,8 @@ impl PreviewManager {
                 actual_command: None,
                 framework_name: None,
                 log_tasks: None,
+                source: crate::types::ServerSource::Orkee,
+                matched_project_id: None,
             };
 
             let mut servers = self.active_servers.write().await;
@@ -1548,6 +1740,268 @@ impl PreviewManager {
                 info!("Removed stale lock for project: {}", lock_data.project_id);
             }
         }
+
+        Ok(())
+    }
+
+    /// Register an external server discovered via port scanning
+    ///
+    /// This allows tracking of servers that were started manually outside of Orkee.
+    /// The server will be added to both the active servers and the global registry.
+    ///
+    /// # Arguments
+    ///
+    /// * `discovered` - Information about the discovered server
+    /// * `project_id` - Optional project ID to associate with (if matched)
+    /// * `project_name` - Optional project name for display
+    ///
+    /// # Returns
+    ///
+    /// Returns the server ID on success
+    pub async fn register_external_server(
+        &self,
+        discovered: crate::discovery::DiscoveredServer,
+        project_id: Option<String>,
+        project_name: Option<String>,
+    ) -> PreviewResult<String> {
+        let server_id = Uuid::new_v4();
+        let effective_project_id = project_id
+            .clone()
+            .unwrap_or_else(|| format!("external-{}", discovered.port));
+
+        let server_info = ServerInfo {
+            id: server_id,
+            project_id: effective_project_id.clone(),
+            port: discovered.port,
+            pid: Some(discovered.pid),
+            status: DevServerStatus::Running,
+            preview_url: Some(format!("http://localhost:{}", discovered.port)),
+            child: None, // External servers have no child handle
+            actual_command: Some(discovered.command.join(" ")),
+            framework_name: discovered.framework_name.clone(),
+            log_tasks: None,
+            source: if project_id.is_some() {
+                crate::types::ServerSource::Discovered
+            } else {
+                crate::types::ServerSource::External
+            },
+            matched_project_id: project_id.clone(),
+        };
+
+        // Add to active servers
+        {
+            let mut servers = self.active_servers.write().await;
+            servers.insert(effective_project_id.clone(), server_info.clone());
+        }
+
+        // Register in global registry
+        let registry_entry = crate::registry::ServerRegistryEntry {
+            id: server_id.to_string(),
+            project_id: effective_project_id,
+            project_name,
+            project_root: discovered.working_dir,
+            port: discovered.port,
+            pid: Some(discovered.pid),
+            status: DevServerStatus::Running,
+            preview_url: Some(format!("http://localhost:{}", discovered.port)),
+            framework_name: discovered.framework_name,
+            actual_command: Some(discovered.command.join(" ")),
+            started_at: Utc::now(),
+            last_seen: Utc::now(),
+            api_port: std::env::var(constants::ORKEE_API_PORT)
+                .ok()
+                .and_then(|p| p.parse().ok())
+                .unwrap_or(4001),
+            source: server_info.source,
+            matched_project_id: project_id,
+        };
+
+        GLOBAL_REGISTRY
+            .register_server(registry_entry)
+            .await
+            .map_err(|e| PreviewError::ProcessStartFailed {
+                reason: format!("Failed to register in global registry: {}", e),
+            })?;
+
+        info!(
+            "Registered external server on port {} with ID {}",
+            discovered.port, server_id
+        );
+
+        Ok(server_id.to_string())
+    }
+
+    /// Restart an external server using its project configuration
+    ///
+    /// This stops the current process and restarts it using the project's dev_script
+    /// and environment variables. Only works for external servers that have been
+    /// matched to a project in the database.
+    ///
+    /// # Arguments
+    ///
+    /// * `server_id` - The UUID of the server to restart
+    /// * `project_root` - Path to the project root directory
+    /// * `dev_command` - The development command to execute
+    /// * `environment` - Environment variables to set
+    ///
+    /// # Returns
+    ///
+    /// Returns Ok(()) on success
+    pub async fn restart_external_server(
+        &self,
+        server_id: &str,
+        project_root: &Path,
+        dev_command: &str,
+        environment: &HashMap<String, String>,
+    ) -> PreviewResult<()> {
+        // Find the server
+        let server_info = {
+            let servers = self.active_servers.read().await;
+            servers
+                .values()
+                .find(|s| s.id.to_string() == server_id)
+                .cloned()
+        };
+
+        let server_info = server_info.ok_or_else(|| PreviewError::ServerNotRunning {
+            project_id: server_id.to_string(),
+        })?;
+
+        // Verify it's an external server
+        if server_info.source == crate::types::ServerSource::Orkee {
+            return Err(PreviewError::ProcessStartFailed {
+                reason: "Cannot restart Orkee-managed server using external restart method"
+                    .to_string(),
+            });
+        }
+
+        // Stop the current process
+        if let Some(pid) = server_info.pid {
+            info!("Stopping external server PID {} before restart", pid);
+            if let Err(e) = self.kill_process(pid).await {
+                warn!("Failed to kill external server process {}: {}", pid, e);
+            }
+            // Give the process time to stop
+            tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
+        }
+
+        // Start new process using project configuration
+        let mut cmd = Command::new("sh");
+        cmd.arg("-c")
+            .arg(dev_command)
+            .current_dir(project_root)
+            .env("PORT", server_info.port.to_string())
+            .envs(environment)
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .stdin(Stdio::null());
+
+        let child = cmd.spawn().map_err(|e| PreviewError::ProcessSpawnError {
+            command: dev_command.to_string(),
+            error: e.to_string(),
+        })?;
+
+        let new_pid = child.id().ok_or_else(|| PreviewError::ProcessStartFailed {
+            reason: "Failed to get PID of spawned process".to_string(),
+        })?;
+
+        info!(
+            "Restarted external server on port {} with new PID {}",
+            server_info.port, new_pid
+        );
+
+        // Update server info with new PID
+        let mut updated_info = server_info.clone();
+        updated_info.pid = Some(new_pid);
+        updated_info.status = DevServerStatus::Running;
+        updated_info.child = Some(Arc::new(RwLock::new(child)));
+
+        // Update active servers
+        {
+            let mut servers = self.active_servers.write().await;
+            servers.insert(server_info.project_id.clone(), updated_info.clone());
+        }
+
+        // Update registry
+        let registry_entry = crate::registry::ServerRegistryEntry {
+            id: server_id.to_string(),
+            project_id: server_info.project_id.clone(),
+            project_name: None,
+            project_root: project_root.to_path_buf(),
+            port: server_info.port,
+            pid: Some(new_pid),
+            status: DevServerStatus::Running,
+            preview_url: server_info.preview_url.clone(),
+            framework_name: server_info.framework_name.clone(),
+            actual_command: Some(dev_command.to_string()),
+            started_at: Utc::now(),
+            last_seen: Utc::now(),
+            api_port: std::env::var(constants::ORKEE_API_PORT)
+                .ok()
+                .and_then(|p| p.parse().ok())
+                .unwrap_or(4001),
+            source: server_info.source,
+            matched_project_id: server_info.matched_project_id.clone(),
+        };
+
+        GLOBAL_REGISTRY
+            .register_server(registry_entry)
+            .await
+            .map_err(|e| PreviewError::ProcessStartFailed {
+                reason: format!("Failed to update registry after restart: {}", e),
+            })?;
+
+        Ok(())
+    }
+
+    /// Stop an external server by its server ID
+    ///
+    /// This terminates the external server process and removes it from tracking.
+    ///
+    /// # Arguments
+    ///
+    /// * `server_id` - The UUID of the server to stop
+    ///
+    /// # Returns
+    ///
+    /// Returns Ok(()) on success
+    pub async fn stop_external_server(&self, server_id: &str) -> PreviewResult<()> {
+        // Find the server
+        let server_info = {
+            let servers = self.active_servers.read().await;
+            servers
+                .values()
+                .find(|s| s.id.to_string() == server_id)
+                .cloned()
+        };
+
+        let server_info = server_info.ok_or_else(|| PreviewError::ServerNotRunning {
+            project_id: server_id.to_string(),
+        })?;
+
+        // Kill the process if we have a PID
+        if let Some(pid) = server_info.pid {
+            info!("Stopping external server PID {}", pid);
+            if let Err(e) = self.kill_process(pid).await {
+                warn!("Failed to kill external server process {}: {}", pid, e);
+            }
+        }
+
+        // Remove from active servers
+        {
+            let mut servers = self.active_servers.write().await;
+            servers.remove(&server_info.project_id);
+        }
+
+        // Unregister from global registry
+        GLOBAL_REGISTRY
+            .unregister_server(server_id)
+            .await
+            .map_err(|e| PreviewError::ProcessStopFailed {
+                reason: format!("Failed to unregister from global registry: {}", e),
+            })?;
+
+        info!("Stopped and unregistered external server {}", server_id);
 
         Ok(())
     }

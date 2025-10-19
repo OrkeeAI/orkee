@@ -3,17 +3,22 @@
 //! This crate provides functionality for managing development servers
 //! for various project types with crash-resistant operation.
 
+pub mod discovery;
 pub mod manager;
 pub mod registry;
 pub mod types;
 
 // Re-export key types and functions for easier use
+pub use discovery::{
+    discover_external_servers, load_env_from_directory, register_discovered_server,
+    start_periodic_discovery, DiscoveredServer,
+};
 pub use manager::{PreviewManager, ServerInfo};
 pub use registry::{is_process_running_validated, start_periodic_cleanup};
 pub use types::{
     ApiResponse, DevServerConfig, DevServerInstance, DevServerLog, DevServerStatus, Framework,
     LogType, PackageManager, PreviewError, PreviewResult, ProjectDetectionResult, ProjectType,
-    ServerLockData, ServerLogsRequest, ServerLogsResponse, ServerStatusResponse,
+    ServerLockData, ServerLogsRequest, ServerLogsResponse, ServerSource, ServerStatusResponse,
     StartServerRequest, StartServerResponse,
 };
 
@@ -23,8 +28,9 @@ pub use types::{
 /// previously running development servers from lock files. This ensures
 /// that servers started in previous sessions are properly tracked.
 ///
-/// This function also starts a background task that periodically cleans up
-/// stale server entries from the registry (runs every 5 minutes by default).
+/// This function also starts background tasks:
+/// - Registry cleanup: Runs every 2 minutes to remove stale entries
+/// - External server discovery: Runs every 30 seconds to find manually launched servers
 ///
 /// # Returns
 ///
@@ -40,12 +46,15 @@ pub use types::{
 /// async fn main() {
 ///     let manager = init().await.expect("Failed to initialize preview manager");
 ///     // Manager is now ready to start/stop development servers
-///     // Periodic cleanup runs automatically in the background
+///     // Background tasks run automatically
 /// }
 /// ```
 pub async fn init() -> PreviewResult<PreviewManager> {
     // Start periodic cleanup task for stale registry entries
     start_periodic_cleanup();
+
+    // Start periodic discovery of external servers
+    start_periodic_discovery();
 
     Ok(PreviewManager::new_with_recovery().await)
 }

@@ -22,6 +22,7 @@ tauri-build = { version = "2", features = [] }
 [dependencies]
 # Configuration
 orkee-config = { path = "../../config" }
+orkee-preview = { path = "../../preview" }
 
 # NOTE: macos-private-api is required for set_activation_policy() to control macOS app behavior
 # This allows setting Regular policy (shows in Dock/Cmd+Tab) vs Accessory (menu bar only)
