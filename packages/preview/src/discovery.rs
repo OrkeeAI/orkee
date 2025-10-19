@@ -6,6 +6,7 @@
 
 use chrono::Utc;
 use futures::stream::{self, StreamExt};
+#[cfg(unix)]
 use nix::libc;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -100,6 +101,9 @@ async fn discover_server_on_port(port: u16) -> Option<DiscoveredServer> {
     let process = system.process(Pid::from_u32(pid))?;
 
     // Verify the process belongs to the current user (security check)
+    // On Unix: Compare numeric UIDs
+    // On Windows: OS-level access control prevents accessing other users' processes
+    #[cfg(unix)]
     if let Some(process_uid) = process.user_id() {
         // SAFETY: getuid() is always safe to call - it's a simple syscall with no preconditions
         // that reads the real user ID of the calling process from the kernel
@@ -284,18 +288,100 @@ async fn find_pid_by_inode(inode: u64) -> Option<u32> {
     .flatten()
 }
 
-/// Fallback for unsupported platforms (Windows)
+/// Windows implementation using GetExtendedTcpTable API
 ///
-/// External server discovery is currently not supported on Windows.
-/// The implementation requires platform-specific port-to-PID mapping:
-/// - macOS: Uses `lsof` command
-/// - Linux: Parses `/proc/net/tcp` and `/proc/<pid>/fd` symlinks
-/// - Windows: Would require netstat parsing or WinAPI calls (not yet implemented)
-///
-/// TODO: Implement Windows support using one of these approaches:
-/// - Parse `netstat -ano` output to map port to PID
-/// - Use Windows API (GetExtendedTcpTable) via windows-rs crate
-#[cfg(not(any(target_os = "macos", target_os = "linux")))]
+/// Uses the Windows IP Helper API to enumerate all TCP connections and find
+/// which process is listening on the specified port.
+#[cfg(target_os = "windows")]
+async fn find_process_on_port(port: u16) -> Option<u32> {
+    use windows::Win32::NetworkManagement::IpHelper::GetExtendedTcpTable;
+    use windows::Win32::NetworkManagement::IpHelper::TCP_TABLE_OWNER_PID_LISTENER;
+    use windows::Win32::Networking::WinSock::AF_INET;
+
+    tokio::task::spawn_blocking(move || {
+        let mut size: u32 = 0;
+
+        // First call to get required buffer size
+        // SAFETY: GetExtendedTcpTable is safe to call with null pointer to query size
+        let result = unsafe {
+            GetExtendedTcpTable(
+                None,
+                &mut size,
+                false,
+                AF_INET.0 as u32,
+                TCP_TABLE_OWNER_PID_LISTENER,
+                0,
+            )
+        };
+
+        if size == 0 {
+            warn!("GetExtendedTcpTable returned zero size");
+            return None;
+        }
+
+        // Allocate buffer and get actual table
+        let mut buffer = vec![0u8; size as usize];
+
+        // SAFETY: We've allocated a buffer of the size requested by the first call
+        let result = unsafe {
+            GetExtendedTcpTable(
+                Some(buffer.as_mut_ptr() as *mut _),
+                &mut size,
+                false,
+                AF_INET.0 as u32,
+                TCP_TABLE_OWNER_PID_LISTENER,
+                0,
+            )
+        };
+
+        // WIN32_ERROR(0) = NO_ERROR = success
+        if result != 0 {
+            warn!("GetExtendedTcpTable failed with error code: {}", result);
+            return None;
+        }
+
+        // Parse the table structure
+        // Structure layout: DWORD dwNumEntries, followed by array of MIB_TCPROW_OWNER_PID
+        // SAFETY: We've successfully called GetExtendedTcpTable which filled our buffer
+        let num_entries = unsafe { *(buffer.as_ptr() as *const u32) };
+
+        // Each entry is 24 bytes: state(4) + local_addr(4) + local_port(4) + remote_addr(4) + remote_port(4) + owning_pid(4)
+        const ENTRY_SIZE: usize = 24;
+        const LOCAL_PORT_OFFSET: usize = 8;
+        const OWNING_PID_OFFSET: usize = 20;
+
+        for i in 0..num_entries as usize {
+            let entry_offset = 4 + (i * ENTRY_SIZE); // 4 bytes for dwNumEntries
+
+            if entry_offset + ENTRY_SIZE > buffer.len() {
+                break;
+            }
+
+            // SAFETY: We've validated the offset is within buffer bounds
+            let local_port =
+                unsafe { *(buffer.as_ptr().add(entry_offset + LOCAL_PORT_OFFSET) as *const u32) };
+            let owning_pid =
+                unsafe { *(buffer.as_ptr().add(entry_offset + OWNING_PID_OFFSET) as *const u32) };
+
+            // Port is stored in network byte order (big endian)
+            let port_be = ((local_port & 0xFF00) >> 8) | ((local_port & 0x00FF) << 8);
+
+            // TCP_TABLE_OWNER_PID_LISTENER only returns listening sockets, so no state check needed
+            if port_be == port as u32 {
+                debug!("Found process {} listening on port {}", owning_pid, port);
+                return Some(owning_pid);
+            }
+        }
+
+        None
+    })
+    .await
+    .ok()
+    .flatten()
+}
+
+/// Fallback for unsupported platforms (non-Windows/macOS/Linux)
+#[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
 async fn find_process_on_port(_port: u16) -> Option<u32> {
     warn!("Port scanning not supported on this platform - external server discovery disabled");
     None
