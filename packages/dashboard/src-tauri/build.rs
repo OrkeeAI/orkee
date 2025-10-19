@@ -5,6 +5,7 @@ use std::path::PathBuf;
 fn main() {
     // Copy the orkee CLI binary to the binaries folder before building
     if let Err(e) = copy_orkee_binary() {
+        eprintln!("cargo:warning={}", e);
         eprintln!("Error: {}", e);
         std::process::exit(1);
     }
