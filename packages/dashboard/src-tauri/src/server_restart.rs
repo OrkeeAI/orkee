@@ -3,6 +3,7 @@
 
 use crate::tray::validate_project_id;
 use std::time::Duration;
+use tauri::Manager;
 use tracing::{debug, error, info};
 use urlencoding::encode;
 
@@ -39,7 +40,7 @@ fn create_http_client() -> Result<reqwest::Client, reqwest::Error> {
 ///
 /// This function spawns an async task and returns immediately. All error handling
 /// is done within the spawned task via logging.
-pub fn restart_server(api_port: u16, project_id: String) {
+pub fn restart_server(app: tauri::AppHandle, api_port: u16, project_id: String) {
     tauri::async_runtime::spawn(async move {
         // Validate project_id before making API calls
         if let Err(e) = validate_project_id(&project_id) {
@@ -173,6 +174,12 @@ pub fn restart_server(api_port: u16, project_id: String) {
                             project_id,
                             attempt + 1
                         );
+
+                        // Immediately refresh tray menu to show server restarted
+                        if let Some(tray_manager) = app.try_state::<crate::tray::TrayManager>() {
+                            tray_manager.force_refresh();
+                        }
+
                         return;
                     } else if start_response.status().as_u16() == 409 {
                         // 409 Conflict typically means port is still in use

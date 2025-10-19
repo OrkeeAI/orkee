@@ -489,28 +489,28 @@ impl TrayManager {
             }
             id if id.starts_with("restart_external_") => {
                 if let Some(server_id) = id.strip_prefix("restart_external_") {
-                    Self::restart_external_server(http_client.clone(), api_port, server_id.to_string());
+                    Self::restart_external_server(app.clone(), http_client.clone(), api_port, server_id.to_string());
                 } else {
                     error!("Invalid menu event ID format: {}", id);
                 }
             }
             id if id.starts_with("stop_external_") => {
                 if let Some(server_id) = id.strip_prefix("stop_external_") {
-                    Self::stop_external_server(http_client.clone(), api_port, server_id.to_string());
+                    Self::stop_external_server(app.clone(), http_client.clone(), api_port, server_id.to_string());
                 } else {
                     error!("Invalid menu event ID format: {}", id);
                 }
             }
             id if id.starts_with("restart_") => {
                 if let Some(project_id) = id.strip_prefix("restart_") {
-                    server_restart::restart_server(api_port, project_id.to_string());
+                    server_restart::restart_server(app.clone(), api_port, project_id.to_string());
                 } else {
                     error!("Invalid menu event ID format: {}", id);
                 }
             }
             id if id.starts_with("stop_") => {
                 if let Some(project_id) = id.strip_prefix("stop_") {
-                    Self::stop_server(http_client, api_port, project_id.to_string());
+                    Self::stop_server(app.clone(), http_client, api_port, project_id.to_string());
                 } else {
                     error!("Invalid menu event ID format: {}", id);
                 }
@@ -556,7 +556,7 @@ impl TrayManager {
         });
     }
 
-    fn stop_server(http_client: Arc<reqwest::Client>, api_port: u16, project_id: String) {
+    fn stop_server(app: AppHandle, http_client: Arc<reqwest::Client>, api_port: u16, project_id: String) {
         tauri::async_runtime::spawn(async move {
             // Validate project_id before making API call
             if let Err(e) = validate_project_id(&project_id) {
@@ -574,6 +574,11 @@ impl TrayManager {
                 Ok(response) => {
                     if response.status().is_success() {
                         info!("Successfully stopped server: {}", project_id);
+
+                        // Immediately refresh tray menu to show server stopped
+                        if let Some(tray_manager) = app.try_state::<TrayManager>() {
+                            tray_manager.force_refresh();
+                        }
                     } else {
                         error!("Failed to stop server: HTTP {}", response.status());
                     }
@@ -583,7 +588,7 @@ impl TrayManager {
         });
     }
 
-    fn restart_external_server(http_client: Arc<reqwest::Client>, api_port: u16, server_id: String) {
+    fn restart_external_server(app: AppHandle, http_client: Arc<reqwest::Client>, api_port: u16, server_id: String) {
         tauri::async_runtime::spawn(async move {
             let url = format!(
                 "http://{}:{}/api/preview/servers/external/{}/restart",
@@ -595,6 +600,11 @@ impl TrayManager {
                 Ok(response) => {
                     if response.status().is_success() {
                         info!("Successfully restarted external server: {}", server_id);
+
+                        // Immediately refresh tray menu to show server restarted
+                        if let Some(tray_manager) = app.try_state::<TrayManager>() {
+                            tray_manager.force_refresh();
+                        }
                     } else {
                         error!("Failed to restart external server: HTTP {}", response.status());
                     }
@@ -604,7 +614,7 @@ impl TrayManager {
         });
     }
 
-    fn stop_external_server(http_client: Arc<reqwest::Client>, api_port: u16, server_id: String) {
+    fn stop_external_server(app: AppHandle, http_client: Arc<reqwest::Client>, api_port: u16, server_id: String) {
         tauri::async_runtime::spawn(async move {
             let url = format!(
                 "http://{}:{}/api/preview/servers/external/{}/stop",
@@ -616,6 +626,11 @@ impl TrayManager {
                 Ok(response) => {
                     if response.status().is_success() {
                         info!("Successfully stopped external server: {}", server_id);
+
+                        // Immediately refresh tray menu to show server stopped
+                        if let Some(tray_manager) = app.try_state::<TrayManager>() {
+                            tray_manager.force_refresh();
+                        }
                     } else {
                         error!("Failed to stop external server: HTTP {}", response.status());
                     }
