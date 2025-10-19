@@ -35,7 +35,10 @@
     },
     "macOS": {
       "frameworks": [],
-      "minimumSystemVersion": "10.13"
+      "minimumSystemVersion": "10.13",
+      "signingIdentity": null,
+      "providerShortName": null,
+      "entitlements": null
     },
     "windows": {
       "certificateThumbprint": null,

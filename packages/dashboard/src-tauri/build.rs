@@ -55,10 +55,20 @@ fn copy_orkee_binary() -> Result<(), String> {
         }
     });
 
-    // Construct target triple for locating the binary
-    // When cross-compiling with --target, cargo puts binaries in target/$TARGET/release/
-    // When building normally, they go in target/release/
+    // Construct target triple
     let target_triple = format!("{}-{}", target_arch, target_os);
+
+    // Check if binary already exists in binaries/ directory
+    // (prepare-binaries.sh may have already placed it there)
+    let binary_name = format!("orkee-{}", target_triple);
+    let binaries_dir = manifest_dir.join("binaries");
+    let dest = binaries_dir.join(&binary_name);
+
+    if dest.exists() {
+        println!("cargo:warning=Orkee binary already exists at {}, skipping copy", dest.display());
+        println!("cargo:rerun-if-changed={}", dest.display());
+        return Ok(());
+    }
 
     // Try target-specific directory first (cross-compile), then fall back to default
     let mut source = workspace_root
@@ -87,11 +97,6 @@ fn copy_orkee_binary() -> Result<(), String> {
             source.display()
         ));
     }
-
-    // Destination: src-tauri/binaries/orkee-{arch}-{os}
-    let binary_name = format!("orkee-{}-{}", target_arch, target_os);
-    let binaries_dir = manifest_dir.join("binaries");
-    let dest = binaries_dir.join(&binary_name);
 
     // Create binaries directory if it doesn't exist
     if !binaries_dir.exists() {
