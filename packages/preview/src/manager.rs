@@ -16,7 +16,7 @@ use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::Child;
 use tokio::process::Command;
 use tokio::sync::RwLock;
-use tracing::{error, info, warn};
+use tracing::{debug, error, info, warn};
 use uuid::Uuid;
 
 /// Result of spawning a development server process with associated metadata.
@@ -832,6 +832,18 @@ impl PreviewManager {
                     servers.remove(&project_id_owned);
                 }
 
+                // Clean up logs to prevent unbounded memory growth
+                {
+                    let mut logs = manager.server_logs.write().await;
+                    if let Some(removed_logs) = logs.remove(&project_id_owned) {
+                        debug!(
+                            "Cleaned up {} log entries for stopped server: {}",
+                            removed_logs.len(),
+                            project_id_owned
+                        );
+                    }
+                }
+
                 // Remove lock file
                 if let Err(e) = manager.remove_lock_file(&project_id_owned).await {
                     warn!(
@@ -1025,8 +1037,27 @@ impl PreviewManager {
     }
 
     /// Check if port is available
+    /// Checks both TCP binding and global registry to prevent conflicts with external servers
     async fn is_port_available(&self, port: u16) -> bool {
-        std::net::TcpListener::bind(("127.0.0.1", port)).is_ok()
+        // First check if we can bind to the port
+        if std::net::TcpListener::bind(("127.0.0.1", port)).is_err() {
+            return false;
+        }
+
+        // Also check the global registry for external/discovered servers
+        // This prevents race conditions where an external server is registered but not yet in active_servers
+        let all_servers = GLOBAL_REGISTRY.get_all_servers().await;
+        for server in all_servers {
+            if server.port == port {
+                debug!(
+                    "Port {} is in use by server {} (source: {:?})",
+                    port, server.id, server.source
+                );
+                return false;
+            }
+        }
+
+        true
     }
 
     /// Spawn a server process based on project type
@@ -1395,6 +1426,7 @@ impl PreviewManager {
         &self,
         pid: u32,
         expected_start_time: Option<chrono::DateTime<Utc>>,
+        expected_cwd: Option<&Path>,
     ) -> bool {
         #[cfg(unix)]
         {
@@ -1440,6 +1472,33 @@ impl PreviewManager {
                             expected_unix,
                             process_start_secs.abs_diff(expected_unix),
                             tolerance_secs
+                        );
+                        return false;
+                    }
+                }
+
+                // Validate current working directory if we have it
+                // This is the most reliable way to detect PID reuse
+                if let Some(expected_path) = expected_cwd {
+                    if let Some(process_cwd) = process.cwd() {
+                        // Canonicalize both paths for comparison
+                        let expected_canonical = expected_path.canonicalize().ok();
+                        let process_canonical = process_cwd.canonicalize().ok();
+
+                        if expected_canonical.is_none()
+                            || process_canonical.is_none()
+                            || expected_canonical != process_canonical
+                        {
+                            warn!(
+                                "PID {} exists but cwd mismatch (process: {:?}, expected: {:?}) - likely PID reuse",
+                                pid, process_cwd, expected_path
+                            );
+                            return false;
+                        }
+                    } else {
+                        warn!(
+                            "PID {} exists but cannot read cwd (process may have changed directories) - rejecting for security",
+                            pid
                         );
                         return false;
                     }
@@ -1643,7 +1702,13 @@ impl PreviewManager {
         };
 
         // Check if process is still running with validation
-        if self.is_process_running_validated(lock_data.pid, Some(lock_data.started_at)) {
+        // Pass project_root for cwd validation to prevent PID reuse
+        let project_root_path = Path::new(&lock_data.project_root);
+        if self.is_process_running_validated(
+            lock_data.pid,
+            Some(lock_data.started_at),
+            Some(project_root_path),
+        ) {
             // Restore to active_servers
             let server_info = ServerInfo {
                 id: Uuid::new_v4(),
