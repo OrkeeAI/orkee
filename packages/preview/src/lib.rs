@@ -9,7 +9,10 @@ pub mod registry;
 pub mod types;
 
 // Re-export key types and functions for easier use
-pub use discovery::{discover_external_servers, load_env_from_directory, register_discovered_server, start_periodic_discovery, DiscoveredServer};
+pub use discovery::{
+    discover_external_servers, load_env_from_directory, register_discovered_server,
+    start_periodic_discovery, DiscoveredServer,
+};
 pub use manager::{PreviewManager, ServerInfo};
 pub use registry::{is_process_running_validated, start_periodic_cleanup};
 pub use types::{

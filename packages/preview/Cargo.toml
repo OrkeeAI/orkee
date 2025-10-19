@@ -67,3 +67,4 @@ windows = { version = "0.52", features = ["Win32_Foundation", "Win32_Security", 
 [dev-dependencies]
 tempfile = "3.8"
 orkee-projects = { path = "../projects" }
+serial_test = "3.2"

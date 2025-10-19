@@ -4,7 +4,7 @@
 use chrono::Utc;
 use nix::libc;
 use std::collections::HashMap;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::Stdio;
 use sysinfo::{Pid, ProcessRefreshKind, System};
 use tokio::process::Command;
@@ -16,7 +16,7 @@ use crate::types::{DevServerStatus, ServerSource};
 /// Common development server ports to scan
 const DEFAULT_DISCOVERY_PORTS: &[u16] = &[
     3000, 3001, 3002, 3003, // React, Next.js common ports
-    4200,       // Angular
+    4200, // Angular
     5000, 5001, 5173, 5174, // Flask, Vite
     8000, 8001, 8080, 8081, 8888, // General dev servers
     9000, 9001, // Additional common ports
@@ -44,7 +44,10 @@ pub async fn discover_external_servers() -> Vec<DiscoveredServer> {
     // Get ports to scan from environment or use defaults
     let ports_to_scan = get_discovery_ports();
 
-    debug!("Scanning {} ports for external servers", ports_to_scan.len());
+    debug!(
+        "Scanning {} ports for external servers",
+        ports_to_scan.len()
+    );
 
     for port in ports_to_scan {
         if let Some(server) = discover_server_on_port(port).await {
@@ -62,9 +65,7 @@ pub async fn discover_external_servers() -> Vec<DiscoveredServer> {
 /// Check if a server is already registered in the global registry
 async fn is_server_already_registered(pid: u32, port: u16) -> bool {
     let servers = GLOBAL_REGISTRY.get_all_servers().await;
-    servers.iter().any(|s| {
-        s.pid == Some(pid) || s.port == port
-    })
+    servers.iter().any(|s| s.pid == Some(pid) || s.port == port)
 }
 
 /// Get list of ports to scan from environment or use defaults
@@ -107,8 +108,10 @@ async fn discover_server_on_port(port: u16) -> Option<DiscoveredServer> {
 
     // Check if this looks like a development server
     if !is_likely_dev_server(&command) {
-        debug!("Process {} on port {} doesn't look like a dev server: {:?}",
-               pid, port, command);
+        debug!(
+            "Process {} on port {} doesn't look like a dev server: {:?}",
+            pid, port, command
+        );
         return None;
     }
 
@@ -137,7 +140,7 @@ async fn discover_server_on_port(port: u16) -> Option<DiscoveredServer> {
 async fn find_process_on_port(port: u16) -> Option<u32> {
     // Use lsof on macOS
     let output = Command::new("lsof")
-        .args(&["-ti", &format!(":{}", port)])
+        .args(["-ti", &format!(":{}", port)])
         .stdout(Stdio::piped())
         .stderr(Stdio::null())
         .output()
@@ -258,17 +261,34 @@ fn is_likely_dev_server(command: &[String]) -> bool {
 
     // Common development server indicators
     let indicators = [
-        "npm", "yarn", "pnpm", "bun", // Package managers
-        "node", "deno", // JavaScript runtimes
-        "vite", "next", "react-scripts", "webpack", // Build tools
-        "flask", "django", "uvicorn", "gunicorn", // Python servers
-        "rails", "puma", // Ruby
-        "cargo", "trunk", // Rust
-        "dev", "serve", "start", // Common script names
-        "http.server", "SimpleHTTPServer", // Python HTTP servers
+        "npm",
+        "yarn",
+        "pnpm",
+        "bun", // Package managers
+        "node",
+        "deno", // JavaScript runtimes
+        "vite",
+        "next",
+        "react-scripts",
+        "webpack", // Build tools
+        "flask",
+        "django",
+        "uvicorn",
+        "gunicorn", // Python servers
+        "rails",
+        "puma", // Ruby
+        "cargo",
+        "trunk", // Rust
+        "dev",
+        "serve",
+        "start", // Common script names
+        "http.server",
+        "SimpleHTTPServer", // Python HTTP servers
     ];
 
-    indicators.iter().any(|&indicator| command_str.contains(indicator))
+    indicators
+        .iter()
+        .any(|&indicator| command_str.contains(indicator))
 }
 
 /// Detect framework from command line
@@ -320,7 +340,9 @@ pub async fn register_discovered_server(
 
     let entry = ServerRegistryEntry {
         id: server_id.clone(),
-        project_id: project_id.clone().unwrap_or_else(|| format!("external-{}", server.port)),
+        project_id: project_id
+            .clone()
+            .unwrap_or_else(|| format!("external-{}", server.port)),
         project_name,
         project_root: server.working_dir.clone(),
         port: server.port,
@@ -349,7 +371,7 @@ pub async fn register_discovered_server(
 }
 
 /// Get environment variables from .env files in a directory
-pub fn load_env_from_directory(dir: &PathBuf) -> HashMap<String, String> {
+pub fn load_env_from_directory(dir: &Path) -> HashMap<String, String> {
     let mut env_vars = HashMap::new();
 
     // Check for common .env files
@@ -485,7 +507,10 @@ pub fn start_periodic_discovery() -> Option<tokio::task::JoinHandle<()>> {
                             debug!("Auto-registered external server: {}", server_id);
                         }
                         Err(e) => {
-                            debug!("Failed to auto-register external server on port {}: {}", server.port, e);
+                            debug!(
+                                "Failed to auto-register external server on port {}: {}",
+                                server.port, e
+                            );
                         }
                     }
                 }
@@ -499,30 +524,63 @@ pub fn start_periodic_discovery() -> Option<tokio::task::JoinHandle<()>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serial_test::serial;
 
     #[test]
     fn test_is_likely_dev_server() {
         // Should detect npm scripts
-        assert!(is_likely_dev_server(&["npm".to_string(), "run".to_string(), "dev".to_string()]));
-        assert!(is_likely_dev_server(&["yarn".to_string(), "dev".to_string()]));
-        assert!(is_likely_dev_server(&["pnpm".to_string(), "start".to_string()]));
+        assert!(is_likely_dev_server(&[
+            "npm".to_string(),
+            "run".to_string(),
+            "dev".to_string()
+        ]));
+        assert!(is_likely_dev_server(&[
+            "yarn".to_string(),
+            "dev".to_string()
+        ]));
+        assert!(is_likely_dev_server(&[
+            "pnpm".to_string(),
+            "start".to_string()
+        ]));
 
         // Should detect node processes
-        assert!(is_likely_dev_server(&["node".to_string(), "server.js".to_string()]));
-        assert!(is_likely_dev_server(&["/usr/bin/node".to_string(), "index.js".to_string()]));
+        assert!(is_likely_dev_server(&[
+            "node".to_string(),
+            "server.js".to_string()
+        ]));
+        assert!(is_likely_dev_server(&[
+            "/usr/bin/node".to_string(),
+            "index.js".to_string()
+        ]));
 
         // Should detect Python servers
-        assert!(is_likely_dev_server(&["python3".to_string(), "-m".to_string(), "http.server".to_string()]));
-        assert!(is_likely_dev_server(&["flask".to_string(), "run".to_string()]));
-        assert!(is_likely_dev_server(&["uvicorn".to_string(), "main:app".to_string()]));
+        assert!(is_likely_dev_server(&[
+            "python3".to_string(),
+            "-m".to_string(),
+            "http.server".to_string()
+        ]));
+        assert!(is_likely_dev_server(&[
+            "flask".to_string(),
+            "run".to_string()
+        ]));
+        assert!(is_likely_dev_server(&[
+            "uvicorn".to_string(),
+            "main:app".to_string()
+        ]));
 
         // Should detect build tools
         assert!(is_likely_dev_server(&["vite".to_string()]));
         assert!(is_likely_dev_server(&["webpack-dev-server".to_string()]));
 
         // Should reject non-dev processes
-        assert!(!is_likely_dev_server(&["ls".to_string(), "-la".to_string()]));
-        assert!(!is_likely_dev_server(&["grep".to_string(), "pattern".to_string()]));
+        assert!(!is_likely_dev_server(&[
+            "ls".to_string(),
+            "-la".to_string()
+        ]));
+        assert!(!is_likely_dev_server(&[
+            "grep".to_string(),
+            "pattern".to_string()
+        ]));
         assert!(!is_likely_dev_server(&["bash".to_string()]));
     }
 
@@ -534,7 +592,11 @@ mod tests {
             Some("Next.js".to_string())
         );
         assert_eq!(
-            detect_framework_from_command(&["npm".to_string(), "run".to_string(), "next".to_string()]),
+            detect_framework_from_command(&[
+                "npm".to_string(),
+                "run".to_string(),
+                "next".to_string()
+            ]),
             Some("Next.js".to_string())
         );
 
@@ -544,7 +606,11 @@ mod tests {
             Some("Vite".to_string())
         );
         assert_eq!(
-            detect_framework_from_command(&["npm".to_string(), "run".to_string(), "vite".to_string()]),
+            detect_framework_from_command(&[
+                "npm".to_string(),
+                "run".to_string(),
+                "vite".to_string()
+            ]),
             Some("Vite".to_string())
         );
 
@@ -562,7 +628,11 @@ mod tests {
 
         // Django
         assert_eq!(
-            detect_framework_from_command(&["python".to_string(), "manage.py".to_string(), "runserver".to_string()]),
+            detect_framework_from_command(&[
+                "python".to_string(),
+                "manage.py".to_string(),
+                "runserver".to_string()
+            ]),
             Some("Django".to_string())
         );
 
@@ -574,6 +644,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_get_discovery_ports_default() {
         // Clear the environment variable if it exists
         std::env::remove_var("ORKEE_DISCOVERY_PORTS");
@@ -588,6 +659,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_get_discovery_ports_custom() {
         // Set custom ports
         std::env::set_var("ORKEE_DISCOVERY_PORTS", "4000,5000,6000");
@@ -602,6 +674,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_get_discovery_ports_invalid() {
         // Set ports with some invalid values
         std::env::set_var("ORKEE_DISCOVERY_PORTS", "4000,invalid,5000");
@@ -624,11 +697,18 @@ mod tests {
         let env_file = temp_dir.path().join(".env");
 
         // Create a test .env file
-        fs::write(&env_file, "DATABASE_URL=postgres://localhost\nAPI_KEY=secret123\n").unwrap();
+        fs::write(
+            &env_file,
+            "DATABASE_URL=postgres://localhost\nAPI_KEY=secret123\n",
+        )
+        .unwrap();
 
-        let env_vars = load_env_from_directory(&temp_dir.path().to_path_buf());
+        let env_vars = load_env_from_directory(temp_dir.path());
 
-        assert_eq!(env_vars.get("DATABASE_URL"), Some(&"postgres://localhost".to_string()));
+        assert_eq!(
+            env_vars.get("DATABASE_URL"),
+            Some(&"postgres://localhost".to_string())
+        );
         assert_eq!(env_vars.get("API_KEY"), Some(&"secret123".to_string()));
         assert_eq!(env_vars.get("NODE_ENV"), Some(&"development".to_string())); // Auto-added
     }
@@ -642,11 +722,18 @@ mod tests {
         let env_file = temp_dir.path().join(".env");
 
         // Test with quoted values
-        fs::write(&env_file, "QUOTED=\"value with spaces\"\nSINGLE='another value'\n").unwrap();
+        fs::write(
+            &env_file,
+            "QUOTED=\"value with spaces\"\nSINGLE='another value'\n",
+        )
+        .unwrap();
 
-        let env_vars = load_env_from_directory(&temp_dir.path().to_path_buf());
+        let env_vars = load_env_from_directory(temp_dir.path());
 
-        assert_eq!(env_vars.get("QUOTED"), Some(&"value with spaces".to_string()));
+        assert_eq!(
+            env_vars.get("QUOTED"),
+            Some(&"value with spaces".to_string())
+        );
         assert_eq!(env_vars.get("SINGLE"), Some(&"another value".to_string()));
     }
 
@@ -659,9 +746,13 @@ mod tests {
         let env_file = temp_dir.path().join(".env");
 
         // Test with comments and empty lines
-        fs::write(&env_file, "# This is a comment\nVALID=value\n\n# Another comment\n").unwrap();
+        fs::write(
+            &env_file,
+            "# This is a comment\nVALID=value\n\n# Another comment\n",
+        )
+        .unwrap();
 
-        let env_vars = load_env_from_directory(&temp_dir.path().to_path_buf());
+        let env_vars = load_env_from_directory(temp_dir.path());
 
         assert_eq!(env_vars.get("VALID"), Some(&"value".to_string()));
         assert!(!env_vars.contains_key("#"));

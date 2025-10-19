@@ -89,8 +89,14 @@ pub async fn create_router_with_options(dashboard_path: Option<std::path::PathBu
             "/servers/:project_id/activity",
             post(preview::update_server_activity),
         )
-        .route("/servers/external/:server_id/restart", post(preview::restart_external_server))
-        .route("/servers/external/:server_id/stop", post(preview::stop_external_server))
+        .route(
+            "/servers/external/:server_id/restart",
+            post(preview::restart_external_server),
+        )
+        .route(
+            "/servers/external/:server_id/stop",
+            post(preview::stop_external_server),
+        )
         .with_state(preview_state);
 
     // Create git router

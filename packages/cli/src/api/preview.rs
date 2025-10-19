@@ -296,9 +296,7 @@ pub async fn list_active_servers(
 }
 
 /// Discover external servers running on common development ports
-pub async fn discover_servers(
-    State(state): State<PreviewState>,
-) -> Json<ApiResponse<Vec<String>>> {
+pub async fn discover_servers(State(state): State<PreviewState>) -> Json<ApiResponse<Vec<String>>> {
     info!("Triggering external server discovery");
 
     // Run discovery
@@ -310,9 +308,12 @@ pub async fn discover_servers(
     for server in discovered {
         // Try to find a matching project by path
         let matched_project = match state.project_manager.list_projects().await {
-            Ok(projects) => projects
-                .into_iter()
-                .find(|p| server.working_dir.to_string_lossy().contains(&p.project_root)),
+            Ok(projects) => projects.into_iter().find(|p| {
+                server
+                    .working_dir
+                    .to_string_lossy()
+                    .contains(&p.project_root)
+            }),
             Err(e) => {
                 error!("Failed to list projects for matching: {}", e);
                 None
@@ -385,10 +386,7 @@ pub async fn restart_external_server(
         }
         Err(e) => {
             error!("Failed to get project {}: {}", project_id, e);
-            return Json(ApiResponse::error(format!(
-                "Failed to get project: {}",
-                e
-            )));
+            return Json(ApiResponse::error(format!("Failed to get project: {}", e)));
         }
     };
 
@@ -419,7 +417,10 @@ pub async fn restart_external_server(
         }
         Err(e) => {
             error!("Failed to restart external server {}: {}", server_id, e);
-            Json(ApiResponse::error(format!("Failed to restart server: {}", e)))
+            Json(ApiResponse::error(format!(
+                "Failed to restart server: {}",
+                e
+            )))
         }
     }
 }
@@ -431,11 +432,7 @@ pub async fn stop_external_server(
 ) -> Json<ApiResponse<()>> {
     info!("Stopping external server: {}", server_id);
 
-    match state
-        .preview_manager
-        .stop_external_server(&server_id)
-        .await
-    {
+    match state.preview_manager.stop_external_server(&server_id).await {
         Ok(()) => {
             info!("Successfully stopped external server {}", server_id);
             Json(ApiResponse::success(()))

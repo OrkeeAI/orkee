@@ -1591,7 +1591,9 @@ impl PreviewManager {
         project_name: Option<String>,
     ) -> PreviewResult<String> {
         let server_id = Uuid::new_v4();
-        let effective_project_id = project_id.clone().unwrap_or_else(|| format!("external-{}", discovered.port));
+        let effective_project_id = project_id
+            .clone()
+            .unwrap_or_else(|| format!("external-{}", discovered.port));
 
         let server_info = ServerInfo {
             id: server_id,
@@ -1640,7 +1642,9 @@ impl PreviewManager {
             matched_project_id: project_id,
         };
 
-        GLOBAL_REGISTRY.register_server(registry_entry).await
+        GLOBAL_REGISTRY
+            .register_server(registry_entry)
+            .await
             .map_err(|e| PreviewError::ProcessStartFailed {
                 reason: format!("Failed to register in global registry: {}", e),
             })?;
@@ -1679,7 +1683,10 @@ impl PreviewManager {
         // Find the server
         let server_info = {
             let servers = self.active_servers.read().await;
-            servers.values().find(|s| s.id.to_string() == server_id).cloned()
+            servers
+                .values()
+                .find(|s| s.id.to_string() == server_id)
+                .cloned()
         };
 
         let server_info = server_info.ok_or_else(|| PreviewError::ServerNotRunning {
@@ -1689,7 +1696,8 @@ impl PreviewManager {
         // Verify it's an external server
         if server_info.source == crate::types::ServerSource::Orkee {
             return Err(PreviewError::ProcessStartFailed {
-                reason: "Cannot restart Orkee-managed server using external restart method".to_string(),
+                reason: "Cannot restart Orkee-managed server using external restart method"
+                    .to_string(),
             });
         }
 
@@ -1762,7 +1770,9 @@ impl PreviewManager {
             matched_project_id: server_info.matched_project_id.clone(),
         };
 
-        GLOBAL_REGISTRY.register_server(registry_entry).await
+        GLOBAL_REGISTRY
+            .register_server(registry_entry)
+            .await
             .map_err(|e| PreviewError::ProcessStartFailed {
                 reason: format!("Failed to update registry after restart: {}", e),
             })?;
@@ -1785,7 +1795,10 @@ impl PreviewManager {
         // Find the server
         let server_info = {
             let servers = self.active_servers.read().await;
-            servers.values().find(|s| s.id.to_string() == server_id).cloned()
+            servers
+                .values()
+                .find(|s| s.id.to_string() == server_id)
+                .cloned()
         };
 
         let server_info = server_info.ok_or_else(|| PreviewError::ServerNotRunning {
@@ -1807,7 +1820,9 @@ impl PreviewManager {
         }
 
         // Unregister from global registry
-        GLOBAL_REGISTRY.unregister_server(server_id).await
+        GLOBAL_REGISTRY
+            .unregister_server(server_id)
+            .await
             .map_err(|e| PreviewError::ProcessStopFailed {
                 reason: format!("Failed to unregister from global registry: {}", e),
             })?;
