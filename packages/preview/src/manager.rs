@@ -692,13 +692,13 @@ impl PreviewManager {
                 match child_handle.write().await.kill().await {
                     Ok(_) => {
                         info!(
-                            "Successfully killed process for project {} using child handle",
+                            "Successfully sent kill signal to process for project {} using child handle",
                             project_id
                         );
                         self.add_log(
                             project_id,
                             LogType::System,
-                            "Process terminated via child handle".to_string(),
+                            "Kill signal sent via child handle".to_string(),
                         )
                         .await;
                         killed_via_handle = true;
@@ -731,7 +731,37 @@ impl PreviewManager {
                 }
             }
 
-            // Remove from active servers
+            // Wait for process to actually terminate before removing from registry
+            if let Some(pid) = info.pid {
+                let max_wait_ms = 5000; // Wait up to 5 seconds
+                let poll_interval_ms = 50; // Check every 50ms
+                let mut elapsed_ms = 0;
+
+                while elapsed_ms < max_wait_ms {
+                    if !self.is_process_running(pid) {
+                        info!("Process {} confirmed terminated after {}ms", pid, elapsed_ms);
+                        self.add_log(
+                            project_id,
+                            LogType::System,
+                            format!("Process {} terminated (verified)", pid),
+                        )
+                        .await;
+                        break;
+                    }
+
+                    tokio::time::sleep(tokio::time::Duration::from_millis(poll_interval_ms)).await;
+                    elapsed_ms += poll_interval_ms;
+                }
+
+                if elapsed_ms >= max_wait_ms {
+                    warn!(
+                        "Process {} for project {} did not terminate within {}ms, proceeding anyway",
+                        pid, project_id, max_wait_ms
+                    );
+                }
+            }
+
+            // Remove from active servers (only after process is actually stopped)
             {
                 let mut servers = self.active_servers.write().await;
                 servers.remove(project_id);
@@ -1278,6 +1308,16 @@ impl PreviewManager {
             .join(".orkee")
             .join("preview-locks")
             .join(format!("{}.json", project_id)))
+    }
+
+    /// Check if a process is running by PID (simple check, no validation)
+    /// Used for confirming process termination after kill signal
+    fn is_process_running(&self, pid: u32) -> bool {
+        use sysinfo::{Pid, System};
+
+        let mut system = System::new();
+        system.refresh_processes();
+        system.process(Pid::from_u32(pid)).is_some()
     }
 
     /// Check if a process is running and matches our spawned process
