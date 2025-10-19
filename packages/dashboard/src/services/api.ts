@@ -18,27 +18,33 @@ let cachedApiBaseUrl: string | null = null;
 async function getApiBaseUrl(): Promise<string> {
   // Return cached value if available
   if (cachedApiBaseUrl) {
+    console.log(`[API] Using cached API URL: ${cachedApiBaseUrl}`);
     return cachedApiBaseUrl;
   }
+
+  console.log('[API] Determining API base URL...');
+  console.log('[API] isTauriApp():', isTauriApp());
 
   if (isTauriApp()) {
     try {
       // Get the dynamically assigned port from Tauri
+      console.log('[API] Fetching dynamic port from Tauri...');
       const port = await getApiPort();
       cachedApiBaseUrl = `http://localhost:${port}`;
-      console.log(`Using dynamic API port: ${port}`);
+      console.log(`[API] ✓ Using dynamic Tauri API port: ${port} (URL: ${cachedApiBaseUrl})`);
       return cachedApiBaseUrl;
     } catch (error) {
-      console.error('Failed to get API port from Tauri:', error);
+      console.error('[API] ✗ Failed to get API port from Tauri:', error);
       // Fallback to default
       cachedApiBaseUrl = DEFAULT_API_BASE_URL;
+      console.warn(`[API] Falling back to default: ${cachedApiBaseUrl}`);
       return cachedApiBaseUrl;
     }
   }
 
   // Web mode: use env var or default
   cachedApiBaseUrl = DEFAULT_API_BASE_URL;
-  console.log(`Using API port: ${API_PORT}`);
+  console.log(`[API] Web mode - using port: ${API_PORT} (URL: ${cachedApiBaseUrl})`);
   return cachedApiBaseUrl;
 }
 
@@ -159,6 +165,13 @@ export interface PreviewApiResponse<T> {
   error?: string;
 }
 
+interface ServersListResponse {
+  servers: Array<{
+    project_id: string;
+    [key: string]: unknown;
+  }>;
+}
+
 export const previewService = {
   async getActiveServers(): Promise<string[]> {
     try {
@@ -167,8 +180,11 @@ export const previewService = {
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
-      const result: PreviewApiResponse<string[]> = await response.json();
-      return result.success ? result.data : [];
+      const result: PreviewApiResponse<ServersListResponse> = await response.json();
+      if (result.success && result.data && result.data.servers) {
+        return result.data.servers.map(s => s.project_id);
+      }
+      return [];
     } catch (error) {
       console.error('Failed to fetch active servers:', error);
       return [];

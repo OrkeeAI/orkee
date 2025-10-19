@@ -72,6 +72,7 @@ pub async fn create_router_with_options(dashboard_path: Option<std::path::PathBu
     let preview_router = Router::new()
         .route("/health", get(preview::health_check))
         .route("/servers", get(preview::list_active_servers))
+        .route("/servers/discover", get(preview::discover_servers))
         .route("/servers/stop-all", post(preview::stop_all_servers))
         .route("/servers/:project_id/start", post(preview::start_server))
         .route("/servers/:project_id/stop", post(preview::stop_server))
@@ -88,6 +89,8 @@ pub async fn create_router_with_options(dashboard_path: Option<std::path::PathBu
             "/servers/:project_id/activity",
             post(preview::update_server_activity),
         )
+        .route("/servers/external/:server_id/restart", post(preview::restart_external_server))
+        .route("/servers/external/:server_id/stop", post(preview::stop_external_server))
         .with_state(preview_state);
 
     // Create git router

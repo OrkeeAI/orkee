@@ -43,6 +43,15 @@ pub struct ServerRegistryEntry {
     pub last_seen: DateTime<Utc>,
     /// Port of the Orkee API instance that manages this server
     pub api_port: u16,
+    /// Source of the server (Orkee, External, or Discovered)
+    #[serde(default = "default_server_source")]
+    pub source: crate::types::ServerSource,
+    /// ID of the matched project (for external/discovered servers)
+    pub matched_project_id: Option<String>,
+}
+
+fn default_server_source() -> crate::types::ServerSource {
+    crate::types::ServerSource::Orkee
 }
 
 /// Central registry for tracking all development servers across Orkee instances.
@@ -780,6 +789,8 @@ impl ServerRegistry {
                                         .unwrap_or_else(Utc::now),
                                     last_seen: Utc::now(),
                                     api_port,
+                                    source: crate::types::ServerSource::Orkee,
+                                    matched_project_id: None,
                                 };
 
                                 // Check if process is still running with validation
@@ -1047,6 +1058,8 @@ mod tests {
             started_at: Utc::now(),
             last_seen: Utc::now(),
             api_port: 4001,
+            source: crate::types::ServerSource::Orkee,
+            matched_project_id: None,
         }
     }
 

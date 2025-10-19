@@ -51,6 +51,28 @@ impl PackageManager {
     }
 }
 
+/// Source of a development server
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum ServerSource {
+    /// Server started by Orkee
+    Orkee,
+    /// External server manually registered
+    External,
+    /// External server discovered automatically
+    Discovered,
+}
+
+impl ServerSource {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            ServerSource::Orkee => "orkee",
+            ServerSource::External => "external",
+            ServerSource::Discovered => "discovered",
+        }
+    }
+}
+
 /// Status of a development server
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -277,6 +299,7 @@ pub struct ServerStatusInfo {
     pub status: String,
     pub framework_name: Option<String>,
     pub started_at: Option<DateTime<Utc>>,
+    pub source: ServerSource,
 }
 
 /// Response containing list of servers

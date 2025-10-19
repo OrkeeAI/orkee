@@ -1,4 +1,17 @@
 import { apiClient } from './api';
+import { isTauriApp } from '../lib/platform';
+
+// Helper to refresh tray menu in Tauri app
+async function refreshTrayMenu() {
+  if (isTauriApp()) {
+    try {
+      const { invoke } = await import('@tauri-apps/api/core');
+      await invoke('force_refresh_tray');
+    } catch (error) {
+      console.warn('Failed to refresh tray menu:', error);
+    }
+  }
+}
 
 // Types matching the Rust backend
 export interface DevServerInstance {
@@ -71,6 +84,9 @@ class PreviewService {
       throw new Error(apiResponse.error || 'Failed to start server');
     }
 
+    // Immediately refresh tray menu to show new server
+    refreshTrayMenu();
+
     return apiResponse.data.instance;
   }
 
@@ -91,6 +107,9 @@ class PreviewService {
     if (!apiResponse.success) {
       throw new Error(apiResponse.error || 'Failed to stop server');
     }
+
+    // Immediately refresh tray menu to remove stopped server
+    refreshTrayMenu();
   }
 
   /**

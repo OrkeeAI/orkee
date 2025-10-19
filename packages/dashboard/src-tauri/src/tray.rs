@@ -3,7 +3,7 @@
 
 use orkee_config::constants;
 use orkee_config::env::parse_env_or_default_with_validation;
-use serde::{Deserialize, Serialize};
+use orkee_preview::types::{ApiResponse, ServerSource, ServerStatusInfo, ServersResponse};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
@@ -25,7 +25,8 @@ const DEFAULT_HTTP_CONNECT_TIMEOUT_SECS: u64 = 2;
 
 // Polling and debouncing constants
 // Default polling interval (can be overridden via ORKEE_TRAY_POLL_INTERVAL_SECS env var)
-const DEFAULT_SERVER_POLLING_INTERVAL_SECS: u64 = 5;
+// Set to 1 second for instant updates when servers start/stop
+const DEFAULT_SERVER_POLLING_INTERVAL_SECS: u64 = 1;
 // Fast polling when servers are changing (starting/stopping)
 const FAST_POLLING_INTERVAL_SECS: u64 = 1;
 // Slow polling when servers are stable (30s reduces resource usage for idle state)
@@ -239,28 +240,6 @@ pub struct TrayManager {
     http_client: Arc<reqwest::Client>,
 }
 
-#[derive(Debug, Deserialize, Serialize, Clone)]
-struct ServerInfo {
-    id: String,
-    project_id: String,
-    project_name: Option<String>,
-    port: u16,
-    url: String,
-    status: String,
-    framework_name: Option<String>,
-    started_at: Option<String>,
-}
-
-#[derive(Debug, Deserialize)]
-struct ApiResponse<T> {
-    data: Option<T>,
-}
-
-#[derive(Debug, Deserialize)]
-struct ServersResponse {
-    servers: Vec<ServerInfo>,
-}
-
 impl TrayManager {
     pub fn new(app_handle: AppHandle, api_port: u16) -> Self {
         // Create HTTP client once with connection pooling enabled by default
@@ -353,7 +332,7 @@ impl TrayManager {
 
     fn build_menu(
         app_handle: &AppHandle,
-        servers: Vec<ServerInfo>,
+        servers: Vec<ServerStatusInfo>,
     ) -> Result<Menu<Wry>, Box<dyn std::error::Error>> {
         debug!("Building menu with {} servers", servers.len());
         for (i, server) in servers.iter().enumerate() {
@@ -388,10 +367,17 @@ impl TrayManager {
                 let server_name = server.project_name.as_deref().unwrap_or(&server.project_id);
                 let sanitized_name = sanitize_menu_text(server_name);
 
+                // Add visual indicator for server source
+                let source_indicator = match server.source {
+                    ServerSource::Orkee => "",
+                    ServerSource::External => " (External)",
+                    ServerSource::Discovered => " (Auto-detected)",
+                };
+
                 // Build submenu for this server
                 let mut submenu_builder = SubmenuBuilder::new(
                     app_handle,
-                    format!("{} - Port {}", sanitized_name, server.port),
+                    format!("{} - Port {}{}", sanitized_name, server.port, source_indicator),
                 );
 
                 // Open in browser - uses server.id for direct server reference
@@ -410,19 +396,40 @@ impl TrayManager {
 
                 submenu_builder = submenu_builder.separator();
 
-                // Restart server - uses project_id for project-level API operations
-                let restart_item = MenuItemBuilder::with_id(
-                    format!("restart_{}", server.project_id),
-                    "Restart Server",
-                )
-                .build(app_handle)?;
-                submenu_builder = submenu_builder.item(&restart_item);
-
-                // Stop server - uses project_id for project-level API operations
-                let stop_item =
-                    MenuItemBuilder::with_id(format!("stop_{}", server.project_id), "Stop Server")
+                // For external servers, restart uses a different API endpoint
+                match server.source {
+                    ServerSource::Orkee => {
+                        // Restart server - uses project_id for project-level API operations
+                        let restart_item = MenuItemBuilder::with_id(
+                            format!("restart_{}", server.project_id),
+                            "Restart Server",
+                        )
                         .build(app_handle)?;
-                submenu_builder = submenu_builder.item(&stop_item);
+                        submenu_builder = submenu_builder.item(&restart_item);
+
+                        // Stop server - uses project_id for project-level API operations
+                        let stop_item =
+                            MenuItemBuilder::with_id(format!("stop_{}", server.project_id), "Stop Server")
+                                .build(app_handle)?;
+                        submenu_builder = submenu_builder.item(&stop_item);
+                    }
+                    ServerSource::External | ServerSource::Discovered => {
+                        // External servers use different endpoints with server.id
+                        let restart_item = MenuItemBuilder::with_id(
+                            format!("restart_external_{}", server.id),
+                            "Restart Server",
+                        )
+                        .build(app_handle)?;
+                        submenu_builder = submenu_builder.item(&restart_item);
+
+                        let stop_item = MenuItemBuilder::with_id(
+                            format!("stop_external_{}", server.id),
+                            "Stop Tracking",
+                        )
+                        .build(app_handle)?;
+                        submenu_builder = submenu_builder.item(&stop_item);
+                    }
+                }
 
                 let submenu = submenu_builder.build()?;
                 menu_builder = menu_builder.item(&submenu);
@@ -476,6 +483,20 @@ impl TrayManager {
             id if id.starts_with("copy_") => {
                 if let Some(server_id) = id.strip_prefix("copy_") {
                     Self::copy_server_url(app.clone(), api_port, server_id.to_string());
+                } else {
+                    error!("Invalid menu event ID format: {}", id);
+                }
+            }
+            id if id.starts_with("restart_external_") => {
+                if let Some(server_id) = id.strip_prefix("restart_external_") {
+                    Self::restart_external_server(http_client.clone(), api_port, server_id.to_string());
+                } else {
+                    error!("Invalid menu event ID format: {}", id);
+                }
+            }
+            id if id.starts_with("stop_external_") => {
+                if let Some(server_id) = id.strip_prefix("stop_external_") {
+                    Self::stop_external_server(http_client.clone(), api_port, server_id.to_string());
                 } else {
                     error!("Invalid menu event ID format: {}", id);
                 }
@@ -562,9 +583,51 @@ impl TrayManager {
         });
     }
 
+    fn restart_external_server(http_client: Arc<reqwest::Client>, api_port: u16, server_id: String) {
+        tauri::async_runtime::spawn(async move {
+            let url = format!(
+                "http://{}:{}/api/preview/servers/external/{}/restart",
+                get_api_host(),
+                api_port,
+                encode(&server_id)
+            );
+            match http_client.post(&url).send().await {
+                Ok(response) => {
+                    if response.status().is_success() {
+                        info!("Successfully restarted external server: {}", server_id);
+                    } else {
+                        error!("Failed to restart external server: HTTP {}", response.status());
+                    }
+                }
+                Err(e) => error!("Failed to restart external server: {}", e),
+            }
+        });
+    }
+
+    fn stop_external_server(http_client: Arc<reqwest::Client>, api_port: u16, server_id: String) {
+        tauri::async_runtime::spawn(async move {
+            let url = format!(
+                "http://{}:{}/api/preview/servers/external/{}/stop",
+                get_api_host(),
+                api_port,
+                encode(&server_id)
+            );
+            match http_client.post(&url).send().await {
+                Ok(response) => {
+                    if response.status().is_success() {
+                        info!("Successfully stopped external server: {}", server_id);
+                    } else {
+                        error!("Failed to stop external server: HTTP {}", response.status());
+                    }
+                }
+                Err(e) => error!("Failed to stop external server: {}", e),
+            }
+        });
+    }
+
     async fn fetch_servers_static(
         api_port: u16,
-    ) -> Result<Vec<ServerInfo>, Box<dyn std::error::Error + Send + Sync>> {
+    ) -> Result<Vec<ServerStatusInfo>, Box<dyn std::error::Error + Send + Sync>> {
         let client = Self::create_http_client()?;
         let url = format!("http://{}:{}/api/preview/servers", get_api_host(), api_port);
         let response = client.get(&url).send().await?;
@@ -583,7 +646,7 @@ impl TrayManager {
 
     async fn fetch_servers(
         &self,
-    ) -> Result<Vec<ServerInfo>, Box<dyn std::error::Error + Send + Sync>> {
+    ) -> Result<Vec<ServerStatusInfo>, Box<dyn std::error::Error + Send + Sync>> {
         let url = format!(
             "http://{}:{}/api/preview/servers",
             get_api_host(),
@@ -658,6 +721,52 @@ impl TrayManager {
     /// Stop the server polling loop
     pub fn stop_polling(&self) {
         self.shutdown_signal.store(true, Ordering::Relaxed);
+    }
+
+    /// Force an immediate refresh of the tray menu
+    ///
+    /// Fetches the latest server list and updates the tray menu immediately,
+    /// bypassing the polling interval. Useful for instant updates when servers
+    /// start or stop.
+    pub fn force_refresh(&self) {
+        let api_port = self.api_port;
+        let app_handle = self.app_handle.clone();
+        let tray_icon = self.tray_icon.clone();
+
+        tauri::async_runtime::spawn(async move {
+            debug!("Force refresh triggered - fetching servers immediately");
+
+            match Self::fetch_servers_static(api_port).await {
+                Ok(servers) => {
+                    debug!("Force refresh: Found {} servers", servers.len());
+
+                    match Self::build_menu(&app_handle, servers) {
+                        Ok(new_menu) => {
+                            match tray_icon.lock() {
+                                Ok(tray_guard) => {
+                                    if let Some(tray) = tray_guard.as_ref() {
+                                        if let Err(e) = tray.set_menu(Some(new_menu)) {
+                                            error!("Force refresh: Failed to update tray menu: {}", e);
+                                        } else {
+                                            info!("Force refresh: Tray menu updated successfully");
+                                        }
+                                    }
+                                }
+                                Err(e) => {
+                                    error!("Force refresh: Failed to lock tray_icon: {}", e);
+                                }
+                            }
+                        }
+                        Err(e) => {
+                            error!("Force refresh: Failed to build menu: {}", e);
+                        }
+                    }
+                }
+                Err(e) => {
+                    error!("Force refresh: Failed to fetch servers: {}", e);
+                }
+            }
+        });
     }
 
     pub fn start_server_polling(&self) {
@@ -833,7 +942,7 @@ impl TrayManager {
 /// This function computes a stable hash based on server id, status, and port.
 /// The hash is order-independent by using a BTreeMap which automatically maintains sorted order.
 /// This is more efficient than creating and sorting a vector, especially for large server lists.
-fn compute_servers_hash(servers: &[ServerInfo]) -> u64 {
+fn compute_servers_hash(servers: &[ServerStatusInfo]) -> u64 {
     use std::collections::hash_map::DefaultHasher;
     use std::collections::BTreeMap;
     use std::hash::{Hash, Hasher};
@@ -861,8 +970,8 @@ mod tests {
     // Global mutex to serialize environment variable tests
     static ENV_TEST_MUTEX: Mutex<()> = Mutex::new(());
 
-    fn create_test_server(id: &str, project_id: &str, status: &str, port: u16) -> ServerInfo {
-        ServerInfo {
+    fn create_test_server(id: &str, project_id: &str, status: &str, port: u16) -> ServerStatusInfo {
+        ServerStatusInfo {
             id: id.to_string(),
             project_id: project_id.to_string(),
             project_name: Some(format!("Project {}", project_id)),
@@ -870,14 +979,15 @@ mod tests {
             url: format!("http://localhost:{}", port),
             status: status.to_string(),
             framework_name: Some("test-framework".to_string()),
-            started_at: Some("2024-01-01T00:00:00Z".to_string()),
+            started_at: None,
+            source: ServerSource::Orkee,
         }
     }
 
     #[test]
     fn test_servers_hash_empty_lists() {
-        let a: Vec<ServerInfo> = vec![];
-        let b: Vec<ServerInfo> = vec![];
+        let a: Vec<ServerStatusInfo> = vec![];
+        let b: Vec<ServerStatusInfo> = vec![];
         assert_eq!(compute_servers_hash(&a), compute_servers_hash(&b));
     }
 
@@ -967,10 +1077,11 @@ mod tests {
             "url": "http://localhost:3000",
             "status": "running",
             "framework_name": "vite",
-            "started_at": "2024-01-01T00:00:00Z"
+            "started_at": "2024-01-01T00:00:00Z",
+            "source": "orkee"
         }"#;
 
-        let server: ServerInfo = serde_json::from_str(json).expect("Failed to deserialize");
+        let server: ServerStatusInfo = serde_json::from_str(json).expect("Failed to deserialize");
         assert_eq!(server.id, "test-id");
         assert_eq!(server.project_id, "test-project");
         assert_eq!(server.project_name, Some("Test Project".to_string()));
@@ -987,10 +1098,11 @@ mod tests {
             "project_id": "test-project",
             "port": 3000,
             "url": "http://localhost:3000",
-            "status": "running"
+            "status": "running",
+            "source": "orkee"
         }"#;
 
-        let server: ServerInfo = serde_json::from_str(json).expect("Failed to deserialize");
+        let server: ServerStatusInfo = serde_json::from_str(json).expect("Failed to deserialize");
         assert_eq!(server.id, "test-id");
         assert_eq!(server.project_name, None);
         assert_eq!(server.framework_name, None);

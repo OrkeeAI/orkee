@@ -72,6 +72,10 @@ pub struct ServerInfo {
     /// Background tasks for log capture (stdout/stderr readers)
     /// Must be aborted when server stops to prevent resource leaks
     pub log_tasks: Option<Vec<tokio::task::JoinHandle<()>>>,
+    /// Source of the server (Orkee, External, or Discovered)
+    pub source: crate::types::ServerSource,
+    /// ID of the matched project (for external/discovered servers)
+    pub matched_project_id: Option<String>,
 }
 
 impl Clone for ServerInfo {
@@ -87,6 +91,8 @@ impl Clone for ServerInfo {
             actual_command: self.actual_command.clone(),
             framework_name: self.framework_name.clone(),
             log_tasks: None, // Don't clone the log capture tasks
+            source: self.source,
+            matched_project_id: self.matched_project_id.clone(),
         }
     }
 }
@@ -221,6 +227,8 @@ impl PreviewManager {
                     actual_command: entry.actual_command,
                     framework_name: entry.framework_name,
                     log_tasks: None,
+                    source: entry.source,
+                    matched_project_id: entry.matched_project_id.clone(),
                 };
                 e.insert(server_info);
             }
@@ -553,6 +561,8 @@ impl PreviewManager {
             actual_command: None,
             framework_name: None,
             log_tasks: None,
+            source: crate::types::ServerSource::Orkee,
+            matched_project_id: None,
         };
 
         // Try to start the server
@@ -790,6 +800,8 @@ impl PreviewManager {
                     actual_command: entry.actual_command,
                     framework_name: entry.framework_name,
                     log_tasks: None,
+                    source: entry.source,
+                    matched_project_id: entry.matched_project_id.clone(),
                 });
             }
         }
@@ -863,6 +875,8 @@ impl PreviewManager {
                     actual_command: entry.actual_command,
                     framework_name: entry.framework_name,
                     log_tasks: None,
+                    source: entry.source,
+                    matched_project_id: entry.matched_project_id.clone(),
                 };
                 e.insert(server_info);
             }
@@ -1392,6 +1406,8 @@ impl PreviewManager {
                 .ok()
                 .and_then(|p| p.parse().ok())
                 .unwrap_or(4001),
+            source: server_info.source,
+            matched_project_id: server_info.matched_project_id.clone(),
         };
 
         if let Err(e) = GLOBAL_REGISTRY.register_server(registry_entry).await {
@@ -1531,6 +1547,8 @@ impl PreviewManager {
                 actual_command: None,
                 framework_name: None,
                 log_tasks: None,
+                source: crate::types::ServerSource::Orkee,
+                matched_project_id: None,
             };
 
             let mut servers = self.active_servers.write().await;
@@ -1548,6 +1566,253 @@ impl PreviewManager {
                 info!("Removed stale lock for project: {}", lock_data.project_id);
             }
         }
+
+        Ok(())
+    }
+
+    /// Register an external server discovered via port scanning
+    ///
+    /// This allows tracking of servers that were started manually outside of Orkee.
+    /// The server will be added to both the active servers and the global registry.
+    ///
+    /// # Arguments
+    ///
+    /// * `discovered` - Information about the discovered server
+    /// * `project_id` - Optional project ID to associate with (if matched)
+    /// * `project_name` - Optional project name for display
+    ///
+    /// # Returns
+    ///
+    /// Returns the server ID on success
+    pub async fn register_external_server(
+        &self,
+        discovered: crate::discovery::DiscoveredServer,
+        project_id: Option<String>,
+        project_name: Option<String>,
+    ) -> PreviewResult<String> {
+        let server_id = Uuid::new_v4();
+        let effective_project_id = project_id.clone().unwrap_or_else(|| format!("external-{}", discovered.port));
+
+        let server_info = ServerInfo {
+            id: server_id,
+            project_id: effective_project_id.clone(),
+            port: discovered.port,
+            pid: Some(discovered.pid),
+            status: DevServerStatus::Running,
+            preview_url: Some(format!("http://localhost:{}", discovered.port)),
+            child: None, // External servers have no child handle
+            actual_command: Some(discovered.command.join(" ")),
+            framework_name: discovered.framework_name.clone(),
+            log_tasks: None,
+            source: if project_id.is_some() {
+                crate::types::ServerSource::Discovered
+            } else {
+                crate::types::ServerSource::External
+            },
+            matched_project_id: project_id.clone(),
+        };
+
+        // Add to active servers
+        {
+            let mut servers = self.active_servers.write().await;
+            servers.insert(effective_project_id.clone(), server_info.clone());
+        }
+
+        // Register in global registry
+        let registry_entry = crate::registry::ServerRegistryEntry {
+            id: server_id.to_string(),
+            project_id: effective_project_id,
+            project_name,
+            project_root: discovered.working_dir,
+            port: discovered.port,
+            pid: Some(discovered.pid),
+            status: DevServerStatus::Running,
+            preview_url: Some(format!("http://localhost:{}", discovered.port)),
+            framework_name: discovered.framework_name,
+            actual_command: Some(discovered.command.join(" ")),
+            started_at: Utc::now(),
+            last_seen: Utc::now(),
+            api_port: std::env::var(constants::ORKEE_API_PORT)
+                .ok()
+                .and_then(|p| p.parse().ok())
+                .unwrap_or(4001),
+            source: server_info.source,
+            matched_project_id: project_id,
+        };
+
+        GLOBAL_REGISTRY.register_server(registry_entry).await
+            .map_err(|e| PreviewError::ProcessStartFailed {
+                reason: format!("Failed to register in global registry: {}", e),
+            })?;
+
+        info!(
+            "Registered external server on port {} with ID {}",
+            discovered.port, server_id
+        );
+
+        Ok(server_id.to_string())
+    }
+
+    /// Restart an external server using its project configuration
+    ///
+    /// This stops the current process and restarts it using the project's dev_script
+    /// and environment variables. Only works for external servers that have been
+    /// matched to a project in the database.
+    ///
+    /// # Arguments
+    ///
+    /// * `server_id` - The UUID of the server to restart
+    /// * `project_root` - Path to the project root directory
+    /// * `dev_command` - The development command to execute
+    /// * `environment` - Environment variables to set
+    ///
+    /// # Returns
+    ///
+    /// Returns Ok(()) on success
+    pub async fn restart_external_server(
+        &self,
+        server_id: &str,
+        project_root: &Path,
+        dev_command: &str,
+        environment: &HashMap<String, String>,
+    ) -> PreviewResult<()> {
+        // Find the server
+        let server_info = {
+            let servers = self.active_servers.read().await;
+            servers.values().find(|s| s.id.to_string() == server_id).cloned()
+        };
+
+        let server_info = server_info.ok_or_else(|| PreviewError::ServerNotRunning {
+            project_id: server_id.to_string(),
+        })?;
+
+        // Verify it's an external server
+        if server_info.source == crate::types::ServerSource::Orkee {
+            return Err(PreviewError::ProcessStartFailed {
+                reason: "Cannot restart Orkee-managed server using external restart method".to_string(),
+            });
+        }
+
+        // Stop the current process
+        if let Some(pid) = server_info.pid {
+            info!("Stopping external server PID {} before restart", pid);
+            if let Err(e) = self.kill_process(pid).await {
+                warn!("Failed to kill external server process {}: {}", pid, e);
+            }
+            // Give the process time to stop
+            tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
+        }
+
+        // Start new process using project configuration
+        let mut cmd = Command::new("sh");
+        cmd.arg("-c")
+            .arg(dev_command)
+            .current_dir(project_root)
+            .env("PORT", server_info.port.to_string())
+            .envs(environment)
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .stdin(Stdio::null());
+
+        let child = cmd.spawn().map_err(|e| PreviewError::ProcessSpawnError {
+            command: dev_command.to_string(),
+            error: e.to_string(),
+        })?;
+
+        let new_pid = child.id().ok_or_else(|| PreviewError::ProcessStartFailed {
+            reason: "Failed to get PID of spawned process".to_string(),
+        })?;
+
+        info!(
+            "Restarted external server on port {} with new PID {}",
+            server_info.port, new_pid
+        );
+
+        // Update server info with new PID
+        let mut updated_info = server_info.clone();
+        updated_info.pid = Some(new_pid);
+        updated_info.status = DevServerStatus::Running;
+        updated_info.child = Some(Arc::new(RwLock::new(child)));
+
+        // Update active servers
+        {
+            let mut servers = self.active_servers.write().await;
+            servers.insert(server_info.project_id.clone(), updated_info.clone());
+        }
+
+        // Update registry
+        let registry_entry = crate::registry::ServerRegistryEntry {
+            id: server_id.to_string(),
+            project_id: server_info.project_id.clone(),
+            project_name: None,
+            project_root: project_root.to_path_buf(),
+            port: server_info.port,
+            pid: Some(new_pid),
+            status: DevServerStatus::Running,
+            preview_url: server_info.preview_url.clone(),
+            framework_name: server_info.framework_name.clone(),
+            actual_command: Some(dev_command.to_string()),
+            started_at: Utc::now(),
+            last_seen: Utc::now(),
+            api_port: std::env::var(constants::ORKEE_API_PORT)
+                .ok()
+                .and_then(|p| p.parse().ok())
+                .unwrap_or(4001),
+            source: server_info.source,
+            matched_project_id: server_info.matched_project_id.clone(),
+        };
+
+        GLOBAL_REGISTRY.register_server(registry_entry).await
+            .map_err(|e| PreviewError::ProcessStartFailed {
+                reason: format!("Failed to update registry after restart: {}", e),
+            })?;
+
+        Ok(())
+    }
+
+    /// Stop an external server by its server ID
+    ///
+    /// This terminates the external server process and removes it from tracking.
+    ///
+    /// # Arguments
+    ///
+    /// * `server_id` - The UUID of the server to stop
+    ///
+    /// # Returns
+    ///
+    /// Returns Ok(()) on success
+    pub async fn stop_external_server(&self, server_id: &str) -> PreviewResult<()> {
+        // Find the server
+        let server_info = {
+            let servers = self.active_servers.read().await;
+            servers.values().find(|s| s.id.to_string() == server_id).cloned()
+        };
+
+        let server_info = server_info.ok_or_else(|| PreviewError::ServerNotRunning {
+            project_id: server_id.to_string(),
+        })?;
+
+        // Kill the process if we have a PID
+        if let Some(pid) = server_info.pid {
+            info!("Stopping external server PID {}", pid);
+            if let Err(e) = self.kill_process(pid).await {
+                warn!("Failed to kill external server process {}: {}", pid, e);
+            }
+        }
+
+        // Remove from active servers
+        {
+            let mut servers = self.active_servers.write().await;
+            servers.remove(&server_info.project_id);
+        }
+
+        // Unregister from global registry
+        GLOBAL_REGISTRY.unregister_server(server_id).await
+            .map_err(|e| PreviewError::ProcessStopFailed {
+                reason: format!("Failed to unregister from global registry: {}", e),
+            })?;
+
+        info!("Stopped and unregistered external server {}", server_id);
 
         Ok(())
     }
