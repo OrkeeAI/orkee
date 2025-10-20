@@ -48,7 +48,6 @@ INTERNAL.md
 **/INTERNAL.md
 # Local development files
 .mcp.json
-CLAUDE.md
 IMPLEMENTATION_STATUS.md
 Makefile
 PLATFORM_SUPPORT.md
