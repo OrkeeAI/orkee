@@ -7,6 +7,7 @@ use crate::db::DbState;
 
 pub mod agents_handlers;
 pub mod ai_handlers;
+pub mod ai_proxy_handlers;
 pub mod ai_usage_log_handlers;
 pub mod change_handlers;
 pub mod executions_handlers;
@@ -240,4 +241,13 @@ pub fn create_ai_usage_router() -> Router<DbState> {
     Router::new()
         .route("/logs", get(ai_usage_log_handlers::list_logs))
         .route("/stats", get(ai_usage_log_handlers::get_stats))
+}
+
+/// Creates the AI proxy API router for secure credential management
+pub fn create_ai_proxy_router() -> Router<DbState> {
+    Router::new()
+        .route("/ai/anthropic/*path", post(ai_proxy_handlers::proxy_anthropic))
+        .route("/ai/openai/*path", post(ai_proxy_handlers::proxy_openai))
+        .route("/ai/google/*path", post(ai_proxy_handlers::proxy_google))
+        .route("/ai/xai/*path", post(ai_proxy_handlers::proxy_xai))
 }
