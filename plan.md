@@ -934,12 +934,42 @@ export class SpecWorkflow {
   - Markdown rendering with syntax highlighting
   - Full requirement and scenario display with WHEN/THEN/AND formatting
 
-### Week 5: AI Integration & Workflows
-- [ ] Day 1-2: Complete AI service implementations
-- [ ] Day 2-3: Build workflow orchestrators
+### Week 5: AI Integration & Workflows (🚧 IN PROGRESS - Day 1-2 Complete)
+- [x] Day 1-2: Complete AI service implementations ✅ (2025-10-20)
+  - ✅ Installed AI SDK dependencies (ai, @ai-sdk/openai, @ai-sdk/anthropic, zod)
+  - ✅ Created AI configuration module (`lib/ai/config.ts`) with provider settings
+  - ✅ Created Zod schemas (`lib/ai/schemas.ts`) for type-safe AI outputs
+  - ✅ Created AI provider abstractions (`lib/ai/providers.ts`) for OpenAI & Anthropic
+  - ✅ Implemented AI service layer (`lib/ai/services.ts`) with 7 major methods:
+    - analyzePRD: Extract capabilities from PRD documents
+    - generateSpec: Generate specs from requirements
+    - suggestTasks: Generate tasks from specs
+    - analyzeOrphanTask: Suggest spec links for orphan tasks
+    - validateTaskCompletion: Validate against scenarios
+    - refineSpec: Improve specs with feedback
+    - generateSpecMarkdown: Generate formatted markdown
+  - ✅ Created workflow orchestration (`lib/workflows/spec-workflow.ts`)
+  - ✅ Created integration documentation (`AI_INTEGRATION.md`)
+- [ ] Day 2-3: Build workflow orchestrators (PARTIALLY COMPLETE)
+  - ✅ PRD → Spec → Task workflow
+  - ✅ Task → Spec workflow
+  - [ ] Backend integration (proxy AI calls through server)
+  - [ ] Update PRDUploadDialog to use real AI
+  - [ ] Update SpecBuilderWizard to use AI suggestions
 - [ ] Day 3-4: Add streaming and real-time updates
+  - [ ] Implement streamObject for real-time responses
+  - [ ] Add progress indicators for long operations
+  - [ ] Update UI to show streaming results
 - [ ] Day 4-5: Cost tracking and monitoring
+  - ✅ Cost calculation in AI service (done)
+  - [ ] Cost tracking UI dashboard
+  - [ ] Usage analytics and reporting
+  - [ ] Budget alerts and controls
 - [ ] Day 5: Integration testing
+  - [ ] Test complete PRD → Spec → Task workflow
+  - [ ] Test orphan task analysis
+  - [ ] Test validation scenarios
+  - [ ] Load testing with AI calls
 
 ### Week 6: Testing & Polish
 - [ ] Day 1-2: Comprehensive testing
@@ -1012,5 +1042,5 @@ export class SpecWorkflow {
 
 ---
 
-Last Updated: 2025-01-20
-Status: Week 2 Complete - Week 3 Ready to Start
+Last Updated: 2025-10-20
+Status: Week 5 Day 1-2 Complete - AI Service Layer Implemented
