@@ -8,6 +8,7 @@ use crate::db::DbState;
 pub mod agents_handlers;
 pub mod executions_handlers;
 pub mod handlers;
+pub mod prd_handlers;
 pub mod response;
 pub mod tags_handlers;
 pub mod tasks_handlers;
@@ -102,4 +103,15 @@ pub fn create_executions_router() -> Router<DbState> {
         .route("/reviews/:review_id", get(executions_handlers::get_review))
         .route("/reviews/:review_id", put(executions_handlers::update_review))
         .route("/reviews/:review_id", delete(executions_handlers::delete_review))
+}
+
+/// Creates the PRD API router for Product Requirements Documents
+pub fn create_prds_router() -> Router<DbState> {
+    Router::new()
+        .route("/:project_id/prds", get(prd_handlers::list_prds))
+        .route("/:project_id/prds", post(prd_handlers::create_prd))
+        .route("/:project_id/prds/:prd_id", get(prd_handlers::get_prd))
+        .route("/:project_id/prds/:prd_id", put(prd_handlers::update_prd))
+        .route("/:project_id/prds/:prd_id", delete(prd_handlers::delete_prd))
+        .route("/:project_id/prds/:prd_id/capabilities", get(prd_handlers::get_prd_capabilities))
 }
