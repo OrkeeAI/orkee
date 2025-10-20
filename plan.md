@@ -13,11 +13,12 @@
 - PRD management, spec CRUD, change management, task-spec integration, and AI proxy
 - Commits: `939fde6`, `29f3cc7`, `8fdbdee`, `18a7617`, `bad9ce7`
 
-**Week 4 Frontend Components: 🚧 IN PROGRESS (Day 1 of 5 complete)**
-- ✅ Day 1: PRDUploadDialog with upload/preview/analysis tabs (commit `e20e9ba`)
-- Service layer, React Query hooks, and component with markdown rendering
-- Integrated react-markdown v10.1.0 + syntax highlighting
-- Next: Day 2 SpecBuilderWizard
+**Week 4 Frontend Components: 🚧 IN PROGRESS (Day 2 of 5 complete)**
+- ✅ Day 1: PRDUploadDialog complete (commit `e20e9ba`)
+- ✅ Day 2: SpecBuilderWizard complete (commits `64071cd`, `ff0f077`)
+- Spec capability service layer, hooks, and 4-step wizard
+- Mode selection (PRD/Manual/Task), capability definition, requirements editor, validation
+- Next: Day 3 TaskSpecLinker
 
 **Implementation Highlights:**
 - **Parser Module**: 15 tests, full markdown parsing with WHEN/THEN/AND scenarios
@@ -26,9 +27,11 @@
 - **Database Module**: 2 tests, SQLite integration with proper migrations
 - **Integration Module**: 2 tests, task generation from specs with validation
 - **API Endpoints**: 28 endpoints (6 PRD + 7 Spec + 6 Change + 6 Task-Spec + 5 AI Proxy)
-- **Frontend Components**: PRDUploadDialog with 3-tab interface (Upload/Preview/Analysis)
+- **Frontend Components**:
+  - PRDUploadDialog with 3-tab interface (Upload/Preview/Analysis)
+  - SpecBuilderWizard with 4-step wizard (Mode/Capability/Requirements/Validation)
 
-**Next Steps:** Week 4 Day 2 - SpecBuilderWizard component
+**Next Steps:** Week 4 Day 3 - TaskSpecLinker component
 
 ---
 
@@ -641,25 +644,29 @@ Created `packages/dashboard/src/components/PRDUploadDialog.tsx`:
 - Shadcn/ui components (Dialog, Tabs, Progress, etc.)
 - React Query for API state management
 
-### 5.2 Spec Builder Wizard
+### 5.2 Spec Builder Wizard ✅ COMPLETE (2025-01-20)
 
-Create `packages/tasks/src/components/SpecBuilderWizard.tsx`:
+Created `packages/dashboard/src/components/SpecBuilderWizard.tsx`:
 
-```typescript
-interface SpecBuilderWizardProps {
-  projectId: string;
-  mode: 'prd-driven' | 'manual' | 'task-driven';
-  source?: PRD | Task[];
-  onComplete: (specId: string) => void;
-}
+**Implemented Features:**
+- ✅ 4-step wizard with progress indicator (Mode → Capability → Requirements → Validation)
+- ✅ Mode selection with PRD list for PRD-driven mode
+- ✅ Capability definition with name and purpose fields
+- ✅ Dynamic requirements editor:
+  - Add/delete requirements
+  - Nested scenario editor (WHEN/THEN clauses)
+  - Position tracking for ordering
+  - Inline editing for all fields
+- ✅ Validation step with summary statistics
+- ✅ Form validation with canProceed checks
+- ✅ Error handling and display
+- ✅ Optimistic updates via React Query
 
-// Steps:
-// 1. Choose mode (PRD → Spec, Manual, Task → Spec)
-// 2. Define capabilities
-// 3. Add requirements with scenarios
-// 4. Generate or link tasks
-// 5. Validate and save
-```
+**Technical Stack:**
+- Multi-step wizard pattern with state management
+- Shadcn/ui components (Dialog, Progress, Badge, etc.)
+- React Query mutations with createSpec hook
+- Lucide React icons throughout
 
 ### 5.3 Task-Spec Linker
 
@@ -716,7 +723,11 @@ Update `packages/tasks/src/components/TaskCard.tsx`:
   - Hooks: `packages/dashboard/src/hooks/usePRDs.ts`
   - Component: `packages/dashboard/src/components/PRDUploadDialog.tsx`
   - Dependencies: react-markdown, rehype-highlight, highlight.js
-- [ ] Build SpecBuilderWizard with steps
+- [x] Build SpecBuilderWizard with steps ✅ (2025-01-20)
+  - Service layer: `packages/dashboard/src/services/specs.ts`
+  - Hooks: `packages/dashboard/src/hooks/useSpecs.ts`
+  - Component: `packages/dashboard/src/components/SpecBuilderWizard.tsx`
+  - 4-step wizard: Mode selection, Capability definition, Requirements editor, Validation
 - [ ] Implement TaskSpecLinker interface
 - [ ] Create SyncDashboard for management
 - [ ] Update TaskCard with spec features
@@ -866,7 +877,14 @@ export class SpecWorkflow {
   - Added AI analysis integration with progress indicators
   - Capability extraction display with collapsible requirements
   - File upload + paste interface with character count
-- [ ] Day 2: SpecBuilderWizard
+- [x] Day 2: SpecBuilderWizard ✅ (commits `64071cd`, `ff0f077` - 2025-01-20)
+  - Created Spec capability service layer (`packages/dashboard/src/services/specs.ts`)
+  - Implemented React Query hooks (`packages/dashboard/src/hooks/useSpecs.ts`)
+  - Built SpecBuilderWizard component with 4-step wizard
+  - Mode selection: PRD-driven, Manual, Task-driven
+  - Capability definition step with name and purpose
+  - Requirements editor with nested scenarios (WHEN/THEN)
+  - Validation step with summary statistics
 - [ ] Day 3: TaskSpecLinker
 - [ ] Day 4: SyncDashboard
 - [ ] Day 5: Update existing components
