@@ -751,12 +751,22 @@ Update `packages/tasks/src/components/TaskCard.tsx`:
   - Component: `packages/dashboard/src/components/SpecDetailsView.tsx`
   - Comprehensive spec viewer with 3 tabs: Overview, Requirements, Design
   - Full markdown rendering with WHEN/THEN/AND scenario formatting
-- [ ] Create ChangeProposalForm
-- [ ] Build ValidationResultsPanel
-- [ ] Implement streaming UI updates
+- [x] Create ChangeProposalForm ✅ (commit b47c544 - 2025-10-20)
+  - Component: `packages/dashboard/src/components/ChangeProposalForm.tsx`
+  - 3-tab markdown editor for proposals, tasks, and design notes
+- [x] Build ValidationResultsPanel ✅ (commit b47c544 - 2025-10-20)
+  - Component: `packages/dashboard/src/components/ValidationResultsPanel.tsx`
+  - Display task validation results with scenario pass/fail status
+- [x] Implement streaming UI updates ✅ (commit b47c544 - 2025-10-20)
+  - Utilities: `packages/dashboard/src/lib/ai/streaming.ts`
+  - React hooks for real-time AI streaming with progress indicators
 - [x] Add markdown preview components ✅ (integrated in PRDUploadDialog)
-- [ ] Create spec diff viewer
-- [ ] Build scenario test runner UI
+- [x] Create spec diff viewer ✅ (commit b47c544 - 2025-10-20)
+  - Component: `packages/dashboard/src/components/SpecDiffViewer.tsx`
+  - Side-by-side version comparison with change highlighting
+- [x] Build scenario test runner UI ✅ (commit b47c544 - 2025-10-20)
+  - Component: `packages/dashboard/src/components/ScenarioTestRunner.tsx`
+  - Test task implementations against WHEN/THEN/AND scenarios with AI validation
 
 ---
 
