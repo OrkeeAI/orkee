@@ -13,6 +13,7 @@ pub mod prd_handlers;
 pub mod response;
 pub mod spec_handlers;
 pub mod tags_handlers;
+pub mod task_spec_handlers;
 pub mod tasks_handlers;
 pub mod users_handlers;
 
@@ -139,4 +140,15 @@ pub fn create_changes_router() -> Router<DbState> {
         .route("/:project_id/changes/:change_id/status", put(change_handlers::update_change_status))
         .route("/:project_id/changes/:change_id/deltas", get(change_handlers::get_change_deltas))
         .route("/:project_id/changes/:change_id/deltas", post(change_handlers::create_delta))
+}
+
+/// Creates the task-spec integration API router
+pub fn create_task_spec_router() -> Router<DbState> {
+    Router::new()
+        .route("/tasks/:task_id/link-spec", post(task_spec_handlers::link_task_to_requirement))
+        .route("/tasks/:task_id/spec-links", get(task_spec_handlers::get_task_spec_links))
+        .route("/tasks/:task_id/validate-spec", post(task_spec_handlers::validate_task_against_spec))
+        .route("/tasks/:task_id/suggest-spec", post(task_spec_handlers::suggest_spec_from_task))
+        .route("/:project_id/tasks/generate-from-spec", post(task_spec_handlers::generate_tasks_from_spec))
+        .route("/:project_id/tasks/orphans", get(task_spec_handlers::find_orphan_tasks))
 }
