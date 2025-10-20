@@ -405,4 +405,335 @@ mod tests {
         assert_eq!(stats.avg_requirements_per_capability, 1.5);
         assert!((stats.avg_scenarios_per_requirement - 1.333).abs() < 0.01);
     }
+
+    #[test]
+    fn test_empty_spec() {
+        let spec = ParsedSpec {
+            capabilities: vec![],
+            raw_markdown: String::new(),
+        };
+
+        assert!(matches!(
+            validate_spec(&spec),
+            Err(ValidationError::EmptySpec)
+        ));
+    }
+
+    #[test]
+    fn test_empty_capability_name() {
+        let capability = ParsedCapability {
+            name: "   ".to_string(),
+            purpose: "Purpose".to_string(),
+            requirements: vec![ParsedRequirement {
+                name: "Req".to_string(),
+                description: "Desc".to_string(),
+                scenarios: vec![ParsedScenario {
+                    name: "S".to_string(),
+                    when: "when".to_string(),
+                    then: "then".to_string(),
+                    and: vec![],
+                }],
+            }],
+        };
+
+        assert!(matches!(
+            validate_capability(&capability),
+            Err(ValidationError::EmptyCapabilityName)
+        ));
+    }
+
+    #[test]
+    fn test_empty_requirement_name() {
+        let requirement = ParsedRequirement {
+            name: "   ".to_string(),
+            description: "Desc".to_string(),
+            scenarios: vec![ParsedScenario {
+                name: "S".to_string(),
+                when: "when".to_string(),
+                then: "then".to_string(),
+                and: vec![],
+            }],
+        };
+
+        assert!(matches!(
+            validate_requirement(&requirement, "TestCap"),
+            Err(ValidationError::EmptyRequirementName(_))
+        ));
+    }
+
+    #[test]
+    fn test_capability_without_requirements() {
+        let capability = ParsedCapability {
+            name: "TestCap".to_string(),
+            purpose: "Purpose".to_string(),
+            requirements: vec![],
+        };
+
+        assert!(matches!(
+            validate_capability(&capability),
+            Err(ValidationError::NoRequirements(_))
+        ));
+    }
+
+    #[test]
+    fn test_requirement_without_scenarios() {
+        let requirement = ParsedRequirement {
+            name: "TestReq".to_string(),
+            description: "Desc".to_string(),
+            scenarios: vec![],
+        };
+
+        assert!(matches!(
+            validate_requirement(&requirement, "TestCap"),
+            Err(ValidationError::NoScenarios(_))
+        ));
+    }
+
+    #[test]
+    fn test_empty_then_clause() {
+        let scenario = ParsedScenario {
+            name: "Test".to_string(),
+            when: "something happens".to_string(),
+            then: "   ".to_string(),
+            and: vec![],
+        };
+
+        assert!(matches!(
+            validate_scenario(&scenario, "Test Req"),
+            Err(ValidationError::EmptyThenClause(_))
+        ));
+    }
+
+    #[test]
+    fn test_capability_name_too_long() {
+        let long_name = "a".repeat(MAX_NAME_LENGTH + 1);
+        let capability = ParsedCapability {
+            name: long_name,
+            purpose: "Purpose".to_string(),
+            requirements: vec![ParsedRequirement {
+                name: "Req".to_string(),
+                description: "Desc".to_string(),
+                scenarios: vec![ParsedScenario {
+                    name: "S".to_string(),
+                    when: "when".to_string(),
+                    then: "then".to_string(),
+                    and: vec![],
+                }],
+            }],
+        };
+
+        assert!(matches!(
+            validate_capability(&capability),
+            Err(ValidationError::CapabilityNameTooLong(_))
+        ));
+    }
+
+    #[test]
+    fn test_requirement_name_too_long() {
+        let long_name = "a".repeat(MAX_NAME_LENGTH + 1);
+        let requirement = ParsedRequirement {
+            name: long_name,
+            description: "Desc".to_string(),
+            scenarios: vec![ParsedScenario {
+                name: "S".to_string(),
+                when: "when".to_string(),
+                then: "then".to_string(),
+                and: vec![],
+            }],
+        };
+
+        assert!(matches!(
+            validate_requirement(&requirement, "TestCap"),
+            Err(ValidationError::RequirementNameTooLong(_))
+        ));
+    }
+
+    #[test]
+    fn test_scenario_name_too_long() {
+        let long_name = "a".repeat(MAX_NAME_LENGTH + 1);
+        let scenario = ParsedScenario {
+            name: long_name,
+            when: "when".to_string(),
+            then: "then".to_string(),
+            and: vec![],
+        };
+
+        assert!(matches!(
+            validate_scenario(&scenario, "TestReq"),
+            Err(ValidationError::ScenarioNameTooLong(_))
+        ));
+    }
+
+    #[test]
+    fn test_purpose_too_long() {
+        let long_purpose = "a".repeat(MAX_TEXT_LENGTH + 1);
+        let capability = ParsedCapability {
+            name: "TestCap".to_string(),
+            purpose: long_purpose,
+            requirements: vec![ParsedRequirement {
+                name: "Req".to_string(),
+                description: "Desc".to_string(),
+                scenarios: vec![ParsedScenario {
+                    name: "S".to_string(),
+                    when: "when".to_string(),
+                    then: "then".to_string(),
+                    and: vec![],
+                }],
+            }],
+        };
+
+        assert!(matches!(
+            validate_capability(&capability),
+            Err(ValidationError::PurposeTooLong(_))
+        ));
+    }
+
+    #[test]
+    fn test_description_too_long() {
+        let long_desc = "a".repeat(MAX_TEXT_LENGTH + 1);
+        let requirement = ParsedRequirement {
+            name: "TestReq".to_string(),
+            description: long_desc,
+            scenarios: vec![ParsedScenario {
+                name: "S".to_string(),
+                when: "when".to_string(),
+                then: "then".to_string(),
+                and: vec![],
+            }],
+        };
+
+        assert!(matches!(
+            validate_requirement(&requirement, "TestCap"),
+            Err(ValidationError::DescriptionTooLong(_))
+        ));
+    }
+
+    #[test]
+    fn test_when_clause_too_long() {
+        let long_when = "a".repeat(MAX_CLAUSE_LENGTH + 1);
+        let scenario = ParsedScenario {
+            name: "Test".to_string(),
+            when: long_when,
+            then: "then".to_string(),
+            and: vec![],
+        };
+
+        assert!(matches!(
+            validate_scenario(&scenario, "TestReq"),
+            Err(ValidationError::InvalidScenario(_, _))
+        ));
+    }
+
+    #[test]
+    fn test_then_clause_too_long() {
+        let long_then = "a".repeat(MAX_CLAUSE_LENGTH + 1);
+        let scenario = ParsedScenario {
+            name: "Test".to_string(),
+            when: "when".to_string(),
+            then: long_then,
+            and: vec![],
+        };
+
+        assert!(matches!(
+            validate_scenario(&scenario, "TestReq"),
+            Err(ValidationError::InvalidScenario(_, _))
+        ));
+    }
+
+    #[test]
+    fn test_and_clause_too_long() {
+        let long_and = "a".repeat(MAX_CLAUSE_LENGTH + 1);
+        let scenario = ParsedScenario {
+            name: "Test".to_string(),
+            when: "when".to_string(),
+            then: "then".to_string(),
+            and: vec![long_and],
+        };
+
+        assert!(matches!(
+            validate_scenario(&scenario, "TestReq"),
+            Err(ValidationError::InvalidScenario(_, _))
+        ));
+    }
+
+    #[test]
+    fn test_empty_and_clause() {
+        let scenario = ParsedScenario {
+            name: "Test".to_string(),
+            when: "when".to_string(),
+            then: "then".to_string(),
+            and: vec!["valid clause".to_string(), "   ".to_string()],
+        };
+
+        assert!(matches!(
+            validate_scenario(&scenario, "TestReq"),
+            Err(ValidationError::InvalidScenario(_, _))
+        ));
+    }
+
+    #[test]
+    fn test_duplicate_requirement_names() {
+        let capability = ParsedCapability {
+            name: "TestCap".to_string(),
+            purpose: "Purpose".to_string(),
+            requirements: vec![
+                ParsedRequirement {
+                    name: "DupeReq".to_string(),
+                    description: "Desc 1".to_string(),
+                    scenarios: vec![ParsedScenario {
+                        name: "S1".to_string(),
+                        when: "when".to_string(),
+                        then: "then".to_string(),
+                        and: vec![],
+                    }],
+                },
+                ParsedRequirement {
+                    name: "DupeReq".to_string(),
+                    description: "Desc 2".to_string(),
+                    scenarios: vec![ParsedScenario {
+                        name: "S2".to_string(),
+                        when: "when".to_string(),
+                        then: "then".to_string(),
+                        and: vec![],
+                    }],
+                },
+            ],
+        };
+
+        assert!(matches!(
+            validate_capability(&capability),
+            Err(ValidationError::DuplicateRequirement(_, _))
+        ));
+    }
+
+    #[test]
+    fn test_stats_with_empty_spec() {
+        let spec = ParsedSpec {
+            capabilities: vec![],
+            raw_markdown: String::new(),
+        };
+
+        let stats = calculate_stats(&spec);
+        assert_eq!(stats.total_capabilities, 0);
+        assert_eq!(stats.total_requirements, 0);
+        assert_eq!(stats.total_scenarios, 0);
+        assert_eq!(stats.avg_requirements_per_capability, 0.0);
+        assert_eq!(stats.avg_scenarios_per_requirement, 0.0);
+    }
+
+    #[test]
+    fn test_scenario_with_multiple_and_clauses() {
+        let scenario = ParsedScenario {
+            name: "Test".to_string(),
+            when: "user submits form".to_string(),
+            then: "form is validated".to_string(),
+            and: vec![
+                "data is saved".to_string(),
+                "confirmation is shown".to_string(),
+                "email is sent".to_string(),
+            ],
+        };
+
+        assert!(validate_scenario(&scenario, "TestReq").is_ok());
+    }
 }
