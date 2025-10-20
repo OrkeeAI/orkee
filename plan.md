@@ -13,12 +13,13 @@
 - PRD management, spec CRUD, change management, task-spec integration, and AI proxy
 - Commits: `939fde6`, `29f3cc7`, `8fdbdee`, `18a7617`, `bad9ce7`
 
-**Week 4 Frontend Components: 🚧 IN PROGRESS (Day 2 of 5 complete)**
+**Week 4 Frontend Components: 🚧 IN PROGRESS (Day 3 of 5 complete)**
 - ✅ Day 1: PRDUploadDialog complete (commit `e20e9ba`)
 - ✅ Day 2: SpecBuilderWizard complete (commits `64071cd`, `ff0f077`)
-- Spec capability service layer, hooks, and 4-step wizard
-- Mode selection (PRD/Manual/Task), capability definition, requirements editor, validation
-- Next: Day 3 TaskSpecLinker
+- ✅ Day 3: TaskSpecLinker complete
+- Task-spec linking service, hooks, and dialog component
+- Search/filter requirements, link/unlink tasks, validate against scenarios
+- Next: Day 4 SyncDashboard
 
 **Implementation Highlights:**
 - **Parser Module**: 15 tests, full markdown parsing with WHEN/THEN/AND scenarios
@@ -30,8 +31,9 @@
 - **Frontend Components**:
   - PRDUploadDialog with 3-tab interface (Upload/Preview/Analysis)
   - SpecBuilderWizard with 4-step wizard (Mode/Capability/Requirements/Validation)
+  - TaskSpecLinker dialog with search, linking, and validation features
 
-**Next Steps:** Week 4 Day 3 - TaskSpecLinker component
+**Next Steps:** Week 4 Day 4 - SyncDashboard component
 
 ---
 
@@ -885,7 +887,15 @@ export class SpecWorkflow {
   - Capability definition step with name and purpose
   - Requirements editor with nested scenarios (WHEN/THEN)
   - Validation step with summary statistics
-- [ ] Day 3: TaskSpecLinker
+- [x] Day 3: TaskSpecLinker ✅ (2025-01-20)
+  - Created task-spec linking service layer (`packages/dashboard/src/services/task-spec-links.ts`)
+  - Implemented React Query hooks (`packages/dashboard/src/hooks/useTaskSpecLinks.ts`)
+  - Built TaskSpecLinker dialog component (`packages/dashboard/src/components/TaskSpecLinker.tsx`)
+  - Search and filter spec requirements across all capabilities
+  - Link/unlink tasks to requirements with one click
+  - Expandable requirement details with scenario previews
+  - Task validation against linked spec scenarios
+  - Validation results display with pass/fail status
 - [ ] Day 4: SyncDashboard
 - [ ] Day 5: Update existing components
 
