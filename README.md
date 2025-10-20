@@ -47,25 +47,7 @@ The **Dashboard** and **Desktop App** require the CLI server to be running. The 
 
 ## Installation
 
-### Option 1: npm (CLI + TUI + Web Dashboard)
-
-```bash
-# Install globally via npm
-npm install -g orkee
-
-# Verify installation
-orkee --version
-
-# Start the dashboard
-orkee dashboard
-
-# Or use the terminal interface
-orkee tui
-```
-
-The npm package automatically downloads the appropriate binary for your platform (macOS, Linux, Windows).
-
-### Option 2: Desktop App (Native GUI + CLI + TUI) - v0.0.8
+### Option 1: Desktop App (Native GUI + CLI + TUI) - v0.0.8 (Recommended)
 
 Download the native desktop application for your platform:
 
@@ -110,6 +92,24 @@ The desktop app includes:
 - 🌐 Web dashboard in native window
 
 [View all releases](https://github.com/OrkeeAI/orkee/releases) | [Checksums](https://github.com/OrkeeAI/orkee/releases/download/desktop-v0.0.8/checksums.txt)
+
+### Option 2: npm (CLI + TUI + Web Dashboard)
+
+```bash
+# Install globally via npm
+npm install -g orkee
+
+# Verify installation
+orkee --version
+
+# Start the dashboard
+orkee dashboard
+
+# Or use the terminal interface
+orkee tui
+```
+
+The npm package automatically downloads the appropriate binary for your platform (macOS, Linux, Windows).
 
 ### Option 3: Build from Source
 
