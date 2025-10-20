@@ -2,6 +2,7 @@ use crate::registry::{ServerRegistryEntry, GLOBAL_REGISTRY};
 use crate::types::*;
 use chrono::Utc;
 use orkee_config::constants;
+#[cfg(unix)]
 use orkee_config::env::parse_env_or_default_with_validation;
 use serde_json;
 use std::collections::hash_map::DefaultHasher;
@@ -1298,9 +1299,10 @@ impl PreviewManager {
     }
 
     /// Kill a process by PID with graceful shutdown and verification
-    async fn kill_process(&self, pid: u32) -> PreviewResult<()> {
+    async fn kill_process(&self, _pid: u32) -> PreviewResult<()> {
         #[cfg(unix)]
         {
+            let pid = _pid; // Use the parameter on Unix
             use nix::sys::signal::{kill, Signal};
             use nix::unistd::Pid;
             use sysinfo::{Pid as SysPid, System};
@@ -1425,11 +1427,13 @@ impl PreviewManager {
     fn is_process_running_validated(
         &self,
         pid: u32,
-        expected_start_time: Option<chrono::DateTime<Utc>>,
-        expected_cwd: Option<&Path>,
+        _expected_start_time: Option<chrono::DateTime<Utc>>,
+        _expected_cwd: Option<&Path>,
     ) -> bool {
         #[cfg(unix)]
         {
+            let expected_start_time = _expected_start_time; // Use on Unix
+            let expected_cwd = _expected_cwd; // Use on Unix
             use sysinfo::{Pid, System};
 
             let mut system = System::new();

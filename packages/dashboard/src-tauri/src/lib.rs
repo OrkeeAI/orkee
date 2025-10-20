@@ -250,7 +250,7 @@ fn check_cli_installed() -> bool {
 /// - Sudo command fails
 /// - File operations fail
 #[tauri::command]
-async fn install_cli_macos(app_handle: tauri::AppHandle) -> Result<String, String> {
+async fn install_cli_macos(_app_handle: tauri::AppHandle) -> Result<String, String> {
     #[cfg(not(target_os = "macos"))]
     {
         return Err("This command is only available on macOS".to_string());
@@ -258,6 +258,7 @@ async fn install_cli_macos(app_handle: tauri::AppHandle) -> Result<String, Strin
 
     #[cfg(target_os = "macos")]
     {
+        let app_handle = _app_handle; // Use on macOS
         // Get the binary path from the app bundle (MacOS directory, not Resources)
         // On macOS, Tauri places externalBin files in Contents/MacOS/
         let resource_dir = app_handle

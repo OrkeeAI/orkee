@@ -10,8 +10,10 @@ use futures::stream::{self, StreamExt};
 use nix::libc;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
+#[cfg(unix)]
 use std::process::Stdio;
 use sysinfo::{Pid, ProcessRefreshKind, System};
+#[cfg(unix)]
 use tokio::process::Command;
 use tracing::{debug, warn};
 
@@ -348,7 +350,7 @@ async fn find_process_on_port(port: u16) -> Option<u32> {
 
         // First call to get required buffer size
         // SAFETY: GetExtendedTcpTable is safe to call with null pointer to query size
-        let result = unsafe {
+        let _result = unsafe {
             GetExtendedTcpTable(
                 None,
                 &mut size,

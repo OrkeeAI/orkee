@@ -342,7 +342,7 @@ impl ServerRegistry {
                 let user_sid = PSID(token_user.User.Sid.0);
 
                 // Create an explicit access structure for the current user (read/write only)
-                let mut ea = EXPLICIT_ACCESS_W {
+                let ea = EXPLICIT_ACCESS_W {
                     grfAccessPermissions: FILE_GENERIC_READ.0 | FILE_GENERIC_WRITE.0,
                     grfAccessMode: SET_ACCESS,
                     grfInheritance: OBJECT_INHERIT_ACE | SUB_CONTAINERS_AND_OBJECTS_INHERIT,
@@ -376,7 +376,7 @@ impl ServerRegistry {
 
                 let file_handle = CreateFileW(
                     windows::core::PCWSTR(path_wide.as_ptr()),
-                    (FILE_GENERIC_READ.0 | FILE_GENERIC_WRITE.0),
+                    FILE_GENERIC_READ.0 | FILE_GENERIC_WRITE.0,
                     FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
                     None,
                     OPEN_EXISTING,
