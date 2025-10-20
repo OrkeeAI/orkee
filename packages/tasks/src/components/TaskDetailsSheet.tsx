@@ -7,6 +7,7 @@ import {
   SheetTitle,
   SheetDescription,
 } from './ui/sheet';
+import { TaskFormDialog } from './TaskFormDialog';
 import {
   Calendar,
   User,
@@ -39,7 +40,8 @@ export const TaskDetailsSheet: React.FC<TaskDetailsSheetProps> = ({
 }) => {
   const [showDetails, setShowDetails] = useState(false);
   const [showMetadata, setShowMetadata] = useState(false);
-  
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+
   if (!task) return null;
 
   const priorityConfig = {
@@ -73,7 +75,7 @@ export const TaskDetailsSheet: React.FC<TaskDetailsSheetProps> = ({
                 <button
                   className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
                   onClick={() => {
-                    console.log('Edit task:', task.id);
+                    setIsEditDialogOpen(true);
                   }}
                 >
                   <Edit className="w-4 h-4 text-gray-600 dark:text-gray-400" />
@@ -297,6 +299,13 @@ export const TaskDetailsSheet: React.FC<TaskDetailsSheetProps> = ({
           )}
         </div>
       </SheetContent>
+
+      <TaskFormDialog
+        task={task}
+        isOpen={isEditDialogOpen}
+        onOpenChange={setIsEditDialogOpen}
+        onTaskUpdate={onUpdate}
+      />
     </Sheet>
   );
 };

@@ -93,10 +93,13 @@ impl IntoResponse for ManagerError {
                 (StatusCode::CONFLICT, self.to_string())
             }
             ManagerError::Validation(_) => (StatusCode::BAD_REQUEST, self.to_string()),
-            ManagerError::Storage(_) => (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                "Storage error".to_string(),
-            ),
+            ManagerError::Storage(e) => {
+                error!("Storage error details: {:?}", e);
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "Storage error".to_string(),
+                )
+            },
         };
 
         let response = ApiResponse::<()>::error(message);

@@ -3,13 +3,19 @@
 //! A project management library for Orkee that provides CRUD operations
 //! for managing development projects with persistent storage.
 
+pub mod agents;
 pub mod api;
 pub mod constants;
+pub mod db;
+pub mod executions;
 pub mod formatter;
 pub mod git_utils;
 pub mod manager;
 pub mod storage;
+pub mod tags;
+pub mod tasks;
 pub mod types;
+pub mod users;
 pub mod validator;
 
 #[cfg(test)]
@@ -59,5 +65,8 @@ pub use formatter::{format_project_details, format_projects_table};
 // Re-export constants
 pub use constants::{orkee_dir, projects_file, PROJECTS_VERSION};
 
-// Re-export API router
-pub use api::create_projects_router;
+// Re-export API routers
+pub use api::{create_agents_router, create_executions_router, create_projects_router, create_tags_router, create_tasks_router, create_users_router};
+
+// Re-export database state
+pub use db::DbState;

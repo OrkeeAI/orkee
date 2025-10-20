@@ -62,6 +62,23 @@ pub async fn create_router_with_options(dashboard_path: Option<std::path::PathBu
         }
     };
 
+    // Initialize database state for tasks/agents/users
+    let db_state = match orkee_projects::DbState::init().await {
+        Ok(state) => state,
+        Err(e) => {
+            error!("Failed to initialize database state: {}", e);
+            // Return a router without task/agent/user functionality
+            return Router::new()
+                .route("/api/health", get(health::health_check))
+                .route("/api/status", get(health::status_check))
+                .route(
+                    "/api/browse-directories",
+                    post(directories::browse_directories),
+                )
+                .nest("/api/projects", orkee_projects::create_projects_router());
+        }
+    };
+
     // Create preview state
     let preview_state = PreviewState {
         preview_manager: preview_manager.clone(),
@@ -173,11 +190,31 @@ pub async fn create_router_with_options(dashboard_path: Option<std::path::PathBu
             post(directories::browse_directories),
         )
         .nest("/api/projects", orkee_projects::create_projects_router())
+        .nest(
+            "/api/projects/:project_id/tasks",
+            orkee_projects::create_tasks_router().with_state(db_state.clone()),
+        )
         .nest("/api/git", git_router)
         .nest("/api/preview", preview_router)
         .nest("/api/cloud", cloud_router)
         .nest("/api/taskmaster", taskmaster_router)
         .nest("/api/telemetry", telemetry_router)
+        .nest(
+            "/api/agents",
+            orkee_projects::create_agents_router().with_state(db_state.clone()),
+        )
+        .nest(
+            "/api/users",
+            orkee_projects::create_users_router().with_state(db_state.clone()),
+        )
+        .nest(
+            "/api/tags",
+            orkee_projects::create_tags_router().with_state(db_state.clone()),
+        )
+        .nest(
+            "/api/executions",
+            orkee_projects::create_executions_router().with_state(db_state),
+        )
         .layer(axum::Extension(path_validator));
 
     // If dashboard path is provided, serve static files
