@@ -18,7 +18,7 @@
 - ✅ Day 2: SpecBuilderWizard complete (commits `64071cd`, `ff0f077`)
 - ✅ Day 3: TaskSpecLinker complete (commit `a3ae22c`)
 - ✅ Day 4: SyncDashboard complete (commit `9666b58`)
-- ✅ Day 5: Reusable spec components complete
+- ✅ Day 5: TaskSpecIndicator & SpecDetailsView complete (commit `c06d840`)
 - All core frontend components implemented with full spec integration
 - Task-spec indicators, detailed spec views, and management dashboards
 
