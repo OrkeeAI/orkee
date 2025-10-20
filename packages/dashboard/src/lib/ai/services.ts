@@ -4,6 +4,8 @@
 import { generateObject, generateText } from 'ai';
 import { getPreferredModel } from './providers';
 import { AI_CONFIG, calculateCost } from './config';
+import { aiRateLimiter, RateLimitError } from './rate-limiter';
+import { aiCache } from './cache';
 import {
   PRDAnalysisSchema,
   type PRDAnalysis,
@@ -43,6 +45,18 @@ export class AISpecService {
    * Analyze a PRD and extract capabilities, requirements, and scenarios
    */
   async analyzePRD(prdContent: string): Promise<AIResult<PRDAnalysis>> {
+    // Check cache first
+    const cachedResult = aiCache.get<AIResult<PRDAnalysis>>('analyzePRD', { prdContent });
+    if (cachedResult) {
+      return cachedResult;
+    }
+
+    // Check rate limits
+    const rateLimitCheck = aiRateLimiter.canMakeCall('analyzePRD');
+    if (!rateLimitCheck.allowed) {
+      throw new RateLimitError(rateLimitCheck.reason!);
+    }
+
     const { provider, model, modelName } = getPreferredModel();
 
     const prompt = `You are an expert software architect analyzing a Product Requirements Document (PRD).
@@ -89,13 +103,21 @@ Important guidelines:
       provider,
     };
 
-    return {
+    // Record the call for rate limiting
+    aiRateLimiter.recordCall('analyzePRD', cost.estimatedCost);
+
+    const aiResult: AIResult<PRDAnalysis> = {
       data: result.object,
       usage,
       cost,
       model: modelName,
       provider,
     };
+
+    // Cache the result
+    aiCache.set('analyzePRD', { prdContent }, aiResult);
+
+    return aiResult;
   }
 
   /**
@@ -402,7 +424,7 @@ Prioritize suggestions and explain the rationale.`;
    * Generate markdown spec from capability
    */
   async generateSpecMarkdown(capability: SpecCapability): Promise<AIResult<string>> {
-    const { provider, model, modelName } = getPreferredModel();
+    const { provider, model, modelName} = getPreferredModel();
 
     const prompt = `You are an expert technical writer creating OpenSpec documentation.
 
@@ -436,6 +458,91 @@ Generate a well-formatted OpenSpec markdown document with:
 4. Professional technical writing
 
 Return ONLY the markdown content, no explanations.`;
+
+    const result = await generateText({
+      model,
+      prompt,
+      temperature: AI_CONFIG.defaults.temperature,
+      maxTokens: AI_CONFIG.defaults.maxTokens,
+    });
+
+    const usage = {
+      inputTokens: result.usage?.promptTokens || 0,
+      outputTokens: result.usage?.completionTokens || 0,
+      totalTokens: result.usage?.totalTokens || 0,
+    };
+
+    const cost: CostEstimate = {
+      inputTokens: usage.inputTokens,
+      outputTokens: usage.outputTokens,
+      totalTokens: usage.totalTokens,
+      estimatedCost: calculateCost(provider, modelName, usage.inputTokens, usage.outputTokens),
+      model: modelName,
+      provider,
+    };
+
+    return {
+      data: result.text,
+      usage,
+      cost,
+      model: modelName,
+      provider,
+    };
+  }
+
+  /**
+   * Regenerate a PRD from existing specs and tasks
+   */
+  async regeneratePRD(
+    capabilities: SpecCapability[],
+    tasks?: Array<{ title: string; description: string; status: string }>
+  ): Promise<AIResult<string>> {
+    const { provider, model, modelName } = getPreferredModel();
+
+    const capabilitiesSummary = capabilities
+      .map(
+        (c, i) =>
+          `${i + 1}. ${c.name} (${c.id})
+   Purpose: ${c.purpose}
+   Requirements: ${c.requirements.length}
+   ${c.requirements.map((r, ri) => `   ${ri + 1}. ${r.name}`).join('\n')}`
+      )
+      .join('\n\n');
+
+    let prompt = `You are an expert product manager regenerating a Product Requirements Document (PRD) from existing specifications and tasks.
+
+Existing Capabilities:
+${capabilitiesSummary}`;
+
+    if (tasks && tasks.length > 0) {
+      const completedTasks = tasks.filter((t) => t.status === 'completed' || t.status === 'done');
+      const inProgressTasks = tasks.filter((t) => t.status === 'in-progress' || t.status === 'in_progress');
+      const pendingTasks = tasks.filter((t) => t.status === 'pending' || t.status === 'todo');
+
+      prompt += `\n\nImplementation Progress:
+- Completed tasks: ${completedTasks.length}
+- In progress: ${inProgressTasks.length}
+- Pending: ${pendingTasks.length}
+
+Sample tasks:
+${tasks.slice(0, 10).map((t) => `- [${t.status}] ${t.title}`).join('\n')}`;
+    }
+
+    prompt += `\n\nGenerate a comprehensive PRD document that:
+1. Provides an executive summary of the product
+2. Details each capability with clear objectives
+3. Outlines technical requirements and constraints
+4. Includes implementation status if tasks are provided
+5. Identifies dependencies and risks
+6. Sets clear success criteria
+
+Format the PRD in professional markdown with:
+- Clear section headers (## for main sections, ### for subsections)
+- Bullet points for lists
+- Tables for structured data
+- Code blocks for technical details
+
+Return ONLY the PRD markdown content, no explanations.`;
 
     const result = await generateText({
       model,
