@@ -68,9 +68,16 @@ fn copy_orkee_binary() -> Result<(), String> {
         format!("{}-{}", arch, suffix)
     });
 
+    // Determine binary extension based on target OS
+    let binary_ext = if target_triple.contains("windows") {
+        ".exe"
+    } else {
+        ""
+    };
+
     // Check if binary already exists in binaries/ directory
     // (prepare-binaries.sh may have already placed it there)
-    let binary_name = format!("orkee-{}", target_triple);
+    let binary_name = format!("orkee-{}{}", target_triple, binary_ext);
     let binaries_dir = manifest_dir.join("binaries");
     let dest = binaries_dir.join(&binary_name);
 
@@ -80,16 +87,22 @@ fn copy_orkee_binary() -> Result<(), String> {
         return Ok(());
     }
 
+    // Binary name in target directory
+    let source_binary_name = format!("orkee{}", binary_ext);
+
     // Try target-specific directory first (cross-compile), then fall back to default
     let mut source = workspace_root
         .join("target")
         .join(&target_triple)
         .join("release")
-        .join("orkee");
+        .join(&source_binary_name);
 
     // If not in target-specific directory, check default location
     if !source.exists() {
-        source = workspace_root.join("target").join("release").join("orkee");
+        source = workspace_root
+            .join("target")
+            .join("release")
+            .join(&source_binary_name);
     }
 
     // Check if source exists
