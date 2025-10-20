@@ -280,6 +280,33 @@ Build a secure authentication system for web applications.
                     </details>
                   ))}
                 </div>
+
+                {prdWorkflowMutation.data.suggestedTasks.length > 0 && (
+                  <div className="space-y-2">
+                    <div className="text-sm font-medium">Suggested Tasks</div>
+                    <div className="space-y-2">
+                      {prdWorkflowMutation.data.suggestedTasks.map((task, idx) => (
+                        <div key={idx} className="ml-4 p-3 rounded-md border bg-card text-card-foreground">
+                          <p className="font-medium text-sm">{task.title}</p>
+                          <p className="text-xs text-muted-foreground mt-1">{task.description}</p>
+                          <div className="flex gap-2 mt-2">
+                            <span className="text-xs px-2 py-1 rounded bg-secondary">
+                              {task.capabilityId}
+                            </span>
+                            <span className="text-xs px-2 py-1 rounded bg-secondary">
+                              Complexity: {task.complexity}/10
+                            </span>
+                            {task.priority && (
+                              <span className="text-xs px-2 py-1 rounded bg-secondary">
+                                Priority: {task.priority}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
