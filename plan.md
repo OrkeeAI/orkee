@@ -13,6 +13,12 @@
 - PRD management, spec CRUD, change management, task-spec integration, and AI proxy
 - Commits: `939fde6`, `29f3cc7`, `8fdbdee`, `18a7617`, `bad9ce7`
 
+**Week 4 Frontend Components: 🚧 IN PROGRESS (Day 1 of 5 complete)**
+- ✅ Day 1: PRDUploadDialog with upload/preview/analysis tabs
+- Service layer, React Query hooks, and component with markdown rendering
+- Integrated react-markdown v10.1.0 + syntax highlighting
+- Next: Day 2 SpecBuilderWizard
+
 **Implementation Highlights:**
 - **Parser Module**: 15 tests, full markdown parsing with WHEN/THEN/AND scenarios
 - **Validator Module**: 20 tests, comprehensive validation of names, lengths, and scenarios
@@ -20,8 +26,9 @@
 - **Database Module**: 2 tests, SQLite integration with proper migrations
 - **Integration Module**: 2 tests, task generation from specs with validation
 - **API Endpoints**: 28 endpoints (6 PRD + 7 Spec + 6 Change + 6 Task-Spec + 5 AI Proxy)
+- **Frontend Components**: PRDUploadDialog with 3-tab interface (Upload/Preview/Analysis)
 
-**Next Steps:** Week 4 Frontend Components (PRD upload, spec builder, task-spec linker)
+**Next Steps:** Week 4 Day 2 - SpecBuilderWizard component
 
 ---
 
@@ -612,23 +619,27 @@ impl SpecSyncEngine {
 
 ## PHASE 5: Frontend Components
 
-### 5.1 PRD Upload & Analysis
+### 5.1 PRD Upload & Analysis ✅ COMPLETE (2025-01-20)
 
-Create `packages/tasks/src/components/PRDUploadDialog.tsx`:
+Created `packages/dashboard/src/components/PRDUploadDialog.tsx`:
 
-```typescript
-interface PRDUploadDialogProps {
-  projectId: string;
-  onComplete: (prdId: string) => void;
-}
+**Implemented Features:**
+- ✅ Upload PRD file (.md, .markdown, .txt) or paste markdown content
+- ✅ Three-tab interface: Upload, Preview, Analysis
+- ✅ Markdown preview with GitHub-dark syntax highlighting (rehype-highlight)
+- ✅ AI analysis with progress indicator using react-query mutations
+- ✅ Capability extraction with detailed cards showing requirements and scenarios
+- ✅ Task suggestions display with complexity scores
+- ✅ Dependency detection and display
+- ✅ Form validation and error handling
+- ✅ Character count and file name auto-population
+- ✅ Responsive layout with max-height scrolling
 
-// Features:
-// - Upload PRD file or paste markdown
-// - Preview with syntax highlighting
-// - AI analysis with progress indicator
-// - Show extracted capabilities
-// - Review and approve before saving
-```
+**Technical Stack:**
+- react-markdown v10.1.0 with remark-gfm, rehype-highlight, rehype-raw
+- highlight.js v11.11.1 for syntax highlighting
+- Shadcn/ui components (Dialog, Tabs, Progress, etc.)
+- React Query for API state management
 
 ### 5.2 Spec Builder Wizard
 
@@ -700,7 +711,11 @@ Update `packages/tasks/src/components/TaskCard.tsx`:
 
 ### 5.6 Implementation Checklist
 
-- [ ] Create PRDUploadDialog component
+- [x] Create PRDUploadDialog component ✅ (2025-01-20)
+  - Service layer: `packages/dashboard/src/services/prds.ts`
+  - Hooks: `packages/dashboard/src/hooks/usePRDs.ts`
+  - Component: `packages/dashboard/src/components/PRDUploadDialog.tsx`
+  - Dependencies: react-markdown, rehype-highlight, highlight.js
 - [ ] Build SpecBuilderWizard with steps
 - [ ] Implement TaskSpecLinker interface
 - [ ] Create SyncDashboard for management
@@ -709,7 +724,7 @@ Update `packages/tasks/src/components/TaskCard.tsx`:
 - [ ] Create ChangeProposalForm
 - [ ] Build ValidationResultsPanel
 - [ ] Implement streaming UI updates
-- [ ] Add markdown preview components
+- [x] Add markdown preview components ✅ (integrated in PRDUploadDialog)
 - [ ] Create spec diff viewer
 - [ ] Build scenario test runner UI
 
@@ -843,7 +858,14 @@ export class SpecWorkflow {
 - [x] Day 5: AI proxy endpoints (commit bad9ce7 - 5 placeholder endpoints)
 
 ### Week 4: Frontend Components
-- [ ] Day 1: PRDUploadDialog
+- [x] Day 1: PRDUploadDialog ✅ (2025-01-20)
+  - Created PRD service layer (`packages/dashboard/src/services/prds.ts`)
+  - Implemented React Query hooks (`packages/dashboard/src/hooks/usePRDs.ts`)
+  - Built PRDUploadDialog component with 3 tabs (Upload/Preview/Analysis)
+  - Integrated react-markdown with syntax highlighting (rehype-highlight)
+  - Added AI analysis integration with progress indicators
+  - Capability extraction display with collapsible requirements
+  - File upload + paste interface with character count
 - [ ] Day 2: SpecBuilderWizard
 - [ ] Day 3: TaskSpecLinker
 - [ ] Day 4: SyncDashboard
