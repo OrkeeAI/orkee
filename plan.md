@@ -14,7 +14,7 @@
 - Commits: `939fde6`, `29f3cc7`, `8fdbdee`, `18a7617`, `bad9ce7`
 
 **Week 4 Frontend Components: 🚧 IN PROGRESS (Day 1 of 5 complete)**
-- ✅ Day 1: PRDUploadDialog with upload/preview/analysis tabs
+- ✅ Day 1: PRDUploadDialog with upload/preview/analysis tabs (commit `e20e9ba`)
 - Service layer, React Query hooks, and component with markdown rendering
 - Integrated react-markdown v10.1.0 + syntax highlighting
 - Next: Day 2 SpecBuilderWizard
@@ -858,7 +858,7 @@ export class SpecWorkflow {
 - [x] Day 5: AI proxy endpoints (commit bad9ce7 - 5 placeholder endpoints)
 
 ### Week 4: Frontend Components
-- [x] Day 1: PRDUploadDialog ✅ (2025-01-20)
+- [x] Day 1: PRDUploadDialog ✅ (commit `e20e9ba` - 2025-01-20)
   - Created PRD service layer (`packages/dashboard/src/services/prds.ts`)
   - Implemented React Query hooks (`packages/dashboard/src/hooks/usePRDs.ts`)
   - Built PRDUploadDialog component with 3 tabs (Upload/Preview/Analysis)
