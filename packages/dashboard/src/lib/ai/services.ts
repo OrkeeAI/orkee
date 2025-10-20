@@ -51,7 +51,8 @@ Your task is to:
 1. Extract high-level capabilities (functional areas) from the PRD
 2. For each capability, define specific requirements
 3. For each requirement, create WHEN/THEN/AND scenarios
-4. Identify dependencies and technical considerations
+4. Suggest 5-10 actionable tasks to implement the capabilities
+5. Identify dependencies and technical considerations
 
 PRD Content:
 ${prdContent}
@@ -60,6 +61,8 @@ Important guidelines:
 - Capability IDs must be kebab-case (e.g., "user-auth", "data-sync")
 - Each requirement must have at least one scenario
 - Scenarios must follow WHEN/THEN/AND structure
+- Tasks should be specific, actionable, and include complexity scores (1-10)
+- Tasks should reference the capability and requirement they implement
 - Be specific and actionable
 - Focus on testable behaviors`;
 
