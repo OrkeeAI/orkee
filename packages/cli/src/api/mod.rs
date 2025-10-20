@@ -217,7 +217,11 @@ pub async fn create_router_with_options(dashboard_path: Option<std::path::PathBu
         )
         .nest(
             "/api",
-            orkee_projects::create_prds_router().with_state(db_state),
+            orkee_projects::create_prds_router().with_state(db_state.clone()),
+        )
+        .nest(
+            "/api",
+            orkee_projects::create_specs_router().with_state(db_state),
         )
         .layer(axum::Extension(path_validator));
 

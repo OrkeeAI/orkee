@@ -10,6 +10,7 @@ pub mod executions_handlers;
 pub mod handlers;
 pub mod prd_handlers;
 pub mod response;
+pub mod spec_handlers;
 pub mod tags_handlers;
 pub mod tasks_handlers;
 pub mod users_handlers;
@@ -114,4 +115,16 @@ pub fn create_prds_router() -> Router<DbState> {
         .route("/:project_id/prds/:prd_id", put(prd_handlers::update_prd))
         .route("/:project_id/prds/:prd_id", delete(prd_handlers::delete_prd))
         .route("/:project_id/prds/:prd_id/capabilities", get(prd_handlers::get_prd_capabilities))
+}
+
+/// Creates the specs API router for OpenSpec capabilities
+pub fn create_specs_router() -> Router<DbState> {
+    Router::new()
+        .route("/:project_id/specs", get(spec_handlers::list_capabilities))
+        .route("/:project_id/specs", post(spec_handlers::create_capability))
+        .route("/:project_id/specs/:capability_id", get(spec_handlers::get_capability))
+        .route("/:project_id/specs/:capability_id", put(spec_handlers::update_capability))
+        .route("/:project_id/specs/:capability_id", delete(spec_handlers::delete_capability))
+        .route("/:project_id/specs/:capability_id/requirements", get(spec_handlers::get_capability_requirements))
+        .route("/specs/validate", post(spec_handlers::validate_spec))
 }
