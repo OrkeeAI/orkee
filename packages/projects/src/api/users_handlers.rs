@@ -24,10 +24,7 @@ pub async fn get_current_user(State(db): State<DbState>) -> impl IntoResponse {
 }
 
 /// Get user by ID
-pub async fn get_user(
-    State(db): State<DbState>,
-    Path(user_id): Path<String>,
-) -> impl IntoResponse {
+pub async fn get_user(State(db): State<DbState>, Path(user_id): Path<String>) -> impl IntoResponse {
     info!("Getting user: {}", user_id);
 
     match db.user_storage.get_user(&user_id).await {
@@ -84,11 +81,7 @@ pub async fn update_theme(
 ) -> impl IntoResponse {
     info!("Updating theme for user {}", user_id);
 
-    match db
-        .user_storage
-        .update_theme(&user_id, &request.theme)
-        .await
-    {
+    match db.user_storage.update_theme(&user_id, &request.theme).await {
         Ok(()) => (
             StatusCode::OK,
             ResponseJson(ApiResponse::success(serde_json::json!({

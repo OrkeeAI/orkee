@@ -23,14 +23,19 @@ impl ExecutionStorage {
     // ==================== Agent Executions ====================
 
     /// List all executions for a task
-    pub async fn list_executions(&self, task_id: &str) -> Result<Vec<AgentExecution>, StorageError> {
+    pub async fn list_executions(
+        &self,
+        task_id: &str,
+    ) -> Result<Vec<AgentExecution>, StorageError> {
         debug!("Fetching executions for task: {}", task_id);
 
-        let rows = sqlx::query("SELECT * FROM agent_executions WHERE task_id = ? ORDER BY started_at DESC")
-            .bind(task_id)
-            .fetch_all(&self.pool)
-            .await
-            .map_err(StorageError::Sqlx)?;
+        let rows = sqlx::query(
+            "SELECT * FROM agent_executions WHERE task_id = ? ORDER BY started_at DESC",
+        )
+        .bind(task_id)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(StorageError::Sqlx)?;
 
         rows.iter()
             .map(|row| self.row_to_execution(row))
@@ -58,7 +63,10 @@ impl ExecutionStorage {
         let execution_id = format!("exec-{}", nanoid::nanoid!());
         let now = Utc::now();
 
-        debug!("Creating execution: {} for task: {}", execution_id, input.task_id);
+        debug!(
+            "Creating execution: {} for task: {}",
+            execution_id, input.task_id
+        );
 
         sqlx::query(
             r#"
@@ -98,35 +106,93 @@ impl ExecutionStorage {
         let mut query_str = String::from("UPDATE agent_executions SET ");
 
         // Build dynamic update query
-        if input.status.is_some() { updates.push("status = ?"); }
-        if input.completed_at.is_some() { updates.push("completed_at = ?"); }
-        if input.execution_time_seconds.is_some() { updates.push("execution_time_seconds = ?"); }
-        if input.tokens_input.is_some() { updates.push("tokens_input = ?"); }
-        if input.tokens_output.is_some() { updates.push("tokens_output = ?"); }
-        if input.total_cost.is_some() { updates.push("total_cost = ?"); }
-        if input.response.is_some() { updates.push("response = ?"); }
-        if input.error_message.is_some() { updates.push("error_message = ?"); }
-        if input.files_changed.is_some() { updates.push("files_changed = ?"); }
-        if input.lines_added.is_some() { updates.push("lines_added = ?"); }
-        if input.lines_removed.is_some() { updates.push("lines_removed = ?"); }
-        if input.files_created.is_some() { updates.push("files_created = ?"); }
-        if input.files_modified.is_some() { updates.push("files_modified = ?"); }
-        if input.files_deleted.is_some() { updates.push("files_deleted = ?"); }
-        if input.branch_name.is_some() { updates.push("branch_name = ?"); }
-        if input.commit_hash.is_some() { updates.push("commit_hash = ?"); }
-        if input.commit_message.is_some() { updates.push("commit_message = ?"); }
-        if input.pr_number.is_some() { updates.push("pr_number = ?"); }
-        if input.pr_url.is_some() { updates.push("pr_url = ?"); }
-        if input.pr_title.is_some() { updates.push("pr_title = ?"); }
-        if input.pr_status.is_some() { updates.push("pr_status = ?"); }
-        if input.pr_created_at.is_some() { updates.push("pr_created_at = ?"); }
-        if input.pr_merged_at.is_some() { updates.push("pr_merged_at = ?"); }
-        if input.pr_merge_commit.is_some() { updates.push("pr_merge_commit = ?"); }
-        if input.review_status.is_some() { updates.push("review_status = ?"); }
-        if input.review_comments.is_some() { updates.push("review_comments = ?"); }
-        if input.test_results.is_some() { updates.push("test_results = ?"); }
-        if input.performance_metrics.is_some() { updates.push("performance_metrics = ?"); }
-        if input.metadata.is_some() { updates.push("metadata = ?"); }
+        if input.status.is_some() {
+            updates.push("status = ?");
+        }
+        if input.completed_at.is_some() {
+            updates.push("completed_at = ?");
+        }
+        if input.execution_time_seconds.is_some() {
+            updates.push("execution_time_seconds = ?");
+        }
+        if input.tokens_input.is_some() {
+            updates.push("tokens_input = ?");
+        }
+        if input.tokens_output.is_some() {
+            updates.push("tokens_output = ?");
+        }
+        if input.total_cost.is_some() {
+            updates.push("total_cost = ?");
+        }
+        if input.response.is_some() {
+            updates.push("response = ?");
+        }
+        if input.error_message.is_some() {
+            updates.push("error_message = ?");
+        }
+        if input.files_changed.is_some() {
+            updates.push("files_changed = ?");
+        }
+        if input.lines_added.is_some() {
+            updates.push("lines_added = ?");
+        }
+        if input.lines_removed.is_some() {
+            updates.push("lines_removed = ?");
+        }
+        if input.files_created.is_some() {
+            updates.push("files_created = ?");
+        }
+        if input.files_modified.is_some() {
+            updates.push("files_modified = ?");
+        }
+        if input.files_deleted.is_some() {
+            updates.push("files_deleted = ?");
+        }
+        if input.branch_name.is_some() {
+            updates.push("branch_name = ?");
+        }
+        if input.commit_hash.is_some() {
+            updates.push("commit_hash = ?");
+        }
+        if input.commit_message.is_some() {
+            updates.push("commit_message = ?");
+        }
+        if input.pr_number.is_some() {
+            updates.push("pr_number = ?");
+        }
+        if input.pr_url.is_some() {
+            updates.push("pr_url = ?");
+        }
+        if input.pr_title.is_some() {
+            updates.push("pr_title = ?");
+        }
+        if input.pr_status.is_some() {
+            updates.push("pr_status = ?");
+        }
+        if input.pr_created_at.is_some() {
+            updates.push("pr_created_at = ?");
+        }
+        if input.pr_merged_at.is_some() {
+            updates.push("pr_merged_at = ?");
+        }
+        if input.pr_merge_commit.is_some() {
+            updates.push("pr_merge_commit = ?");
+        }
+        if input.review_status.is_some() {
+            updates.push("review_status = ?");
+        }
+        if input.review_comments.is_some() {
+            updates.push("review_comments = ?");
+        }
+        if input.test_results.is_some() {
+            updates.push("test_results = ?");
+        }
+        if input.performance_metrics.is_some() {
+            updates.push("performance_metrics = ?");
+        }
+        if input.metadata.is_some() {
+            updates.push("metadata = ?");
+        }
 
         query_str.push_str(&updates.join(", "));
         query_str.push_str(" WHERE id = ?");
@@ -134,35 +200,93 @@ impl ExecutionStorage {
         let mut query = sqlx::query(&query_str).bind(now);
 
         // Bind parameters in the same order
-        if let Some(status) = input.status { query = query.bind(status); }
-        if let Some(completed_at) = input.completed_at { query = query.bind(completed_at); }
-        if let Some(execution_time) = input.execution_time_seconds { query = query.bind(execution_time); }
-        if let Some(tokens_in) = input.tokens_input { query = query.bind(tokens_in); }
-        if let Some(tokens_out) = input.tokens_output { query = query.bind(tokens_out); }
-        if let Some(cost) = input.total_cost { query = query.bind(cost); }
-        if let Some(response) = input.response { query = query.bind(response); }
-        if let Some(error) = input.error_message { query = query.bind(error); }
-        if let Some(files) = input.files_changed { query = query.bind(files); }
-        if let Some(added) = input.lines_added { query = query.bind(added); }
-        if let Some(removed) = input.lines_removed { query = query.bind(removed); }
-        if let Some(created) = input.files_created { query = query.bind(serde_json::to_string(&created).unwrap()); }
-        if let Some(modified) = input.files_modified { query = query.bind(serde_json::to_string(&modified).unwrap()); }
-        if let Some(deleted) = input.files_deleted { query = query.bind(serde_json::to_string(&deleted).unwrap()); }
-        if let Some(branch) = input.branch_name { query = query.bind(branch); }
-        if let Some(commit) = input.commit_hash { query = query.bind(commit); }
-        if let Some(msg) = input.commit_message { query = query.bind(msg); }
-        if let Some(pr_num) = input.pr_number { query = query.bind(pr_num); }
-        if let Some(pr_url) = input.pr_url { query = query.bind(pr_url); }
-        if let Some(pr_title) = input.pr_title { query = query.bind(pr_title); }
-        if let Some(pr_status) = input.pr_status { query = query.bind(pr_status); }
-        if let Some(pr_created) = input.pr_created_at { query = query.bind(pr_created); }
-        if let Some(pr_merged) = input.pr_merged_at { query = query.bind(pr_merged); }
-        if let Some(merge_commit) = input.pr_merge_commit { query = query.bind(merge_commit); }
-        if let Some(review) = input.review_status { query = query.bind(review); }
-        if let Some(comments) = input.review_comments { query = query.bind(comments); }
-        if let Some(tests) = input.test_results { query = query.bind(serde_json::to_string(&tests).unwrap()); }
-        if let Some(metrics) = input.performance_metrics { query = query.bind(serde_json::to_string(&metrics).unwrap()); }
-        if let Some(meta) = input.metadata { query = query.bind(serde_json::to_string(&meta).unwrap()); }
+        if let Some(status) = input.status {
+            query = query.bind(status);
+        }
+        if let Some(completed_at) = input.completed_at {
+            query = query.bind(completed_at);
+        }
+        if let Some(execution_time) = input.execution_time_seconds {
+            query = query.bind(execution_time);
+        }
+        if let Some(tokens_in) = input.tokens_input {
+            query = query.bind(tokens_in);
+        }
+        if let Some(tokens_out) = input.tokens_output {
+            query = query.bind(tokens_out);
+        }
+        if let Some(cost) = input.total_cost {
+            query = query.bind(cost);
+        }
+        if let Some(response) = input.response {
+            query = query.bind(response);
+        }
+        if let Some(error) = input.error_message {
+            query = query.bind(error);
+        }
+        if let Some(files) = input.files_changed {
+            query = query.bind(files);
+        }
+        if let Some(added) = input.lines_added {
+            query = query.bind(added);
+        }
+        if let Some(removed) = input.lines_removed {
+            query = query.bind(removed);
+        }
+        if let Some(created) = input.files_created {
+            query = query.bind(serde_json::to_string(&created).unwrap());
+        }
+        if let Some(modified) = input.files_modified {
+            query = query.bind(serde_json::to_string(&modified).unwrap());
+        }
+        if let Some(deleted) = input.files_deleted {
+            query = query.bind(serde_json::to_string(&deleted).unwrap());
+        }
+        if let Some(branch) = input.branch_name {
+            query = query.bind(branch);
+        }
+        if let Some(commit) = input.commit_hash {
+            query = query.bind(commit);
+        }
+        if let Some(msg) = input.commit_message {
+            query = query.bind(msg);
+        }
+        if let Some(pr_num) = input.pr_number {
+            query = query.bind(pr_num);
+        }
+        if let Some(pr_url) = input.pr_url {
+            query = query.bind(pr_url);
+        }
+        if let Some(pr_title) = input.pr_title {
+            query = query.bind(pr_title);
+        }
+        if let Some(pr_status) = input.pr_status {
+            query = query.bind(pr_status);
+        }
+        if let Some(pr_created) = input.pr_created_at {
+            query = query.bind(pr_created);
+        }
+        if let Some(pr_merged) = input.pr_merged_at {
+            query = query.bind(pr_merged);
+        }
+        if let Some(merge_commit) = input.pr_merge_commit {
+            query = query.bind(merge_commit);
+        }
+        if let Some(review) = input.review_status {
+            query = query.bind(review);
+        }
+        if let Some(comments) = input.review_comments {
+            query = query.bind(comments);
+        }
+        if let Some(tests) = input.test_results {
+            query = query.bind(serde_json::to_string(&tests).unwrap());
+        }
+        if let Some(metrics) = input.performance_metrics {
+            query = query.bind(serde_json::to_string(&metrics).unwrap());
+        }
+        if let Some(meta) = input.metadata {
+            query = query.bind(serde_json::to_string(&meta).unwrap());
+        }
 
         query = query.bind(execution_id);
 
@@ -193,11 +317,13 @@ impl ExecutionStorage {
     pub async fn list_reviews(&self, execution_id: &str) -> Result<Vec<PrReview>, StorageError> {
         debug!("Fetching reviews for execution: {}", execution_id);
 
-        let rows = sqlx::query("SELECT * FROM pr_reviews WHERE execution_id = ? ORDER BY reviewed_at DESC")
-            .bind(execution_id)
-            .fetch_all(&self.pool)
-            .await
-            .map_err(StorageError::Sqlx)?;
+        let rows = sqlx::query(
+            "SELECT * FROM pr_reviews WHERE execution_id = ? ORDER BY reviewed_at DESC",
+        )
+        .bind(execution_id)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(StorageError::Sqlx)?;
 
         rows.iter()
             .map(|row| self.row_to_review(row))
@@ -218,11 +344,17 @@ impl ExecutionStorage {
     }
 
     /// Create a new review
-    pub async fn create_review(&self, input: PrReviewCreateInput) -> Result<PrReview, StorageError> {
+    pub async fn create_review(
+        &self,
+        input: PrReviewCreateInput,
+    ) -> Result<PrReview, StorageError> {
         let review_id = format!("review-{}", nanoid::nanoid!());
         let now = Utc::now();
 
-        debug!("Creating review: {} for execution: {}", review_id, input.execution_id);
+        debug!(
+            "Creating review: {} for execution: {}",
+            review_id, input.execution_id
+        );
 
         sqlx::query(
             r#"
@@ -238,8 +370,18 @@ impl ExecutionStorage {
         .bind(&input.reviewer_type)
         .bind(&input.review_status)
         .bind(&input.review_body)
-        .bind(input.comments.as_ref().map(|c| serde_json::to_string(c).unwrap()))
-        .bind(input.suggested_changes.as_ref().map(|s| serde_json::to_string(s).unwrap()))
+        .bind(
+            input
+                .comments
+                .as_ref()
+                .map(|c| serde_json::to_string(c).unwrap()),
+        )
+        .bind(
+            input
+                .suggested_changes
+                .as_ref()
+                .map(|s| serde_json::to_string(s).unwrap()),
+        )
         .bind(now)
         .bind(now)
         .bind(now)
@@ -261,22 +403,46 @@ impl ExecutionStorage {
         let now = Utc::now();
         let mut updates = vec!["updated_at = ?"];
 
-        if input.review_status.is_some() { updates.push("review_status = ?"); }
-        if input.review_body.is_some() { updates.push("review_body = ?"); }
-        if input.comments.is_some() { updates.push("comments = ?"); }
-        if input.suggested_changes.is_some() { updates.push("suggested_changes = ?"); }
-        if input.approval_date.is_some() { updates.push("approval_date = ?"); }
-        if input.dismissal_reason.is_some() { updates.push("dismissal_reason = ?"); }
+        if input.review_status.is_some() {
+            updates.push("review_status = ?");
+        }
+        if input.review_body.is_some() {
+            updates.push("review_body = ?");
+        }
+        if input.comments.is_some() {
+            updates.push("comments = ?");
+        }
+        if input.suggested_changes.is_some() {
+            updates.push("suggested_changes = ?");
+        }
+        if input.approval_date.is_some() {
+            updates.push("approval_date = ?");
+        }
+        if input.dismissal_reason.is_some() {
+            updates.push("dismissal_reason = ?");
+        }
 
         let query_str = format!("UPDATE pr_reviews SET {} WHERE id = ?", updates.join(", "));
         let mut query = sqlx::query(&query_str).bind(now);
 
-        if let Some(status) = input.review_status { query = query.bind(status); }
-        if let Some(body) = input.review_body { query = query.bind(body); }
-        if let Some(comments) = input.comments { query = query.bind(serde_json::to_string(&comments).unwrap()); }
-        if let Some(changes) = input.suggested_changes { query = query.bind(serde_json::to_string(&changes).unwrap()); }
-        if let Some(approval) = input.approval_date { query = query.bind(approval); }
-        if let Some(dismissal) = input.dismissal_reason { query = query.bind(dismissal); }
+        if let Some(status) = input.review_status {
+            query = query.bind(status);
+        }
+        if let Some(body) = input.review_body {
+            query = query.bind(body);
+        }
+        if let Some(comments) = input.comments {
+            query = query.bind(serde_json::to_string(&comments).unwrap());
+        }
+        if let Some(changes) = input.suggested_changes {
+            query = query.bind(serde_json::to_string(&changes).unwrap());
+        }
+        if let Some(approval) = input.approval_date {
+            query = query.bind(approval);
+        }
+        if let Some(dismissal) = input.dismissal_reason {
+            query = query.bind(dismissal);
+        }
 
         query = query.bind(review_id);
 
@@ -303,12 +469,21 @@ impl ExecutionStorage {
 
     // ==================== Helper Methods ====================
 
-    fn row_to_execution(&self, row: &sqlx::sqlite::SqliteRow) -> Result<AgentExecution, StorageError> {
-        let files_created: Option<String> = row.try_get("files_created").map_err(StorageError::Sqlx)?;
-        let files_modified: Option<String> = row.try_get("files_modified").map_err(StorageError::Sqlx)?;
-        let files_deleted: Option<String> = row.try_get("files_deleted").map_err(StorageError::Sqlx)?;
-        let test_results: Option<String> = row.try_get("test_results").map_err(StorageError::Sqlx)?;
-        let performance_metrics: Option<String> = row.try_get("performance_metrics").map_err(StorageError::Sqlx)?;
+    fn row_to_execution(
+        &self,
+        row: &sqlx::sqlite::SqliteRow,
+    ) -> Result<AgentExecution, StorageError> {
+        let files_created: Option<String> =
+            row.try_get("files_created").map_err(StorageError::Sqlx)?;
+        let files_modified: Option<String> =
+            row.try_get("files_modified").map_err(StorageError::Sqlx)?;
+        let files_deleted: Option<String> =
+            row.try_get("files_deleted").map_err(StorageError::Sqlx)?;
+        let test_results: Option<String> =
+            row.try_get("test_results").map_err(StorageError::Sqlx)?;
+        let performance_metrics: Option<String> = row
+            .try_get("performance_metrics")
+            .map_err(StorageError::Sqlx)?;
         let metadata: Option<String> = row.try_get("metadata").map_err(StorageError::Sqlx)?;
 
         Ok(AgentExecution {
@@ -319,7 +494,9 @@ impl ExecutionStorage {
             started_at: row.try_get("started_at").map_err(StorageError::Sqlx)?,
             completed_at: row.try_get("completed_at").map_err(StorageError::Sqlx)?,
             status: row.try_get("status").map_err(StorageError::Sqlx)?,
-            execution_time_seconds: row.try_get("execution_time_seconds").map_err(StorageError::Sqlx)?,
+            execution_time_seconds: row
+                .try_get("execution_time_seconds")
+                .map_err(StorageError::Sqlx)?,
             tokens_input: row.try_get("tokens_input").map_err(StorageError::Sqlx)?,
             tokens_output: row.try_get("tokens_output").map_err(StorageError::Sqlx)?,
             total_cost: row.try_get("total_cost").map_err(StorageError::Sqlx)?,
@@ -355,7 +532,9 @@ impl ExecutionStorage {
 
     fn row_to_review(&self, row: &sqlx::sqlite::SqliteRow) -> Result<PrReview, StorageError> {
         let comments: Option<String> = row.try_get("comments").map_err(StorageError::Sqlx)?;
-        let suggested_changes: Option<String> = row.try_get("suggested_changes").map_err(StorageError::Sqlx)?;
+        let suggested_changes: Option<String> = row
+            .try_get("suggested_changes")
+            .map_err(StorageError::Sqlx)?;
 
         Ok(PrReview {
             id: row.try_get("id").map_err(StorageError::Sqlx)?,
@@ -367,7 +546,9 @@ impl ExecutionStorage {
             comments: comments.and_then(|s| serde_json::from_str(&s).ok()),
             suggested_changes: suggested_changes.and_then(|s| serde_json::from_str(&s).ok()),
             approval_date: row.try_get("approval_date").map_err(StorageError::Sqlx)?,
-            dismissal_reason: row.try_get("dismissal_reason").map_err(StorageError::Sqlx)?,
+            dismissal_reason: row
+                .try_get("dismissal_reason")
+                .map_err(StorageError::Sqlx)?,
             reviewed_at: row.try_get("reviewed_at").map_err(StorageError::Sqlx)?,
             created_at: row.try_get("created_at").map_err(StorageError::Sqlx)?,
             updated_at: row.try_get("updated_at").map_err(StorageError::Sqlx)?,

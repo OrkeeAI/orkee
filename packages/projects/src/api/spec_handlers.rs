@@ -25,9 +25,11 @@ pub async fn list_capabilities(
     info!("Listing capabilities for project: {}", project_id);
 
     match openspec_db::get_capabilities_by_project(&db.pool, &project_id).await {
-        Ok(capabilities) => {
-            (StatusCode::OK, ResponseJson(ApiResponse::success(capabilities))).into_response()
-        }
+        Ok(capabilities) => (
+            StatusCode::OK,
+            ResponseJson(ApiResponse::success(capabilities)),
+        )
+            .into_response(),
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
             ResponseJson(ApiResponse::<()>::error(format!(
@@ -47,9 +49,11 @@ pub async fn get_capability(
     info!("Getting capability: {}", capability_id);
 
     match openspec_db::get_capability(&db.pool, &capability_id).await {
-        Ok(capability) => {
-            (StatusCode::OK, ResponseJson(ApiResponse::success(capability))).into_response()
-        }
+        Ok(capability) => (
+            StatusCode::OK,
+            ResponseJson(ApiResponse::success(capability)),
+        )
+            .into_response(),
         Err(e) => (
             StatusCode::NOT_FOUND,
             ResponseJson(ApiResponse::<()>::error(format!(
@@ -97,9 +101,11 @@ pub async fn create_capability(
     )
     .await
     {
-        Ok(capability) => {
-            (StatusCode::CREATED, ResponseJson(ApiResponse::success(capability))).into_response()
-        }
+        Ok(capability) => (
+            StatusCode::CREATED,
+            ResponseJson(ApiResponse::success(capability)),
+        )
+            .into_response(),
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
             ResponseJson(ApiResponse::<()>::error(format!(
@@ -141,9 +147,11 @@ pub async fn update_capability(
     )
     .await
     {
-        Ok(capability) => {
-            (StatusCode::OK, ResponseJson(ApiResponse::success(capability))).into_response()
-        }
+        Ok(capability) => (
+            StatusCode::OK,
+            ResponseJson(ApiResponse::success(capability)),
+        )
+            .into_response(),
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
             ResponseJson(ApiResponse::<()>::error(format!(
@@ -198,9 +206,11 @@ pub async fn get_capability_requirements(
     info!("Getting requirements for capability: {}", capability_id);
 
     match openspec_db::get_requirements_by_capability(&db.pool, &capability_id).await {
-        Ok(requirements) => {
-            (StatusCode::OK, ResponseJson(ApiResponse::success(requirements))).into_response()
-        }
+        Ok(requirements) => (
+            StatusCode::OK,
+            ResponseJson(ApiResponse::success(requirements)),
+        )
+            .into_response(),
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
             ResponseJson(ApiResponse::<()>::error(format!(
@@ -235,7 +245,10 @@ pub struct ValidationResponse {
 
 /// Validate spec markdown format
 pub async fn validate_spec(Json(request): Json<ValidateSpecRequest>) -> impl IntoResponse {
-    info!("Validating spec markdown ({} bytes)", request.spec_markdown.len());
+    info!(
+        "Validating spec markdown ({} bytes)",
+        request.spec_markdown.len()
+    );
 
     // Parse the markdown
     match parser::parse_spec_markdown(&request.spec_markdown) {
@@ -258,7 +271,10 @@ pub async fn validate_spec(Json(request): Json<ValidateSpecRequest>) -> impl Int
 
             let response = ValidationResponse {
                 valid: validation_result.is_ok(),
-                errors: validation_result.err().map(|e| vec![e.to_string()]).unwrap_or_default(),
+                errors: validation_result
+                    .err()
+                    .map(|e| vec![e.to_string()])
+                    .unwrap_or_default(),
                 warnings: Vec::new(), // Could add warnings from validator later
                 capability_count,
                 requirement_count,

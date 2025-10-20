@@ -108,11 +108,7 @@ impl AgentStorage {
         self.row_to_user_agent(&row)
     }
 
-    pub async fn activate_agent(
-        &self,
-        user_id: &str,
-        agent_id: &str,
-    ) -> Result<(), StorageError> {
+    pub async fn activate_agent(&self, user_id: &str, agent_id: &str) -> Result<(), StorageError> {
         debug!("Activating agent: {} for user: {}", agent_id, user_id);
 
         sqlx::query(

@@ -34,7 +34,9 @@ pub fn parse_spec_markdown(markdown: &str) -> ParseResult<ParsedSpec> {
     }
 
     if capabilities.is_empty() {
-        return Err(ParseError::MissingSection("No capabilities found".to_string()));
+        return Err(ParseError::MissingSection(
+            "No capabilities found".to_string(),
+        ));
     }
 
     Ok(ParsedSpec {
@@ -189,7 +191,8 @@ fn extract_clause_text(line: &str, clause_type: &str) -> String {
     }
 
     // Remove any remaining bold markers and colon
-    text = text.trim_start_matches("**")
+    text = text
+        .trim_start_matches("**")
         .trim_end_matches("**")
         .trim_start_matches(':')
         .trim();
@@ -206,7 +209,10 @@ fn split_by_heading(content: &str, level: usize) -> Vec<(String, String)> {
 
     for line in content.lines() {
         if line.trim_start().starts_with(&heading_prefix)
-            && !line.trim_start().starts_with(&format!("{}#", heading_prefix)) {
+            && !line
+                .trim_start()
+                .starts_with(&format!("{}#", heading_prefix))
+        {
             // New section
             if !current_name.is_empty() {
                 sections.push((current_name.clone(), current_content.clone()));
@@ -271,7 +277,8 @@ fn extract_description(lines: &[&str]) -> Option<String> {
         // Stop at scenario markers
         if trimmed.starts_with("####")
             || trimmed.to_uppercase().starts_with("WHEN")
-            || trimmed.to_uppercase().starts_with("**WHEN") {
+            || trimmed.to_uppercase().starts_with("**WHEN")
+        {
             break;
         }
 
@@ -407,7 +414,9 @@ THEN result occurs
 
         let spec = result.unwrap();
         assert_eq!(spec.capabilities.len(), 1);
-        assert!(spec.capabilities[0].purpose.contains("No purpose specified"));
+        assert!(spec.capabilities[0]
+            .purpose
+            .contains("No purpose specified"));
     }
 
     #[test]
@@ -427,15 +436,14 @@ THEN result occurs
 
         let spec = result.unwrap();
         assert_eq!(spec.capabilities[0].requirements.len(), 1);
-        assert!(spec.capabilities[0].requirements[0].description.contains("No description"));
+        assert!(spec.capabilities[0].requirements[0]
+            .description
+            .contains("No description"));
     }
 
     #[test]
     fn test_parse_scenario_without_name() {
-        let lines = vec![
-            "WHEN user enters data",
-            "THEN data is saved",
-        ];
+        let lines = vec!["WHEN user enters data", "THEN data is saved"];
 
         let scenarios = parse_scenarios(&lines, "test").unwrap();
         assert_eq!(scenarios.len(), 1);
@@ -520,10 +528,22 @@ THEN result occurs
 
     #[test]
     fn test_extract_clause_text_variations() {
-        assert_eq!(extract_clause_text("WHEN user clicks", "WHEN"), "user clicks");
-        assert_eq!(extract_clause_text("when user clicks", "WHEN"), "user clicks");
-        assert_eq!(extract_clause_text("**WHEN** user clicks", "WHEN"), "user clicks");
-        assert_eq!(extract_clause_text("WHEN: user clicks", "WHEN"), "user clicks");
+        assert_eq!(
+            extract_clause_text("WHEN user clicks", "WHEN"),
+            "user clicks"
+        );
+        assert_eq!(
+            extract_clause_text("when user clicks", "WHEN"),
+            "user clicks"
+        );
+        assert_eq!(
+            extract_clause_text("**WHEN** user clicks", "WHEN"),
+            "user clicks"
+        );
+        assert_eq!(
+            extract_clause_text("WHEN: user clicks", "WHEN"),
+            "user clicks"
+        );
     }
 
     #[test]

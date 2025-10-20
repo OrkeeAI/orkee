@@ -28,9 +28,11 @@ pub async fn list_executions(
     info!("Listing executions for task: {}", task_id);
 
     match db.execution_storage.list_executions(&task_id).await {
-        Ok(executions) => {
-            (StatusCode::OK, ResponseJson(ApiResponse::success(executions))).into_response()
-        }
+        Ok(executions) => (
+            StatusCode::OK,
+            ResponseJson(ApiResponse::success(executions)),
+        )
+            .into_response(),
         Err(e) => e.into_response(),
     }
 }
@@ -43,9 +45,11 @@ pub async fn get_execution(
     info!("Getting execution: {}", execution_id);
 
     match db.execution_storage.get_execution(&execution_id).await {
-        Ok(execution) => {
-            (StatusCode::OK, ResponseJson(ApiResponse::success(execution))).into_response()
-        }
+        Ok(execution) => (
+            StatusCode::OK,
+            ResponseJson(ApiResponse::success(execution)),
+        )
+            .into_response(),
         Err(e) => e.into_response(),
     }
 }
@@ -79,9 +83,11 @@ pub async fn create_execution(
     };
 
     match db.execution_storage.create_execution(input).await {
-        Ok(execution) => {
-            (StatusCode::CREATED, ResponseJson(ApiResponse::success(execution))).into_response()
-        }
+        Ok(execution) => (
+            StatusCode::CREATED,
+            ResponseJson(ApiResponse::success(execution)),
+        )
+            .into_response(),
         Err(e) => e.into_response(),
     }
 }
@@ -154,7 +160,11 @@ pub async fn update_execution(
 ) -> impl IntoResponse {
     info!("Updating execution: {}", execution_id);
 
-    let parse_date = |s: &str| DateTime::parse_from_rfc3339(s).ok().map(|dt| dt.with_timezone(&Utc));
+    let parse_date = |s: &str| {
+        DateTime::parse_from_rfc3339(s)
+            .ok()
+            .map(|dt| dt.with_timezone(&Utc))
+    };
 
     let input = AgentExecutionUpdateInput {
         status: request.status,
@@ -193,9 +203,11 @@ pub async fn update_execution(
         .update_execution(&execution_id, input)
         .await
     {
-        Ok(execution) => {
-            (StatusCode::OK, ResponseJson(ApiResponse::success(execution))).into_response()
-        }
+        Ok(execution) => (
+            StatusCode::OK,
+            ResponseJson(ApiResponse::success(execution)),
+        )
+            .into_response(),
         Err(e) => e.into_response(),
     }
 }
@@ -242,9 +254,7 @@ pub async fn get_review(
     info!("Getting review: {}", review_id);
 
     match db.execution_storage.get_review(&review_id).await {
-        Ok(review) => {
-            (StatusCode::OK, ResponseJson(ApiResponse::success(review))).into_response()
-        }
+        Ok(review) => (StatusCode::OK, ResponseJson(ApiResponse::success(review))).into_response(),
         Err(e) => e.into_response(),
     }
 }
@@ -285,9 +295,11 @@ pub async fn create_review(
     };
 
     match db.execution_storage.create_review(input).await {
-        Ok(review) => {
-            (StatusCode::CREATED, ResponseJson(ApiResponse::success(review))).into_response()
-        }
+        Ok(review) => (
+            StatusCode::CREATED,
+            ResponseJson(ApiResponse::success(review)),
+        )
+            .into_response(),
         Err(e) => e.into_response(),
     }
 }
@@ -316,7 +328,11 @@ pub async fn update_review(
 ) -> impl IntoResponse {
     info!("Updating review: {}", review_id);
 
-    let parse_date = |s: &str| DateTime::parse_from_rfc3339(s).ok().map(|dt| dt.with_timezone(&Utc));
+    let parse_date = |s: &str| {
+        DateTime::parse_from_rfc3339(s)
+            .ok()
+            .map(|dt| dt.with_timezone(&Utc))
+    };
 
     let input = PrReviewUpdateInput {
         review_status: request.review_status,
@@ -328,9 +344,7 @@ pub async fn update_review(
     };
 
     match db.execution_storage.update_review(&review_id, input).await {
-        Ok(review) => {
-            (StatusCode::OK, ResponseJson(ApiResponse::success(review))).into_response()
-        }
+        Ok(review) => (StatusCode::OK, ResponseJson(ApiResponse::success(review))).into_response(),
         Err(e) => e.into_response(),
     }
 }

@@ -86,15 +86,15 @@ pub async fn create_task(
     Path(project_id): Path<String>,
     Json(request): Json<CreateTaskRequest>,
 ) -> impl IntoResponse {
-    info!("Creating task '{}' for project: {}", request.title, project_id);
+    info!(
+        "Creating task '{}' for project: {}",
+        request.title, project_id
+    );
 
     // Get current user ID (for now, use default user)
     let user_id = "default-user";
 
-    let due_date = request
-        .due_date
-        .as_deref()
-        .and_then(parse_due_date);
+    let due_date = request.due_date.as_deref().and_then(parse_due_date);
 
     let input = TaskCreateInput {
         title: request.title,
@@ -123,9 +123,11 @@ pub async fn create_task(
         .create_task(&project_id, user_id, input)
         .await
     {
-        Ok(task) => {
-            (StatusCode::CREATED, ResponseJson(ApiResponse::success(task))).into_response()
-        }
+        Ok(task) => (
+            StatusCode::CREATED,
+            ResponseJson(ApiResponse::success(task)),
+        )
+            .into_response(),
         Err(e) => e.into_response(),
     }
 }
@@ -166,10 +168,7 @@ pub async fn update_task(
 ) -> impl IntoResponse {
     info!("Updating task: {}", task_id);
 
-    let due_date = request
-        .due_date
-        .as_deref()
-        .and_then(parse_due_date);
+    let due_date = request.due_date.as_deref().and_then(parse_due_date);
 
     let input = TaskUpdateInput {
         title: request.title,

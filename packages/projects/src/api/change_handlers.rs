@@ -45,9 +45,7 @@ pub async fn get_change(
     info!("Getting change: {}", change_id);
 
     match openspec_db::get_spec_change(&db.pool, &change_id).await {
-        Ok(change) => {
-            (StatusCode::OK, ResponseJson(ApiResponse::success(change))).into_response()
-        }
+        Ok(change) => (StatusCode::OK, ResponseJson(ApiResponse::success(change))).into_response(),
         Err(e) => (
             StatusCode::NOT_FOUND,
             ResponseJson(ApiResponse::<()>::error(format!("Change not found: {}", e))),
@@ -90,9 +88,11 @@ pub async fn create_change(
     )
     .await
     {
-        Ok(change) => {
-            (StatusCode::CREATED, ResponseJson(ApiResponse::success(change))).into_response()
-        }
+        Ok(change) => (
+            StatusCode::CREATED,
+            ResponseJson(ApiResponse::success(change)),
+        )
+            .into_response(),
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
             ResponseJson(ApiResponse::<()>::error(format!(
@@ -128,9 +128,7 @@ pub async fn update_change_status(
     )
     .await
     {
-        Ok(change) => {
-            (StatusCode::OK, ResponseJson(ApiResponse::success(change))).into_response()
-        }
+        Ok(change) => (StatusCode::OK, ResponseJson(ApiResponse::success(change))).into_response(),
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
             ResponseJson(ApiResponse::<()>::error(format!(
@@ -150,9 +148,7 @@ pub async fn get_change_deltas(
     info!("Getting deltas for change: {}", change_id);
 
     match openspec_db::get_deltas_by_change(&db.pool, &change_id).await {
-        Ok(deltas) => {
-            (StatusCode::OK, ResponseJson(ApiResponse::success(deltas))).into_response()
-        }
+        Ok(deltas) => (StatusCode::OK, ResponseJson(ApiResponse::success(deltas))).into_response(),
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
             ResponseJson(ApiResponse::<()>::error(format!(
@@ -197,9 +193,11 @@ pub async fn create_delta(
     )
     .await
     {
-        Ok(delta) => {
-            (StatusCode::CREATED, ResponseJson(ApiResponse::success(delta))).into_response()
-        }
+        Ok(delta) => (
+            StatusCode::CREATED,
+            ResponseJson(ApiResponse::success(delta)),
+        )
+            .into_response(),
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
             ResponseJson(ApiResponse::<()>::error(format!(

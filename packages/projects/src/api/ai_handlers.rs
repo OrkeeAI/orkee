@@ -20,7 +20,9 @@ pub async fn analyze_prd(Json(request): Json<AnalyzePRDRequest>) -> impl IntoRes
         capabilities: vec![
             AICapability {
                 name: "User Authentication".to_string(),
-                purpose: Some("Allow users to securely sign in and manage their accounts".to_string()),
+                purpose: Some(
+                    "Allow users to securely sign in and manage their accounts".to_string(),
+                ),
                 requirements: vec![
                     "Users should be able to register with email".to_string(),
                     "Users should be able to log in with valid credentials".to_string(),
@@ -30,7 +32,9 @@ pub async fn analyze_prd(Json(request): Json<AnalyzePRDRequest>) -> impl IntoRes
             },
             AICapability {
                 name: "Data Management".to_string(),
-                purpose: Some("Enable users to create, read, update, and delete their data".to_string()),
+                purpose: Some(
+                    "Enable users to create, read, update, and delete their data".to_string(),
+                ),
                 requirements: vec![
                     "Users should be able to create new records".to_string(),
                     "Users should be able to view their existing records".to_string(),
@@ -79,7 +83,10 @@ pub struct AICapability {
 
 /// Generate spec from requirements
 pub async fn generate_spec(Json(request): Json<GenerateSpecRequest>) -> impl IntoResponse {
-    info!("AI spec generation requested for: {}", request.capability_name);
+    info!(
+        "AI spec generation requested for: {}",
+        request.capability_name
+    );
 
     let spec_markdown = format!(
         r#"# {}
@@ -100,7 +107,9 @@ THEN system displays helpful error message
 AND system suggests corrective action
 "#,
         request.capability_name,
-        request.purpose.unwrap_or_else(|| "Core functionality description".to_string())
+        request
+            .purpose
+            .unwrap_or_else(|| "Core functionality description".to_string())
     );
 
     let response = GenerateSpecResponse {
@@ -144,14 +153,18 @@ pub struct GenerateSpecResponse {
 
 /// Suggest tasks from spec
 pub async fn suggest_tasks(Json(request): Json<SuggestTasksRequest>) -> impl IntoResponse {
-    info!("AI task suggestions requested for capability: {}", request.capability_id);
+    info!(
+        "AI task suggestions requested for capability: {}",
+        request.capability_id
+    );
 
     let response = SuggestTasksResponse {
         capability_id: request.capability_id,
         suggested_tasks: vec![
             SuggestedTask {
                 title: "Implement primary workflow".to_string(),
-                description: "Build the core functionality as described in the requirements".to_string(),
+                description: "Build the core functionality as described in the requirements"
+                    .to_string(),
                 priority: "high".to_string(),
                 complexity_score: 8,
                 linked_requirements: vec!["req-1".to_string()],
@@ -214,7 +227,10 @@ pub struct SuggestedTask {
 
 /// Refine spec with feedback
 pub async fn refine_spec(Json(request): Json<RefineSpecRequest>) -> impl IntoResponse {
-    info!("AI spec refinement requested for capability: {}", request.capability_id);
+    info!(
+        "AI spec refinement requested for capability: {}",
+        request.capability_id
+    );
 
     let response = RefineSpecResponse {
         capability_id: request.capability_id.clone(),

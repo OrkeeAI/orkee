@@ -99,7 +99,7 @@ impl IntoResponse for ManagerError {
                     StatusCode::INTERNAL_SERVER_ERROR,
                     "Storage error".to_string(),
                 )
-            },
+            }
         };
 
         let response = ApiResponse::<()>::error(message);

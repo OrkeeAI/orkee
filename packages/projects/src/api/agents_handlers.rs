@@ -18,9 +18,7 @@ pub async fn list_agents(State(db): State<DbState>) -> impl IntoResponse {
     info!("Listing all agents");
 
     match db.agent_storage.list_agents().await {
-        Ok(agents) => {
-            (StatusCode::OK, ResponseJson(ApiResponse::success(agents))).into_response()
-        }
+        Ok(agents) => (StatusCode::OK, ResponseJson(ApiResponse::success(agents))).into_response(),
         Err(e) => e.into_response(),
     }
 }
@@ -46,9 +44,11 @@ pub async fn list_user_agents(
     info!("Listing agents for user: {}", user_id);
 
     match db.agent_storage.list_user_agents(&user_id).await {
-        Ok(user_agents) => {
-            (StatusCode::OK, ResponseJson(ApiResponse::success(user_agents))).into_response()
-        }
+        Ok(user_agents) => (
+            StatusCode::OK,
+            ResponseJson(ApiResponse::success(user_agents)),
+        )
+            .into_response(),
         Err(e) => e.into_response(),
     }
 }
@@ -61,9 +61,11 @@ pub async fn get_user_agent(
     info!("Getting user-agent: {} for user: {}", agent_id, user_id);
 
     match db.agent_storage.get_user_agent(&user_id, &agent_id).await {
-        Ok(user_agent) => {
-            (StatusCode::OK, ResponseJson(ApiResponse::success(user_agent))).into_response()
-        }
+        Ok(user_agent) => (
+            StatusCode::OK,
+            ResponseJson(ApiResponse::success(user_agent)),
+        )
+            .into_response(),
         Err(e) => e.into_response(),
     }
 }
@@ -95,11 +97,7 @@ pub async fn update_agent_activation(
         }
     } else {
         info!("Deactivating agent {} for user {}", agent_id, user_id);
-        match db
-            .agent_storage
-            .deactivate_agent(&user_id, &agent_id)
-            .await
-        {
+        match db.agent_storage.deactivate_agent(&user_id, &agent_id).await {
             Ok(()) => (
                 StatusCode::OK,
                 ResponseJson(ApiResponse::success(serde_json::json!({

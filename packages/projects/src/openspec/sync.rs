@@ -37,7 +37,7 @@ pub struct CapabilityDiff {
 }
 
 /// Result of a sync operation
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct SyncReport {
     pub added_capabilities: Vec<String>,
     pub modified_capabilities: Vec<String>,
@@ -48,20 +48,6 @@ pub struct SyncReport {
     pub conflicts: Vec<String>,
 }
 
-impl Default for SyncReport {
-    fn default() -> Self {
-        Self {
-            added_capabilities: Vec::new(),
-            modified_capabilities: Vec::new(),
-            removed_capabilities: Vec::new(),
-            added_requirements: 0,
-            modified_requirements: 0,
-            removed_requirements: 0,
-            conflicts: Vec::new(),
-        }
-    }
-}
-
 /// Detect changes between an old spec and a new parsed spec
 pub fn detect_changes(
     old_capabilities: &[SpecCapability],
@@ -70,8 +56,10 @@ pub fn detect_changes(
     let mut changes = Vec::new();
 
     // Build maps for quick lookup
-    let old_map: HashMap<String, &SpecCapability> =
-        old_capabilities.iter().map(|c| (c.name.clone(), c)).collect();
+    let old_map: HashMap<String, &SpecCapability> = old_capabilities
+        .iter()
+        .map(|c| (c.name.clone(), c))
+        .collect();
 
     let new_map: HashMap<String, &ParsedCapability> = new_spec
         .capabilities
@@ -87,7 +75,11 @@ pub fn detect_changes(
                 delta_type: DeltaType::Added,
                 old_content: None,
                 new_content: Some(format_capability_content(new_cap)),
-                changed_requirements: new_cap.requirements.iter().map(|r| r.name.clone()).collect(),
+                changed_requirements: new_cap
+                    .requirements
+                    .iter()
+                    .map(|r| r.name.clone())
+                    .collect(),
             });
         }
     }
@@ -205,7 +197,9 @@ pub fn generate_sync_report(changes: &[CapabilityDiff]) -> SyncReport {
     for change in changes {
         match change.delta_type {
             DeltaType::Added => {
-                report.added_capabilities.push(change.capability_name.clone());
+                report
+                    .added_capabilities
+                    .push(change.capability_name.clone());
                 report.added_requirements += change.changed_requirements.len();
             }
             DeltaType::Modified => {
@@ -267,7 +261,10 @@ impl ConflictDetector {
         // Find overlapping changes
         for capability_name in local_map.iter() {
             if remote_map.contains(capability_name) {
-                conflicts.push(format!("Capability '{}' modified in both local and remote", capability_name));
+                conflicts.push(format!(
+                    "Capability '{}' modified in both local and remote",
+                    capability_name
+                ));
             }
         }
 
@@ -363,7 +360,9 @@ impl SyncEngine {
         let remote_changes = detect_changes(remote_capabilities, remote_spec)?;
 
         // Check for conflicts
-        let conflicts = self.conflict_detector.detect_conflicts(&local_changes, &remote_changes);
+        let conflicts = self
+            .conflict_detector
+            .detect_conflicts(&local_changes, &remote_changes);
 
         if !conflicts.is_empty() && strategy == MergeStrategy::Manual {
             return Err(SyncError::ConflictDetected(
@@ -373,11 +372,9 @@ impl SyncEngine {
         }
 
         // Resolve conflicts
-        let resolved_changes = self.conflict_detector.resolve_conflicts(
-            &local_changes,
-            &remote_changes,
-            strategy,
-        )?;
+        let resolved_changes =
+            self.conflict_detector
+                .resolve_conflicts(&local_changes, &remote_changes, strategy)?;
 
         // Generate report
         let mut report = generate_sync_report(&resolved_changes);

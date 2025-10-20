@@ -20,12 +20,13 @@ pub async fn link_task_to_requirement(
     Path(task_id): Path<String>,
     Json(request): Json<LinkSpecRequest>,
 ) -> impl IntoResponse {
-    info!("Linking task {} to requirement {}", task_id, request.requirement_id);
+    info!(
+        "Linking task {} to requirement {}",
+        task_id, request.requirement_id
+    );
 
     match integration::link_task_to_requirement(&db.pool, &task_id, &request.requirement_id).await {
-        Ok(_) => {
-            (StatusCode::OK, ResponseJson(ApiResponse::success(true))).into_response()
-        }
+        Ok(_) => (StatusCode::OK, ResponseJson(ApiResponse::success(true))).into_response(),
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
             ResponseJson(ApiResponse::<()>::error(format!(
@@ -52,9 +53,11 @@ pub async fn get_task_spec_links(
     info!("Getting spec links for task: {}", task_id);
 
     match integration::get_task_requirements(&db.pool, &task_id).await {
-        Ok(requirements) => {
-            (StatusCode::OK, ResponseJson(ApiResponse::success(requirements))).into_response()
-        }
+        Ok(requirements) => (
+            StatusCode::OK,
+            ResponseJson(ApiResponse::success(requirements)),
+        )
+            .into_response(),
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
             ResponseJson(ApiResponse::<()>::error(format!(
@@ -74,9 +77,11 @@ pub async fn validate_task_against_spec(
     info!("Validating task {} against spec scenarios", task_id);
 
     match integration::validate_task_completion(&db.pool, &task_id).await {
-        Ok(validation_result) => {
-            (StatusCode::OK, ResponseJson(ApiResponse::success(validation_result))).into_response()
-        }
+        Ok(validation_result) => (
+            StatusCode::OK,
+            ResponseJson(ApiResponse::success(validation_result)),
+        )
+            .into_response(),
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
             ResponseJson(ApiResponse::<()>::error(format!(
@@ -89,9 +94,7 @@ pub async fn validate_task_against_spec(
 }
 
 /// AI suggest spec from task (placeholder for future AI integration)
-pub async fn suggest_spec_from_task(
-    Path(task_id): Path<String>,
-) -> impl IntoResponse {
+pub async fn suggest_spec_from_task(Path(task_id): Path<String>) -> impl IntoResponse {
     info!("AI suggestion requested for task: {}", task_id);
 
     let response = SuggestSpecResponse {
@@ -148,7 +151,11 @@ pub async fn generate_tasks_from_spec(
                 task_ids: task_ids.clone(),
                 count: task_ids.len(),
             };
-            (StatusCode::CREATED, ResponseJson(ApiResponse::success(response))).into_response()
+            (
+                StatusCode::CREATED,
+                ResponseJson(ApiResponse::success(response)),
+            )
+                .into_response()
         }
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,

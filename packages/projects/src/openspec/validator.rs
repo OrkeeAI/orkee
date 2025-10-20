@@ -225,11 +225,7 @@ pub struct ValidationStats {
 /// Calculate validation statistics for a spec
 pub fn calculate_stats(spec: &ParsedSpec) -> ValidationStats {
     let total_capabilities = spec.capabilities.len();
-    let total_requirements: usize = spec
-        .capabilities
-        .iter()
-        .map(|c| c.requirements.len())
-        .sum();
+    let total_requirements: usize = spec.capabilities.iter().map(|c| c.requirements.len()).sum();
     let total_scenarios: usize = spec
         .capabilities
         .iter()

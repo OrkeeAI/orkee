@@ -32,7 +32,8 @@ impl TagStorage {
             .await
             .map_err(StorageError::Sqlx)?;
 
-        let tags = rows.iter()
+        let tags = rows
+            .iter()
             .map(|row| self.row_to_tag(row))
             .collect::<Result<Vec<_>, _>>()?;
 

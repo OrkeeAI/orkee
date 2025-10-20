@@ -1,7 +1,7 @@
 // ABOUTME: Database connection management and storage initialization
 // ABOUTME: Provides shared access to SQLite pool and storage layers
 
-use sqlx::{SqlitePool, sqlite::SqlitePoolOptions};
+use sqlx::{sqlite::SqlitePoolOptions, SqlitePool};
 use std::sync::Arc;
 use tracing::{debug, info};
 

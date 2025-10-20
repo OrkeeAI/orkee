@@ -57,10 +57,7 @@ pub fn create_agents_router() -> Router<DbState> {
     Router::new()
         .route("/", get(agents_handlers::list_agents))
         .route("/:agent_id", get(agents_handlers::get_agent))
-        .route(
-            "/users/:user_id",
-            get(agents_handlers::list_user_agents),
-        )
+        .route("/users/:user_id", get(agents_handlers::list_user_agents))
         .route(
             "/users/:user_id/:agent_id",
             get(agents_handlers::get_user_agent),
@@ -98,16 +95,37 @@ pub fn create_tags_router() -> Router<DbState> {
 /// Creates the executions API router for task executions
 pub fn create_executions_router() -> Router<DbState> {
     Router::new()
-        .route("/tasks/:task_id/executions", get(executions_handlers::list_executions))
+        .route(
+            "/tasks/:task_id/executions",
+            get(executions_handlers::list_executions),
+        )
         .route("/executions", post(executions_handlers::create_execution))
-        .route("/executions/:execution_id", get(executions_handlers::get_execution))
-        .route("/executions/:execution_id", put(executions_handlers::update_execution))
-        .route("/executions/:execution_id", delete(executions_handlers::delete_execution))
-        .route("/executions/:execution_id/reviews", get(executions_handlers::list_reviews))
+        .route(
+            "/executions/:execution_id",
+            get(executions_handlers::get_execution),
+        )
+        .route(
+            "/executions/:execution_id",
+            put(executions_handlers::update_execution),
+        )
+        .route(
+            "/executions/:execution_id",
+            delete(executions_handlers::delete_execution),
+        )
+        .route(
+            "/executions/:execution_id/reviews",
+            get(executions_handlers::list_reviews),
+        )
         .route("/reviews", post(executions_handlers::create_review))
         .route("/reviews/:review_id", get(executions_handlers::get_review))
-        .route("/reviews/:review_id", put(executions_handlers::update_review))
-        .route("/reviews/:review_id", delete(executions_handlers::delete_review))
+        .route(
+            "/reviews/:review_id",
+            put(executions_handlers::update_review),
+        )
+        .route(
+            "/reviews/:review_id",
+            delete(executions_handlers::delete_review),
+        )
 }
 
 /// Creates the PRD API router for Product Requirements Documents
@@ -117,8 +135,14 @@ pub fn create_prds_router() -> Router<DbState> {
         .route("/:project_id/prds", post(prd_handlers::create_prd))
         .route("/:project_id/prds/:prd_id", get(prd_handlers::get_prd))
         .route("/:project_id/prds/:prd_id", put(prd_handlers::update_prd))
-        .route("/:project_id/prds/:prd_id", delete(prd_handlers::delete_prd))
-        .route("/:project_id/prds/:prd_id/capabilities", get(prd_handlers::get_prd_capabilities))
+        .route(
+            "/:project_id/prds/:prd_id",
+            delete(prd_handlers::delete_prd),
+        )
+        .route(
+            "/:project_id/prds/:prd_id/capabilities",
+            get(prd_handlers::get_prd_capabilities),
+        )
 }
 
 /// Creates the specs API router for OpenSpec capabilities
@@ -126,10 +150,22 @@ pub fn create_specs_router() -> Router<DbState> {
     Router::new()
         .route("/:project_id/specs", get(spec_handlers::list_capabilities))
         .route("/:project_id/specs", post(spec_handlers::create_capability))
-        .route("/:project_id/specs/:capability_id", get(spec_handlers::get_capability))
-        .route("/:project_id/specs/:capability_id", put(spec_handlers::update_capability))
-        .route("/:project_id/specs/:capability_id", delete(spec_handlers::delete_capability))
-        .route("/:project_id/specs/:capability_id/requirements", get(spec_handlers::get_capability_requirements))
+        .route(
+            "/:project_id/specs/:capability_id",
+            get(spec_handlers::get_capability),
+        )
+        .route(
+            "/:project_id/specs/:capability_id",
+            put(spec_handlers::update_capability),
+        )
+        .route(
+            "/:project_id/specs/:capability_id",
+            delete(spec_handlers::delete_capability),
+        )
+        .route(
+            "/:project_id/specs/:capability_id/requirements",
+            get(spec_handlers::get_capability_requirements),
+        )
         .route("/specs/validate", post(spec_handlers::validate_spec))
 }
 
@@ -138,21 +174,51 @@ pub fn create_changes_router() -> Router<DbState> {
     Router::new()
         .route("/:project_id/changes", get(change_handlers::list_changes))
         .route("/:project_id/changes", post(change_handlers::create_change))
-        .route("/:project_id/changes/:change_id", get(change_handlers::get_change))
-        .route("/:project_id/changes/:change_id/status", put(change_handlers::update_change_status))
-        .route("/:project_id/changes/:change_id/deltas", get(change_handlers::get_change_deltas))
-        .route("/:project_id/changes/:change_id/deltas", post(change_handlers::create_delta))
+        .route(
+            "/:project_id/changes/:change_id",
+            get(change_handlers::get_change),
+        )
+        .route(
+            "/:project_id/changes/:change_id/status",
+            put(change_handlers::update_change_status),
+        )
+        .route(
+            "/:project_id/changes/:change_id/deltas",
+            get(change_handlers::get_change_deltas),
+        )
+        .route(
+            "/:project_id/changes/:change_id/deltas",
+            post(change_handlers::create_delta),
+        )
 }
 
 /// Creates the task-spec integration API router
 pub fn create_task_spec_router() -> Router<DbState> {
     Router::new()
-        .route("/tasks/:task_id/link-spec", post(task_spec_handlers::link_task_to_requirement))
-        .route("/tasks/:task_id/spec-links", get(task_spec_handlers::get_task_spec_links))
-        .route("/tasks/:task_id/validate-spec", post(task_spec_handlers::validate_task_against_spec))
-        .route("/tasks/:task_id/suggest-spec", post(task_spec_handlers::suggest_spec_from_task))
-        .route("/:project_id/tasks/generate-from-spec", post(task_spec_handlers::generate_tasks_from_spec))
-        .route("/:project_id/tasks/orphans", get(task_spec_handlers::find_orphan_tasks))
+        .route(
+            "/tasks/:task_id/link-spec",
+            post(task_spec_handlers::link_task_to_requirement),
+        )
+        .route(
+            "/tasks/:task_id/spec-links",
+            get(task_spec_handlers::get_task_spec_links),
+        )
+        .route(
+            "/tasks/:task_id/validate-spec",
+            post(task_spec_handlers::validate_task_against_spec),
+        )
+        .route(
+            "/tasks/:task_id/suggest-spec",
+            post(task_spec_handlers::suggest_spec_from_task),
+        )
+        .route(
+            "/:project_id/tasks/generate-from-spec",
+            post(task_spec_handlers::generate_tasks_from_spec),
+        )
+        .route(
+            "/:project_id/tasks/orphans",
+            get(task_spec_handlers::find_orphan_tasks),
+        )
 }
 
 /// Creates the AI proxy API router for AI-powered operations
@@ -162,7 +228,10 @@ pub fn create_ai_router() -> Router {
         .route("/ai/generate-spec", post(ai_handlers::generate_spec))
         .route("/ai/suggest-tasks", post(ai_handlers::suggest_tasks))
         .route("/ai/refine-spec", post(ai_handlers::refine_spec))
-        .route("/ai/validate-completion", post(ai_handlers::validate_completion))
+        .route(
+            "/ai/validate-completion",
+            post(ai_handlers::validate_completion),
+        )
 }
 
 /// Creates the AI usage logs API router for cost tracking

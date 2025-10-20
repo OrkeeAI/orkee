@@ -44,7 +44,7 @@ pub async fn link_task_to_requirement(
     .bind(requirement_id)
     .execute(pool)
     .await
-    .map_err(|e| openspec_db::DbError::SqlxError(e))?;
+    .map_err(openspec_db::DbError::SqlxError)?;
 
     Ok(())
 }
@@ -54,13 +54,12 @@ pub async fn get_task_requirements(
     pool: &Pool<Sqlite>,
     task_id: &str,
 ) -> IntegrationResult<Vec<SpecRequirement>> {
-    let requirement_ids: Vec<(String,)> = sqlx::query_as(
-        "SELECT requirement_id FROM task_spec_links WHERE task_id = ?",
-    )
-    .bind(task_id)
-    .fetch_all(pool)
-    .await
-    .map_err(|e| openspec_db::DbError::SqlxError(e))?;
+    let requirement_ids: Vec<(String,)> =
+        sqlx::query_as("SELECT requirement_id FROM task_spec_links WHERE task_id = ?")
+            .bind(task_id)
+            .fetch_all(pool)
+            .await
+            .map_err(openspec_db::DbError::SqlxError)?;
 
     let mut requirements = Vec::new();
     for (req_id,) in requirement_ids {
@@ -76,13 +75,12 @@ pub async fn get_requirement_tasks(
     pool: &Pool<Sqlite>,
     requirement_id: &str,
 ) -> IntegrationResult<Vec<String>> {
-    let task_ids: Vec<(String,)> = sqlx::query_as(
-        "SELECT task_id FROM task_spec_links WHERE requirement_id = ?",
-    )
-    .bind(requirement_id)
-    .fetch_all(pool)
-    .await
-    .map_err(|e| openspec_db::DbError::SqlxError(e))?;
+    let task_ids: Vec<(String,)> =
+        sqlx::query_as("SELECT task_id FROM task_spec_links WHERE requirement_id = ?")
+            .bind(requirement_id)
+            .fetch_all(pool)
+            .await
+            .map_err(openspec_db::DbError::SqlxError)?;
 
     Ok(task_ids.into_iter().map(|(id,)| id).collect())
 }
@@ -193,8 +191,7 @@ pub async fn validate_task_completion(
         pending_scenarios,
         notes: Some(format!(
             "Task has {} scenarios to validate across {} requirements",
-            total_scenarios,
-            requirement_count
+            total_scenarios, requirement_count
         )),
     })
 }
@@ -222,7 +219,7 @@ pub async fn update_task_validation(
     .bind(task_id)
     .execute(pool)
     .await
-    .map_err(|e| openspec_db::DbError::SqlxError(e))?;
+    .map_err(openspec_db::DbError::SqlxError)?;
 
     Ok(())
 }
@@ -254,7 +251,7 @@ pub async fn sync_spec_changes_to_tasks(
                         .bind(&task_id)
                         .execute(pool)
                         .await
-                        .map_err(|e| openspec_db::DbError::SqlxError(e))?;
+                        .map_err(openspec_db::DbError::SqlxError)?;
 
                         task_ids.push(task_id);
                         affected_tasks += 1;
@@ -296,7 +293,7 @@ async fn create_task(
     .bind(description)
     .execute(pool)
     .await
-    .map_err(|e| openspec_db::DbError::SqlxError(e))?;
+    .map_err(openspec_db::DbError::SqlxError)?;
 
     Ok(task_id)
 }
@@ -349,10 +346,12 @@ mod tests {
             .await
             .unwrap();
 
-        sqlx::query(include_str!("../../migrations/20250118000000_task_management.sql"))
-            .execute(&pool)
-            .await
-            .unwrap();
+        sqlx::query(include_str!(
+            "../../migrations/20250118000000_task_management.sql"
+        ))
+        .execute(&pool)
+        .await
+        .unwrap();
 
         sqlx::query(include_str!("../../migrations/20250120000000_openspec.sql"))
             .execute(&pool)
@@ -393,15 +392,10 @@ mod tests {
         .await
         .unwrap();
 
-        let requirement = openspec_db::create_requirement(
-            &pool,
-            &capability.id,
-            "Test Req",
-            "content",
-            1,
-        )
-        .await
-        .unwrap();
+        let requirement =
+            openspec_db::create_requirement(&pool, &capability.id, "Test Req", "content", 1)
+                .await
+                .unwrap();
 
         // Create a task
         let task_id = create_task(
@@ -422,9 +416,7 @@ mod tests {
             .unwrap();
 
         // Verify link
-        let tasks = get_requirement_tasks(&pool, &requirement.id)
-            .await
-            .unwrap();
+        let tasks = get_requirement_tasks(&pool, &requirement.id).await.unwrap();
         assert_eq!(tasks.len(), 1);
         assert_eq!(tasks[0], task_id);
     }
@@ -471,21 +463,15 @@ mod tests {
         .unwrap();
 
         // Generate tasks
-        let task_ids = generate_tasks_from_requirement(
-            &pool,
-            &requirement.id,
-            "test-project",
-            "tag-1",
-        )
-        .await
-        .unwrap();
+        let task_ids =
+            generate_tasks_from_requirement(&pool, &requirement.id, "test-project", "tag-1")
+                .await
+                .unwrap();
 
         assert_eq!(task_ids.len(), 1);
 
         // Verify task was linked
-        let linked_tasks = get_requirement_tasks(&pool, &requirement.id)
-            .await
-            .unwrap();
+        let linked_tasks = get_requirement_tasks(&pool, &requirement.id).await.unwrap();
         assert_eq!(linked_tasks.len(), 1);
     }
 }

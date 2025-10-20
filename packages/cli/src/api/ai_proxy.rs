@@ -103,7 +103,10 @@ pub async fn anthropic_proxy(request: Request) -> impl IntoResponse {
         .header("content-type", "application/json")
         .header("access-control-allow-origin", "*")
         .header("access-control-allow-methods", "POST, OPTIONS")
-        .header("access-control-allow-headers", "content-type, anthropic-version, x-api-key")
+        .header(
+            "access-control-allow-headers",
+            "content-type, anthropic-version, x-api-key",
+        )
         .body(Body::from(response_bytes))
         .unwrap()
 }
@@ -114,7 +117,10 @@ pub async fn anthropic_proxy_options() -> impl IntoResponse {
         .status(StatusCode::OK)
         .header("access-control-allow-origin", "*")
         .header("access-control-allow-methods", "POST, OPTIONS")
-        .header("access-control-allow-headers", "content-type, anthropic-version, x-api-key")
+        .header(
+            "access-control-allow-headers",
+            "content-type, anthropic-version, x-api-key",
+        )
         .header("access-control-max-age", "86400")
         .body(Body::empty())
         .unwrap()

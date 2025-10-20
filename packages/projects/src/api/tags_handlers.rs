@@ -26,7 +26,10 @@ pub async fn list_tags(
     State(db): State<DbState>,
     Query(params): Query<ListTagsQuery>,
 ) -> impl IntoResponse {
-    info!("Listing tags (include_archived: {})", params.include_archived);
+    info!(
+        "Listing tags (include_archived: {})",
+        params.include_archived
+    );
 
     match db.tag_storage.list_tags(params.include_archived).await {
         Ok(tags) => (StatusCode::OK, ResponseJson(ApiResponse::success(tags))).into_response(),
@@ -35,10 +38,7 @@ pub async fn list_tags(
 }
 
 /// Get a single tag by ID
-pub async fn get_tag(
-    State(db): State<DbState>,
-    Path(tag_id): Path<String>,
-) -> impl IntoResponse {
+pub async fn get_tag(State(db): State<DbState>, Path(tag_id): Path<String>) -> impl IntoResponse {
     info!("Getting tag: {}", tag_id);
 
     match db.tag_storage.get_tag(&tag_id).await {

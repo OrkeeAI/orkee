@@ -70,10 +70,12 @@ pub async fn get_prd(pool: &Pool<Sqlite>, id: &str) -> DbResult<PRD> {
 /// Get all PRDs for a project
 pub async fn get_prds_by_project(pool: &Pool<Sqlite>, project_id: &str) -> DbResult<Vec<PRD>> {
     Ok(
-        sqlx::query_as::<_, PRD>("SELECT * FROM prds WHERE project_id = ? ORDER BY created_at DESC")
-            .bind(project_id)
-            .fetch_all(pool)
-            .await?,
+        sqlx::query_as::<_, PRD>(
+            "SELECT * FROM prds WHERE project_id = ? ORDER BY created_at DESC",
+        )
+        .bind(project_id)
+        .fetch_all(pool)
+        .await?,
     )
 }
 
@@ -408,7 +410,7 @@ pub async fn create_scenario(
     .bind(name)
     .bind(when_clause)
     .bind(then_clause)
-    .bind(and_clauses.as_ref().map(|v| serde_json::to_string(v).ok()).flatten())
+    .bind(and_clauses.as_ref().and_then(|v| serde_json::to_string(v).ok()))
     .bind(position)
     .bind(now)
     .fetch_one(pool)
@@ -604,10 +606,12 @@ mod tests {
             .await
             .unwrap();
 
-        sqlx::query(include_str!("../../migrations/20250118000000_task_management.sql"))
-            .execute(&pool)
-            .await
-            .unwrap();
+        sqlx::query(include_str!(
+            "../../migrations/20250118000000_task_management.sql"
+        ))
+        .execute(&pool)
+        .await
+        .unwrap();
 
         sqlx::query(include_str!("../../migrations/20250120000000_openspec.sql"))
             .execute(&pool)

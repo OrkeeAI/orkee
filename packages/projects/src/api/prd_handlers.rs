@@ -26,7 +26,10 @@ pub async fn list_prds(
         Ok(prds) => (StatusCode::OK, ResponseJson(ApiResponse::success(prds))).into_response(),
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
-            ResponseJson(ApiResponse::<()>::error(format!("Failed to list PRDs: {}", e))),
+            ResponseJson(ApiResponse::<()>::error(format!(
+                "Failed to list PRDs: {}",
+                e
+            ))),
         )
             .into_response(),
     }
@@ -67,7 +70,10 @@ pub async fn create_prd(
     Path(project_id): Path<String>,
     Json(request): Json<CreatePRDRequest>,
 ) -> impl IntoResponse {
-    info!("Creating PRD '{}' for project: {}", request.title, project_id);
+    info!(
+        "Creating PRD '{}' for project: {}",
+        request.title, project_id
+    );
 
     let status = request.status.unwrap_or(PRDStatus::Draft);
     let source = request.source.unwrap_or(PRDSource::Manual);
@@ -86,7 +92,10 @@ pub async fn create_prd(
         Ok(prd) => (StatusCode::CREATED, ResponseJson(ApiResponse::success(prd))).into_response(),
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
-            ResponseJson(ApiResponse::<()>::error(format!("Failed to create PRD: {}", e))),
+            ResponseJson(ApiResponse::<()>::error(format!(
+                "Failed to create PRD: {}",
+                e
+            ))),
         )
             .into_response(),
     }
@@ -121,7 +130,10 @@ pub async fn update_prd(
         Ok(prd) => (StatusCode::OK, ResponseJson(ApiResponse::success(prd))).into_response(),
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
-            ResponseJson(ApiResponse::<()>::error(format!("Failed to update PRD: {}", e))),
+            ResponseJson(ApiResponse::<()>::error(format!(
+                "Failed to update PRD: {}",
+                e
+            ))),
         )
             .into_response(),
     }
@@ -135,14 +147,13 @@ pub async fn delete_prd(
     info!("Deleting PRD: {}", prd_id);
 
     match openspec_db::delete_prd(&db.pool, &prd_id).await {
-        Ok(_) => (
-            StatusCode::OK,
-            ResponseJson(ApiResponse::success(())),
-        )
-            .into_response(),
+        Ok(_) => (StatusCode::OK, ResponseJson(ApiResponse::success(()))).into_response(),
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
-            ResponseJson(ApiResponse::<()>::error(format!("Failed to delete PRD: {}", e))),
+            ResponseJson(ApiResponse::<()>::error(format!(
+                "Failed to delete PRD: {}",
+                e
+            ))),
         )
             .into_response(),
     }
@@ -156,9 +167,11 @@ pub async fn get_prd_capabilities(
     info!("Getting capabilities for PRD: {}", prd_id);
 
     match openspec_db::get_capabilities_by_prd(&db.pool, &prd_id).await {
-        Ok(capabilities) => {
-            (StatusCode::OK, ResponseJson(ApiResponse::success(capabilities))).into_response()
-        }
+        Ok(capabilities) => (
+            StatusCode::OK,
+            ResponseJson(ApiResponse::success(capabilities)),
+        )
+            .into_response(),
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
             ResponseJson(ApiResponse::<()>::error(format!(

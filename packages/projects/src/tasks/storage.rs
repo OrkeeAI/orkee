@@ -128,8 +128,13 @@ impl TaskStorage {
         .bind(&input.assigned_agent_id)
         .bind(&input.parent_id)
         .bind(input.position.unwrap_or(0))
-        .bind(input.dependencies.as_ref().map(|d| serde_json::to_string(d).unwrap()))
-        .bind(&input.due_date)
+        .bind(
+            input
+                .dependencies
+                .as_ref()
+                .map(|d| serde_json::to_string(d).unwrap()),
+        )
+        .bind(input.due_date)
         .bind(input.estimated_hours)
         .bind(input.complexity_score)
         .bind(&input.details)
@@ -137,7 +142,12 @@ impl TaskStorage {
         .bind(&input.acceptance_criteria)
         .bind(&input.prompt)
         .bind(&input.context)
-        .bind(input.tags.as_ref().map(|t| serde_json::to_string(t).unwrap()))
+        .bind(
+            input
+                .tags
+                .as_ref()
+                .map(|t| serde_json::to_string(t).unwrap()),
+        )
         .bind(&input.category)
         .bind(now)
         .bind(now)
@@ -284,9 +294,7 @@ impl TaskStorage {
 
         q = q.bind(task_id);
 
-        q.execute(&self.pool)
-            .await
-            .map_err(StorageError::Sqlx)?;
+        q.execute(&self.pool).await.map_err(StorageError::Sqlx)?;
 
         self.get_task(task_id).await
     }
@@ -342,38 +350,39 @@ impl TaskStorage {
         let subtasks = None; // Will be populated by the caller if needed
 
         // Parse agent if present
-        let assigned_agent = if let Ok(Some(agent_id)) = row.try_get::<Option<String>, _>("agent_id") {
-            Some(crate::agents::Agent {
-                id: agent_id,
-                name: row.try_get("agent_name")?,
-                agent_type: row.try_get("agent_type")?,
-                provider: row.try_get("agent_provider")?,
-                model: None,
-                display_name: row.try_get("agent_display_name")?,
-                avatar_url: None,
-                description: row.try_get("agent_description")?,
-                capabilities: None,
-                languages: None,
-                frameworks: None,
-                max_context_tokens: None,
-                supports_tools: false,
-                supports_vision: false,
-                supports_web_search: false,
-                api_endpoint: None,
-                temperature: None,
-                max_tokens: None,
-                system_prompt: None,
-                cost_per_1k_input_tokens: None,
-                cost_per_1k_output_tokens: None,
-                is_available: true,
-                requires_api_key: true,
-                metadata: None,
-                created_at: Utc::now(),
-                updated_at: Utc::now(),
-            })
-        } else {
-            None
-        };
+        let assigned_agent =
+            if let Ok(Some(agent_id)) = row.try_get::<Option<String>, _>("agent_id") {
+                Some(crate::agents::Agent {
+                    id: agent_id,
+                    name: row.try_get("agent_name")?,
+                    agent_type: row.try_get("agent_type")?,
+                    provider: row.try_get("agent_provider")?,
+                    model: None,
+                    display_name: row.try_get("agent_display_name")?,
+                    avatar_url: None,
+                    description: row.try_get("agent_description")?,
+                    capabilities: None,
+                    languages: None,
+                    frameworks: None,
+                    max_context_tokens: None,
+                    supports_tools: false,
+                    supports_vision: false,
+                    supports_web_search: false,
+                    api_endpoint: None,
+                    temperature: None,
+                    max_tokens: None,
+                    system_prompt: None,
+                    cost_per_1k_input_tokens: None,
+                    cost_per_1k_output_tokens: None,
+                    is_available: true,
+                    requires_api_key: true,
+                    metadata: None,
+                    created_at: Utc::now(),
+                    updated_at: Utc::now(),
+                })
+            } else {
+                None
+            };
 
         Ok(Task {
             id: task_id,
