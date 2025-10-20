@@ -599,7 +599,12 @@ mod tests {
         let pool = Pool::<Sqlite>::connect(":memory:").await.unwrap();
 
         // Run migrations
-        sqlx::query(include_str!("../../migrations/20250119000000_initial.sql"))
+        sqlx::query(include_str!("../../migrations/001_initial_schema.sql"))
+            .execute(&pool)
+            .await
+            .unwrap();
+
+        sqlx::query(include_str!("../../migrations/20250118000000_task_management.sql"))
             .execute(&pool)
             .await
             .unwrap();
@@ -612,9 +617,23 @@ mod tests {
         pool
     }
 
+    async fn create_test_project(pool: &Pool<Sqlite>, project_id: &str) {
+        sqlx::query(
+            r#"
+            INSERT INTO projects (id, name, project_root, created_at, updated_at)
+            VALUES (?, 'Test Project', '/test/path', datetime('now'), datetime('now'))
+            "#,
+        )
+        .bind(project_id)
+        .execute(pool)
+        .await
+        .unwrap();
+    }
+
     #[tokio::test]
     async fn test_create_and_get_prd() {
         let pool = setup_test_db().await;
+        create_test_project(&pool, "test-project").await;
 
         let prd = create_prd(
             &pool,
@@ -638,6 +657,7 @@ mod tests {
     #[tokio::test]
     async fn test_create_capability_and_requirements() {
         let pool = setup_test_db().await;
+        create_test_project(&pool, "test-project").await;
 
         let capability = create_capability(
             &pool,

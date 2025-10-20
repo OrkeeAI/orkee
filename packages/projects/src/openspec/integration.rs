@@ -275,28 +275,25 @@ pub async fn sync_spec_changes_to_tasks(
 async fn create_task(
     pool: &Pool<Sqlite>,
     project_id: &str,
-    tag_id: &str,
+    _tag_id: &str,
     title: &str,
     description: &str,
-    spec_driven: bool,
-    from_prd_id: Option<&str>,
+    _spec_driven: bool,
+    _from_prd_id: Option<&str>,
 ) -> IntegrationResult<String> {
     let task_id = crate::storage::generate_project_id();
 
     sqlx::query(
         r#"
         INSERT INTO tasks
-        (id, project_id, tag_id, title, description, status, spec_driven, from_prd_id, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, 'pending', ?, ?, datetime('now'), datetime('now'))
+        (id, project_id, title, description, status, priority, created_at, updated_at)
+        VALUES (?, ?, ?, ?, 'pending', 'medium', datetime('now'), datetime('now'))
         "#,
     )
     .bind(&task_id)
     .bind(project_id)
-    .bind(tag_id)
     .bind(title)
     .bind(description)
-    .bind(spec_driven)
-    .bind(from_prd_id)
     .execute(pool)
     .await
     .map_err(|e| openspec_db::DbError::SqlxError(e))?;
@@ -347,7 +344,12 @@ mod tests {
         let pool = Pool::<Sqlite>::connect(":memory:").await.unwrap();
 
         // Run migrations
-        sqlx::query(include_str!("../../migrations/20250119000000_initial.sql"))
+        sqlx::query(include_str!("../../migrations/001_initial_schema.sql"))
+            .execute(&pool)
+            .await
+            .unwrap();
+
+        sqlx::query(include_str!("../../migrations/20250118000000_task_management.sql"))
             .execute(&pool)
             .await
             .unwrap();
@@ -360,9 +362,23 @@ mod tests {
         pool
     }
 
+    async fn create_test_project(pool: &Pool<Sqlite>, project_id: &str) {
+        sqlx::query(
+            r#"
+            INSERT INTO projects (id, name, project_root, created_at, updated_at)
+            VALUES (?, 'Test Project', '/test/path', datetime('now'), datetime('now'))
+            "#,
+        )
+        .bind(project_id)
+        .execute(pool)
+        .await
+        .unwrap();
+    }
+
     #[tokio::test]
     async fn test_link_task_to_requirement() {
         let pool = setup_test_db().await;
+        create_test_project(&pool, "test-project").await;
 
         // Create a capability and requirement
         let capability = openspec_db::create_capability(
@@ -416,6 +432,7 @@ mod tests {
     #[tokio::test]
     async fn test_generate_tasks_from_requirement() {
         let pool = setup_test_db().await;
+        create_test_project(&pool, "test-project").await;
 
         // Create test data
         let capability = openspec_db::create_capability(

@@ -173,14 +173,28 @@ fn parse_scenarios(lines: &[&str], _requirement_name: &str) -> ParseResult<Vec<P
 
 /// Extract clause text (WHEN/THEN/AND)
 fn extract_clause_text(line: &str, clause_type: &str) -> String {
-    line.trim()
-        .trim_start_matches("**")
+    let mut text = line.trim();
+
+    // Remove leading/trailing bold markers
+    text = text.trim_start_matches("**").trim_end_matches("**");
+
+    // Remove clause keyword (case insensitive)
+    let upper = clause_type.to_uppercase();
+    let lower = clause_type.to_lowercase();
+
+    if text.to_uppercase().starts_with(&upper) {
+        text = &text[upper.len()..];
+    } else if text.to_lowercase().starts_with(&lower) {
+        text = &text[lower.len()..];
+    }
+
+    // Remove any remaining bold markers and colon
+    text = text.trim_start_matches("**")
         .trim_end_matches("**")
-        .trim_start_matches(&clause_type.to_uppercase())
-        .trim_start_matches(&clause_type.to_lowercase())
         .trim_start_matches(':')
-        .trim()
-        .to_string()
+        .trim();
+
+    text.to_string()
 }
 
 /// Split markdown by heading level
@@ -329,5 +343,205 @@ THEN system shows error message
         assert_eq!(scenarios[0].when, "user enters valid data");
         assert_eq!(scenarios[0].then, "data is saved");
         assert_eq!(scenarios[0].and.len(), 1);
+    }
+
+    #[test]
+    fn test_parse_empty_spec() {
+        let markdown = "";
+        let result = parse_spec_markdown(markdown);
+        assert!(result.is_err());
+        assert!(matches!(result.unwrap_err(), ParseError::MissingSection(_)));
+    }
+
+    #[test]
+    fn test_parse_spec_without_capabilities() {
+        let markdown = "# This is just a heading\n\nSome content but no capabilities.";
+        let result = parse_spec_markdown(markdown);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_parse_multiple_capabilities() {
+        let markdown = r#"
+## Authentication
+
+User authentication system.
+
+### Login
+Users can log in.
+WHEN user enters credentials
+THEN user is authenticated
+
+## Data Management
+
+Data storage and retrieval.
+
+### Save Data
+Users can save data.
+WHEN user clicks save
+THEN data is stored
+"#;
+
+        let result = parse_spec_markdown(markdown);
+        assert!(result.is_ok());
+
+        let spec = result.unwrap();
+        assert_eq!(spec.capabilities.len(), 2);
+        assert_eq!(spec.capabilities[0].name, "Authentication");
+        assert_eq!(spec.capabilities[1].name, "Data Management");
+    }
+
+    #[test]
+    fn test_parse_capability_without_purpose() {
+        let markdown = r#"
+## Test Capability
+
+### Requirement One
+Description here.
+WHEN something happens
+THEN result occurs
+"#;
+
+        let result = parse_spec_markdown(markdown);
+        assert!(result.is_ok());
+
+        let spec = result.unwrap();
+        assert_eq!(spec.capabilities.len(), 1);
+        assert!(spec.capabilities[0].purpose.contains("No purpose specified"));
+    }
+
+    #[test]
+    fn test_parse_requirement_without_description() {
+        let markdown = r#"
+## Test Capability
+
+Purpose text.
+
+### Requirement One
+WHEN something happens
+THEN result occurs
+"#;
+
+        let result = parse_spec_markdown(markdown);
+        assert!(result.is_ok());
+
+        let spec = result.unwrap();
+        assert_eq!(spec.capabilities[0].requirements.len(), 1);
+        assert!(spec.capabilities[0].requirements[0].description.contains("No description"));
+    }
+
+    #[test]
+    fn test_parse_scenario_without_name() {
+        let lines = vec![
+            "WHEN user enters data",
+            "THEN data is saved",
+        ];
+
+        let scenarios = parse_scenarios(&lines, "test").unwrap();
+        assert_eq!(scenarios.len(), 1);
+        assert_eq!(scenarios[0].name, "Default scenario");
+    }
+
+    #[test]
+    fn test_parse_multiple_scenarios() {
+        let lines = vec![
+            "**Scenario: First**",
+            "WHEN condition one",
+            "THEN result one",
+            "",
+            "**Scenario: Second**",
+            "WHEN condition two",
+            "THEN result two",
+            "AND additional result",
+        ];
+
+        let scenarios = parse_scenarios(&lines, "test").unwrap();
+        assert_eq!(scenarios.len(), 2);
+        assert_eq!(scenarios[0].name, "First");
+        assert_eq!(scenarios[1].name, "Second");
+        assert_eq!(scenarios[1].and.len(), 1);
+    }
+
+    #[test]
+    fn test_parse_scenario_with_multiple_and_clauses() {
+        let lines = vec![
+            "WHEN user submits form",
+            "THEN form is validated",
+            "AND data is saved",
+            "AND confirmation is shown",
+            "AND email is sent",
+        ];
+
+        let scenarios = parse_scenarios(&lines, "test").unwrap();
+        assert_eq!(scenarios.len(), 1);
+        assert_eq!(scenarios[0].and.len(), 3);
+    }
+
+    #[test]
+    fn test_parse_scenario_with_heading_name() {
+        let lines = vec![
+            "#### Valid Login",
+            "WHEN user enters correct credentials",
+            "THEN user is logged in",
+        ];
+
+        let scenarios = parse_scenarios(&lines, "test").unwrap();
+        assert_eq!(scenarios.len(), 1);
+        assert_eq!(scenarios[0].name, "Valid Login");
+    }
+
+    #[test]
+    fn test_parse_scenario_with_case_insensitive_keywords() {
+        let lines = vec![
+            "when user clicks button",
+            "then action occurs",
+            "and result is shown",
+        ];
+
+        let scenarios = parse_scenarios(&lines, "test").unwrap();
+        assert_eq!(scenarios.len(), 1);
+        assert_eq!(scenarios[0].when, "user clicks button");
+        assert_eq!(scenarios[0].then, "action occurs");
+        assert_eq!(scenarios[0].and.len(), 1);
+    }
+
+    #[test]
+    fn test_parse_scenario_with_bold_keywords() {
+        let lines = vec![
+            "**WHEN** user performs action",
+            "**THEN** system responds",
+            "**AND** result is displayed",
+        ];
+
+        let scenarios = parse_scenarios(&lines, "test").unwrap();
+        assert_eq!(scenarios.len(), 1);
+        assert_eq!(scenarios[0].when, "user performs action");
+    }
+
+    #[test]
+    fn test_extract_clause_text_variations() {
+        assert_eq!(extract_clause_text("WHEN user clicks", "WHEN"), "user clicks");
+        assert_eq!(extract_clause_text("when user clicks", "WHEN"), "user clicks");
+        assert_eq!(extract_clause_text("**WHEN** user clicks", "WHEN"), "user clicks");
+        assert_eq!(extract_clause_text("WHEN: user clicks", "WHEN"), "user clicks");
+    }
+
+    #[test]
+    fn test_split_by_heading() {
+        let content = r#"
+## First Section
+Content one
+
+## Second Section
+Content two
+
+### Subsection
+Content three
+"#;
+
+        let sections = split_by_heading(content, 2);
+        assert_eq!(sections.len(), 2);
+        assert_eq!(sections[0].0, "First Section");
+        assert_eq!(sections[1].0, "Second Section");
     }
 }
