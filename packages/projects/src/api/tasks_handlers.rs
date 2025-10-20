@@ -74,6 +74,8 @@ pub struct CreateTaskRequest {
     pub acceptance_criteria: Option<String>,
     pub prompt: Option<String>,
     pub context: Option<String>,
+    #[serde(rename = "tagId")]
+    pub tag_id: Option<String>,
     pub tags: Option<Vec<String>>,
     pub category: Option<String>,
 }
@@ -111,6 +113,7 @@ pub async fn create_task(
         acceptance_criteria: request.acceptance_criteria,
         prompt: request.prompt,
         context: request.context,
+        tag_id: request.tag_id,
         tags: request.tags,
         category: request.category,
     };

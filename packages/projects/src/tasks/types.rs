@@ -103,6 +103,7 @@ pub struct TaskCreateInput {
     pub acceptance_criteria: Option<String>,
     pub prompt: Option<String>,
     pub context: Option<String>,
+    pub tag_id: Option<String>,
     pub tags: Option<Vec<String>>,
     pub category: Option<String>,
 }

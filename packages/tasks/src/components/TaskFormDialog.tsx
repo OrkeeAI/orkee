@@ -10,6 +10,29 @@ import {
   DialogFooter,
 } from './ui/dialog';
 
+// API URL helper - matches the pattern from dashboard
+const getApiBaseUrl = async (): Promise<string> => {
+  // Check if we're in a browser environment
+  if (typeof window === 'undefined') {
+    return 'http://localhost:4001';
+  }
+
+  // Check if running in Tauri (desktop app)
+  if ((window as any).__TAURI__) {
+    try {
+      const { invoke } = (window as any).__TAURI__.core;
+      const port = await invoke('get_api_port');
+      return `http://localhost:${port}`;
+    } catch (error) {
+      console.error('[TaskFormDialog] Failed to get API port from Tauri:', error);
+      return 'http://localhost:4001';
+    }
+  }
+
+  // Web mode - use default or environment variable
+  return 'http://localhost:4001';
+};
+
 interface Tag {
   id: string;
   name: string;
@@ -57,7 +80,8 @@ export const TaskFormDialog: React.FC<TaskFormDialogProps> = ({
     const loadTags = async () => {
       setLoadingTags(true);
       try {
-        const response = await fetch('http://localhost:4001/api/tags');
+        const apiBaseUrl = await getApiBaseUrl();
+        const response = await fetch(`${apiBaseUrl}/api/tags`);
         const data = await response.json();
         if (data.success) {
           // Filter out archived tags
