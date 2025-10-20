@@ -1,10 +1,7 @@
 // ABOUTME: OpenSpec sync engine for bidirectional PRD ↔ Spec ↔ Task synchronization
 // ABOUTME: Handles change detection, delta generation, and conflict resolution
 
-use super::types::{
-    DeltaType, ParsedCapability, ParsedRequirement, ParsedScenario, ParsedSpec, SpecCapability,
-    SpecDelta, SpecRequirement, SpecScenario,
-};
+use super::types::{DeltaType, ParsedCapability, ParsedSpec, SpecCapability};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
@@ -146,7 +143,7 @@ fn is_capability_modified(old: &SpecCapability, new: &ParsedCapability) -> bool 
 }
 
 /// Detect which requirements changed within a capability
-fn detect_requirement_changes(old: &SpecCapability, new: &ParsedCapability) -> Vec<String> {
+fn detect_requirement_changes(_old: &SpecCapability, new: &ParsedCapability) -> Vec<String> {
     // This is a simplified version - would need database access for full implementation
     new.requirements.iter().map(|r| r.name.clone()).collect()
 }
@@ -232,19 +229,19 @@ pub fn generate_sync_report(changes: &[CapabilityDiff]) -> SyncReport {
 /// Conflict detection for concurrent modifications
 #[derive(Debug, Clone)]
 pub struct ConflictDetector {
-    last_sync_time: Option<DateTime<Utc>>,
+    _last_sync_time: Option<DateTime<Utc>>,
 }
 
 impl ConflictDetector {
     pub fn new() -> Self {
         Self {
-            last_sync_time: None,
+            _last_sync_time: None,
         }
     }
 
     pub fn with_last_sync_time(last_sync_time: DateTime<Utc>) -> Self {
         Self {
-            last_sync_time: Some(last_sync_time),
+            _last_sync_time: Some(last_sync_time),
         }
     }
 
@@ -399,7 +396,7 @@ impl Default for SyncEngine {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::openspec::types::{CapabilityStatus, PRDSource, PRDStatus};
+    use crate::openspec::types::{CapabilityStatus, ParsedRequirement, ParsedScenario};
 
     fn create_test_capability(name: &str, requirement_count: i32) -> SpecCapability {
         SpecCapability {

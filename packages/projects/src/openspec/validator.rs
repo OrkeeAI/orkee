@@ -2,7 +2,7 @@
 // ABOUTME: Validates spec structure, requirements, and scenarios against database constraints
 
 use super::types::{ParsedCapability, ParsedRequirement, ParsedScenario, ParsedSpec};
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 
 #[derive(Debug, thiserror::Error)]
 pub enum ValidationError {

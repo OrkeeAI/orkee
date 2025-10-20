@@ -2,8 +2,6 @@
 // ABOUTME: Parses PRDs, specs, requirements, and WHEN/THEN/AND scenarios from markdown
 
 use super::types::{ParsedCapability, ParsedRequirement, ParsedScenario, ParsedSpec};
-use regex::Regex;
-use std::collections::HashMap;
 
 #[derive(Debug, thiserror::Error)]
 pub enum ParseError {
@@ -90,7 +88,7 @@ fn parse_requirement(name: &str, content: &str) -> ParseResult<ParsedRequirement
 }
 
 /// Parse WHEN/THEN/AND scenarios from lines
-fn parse_scenarios(lines: &[&str], requirement_name: &str) -> ParseResult<Vec<ParsedScenario>> {
+fn parse_scenarios(lines: &[&str], _requirement_name: &str) -> ParseResult<Vec<ParsedScenario>> {
     let mut scenarios = Vec::new();
     let mut current_scenario: Option<(String, String, Vec<String>)> = None;
     let mut scenario_name = String::new();
