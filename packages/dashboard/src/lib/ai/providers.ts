@@ -36,26 +36,15 @@ export function getOpenAIProvider() {
  * Initialize Anthropic provider
  */
 export function getAnthropicProvider() {
-  if (!isProviderConfigured('anthropic')) {
-    throw new Error('Anthropic API key not configured. Please set VITE_ANTHROPIC_API_KEY.');
-  }
+  // Use local proxy endpoint to avoid CORS issues
+  // The proxy will forward requests to Anthropic with the API key from server environment
+  const apiBaseUrl = window.location.origin.includes('localhost')
+    ? 'http://localhost:4001'
+    : window.location.origin;
 
-  const config = AI_CONFIG.providers.anthropic;
-
-  // Use Vercel AI Gateway if configured
-  if (AI_CONFIG.gateway.enabled && AI_CONFIG.gateway.baseURL && AI_CONFIG.gateway.apiKey) {
-    return createAnthropic({
-      apiKey: config.apiKey,
-      baseURL: `${AI_CONFIG.gateway.baseURL}/anthropic/v1`,
-      headers: {
-        'Helicone-Auth': `Bearer ${AI_CONFIG.gateway.apiKey}`,
-      },
-    });
-  }
-
-  // Direct Anthropic connection
   return createAnthropic({
-    apiKey: config.apiKey,
+    apiKey: 'proxy', // Dummy key - actual key is on server
+    baseURL: `${apiBaseUrl}/api/ai/anthropic`,
   });
 }
 
@@ -63,31 +52,14 @@ export function getAnthropicProvider() {
  * Get the preferred model instance
  */
 export function getPreferredModel() {
-  // Try Anthropic first (Claude is generally better for code analysis)
-  if (isProviderConfigured('anthropic')) {
-    const provider = getAnthropicProvider();
-    const config = AI_CONFIG.providers.anthropic;
-    return {
-      provider: 'anthropic' as const,
-      model: provider(config.defaultModel),
-      modelName: config.defaultModel,
-    };
-  }
-
-  // Fall back to OpenAI
-  if (isProviderConfigured('openai')) {
-    const provider = getOpenAIProvider();
-    const config = AI_CONFIG.providers.openai;
-    return {
-      provider: 'openai' as const,
-      model: provider(config.defaultModel),
-      modelName: config.defaultModel,
-    };
-  }
-
-  throw new Error(
-    'No AI provider configured. Please set VITE_OPENAI_API_KEY or VITE_ANTHROPIC_API_KEY.'
-  );
+  // Use Anthropic via proxy (always available)
+  const provider = getAnthropicProvider();
+  const config = AI_CONFIG.providers.anthropic;
+  return {
+    provider: 'anthropic' as const,
+    model: provider(config.defaultModel),
+    modelName: config.defaultModel,
+  };
 }
 
 /**

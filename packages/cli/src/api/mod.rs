@@ -4,6 +4,7 @@ use axum::{
 };
 use tracing::error;
 
+pub mod ai_proxy;
 pub mod cloud;
 pub mod config;
 pub mod directories;
@@ -189,6 +190,8 @@ pub async fn create_router_with_options(dashboard_path: Option<std::path::PathBu
             "/api/browse-directories",
             post(directories::browse_directories),
         )
+        .route("/api/ai/anthropic/messages", post(ai_proxy::anthropic_proxy))
+        .route("/api/ai/anthropic/messages", axum::routing::options(ai_proxy::anthropic_proxy_options))
         .nest("/api/projects", orkee_projects::create_projects_router())
         .nest(
             "/api/projects/:project_id/tasks",

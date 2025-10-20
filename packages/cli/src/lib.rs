@@ -184,7 +184,9 @@ async fn create_application_router(
         header::CONTENT_TYPE,
         header::ACCEPT,
         header::AUTHORIZATION, // For future API key
+        header::USER_AGENT,
         header::HeaderName::from_static("x-api-key"),
+        header::HeaderName::from_static("anthropic-version"), // For Anthropic API proxy
     ]);
 
     // Create CORS origin configuration
