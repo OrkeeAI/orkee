@@ -62,6 +62,13 @@ export const queryKeys = {
   specsList: (projectId: string) => [...queryKeys.specs, 'list', projectId] as const,
   specDetail: (projectId: string, specId: string) => [...queryKeys.specs, 'detail', projectId, specId] as const,
   specRequirements: (projectId: string, specId: string) => [...queryKeys.specs, 'requirements', projectId, specId] as const,
+
+  // AI Usage keys
+  aiUsage: ['ai-usage'] as const,
+  aiUsageStats: (params?: { projectId?: string; startDate?: string; endDate?: string }) =>
+    [...queryKeys.aiUsage, 'stats', params] as const,
+  aiUsageLogs: (params?: { projectId?: string; startDate?: string; endDate?: string; operation?: string; model?: string; provider?: string; limit?: number; offset?: number }) =>
+    [...queryKeys.aiUsage, 'logs', params] as const,
 }
 
 // Helper function to invalidate all project-related queries
