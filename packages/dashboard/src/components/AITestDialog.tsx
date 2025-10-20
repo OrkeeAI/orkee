@@ -269,44 +269,53 @@ Build a secure authentication system for web applications.
 
                 <div className="space-y-2">
                   <div className="text-sm font-medium">Generated Capabilities</div>
-                  {prdWorkflowMutation.data.capabilities.map((cap) => (
-                    <details key={cap.id} className="ml-4">
-                      <summary className="cursor-pointer text-sm font-medium">
-                        {cap.capability.name}
-                      </summary>
-                      <pre className="mt-2 max-h-[200px] overflow-auto rounded bg-muted p-2 text-xs">
-                        {cap.specMarkdown}
-                      </pre>
-                    </details>
-                  ))}
-                </div>
+                  {prdWorkflowMutation.data.capabilities.map((cap) => {
+                    // Find tasks for this capability
+                    const capabilityTasks = prdWorkflowMutation.data.suggestedTasks.filter(
+                      task => task.capabilityId === cap.capability.id
+                    );
 
-                {prdWorkflowMutation.data.suggestedTasks.length > 0 && (
-                  <div className="space-y-2">
-                    <div className="text-sm font-medium">Suggested Tasks</div>
-                    <div className="space-y-2">
-                      {prdWorkflowMutation.data.suggestedTasks.map((task, idx) => (
-                        <div key={idx} className="ml-4 p-3 rounded-md border bg-card text-card-foreground">
-                          <p className="font-medium text-sm">{task.title}</p>
-                          <p className="text-xs text-muted-foreground mt-1">{task.description}</p>
-                          <div className="flex gap-2 mt-2">
-                            <span className="text-xs px-2 py-1 rounded bg-secondary">
-                              {task.capabilityId}
+                    return (
+                      <details key={cap.id} className="ml-4">
+                        <summary className="cursor-pointer text-sm font-medium">
+                          {cap.capability.name}
+                          {capabilityTasks.length > 0 && (
+                            <span className="ml-2 text-xs text-muted-foreground">
+                              ({capabilityTasks.length} {capabilityTasks.length === 1 ? 'task' : 'tasks'})
                             </span>
-                            <span className="text-xs px-2 py-1 rounded bg-secondary">
-                              Complexity: {task.complexity}/10
-                            </span>
-                            {task.priority && (
-                              <span className="text-xs px-2 py-1 rounded bg-secondary">
-                                Priority: {task.priority}
-                              </span>
-                            )}
-                          </div>
+                          )}
+                        </summary>
+                        <div className="mt-2 space-y-3">
+                          <pre className="max-h-[200px] overflow-auto rounded bg-muted p-2 text-xs">
+                            {cap.specMarkdown}
+                          </pre>
+
+                          {capabilityTasks.length > 0 && (
+                            <div className="space-y-2">
+                              <div className="text-xs font-medium text-muted-foreground">Implementation Tasks:</div>
+                              {capabilityTasks.map((task, idx) => (
+                                <div key={idx} className="p-2 rounded-md border bg-card text-card-foreground">
+                                  <p className="font-medium text-xs">{task.title}</p>
+                                  <p className="text-xs text-muted-foreground mt-1">{task.description}</p>
+                                  <div className="flex gap-2 mt-1">
+                                    <span className="text-xs px-1.5 py-0.5 rounded bg-secondary">
+                                      Complexity: {task.complexity}/10
+                                    </span>
+                                    {task.priority && (
+                                      <span className="text-xs px-1.5 py-0.5 rounded bg-secondary">
+                                        Priority: {task.priority}
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
                         </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
+                      </details>
+                    );
+                  })}
+                </div>
               </div>
             )}
 
