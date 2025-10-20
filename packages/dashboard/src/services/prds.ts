@@ -166,20 +166,41 @@ export class PRDsService {
   }
 
   async analyzePRD(projectId: string, prdId: string): Promise<PRDAnalysisResult> {
-    const response = await apiClient.post<ApiResponse<PRDAnalysisResult>>(
-      `/api/projects/${projectId}/prds/${prdId}/analyze`,
-      {}
-    );
-
-    if (response.error || !response.data?.success) {
-      throw new Error(response.data?.error || response.error || 'Failed to analyze PRD');
+    // Fetch the PRD content first
+    const prd = await this.getPRD(projectId, prdId);
+    if (!prd) {
+      throw new Error(`PRD with ID ${prdId} not found`);
     }
 
-    if (!response.data.data) {
-      throw new Error('No analysis data returned');
-    }
+    // Use real AI service to analyze the PRD
+    const { aiSpecService } = await import('@/lib/ai/services');
+    const aiResult = await aiSpecService.analyzePRD(prd.contentMarkdown);
 
-    return response.data.data;
+    // Transform AI schema format to PRD service format
+    // AI schema uses: {when, then, and}
+    // PRD service expects: {whenClause, thenClause, andClauses}
+    const capabilities: SpecCapability[] = aiResult.data.capabilities.map((cap) => ({
+      id: cap.id,
+      name: cap.name,
+      purpose: cap.purpose,
+      requirements: cap.requirements.map((req) => ({
+        name: req.name,
+        content: req.content,
+        scenarios: req.scenarios.map((scenario) => ({
+          name: scenario.name,
+          whenClause: scenario.when,
+          thenClause: scenario.then,
+          andClauses: scenario.and || [],
+        })),
+      })),
+    }));
+
+    return {
+      summary: aiResult.data.summary,
+      capabilities,
+      suggestedTasks: aiResult.data.suggestedTasks || [],
+      dependencies: aiResult.data.dependencies,
+    };
   }
 
   async syncSpecsToPRD(projectId: string, prdId: string): Promise<PRD> {
