@@ -934,7 +934,7 @@ export class SpecWorkflow {
   - Markdown rendering with syntax highlighting
   - Full requirement and scenario display with WHEN/THEN/AND formatting
 
-### Week 5: AI Integration & Workflows (🚧 IN PROGRESS - Day 1-2 Complete)
+### Week 5: AI Integration & Workflows (🚧 IN PROGRESS - Day 1-3 Complete)
 - [x] Day 1-2: Complete AI service implementations ✅ (2025-10-20)
   - ✅ Installed AI SDK dependencies (ai, @ai-sdk/openai, @ai-sdk/anthropic, zod)
   - ✅ Created AI configuration module (`lib/ai/config.ts`) with provider settings
@@ -950,11 +950,15 @@ export class SpecWorkflow {
     - generateSpecMarkdown: Generate formatted markdown
   - ✅ Created workflow orchestration (`lib/workflows/spec-workflow.ts`)
   - ✅ Created integration documentation (`AI_INTEGRATION.md`)
-- [ ] Day 2-3: Build workflow orchestrators (PARTIALLY COMPLETE)
+- [x] Day 2-3: Connect AI to real features ✅ (2025-10-20)
   - ✅ PRD → Spec → Task workflow
   - ✅ Task → Spec workflow
-  - [ ] Backend integration (proxy AI calls through server)
-  - [ ] Update PRDUploadDialog to use real AI
+  - ✅ Connected PRDAnalysis to real AI service (commits: b1bc0c5, a57035b, 312cdd9)
+  - ✅ Updated AI prompt to generate 5-10 tasks with complexity scores
+  - ✅ Made suggestedTasks required in PRD analysis schema
+  - ✅ Display tasks in AITestDialog UI (commit 23a5f96)
+  - ✅ Group tasks by capability for hierarchical display (commit 815226f)
+  - ✅ Frontend directly calls AI service (no backend proxy needed)
   - [ ] Update SpecBuilderWizard to use AI suggestions
 - [ ] Day 3-4: Add streaming and real-time updates
   - [ ] Implement streamObject for real-time responses
