@@ -56,6 +56,12 @@ export const queryKeys = {
   prdsList: (projectId: string) => [...queryKeys.prds, 'list', projectId] as const,
   prdDetail: (projectId: string, prdId: string) => [...queryKeys.prds, 'detail', projectId, prdId] as const,
   prdAnalysis: (projectId: string, prdId: string) => [...queryKeys.prds, 'analysis', projectId, prdId] as const,
+
+  // Spec keys
+  specs: ['specs'] as const,
+  specsList: (projectId: string) => [...queryKeys.specs, 'list', projectId] as const,
+  specDetail: (projectId: string, specId: string) => [...queryKeys.specs, 'detail', projectId, specId] as const,
+  specRequirements: (projectId: string, specId: string) => [...queryKeys.specs, 'requirements', projectId, specId] as const,
 }
 
 // Helper function to invalidate all project-related queries
@@ -78,6 +84,17 @@ export const invalidatePRD = (projectId: string, prdId: string) => {
   queryClient.invalidateQueries({ queryKey: queryKeys.prdDetail(projectId, prdId) })
   queryClient.invalidateQueries({ queryKey: queryKeys.prdsList(projectId) })
   queryClient.invalidateQueries({ queryKey: queryKeys.prdAnalysis(projectId, prdId) })
+}
+
+// Spec invalidation helpers
+export const invalidateSpecQueries = (projectId: string) => {
+  queryClient.invalidateQueries({ queryKey: queryKeys.specsList(projectId) })
+}
+
+export const invalidateSpec = (projectId: string, specId: string) => {
+  queryClient.invalidateQueries({ queryKey: queryKeys.specDetail(projectId, specId) })
+  queryClient.invalidateQueries({ queryKey: queryKeys.specsList(projectId) })
+  queryClient.invalidateQueries({ queryKey: queryKeys.specRequirements(projectId, specId) })
 }
 
 // Prefetch utilities
