@@ -13,14 +13,14 @@
 - PRD management, spec CRUD, change management, task-spec integration, and AI proxy
 - Commits: `939fde6`, `29f3cc7`, `8fdbdee`, `18a7617`, `bad9ce7`
 
-**Week 4 Frontend Components: 🚧 IN PROGRESS (Day 4 of 5 complete)**
+**Week 4 Frontend Components: ✅ COMPLETE**
 - ✅ Day 1: PRDUploadDialog complete (commit `e20e9ba`)
 - ✅ Day 2: SpecBuilderWizard complete (commits `64071cd`, `ff0f077`)
 - ✅ Day 3: TaskSpecLinker complete (commit `a3ae22c`)
-- ✅ Day 4: SyncDashboard complete
-- Comprehensive sync management dashboard with tabs and stats
-- Orphan task detection, PRD sync status, spec overview
-- Next: Day 5 Update existing components
+- ✅ Day 4: SyncDashboard complete (commit `9666b58`)
+- ✅ Day 5: Reusable spec components complete
+- All core frontend components implemented with full spec integration
+- Task-spec indicators, detailed spec views, and management dashboards
 
 **Implementation Highlights:**
 - **Parser Module**: 15 tests, full markdown parsing with WHEN/THEN/AND scenarios
@@ -29,13 +29,15 @@
 - **Database Module**: 2 tests, SQLite integration with proper migrations
 - **Integration Module**: 2 tests, task generation from specs with validation
 - **API Endpoints**: 28 endpoints (6 PRD + 7 Spec + 6 Change + 6 Task-Spec + 5 AI Proxy)
-- **Frontend Components**:
-  - PRDUploadDialog with 3-tab interface (Upload/Preview/Analysis)
-  - SpecBuilderWizard with 4-step wizard (Mode/Capability/Requirements/Validation)
-  - TaskSpecLinker dialog with search, linking, and validation features
-  - SyncDashboard with 3 tabs (Orphans/PRD Sync/Spec Overview) and summary stats
+- **Frontend Components** (6 major components):
+  - PRDUploadDialog: 3-tab interface (Upload/Preview/Analysis)
+  - SpecBuilderWizard: 4-step wizard (Mode/Capability/Requirements/Validation)
+  - TaskSpecLinker: Dialog with search, linking, and validation features
+  - SyncDashboard: 3 tabs (Orphans/PRD Sync/Spec Overview) with summary stats
+  - TaskSpecIndicator: Reusable component for showing spec status on any task
+  - SpecDetailsView: Comprehensive spec viewing with requirements and scenarios
 
-**Next Steps:** Week 4 Day 5 - Update existing components with spec features
+**Next Steps:** Week 5 - AI Integration & Workflows
 
 ---
 
@@ -732,10 +734,23 @@ Update `packages/tasks/src/components/TaskCard.tsx`:
   - Hooks: `packages/dashboard/src/hooks/useSpecs.ts`
   - Component: `packages/dashboard/src/components/SpecBuilderWizard.tsx`
   - 4-step wizard: Mode selection, Capability definition, Requirements editor, Validation
-- [ ] Implement TaskSpecLinker interface
-- [ ] Create SyncDashboard for management
-- [ ] Update TaskCard with spec features
-- [ ] Add SpecDetailsView component
+- [x] Implement TaskSpecLinker interface ✅ (2025-01-20)
+  - Service layer: `packages/dashboard/src/services/task-spec-links.ts`
+  - Hooks: `packages/dashboard/src/hooks/useTaskSpecLinks.ts`
+  - Component: `packages/dashboard/src/components/TaskSpecLinker.tsx`
+  - Features: Search/filter requirements, link/unlink, task validation, scenario preview
+- [x] Create SyncDashboard for management ✅ (2025-01-20)
+  - Component: `packages/dashboard/src/components/SyncDashboard.tsx`
+  - 3 tabs: Orphan Tasks, PRD Sync Status, Spec Overview
+  - 4 summary stat cards: Orphan count, Active specs, PRDs, Coverage metrics
+- [x] Add TaskSpecIndicator component ✅ (2025-01-20)
+  - Component: `packages/dashboard/src/components/TaskSpecIndicator.tsx`
+  - Reusable badge showing spec link status on any task
+  - Popover with linked requirements preview, integrated TaskSpecLinker
+- [x] Add SpecDetailsView component ✅ (2025-01-20)
+  - Component: `packages/dashboard/src/components/SpecDetailsView.tsx`
+  - Comprehensive spec viewer with 3 tabs: Overview, Requirements, Design
+  - Full markdown rendering with WHEN/THEN/AND scenario formatting
 - [ ] Create ChangeProposalForm
 - [ ] Build ValidationResultsPanel
 - [ ] Implement streaming UI updates
@@ -907,7 +922,17 @@ export class SpecWorkflow {
   - Spec capability overview with status badges
   - Real-time data fetching with loading states
   - Success/error alerts for sync operations
-- [ ] Day 5: Update existing components
+- [x] Day 5: Reusable spec components ✅ (2025-01-20)
+  - Created TaskSpecIndicator component (`packages/dashboard/src/components/TaskSpecIndicator.tsx`)
+  - Reusable badge/button component showing spec link status for any task
+  - Popover with linked requirements preview
+  - "No Spec" warning with link button for orphan tasks
+  - Integrated TaskSpecLinker dialog for inline linking
+  - Created SpecDetailsView component (`packages/dashboard/src/components/SpecDetailsView.tsx`)
+  - Comprehensive spec viewing with metadata cards
+  - 3-tab interface: Overview, Requirements, Design
+  - Markdown rendering with syntax highlighting
+  - Full requirement and scenario display with WHEN/THEN/AND formatting
 
 ### Week 5: AI Integration & Workflows
 - [ ] Day 1-2: Complete AI service implementations
