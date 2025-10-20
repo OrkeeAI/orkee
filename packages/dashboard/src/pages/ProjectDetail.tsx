@@ -1,10 +1,10 @@
 import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { 
-  ArrowLeft, 
-  Folder, 
-  Calendar, 
-  Tag, 
+import {
+  ArrowLeft,
+  Folder,
+  Calendar,
+  Tag,
   Settings,
   Edit,
   GitBranch,
@@ -18,7 +18,8 @@ import {
   Trash2,
   Github,
   Play,
-  ListTodo
+  ListTodo,
+  FileText
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -31,6 +32,7 @@ import { PreviewPanel } from '@/components/preview';
 import { GitTab, GitActivityGraph } from '@/components/git';
 import { OpenInEditorButton } from '@/components/ui/OpenInEditorButton';
 import { TasksTab } from '@/components/TasksTab';
+import { SpecsTab } from '@/components/SpecsTab';
 import { useProject } from '@/hooks/useProjects';
 import { useCommitHistory } from '@/services/git';
 
@@ -179,10 +181,14 @@ export function ProjectDetail() {
 
       {/* Tabbed Content */}
       <Tabs defaultValue="overview" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-5">
+        <TabsList className="grid w-full grid-cols-6">
           <TabsTrigger value="overview" className="flex items-center gap-2">
             <Info className="h-4 w-4" />
             Overview
+          </TabsTrigger>
+          <TabsTrigger value="specs" className="flex items-center gap-2">
+            <FileText className="h-4 w-4" />
+            Specs
           </TabsTrigger>
           <TabsTrigger value="tasks" className="flex items-center gap-2">
             <ListTodo className="h-4 w-4" />
@@ -201,6 +207,10 @@ export function ProjectDetail() {
             Settings
           </TabsTrigger>
         </TabsList>
+
+        <TabsContent value="specs" className="space-y-4">
+          <SpecsTab projectId={project.id} />
+        </TabsContent>
 
         <TabsContent value="tasks" className="space-y-4">
           <TasksTab
