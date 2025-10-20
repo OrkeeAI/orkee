@@ -10,10 +10,9 @@ A CLI, TUI, dashboard, and native desktop app for AI agent orchestration
 - 🖼️ **Native Desktop App** - Tauri-based desktop application with system tray integration
 - 🔧 **CLI Tools** - Command-line interface for configuration and control
 - 🔗 **Workflow Coordination** - Orchestrate complex multi-agent workflows
-- ☁️ **Cloud Sync** - Optional backup and sync with Orkee Cloud (fully implemented)
 - 🔐 **Enterprise Security** - OAuth authentication, JWT validation, and Row Level Security
 - 🔒 **HTTPS/TLS Support** - Secure connections with auto-generated or custom certificates
-- 💾 **Local-First Architecture** - SQLite-based storage with optional cloud enhancement
+- 💾 **Local-First Architecture** - SQLite-based storage for fast, reliable data management
 
 ## Project Structure
 
@@ -28,7 +27,6 @@ orkee/
 │   ├── tui/          # Ratatui-based standalone terminal interface
 │   ├── projects/     # Shared Rust library for core functionality (used by CLI and TUI)
 │   ├── preview/      # Development server management with registry
-│   ├── cloud/        # Cloud sync functionality (Orkee Cloud integration) - optional dependency
 │   └── mcp-server/   # MCP (Model Context Protocol) server for Claude integration
 ├── deployment/       # Production deployment configurations
 └── scripts/          # Build and release automation scripts
@@ -44,9 +42,8 @@ Orkee provides multiple interfaces for AI agent orchestration:
 - **TUI** - Standalone terminal interface with rich interactive features
 - **Projects Library** - Core SQLite-based project management (used by CLI and TUI)
 - **Preview Library** - Development server management with central registry
-- **Cloud Library** - Optional cloud sync functionality with Orkee Cloud backend
 
-The **Dashboard** and **Desktop App** require the CLI server to be running. The **TUI** works independently. **Cloud features** are optional and can be enabled with the `--features cloud` flag during compilation.
+The **Dashboard** and **Desktop App** require the CLI server to be running. The **TUI** works independently.
 
 ## Installation
 
@@ -121,9 +118,6 @@ git clone https://github.com/OrkeeAI/orkee.git
 cd orkee
 bun install
 turbo build
-
-# Build with cloud sync features (optional)
-cargo build --features cloud
 ```
 
 ## Quick Start
@@ -165,31 +159,6 @@ cargo run --bin orkee -- dashboard
 # Dashboard will be available at https://localhost:4001
 # HTTP requests to port 4000 automatically redirect to HTTPS
 ```
-
-### Cloud Sync Setup (Optional)
-
-```bash
-# Authenticate with Orkee Cloud (opens browser for OAuth authentication)
-cargo run --features cloud --bin orkee -- cloud login
-
-# Check authentication and sync status
-cargo run --features cloud --bin orkee -- cloud status
-
-# Manual sync to cloud
-cargo run --features cloud --bin orkee -- cloud sync
-
-# List cloud projects
-cargo run --features cloud --bin orkee -- cloud list
-
-# Restore project from cloud
-cargo run --features cloud --bin orkee -- cloud restore --project <id>
-
-# Enable/disable cloud features
-cargo run --features cloud --bin orkee -- cloud enable
-cargo run --features cloud --bin orkee -- cloud disable
-```
-
-**Note**: Cloud features require compilation with `--features cloud` and an Orkee Cloud account. The OSS client is fully implemented and ready - visit https://orkee.ai for API access.
 
 ## Desktop App (Tauri)
 
@@ -316,8 +285,6 @@ ORKEE_API_PORT=9000 ORKEE_UI_PORT=3333 cargo run --bin orkee -- dashboard  # Via
 ORKEE_DEV_MODE=true cargo run --bin orkee -- dashboard    # Use local dashboard via env
 cargo run --bin orkee -- tui                 # Launch TUI interface
 cargo run --bin orkee -- projects list       # List all projects
-cargo run --features cloud --bin orkee -- cloud login    # Authenticate with Orkee Cloud
-cargo run --features cloud --bin orkee -- cloud sync     # Sync projects to cloud
 cargo run --bin orkee -- --help              # See all available commands
 cargo test                                   # Run Rust tests
 
