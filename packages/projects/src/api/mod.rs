@@ -6,6 +6,7 @@ use axum::{
 use crate::db::DbState;
 
 pub mod agents_handlers;
+pub mod change_handlers;
 pub mod executions_handlers;
 pub mod handlers;
 pub mod prd_handlers;
@@ -127,4 +128,15 @@ pub fn create_specs_router() -> Router<DbState> {
         .route("/:project_id/specs/:capability_id", delete(spec_handlers::delete_capability))
         .route("/:project_id/specs/:capability_id/requirements", get(spec_handlers::get_capability_requirements))
         .route("/specs/validate", post(spec_handlers::validate_spec))
+}
+
+/// Creates the changes API router for spec changes and deltas
+pub fn create_changes_router() -> Router<DbState> {
+    Router::new()
+        .route("/:project_id/changes", get(change_handlers::list_changes))
+        .route("/:project_id/changes", post(change_handlers::create_change))
+        .route("/:project_id/changes/:change_id", get(change_handlers::get_change))
+        .route("/:project_id/changes/:change_id/status", put(change_handlers::update_change_status))
+        .route("/:project_id/changes/:change_id/deltas", get(change_handlers::get_change_deltas))
+        .route("/:project_id/changes/:change_id/deltas", post(change_handlers::create_delta))
 }
