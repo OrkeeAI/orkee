@@ -1,0 +1,335 @@
+// ABOUTME: Markdown parser for OpenSpec format
+// ABOUTME: Parses PRDs, specs, requirements, and WHEN/THEN/AND scenarios from markdown
+
+use super::types::{ParsedCapability, ParsedRequirement, ParsedScenario, ParsedSpec};
+use regex::Regex;
+use std::collections::HashMap;
+
+#[derive(Debug, thiserror::Error)]
+pub enum ParseError {
+    #[error("Invalid markdown format: {0}")]
+    InvalidFormat(String),
+
+    #[error("Missing required section: {0}")]
+    MissingSection(String),
+
+    #[error("Invalid scenario format in requirement '{0}': {1}")]
+    InvalidScenario(String, String),
+}
+
+pub type ParseResult<T> = Result<T, ParseError>;
+
+/// Parse a complete spec markdown document into structured capabilities
+pub fn parse_spec_markdown(markdown: &str) -> ParseResult<ParsedSpec> {
+    let mut capabilities = Vec::new();
+
+    // Split by capability sections (## headings)
+    let capability_sections = split_by_heading(markdown, 2);
+
+    for (capability_name, content) in capability_sections {
+        if capability_name.is_empty() {
+            continue;
+        }
+
+        let capability = parse_capability(&capability_name, &content)?;
+        capabilities.push(capability);
+    }
+
+    if capabilities.is_empty() {
+        return Err(ParseError::MissingSection("No capabilities found".to_string()));
+    }
+
+    Ok(ParsedSpec {
+        capabilities,
+        raw_markdown: markdown.to_string(),
+    })
+}
+
+/// Parse a single capability section
+fn parse_capability(name: &str, content: &str) -> ParseResult<ParsedCapability> {
+    let lines: Vec<&str> = content.lines().collect();
+
+    // Extract purpose (first paragraph after heading)
+    let purpose = extract_purpose(&lines);
+
+    // Parse requirements (### headings)
+    let requirement_sections = split_by_heading(content, 3);
+    let mut requirements = Vec::new();
+
+    for (req_name, req_content) in requirement_sections {
+        if req_name.is_empty() {
+            continue;
+        }
+
+        let requirement = parse_requirement(&req_name, &req_content)?;
+        requirements.push(requirement);
+    }
+
+    Ok(ParsedCapability {
+        name: name.trim().to_string(),
+        purpose: purpose.unwrap_or_else(|| "No purpose specified".to_string()),
+        requirements,
+    })
+}
+
+/// Parse a single requirement section with scenarios
+fn parse_requirement(name: &str, content: &str) -> ParseResult<ParsedRequirement> {
+    let lines: Vec<&str> = content.lines().collect();
+
+    // Extract description (text before scenarios)
+    let description = extract_description(&lines);
+
+    // Parse scenarios (WHEN/THEN/AND format)
+    let scenarios = parse_scenarios(&lines, name)?;
+
+    Ok(ParsedRequirement {
+        name: name.trim().to_string(),
+        description: description.unwrap_or_else(|| "No description".to_string()),
+        scenarios,
+    })
+}
+
+/// Parse WHEN/THEN/AND scenarios from lines
+fn parse_scenarios(lines: &[&str], requirement_name: &str) -> ParseResult<Vec<ParsedScenario>> {
+    let mut scenarios = Vec::new();
+    let mut current_scenario: Option<(String, String, Vec<String>)> = None;
+    let mut scenario_name = String::new();
+
+    for line in lines {
+        let trimmed = line.trim();
+
+        // Scenario name (#### or **Scenario:**)
+        if trimmed.starts_with("####") {
+            if let Some((when, then, and)) = current_scenario.take() {
+                scenarios.push(ParsedScenario {
+                    name: scenario_name.clone(),
+                    when,
+                    then,
+                    and,
+                });
+            }
+            scenario_name = trimmed.trim_start_matches('#').trim().to_string();
+        } else if trimmed.to_lowercase().starts_with("**scenario:") {
+            if let Some((when, then, and)) = current_scenario.take() {
+                scenarios.push(ParsedScenario {
+                    name: scenario_name.clone(),
+                    when,
+                    then,
+                    and,
+                });
+            }
+            scenario_name = trimmed
+                .trim_start_matches("**")
+                .trim_end_matches("**")
+                .trim_start_matches("Scenario:")
+                .trim_start_matches("scenario:")
+                .trim()
+                .to_string();
+        }
+        // WHEN clause
+        else if trimmed.to_uppercase().starts_with("WHEN ") || trimmed.starts_with("**WHEN") {
+            let when_text = extract_clause_text(trimmed, "WHEN");
+            if let Some((_, then, and)) = current_scenario.take() {
+                scenarios.push(ParsedScenario {
+                    name: scenario_name.clone(),
+                    when: when_text.clone(),
+                    then,
+                    and,
+                });
+            }
+            current_scenario = Some((when_text, String::new(), Vec::new()));
+        }
+        // THEN clause
+        else if trimmed.to_uppercase().starts_with("THEN ") || trimmed.starts_with("**THEN") {
+            if let Some((when, _, and)) = current_scenario.take() {
+                let then_text = extract_clause_text(trimmed, "THEN");
+                current_scenario = Some((when, then_text, and));
+            }
+        }
+        // AND clause
+        else if trimmed.to_uppercase().starts_with("AND ") || trimmed.starts_with("**AND") {
+            if let Some((when, then, mut and)) = current_scenario.take() {
+                let and_text = extract_clause_text(trimmed, "AND");
+                and.push(and_text);
+                current_scenario = Some((when, then, and));
+            }
+        }
+    }
+
+    // Add final scenario
+    if let Some((when, then, and)) = current_scenario {
+        scenarios.push(ParsedScenario {
+            name: if scenario_name.is_empty() {
+                "Default scenario".to_string()
+            } else {
+                scenario_name
+            },
+            when,
+            then,
+            and,
+        });
+    }
+
+    Ok(scenarios)
+}
+
+/// Extract clause text (WHEN/THEN/AND)
+fn extract_clause_text(line: &str, clause_type: &str) -> String {
+    line.trim()
+        .trim_start_matches("**")
+        .trim_end_matches("**")
+        .trim_start_matches(&clause_type.to_uppercase())
+        .trim_start_matches(&clause_type.to_lowercase())
+        .trim_start_matches(':')
+        .trim()
+        .to_string()
+}
+
+/// Split markdown by heading level
+fn split_by_heading(content: &str, level: usize) -> Vec<(String, String)> {
+    let heading_prefix = "#".repeat(level);
+    let mut sections = Vec::new();
+    let mut current_name = String::new();
+    let mut current_content = String::new();
+
+    for line in content.lines() {
+        if line.trim_start().starts_with(&heading_prefix)
+            && !line.trim_start().starts_with(&format!("{}#", heading_prefix)) {
+            // New section
+            if !current_name.is_empty() {
+                sections.push((current_name.clone(), current_content.clone()));
+            }
+            current_name = line.trim_start_matches('#').trim().to_string();
+            current_content.clear();
+        } else {
+            current_content.push_str(line);
+            current_content.push('\n');
+        }
+    }
+
+    // Add final section
+    if !current_name.is_empty() {
+        sections.push((current_name, current_content));
+    }
+
+    sections
+}
+
+/// Extract purpose from first paragraph
+fn extract_purpose(lines: &[&str]) -> Option<String> {
+    let mut purpose = String::new();
+    let mut in_purpose = false;
+
+    for line in lines {
+        let trimmed = line.trim();
+
+        if trimmed.is_empty() {
+            if in_purpose && !purpose.is_empty() {
+                break;
+            }
+            continue;
+        }
+
+        // Skip headings
+        if trimmed.starts_with('#') || trimmed.to_uppercase().starts_with("WHEN") {
+            break;
+        }
+
+        in_purpose = true;
+        if !purpose.is_empty() {
+            purpose.push(' ');
+        }
+        purpose.push_str(trimmed);
+    }
+
+    if purpose.is_empty() {
+        None
+    } else {
+        Some(purpose)
+    }
+}
+
+/// Extract description (text before scenarios)
+fn extract_description(lines: &[&str]) -> Option<String> {
+    let mut description = String::new();
+
+    for line in lines {
+        let trimmed = line.trim();
+
+        // Stop at scenario markers
+        if trimmed.starts_with("####")
+            || trimmed.to_uppercase().starts_with("WHEN")
+            || trimmed.to_uppercase().starts_with("**WHEN") {
+            break;
+        }
+
+        if trimmed.is_empty() {
+            continue;
+        }
+
+        if !description.is_empty() {
+            description.push(' ');
+        }
+        description.push_str(trimmed);
+    }
+
+    if description.is_empty() {
+        None
+    } else {
+        Some(description)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_parse_simple_spec() {
+        let markdown = r#"
+## Authentication
+
+User authentication and authorization system.
+
+### User Login
+
+Users can log in with email and password.
+
+**Scenario: Valid credentials**
+WHEN user submits correct email and password
+THEN system authenticates the user
+AND user is redirected to dashboard
+AND session is created
+
+**Scenario: Invalid credentials**
+WHEN user submits incorrect password
+THEN system shows error message
+"#;
+
+        let result = parse_spec_markdown(markdown);
+        assert!(result.is_ok());
+
+        let spec = result.unwrap();
+        assert_eq!(spec.capabilities.len(), 1);
+        assert_eq!(spec.capabilities[0].name, "Authentication");
+        assert_eq!(spec.capabilities[0].requirements.len(), 1);
+        assert_eq!(spec.capabilities[0].requirements[0].scenarios.len(), 2);
+    }
+
+    #[test]
+    fn test_parse_scenario() {
+        let lines = vec![
+            "**Scenario: Valid input**",
+            "WHEN user enters valid data",
+            "THEN data is saved",
+            "AND confirmation is shown",
+        ];
+
+        let scenarios = parse_scenarios(&lines, "test").unwrap();
+        assert_eq!(scenarios.len(), 1);
+        assert_eq!(scenarios[0].name, "Valid input");
+        assert_eq!(scenarios[0].when, "user enters valid data");
+        assert_eq!(scenarios[0].then, "data is saved");
+        assert_eq!(scenarios[0].and.len(), 1);
+    }
+}

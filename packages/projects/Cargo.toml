@@ -9,7 +9,7 @@ repository.workspace = true
 
 [dependencies]
 # Database
-sqlx = { version = "0.8.1", default-features = false, features = ["runtime-tokio-rustls", "sqlite", "uuid", "chrono", "migrate", "macros"] }
+sqlx = { version = "0.8.1", default-features = false, features = ["runtime-tokio-rustls", "sqlite", "uuid", "chrono", "migrate", "macros", "json"] }
 
 # Async
 async-trait = "0.1"

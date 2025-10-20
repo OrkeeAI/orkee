@@ -8,6 +8,7 @@ use crate::agents::Agent;
 
 #[derive(Debug, Clone, Serialize, Deserialize, sqlx::Type)]
 #[sqlx(type_name = "TEXT", rename_all = "kebab-case")]
+#[serde(rename_all = "kebab-case")]
 pub enum TaskStatus {
     Pending,
     InProgress,
@@ -20,6 +21,7 @@ pub enum TaskStatus {
 
 #[derive(Debug, Clone, Serialize, Deserialize, sqlx::Type)]
 #[sqlx(type_name = "TEXT", rename_all = "lowercase")]
+#[serde(rename_all = "lowercase")]
 pub enum TaskPriority {
     Low,
     Medium,
