@@ -231,6 +231,7 @@ pub async fn create_router_with_options(dashboard_path: Option<std::path::PathBu
             "/api",
             orkee_projects::create_task_spec_router().with_state(db_state),
         )
+        .nest("/api", orkee_projects::create_ai_router())
         .layer(axum::Extension(path_validator));
 
     // If dashboard path is provided, serve static files

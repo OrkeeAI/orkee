@@ -6,6 +6,7 @@ use axum::{
 use crate::db::DbState;
 
 pub mod agents_handlers;
+pub mod ai_handlers;
 pub mod change_handlers;
 pub mod executions_handlers;
 pub mod handlers;
@@ -151,4 +152,14 @@ pub fn create_task_spec_router() -> Router<DbState> {
         .route("/tasks/:task_id/suggest-spec", post(task_spec_handlers::suggest_spec_from_task))
         .route("/:project_id/tasks/generate-from-spec", post(task_spec_handlers::generate_tasks_from_spec))
         .route("/:project_id/tasks/orphans", get(task_spec_handlers::find_orphan_tasks))
+}
+
+/// Creates the AI proxy API router for AI-powered operations
+pub fn create_ai_router() -> Router {
+    Router::new()
+        .route("/ai/analyze-prd", post(ai_handlers::analyze_prd))
+        .route("/ai/generate-spec", post(ai_handlers::generate_spec))
+        .route("/ai/suggest-tasks", post(ai_handlers::suggest_tasks))
+        .route("/ai/refine-spec", post(ai_handlers::refine_spec))
+        .route("/ai/validate-completion", post(ai_handlers::validate_completion))
 }
