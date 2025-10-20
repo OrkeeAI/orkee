@@ -829,12 +829,12 @@ export class SpecWorkflow {
 - [x] Day 4-5: Integration with existing task system
 - [x] Day 5: Unit testing (46 tests passing)
 
-### Week 3: API Endpoints
-- [ ] Day 1: PRD management endpoints
-- [ ] Day 2: Spec CRUD endpoints
-- [ ] Day 3: Change management endpoints
-- [ ] Day 4: Task-spec integration endpoints
-- [ ] Day 5: AI proxy endpoints and testing
+### Week 3: API Endpoints (4/5 days complete)
+- [x] Day 1: PRD management endpoints (commit 939fde6 - 6 endpoints)
+- [x] Day 2: Spec CRUD endpoints (commit 29f3cc7 - 7 endpoints)
+- [x] Day 3: Change management endpoints (commit 8fdbdee - 6 endpoints)
+- [x] Day 4: Task-spec integration endpoints (commit 18a7617 - 6 endpoints)
+- [ ] Day 5: AI proxy endpoints and testing (in progress)
 
 ### Week 4: Frontend Components
 - [ ] Day 1: PRDUploadDialog
