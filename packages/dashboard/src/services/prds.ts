@@ -198,7 +198,7 @@ export class PRDsService {
     return {
       summary: aiResult.data.summary,
       capabilities,
-      suggestedTasks: aiResult.data.suggestedTasks || [],
+      suggestedTasks: aiResult.data.suggestedTasks,
       dependencies: aiResult.data.dependencies,
     };
   }

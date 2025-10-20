@@ -70,8 +70,8 @@ export const PRDAnalysisSchema = z.object({
     .describe('Extracted capabilities from the PRD'),
   suggestedTasks: z
     .array(TaskSuggestionSchema)
-    .optional()
-    .describe('Optional task suggestions'),
+    .min(1)
+    .describe('Task suggestions for implementing the capabilities (5-10 tasks)'),
   dependencies: z
     .array(z.string())
     .optional()
