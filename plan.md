@@ -934,7 +934,7 @@ export class SpecWorkflow {
   - Markdown rendering with syntax highlighting
   - Full requirement and scenario display with WHEN/THEN/AND formatting
 
-### Week 5: AI Integration & Workflows (🚧 IN PROGRESS - Day 1-3 Complete)
+### Week 5: AI Integration & Workflows (🚧 IN PROGRESS - Day 1-4 Complete)
 - [x] Day 1-2: Complete AI service implementations ✅ (2025-10-20)
   - ✅ Installed AI SDK dependencies (ai, @ai-sdk/openai, @ai-sdk/anthropic, zod)
   - ✅ Created AI configuration module (`lib/ai/config.ts`) with provider settings
@@ -960,7 +960,13 @@ export class SpecWorkflow {
   - ✅ Group tasks by capability for hierarchical display (commit 815226f)
   - ✅ Frontend directly calls AI service (no backend proxy needed)
   - [ ] Update SpecBuilderWizard to use AI suggestions
-- [ ] Day 3-4: Add streaming and real-time updates
+- [x] Day 3-4: Specs tab & UI integration ✅ (2025-10-20)
+  - ✅ Created Specs tab in ProjectDetail with 3 sub-sections (commit `9183562`)
+  - ✅ Built PRDView component with markdown viewer and upload/analyze/delete actions
+  - ✅ Built SpecificationsView with capability list and SpecDetailsView integration
+  - ✅ Built CoverageView wrapper around existing SyncDashboard
+  - ✅ Mounted PRD and specs API routers in backend (fixed 404 errors)
+  - ✅ Added Specs tab between Overview and Tasks in project detail flow
   - [ ] Implement streamObject for real-time responses
   - [ ] Add progress indicators for long operations
   - [ ] Update UI to show streaming results
@@ -1047,4 +1053,4 @@ export class SpecWorkflow {
 ---
 
 Last Updated: 2025-10-20
-Status: Week 5 Day 1-2 Complete - AI Service Layer Implemented
+Status: Week 5 Day 1-4 Complete - Specs Tab & UI Integration Complete
