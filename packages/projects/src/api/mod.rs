@@ -78,6 +78,7 @@ pub fn create_users_router() -> Router<DbState> {
             put(users_handlers::set_default_agent),
         )
         .route("/:user_id/theme", put(users_handlers::update_theme))
+        .route("/credentials", put(users_handlers::update_credentials))
 }
 
 /// Creates the tags API router
