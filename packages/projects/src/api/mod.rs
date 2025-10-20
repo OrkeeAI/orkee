@@ -7,6 +7,7 @@ use crate::db::DbState;
 
 pub mod agents_handlers;
 pub mod ai_handlers;
+pub mod ai_usage_log_handlers;
 pub mod change_handlers;
 pub mod executions_handlers;
 pub mod handlers;
@@ -162,4 +163,11 @@ pub fn create_ai_router() -> Router {
         .route("/ai/suggest-tasks", post(ai_handlers::suggest_tasks))
         .route("/ai/refine-spec", post(ai_handlers::refine_spec))
         .route("/ai/validate-completion", post(ai_handlers::validate_completion))
+}
+
+/// Creates the AI usage logs API router for cost tracking
+pub fn create_ai_usage_router() -> Router<DbState> {
+    Router::new()
+        .route("/logs", get(ai_usage_log_handlers::list_logs))
+        .route("/stats", get(ai_usage_log_handlers::get_stats))
 }

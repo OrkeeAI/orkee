@@ -4,6 +4,7 @@
 //! for managing development projects with persistent storage.
 
 pub mod agents;
+pub mod ai_usage_logs;
 pub mod api;
 pub mod constants;
 pub mod db;
@@ -67,7 +68,7 @@ pub use formatter::{format_project_details, format_projects_table};
 pub use constants::{orkee_dir, projects_file, PROJECTS_VERSION};
 
 // Re-export API routers
-pub use api::{create_agents_router, create_ai_router, create_changes_router, create_executions_router, create_prds_router, create_projects_router, create_specs_router, create_tags_router, create_task_spec_router, create_tasks_router, create_users_router};
+pub use api::{create_agents_router, create_ai_router, create_ai_usage_router, create_changes_router, create_executions_router, create_prds_router, create_projects_router, create_specs_router, create_tags_router, create_task_spec_router, create_tasks_router, create_users_router};
 
 // Re-export database state
 pub use db::DbState;
