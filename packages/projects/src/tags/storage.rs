@@ -19,15 +19,46 @@ impl TagStorage {
 
     /// List all tags, optionally including archived tags
     pub async fn list_tags(&self, include_archived: bool) -> Result<Vec<Tag>, StorageError> {
-        debug!("Fetching tags (include_archived: {})", include_archived);
+        let (tags, _) = self.list_tags_paginated(include_archived, None, None).await?;
+        Ok(tags)
+    }
 
-        let query = if include_archived {
-            "SELECT * FROM tags ORDER BY name"
+    /// List all tags with pagination
+    pub async fn list_tags_paginated(
+        &self,
+        include_archived: bool,
+        limit: Option<i64>,
+        offset: Option<i64>,
+    ) -> Result<(Vec<Tag>, i64), StorageError> {
+        debug!("Fetching tags (include_archived: {}, limit: {:?}, offset: {:?})", include_archived, limit, offset);
+
+        // Get total count
+        let count_query = if include_archived {
+            "SELECT COUNT(*) FROM tags"
         } else {
-            "SELECT * FROM tags WHERE archived_at IS NULL ORDER BY name"
+            "SELECT COUNT(*) FROM tags WHERE archived_at IS NULL"
         };
 
-        let rows = sqlx::query(query)
+        let count: i64 = sqlx::query_scalar(count_query)
+            .fetch_one(&self.pool)
+            .await
+            .map_err(StorageError::Sqlx)?;
+
+        // Build query with optional pagination
+        let mut query = if include_archived {
+            String::from("SELECT * FROM tags ORDER BY name")
+        } else {
+            String::from("SELECT * FROM tags WHERE archived_at IS NULL ORDER BY name")
+        };
+
+        if let Some(lim) = limit {
+            query.push_str(&format!(" LIMIT {}", lim));
+        }
+        if let Some(off) = offset {
+            query.push_str(&format!(" OFFSET {}", off));
+        }
+
+        let rows = sqlx::query(&query)
             .fetch_all(&self.pool)
             .await
             .map_err(StorageError::Sqlx)?;
@@ -37,7 +68,7 @@ impl TagStorage {
             .map(|row| self.row_to_tag(row))
             .collect::<Result<Vec<_>, _>>()?;
 
-        Ok(tags)
+        Ok((tags, count))
     }
 
     /// Get a single tag by ID

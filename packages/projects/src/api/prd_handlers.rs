@@ -2,7 +2,7 @@
 // ABOUTME: Handles CRUD operations for PRDs with database integration
 
 use axum::{
-    extract::{Path, State},
+    extract::{Path, Query, State},
     http::StatusCode,
     response::{IntoResponse, Json as ResponseJson},
     Json,
@@ -14,16 +14,21 @@ use super::response::ApiResponse;
 use crate::db::DbState;
 use crate::openspec::db as openspec_db;
 use crate::openspec::types::{PRDSource, PRDStatus};
+use crate::pagination::{PaginatedResponse, PaginationParams};
 
 /// List all PRDs for a project
 pub async fn list_prds(
     State(db): State<DbState>,
     Path(project_id): Path<String>,
+    Query(pagination): Query<PaginationParams>,
 ) -> impl IntoResponse {
-    info!("Listing PRDs for project: {}", project_id);
+    info!("Listing PRDs for project: {} (page: {})", project_id, pagination.page());
 
-    match openspec_db::get_prds_by_project(&db.pool, &project_id).await {
-        Ok(prds) => (StatusCode::OK, ResponseJson(ApiResponse::success(prds))).into_response(),
+    match openspec_db::get_prds_by_project_paginated(&db.pool, &project_id, Some(pagination.limit()), Some(pagination.offset())).await {
+        Ok((prds, total)) => {
+            let response = PaginatedResponse::new(prds, &pagination, total);
+            (StatusCode::OK, ResponseJson(ApiResponse::success(response))).into_response()
+        }
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
             ResponseJson(ApiResponse::<()>::error(format!(
@@ -163,15 +168,15 @@ pub async fn delete_prd(
 pub async fn get_prd_capabilities(
     State(db): State<DbState>,
     Path((_project_id, prd_id)): Path<(String, String)>,
+    Query(pagination): Query<PaginationParams>,
 ) -> impl IntoResponse {
-    info!("Getting capabilities for PRD: {}", prd_id);
+    info!("Getting capabilities for PRD: {} (page: {})", prd_id, pagination.page());
 
-    match openspec_db::get_capabilities_by_prd(&db.pool, &prd_id).await {
-        Ok(capabilities) => (
-            StatusCode::OK,
-            ResponseJson(ApiResponse::success(capabilities)),
-        )
-            .into_response(),
+    match openspec_db::get_capabilities_by_prd_paginated(&db.pool, &prd_id, Some(pagination.limit()), Some(pagination.offset())).await {
+        Ok((capabilities, total)) => {
+            let response = PaginatedResponse::new(capabilities, &pagination, total);
+            (StatusCode::OK, ResponseJson(ApiResponse::success(response))).into_response()
+        }
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
             ResponseJson(ApiResponse::<()>::error(format!(

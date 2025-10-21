@@ -1,6 +1,8 @@
 // ABOUTME: Spec capability service layer for API integration
 // ABOUTME: Handles CRUD operations for spec capabilities, requirements, and scenarios
 import { apiClient } from './api';
+import type { PaginationParams, PaginatedResponse } from '@/types/pagination';
+import { buildPaginationQuery } from '@/types/pagination';
 
 export type SpecStatus = 'active' | 'deprecated' | 'archived';
 
@@ -72,16 +74,17 @@ interface ApiResponse<T> {
 }
 
 export class SpecsService {
-  async listSpecs(projectId: string): Promise<SpecCapability[]> {
-    const response = await apiClient.get<ApiResponse<SpecCapability[]>>(
-      `/api/projects/${projectId}/specs`
+  async listSpecs(projectId: string, pagination?: PaginationParams): Promise<PaginatedResponse<SpecCapability>> {
+    const query = pagination ? buildPaginationQuery(pagination) : '';
+    const response = await apiClient.get<ApiResponse<PaginatedResponse<SpecCapability>>>(
+      `/api/projects/${projectId}/specs${query}`
     );
 
     if (response.error || !response.data?.success) {
       throw new Error(response.data?.error || response.error || 'Failed to fetch specs');
     }
 
-    return response.data.data || [];
+    return response.data.data!;
   }
 
   async getSpec(projectId: string, specId: string): Promise<SpecCapability | null> {
@@ -196,10 +199,12 @@ export class SpecsService {
 
   async getSpecRequirements(
     projectId: string,
-    specId: string
-  ): Promise<SpecRequirement[]> {
-    const response = await apiClient.get<ApiResponse<SpecRequirement[]>>(
-      `/api/projects/${projectId}/specs/${specId}/requirements`
+    specId: string,
+    pagination?: PaginationParams
+  ): Promise<PaginatedResponse<SpecRequirement>> {
+    const query = pagination ? buildPaginationQuery(pagination) : '';
+    const response = await apiClient.get<ApiResponse<PaginatedResponse<SpecRequirement>>>(
+      `/api/projects/${projectId}/specs/${specId}/requirements${query}`
     );
 
     if (response.error || !response.data?.success) {
@@ -208,7 +213,7 @@ export class SpecsService {
       );
     }
 
-    return response.data.data || [];
+    return response.data.data!;
   }
 }
 

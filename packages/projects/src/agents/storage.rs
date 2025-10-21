@@ -17,9 +17,25 @@ impl AgentStorage {
     }
 
     pub async fn list_agents(&self) -> Result<Vec<Agent>, StorageError> {
-        debug!("Fetching all agents");
+        let (agents, _) = self.list_agents_paginated(None, None).await?;
+        Ok(agents)
+    }
 
-        let rows = sqlx::query(
+    pub async fn list_agents_paginated(
+        &self,
+        limit: Option<i64>,
+        offset: Option<i64>,
+    ) -> Result<(Vec<Agent>, i64), StorageError> {
+        debug!("Fetching all agents (limit: {:?}, offset: {:?})", limit, offset);
+
+        // Get total count
+        let count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM agents")
+            .fetch_one(&self.pool)
+            .await
+            .map_err(StorageError::Sqlx)?;
+
+        // Build query with optional pagination
+        let mut query = String::from(
             r#"
             SELECT * FROM agents
             ORDER BY
@@ -29,18 +45,27 @@ impl AgentStorage {
                     WHEN 'human' THEN 2
                 END,
                 display_name
-            "#,
-        )
-        .fetch_all(&self.pool)
-        .await
-        .map_err(StorageError::Sqlx)?;
+            "#
+        );
+
+        if let Some(lim) = limit {
+            query.push_str(&format!(" LIMIT {}", lim));
+        }
+        if let Some(off) = offset {
+            query.push_str(&format!(" OFFSET {}", off));
+        }
+
+        let rows = sqlx::query(&query)
+            .fetch_all(&self.pool)
+            .await
+            .map_err(StorageError::Sqlx)?;
 
         let mut agents = Vec::new();
         for row in rows {
             agents.push(self.row_to_agent(&row)?);
         }
 
-        Ok(agents)
+        Ok((agents, count))
     }
 
     pub async fn get_agent(&self, agent_id: &str) -> Result<Agent, StorageError> {
@@ -56,9 +81,29 @@ impl AgentStorage {
     }
 
     pub async fn list_user_agents(&self, user_id: &str) -> Result<Vec<UserAgent>, StorageError> {
-        debug!("Fetching user agents for user: {}", user_id);
+        let (user_agents, _) = self.list_user_agents_paginated(user_id, None, None).await?;
+        Ok(user_agents)
+    }
 
-        let rows = sqlx::query(
+    pub async fn list_user_agents_paginated(
+        &self,
+        user_id: &str,
+        limit: Option<i64>,
+        offset: Option<i64>,
+    ) -> Result<(Vec<UserAgent>, i64), StorageError> {
+        debug!("Fetching user agents for user: {} (limit: {:?}, offset: {:?})", user_id, limit, offset);
+
+        // Get total count
+        let count: i64 = sqlx::query_scalar(
+            "SELECT COUNT(*) FROM user_agents WHERE user_id = ?",
+        )
+        .bind(user_id)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(StorageError::Sqlx)?;
+
+        // Build query with optional pagination
+        let mut query = String::from(
             r#"
             SELECT
                 ua.*,
@@ -67,19 +112,28 @@ impl AgentStorage {
             JOIN agents a ON ua.agent_id = a.id
             WHERE ua.user_id = ?
             ORDER BY ua.is_favorite DESC, a.display_name
-            "#,
-        )
-        .bind(user_id)
-        .fetch_all(&self.pool)
-        .await
-        .map_err(StorageError::Sqlx)?;
+            "#
+        );
+
+        if let Some(lim) = limit {
+            query.push_str(&format!(" LIMIT {}", lim));
+        }
+        if let Some(off) = offset {
+            query.push_str(&format!(" OFFSET {}", off));
+        }
+
+        let rows = sqlx::query(&query)
+            .bind(user_id)
+            .fetch_all(&self.pool)
+            .await
+            .map_err(StorageError::Sqlx)?;
 
         let mut user_agents = Vec::new();
         for row in rows {
             user_agents.push(self.row_to_user_agent(&row)?);
         }
 
-        Ok(user_agents)
+        Ok((user_agents, count))
     }
 
     pub async fn get_user_agent(

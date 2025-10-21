@@ -2,7 +2,7 @@
 // ABOUTME: Handles agent listing and user-agent management
 
 use axum::{
-    extract::{Path, State},
+    extract::{Path, Query, State},
     http::StatusCode,
     response::{IntoResponse, Json as ResponseJson},
     Json,
@@ -12,13 +12,20 @@ use tracing::info;
 
 use super::response::ApiResponse;
 use crate::db::DbState;
+use crate::pagination::{PaginatedResponse, PaginationParams};
 
 /// List all available agents
-pub async fn list_agents(State(db): State<DbState>) -> impl IntoResponse {
-    info!("Listing all agents");
+pub async fn list_agents(
+    State(db): State<DbState>,
+    Query(pagination): Query<PaginationParams>,
+) -> impl IntoResponse {
+    info!("Listing all agents (page: {})", pagination.page());
 
-    match db.agent_storage.list_agents().await {
-        Ok(agents) => (StatusCode::OK, ResponseJson(ApiResponse::success(agents))).into_response(),
+    match db.agent_storage.list_agents_paginated(Some(pagination.limit()), Some(pagination.offset())).await {
+        Ok((agents, total)) => {
+            let response = PaginatedResponse::new(agents, &pagination, total);
+            (StatusCode::OK, ResponseJson(ApiResponse::success(response))).into_response()
+        }
         Err(e) => e.into_response(),
     }
 }
@@ -40,15 +47,15 @@ pub async fn get_agent(
 pub async fn list_user_agents(
     State(db): State<DbState>,
     Path(user_id): Path<String>,
+    Query(pagination): Query<PaginationParams>,
 ) -> impl IntoResponse {
-    info!("Listing agents for user: {}", user_id);
+    info!("Listing agents for user: {} (page: {})", user_id, pagination.page());
 
-    match db.agent_storage.list_user_agents(&user_id).await {
-        Ok(user_agents) => (
-            StatusCode::OK,
-            ResponseJson(ApiResponse::success(user_agents)),
-        )
-            .into_response(),
+    match db.agent_storage.list_user_agents_paginated(&user_id, Some(pagination.limit()), Some(pagination.offset())).await {
+        Ok((user_agents, total)) => {
+            let response = PaginatedResponse::new(user_agents, &pagination, total);
+            (StatusCode::OK, ResponseJson(ApiResponse::success(response))).into_response()
+        }
         Err(e) => e.into_response(),
     }
 }

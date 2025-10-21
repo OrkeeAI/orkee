@@ -14,6 +14,7 @@ pub mod formatter;
 pub mod git_utils;
 pub mod manager;
 pub mod openspec;
+pub mod pagination;
 pub mod security;
 pub mod storage;
 pub mod tags;
@@ -82,3 +83,6 @@ pub use api::{
 
 // Re-export database state
 pub use db::DbState;
+
+// Re-export pagination types
+pub use pagination::{PaginatedResponse, PaginationMeta, PaginationParams};

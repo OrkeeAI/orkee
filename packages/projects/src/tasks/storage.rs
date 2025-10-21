@@ -18,9 +18,34 @@ impl TaskStorage {
     }
 
     pub async fn list_tasks(&self, project_id: &str) -> Result<Vec<Task>, StorageError> {
-        debug!("Fetching tasks for project: {}", project_id);
+        let (tasks, _) = self.list_tasks_paginated(project_id, None, None).await?;
+        Ok(tasks)
+    }
 
-        let rows = sqlx::query(
+    pub async fn list_tasks_paginated(
+        &self,
+        project_id: &str,
+        limit: Option<i64>,
+        offset: Option<i64>,
+    ) -> Result<(Vec<Task>, i64), StorageError> {
+        debug!("Fetching tasks for project: {} (limit: {:?}, offset: {:?})", project_id, limit, offset);
+
+        // Get total count
+        let count: i64 = sqlx::query_scalar(
+            r#"
+            SELECT COUNT(*)
+            FROM tasks t
+            WHERE t.project_id = ?
+            AND t.parent_id IS NULL
+            "#,
+        )
+        .bind(project_id)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(StorageError::Sqlx)?;
+
+        // Build query with optional pagination
+        let mut query_str = String::from(
             r#"
             SELECT
                 t.*,
@@ -36,11 +61,20 @@ impl TaskStorage {
             AND t.parent_id IS NULL
             ORDER BY t.position, t.created_at
             "#,
-        )
-        .bind(project_id)
-        .fetch_all(&self.pool)
-        .await
-        .map_err(StorageError::Sqlx)?;
+        );
+
+        if let Some(lim) = limit {
+            query_str.push_str(&format!(" LIMIT {}", lim));
+        }
+        if let Some(off) = offset {
+            query_str.push_str(&format!(" OFFSET {}", off));
+        }
+
+        let rows = sqlx::query(&query_str)
+            .bind(project_id)
+            .fetch_all(&self.pool)
+            .await
+            .map_err(StorageError::Sqlx)?;
 
         let mut tasks = Vec::new();
         for row in rows {
@@ -52,7 +86,7 @@ impl TaskStorage {
             tasks.push(task);
         }
 
-        Ok(tasks)
+        Ok((tasks, count))
     }
 
     pub async fn get_task(&self, task_id: &str) -> Result<Task, StorageError> {

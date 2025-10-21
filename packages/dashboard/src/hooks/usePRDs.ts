@@ -3,6 +3,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { prdsService } from '@/services/prds';
 import { queryKeys, invalidatePRDQueries, invalidatePRD } from '@/lib/queryClient';
+import type { PaginationParams } from '@/types/pagination';
 import type {
   PRD,
   PRDCreateInput,
@@ -14,10 +15,26 @@ interface ApiError {
   status?: number;
 }
 
-export function usePRDs(projectId: string) {
+export function usePRDs(projectId: string, pagination?: PaginationParams) {
   return useQuery({
-    queryKey: queryKeys.prdsList(projectId),
-    queryFn: () => prdsService.listPRDs(projectId),
+    queryKey: pagination
+      ? [...queryKeys.prdsList(projectId), pagination]
+      : queryKeys.prdsList(projectId),
+    queryFn: async () => {
+      const response = await prdsService.listPRDs(projectId, pagination);
+      return response.data;
+    },
+    enabled: !!projectId,
+    staleTime: 2 * 60 * 1000,
+  });
+}
+
+export function usePRDsPaginated(projectId: string, pagination?: PaginationParams) {
+  return useQuery({
+    queryKey: pagination
+      ? [...queryKeys.prdsList(projectId), 'paginated', pagination]
+      : [...queryKeys.prdsList(projectId), 'paginated'],
+    queryFn: () => prdsService.listPRDs(projectId, pagination),
     enabled: !!projectId,
     staleTime: 2 * 60 * 1000,
   });

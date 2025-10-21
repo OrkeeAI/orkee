@@ -2,7 +2,7 @@
 // ABOUTME: Handles CRUD operations for OpenSpec capabilities and validation
 
 use axum::{
-    extract::{Path, State},
+    extract::{Path, Query, State},
     http::StatusCode,
     response::{IntoResponse, Json as ResponseJson},
     Json,
@@ -16,20 +16,21 @@ use crate::openspec::db as openspec_db;
 use crate::openspec::parser;
 use crate::openspec::types::CapabilityStatus;
 use crate::openspec::validator;
+use crate::pagination::{PaginatedResponse, PaginationParams};
 
 /// List all capabilities for a project
 pub async fn list_capabilities(
     State(db): State<DbState>,
     Path(project_id): Path<String>,
+    Query(pagination): Query<PaginationParams>,
 ) -> impl IntoResponse {
-    info!("Listing capabilities for project: {}", project_id);
+    info!("Listing capabilities for project: {} (page: {})", project_id, pagination.page());
 
-    match openspec_db::get_capabilities_by_project(&db.pool, &project_id).await {
-        Ok(capabilities) => (
-            StatusCode::OK,
-            ResponseJson(ApiResponse::success(capabilities)),
-        )
-            .into_response(),
+    match openspec_db::get_capabilities_by_project_paginated(&db.pool, &project_id, Some(pagination.limit()), Some(pagination.offset())).await {
+        Ok((capabilities, total)) => {
+            let response = PaginatedResponse::new(capabilities, &pagination, total);
+            (StatusCode::OK, ResponseJson(ApiResponse::success(response))).into_response()
+        }
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
             ResponseJson(ApiResponse::<()>::error(format!(
@@ -219,15 +220,15 @@ pub async fn delete_capability(
 pub async fn get_capability_requirements(
     State(db): State<DbState>,
     Path((_project_id, capability_id)): Path<(String, String)>,
+    Query(pagination): Query<PaginationParams>,
 ) -> impl IntoResponse {
-    info!("Getting requirements for capability: {}", capability_id);
+    info!("Getting requirements for capability: {} (page: {})", capability_id, pagination.page());
 
-    match openspec_db::get_requirements_by_capability(&db.pool, &capability_id).await {
-        Ok(requirements) => (
-            StatusCode::OK,
-            ResponseJson(ApiResponse::success(requirements)),
-        )
-            .into_response(),
+    match openspec_db::get_requirements_by_capability_paginated(&db.pool, &capability_id, Some(pagination.limit()), Some(pagination.offset())).await {
+        Ok((requirements, total)) => {
+            let response = PaginatedResponse::new(requirements, &pagination, total);
+            (StatusCode::OK, ResponseJson(ApiResponse::success(response))).into_response()
+        }
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
             ResponseJson(ApiResponse::<()>::error(format!(

@@ -13,12 +13,15 @@ use tracing::info;
 
 use super::response::ApiResponse;
 use crate::db::DbState;
+use crate::pagination::{PaginatedResponse, PaginationParams};
 use crate::tags::{TagCreateInput, TagUpdateInput};
 
 #[derive(Deserialize)]
 pub struct ListTagsQuery {
     #[serde(default)]
     pub include_archived: bool,
+    #[serde(flatten)]
+    pub pagination: PaginationParams,
 }
 
 /// List all tags
@@ -27,12 +30,16 @@ pub async fn list_tags(
     Query(params): Query<ListTagsQuery>,
 ) -> impl IntoResponse {
     info!(
-        "Listing tags (include_archived: {})",
-        params.include_archived
+        "Listing tags (include_archived: {}, page: {})",
+        params.include_archived,
+        params.pagination.page()
     );
 
-    match db.tag_storage.list_tags(params.include_archived).await {
-        Ok(tags) => (StatusCode::OK, ResponseJson(ApiResponse::success(tags))).into_response(),
+    match db.tag_storage.list_tags_paginated(params.include_archived, Some(params.pagination.limit()), Some(params.pagination.offset())).await {
+        Ok((tags, total)) => {
+            let response = PaginatedResponse::new(tags, &params.pagination, total);
+            (StatusCode::OK, ResponseJson(ApiResponse::success(response))).into_response()
+        }
         Err(e) => e.into_response(),
     }
 }

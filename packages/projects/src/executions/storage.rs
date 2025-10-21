@@ -27,19 +27,51 @@ impl ExecutionStorage {
         &self,
         task_id: &str,
     ) -> Result<Vec<AgentExecution>, StorageError> {
-        debug!("Fetching executions for task: {}", task_id);
+        let (executions, _) = self.list_executions_paginated(task_id, None, None).await?;
+        Ok(executions)
+    }
 
-        let rows = sqlx::query(
-            "SELECT * FROM agent_executions WHERE task_id = ? ORDER BY started_at DESC",
+    /// List all executions for a task with pagination
+    pub async fn list_executions_paginated(
+        &self,
+        task_id: &str,
+        limit: Option<i64>,
+        offset: Option<i64>,
+    ) -> Result<(Vec<AgentExecution>, i64), StorageError> {
+        debug!("Fetching executions for task: {} (limit: {:?}, offset: {:?})", task_id, limit, offset);
+
+        // Get total count
+        let count: i64 = sqlx::query_scalar(
+            "SELECT COUNT(*) FROM agent_executions WHERE task_id = ?",
         )
         .bind(task_id)
-        .fetch_all(&self.pool)
+        .fetch_one(&self.pool)
         .await
         .map_err(StorageError::Sqlx)?;
 
-        rows.iter()
+        // Build query with optional pagination
+        let mut query = String::from(
+            "SELECT * FROM agent_executions WHERE task_id = ? ORDER BY started_at DESC"
+        );
+
+        if let Some(lim) = limit {
+            query.push_str(&format!(" LIMIT {}", lim));
+        }
+        if let Some(off) = offset {
+            query.push_str(&format!(" OFFSET {}", off));
+        }
+
+        let rows = sqlx::query(&query)
+            .bind(task_id)
+            .fetch_all(&self.pool)
+            .await
+            .map_err(StorageError::Sqlx)?;
+
+        let executions = rows.iter()
             .map(|row| self.row_to_execution(row))
-            .collect::<Result<Vec<_>, _>>()
+            .collect::<Result<Vec<_>, _>>()?;
+
+        Ok((executions, count))
     }
 
     /// Get a single execution by ID

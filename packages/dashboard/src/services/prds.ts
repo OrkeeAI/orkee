@@ -1,6 +1,8 @@
 // ABOUTME: PRD (Product Requirements Document) service layer for API integration
 // ABOUTME: Handles CRUD operations, AI analysis, and spec synchronization for PRDs
 import { apiClient } from './api';
+import type { PaginationParams, PaginatedResponse } from '@/types/pagination';
+import { buildPaginationQuery } from '@/types/pagination';
 
 export type PRDStatus = 'draft' | 'approved' | 'superseded';
 export type PRDSource = 'manual' | 'generated' | 'synced';
@@ -76,14 +78,26 @@ interface ApiResponse<T> {
 }
 
 export class PRDsService {
-  async listPRDs(projectId: string): Promise<PRD[]> {
-    const response = await apiClient.get<ApiResponse<PRD[]>>(`/api/projects/${projectId}/prds`);
+  async listPRDs(projectId: string, pagination?: PaginationParams): Promise<PaginatedResponse<PRD>> {
+    const query = pagination ? buildPaginationQuery(pagination) : '';
+    const response = await apiClient.get<ApiResponse<PaginatedResponse<PRD>>>(`/api/projects/${projectId}/prds${query}`);
 
     if (response.error || !response.data?.success) {
       throw new Error(response.data?.error || response.error || 'Failed to fetch PRDs');
     }
 
-    return response.data.data || [];
+    return response.data.data!;
+  }
+
+  async getPRDCapabilities(projectId: string, prdId: string, pagination?: PaginationParams): Promise<PaginatedResponse<SpecCapability>> {
+    const query = pagination ? buildPaginationQuery(pagination) : '';
+    const response = await apiClient.get<ApiResponse<PaginatedResponse<SpecCapability>>>(`/api/projects/${projectId}/prds/${prdId}/capabilities${query}`);
+
+    if (response.error || !response.data?.success) {
+      throw new Error(response.data?.error || response.error || 'Failed to fetch PRD capabilities');
+    }
+
+    return response.data.data!;
   }
 
   async getPRD(projectId: string, prdId: string): Promise<PRD | null> {

@@ -69,14 +69,43 @@ pub async fn get_prd(pool: &Pool<Sqlite>, id: &str) -> DbResult<PRD> {
 
 /// Get all PRDs for a project
 pub async fn get_prds_by_project(pool: &Pool<Sqlite>, project_id: &str) -> DbResult<Vec<PRD>> {
-    Ok(
-        sqlx::query_as::<_, PRD>(
-            "SELECT * FROM prds WHERE project_id = ? AND deleted_at IS NULL ORDER BY created_at DESC",
-        )
+    let (prds, _) = get_prds_by_project_paginated(pool, project_id, None, None).await?;
+    Ok(prds)
+}
+
+/// Get all PRDs for a project with pagination
+pub async fn get_prds_by_project_paginated(
+    pool: &Pool<Sqlite>,
+    project_id: &str,
+    limit: Option<i64>,
+    offset: Option<i64>,
+) -> DbResult<(Vec<PRD>, i64)> {
+    // Get total count
+    let count: i64 = sqlx::query_scalar(
+        "SELECT COUNT(*) FROM prds WHERE project_id = ? AND deleted_at IS NULL",
+    )
+    .bind(project_id)
+    .fetch_one(pool)
+    .await?;
+
+    // Build query with optional pagination
+    let mut query_str = String::from(
+        "SELECT * FROM prds WHERE project_id = ? AND deleted_at IS NULL ORDER BY created_at DESC",
+    );
+
+    if let Some(lim) = limit {
+        query_str.push_str(&format!(" LIMIT {}", lim));
+    }
+    if let Some(off) = offset {
+        query_str.push_str(&format!(" OFFSET {}", off));
+    }
+
+    let prds = sqlx::query_as::<_, PRD>(&query_str)
         .bind(project_id)
         .fetch_all(pool)
-        .await?,
-    )
+        .await?;
+
+    Ok((prds, count))
 }
 
 /// Update a PRD
@@ -212,12 +241,43 @@ pub async fn get_capabilities_by_project(
     pool: &Pool<Sqlite>,
     project_id: &str,
 ) -> DbResult<Vec<SpecCapability>> {
-    Ok(sqlx::query_as::<_, SpecCapability>(
-        "SELECT * FROM spec_capabilities WHERE project_id = ? AND status = 'active' AND deleted_at IS NULL ORDER BY created_at DESC",
+    let (capabilities, _) = get_capabilities_by_project_paginated(pool, project_id, None, None).await?;
+    Ok(capabilities)
+}
+
+/// Get all capabilities for a project with pagination
+pub async fn get_capabilities_by_project_paginated(
+    pool: &Pool<Sqlite>,
+    project_id: &str,
+    limit: Option<i64>,
+    offset: Option<i64>,
+) -> DbResult<(Vec<SpecCapability>, i64)> {
+    // Get total count
+    let count: i64 = sqlx::query_scalar(
+        "SELECT COUNT(*) FROM spec_capabilities WHERE project_id = ? AND status = 'active' AND deleted_at IS NULL",
     )
     .bind(project_id)
-    .fetch_all(pool)
-    .await?)
+    .fetch_one(pool)
+    .await?;
+
+    // Build query with optional pagination
+    let mut query_str = String::from(
+        "SELECT * FROM spec_capabilities WHERE project_id = ? AND status = 'active' AND deleted_at IS NULL ORDER BY created_at DESC",
+    );
+
+    if let Some(lim) = limit {
+        query_str.push_str(&format!(" LIMIT {}", lim));
+    }
+    if let Some(off) = offset {
+        query_str.push_str(&format!(" OFFSET {}", off));
+    }
+
+    let capabilities = sqlx::query_as::<_, SpecCapability>(&query_str)
+        .bind(project_id)
+        .fetch_all(pool)
+        .await?;
+
+    Ok((capabilities, count))
 }
 
 /// Get capabilities by PRD
@@ -225,12 +285,43 @@ pub async fn get_capabilities_by_prd(
     pool: &Pool<Sqlite>,
     prd_id: &str,
 ) -> DbResult<Vec<SpecCapability>> {
-    Ok(sqlx::query_as::<_, SpecCapability>(
-        "SELECT * FROM spec_capabilities WHERE prd_id = ? AND status = 'active' AND deleted_at IS NULL ORDER BY created_at DESC",
+    let (capabilities, _) = get_capabilities_by_prd_paginated(pool, prd_id, None, None).await?;
+    Ok(capabilities)
+}
+
+/// Get capabilities by PRD with pagination
+pub async fn get_capabilities_by_prd_paginated(
+    pool: &Pool<Sqlite>,
+    prd_id: &str,
+    limit: Option<i64>,
+    offset: Option<i64>,
+) -> DbResult<(Vec<SpecCapability>, i64)> {
+    // Get total count
+    let count: i64 = sqlx::query_scalar(
+        "SELECT COUNT(*) FROM spec_capabilities WHERE prd_id = ? AND status = 'active' AND deleted_at IS NULL",
     )
     .bind(prd_id)
-    .fetch_all(pool)
-    .await?)
+    .fetch_one(pool)
+    .await?;
+
+    // Build query with optional pagination
+    let mut query_str = String::from(
+        "SELECT * FROM spec_capabilities WHERE prd_id = ? AND status = 'active' AND deleted_at IS NULL ORDER BY created_at DESC",
+    );
+
+    if let Some(lim) = limit {
+        query_str.push_str(&format!(" LIMIT {}", lim));
+    }
+    if let Some(off) = offset {
+        query_str.push_str(&format!(" OFFSET {}", off));
+    }
+
+    let capabilities = sqlx::query_as::<_, SpecCapability>(&query_str)
+        .bind(prd_id)
+        .fetch_all(pool)
+        .await?;
+
+    Ok((capabilities, count))
 }
 
 /// Result type for capability with requirements
@@ -467,12 +558,43 @@ pub async fn get_requirements_by_capability(
     pool: &Pool<Sqlite>,
     capability_id: &str,
 ) -> DbResult<Vec<SpecRequirement>> {
-    Ok(sqlx::query_as::<_, SpecRequirement>(
-        "SELECT * FROM spec_requirements WHERE capability_id = ? ORDER BY position",
+    let (requirements, _) = get_requirements_by_capability_paginated(pool, capability_id, None, None).await?;
+    Ok(requirements)
+}
+
+/// Get all requirements for a capability with pagination
+pub async fn get_requirements_by_capability_paginated(
+    pool: &Pool<Sqlite>,
+    capability_id: &str,
+    limit: Option<i64>,
+    offset: Option<i64>,
+) -> DbResult<(Vec<SpecRequirement>, i64)> {
+    // Get total count
+    let count: i64 = sqlx::query_scalar(
+        "SELECT COUNT(*) FROM spec_requirements WHERE capability_id = ?",
     )
     .bind(capability_id)
-    .fetch_all(pool)
-    .await?)
+    .fetch_one(pool)
+    .await?;
+
+    // Build query with optional pagination
+    let mut query_str = String::from(
+        "SELECT * FROM spec_requirements WHERE capability_id = ? ORDER BY position",
+    );
+
+    if let Some(lim) = limit {
+        query_str.push_str(&format!(" LIMIT {}", lim));
+    }
+    if let Some(off) = offset {
+        query_str.push_str(&format!(" OFFSET {}", off));
+    }
+
+    let requirements = sqlx::query_as::<_, SpecRequirement>(&query_str)
+        .bind(capability_id)
+        .fetch_all(pool)
+        .await?;
+
+    Ok((requirements, count))
 }
 
 /// Get requirement count for a capability
@@ -658,12 +780,43 @@ pub async fn get_spec_changes_by_project(
     pool: &Pool<Sqlite>,
     project_id: &str,
 ) -> DbResult<Vec<SpecChange>> {
-    Ok(sqlx::query_as::<_, SpecChange>(
-        "SELECT * FROM spec_changes WHERE project_id = ? AND deleted_at IS NULL ORDER BY created_at DESC",
+    let (changes, _) = get_spec_changes_by_project_paginated(pool, project_id, None, None).await?;
+    Ok(changes)
+}
+
+/// Get spec changes by project with pagination
+pub async fn get_spec_changes_by_project_paginated(
+    pool: &Pool<Sqlite>,
+    project_id: &str,
+    limit: Option<i64>,
+    offset: Option<i64>,
+) -> DbResult<(Vec<SpecChange>, i64)> {
+    // Get total count
+    let count: i64 = sqlx::query_scalar(
+        "SELECT COUNT(*) FROM spec_changes WHERE project_id = ? AND deleted_at IS NULL",
     )
     .bind(project_id)
-    .fetch_all(pool)
-    .await?)
+    .fetch_one(pool)
+    .await?;
+
+    // Build query with optional pagination
+    let mut query_str = String::from(
+        "SELECT * FROM spec_changes WHERE project_id = ? AND deleted_at IS NULL ORDER BY created_at DESC",
+    );
+
+    if let Some(lim) = limit {
+        query_str.push_str(&format!(" LIMIT {}", lim));
+    }
+    if let Some(off) = offset {
+        query_str.push_str(&format!(" OFFSET {}", off));
+    }
+
+    let changes = sqlx::query_as::<_, SpecChange>(&query_str)
+        .bind(project_id)
+        .fetch_all(pool)
+        .await?;
+
+    Ok((changes, count))
 }
 
 /// Update spec change status
@@ -791,12 +944,43 @@ pub async fn get_deltas_by_change(
     pool: &Pool<Sqlite>,
     change_id: &str,
 ) -> DbResult<Vec<SpecDelta>> {
-    Ok(sqlx::query_as::<_, SpecDelta>(
-        "SELECT * FROM spec_deltas WHERE change_id = ? ORDER BY position",
+    let (deltas, _) = get_deltas_by_change_paginated(pool, change_id, None, None).await?;
+    Ok(deltas)
+}
+
+/// Get deltas by change with pagination
+pub async fn get_deltas_by_change_paginated(
+    pool: &Pool<Sqlite>,
+    change_id: &str,
+    limit: Option<i64>,
+    offset: Option<i64>,
+) -> DbResult<(Vec<SpecDelta>, i64)> {
+    // Get total count
+    let count: i64 = sqlx::query_scalar(
+        "SELECT COUNT(*) FROM spec_deltas WHERE change_id = ?",
     )
     .bind(change_id)
-    .fetch_all(pool)
-    .await?)
+    .fetch_one(pool)
+    .await?;
+
+    // Build query with optional pagination
+    let mut query_str = String::from(
+        "SELECT * FROM spec_deltas WHERE change_id = ? ORDER BY position",
+    );
+
+    if let Some(lim) = limit {
+        query_str.push_str(&format!(" LIMIT {}", lim));
+    }
+    if let Some(off) = offset {
+        query_str.push_str(&format!(" OFFSET {}", off));
+    }
+
+    let deltas = sqlx::query_as::<_, SpecDelta>(&query_str)
+        .bind(change_id)
+        .fetch_all(pool)
+        .await?;
+
+    Ok((deltas, count))
 }
 
 #[cfg(test)]

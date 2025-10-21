@@ -2,7 +2,7 @@
 // ABOUTME: Handles CRUD operations for executions and PR reviews with database integration
 
 use axum::{
-    extract::{Path, State},
+    extract::{Path, Query, State},
     http::StatusCode,
     response::{IntoResponse, Json as ResponseJson},
     Json,
@@ -17,6 +17,7 @@ use crate::executions::{
     AgentExecutionCreateInput, AgentExecutionUpdateInput, ExecutionStatus, PrReviewCreateInput,
     PrReviewUpdateInput, PrStatus, ReviewStatus, ReviewerType,
 };
+use crate::pagination::{PaginatedResponse, PaginationParams};
 
 // ==================== Agent Executions ====================
 
@@ -24,15 +25,15 @@ use crate::executions::{
 pub async fn list_executions(
     State(db): State<DbState>,
     Path(task_id): Path<String>,
+    Query(pagination): Query<PaginationParams>,
 ) -> impl IntoResponse {
-    info!("Listing executions for task: {}", task_id);
+    info!("Listing executions for task: {} (page: {})", task_id, pagination.page());
 
-    match db.execution_storage.list_executions(&task_id).await {
-        Ok(executions) => (
-            StatusCode::OK,
-            ResponseJson(ApiResponse::success(executions)),
-        )
-            .into_response(),
+    match db.execution_storage.list_executions_paginated(&task_id, Some(pagination.limit()), Some(pagination.offset())).await {
+        Ok((executions, total)) => {
+            let response = PaginatedResponse::new(executions, &pagination, total);
+            (StatusCode::OK, ResponseJson(ApiResponse::success(response))).into_response()
+        }
         Err(e) => e.into_response(),
     }
 }

@@ -3,6 +3,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { specsService } from '@/services/specs';
 import { queryKeys, invalidateSpecQueries, invalidateSpec } from '@/lib/queryClient';
+import type { PaginationParams } from '@/types/pagination';
 import type {
   SpecCapability,
   SpecCapabilityCreateInput,
@@ -14,10 +15,26 @@ interface ApiError {
   status?: number;
 }
 
-export function useSpecs(projectId: string) {
+export function useSpecs(projectId: string, pagination?: PaginationParams) {
   return useQuery({
-    queryKey: queryKeys.specsList(projectId),
-    queryFn: () => specsService.listSpecs(projectId),
+    queryKey: pagination
+      ? [...queryKeys.specsList(projectId), pagination]
+      : queryKeys.specsList(projectId),
+    queryFn: async () => {
+      const response = await specsService.listSpecs(projectId, pagination);
+      return response.data;
+    },
+    enabled: !!projectId,
+    staleTime: 2 * 60 * 1000,
+  });
+}
+
+export function useSpecsPaginated(projectId: string, pagination?: PaginationParams) {
+  return useQuery({
+    queryKey: pagination
+      ? [...queryKeys.specsList(projectId), 'paginated', pagination]
+      : [...queryKeys.specsList(projectId), 'paginated'],
+    queryFn: () => specsService.listSpecs(projectId, pagination),
     enabled: !!projectId,
     staleTime: 2 * 60 * 1000,
   });
@@ -39,10 +56,26 @@ export function useSpec(projectId: string, specId: string) {
   });
 }
 
-export function useSpecRequirements(projectId: string, specId: string) {
+export function useSpecRequirements(projectId: string, specId: string, pagination?: PaginationParams) {
   return useQuery({
-    queryKey: queryKeys.specRequirements(projectId, specId),
-    queryFn: () => specsService.getSpecRequirements(projectId, specId),
+    queryKey: pagination
+      ? [...queryKeys.specRequirements(projectId, specId), pagination]
+      : queryKeys.specRequirements(projectId, specId),
+    queryFn: async () => {
+      const response = await specsService.getSpecRequirements(projectId, specId, pagination);
+      return response.data;
+    },
+    enabled: !!projectId && !!specId,
+    staleTime: 5 * 60 * 1000,
+  });
+}
+
+export function useSpecRequirementsPaginated(projectId: string, specId: string, pagination?: PaginationParams) {
+  return useQuery({
+    queryKey: pagination
+      ? [...queryKeys.specRequirements(projectId, specId), 'paginated', pagination]
+      : [...queryKeys.specRequirements(projectId, specId), 'paginated'],
+    queryFn: () => specsService.getSpecRequirements(projectId, specId, pagination),
     enabled: !!projectId && !!specId,
     staleTime: 5 * 60 * 1000,
   });

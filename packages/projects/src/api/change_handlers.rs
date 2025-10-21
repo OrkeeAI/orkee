@@ -2,7 +2,7 @@
 // ABOUTME: Handles CRUD operations for spec changes and deltas
 
 use axum::{
-    extract::{Path, State},
+    extract::{Path, Query, State},
     http::StatusCode,
     response::{IntoResponse, Json as ResponseJson},
     Json,
@@ -14,17 +14,20 @@ use super::response::ApiResponse;
 use crate::db::DbState;
 use crate::openspec::db as openspec_db;
 use crate::openspec::types::{ChangeStatus, DeltaType};
+use crate::pagination::{PaginatedResponse, PaginationParams};
 
 /// List all changes for a project
 pub async fn list_changes(
     State(db): State<DbState>,
     Path(project_id): Path<String>,
+    Query(pagination): Query<PaginationParams>,
 ) -> impl IntoResponse {
-    info!("Listing changes for project: {}", project_id);
+    info!("Listing changes for project: {} (page: {})", project_id, pagination.page());
 
-    match openspec_db::get_spec_changes_by_project(&db.pool, &project_id).await {
-        Ok(changes) => {
-            (StatusCode::OK, ResponseJson(ApiResponse::success(changes))).into_response()
+    match openspec_db::get_spec_changes_by_project_paginated(&db.pool, &project_id, Some(pagination.limit()), Some(pagination.offset())).await {
+        Ok((changes, total)) => {
+            let response = PaginatedResponse::new(changes, &pagination, total);
+            (StatusCode::OK, ResponseJson(ApiResponse::success(response))).into_response()
         }
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
@@ -144,11 +147,15 @@ pub async fn update_change_status(
 pub async fn get_change_deltas(
     State(db): State<DbState>,
     Path((_project_id, change_id)): Path<(String, String)>,
+    Query(pagination): Query<PaginationParams>,
 ) -> impl IntoResponse {
-    info!("Getting deltas for change: {}", change_id);
+    info!("Getting deltas for change: {} (page: {})", change_id, pagination.page());
 
-    match openspec_db::get_deltas_by_change(&db.pool, &change_id).await {
-        Ok(deltas) => (StatusCode::OK, ResponseJson(ApiResponse::success(deltas))).into_response(),
+    match openspec_db::get_deltas_by_change_paginated(&db.pool, &change_id, Some(pagination.limit()), Some(pagination.offset())).await {
+        Ok((deltas, total)) => {
+            let response = PaginatedResponse::new(deltas, &pagination, total);
+            (StatusCode::OK, ResponseJson(ApiResponse::success(response))).into_response()
+        }
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
             ResponseJson(ApiResponse::<()>::error(format!(

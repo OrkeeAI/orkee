@@ -2,7 +2,7 @@
 // ABOUTME: Handles linking tasks to requirements, validation, and task generation from specs
 
 use axum::{
-    extract::{Path, State},
+    extract::{Path, Query, State},
     http::StatusCode,
     response::{IntoResponse, Json as ResponseJson},
     Json,
@@ -13,6 +13,7 @@ use tracing::info;
 use super::response::ApiResponse;
 use crate::db::DbState;
 use crate::openspec::integration;
+use crate::pagination::{PaginatedResponse, PaginationParams};
 
 /// Link a task to a spec requirement
 pub async fn link_task_to_requirement(
@@ -180,11 +181,41 @@ pub struct GenerateTasksResponse {
 pub async fn find_orphan_tasks(
     State(db): State<DbState>,
     Path(project_id): Path<String>,
+    Query(pagination): Query<PaginationParams>,
 ) -> impl IntoResponse {
-    info!("Finding orphan tasks for project: {}", project_id);
+    info!("Finding orphan tasks for project: {} (page: {})", project_id, pagination.page());
+
+    // Get total count
+    let count_query = r#"
+        SELECT COUNT(*)
+        FROM tasks t
+        WHERE t.project_id = ?
+        AND NOT EXISTS (
+            SELECT 1 FROM task_spec_links tsl WHERE tsl.task_id = t.id
+        )
+    "#;
+
+    let total: i64 = match sqlx::query_scalar(count_query)
+        .bind(&project_id)
+        .fetch_one(&db.pool)
+        .await
+    {
+        Ok(count) => count,
+        Err(e) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                ResponseJson(ApiResponse::<()>::error(format!(
+                    "Failed to count orphan tasks: {}",
+                    e
+                ))),
+            )
+                .into_response();
+        }
+    };
 
     // Query for tasks in this project that don't have any spec links
-    let query = r#"
+    let query = format!(
+        r#"
         SELECT t.id, t.title, t.status, t.priority, t.created_at
         FROM tasks t
         WHERE t.project_id = ?
@@ -192,19 +223,19 @@ pub async fn find_orphan_tasks(
             SELECT 1 FROM task_spec_links tsl WHERE tsl.task_id = t.id
         )
         ORDER BY t.created_at DESC
-    "#;
+        LIMIT {} OFFSET {}
+        "#,
+        pagination.limit(),
+        pagination.offset()
+    );
 
-    match sqlx::query_as::<_, OrphanTask>(query)
+    match sqlx::query_as::<_, OrphanTask>(&query)
         .bind(&project_id)
         .fetch_all(&db.pool)
         .await
     {
         Ok(orphan_tasks) => {
-            let count = orphan_tasks.len();
-            let response = OrphanTasksResponse {
-                orphan_tasks,
-                count,
-            };
+            let response = PaginatedResponse::new(orphan_tasks, &pagination, total);
             (StatusCode::OK, ResponseJson(ApiResponse::success(response))).into_response()
         }
         Err(e) => (

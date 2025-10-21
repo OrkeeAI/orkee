@@ -2,7 +2,7 @@
 // ABOUTME: Handles CRUD operations for tasks with database integration
 
 use axum::{
-    extract::{Path, State},
+    extract::{Path, Query, State},
     http::StatusCode,
     response::{IntoResponse, Json as ResponseJson},
     Json,
@@ -14,6 +14,7 @@ use tracing::info;
 use super::auth::CurrentUser;
 use super::response::ApiResponse;
 use crate::db::DbState;
+use crate::pagination::{PaginatedResponse, PaginationParams};
 use crate::tasks::{TaskCreateInput, TaskPriority, TaskStatus, TaskUpdateInput};
 
 /// Helper function to parse ISO 8601 date string
@@ -27,11 +28,19 @@ fn parse_due_date(date_str: &str) -> Option<DateTime<Utc>> {
 pub async fn list_tasks(
     State(db): State<DbState>,
     Path(project_id): Path<String>,
+    Query(pagination): Query<PaginationParams>,
 ) -> impl IntoResponse {
-    info!("Listing tasks for project: {}", project_id);
+    info!("Listing tasks for project: {} (page: {})", project_id, pagination.page());
 
-    match db.task_storage.list_tasks(&project_id).await {
-        Ok(tasks) => (StatusCode::OK, ResponseJson(ApiResponse::success(tasks))).into_response(),
+    match db
+        .task_storage
+        .list_tasks_paginated(&project_id, Some(pagination.limit()), Some(pagination.offset()))
+        .await
+    {
+        Ok((tasks, total)) => {
+            let response = PaginatedResponse::new(tasks, &pagination, total);
+            (StatusCode::OK, ResponseJson(ApiResponse::success(response))).into_response()
+        }
         Err(e) => e.into_response(),
     }
 }
