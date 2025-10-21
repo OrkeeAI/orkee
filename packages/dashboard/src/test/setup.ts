@@ -2,7 +2,8 @@
 // ABOUTME: Configures jest-dom matchers and mocks Tauri API for testing
 
 import '@testing-library/jest-dom';
-import { vi } from 'vitest';
+import { vi, beforeAll, afterEach, afterAll } from 'vitest';
+import { cleanup } from '@testing-library/react';
 
 // Mock @tauri-apps/api/core
 vi.mock('@tauri-apps/api/core', () => ({
@@ -14,10 +15,10 @@ vi.mock('@tauri-apps/plugin-http', () => ({
   fetch: vi.fn(),
 }));
 
-// Set up global window object for testing
-if (typeof window === 'undefined') {
-  (global as any).window = {} as any;
-}
+// Clean up after each test
+afterEach(() => {
+  cleanup();
+});
 
 // Mock window.__TAURI__ object that Tauri apps use
 (global as any).window.__TAURI__ = {
