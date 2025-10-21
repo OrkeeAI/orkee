@@ -190,30 +190,20 @@ pub async fn update_capability(
     }
 }
 
-/// Delete a capability
+/// Delete a capability (soft delete)
 pub async fn delete_capability(
     State(db): State<DbState>,
     Path((_project_id, capability_id)): Path<(String, String)>,
 ) -> impl IntoResponse {
-    info!("Deleting capability: {}", capability_id);
+    info!("Soft deleting capability: {}", capability_id);
 
-    // Use direct SQL delete since there's no db function yet
-    match sqlx::query("DELETE FROM spec_capabilities WHERE id = ?")
-        .bind(&capability_id)
-        .execute(&db.pool)
-        .await
-    {
-        Ok(result) => {
-            if result.rows_affected() == 0 {
-                (
-                    StatusCode::NOT_FOUND,
-                    ResponseJson(ApiResponse::<()>::error("Capability not found".to_string())),
-                )
-                    .into_response()
-            } else {
-                (StatusCode::OK, ResponseJson(ApiResponse::success(()))).into_response()
-            }
-        }
+    match openspec_db::delete_capability(&db.pool, &capability_id).await {
+        Ok(_) => (StatusCode::OK, ResponseJson(ApiResponse::success(()))).into_response(),
+        Err(openspec_db::DbError::NotFound(msg)) => (
+            StatusCode::NOT_FOUND,
+            ResponseJson(ApiResponse::<()>::error(msg)),
+        )
+            .into_response(),
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
             ResponseJson(ApiResponse::<()>::error(format!(

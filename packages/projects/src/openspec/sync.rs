@@ -406,6 +406,7 @@ mod tests {
             requirement_count,
             version: 1,
             status: CapabilityStatus::Active,
+            deleted_at: None,
             created_at: Utc::now(),
             updated_at: Utc::now(),
         }

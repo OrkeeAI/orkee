@@ -34,6 +34,7 @@ pub struct PRD {
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
     pub created_by: Option<String>,
+    pub deleted_at: Option<DateTime<Utc>>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, sqlx::Type)]
@@ -57,6 +58,7 @@ pub struct SpecCapability {
     pub requirement_count: i32,
     pub version: i32,
     pub status: CapabilityStatus,
+    pub deleted_at: Option<DateTime<Utc>>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
@@ -110,6 +112,7 @@ pub struct SpecChange {
     pub approved_by: Option<String>,
     pub approved_at: Option<DateTime<Utc>>,
     pub archived_at: Option<DateTime<Utc>>,
+    pub deleted_at: Option<DateTime<Utc>>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }

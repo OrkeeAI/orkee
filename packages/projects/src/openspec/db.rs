@@ -60,7 +60,7 @@ pub async fn create_prd(
 
 /// Get a PRD by ID
 pub async fn get_prd(pool: &Pool<Sqlite>, id: &str) -> DbResult<PRD> {
-    sqlx::query_as::<_, PRD>("SELECT * FROM prds WHERE id = ?")
+    sqlx::query_as::<_, PRD>("SELECT * FROM prds WHERE id = ? AND deleted_at IS NULL")
         .bind(id)
         .fetch_optional(pool)
         .await?
@@ -71,7 +71,7 @@ pub async fn get_prd(pool: &Pool<Sqlite>, id: &str) -> DbResult<PRD> {
 pub async fn get_prds_by_project(pool: &Pool<Sqlite>, project_id: &str) -> DbResult<Vec<PRD>> {
     Ok(
         sqlx::query_as::<_, PRD>(
-            "SELECT * FROM prds WHERE project_id = ? ORDER BY created_at DESC",
+            "SELECT * FROM prds WHERE project_id = ? AND deleted_at IS NULL ORDER BY created_at DESC",
         )
         .bind(project_id)
         .fetch_all(pool)
@@ -114,8 +114,24 @@ pub async fn update_prd(
     Ok(prd)
 }
 
-/// Delete a PRD
+/// Soft delete a PRD
 pub async fn delete_prd(pool: &Pool<Sqlite>, id: &str) -> DbResult<()> {
+    let now = Utc::now();
+    let result = sqlx::query("UPDATE prds SET deleted_at = ? WHERE id = ? AND deleted_at IS NULL")
+        .bind(now)
+        .bind(id)
+        .execute(pool)
+        .await?;
+
+    if result.rows_affected() == 0 {
+        return Err(DbError::NotFound(format!("PRD not found: {}", id)));
+    }
+
+    Ok(())
+}
+
+/// Hard delete a PRD (for testing/admin purposes)
+pub async fn hard_delete_prd(pool: &Pool<Sqlite>, id: &str) -> DbResult<()> {
     let result = sqlx::query("DELETE FROM prds WHERE id = ?")
         .bind(id)
         .execute(pool)
@@ -126,6 +142,19 @@ pub async fn delete_prd(pool: &Pool<Sqlite>, id: &str) -> DbResult<()> {
     }
 
     Ok(())
+}
+
+/// Restore a soft-deleted PRD
+pub async fn restore_prd(pool: &Pool<Sqlite>, id: &str) -> DbResult<PRD> {
+    let prd = sqlx::query_as::<_, PRD>(
+        "UPDATE prds SET deleted_at = NULL WHERE id = ? AND deleted_at IS NOT NULL RETURNING *",
+    )
+    .bind(id)
+    .fetch_optional(pool)
+    .await?
+    .ok_or_else(|| DbError::NotFound(format!("Deleted PRD not found: {}", id)))?;
+
+    Ok(prd)
 }
 
 // ============================================================================
@@ -171,7 +200,7 @@ pub async fn create_capability(
 
 /// Get a capability by ID
 pub async fn get_capability(pool: &Pool<Sqlite>, id: &str) -> DbResult<SpecCapability> {
-    sqlx::query_as::<_, SpecCapability>("SELECT * FROM spec_capabilities WHERE id = ?")
+    sqlx::query_as::<_, SpecCapability>("SELECT * FROM spec_capabilities WHERE id = ? AND deleted_at IS NULL")
         .bind(id)
         .fetch_optional(pool)
         .await?
@@ -184,7 +213,7 @@ pub async fn get_capabilities_by_project(
     project_id: &str,
 ) -> DbResult<Vec<SpecCapability>> {
     Ok(sqlx::query_as::<_, SpecCapability>(
-        "SELECT * FROM spec_capabilities WHERE project_id = ? AND status = 'active' ORDER BY created_at DESC",
+        "SELECT * FROM spec_capabilities WHERE project_id = ? AND status = 'active' AND deleted_at IS NULL ORDER BY created_at DESC",
     )
     .bind(project_id)
     .fetch_all(pool)
@@ -197,7 +226,7 @@ pub async fn get_capabilities_by_prd(
     prd_id: &str,
 ) -> DbResult<Vec<SpecCapability>> {
     Ok(sqlx::query_as::<_, SpecCapability>(
-        "SELECT * FROM spec_capabilities WHERE prd_id = ? AND status = 'active' ORDER BY created_at DESC",
+        "SELECT * FROM spec_capabilities WHERE prd_id = ? AND status = 'active' AND deleted_at IS NULL ORDER BY created_at DESC",
     )
     .bind(prd_id)
     .fetch_all(pool)
@@ -340,6 +369,49 @@ pub async fn update_capability_requirement_count(
         .await?;
 
     Ok(())
+}
+
+/// Soft delete a capability
+pub async fn delete_capability(pool: &Pool<Sqlite>, id: &str) -> DbResult<()> {
+    let now = Utc::now();
+    let result = sqlx::query("UPDATE spec_capabilities SET deleted_at = ? WHERE id = ? AND deleted_at IS NULL")
+        .bind(now)
+        .bind(id)
+        .execute(pool)
+        .await?;
+
+    if result.rows_affected() == 0 {
+        return Err(DbError::NotFound(format!("Capability not found: {}", id)));
+    }
+
+    Ok(())
+}
+
+/// Hard delete a capability (for testing/admin purposes)
+pub async fn hard_delete_capability(pool: &Pool<Sqlite>, id: &str) -> DbResult<()> {
+    let result = sqlx::query("DELETE FROM spec_capabilities WHERE id = ?")
+        .bind(id)
+        .execute(pool)
+        .await?;
+
+    if result.rows_affected() == 0 {
+        return Err(DbError::NotFound(format!("Capability not found: {}", id)));
+    }
+
+    Ok(())
+}
+
+/// Restore a soft-deleted capability
+pub async fn restore_capability(pool: &Pool<Sqlite>, id: &str) -> DbResult<SpecCapability> {
+    let capability = sqlx::query_as::<_, SpecCapability>(
+        "UPDATE spec_capabilities SET deleted_at = NULL WHERE id = ? AND deleted_at IS NOT NULL RETURNING *",
+    )
+    .bind(id)
+    .fetch_optional(pool)
+    .await?
+    .ok_or_else(|| DbError::NotFound(format!("Deleted capability not found: {}", id)))?;
+
+    Ok(capability)
 }
 
 // ============================================================================
@@ -574,7 +646,7 @@ pub async fn create_spec_change(
 
 /// Get spec change by ID
 pub async fn get_spec_change(pool: &Pool<Sqlite>, id: &str) -> DbResult<SpecChange> {
-    sqlx::query_as::<_, SpecChange>("SELECT * FROM spec_changes WHERE id = ?")
+    sqlx::query_as::<_, SpecChange>("SELECT * FROM spec_changes WHERE id = ? AND deleted_at IS NULL")
         .bind(id)
         .fetch_optional(pool)
         .await?
@@ -587,7 +659,7 @@ pub async fn get_spec_changes_by_project(
     project_id: &str,
 ) -> DbResult<Vec<SpecChange>> {
     Ok(sqlx::query_as::<_, SpecChange>(
-        "SELECT * FROM spec_changes WHERE project_id = ? ORDER BY created_at DESC",
+        "SELECT * FROM spec_changes WHERE project_id = ? AND deleted_at IS NULL ORDER BY created_at DESC",
     )
     .bind(project_id)
     .fetch_all(pool)
@@ -607,11 +679,16 @@ pub async fn update_spec_change_status(
     } else {
         None
     };
+    let archived_at = if matches!(status, ChangeStatus::Archived) {
+        Some(now)
+    } else {
+        None
+    };
 
     let change = sqlx::query_as::<_, SpecChange>(
         r#"
         UPDATE spec_changes
-        SET status = ?, approved_by = ?, approved_at = ?, updated_at = ?
+        SET status = ?, approved_by = ?, approved_at = ?, archived_at = ?, updated_at = ?
         WHERE id = ?
         RETURNING *
         "#,
@@ -619,10 +696,54 @@ pub async fn update_spec_change_status(
     .bind(&status)
     .bind(approved_by)
     .bind(approved_at)
+    .bind(archived_at)
     .bind(now)
     .bind(id)
     .fetch_one(pool)
     .await?;
+
+    Ok(change)
+}
+
+/// Soft delete a spec change
+pub async fn delete_spec_change(pool: &Pool<Sqlite>, id: &str) -> DbResult<()> {
+    let now = Utc::now();
+    let result = sqlx::query("UPDATE spec_changes SET deleted_at = ? WHERE id = ? AND deleted_at IS NULL")
+        .bind(now)
+        .bind(id)
+        .execute(pool)
+        .await?;
+
+    if result.rows_affected() == 0 {
+        return Err(DbError::NotFound(format!("Spec change not found: {}", id)));
+    }
+
+    Ok(())
+}
+
+/// Hard delete a spec change (for testing/admin purposes)
+pub async fn hard_delete_spec_change(pool: &Pool<Sqlite>, id: &str) -> DbResult<()> {
+    let result = sqlx::query("DELETE FROM spec_changes WHERE id = ?")
+        .bind(id)
+        .execute(pool)
+        .await?;
+
+    if result.rows_affected() == 0 {
+        return Err(DbError::NotFound(format!("Spec change not found: {}", id)));
+    }
+
+    Ok(())
+}
+
+/// Restore a soft-deleted spec change
+pub async fn restore_spec_change(pool: &Pool<Sqlite>, id: &str) -> DbResult<SpecChange> {
+    let change = sqlx::query_as::<_, SpecChange>(
+        "UPDATE spec_changes SET deleted_at = NULL WHERE id = ? AND deleted_at IS NOT NULL RETURNING *",
+    )
+    .bind(id)
+    .fetch_optional(pool)
+    .await?
+    .ok_or_else(|| DbError::NotFound(format!("Deleted spec change not found: {}", id)))?;
 
     Ok(change)
 }
@@ -699,6 +820,11 @@ mod tests {
         .unwrap();
 
         sqlx::query(include_str!("../../migrations/20250120000000_openspec.sql"))
+            .execute(&pool)
+            .await
+            .unwrap();
+
+        sqlx::query(include_str!("../../migrations/20250124000000_add_soft_delete.sql"))
             .execute(&pool)
             .await
             .unwrap();
