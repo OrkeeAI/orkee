@@ -151,13 +151,25 @@ impl UserStorage {
         query_builder.push(" WHERE id = ");
         query_builder.push_bind(user_id);
 
+        let mut tx = self.pool.begin().await.map_err(StorageError::Sqlx)?;
+
         query_builder
             .build()
-            .execute(&self.pool)
+            .execute(&mut *tx)
             .await
             .map_err(StorageError::Sqlx)?;
 
-        self.get_user(user_id).await
+        let row = sqlx::query("SELECT * FROM users WHERE id = ?")
+            .bind(user_id)
+            .fetch_one(&mut *tx)
+            .await
+            .map_err(StorageError::Sqlx)?;
+
+        let user = self.row_to_user(&row)?;
+
+        tx.commit().await.map_err(StorageError::Sqlx)?;
+
+        Ok(user)
     }
 
     pub async fn get_api_key(
