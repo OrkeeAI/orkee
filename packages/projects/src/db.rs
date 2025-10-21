@@ -87,4 +87,109 @@ impl DbState {
 
         Self::new(pool)
     }
+
+    /// Atomically rotate encryption keys and update encryption settings
+    /// This ensures both operations succeed or fail together
+    pub async fn change_encryption_password_atomic(
+        &self,
+        user_id: &str,
+        old_encryption: &crate::security::ApiKeyEncryption,
+        new_encryption: &crate::security::ApiKeyEncryption,
+        mode: crate::security::encryption::EncryptionMode,
+        new_salt: &[u8],
+        new_hash: &[u8],
+    ) -> Result<(), StorageError> {
+        use sqlx::Row;
+        use tracing::debug;
+
+        debug!("Starting atomic password change for user: {}", user_id);
+
+        // Start transaction
+        let mut tx = self.pool.begin().await.map_err(StorageError::Sqlx)?;
+
+        // Step 1: Rotate encryption keys (inline to share transaction)
+
+        // Fetch encrypted keys from database
+        let row = sqlx::query("SELECT openai_api_key, anthropic_api_key, google_api_key, xai_api_key, ai_gateway_key FROM users WHERE id = ?")
+            .bind(user_id)
+            .fetch_one(&mut *tx)
+            .await
+            .map_err(StorageError::Sqlx)?;
+
+        // Helper to decrypt with old key and re-encrypt with new key
+        let rotate_key = |encrypted_key: Option<String>| -> Result<Option<String>, StorageError> {
+            match encrypted_key {
+                Some(value) if !value.is_empty() && crate::security::ApiKeyEncryption::is_encrypted(&value) => {
+                    // Decrypt with old encryption
+                    let plaintext = old_encryption.decrypt(&value).map_err(|e| {
+                        StorageError::Encryption(format!(
+                            "Failed to decrypt API key with old password: {}",
+                            e
+                        ))
+                    })?;
+
+                    // Re-encrypt with new encryption
+                    let new_encrypted = new_encryption.encrypt(&plaintext).map_err(|e| {
+                        StorageError::Encryption(format!(
+                            "Failed to encrypt API key with new password: {}",
+                            e
+                        ))
+                    })?;
+
+                    Ok(Some(new_encrypted))
+                }
+                _ => Ok(None), // No key or plaintext key - skip rotation
+            }
+        };
+
+        // Rotate all API keys
+        let openai_key = rotate_key(row.try_get("openai_api_key")?)?;
+        let anthropic_key = rotate_key(row.try_get("anthropic_api_key")?)?;
+        let google_key = rotate_key(row.try_get("google_api_key")?)?;
+        let xai_key = rotate_key(row.try_get("xai_api_key")?)?;
+        let ai_gateway_key = rotate_key(row.try_get("ai_gateway_key")?)?;
+
+        // Update database with re-encrypted keys
+        sqlx::query(
+            r#"
+            UPDATE users
+            SET openai_api_key = COALESCE(?, openai_api_key),
+                anthropic_api_key = COALESCE(?, anthropic_api_key),
+                google_api_key = COALESCE(?, google_api_key),
+                xai_api_key = COALESCE(?, xai_api_key),
+                ai_gateway_key = COALESCE(?, ai_gateway_key),
+                updated_at = datetime('now', 'utc')
+            WHERE id = ?
+            "#,
+        )
+        .bind(openai_key)
+        .bind(anthropic_key)
+        .bind(google_key)
+        .bind(xai_key)
+        .bind(ai_gateway_key)
+        .bind(user_id)
+        .execute(&mut *tx)
+        .await
+        .map_err(StorageError::Sqlx)?;
+
+        // Step 2: Update encryption settings (inline to share transaction)
+        let mode_str = mode.to_string();
+
+        sqlx::query(
+            "INSERT OR REPLACE INTO encryption_settings (id, encryption_mode, password_salt, password_hash, updated_at)
+             VALUES (1, ?, ?, ?, datetime('now'))"
+        )
+        .bind(&mode_str)
+        .bind(new_salt)
+        .bind(new_hash)
+        .execute(&mut *tx)
+        .await
+        .map_err(StorageError::Sqlx)?;
+
+        // Commit transaction - both operations succeed or fail together
+        tx.commit().await.map_err(StorageError::Sqlx)?;
+
+        debug!("Successfully completed atomic password change for user: {}", user_id);
+        Ok(())
+    }
 }

@@ -6,6 +6,7 @@ import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
 import rehypeSanitize from 'rehype-sanitize';
 import 'highlight.js/styles/github-dark.css';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -88,6 +89,7 @@ export function PRDUploadDialog({ projectId, open, onOpenChange, onComplete }: P
       setActiveTab('analysis');
     } catch (error) {
       console.error('Analysis failed:', error);
+      toast.error('Failed to analyze PRD. Please try again.');
 
       if (createdPRDId) {
         try {
@@ -95,6 +97,7 @@ export function PRDUploadDialog({ projectId, open, onOpenChange, onComplete }: P
           setTempPRDId(null);
         } catch (deleteError) {
           console.error('Failed to clean up temp PRD:', deleteError);
+          toast.error('Analysis failed and cleanup encountered an error. A draft PRD may need manual cleanup.');
         }
       }
     } finally {
@@ -132,6 +135,7 @@ export function PRDUploadDialog({ projectId, open, onOpenChange, onComplete }: P
         await deletePRDMutation.mutateAsync(tempPRDId);
       } catch (error) {
         console.error('Failed to clean up temp PRD on reset:', error);
+        toast.warning('Failed to clean up temporary PRD. It may need manual deletion.');
       }
     }
 

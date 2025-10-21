@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
 import { invoke } from '@tauri-apps/api/core'
+import { Toaster } from 'sonner'
 import { Layout } from '@/components/layout/Layout'
 import { ConnectionProvider } from '@/contexts/ConnectionContext'
 import { CloudProvider } from '@/contexts/CloudContext'
@@ -102,6 +103,7 @@ function App() {
           <CloudProvider>
             <TelemetryProvider>
               <AppWithTelemetry />
+              <Toaster richColors position="top-right" />
             </TelemetryProvider>
           </CloudProvider>
         </ConnectionProvider>

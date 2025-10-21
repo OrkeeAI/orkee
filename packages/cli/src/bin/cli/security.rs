@@ -371,35 +371,21 @@ async fn change_password_command() {
         }
     };
 
-    // Rotate encryption keys BEFORE updating encryption settings
+    // Atomically rotate encryption keys AND update encryption settings
     println!();
-    println!("{}", "Rotating encrypted API keys...".cyan());
+    println!("{}", "Changing password (rotating keys and updating settings)...".cyan());
     match db_state
-        .user_storage
-        .rotate_encryption_keys("default-user", &old_encryption, &new_encryption)
+        .change_encryption_password_atomic(
+            "default-user",
+            &old_encryption,
+            &new_encryption,
+            EncryptionMode::Password,
+            &new_salt,
+            &new_hash,
+        )
         .await
     {
         Ok(_) => {
-            println!("{} API keys re-encrypted successfully", "✓".green().bold());
-        }
-        Err(e) => {
-            eprintln!(
-                "{} Failed to rotate encryption keys: {}",
-                "✗".red().bold(),
-                e
-            );
-            eprintln!("  Encryption settings not updated - your data is still safe");
-            process::exit(1);
-        }
-    }
-
-    // Now update encryption settings (salt and hash)
-    match manager
-        .set_encryption_mode(EncryptionMode::Password, Some(&new_salt), Some(&new_hash))
-        .await
-    {
-        Ok(_) => {
-            println!();
             println!("{} Password changed successfully!", "✓".green().bold());
             println!();
             println!("{}", "Security status:".bold());
@@ -410,12 +396,11 @@ async fn change_password_command() {
         }
         Err(e) => {
             eprintln!(
-                "{} Failed to update encryption settings: {}",
+                "{} Failed to change password: {}",
                 "✗".red().bold(),
                 e
             );
-            eprintln!("  WARNING: API keys were re-encrypted but settings update failed");
-            eprintln!("  You may need to manually fix the encryption_settings table");
+            eprintln!("  No changes were made - your existing password still works");
             process::exit(1);
         }
     }
