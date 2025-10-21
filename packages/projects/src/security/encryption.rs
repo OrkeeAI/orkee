@@ -735,9 +735,11 @@ mod tests {
         // Original database (Machine A)
         let original_encryption = ApiKeyEncryption::with_password(password, &salt).unwrap();
 
-        let api_keys = [("openai", "sk-openai-original"),
+        let api_keys = [
+            ("openai", "sk-openai-original"),
             ("anthropic", "sk-ant-original"),
-            ("google", "sk-google-original")];
+            ("google", "sk-google-original"),
+        ];
 
         // Encrypt all keys
         let encrypted_keys: Vec<(&str, String)> = api_keys
