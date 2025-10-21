@@ -15,10 +15,13 @@ pub mod taskmaster;
 pub mod telemetry;
 
 pub async fn create_router() -> Router {
-    create_router_with_options(None).await
+    create_router_with_options(None, None).await
 }
 
-pub async fn create_router_with_options(dashboard_path: Option<std::path::PathBuf>) -> Router {
+pub async fn create_router_with_options(
+    dashboard_path: Option<std::path::PathBuf>,
+    database_path: Option<std::path::PathBuf>,
+) -> Router {
     use crate::config::Config;
     use path_validator::PathValidator;
     use preview::PreviewState;
@@ -63,7 +66,7 @@ pub async fn create_router_with_options(dashboard_path: Option<std::path::PathBu
     };
 
     // Initialize database state for tasks/agents/users
-    let db_state = match orkee_projects::DbState::init().await {
+    let db_state = match orkee_projects::DbState::init_with_path(database_path).await {
         Ok(state) => state,
         Err(e) => {
             error!("Failed to initialize database state: {}", e);

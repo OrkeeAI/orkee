@@ -48,7 +48,15 @@ impl DbState {
 
     /// Initialize database state with default configuration
     pub async fn init() -> Result<Self, StorageError> {
-        let database_path = crate::constants::orkee_dir().join("orkee.db");
+        Self::init_with_path(None).await
+    }
+
+    /// Initialize database state with optional custom database path
+    pub async fn init_with_path(
+        database_path: Option<std::path::PathBuf>,
+    ) -> Result<Self, StorageError> {
+        let database_path =
+            database_path.unwrap_or_else(|| crate::constants::orkee_dir().join("orkee.db"));
 
         // Ensure parent directory exists
         if let Some(parent) = database_path.parent() {
@@ -84,6 +92,14 @@ impl DbState {
             .map_err(StorageError::Sqlx)?;
 
         info!("Database connection established");
+
+        // Run migrations
+        sqlx::migrate!("./migrations")
+            .run(&pool)
+            .await
+            .map_err(StorageError::Migration)?;
+
+        debug!("Database migrations completed");
 
         Self::new(pool)
     }

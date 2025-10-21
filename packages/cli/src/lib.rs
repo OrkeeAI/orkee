@@ -255,7 +255,7 @@ async fn create_application_router(
         .max_age(Duration::from_secs(3600));
 
     // Create the router with all middleware layers (in order: outermost to innermost)
-    let mut app_builder = api::create_router_with_options(dashboard_path).await;
+    let mut app_builder = api::create_router_with_options(dashboard_path, None).await;
 
     // Add CORS layer
     app_builder = app_builder.layer(cors);

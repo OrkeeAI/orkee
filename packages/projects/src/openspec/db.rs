@@ -1173,23 +1173,16 @@ mod tests {
             .unwrap();
 
         sqlx::query(include_str!(
-            "../../migrations/20250118000000_task_management.sql"
+            "../../migrations/20250117000000_task_management.sql"
         ))
         .execute(&pool)
         .await
         .unwrap();
 
-        sqlx::query(include_str!("../../migrations/20250120000000_openspec.sql"))
+        sqlx::query(include_str!("../../migrations/20250118000000_openspec.sql"))
             .execute(&pool)
             .await
             .unwrap();
-
-        sqlx::query(include_str!(
-            "../../migrations/20250124000000_add_soft_delete.sql"
-        ))
-        .execute(&pool)
-        .await
-        .unwrap();
 
         pool
     }
