@@ -33,6 +33,7 @@ import {
   chunkText,
   createChunkPrompt,
   withTimeout,
+  mergePRDAnalyses,
 } from './utils';
 
 /**
@@ -256,7 +257,7 @@ Guidelines:
     }
 
     // Merge all chunk results
-    const mergedAnalysis = this.mergeChunkAnalyses(chunkResults);
+    const mergedAnalysis = mergePRDAnalyses(chunkResults);
 
     const cost: CostEstimate = {
       inputTokens: totalInputTokens,
@@ -283,63 +284,6 @@ Guidelines:
     aiCache.set('analyzePRD', { prdContent }, aiResult);
 
     return aiResult;
-  }
-
-  /**
-   * Merge multiple PRD analyses from chunks into a single cohesive analysis
-   */
-  private mergeChunkAnalyses(analyses: PRDAnalysis[]): PRDAnalysis {
-    if (analyses.length === 0) {
-      throw new Error('No analyses to merge');
-    }
-
-    if (analyses.length === 1) {
-      return analyses[0];
-    }
-
-    // Merge summaries
-    const summary = `Combined analysis from ${analyses.length} sections:\n\n${analyses.map((a, i) => `Section ${i + 1}: ${a.summary}`).join('\n\n')}`;
-
-    // Merge capabilities, deduplicating by ID
-    const capabilitiesMap = new Map<string, SpecCapability>();
-    for (const analysis of analyses) {
-      for (const capability of analysis.capabilities) {
-        if (capabilitiesMap.has(capability.id)) {
-          // Merge requirements if capability already exists
-          const existing = capabilitiesMap.get(capability.id)!;
-          existing.requirements.push(...capability.requirements);
-        } else {
-          capabilitiesMap.set(capability.id, { ...capability });
-        }
-      }
-    }
-
-    // Merge tasks, deduplicating by title
-    const tasksMap = new Map<string, TaskSuggestion>();
-    for (const analysis of analyses) {
-      for (const task of analysis.suggestedTasks) {
-        if (!tasksMap.has(task.title)) {
-          tasksMap.set(task.title, task);
-        }
-      }
-    }
-
-    // Merge dependencies and technical considerations
-    const dependenciesSet = new Set<string>();
-    const techConsiderationsSet = new Set<string>();
-
-    for (const analysis of analyses) {
-      analysis.dependencies?.forEach((dep) => dependenciesSet.add(dep));
-      analysis.technicalConsiderations?.forEach((tech) => techConsiderationsSet.add(tech));
-    }
-
-    return {
-      summary,
-      capabilities: Array.from(capabilitiesMap.values()),
-      suggestedTasks: Array.from(tasksMap.values()),
-      dependencies: Array.from(dependenciesSet),
-      technicalConsiderations: Array.from(techConsiderationsSet),
-    };
   }
 
   /**

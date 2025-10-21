@@ -177,3 +177,96 @@ export async function withTimeout<T>(
 ): Promise<T> {
   return Promise.race([promise, createTimeout<T>(timeoutMs, `${operation} timed out after ${timeoutMs}ms`)]);
 }
+
+/**
+ * Merge multiple PRD analyses from chunks into a single analysis
+ * Deduplicates capabilities, requirements, and scenarios by name/ID
+ */
+export function mergePRDAnalyses<T extends {
+  summary: string;
+  capabilities: Array<{
+    id: string;
+    requirements: Array<{
+      name: string;
+      scenarios: Array<{ name: string; [key: string]: unknown }>;
+      [key: string]: unknown;
+    }>;
+    [key: string]: unknown;
+  }>;
+  suggestedTasks: Array<{ title: string; [key: string]: unknown }>;
+  dependencies?: string[];
+  technicalConsiderations?: string[];
+}>(analyses: T[]): T {
+  if (analyses.length === 0) {
+    throw new Error('No analyses to merge');
+  }
+
+  if (analyses.length === 1) {
+    return analyses[0];
+  }
+
+  // Merge summaries
+  const summary = `Combined analysis from ${analyses.length} sections:\n\n${analyses.map((a, i) => `Section ${i + 1}: ${a.summary}`).join('\n\n')}`;
+
+  // Merge capabilities, deduplicating by ID
+  const capabilitiesMap = new Map();
+  for (const analysis of analyses) {
+    for (const capability of analysis.capabilities) {
+      if (capabilitiesMap.has(capability.id)) {
+        // Merge requirements if capability already exists, deduplicating by name
+        const existing = capabilitiesMap.get(capability.id)!;
+        const existingReqMap = new Map(
+          existing.requirements.map((req: { name: string }) => [req.name, req])
+        );
+
+        for (const newReq of capability.requirements) {
+          if (existingReqMap.has(newReq.name)) {
+            // Merge scenarios for existing requirement, deduplicating by scenario name
+            const existingReq = existingReqMap.get(newReq.name)!;
+            const existingScenarioMap = new Map(
+              existingReq.scenarios.map((sc: { name: string }) => [sc.name, sc])
+            );
+
+            for (const newScenario of newReq.scenarios) {
+              if (!existingScenarioMap.has(newScenario.name)) {
+                existingReq.scenarios.push(newScenario);
+              }
+            }
+          } else {
+            // Add new requirement
+            existing.requirements.push(newReq);
+          }
+        }
+      } else {
+        capabilitiesMap.set(capability.id, { ...capability });
+      }
+    }
+  }
+
+  // Merge tasks, deduplicating by title
+  const tasksMap = new Map();
+  for (const analysis of analyses) {
+    for (const task of analysis.suggestedTasks) {
+      if (!tasksMap.has(task.title)) {
+        tasksMap.set(task.title, task);
+      }
+    }
+  }
+
+  // Merge dependencies and technical considerations
+  const dependenciesSet = new Set<string>();
+  const techConsiderationsSet = new Set<string>();
+
+  for (const analysis of analyses) {
+    analysis.dependencies?.forEach((dep) => dependenciesSet.add(dep));
+    analysis.technicalConsiderations?.forEach((tech) => techConsiderationsSet.add(tech));
+  }
+
+  return {
+    summary,
+    capabilities: Array.from(capabilitiesMap.values()),
+    suggestedTasks: Array.from(tasksMap.values()),
+    dependencies: Array.from(dependenciesSet),
+    technicalConsiderations: Array.from(techConsiderationsSet),
+  } as T;
+}
