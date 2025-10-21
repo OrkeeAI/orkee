@@ -28,10 +28,24 @@ CREATE TABLE IF NOT EXISTS spec_capabilities (
     requirement_count INTEGER DEFAULT 0,
     version INTEGER DEFAULT 1,
     status TEXT DEFAULT 'active' CHECK(status IN ('active', 'deprecated', 'archived')),
+    deleted_at TIMESTAMP,                  -- Soft delete timestamp for data recovery
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
     FOREIGN KEY (prd_id) REFERENCES prds(id) ON DELETE SET NULL
+);
+
+-- Spec Capabilities History (version control for full change tracking)
+CREATE TABLE IF NOT EXISTS spec_capabilities_history (
+    id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(8)))),
+    capability_id TEXT NOT NULL,
+    version INTEGER NOT NULL,
+    spec_markdown TEXT NOT NULL,
+    design_markdown TEXT,
+    purpose_markdown TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (capability_id) REFERENCES spec_capabilities(id) ON DELETE CASCADE,
+    UNIQUE (capability_id, version)
 );
 
 -- Individual Requirements within Capabilities
@@ -72,6 +86,7 @@ CREATE TABLE IF NOT EXISTS spec_changes (
     approved_by TEXT,
     approved_at TIMESTAMP,
     archived_at TIMESTAMP,
+    deleted_at TIMESTAMP,                  -- Soft delete timestamp for data recovery
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
@@ -161,3 +176,13 @@ CREATE INDEX IF NOT EXISTS idx_prd_spec_sync_history_prd ON prd_spec_sync_histor
 CREATE INDEX IF NOT EXISTS idx_ai_usage_logs_project ON ai_usage_logs(project_id);
 CREATE INDEX IF NOT EXISTS idx_ai_usage_logs_created ON ai_usage_logs(created_at);
 CREATE INDEX IF NOT EXISTS idx_ai_usage_logs_operation ON ai_usage_logs(operation);
+
+-- Composite indexes for common multi-column queries
+CREATE INDEX IF NOT EXISTS idx_spec_capabilities_project_status ON spec_capabilities(project_id, status);
+CREATE INDEX IF NOT EXISTS idx_ai_usage_logs_provider_model ON ai_usage_logs(provider, model);
+CREATE INDEX IF NOT EXISTS idx_ai_usage_logs_provider_model_created ON ai_usage_logs(provider, model, created_at);
+CREATE INDEX IF NOT EXISTS idx_spec_capabilities_history_capability_version ON spec_capabilities_history(capability_id, version);
+
+-- Additional indexes for task_spec_links and ai_usage_logs
+CREATE INDEX IF NOT EXISTS idx_task_spec_links_status ON task_spec_links(validation_status);
+CREATE INDEX IF NOT EXISTS idx_task_spec_links_scenario ON task_spec_links(scenario_id);
