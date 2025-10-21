@@ -286,6 +286,31 @@ impl UserStorage {
         Ok(())
     }
 
+    /// Check if there are environment variable API keys that should be migrated to the database
+    pub async fn check_env_key_migration(&self, user_id: &str) -> Result<Vec<String>, StorageError> {
+        let user = self.get_user(user_id).await?;
+        let mut env_keys_to_migrate = Vec::new();
+
+        // Check each provider
+        let providers = [
+            ("anthropic", "ANTHROPIC_API_KEY", &user.anthropic_api_key),
+            ("openai", "OPENAI_API_KEY", &user.openai_api_key),
+            ("google", "GOOGLE_API_KEY", &user.google_api_key),
+            ("xai", "XAI_API_KEY", &user.xai_api_key),
+        ];
+
+        for (provider_name, env_var_name, db_key) in providers {
+            // Check if env var exists and has a non-empty value
+            if let Ok(env_value) = env::var(env_var_name) {
+                if !env_value.is_empty() && db_key.is_none() {
+                    env_keys_to_migrate.push(provider_name.to_string());
+                }
+            }
+        }
+
+        Ok(env_keys_to_migrate)
+    }
+
     fn row_to_user(&self, row: &sqlx::sqlite::SqliteRow) -> Result<User, StorageError> {
         // Helper to decrypt API keys with migration support
         let decrypt_key = |key: Option<String>| -> Result<Option<String>, StorageError> {
