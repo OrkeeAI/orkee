@@ -57,6 +57,22 @@ pub struct TaskSuggestion {
 }
 
 // ============================================================================
+// Spec Generation
+// ============================================================================
+
+#[derive(Debug, Serialize, Deserialize)]
+struct SpecGenerationRequirement {
+    name: String,
+    description: String,
+    scenarios: Vec<SpecScenario>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct SpecGenerationData {
+    requirements: Vec<SpecGenerationRequirement>,
+}
+
+// ============================================================================
 // PRD Analysis
 // ============================================================================
 
@@ -265,50 +281,185 @@ fn calculate_cost(input_tokens: u32, output_tokens: u32) -> f64 {
 // ============================================================================
 
 /// Generate spec from requirements
-pub async fn generate_spec(Json(request): Json<GenerateSpecRequest>) -> impl IntoResponse {
+pub async fn generate_spec(
+    State(db): State<DbState>,
+    Json(request): Json<GenerateSpecRequest>,
+) -> impl IntoResponse {
     info!(
         "AI spec generation requested for: {}",
         request.capability_name
     );
 
-    let spec_markdown = format!(
-        r#"# {}
+    // Initialize AI service
+    let ai_service = AIService::new();
 
-## Purpose
+    // Build requirements list for the prompt
+    let requirements_text = if request.requirements.is_empty() {
+        "No specific requirements provided".to_string()
+    } else {
+        request
+            .requirements
+            .iter()
+            .enumerate()
+            .map(|(i, req)| format!("{}. {}", i + 1, req))
+            .collect::<Vec<_>>()
+            .join("\n")
+    };
+
+    let user_prompt = format!(
+        r#"Generate a detailed specification for the following capability.
+
+Capability: {}
+Purpose: {}
+
+Requirements to address:
 {}
 
-## Requirements
-
-### User can complete primary action
-WHEN user provides valid input
-THEN system processes the request successfully
-AND system provides confirmation feedback
-
-### System handles errors gracefully
-WHEN user provides invalid input
-THEN system displays helpful error message
-AND system suggests corrective action
-"#,
+Respond with ONLY valid JSON matching this exact structure (no markdown, no code blocks):
+{{
+  "requirements": [
+    {{
+      "name": "Requirement Name",
+      "description": "Detailed description of what this requirement addresses",
+      "scenarios": [
+        {{
+          "name": "Scenario name",
+          "when": "WHEN condition",
+          "then": "THEN expected outcome",
+          "and": ["AND additional condition 1", "AND additional condition 2"]
+        }}
+      ]
+    }}
+  ]
+}}"#,
         request.capability_name,
         request
             .purpose
-            .unwrap_or_else(|| "Core functionality description".to_string())
+            .as_ref()
+            .unwrap_or(&"Core functionality".to_string()),
+        requirements_text
     );
 
-    let response = GenerateSpecResponse {
-        capability_name: request.capability_name,
-        spec_markdown,
-        requirement_count: 2,
-        scenario_count: 4,
-        token_usage: TokenUsage {
-            input: 120,
-            output: 280,
-            total: 400,
-        },
-        note: "AI integration not yet implemented - this is mock data".to_string(),
-    };
+    let system_prompt = Some(
+        r#"You are an expert software architect creating detailed specifications.
 
-    (StatusCode::OK, ResponseJson(ApiResponse::success(response))).into_response()
+Your task is to:
+1. Create specific, testable requirements for the capability
+2. For each requirement, define WHEN/THEN/AND scenarios
+3. Make scenarios concrete and actionable
+4. Ensure all scenarios follow the Given-When-Then pattern
+5. Include both happy path and error scenarios
+
+Important guidelines:
+- Each requirement must have at least 2 scenarios
+- Scenarios must be specific and testable
+- Use clear, precise language
+- Focus on user-facing behavior
+- Include edge cases and error handling
+
+Respond with ONLY valid JSON. Do not include markdown formatting, code blocks, or any other text."#
+            .to_string(),
+    );
+
+    // Make AI call
+    match ai_service
+        .generate_structured::<SpecGenerationData>(user_prompt, system_prompt)
+        .await
+    {
+        Ok(ai_response) => {
+            // Convert JSON response to markdown format
+            let mut spec_markdown = format!("# {}\n\n", request.capability_name);
+
+            if let Some(purpose) = &request.purpose {
+                spec_markdown.push_str(&format!("## Purpose\n{}\n\n", purpose));
+            }
+
+            spec_markdown.push_str("## Requirements\n\n");
+
+            let mut total_scenarios = 0;
+            for req in &ai_response.data.requirements {
+                spec_markdown.push_str(&format!("### {}\n{}\n\n", req.name, req.description));
+
+                for scenario in &req.scenarios {
+                    spec_markdown.push_str(&format!("**{}**\n", scenario.name));
+                    spec_markdown.push_str(&format!("WHEN {}\n", scenario.when));
+                    spec_markdown.push_str(&format!("THEN {}\n", scenario.then));
+
+                    if let Some(and_conditions) = &scenario.and {
+                        for condition in and_conditions {
+                            spec_markdown.push_str(&format!("AND {}\n", condition));
+                        }
+                    }
+                    spec_markdown.push('\n');
+                    total_scenarios += 1;
+                }
+            }
+
+            let token_usage = TokenUsage {
+                input: ai_response.usage.input_tokens,
+                output: ai_response.usage.output_tokens,
+                total: ai_response.usage.total_tokens(),
+            };
+
+            // Log AI usage to database
+            let usage_log = AiUsageLog {
+                id: nanoid::nanoid!(10),
+                project_id: request.capability_name.clone(), // Use capability name as project ID
+                request_id: None,
+                operation: "generateSpec".to_string(),
+                provider: "anthropic".to_string(),
+                model: "claude-3-5-sonnet-20241022".to_string(),
+                input_tokens: Some(ai_response.usage.input_tokens as i64),
+                output_tokens: Some(ai_response.usage.output_tokens as i64),
+                total_tokens: Some(ai_response.usage.total_tokens() as i64),
+                estimated_cost: Some(calculate_cost(
+                    ai_response.usage.input_tokens,
+                    ai_response.usage.output_tokens,
+                )),
+                duration_ms: Some(0), // TODO: Track actual duration
+                error: None,
+                created_at: chrono::Utc::now(),
+            };
+
+            // Save to database (non-blocking)
+            if let Err(e) = db.ai_usage_log_storage.create_log(&usage_log).await {
+                error!("Failed to log AI usage: {}", e);
+            }
+
+            let response = GenerateSpecResponse {
+                capability_name: request.capability_name,
+                spec_markdown,
+                requirement_count: ai_response.data.requirements.len(),
+                scenario_count: total_scenarios,
+                token_usage,
+                note: String::new(),
+            };
+
+            (StatusCode::OK, ResponseJson(ApiResponse::success(response))).into_response()
+        }
+        Err(e) => {
+            error!("AI spec generation failed: {}", e);
+            let error_message = match e {
+                AIServiceError::NoApiKey => {
+                    "Anthropic API key not configured. Please set ANTHROPIC_API_KEY environment variable.".to_string()
+                }
+                AIServiceError::ApiError(msg) => format!("Anthropic API error: {}", msg),
+                AIServiceError::ParseError(msg) => {
+                    format!("Failed to parse AI response: {}", msg)
+                }
+                AIServiceError::RequestFailed(e) => format!("Request failed: {}", e),
+                AIServiceError::InvalidResponse => {
+                    "Invalid response from AI service".to_string()
+                }
+            };
+
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                ResponseJson(ApiResponse::<()>::error(error_message)),
+            )
+                .into_response()
+        }
+    }
 }
 
 #[derive(Deserialize)]
