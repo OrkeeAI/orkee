@@ -8,9 +8,20 @@ use axum::{
     response::IntoResponse,
 };
 use reqwest::Client;
-use tracing::{error, info};
+use tracing::{error, info, warn};
 
 use crate::db::DbState;
+
+/// Build an error response with fallback in case Response builder fails
+fn build_error_response(status: StatusCode, message: String) -> Response<Body> {
+    Response::builder()
+        .status(status)
+        .body(Body::from(message.clone()))
+        .unwrap_or_else(|e| {
+            warn!("Failed to build error response: {}. Original message: {}", e, message);
+            Response::new(Body::from("Internal server error"))
+        })
+}
 
 /// Proxy requests to Anthropic API with API key from database
 pub async fn proxy_anthropic(State(db): State<DbState>, req: Request<Body>) -> impl IntoResponse {
@@ -52,20 +63,20 @@ async fn proxy_ai_request(
         Ok(Some(key)) => key,
         Ok(None) => {
             error!("{} API key not configured", provider);
-            return Response::builder()
-                .status(StatusCode::UNAUTHORIZED)
-                .body(Body::from(format!(
+            return build_error_response(
+                StatusCode::UNAUTHORIZED,
+                format!(
                     "{} API key not configured. Please add it in Settings.",
                     provider
-                )))
-                .unwrap();
+                ),
+            );
         }
         Err(e) => {
             error!("Failed to get {} API key: {}", provider, e);
-            return Response::builder()
-                .status(StatusCode::INTERNAL_SERVER_ERROR)
-                .body(Body::from(format!("Failed to retrieve API key: {}", e)))
-                .unwrap();
+            return build_error_response(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                format!("Failed to retrieve API key: {}", e),
+            );
         }
     };
 
@@ -96,10 +107,10 @@ async fn proxy_ai_request(
         Ok(bytes) => bytes,
         Err(e) => {
             error!("Failed to read request body: {}", e);
-            return Response::builder()
-                .status(StatusCode::BAD_REQUEST)
-                .body(Body::from("Failed to read request body"))
-                .unwrap();
+            return build_error_response(
+                StatusCode::BAD_REQUEST,
+                "Failed to read request body".to_string(),
+            );
         }
     };
 
@@ -130,13 +141,10 @@ async fn proxy_ai_request(
         Ok(resp) => resp,
         Err(e) => {
             error!("Failed to proxy request to {}: {}", provider, e);
-            return Response::builder()
-                .status(StatusCode::BAD_GATEWAY)
-                .body(Body::from(format!(
-                    "Failed to connect to {} API: {}",
-                    provider, e
-                )))
-                .unwrap();
+            return build_error_response(
+                StatusCode::BAD_GATEWAY,
+                format!("Failed to connect to {} API: {}", provider, e),
+            );
         }
     };
 
@@ -147,10 +155,10 @@ async fn proxy_ai_request(
         Ok(bytes) => bytes,
         Err(e) => {
             error!("Failed to read response body: {}", e);
-            return Response::builder()
-                .status(StatusCode::BAD_GATEWAY)
-                .body(Body::from("Failed to read AI provider response"))
-                .unwrap();
+            return build_error_response(
+                StatusCode::BAD_GATEWAY,
+                "Failed to read AI provider response".to_string(),
+            );
         }
     };
 
@@ -162,5 +170,13 @@ async fn proxy_ai_request(
         builder = builder.header(key, value);
     }
 
-    builder.body(Body::from(body_bytes)).unwrap()
+    builder
+        .body(Body::from(body_bytes))
+        .unwrap_or_else(|e| {
+            error!("Failed to build final response: {}", e);
+            build_error_response(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "Failed to build response from AI provider".to_string(),
+            )
+        })
 }
