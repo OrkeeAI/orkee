@@ -22,11 +22,9 @@ import {
   type CostEstimate,
 } from './schemas';
 import {
-  estimateTokens,
   validateContentSize,
   chunkText,
   createChunkPrompt,
-  estimateProcessingCost,
   withTimeout,
 } from './utils';
 
@@ -67,7 +65,7 @@ export class AISpecService {
     }
 
     const { provider, model, modelName } = getPreferredModel();
-    const { maxPRDTokens, chunkSize, promptOverhead, timeoutMs } = AI_CONFIG.sizeLimits;
+    const { maxPRDTokens, promptOverhead, timeoutMs } = AI_CONFIG.sizeLimits;
 
     // Validate size and check if chunking is needed
     const sizeCheck = validateContentSize(prdContent, maxPRDTokens, promptOverhead);
