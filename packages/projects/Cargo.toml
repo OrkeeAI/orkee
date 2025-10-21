@@ -36,6 +36,7 @@ regex = "1.10"
 ring = "0.17"
 base64 = "0.22"
 machine-uid = "0.5"
+argon2 = "0.5"
 
 # Compression
 flate2 = "1.0"

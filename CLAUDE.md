@@ -400,6 +400,30 @@ System tray menu shows all servers with source indicators:
 - **Error Sanitization**: No internal details exposed, request ID tracking
 - **Input Validation**: Path traversal protection, command injection prevention
 
+###  API Key Encryption
+- **Implementation**: `packages/projects/src/security/encryption.rs`
+- **Two encryption modes**:
+  - **Machine-Based (Default)**: Transport encryption for backup/sync
+    - Derives key from machine ID + application salt using HKDF
+    - **Security Model**: Protects data during transfer, NOT at rest on local machine
+    - Anyone with local file access can decrypt API keys on the same machine
+    - Suitable for personal use, single-user environments
+  - **Password-Based (Opt-in)**: True at-rest encryption
+    - Derives key from user password using Argon2id (64MB memory, 3 iterations)
+    - Requires password when accessing encrypted data
+    - **Security Model**: Data cannot be decrypted without password
+    - Suitable for shared machines, sensitive environments
+
+**Migration to Password-Based Encryption**: Future CLI commands will enable:
+```bash
+orkee security set-password       # Upgrade to password-based encryption
+orkee security change-password    # Change existing password
+orkee security remove-password    # Downgrade to machine-based
+orkee security status             # Show current encryption mode
+```
+
+**Database Schema**: `~/.orkee/orkee.db` encryption_settings table stores mode, salt, and verification hash
+
 ### Cloud Security Architecture (Orkee Cloud)
 - **Authentication**: Token-based authentication with Orkee Cloud API
 - **Access Control**: Token-based authorization with subscription tier validation
