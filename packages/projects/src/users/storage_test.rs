@@ -72,12 +72,11 @@ mod tests {
             .await
             .unwrap();
 
-        let raw_value: Option<String> = sqlx::query_scalar(
-            "SELECT ai_gateway_key FROM users WHERE id = 'test-user'",
-        )
-        .fetch_one(&pool)
-        .await
-        .unwrap();
+        let raw_value: Option<String> =
+            sqlx::query_scalar("SELECT ai_gateway_key FROM users WHERE id = 'test-user'")
+                .fetch_one(&pool)
+                .await
+                .unwrap();
 
         assert!(raw_value.is_some());
         let encrypted = raw_value.unwrap();
@@ -225,12 +224,11 @@ mod tests {
             .await
             .unwrap();
 
-        let raw_value: Option<String> = sqlx::query_scalar(
-            "SELECT ai_gateway_key FROM users WHERE id = 'test-user'",
-        )
-        .fetch_one(&pool)
-        .await
-        .unwrap();
+        let raw_value: Option<String> =
+            sqlx::query_scalar("SELECT ai_gateway_key FROM users WHERE id = 'test-user'")
+                .fetch_one(&pool)
+                .await
+                .unwrap();
 
         assert_eq!(
             raw_value.as_deref(),

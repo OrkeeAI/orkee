@@ -251,8 +251,7 @@ fn parse_scenarios(lines: &[&str], _requirement_name: &str) -> ParseResult<Vec<P
 
 /// Check if string starts with prefix (case-insensitive, ASCII only)
 fn starts_with_ignore_case(text: &str, prefix: &str) -> bool {
-    text.len() >= prefix.len()
-        && text[..prefix.len()].eq_ignore_ascii_case(prefix)
+    text.len() >= prefix.len() && text[..prefix.len()].eq_ignore_ascii_case(prefix)
 }
 
 /// Extract clause text (WHEN/THEN/AND)
