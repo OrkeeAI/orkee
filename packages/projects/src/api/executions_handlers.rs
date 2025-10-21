@@ -26,9 +26,19 @@ pub async fn list_executions(
     Path(task_id): Path<String>,
     Query(pagination): Query<PaginationParams>,
 ) -> impl IntoResponse {
-    info!("Listing executions for task: {} (page: {})", task_id, pagination.page());
+    info!(
+        "Listing executions for task: {} (page: {})",
+        task_id,
+        pagination.page()
+    );
 
-    let result = db.execution_storage.list_executions_paginated(&task_id, Some(pagination.limit()), Some(pagination.offset()))
+    let result = db
+        .execution_storage
+        .list_executions_paginated(
+            &task_id,
+            Some(pagination.limit()),
+            Some(pagination.offset()),
+        )
         .await
         .map(|(executions, total)| PaginatedResponse::new(executions, &pagination, total));
 
@@ -199,7 +209,9 @@ pub async fn delete_execution(
 ) -> impl IntoResponse {
     info!("Deleting execution: {}", execution_id);
 
-    let result = db.execution_storage.delete_execution(&execution_id)
+    let result = db
+        .execution_storage
+        .delete_execution(&execution_id)
         .await
         .map(|_| "Execution deleted successfully");
 
@@ -319,7 +331,9 @@ pub async fn delete_review(
 ) -> impl IntoResponse {
     info!("Deleting review: {}", review_id);
 
-    let result = db.execution_storage.delete_review(&review_id)
+    let result = db
+        .execution_storage
+        .delete_review(&review_id)
         .await
         .map(|_| "Review deleted successfully");
 

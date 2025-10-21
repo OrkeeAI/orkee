@@ -10,7 +10,9 @@ use axum::{
 use serde::{Deserialize, Serialize};
 use tracing::info;
 
-use super::response::{created_or_internal_error, ok_or_internal_error, ok_or_not_found, ApiResponse};
+use super::response::{
+    created_or_internal_error, ok_or_internal_error, ok_or_not_found, ApiResponse,
+};
 use crate::db::DbState;
 use crate::openspec::db as openspec_db;
 use crate::openspec::parser;
@@ -24,11 +26,20 @@ pub async fn list_capabilities(
     Path(project_id): Path<String>,
     Query(pagination): Query<PaginationParams>,
 ) -> impl IntoResponse {
-    info!("Listing capabilities for project: {} (page: {})", project_id, pagination.page());
+    info!(
+        "Listing capabilities for project: {} (page: {})",
+        project_id,
+        pagination.page()
+    );
 
-    let result = openspec_db::get_capabilities_by_project_paginated(&db.pool, &project_id, Some(pagination.limit()), Some(pagination.offset()))
-        .await
-        .map(|(capabilities, total)| PaginatedResponse::new(capabilities, &pagination, total));
+    let result = openspec_db::get_capabilities_by_project_paginated(
+        &db.pool,
+        &project_id,
+        Some(pagination.limit()),
+        Some(pagination.offset()),
+    )
+    .await
+    .map(|(capabilities, total)| PaginatedResponse::new(capabilities, &pagination, total));
 
     ok_or_internal_error(result, "Failed to list capabilities")
 }
@@ -43,7 +54,8 @@ pub async fn list_capabilities_with_requirements(
         project_id
     );
 
-    let result = openspec_db::get_capabilities_with_requirements_by_project(&db.pool, &project_id).await;
+    let result =
+        openspec_db::get_capabilities_with_requirements_by_project(&db.pool, &project_id).await;
     ok_or_internal_error(result, "Failed to list capabilities with requirements")
 }
 
@@ -161,11 +173,20 @@ pub async fn get_capability_requirements(
     Path((_project_id, capability_id)): Path<(String, String)>,
     Query(pagination): Query<PaginationParams>,
 ) -> impl IntoResponse {
-    info!("Getting requirements for capability: {} (page: {})", capability_id, pagination.page());
+    info!(
+        "Getting requirements for capability: {} (page: {})",
+        capability_id,
+        pagination.page()
+    );
 
-    let result = openspec_db::get_requirements_by_capability_paginated(&db.pool, &capability_id, Some(pagination.limit()), Some(pagination.offset()))
-        .await
-        .map(|(requirements, total)| PaginatedResponse::new(requirements, &pagination, total));
+    let result = openspec_db::get_requirements_by_capability_paginated(
+        &db.pool,
+        &capability_id,
+        Some(pagination.limit()),
+        Some(pagination.offset()),
+    )
+    .await
+    .map(|(requirements, total)| PaginatedResponse::new(requirements, &pagination, total));
 
     ok_or_internal_error(result, "Failed to get capability requirements")
 }

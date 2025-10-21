@@ -29,11 +29,19 @@ pub async fn list_tasks(
     Path(project_id): Path<String>,
     Query(pagination): Query<PaginationParams>,
 ) -> impl IntoResponse {
-    info!("Listing tasks for project: {} (page: {})", project_id, pagination.page());
+    info!(
+        "Listing tasks for project: {} (page: {})",
+        project_id,
+        pagination.page()
+    );
 
     let result = db
         .task_storage
-        .list_tasks_paginated(&project_id, Some(pagination.limit()), Some(pagination.offset()))
+        .list_tasks_paginated(
+            &project_id,
+            Some(pagination.limit()),
+            Some(pagination.offset()),
+        )
         .await
         .map(|(tasks, total)| PaginatedResponse::new(tasks, &pagination, total));
 
@@ -195,15 +203,11 @@ pub async fn delete_task(
 ) -> impl IntoResponse {
     info!("Deleting task: {}", task_id);
 
-    let result = db
-        .task_storage
-        .delete_task(&task_id)
-        .await
-        .map(|_| {
-            serde_json::json!({
-                "message": format!("Task {} deleted successfully", task_id)
-            })
-        });
+    let result = db.task_storage.delete_task(&task_id).await.map(|_| {
+        serde_json::json!({
+            "message": format!("Task {} deleted successfully", task_id)
+        })
+    });
 
     ok_or_internal_error(result, "Failed to delete task")
 }

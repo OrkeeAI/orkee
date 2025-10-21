@@ -9,7 +9,7 @@ use axum::{
 use serde::Deserialize;
 use tracing::info;
 
-use super::response::{ok_or_internal_error};
+use super::response::ok_or_internal_error;
 use crate::db::DbState;
 use crate::pagination::{PaginatedResponse, PaginationParams};
 
@@ -20,7 +20,9 @@ pub async fn list_agents(
 ) -> impl IntoResponse {
     info!("Listing all agents (page: {})", pagination.page());
 
-    let result = db.agent_storage.list_agents_paginated(Some(pagination.limit()), Some(pagination.offset()))
+    let result = db
+        .agent_storage
+        .list_agents_paginated(Some(pagination.limit()), Some(pagination.offset()))
         .await
         .map(|(agents, total)| PaginatedResponse::new(agents, &pagination, total));
 
@@ -44,9 +46,19 @@ pub async fn list_user_agents(
     Path(user_id): Path<String>,
     Query(pagination): Query<PaginationParams>,
 ) -> impl IntoResponse {
-    info!("Listing agents for user: {} (page: {})", user_id, pagination.page());
+    info!(
+        "Listing agents for user: {} (page: {})",
+        user_id,
+        pagination.page()
+    );
 
-    let result = db.agent_storage.list_user_agents_paginated(&user_id, Some(pagination.limit()), Some(pagination.offset()))
+    let result = db
+        .agent_storage
+        .list_user_agents_paginated(
+            &user_id,
+            Some(pagination.limit()),
+            Some(pagination.offset()),
+        )
         .await
         .map(|(user_agents, total)| PaginatedResponse::new(user_agents, &pagination, total));
 
@@ -79,13 +91,17 @@ pub async fn update_agent_activation(
 ) -> impl IntoResponse {
     if request.is_active {
         info!("Activating agent {} for user {}", agent_id, user_id);
-        let result = db.agent_storage.activate_agent(&user_id, &agent_id)
+        let result = db
+            .agent_storage
+            .activate_agent(&user_id, &agent_id)
             .await
             .map(|_| serde_json::json!({"message": "Agent activated successfully"}));
         ok_or_internal_error(result, "Failed to activate agent")
     } else {
         info!("Deactivating agent {} for user {}", agent_id, user_id);
-        let result = db.agent_storage.deactivate_agent(&user_id, &agent_id)
+        let result = db
+            .agent_storage
+            .deactivate_agent(&user_id, &agent_id)
             .await
             .map(|_| serde_json::json!({"message": "Agent deactivated successfully"}));
         ok_or_internal_error(result, "Failed to deactivate agent")

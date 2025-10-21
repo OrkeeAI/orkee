@@ -26,7 +26,10 @@ impl AgentStorage {
         limit: Option<i64>,
         offset: Option<i64>,
     ) -> Result<(Vec<Agent>, i64), StorageError> {
-        debug!("Fetching all agents (limit: {:?}, offset: {:?})", limit, offset);
+        debug!(
+            "Fetching all agents (limit: {:?}, offset: {:?})",
+            limit, offset
+        );
 
         // Get total count
         let count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM agents")
@@ -45,7 +48,7 @@ impl AgentStorage {
                     WHEN 'human' THEN 2
                 END,
                 display_name
-            "#
+            "#,
         );
 
         if let Some(lim) = limit {
@@ -91,16 +94,17 @@ impl AgentStorage {
         limit: Option<i64>,
         offset: Option<i64>,
     ) -> Result<(Vec<UserAgent>, i64), StorageError> {
-        debug!("Fetching user agents for user: {} (limit: {:?}, offset: {:?})", user_id, limit, offset);
+        debug!(
+            "Fetching user agents for user: {} (limit: {:?}, offset: {:?})",
+            user_id, limit, offset
+        );
 
         // Get total count
-        let count: i64 = sqlx::query_scalar(
-            "SELECT COUNT(*) FROM user_agents WHERE user_id = ?",
-        )
-        .bind(user_id)
-        .fetch_one(&self.pool)
-        .await
-        .map_err(StorageError::Sqlx)?;
+        let count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM user_agents WHERE user_id = ?")
+            .bind(user_id)
+            .fetch_one(&self.pool)
+            .await
+            .map_err(StorageError::Sqlx)?;
 
         // Build query with optional pagination
         let mut query = String::from(
@@ -112,7 +116,7 @@ impl AgentStorage {
             JOIN agents a ON ua.agent_id = a.id
             WHERE ua.user_id = ?
             ORDER BY ua.is_favorite DESC, a.display_name
-            "#
+            "#,
         );
 
         if let Some(lim) = limit {

@@ -21,11 +21,20 @@ pub async fn list_changes(
     Path(project_id): Path<String>,
     Query(pagination): Query<PaginationParams>,
 ) -> impl IntoResponse {
-    info!("Listing changes for project: {} (page: {})", project_id, pagination.page());
+    info!(
+        "Listing changes for project: {} (page: {})",
+        project_id,
+        pagination.page()
+    );
 
-    let result = openspec_db::get_spec_changes_by_project_paginated(&db.pool, &project_id, Some(pagination.limit()), Some(pagination.offset()))
-        .await
-        .map(|(changes, total)| PaginatedResponse::new(changes, &pagination, total));
+    let result = openspec_db::get_spec_changes_by_project_paginated(
+        &db.pool,
+        &project_id,
+        Some(pagination.limit()),
+        Some(pagination.offset()),
+    )
+    .await
+    .map(|(changes, total)| PaginatedResponse::new(changes, &pagination, total));
 
     ok_or_internal_error(result, "Failed to list changes")
 }
@@ -111,11 +120,20 @@ pub async fn get_change_deltas(
     Path((_project_id, change_id)): Path<(String, String)>,
     Query(pagination): Query<PaginationParams>,
 ) -> impl IntoResponse {
-    info!("Getting deltas for change: {} (page: {})", change_id, pagination.page());
+    info!(
+        "Getting deltas for change: {} (page: {})",
+        change_id,
+        pagination.page()
+    );
 
-    let result = openspec_db::get_deltas_by_change_paginated(&db.pool, &change_id, Some(pagination.limit()), Some(pagination.offset()))
-        .await
-        .map(|(deltas, total)| PaginatedResponse::new(deltas, &pagination, total));
+    let result = openspec_db::get_deltas_by_change_paginated(
+        &db.pool,
+        &change_id,
+        Some(pagination.limit()),
+        Some(pagination.offset()),
+    )
+    .await
+    .map(|(deltas, total)| PaginatedResponse::new(deltas, &pagination, total));
 
     ok_or_internal_error(result, "Failed to get change deltas")
 }

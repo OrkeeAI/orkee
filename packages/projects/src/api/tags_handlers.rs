@@ -36,7 +36,11 @@ pub async fn list_tags(
 
     let result = db
         .tag_storage
-        .list_tags_paginated(params.include_archived, Some(params.pagination.limit()), Some(params.pagination.offset()))
+        .list_tags_paginated(
+            params.include_archived,
+            Some(params.pagination.limit()),
+            Some(params.pagination.offset()),
+        )
         .await
         .map(|(tags, total)| PaginatedResponse::new(tags, &params.pagination, total));
 
@@ -140,6 +144,10 @@ pub async fn delete_tag(
 ) -> impl IntoResponse {
     info!("Deleting tag: {}", tag_id);
 
-    let result = db.tag_storage.delete_tag(&tag_id).await.map(|_| "Tag deleted successfully");
+    let result = db
+        .tag_storage
+        .delete_tag(&tag_id)
+        .await
+        .map(|_| "Tag deleted successfully");
     ok_or_internal_error(result, "Failed to delete tag")
 }

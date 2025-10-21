@@ -69,9 +69,7 @@ pub async fn setup_test_server() -> TestContext {
         .with_state(db_state);
 
     // Bind to random available port
-    let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
-        .await
-        .unwrap();
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let addr = listener.local_addr().unwrap();
     let base_url = format!("http://{}", addr);
 

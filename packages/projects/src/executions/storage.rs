@@ -38,20 +38,22 @@ impl ExecutionStorage {
         limit: Option<i64>,
         offset: Option<i64>,
     ) -> Result<(Vec<AgentExecution>, i64), StorageError> {
-        debug!("Fetching executions for task: {} (limit: {:?}, offset: {:?})", task_id, limit, offset);
+        debug!(
+            "Fetching executions for task: {} (limit: {:?}, offset: {:?})",
+            task_id, limit, offset
+        );
 
         // Get total count
-        let count: i64 = sqlx::query_scalar(
-            "SELECT COUNT(*) FROM agent_executions WHERE task_id = ?",
-        )
-        .bind(task_id)
-        .fetch_one(&self.pool)
-        .await
-        .map_err(StorageError::Sqlx)?;
+        let count: i64 =
+            sqlx::query_scalar("SELECT COUNT(*) FROM agent_executions WHERE task_id = ?")
+                .bind(task_id)
+                .fetch_one(&self.pool)
+                .await
+                .map_err(StorageError::Sqlx)?;
 
         // Build query with optional pagination
         let mut query = String::from(
-            "SELECT * FROM agent_executions WHERE task_id = ? ORDER BY started_at DESC"
+            "SELECT * FROM agent_executions WHERE task_id = ? ORDER BY started_at DESC",
         );
 
         if let Some(lim) = limit {
@@ -67,7 +69,8 @@ impl ExecutionStorage {
             .await
             .map_err(StorageError::Sqlx)?;
 
-        let executions = rows.iter()
+        let executions = rows
+            .iter()
             .map(|row| self.row_to_execution(row))
             .collect::<Result<Vec<_>, _>>()?;
 

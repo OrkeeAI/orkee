@@ -28,7 +28,10 @@ impl TaskStorage {
         limit: Option<i64>,
         offset: Option<i64>,
     ) -> Result<(Vec<Task>, i64), StorageError> {
-        debug!("Fetching tasks for project: {} (limit: {:?}, offset: {:?})", project_id, limit, offset);
+        debug!(
+            "Fetching tasks for project: {} (limit: {:?}, offset: {:?})",
+            project_id, limit, offset
+        );
 
         // Get total count
         let count: i64 = sqlx::query_scalar(

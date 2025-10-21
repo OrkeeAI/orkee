@@ -10,7 +10,7 @@ use serde::Deserialize;
 use tracing::info;
 
 use super::auth::CurrentUser;
-use super::response::{ok_or_internal_error};
+use super::response::ok_or_internal_error;
 use crate::db::DbState;
 use crate::users::{MaskedUser, UserUpdateInput};
 
@@ -18,9 +18,10 @@ use crate::users::{MaskedUser, UserUpdateInput};
 pub async fn get_current_user(State(db): State<DbState>) -> impl IntoResponse {
     info!("Getting current user");
 
-    let result = db.user_storage.get_current_user()
-        .await
-        .map(|user| { let masked: MaskedUser = user.into(); masked });
+    let result = db.user_storage.get_current_user().await.map(|user| {
+        let masked: MaskedUser = user.into();
+        masked
+    });
 
     ok_or_internal_error(result, "Failed to get current user")
 }
@@ -74,7 +75,9 @@ pub async fn update_theme(
 ) -> impl IntoResponse {
     info!("Updating theme for user {}", user_id);
 
-    let result = db.user_storage.update_theme(&user_id, &request.theme)
+    let result = db
+        .user_storage
+        .update_theme(&user_id, &request.theme)
         .await
         .map(|_| serde_json::json!({"message": "Theme updated successfully"}));
 
@@ -175,7 +178,10 @@ pub async fn update_credentials(
         .user_storage
         .update_credentials(&current_user.id, input)
         .await
-        .map(|user| { let masked: MaskedUser = user.into(); masked });
+        .map(|user| {
+            let masked: MaskedUser = user.into();
+            masked
+        });
 
     ok_or_internal_error(result, "Failed to update credentials")
 }

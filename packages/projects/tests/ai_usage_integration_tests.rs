@@ -75,11 +75,7 @@ async fn test_list_logs_with_model_filter() {
     let ctx = setup_test_server().await;
 
     // List logs filtered by model
-    let response = get(
-        &ctx.base_url,
-        "/logs?model=claude-3-5-sonnet-20241022",
-    )
-    .await;
+    let response = get(&ctx.base_url, "/logs?model=claude-3-5-sonnet-20241022").await;
 
     assert_eq!(response.status(), 200);
 

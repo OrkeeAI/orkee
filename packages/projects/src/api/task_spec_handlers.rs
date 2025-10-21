@@ -136,7 +136,11 @@ pub async fn find_orphan_tasks(
     Path(project_id): Path<String>,
     Query(pagination): Query<PaginationParams>,
 ) -> impl IntoResponse {
-    info!("Finding orphan tasks for project: {} (page: {})", project_id, pagination.page());
+    info!(
+        "Finding orphan tasks for project: {} (page: {})",
+        project_id,
+        pagination.page()
+    );
 
     // Get total count
     let count_query = r#"
@@ -156,10 +160,7 @@ pub async fn find_orphan_tasks(
     let total = match total_result {
         Ok(count) => count,
         Err(e) => {
-            return ok_or_internal_error(
-                Err::<(), _>(e),
-                "Failed to count orphan tasks"
-            );
+            return ok_or_internal_error(Err::<(), _>(e), "Failed to count orphan tasks");
         }
     };
 

@@ -21,11 +21,20 @@ pub async fn list_prds(
     Path(project_id): Path<String>,
     Query(pagination): Query<PaginationParams>,
 ) -> impl IntoResponse {
-    info!("Listing PRDs for project: {} (page: {})", project_id, pagination.page());
+    info!(
+        "Listing PRDs for project: {} (page: {})",
+        project_id,
+        pagination.page()
+    );
 
-    let result = openspec_db::get_prds_by_project_paginated(&db.pool, &project_id, Some(pagination.limit()), Some(pagination.offset()))
-        .await
-        .map(|(prds, total)| PaginatedResponse::new(prds, &pagination, total));
+    let result = openspec_db::get_prds_by_project_paginated(
+        &db.pool,
+        &project_id,
+        Some(pagination.limit()),
+        Some(pagination.offset()),
+    )
+    .await
+    .map(|(prds, total)| PaginatedResponse::new(prds, &pagination, total));
 
     ok_or_internal_error(result, "Failed to list PRDs")
 }
@@ -127,11 +136,20 @@ pub async fn get_prd_capabilities(
     Path((_project_id, prd_id)): Path<(String, String)>,
     Query(pagination): Query<PaginationParams>,
 ) -> impl IntoResponse {
-    info!("Getting capabilities for PRD: {} (page: {})", prd_id, pagination.page());
+    info!(
+        "Getting capabilities for PRD: {} (page: {})",
+        prd_id,
+        pagination.page()
+    );
 
-    let result = openspec_db::get_capabilities_by_prd_paginated(&db.pool, &prd_id, Some(pagination.limit()), Some(pagination.offset()))
-        .await
-        .map(|(capabilities, total)| PaginatedResponse::new(capabilities, &pagination, total));
+    let result = openspec_db::get_capabilities_by_prd_paginated(
+        &db.pool,
+        &prd_id,
+        Some(pagination.limit()),
+        Some(pagination.offset()),
+    )
+    .await
+    .map(|(capabilities, total)| PaginatedResponse::new(capabilities, &pagination, total));
 
     ok_or_internal_error(result, "Failed to get PRD capabilities")
 }

@@ -19,7 +19,9 @@ impl TagStorage {
 
     /// List all tags, optionally including archived tags
     pub async fn list_tags(&self, include_archived: bool) -> Result<Vec<Tag>, StorageError> {
-        let (tags, _) = self.list_tags_paginated(include_archived, None, None).await?;
+        let (tags, _) = self
+            .list_tags_paginated(include_archived, None, None)
+            .await?;
         Ok(tags)
     }
 
@@ -30,7 +32,10 @@ impl TagStorage {
         limit: Option<i64>,
         offset: Option<i64>,
     ) -> Result<(Vec<Tag>, i64), StorageError> {
-        debug!("Fetching tags (include_archived: {}, limit: {:?}, offset: {:?})", include_archived, limit, offset);
+        debug!(
+            "Fetching tags (include_archived: {}, limit: {:?}, offset: {:?})",
+            include_archived, limit, offset
+        );
 
         // Get total count
         let count_query = if include_archived {

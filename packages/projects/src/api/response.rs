@@ -55,7 +55,6 @@ impl IntoResponse for StorageError {
 }
 
 /// Helper functions to reduce error handling boilerplate in handlers
-
 /// Convert a Result into an HTTP response with OK (200) status on success
 /// or INTERNAL_SERVER_ERROR (500) status on failure
 pub fn ok_or_internal_error<T, E>(
@@ -70,7 +69,10 @@ where
         Ok(data) => (StatusCode::OK, ResponseJson(ApiResponse::success(data))).into_response(),
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
-            ResponseJson(ApiResponse::<()>::error(format!("{}: {}", error_context, e))),
+            ResponseJson(ApiResponse::<()>::error(format!(
+                "{}: {}",
+                error_context, e
+            ))),
         )
             .into_response(),
     }
@@ -87,10 +89,17 @@ where
     E: std::fmt::Display,
 {
     match result {
-        Ok(data) => (StatusCode::CREATED, ResponseJson(ApiResponse::success(data))).into_response(),
+        Ok(data) => (
+            StatusCode::CREATED,
+            ResponseJson(ApiResponse::success(data)),
+        )
+            .into_response(),
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
-            ResponseJson(ApiResponse::<()>::error(format!("{}: {}", error_context, e))),
+            ResponseJson(ApiResponse::<()>::error(format!(
+                "{}: {}",
+                error_context, e
+            ))),
         )
             .into_response(),
     }
@@ -98,10 +107,7 @@ where
 
 /// Convert a Result into an HTTP response with OK (200) status on success
 /// or NOT_FOUND (404) status on failure
-pub fn ok_or_not_found<T, E>(
-    result: Result<T, E>,
-    error_context: &str,
-) -> axum::response::Response
+pub fn ok_or_not_found<T, E>(result: Result<T, E>, error_context: &str) -> axum::response::Response
 where
     T: serde::Serialize,
     E: std::fmt::Display,
@@ -110,7 +116,10 @@ where
         Ok(data) => (StatusCode::OK, ResponseJson(ApiResponse::success(data))).into_response(),
         Err(e) => (
             StatusCode::NOT_FOUND,
-            ResponseJson(ApiResponse::<()>::error(format!("{}: {}", error_context, e))),
+            ResponseJson(ApiResponse::<()>::error(format!(
+                "{}: {}",
+                error_context, e
+            ))),
         )
             .into_response(),
     }
@@ -177,7 +186,10 @@ mod tests {
         let json = response_body_to_json(response).await;
         assert_eq!(json["success"], false);
         assert_eq!(json["data"], serde_json::Value::Null);
-        assert_eq!(json["error"], "Failed to create resource: validation failed");
+        assert_eq!(
+            json["error"],
+            "Failed to create resource: validation failed"
+        );
     }
 
     #[tokio::test]
@@ -188,7 +200,10 @@ mod tests {
             name: String,
         }
 
-        let result: Result<TestData, String> = Ok(TestData { id: 1, name: "test".to_string() });
+        let result: Result<TestData, String> = Ok(TestData {
+            id: 1,
+            name: "test".to_string(),
+        });
         let response = ok_or_not_found(result, "Resource not found");
 
         assert_eq!(response.status(), StatusCode::OK);

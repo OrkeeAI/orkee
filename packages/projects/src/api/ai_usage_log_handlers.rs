@@ -9,7 +9,7 @@ use chrono::{DateTime, Utc};
 use serde::Deserialize;
 use tracing::info;
 
-use super::response::{ok_or_internal_error};
+use super::response::ok_or_internal_error;
 use crate::ai_usage_logs::AiUsageQuery;
 use crate::db::DbState;
 

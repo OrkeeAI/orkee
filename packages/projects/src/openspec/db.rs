@@ -81,12 +81,11 @@ pub async fn get_prds_by_project_paginated(
     offset: Option<i64>,
 ) -> DbResult<(Vec<PRD>, i64)> {
     // Get total count
-    let count: i64 = sqlx::query_scalar(
-        "SELECT COUNT(*) FROM prds WHERE project_id = ? AND deleted_at IS NULL",
-    )
-    .bind(project_id)
-    .fetch_one(pool)
-    .await?;
+    let count: i64 =
+        sqlx::query_scalar("SELECT COUNT(*) FROM prds WHERE project_id = ? AND deleted_at IS NULL")
+            .bind(project_id)
+            .fetch_one(pool)
+            .await?;
 
     // Build query with optional pagination
     let mut query_str = String::from(
@@ -229,11 +228,13 @@ pub async fn create_capability(
 
 /// Get a capability by ID
 pub async fn get_capability(pool: &Pool<Sqlite>, id: &str) -> DbResult<SpecCapability> {
-    sqlx::query_as::<_, SpecCapability>("SELECT * FROM spec_capabilities WHERE id = ? AND deleted_at IS NULL")
-        .bind(id)
-        .fetch_optional(pool)
-        .await?
-        .ok_or_else(|| DbError::NotFound(format!("Capability not found: {}", id)))
+    sqlx::query_as::<_, SpecCapability>(
+        "SELECT * FROM spec_capabilities WHERE id = ? AND deleted_at IS NULL",
+    )
+    .bind(id)
+    .fetch_optional(pool)
+    .await?
+    .ok_or_else(|| DbError::NotFound(format!("Capability not found: {}", id)))
 }
 
 /// Get all capabilities for a project
@@ -241,7 +242,8 @@ pub async fn get_capabilities_by_project(
     pool: &Pool<Sqlite>,
     project_id: &str,
 ) -> DbResult<Vec<SpecCapability>> {
-    let (capabilities, _) = get_capabilities_by_project_paginated(pool, project_id, None, None).await?;
+    let (capabilities, _) =
+        get_capabilities_by_project_paginated(pool, project_id, None, None).await?;
     Ok(capabilities)
 }
 
@@ -465,11 +467,13 @@ pub async fn update_capability_requirement_count(
 /// Soft delete a capability
 pub async fn delete_capability(pool: &Pool<Sqlite>, id: &str) -> DbResult<()> {
     let now = Utc::now();
-    let result = sqlx::query("UPDATE spec_capabilities SET deleted_at = ? WHERE id = ? AND deleted_at IS NULL")
-        .bind(now)
-        .bind(id)
-        .execute(pool)
-        .await?;
+    let result = sqlx::query(
+        "UPDATE spec_capabilities SET deleted_at = ? WHERE id = ? AND deleted_at IS NULL",
+    )
+    .bind(now)
+    .bind(id)
+    .execute(pool)
+    .await?;
 
     if result.rows_affected() == 0 {
         return Err(DbError::NotFound(format!("Capability not found: {}", id)));
@@ -558,7 +562,8 @@ pub async fn get_requirements_by_capability(
     pool: &Pool<Sqlite>,
     capability_id: &str,
 ) -> DbResult<Vec<SpecRequirement>> {
-    let (requirements, _) = get_requirements_by_capability_paginated(pool, capability_id, None, None).await?;
+    let (requirements, _) =
+        get_requirements_by_capability_paginated(pool, capability_id, None, None).await?;
     Ok(requirements)
 }
 
@@ -570,17 +575,15 @@ pub async fn get_requirements_by_capability_paginated(
     offset: Option<i64>,
 ) -> DbResult<(Vec<SpecRequirement>, i64)> {
     // Get total count
-    let count: i64 = sqlx::query_scalar(
-        "SELECT COUNT(*) FROM spec_requirements WHERE capability_id = ?",
-    )
-    .bind(capability_id)
-    .fetch_one(pool)
-    .await?;
+    let count: i64 =
+        sqlx::query_scalar("SELECT COUNT(*) FROM spec_requirements WHERE capability_id = ?")
+            .bind(capability_id)
+            .fetch_one(pool)
+            .await?;
 
     // Build query with optional pagination
-    let mut query_str = String::from(
-        "SELECT * FROM spec_requirements WHERE capability_id = ? ORDER BY position",
-    );
+    let mut query_str =
+        String::from("SELECT * FROM spec_requirements WHERE capability_id = ? ORDER BY position");
 
     if let Some(lim) = limit {
         query_str.push_str(&format!(" LIMIT {}", lim));
@@ -768,11 +771,13 @@ pub async fn create_spec_change(
 
 /// Get spec change by ID
 pub async fn get_spec_change(pool: &Pool<Sqlite>, id: &str) -> DbResult<SpecChange> {
-    sqlx::query_as::<_, SpecChange>("SELECT * FROM spec_changes WHERE id = ? AND deleted_at IS NULL")
-        .bind(id)
-        .fetch_optional(pool)
-        .await?
-        .ok_or_else(|| DbError::NotFound(format!("Spec change not found: {}", id)))
+    sqlx::query_as::<_, SpecChange>(
+        "SELECT * FROM spec_changes WHERE id = ? AND deleted_at IS NULL",
+    )
+    .bind(id)
+    .fetch_optional(pool)
+    .await?
+    .ok_or_else(|| DbError::NotFound(format!("Spec change not found: {}", id)))
 }
 
 /// Get spec changes by project
@@ -861,11 +866,12 @@ pub async fn update_spec_change_status(
 /// Soft delete a spec change
 pub async fn delete_spec_change(pool: &Pool<Sqlite>, id: &str) -> DbResult<()> {
     let now = Utc::now();
-    let result = sqlx::query("UPDATE spec_changes SET deleted_at = ? WHERE id = ? AND deleted_at IS NULL")
-        .bind(now)
-        .bind(id)
-        .execute(pool)
-        .await?;
+    let result =
+        sqlx::query("UPDATE spec_changes SET deleted_at = ? WHERE id = ? AND deleted_at IS NULL")
+            .bind(now)
+            .bind(id)
+            .execute(pool)
+            .await?;
 
     if result.rows_affected() == 0 {
         return Err(DbError::NotFound(format!("Spec change not found: {}", id)));
@@ -956,17 +962,14 @@ pub async fn get_deltas_by_change_paginated(
     offset: Option<i64>,
 ) -> DbResult<(Vec<SpecDelta>, i64)> {
     // Get total count
-    let count: i64 = sqlx::query_scalar(
-        "SELECT COUNT(*) FROM spec_deltas WHERE change_id = ?",
-    )
-    .bind(change_id)
-    .fetch_one(pool)
-    .await?;
+    let count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM spec_deltas WHERE change_id = ?")
+        .bind(change_id)
+        .fetch_one(pool)
+        .await?;
 
     // Build query with optional pagination
-    let mut query_str = String::from(
-        "SELECT * FROM spec_deltas WHERE change_id = ? ORDER BY position",
-    );
+    let mut query_str =
+        String::from("SELECT * FROM spec_deltas WHERE change_id = ? ORDER BY position");
 
     if let Some(lim) = limit {
         query_str.push_str(&format!(" LIMIT {}", lim));
@@ -1008,10 +1011,12 @@ mod tests {
             .await
             .unwrap();
 
-        sqlx::query(include_str!("../../migrations/20250124000000_add_soft_delete.sql"))
-            .execute(&pool)
-            .await
-            .unwrap();
+        sqlx::query(include_str!(
+            "../../migrations/20250124000000_add_soft_delete.sql"
+        ))
+        .execute(&pool)
+        .await
+        .unwrap();
 
         pool
     }

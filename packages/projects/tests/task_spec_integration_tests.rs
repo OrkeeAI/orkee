@@ -10,11 +10,7 @@ use serde_json::json;
 const DEFAULT_TAG_ID: &str = "tag-main";
 
 // Helper function to create a test task
-async fn create_test_task(
-    pool: &sqlx::SqlitePool,
-    project_id: &str,
-    title: &str,
-) -> String {
+async fn create_test_task(pool: &sqlx::SqlitePool, project_id: &str, title: &str) -> String {
     let task_id = nanoid::nanoid!(8);
     let created_at = chrono::Utc::now().format("%Y-%m-%dT%H:%M:%SZ").to_string();
     sqlx::query(
@@ -37,11 +33,7 @@ async fn create_test_task(
 }
 
 // Helper function to create a test capability
-async fn create_test_capability(
-    pool: &sqlx::SqlitePool,
-    project_id: &str,
-    name: &str,
-) -> String {
+async fn create_test_capability(pool: &sqlx::SqlitePool, project_id: &str, name: &str) -> String {
     let cap_id = nanoid::nanoid!(8);
     sqlx::query(
         "INSERT INTO spec_capabilities (id, project_id, name, spec_markdown, status) VALUES (?, ?, ?, ?, ?)",
