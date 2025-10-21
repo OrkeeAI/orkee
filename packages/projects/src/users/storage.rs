@@ -16,8 +16,9 @@ pub struct UserStorage {
 
 impl UserStorage {
     pub fn new(pool: SqlitePool) -> Result<Self, StorageError> {
-        let encryption = ApiKeyEncryption::new()
-            .map_err(|e| StorageError::Encryption(format!("Failed to initialize encryption: {}", e)))?;
+        let encryption = ApiKeyEncryption::new().map_err(|e| {
+            StorageError::Encryption(format!("Failed to initialize encryption: {}", e))
+        })?;
         Ok(Self { pool, encryption })
     }
 
@@ -88,33 +89,38 @@ impl UserStorage {
     ) -> Result<User, StorageError> {
         debug!("Updating credentials for user: {}", user_id);
 
-        let mut query_builder = QueryBuilder::new("UPDATE users SET updated_at = datetime('now', 'utc')");
+        let mut query_builder =
+            QueryBuilder::new("UPDATE users SET updated_at = datetime('now', 'utc')");
         let mut has_updates = false;
 
         if let Some(key) = &input.openai_api_key {
-            let encrypted = self.encryption.encrypt(key)
-                .map_err(|e| StorageError::Encryption(format!("Failed to encrypt OpenAI API key: {}", e)))?;
+            let encrypted = self.encryption.encrypt(key).map_err(|e| {
+                StorageError::Encryption(format!("Failed to encrypt OpenAI API key: {}", e))
+            })?;
             query_builder.push(", openai_api_key = ");
             query_builder.push_bind(encrypted);
             has_updates = true;
         }
         if let Some(key) = &input.anthropic_api_key {
-            let encrypted = self.encryption.encrypt(key)
-                .map_err(|e| StorageError::Encryption(format!("Failed to encrypt Anthropic API key: {}", e)))?;
+            let encrypted = self.encryption.encrypt(key).map_err(|e| {
+                StorageError::Encryption(format!("Failed to encrypt Anthropic API key: {}", e))
+            })?;
             query_builder.push(", anthropic_api_key = ");
             query_builder.push_bind(encrypted);
             has_updates = true;
         }
         if let Some(key) = &input.google_api_key {
-            let encrypted = self.encryption.encrypt(key)
-                .map_err(|e| StorageError::Encryption(format!("Failed to encrypt Google API key: {}", e)))?;
+            let encrypted = self.encryption.encrypt(key).map_err(|e| {
+                StorageError::Encryption(format!("Failed to encrypt Google API key: {}", e))
+            })?;
             query_builder.push(", google_api_key = ");
             query_builder.push_bind(encrypted);
             has_updates = true;
         }
         if let Some(key) = &input.xai_api_key {
-            let encrypted = self.encryption.encrypt(key)
-                .map_err(|e| StorageError::Encryption(format!("Failed to encrypt xAI API key: {}", e)))?;
+            let encrypted = self.encryption.encrypt(key).map_err(|e| {
+                StorageError::Encryption(format!("Failed to encrypt xAI API key: {}", e))
+            })?;
             query_builder.push(", xai_api_key = ");
             query_builder.push_bind(encrypted);
             has_updates = true;
@@ -130,8 +136,9 @@ impl UserStorage {
             has_updates = true;
         }
         if let Some(key) = &input.ai_gateway_key {
-            let encrypted = self.encryption.encrypt(key)
-                .map_err(|e| StorageError::Encryption(format!("Failed to encrypt AI gateway key: {}", e)))?;
+            let encrypted = self.encryption.encrypt(key).map_err(|e| {
+                StorageError::Encryption(format!("Failed to encrypt AI gateway key: {}", e))
+            })?;
             query_builder.push(", ai_gateway_key = ");
             query_builder.push_bind(encrypted);
             has_updates = true;
@@ -195,9 +202,9 @@ impl UserStorage {
                 Some(value) if !value.is_empty() => {
                     if ApiKeyEncryption::is_encrypted(&value) {
                         // Encrypted key - decrypt it
-                        self.encryption.decrypt(&value)
-                            .map(Some)
-                            .map_err(|e| StorageError::Encryption(format!("Failed to decrypt API key: {}", e)))
+                        self.encryption.decrypt(&value).map(Some).map_err(|e| {
+                            StorageError::Encryption(format!("Failed to decrypt API key: {}", e))
+                        })
                     } else {
                         // Plaintext key - return as-is for backward compatibility
                         Ok(Some(value))

@@ -28,8 +28,8 @@ const MAX_DOCUMENT_SIZE: usize = 1_048_576;
 
 /// Dangerous HTML tags that should be rejected
 const DANGEROUS_TAGS: &[&str] = &[
-    "<script", "<iframe", "<object", "<embed", "<link", "<style",
-    "<meta", "<base", "<form", "<input", "<button",
+    "<script", "<iframe", "<object", "<embed", "<link", "<style", "<meta", "<base", "<form",
+    "<input", "<button",
 ];
 
 /// Dangerous URL protocols

@@ -19,7 +19,10 @@ fn build_error_response(status: StatusCode, message: String) -> Response<Body> {
         .status(status)
         .body(Body::from(message.clone()))
         .unwrap_or_else(|e| {
-            warn!("Failed to build error response: {}. Original message: {}", e, message);
+            warn!(
+                "Failed to build error response: {}. Original message: {}",
+                e, message
+            );
             Response::new(Body::from("Internal server error"))
         })
 }
@@ -30,7 +33,14 @@ pub async fn proxy_anthropic(
     current_user: CurrentUser,
     req: Request<Body>,
 ) -> impl IntoResponse {
-    proxy_ai_request(&db, &current_user.id, "anthropic", "https://api.anthropic.com", req).await
+    proxy_ai_request(
+        &db,
+        &current_user.id,
+        "anthropic",
+        "https://api.anthropic.com",
+        req,
+    )
+    .await
 }
 
 /// Proxy requests to OpenAI API with API key from database
@@ -39,7 +49,14 @@ pub async fn proxy_openai(
     current_user: CurrentUser,
     req: Request<Body>,
 ) -> impl IntoResponse {
-    proxy_ai_request(&db, &current_user.id, "openai", "https://api.openai.com", req).await
+    proxy_ai_request(
+        &db,
+        &current_user.id,
+        "openai",
+        "https://api.openai.com",
+        req,
+    )
+    .await
 }
 
 /// Proxy requests to Google AI API with API key from database
@@ -189,13 +206,11 @@ async fn proxy_ai_request(
         builder = builder.header(key, value);
     }
 
-    builder
-        .body(Body::from(body_bytes))
-        .unwrap_or_else(|e| {
-            error!("Failed to build final response: {}", e);
-            build_error_response(
-                StatusCode::INTERNAL_SERVER_ERROR,
-                "Failed to build response from AI provider".to_string(),
-            )
-        })
+    builder.body(Body::from(body_bytes)).unwrap_or_else(|e| {
+        error!("Failed to build final response: {}", e);
+        build_error_response(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "Failed to build response from AI provider".to_string(),
+        )
+    })
 }

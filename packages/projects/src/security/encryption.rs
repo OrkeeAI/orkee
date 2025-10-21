@@ -48,8 +48,9 @@ pub struct ApiKeyEncryption {
 impl ApiKeyEncryption {
     /// Create new encryption service with machine-derived key
     pub fn new() -> Result<Self, EncryptionError> {
-        let machine_id = machine_uid::get()
-            .map_err(|e| EncryptionError::KeyDerivation(format!("Failed to get machine ID: {}", e)))?;
+        let machine_id = machine_uid::get().map_err(|e| {
+            EncryptionError::KeyDerivation(format!("Failed to get machine ID: {}", e))
+        })?;
 
         // Derive 256-bit key from machine ID + app salt using BLAKE2b
         let mut key_material = Vec::with_capacity(machine_id.len() + APP_SALT.len());
@@ -82,9 +83,9 @@ impl ApiKeyEncryption {
 
         // Generate random nonce
         let mut nonce_bytes = [0u8; NONCE_SIZE];
-        self.rng
-            .fill(&mut nonce_bytes)
-            .map_err(|_| EncryptionError::RandomGeneration("Failed to generate nonce".to_string()))?;
+        self.rng.fill(&mut nonce_bytes).map_err(|_| {
+            EncryptionError::RandomGeneration("Failed to generate nonce".to_string())
+        })?;
 
         let nonce = Nonce::try_assume_unique_for_key(&nonce_bytes)?;
 
