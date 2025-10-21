@@ -47,7 +47,7 @@ orkee-cloud = { path = "../cloud", optional = true }
 # Network & Utilities
 mime = "0.3"
 nanoid = "0.4.0"
-reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"] }
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "json"] }
 url = "2.5"
 
 [features]

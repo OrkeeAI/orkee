@@ -19,6 +19,39 @@ impl AiUsageLogStorage {
         Self { pool }
     }
 
+    /// Create a new AI usage log entry
+    pub async fn create_log(&self, log: &AiUsageLog) -> Result<AiUsageLog, StorageError> {
+        let created_at_str = log.created_at.to_rfc3339();
+
+        sqlx::query(
+            r#"
+            INSERT INTO ai_usage_logs (
+                id, project_id, request_id, operation, model, provider,
+                input_tokens, output_tokens, total_tokens, estimated_cost,
+                duration_ms, error, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            "#,
+        )
+        .bind(&log.id)
+        .bind(&log.project_id)
+        .bind(&log.request_id)
+        .bind(&log.operation)
+        .bind(&log.model)
+        .bind(&log.provider)
+        .bind(log.input_tokens)
+        .bind(log.output_tokens)
+        .bind(log.total_tokens)
+        .bind(log.estimated_cost)
+        .bind(log.duration_ms)
+        .bind(&log.error)
+        .bind(&created_at_str)
+        .execute(&self.pool)
+        .await
+        .map_err(StorageError::Sqlx)?;
+
+        Ok(log.clone())
+    }
+
     /// List AI usage logs with optional filtering
     pub async fn list_logs(&self, query: AiUsageQuery) -> Result<Vec<AiUsageLog>, StorageError> {
         let mut sql = String::from("SELECT * FROM ai_usage_logs WHERE 1=1");

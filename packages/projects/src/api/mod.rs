@@ -225,7 +225,7 @@ pub fn create_task_spec_router() -> Router<DbState> {
 }
 
 /// Creates the AI proxy API router for AI-powered operations
-pub fn create_ai_router() -> Router {
+pub fn create_ai_router() -> Router<DbState> {
     Router::new()
         .route("/ai/analyze-prd", post(ai_handlers::analyze_prd))
         .route("/ai/generate-spec", post(ai_handlers::generate_spec))

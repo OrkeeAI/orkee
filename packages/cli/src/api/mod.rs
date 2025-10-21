@@ -243,7 +243,10 @@ pub async fn create_router_with_options(dashboard_path: Option<std::path::PathBu
             "/api",
             orkee_projects::create_task_spec_router().with_state(db_state.clone()),
         )
-        .nest("/api", orkee_projects::create_ai_router())
+        .nest(
+            "/api",
+            orkee_projects::create_ai_router().with_state(db_state.clone()),
+        )
         .nest(
             "/api/ai-usage",
             orkee_projects::create_ai_usage_router().with_state(db_state),

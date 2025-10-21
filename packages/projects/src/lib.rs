@@ -4,6 +4,7 @@
 //! for managing development projects with persistent storage.
 
 pub mod agents;
+pub mod ai_service;
 pub mod ai_usage_logs;
 pub mod api;
 pub mod constants;
