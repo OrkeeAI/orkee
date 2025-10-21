@@ -211,7 +211,7 @@ async fn proxy_ai_request(
             error!("Failed to get {} API key: {}", provider, e);
             return build_error_response(
                 StatusCode::INTERNAL_SERVER_ERROR,
-                format!("Failed to retrieve API key: {}", e),
+                "Failed to retrieve API key. Please check server logs for details.".to_string(),
             );
         }
     };
@@ -337,7 +337,7 @@ async fn proxy_ai_request(
             error!("Failed to proxy request to {}: {}", provider, e);
             return build_error_response(
                 StatusCode::BAD_GATEWAY,
-                format!("Failed to connect to {} API: {}", provider, e),
+                format!("Failed to connect to {} API. Please check server logs for details.", provider),
             );
         }
     };
