@@ -3,7 +3,6 @@
 
 import { apiRequest } from './api';
 import type { PaginationParams, PaginatedResponse } from '@/types/pagination';
-import { buildPaginationQuery } from '@/types/pagination';
 
 export interface Tag {
   id: string;

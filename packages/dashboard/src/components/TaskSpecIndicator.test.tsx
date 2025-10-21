@@ -20,7 +20,7 @@ vi.mock('@/components/ui/badge', () => ({
 
 // Mock Button component
 vi.mock('@/components/ui/button', () => ({
-  Button: ({ children, onClick, variant, size, className, asChild }: any) => (
+  Button: ({ children, onClick, variant, size, className }: any) => (
     <button onClick={onClick} data-variant={variant} data-size={size} className={className}>
       {children}
     </button>
@@ -31,7 +31,7 @@ vi.mock('@/components/ui/button', () => ({
 vi.mock('@/components/ui/tooltip', () => ({
   TooltipProvider: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
   Tooltip: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-  TooltipTrigger: ({ children, asChild }: { children: React.ReactNode; asChild?: boolean }) => (
+  TooltipTrigger: ({ children }: { children: React.ReactNode }) => (
     <div>{children}</div>
   ),
   TooltipContent: ({ children }: { children: React.ReactNode }) => <div role="tooltip">{children}</div>,
@@ -40,7 +40,7 @@ vi.mock('@/components/ui/tooltip', () => ({
 // Mock Popover components
 vi.mock('@/components/ui/popover', () => ({
   Popover: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-  PopoverTrigger: ({ children, asChild }: { children: React.ReactNode; asChild?: boolean }) => (
+  PopoverTrigger: ({ children }: { children: React.ReactNode }) => (
     <div>{children}</div>
   ),
   PopoverContent: ({ children, className, align }: any) => (
@@ -50,7 +50,7 @@ vi.mock('@/components/ui/popover', () => ({
 
 // Mock TaskSpecLinker component
 vi.mock('./TaskSpecLinker', () => ({
-  TaskSpecLinker: ({ projectId, taskId, taskTitle, open, onOpenChange }: any) => (
+  TaskSpecLinker: ({ taskTitle, open }: any) => (
     <div data-testid="task-spec-linker" data-open={open}>
       TaskSpecLinker: {taskTitle}
     </div>

@@ -107,7 +107,7 @@ describe('ValidationResultsPanel', () => {
 
   describe('Overall assessment display', () => {
     it('should render passed validation with correct badge', () => {
-      const { container } = render(<ValidationResultsPanel validation={mockPassedValidation} />);
+      render(<ValidationResultsPanel validation={mockPassedValidation} />);
 
       expect(screen.getByText('Validation Results')).toBeInTheDocument();
       // Check for "Passed" badge in the header (not in scenario results)
@@ -117,7 +117,7 @@ describe('ValidationResultsPanel', () => {
     });
 
     it('should render failed validation with correct badge', () => {
-      const { container } = render(<ValidationResultsPanel validation={mockFailedValidation} />);
+      render(<ValidationResultsPanel validation={mockFailedValidation} />);
 
       // Check for "Failed" badge
       const failedBadges = screen.getAllByText('Failed');

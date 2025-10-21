@@ -12,7 +12,10 @@
     "dev:tauri": "cd packages/dashboard && bun tauri:dev",
     "dev:web": "cd packages/cli && cargo run --bin orkee -- dashboard --dev",
     "lint": "turbo lint",
-    "test": "turbo test"
+    "test": "turbo test",
+    "check": "./check-ci.sh",
+    "check:fix": "./check-ci.sh --fix",
+    "check:quick": "./check-ci.sh --no-tests"
   },
   "devDependencies": {
     "turbo": "^2.5.6"
