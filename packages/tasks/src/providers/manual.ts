@@ -32,7 +32,9 @@ export class ManualTaskProvider extends BaseTaskProvider {
       throw new Error(data.error || 'Failed to fetch tasks');
     }
 
-    return this.transformTasks(data.data || []);
+    // API returns paginated response: { success, data: { data: [...], pagination: {...} } }
+    const tasks = data.data?.data || data.data || [];
+    return this.transformTasks(tasks);
   }
 
   async createTask(projectPath: string, task: Partial<Task>): Promise<Task> {
