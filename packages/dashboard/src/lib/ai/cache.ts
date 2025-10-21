@@ -10,11 +10,13 @@ interface CacheEntry<T> {
 interface CacheConfig {
   maxEntries: number;
   defaultTTL: number; // in milliseconds
+  cleanupInterval: number; // in milliseconds
 }
 
 const DEFAULT_CONFIG: CacheConfig = {
-  maxEntries: 100,
+  maxEntries: 50,
   defaultTTL: 60 * 60 * 1000, // 1 hour
+  cleanupInterval: 10 * 60 * 1000, // 10 minutes
 };
 
 /**
@@ -25,10 +27,25 @@ export class AICache {
   private config: CacheConfig;
   private hits: number = 0;
   private misses: number = 0;
+  private cleanupTimer: ReturnType<typeof setInterval> | null = null;
 
   constructor(config: Partial<CacheConfig> = {}) {
     this.cache = new Map();
     this.config = { ...DEFAULT_CONFIG, ...config };
+    this.startCleanup();
+  }
+
+  /**
+   * Start periodic cleanup of expired entries
+   */
+  private startCleanup(): void {
+    if (this.cleanupTimer) {
+      clearInterval(this.cleanupTimer);
+    }
+
+    this.cleanupTimer = setInterval(() => {
+      this.prune();
+    }, this.config.cleanupInterval);
   }
 
   /**
@@ -196,6 +213,22 @@ export class AICache {
         this.cache.delete(firstKey);
       }
     }
+
+    // If cleanup interval changed, restart cleanup
+    if (config.cleanupInterval !== undefined) {
+      this.startCleanup();
+    }
+  }
+
+  /**
+   * Stop cleanup timer and clear cache
+   */
+  destroy(): void {
+    if (this.cleanupTimer) {
+      clearInterval(this.cleanupTimer);
+      this.cleanupTimer = null;
+    }
+    this.clear();
   }
 }
 
