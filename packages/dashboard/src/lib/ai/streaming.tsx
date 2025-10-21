@@ -1,6 +1,7 @@
 // ABOUTME: Streaming utilities for AI operations with real-time updates
 // ABOUTME: Provides hooks and utilities for streaming AI responses to the UI
 
+/* eslint-disable react-refresh/only-export-components */
 import { useState, useCallback } from 'react';
 import { streamObject, streamText } from 'ai';
 import { getPreferredModel } from './providers';
