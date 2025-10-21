@@ -98,9 +98,9 @@ jobs:
           key: ${{ runner.os }}-bun-${{ hashFiles('**/bun.lockb') }}
           restore-keys: ${{ runner.os }}-bun-
 
-      - name: Install dashboard dependencies
+      - name: Install workspace dependencies
         run: |
-          cd packages/dashboard
+          # Install at root level to populate root node_modules (required for workspace)
           bun install
 
       - name: Build dashboard frontend

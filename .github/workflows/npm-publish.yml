@@ -20,24 +20,24 @@ jobs:
           node-version: '20'
           registry-url: 'https://registry.npmjs.org'
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@fe02b34f77f8bc703788d5817da081398fad5dd2 # v4.0.0
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@735343b667d3e6f658f44d0eca948eb6282f2b76 # v2.0.2
         with:
-          version: 10.15.1
-      
+          bun-version: "1.2.23"
+
       - name: Sync version from Cargo.toml to package.json
         working-directory: packages/cli
         run: |
           echo "Syncing version from Cargo.toml to package.json..."
           node scripts/sync-version.js
-          
+
           # Show the synced version
           VERSION=$(node -p "require('./package.json').version")
           echo "Publishing version: $VERSION"
-      
+
       - name: Install dependencies
         working-directory: packages/cli
-        run: pnpm install --frozen-lockfile
+        run: bun install
       
       - name: Publish to npm
         working-directory: packages/cli

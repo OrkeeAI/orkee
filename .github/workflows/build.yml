@@ -32,9 +32,9 @@ jobs:
         with:
           bun-version: "1.2.23"
 
-      - name: Install dashboard dependencies
+      - name: Install workspace dependencies
         run: |
-          cd packages/dashboard
+          # Install at root level to populate root node_modules (required for workspace)
           bun install
 
       # NOTE: bun audit temporarily disabled - esbuild dev vulnerability doesn't affect production
@@ -217,12 +217,12 @@ jobs:
       - name: Build Dashboard
         run: |
           echo "Building dashboard production bundle..."
-          cd packages/dashboard
 
-          # Install dependencies
+          # Install workspace dependencies at root (populates root node_modules)
           bun install
 
           # Build production bundle
+          cd packages/dashboard
           bun run build
 
           # Check build output
