@@ -20,6 +20,26 @@ pub enum DbError {
 pub type DbResult<T> = Result<T, DbError>;
 
 // ============================================================================
+// Content Size Limits
+// ============================================================================
+
+/// Maximum size for markdown content fields (1MB)
+const MAX_MARKDOWN_SIZE: usize = 1024 * 1024;
+
+/// Validate markdown content size
+fn validate_content_size(content: &str, field_name: &str) -> DbResult<()> {
+    if content.len() > MAX_MARKDOWN_SIZE {
+        return Err(DbError::InvalidInput(format!(
+            "{} exceeds maximum size of {} bytes (got {} bytes). Consider splitting into multiple documents.",
+            field_name,
+            MAX_MARKDOWN_SIZE,
+            content.len()
+        )));
+    }
+    Ok(())
+}
+
+// ============================================================================
 // PRD Operations
 // ============================================================================
 
@@ -33,6 +53,9 @@ pub async fn create_prd(
     source: PRDSource,
     created_by: Option<&str>,
 ) -> DbResult<PRD> {
+    // Validate content size
+    validate_content_size(content_markdown, "PRD content")?;
+
     let id = crate::storage::generate_project_id();
     let now = Utc::now();
 
@@ -115,6 +138,11 @@ pub async fn update_prd(
     content_markdown: Option<&str>,
     status: Option<PRDStatus>,
 ) -> DbResult<PRD> {
+    // Validate new content size if provided
+    if let Some(content) = content_markdown {
+        validate_content_size(content, "PRD content")?;
+    }
+
     // Get current PRD
     let current = get_prd(pool, id).await?;
 
@@ -199,6 +227,15 @@ pub async fn create_capability(
     spec_markdown: &str,
     design_markdown: Option<&str>,
 ) -> DbResult<SpecCapability> {
+    // Validate content sizes
+    validate_content_size(spec_markdown, "Capability spec")?;
+    if let Some(purpose) = purpose_markdown {
+        validate_content_size(purpose, "Capability purpose")?;
+    }
+    if let Some(design) = design_markdown {
+        validate_content_size(design, "Capability design")?;
+    }
+
     let id = crate::storage::generate_project_id();
     let now = Utc::now();
 
@@ -333,6 +370,20 @@ pub struct CapabilityWithRequirements {
     pub requirements: Vec<SpecRequirement>,
 }
 
+/// Result type for requirement with scenarios
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct RequirementWithScenarios {
+    pub requirement: SpecRequirement,
+    pub scenarios: Vec<SpecScenario>,
+}
+
+/// Result type for capability with requirements and scenarios
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct CapabilityWithRequirementsAndScenarios {
+    pub capability: SpecCapability,
+    pub requirements: Vec<RequirementWithScenarios>,
+}
+
 /// Get a capability with all its requirements in a single query
 pub async fn get_capability_with_requirements(
     pool: &Pool<Sqlite>,
@@ -404,6 +455,121 @@ pub async fn get_capabilities_with_requirements_by_project(
             CapabilityWithRequirements {
                 capability: cap,
                 requirements,
+            }
+        })
+        .collect();
+
+    Ok(result)
+}
+
+/// Get all capabilities with requirements and scenarios for a project (fully optimized)
+/// Loads everything in 3 queries instead of N+1:
+/// 1. Fetch all capabilities
+/// 2. Fetch all requirements for those capabilities
+/// 3. Fetch all scenarios for those requirements
+pub async fn get_capabilities_with_requirements_and_scenarios_by_project(
+    pool: &Pool<Sqlite>,
+    project_id: &str,
+) -> DbResult<Vec<CapabilityWithRequirementsAndScenarios>> {
+    // First, get all capabilities for the project
+    let capabilities = get_capabilities_by_project(pool, project_id).await?;
+
+    if capabilities.is_empty() {
+        return Ok(Vec::new());
+    }
+
+    // Get all capability IDs
+    let capability_ids: Vec<String> = capabilities.iter().map(|c| c.id.clone()).collect();
+
+    // Build query to fetch all requirements for all capabilities at once
+    let placeholders = capability_ids
+        .iter()
+        .map(|_| "?")
+        .collect::<Vec<_>>()
+        .join(",");
+    let query = format!(
+        "SELECT * FROM spec_requirements WHERE capability_id IN ({}) ORDER BY capability_id, position",
+        placeholders
+    );
+
+    // Bind and execute requirements query
+    let mut query_builder = sqlx::query_as::<_, SpecRequirement>(&query);
+    for id in &capability_ids {
+        query_builder = query_builder.bind(id);
+    }
+    let all_requirements = query_builder.fetch_all(pool).await?;
+
+    // If no requirements, return capabilities with empty requirements
+    if all_requirements.is_empty() {
+        return Ok(capabilities
+            .into_iter()
+            .map(|cap| CapabilityWithRequirementsAndScenarios {
+                capability: cap,
+                requirements: Vec::new(),
+            })
+            .collect());
+    }
+
+    // Get all requirement IDs for scenario lookup
+    let requirement_ids: Vec<String> = all_requirements.iter().map(|r| r.id.clone()).collect();
+
+    // Build query to fetch all scenarios for all requirements at once
+    let scenario_placeholders = requirement_ids
+        .iter()
+        .map(|_| "?")
+        .collect::<Vec<_>>()
+        .join(",");
+    let scenario_query = format!(
+        "SELECT * FROM spec_scenarios WHERE requirement_id IN ({}) ORDER BY requirement_id, position",
+        scenario_placeholders
+    );
+
+    // Bind and execute scenarios query
+    let mut scenario_query_builder = sqlx::query_as::<_, SpecScenario>(&scenario_query);
+    for id in &requirement_ids {
+        scenario_query_builder = scenario_query_builder.bind(id);
+    }
+    let all_scenarios = scenario_query_builder.fetch_all(pool).await?;
+
+    // Group scenarios by requirement_id
+    let mut scenarios_map: std::collections::HashMap<String, Vec<SpecScenario>> =
+        std::collections::HashMap::new();
+    for scenario in all_scenarios {
+        scenarios_map
+            .entry(scenario.requirement_id.clone())
+            .or_default()
+            .push(scenario);
+    }
+
+    // Group requirements by capability_id
+    let mut requirements_map: std::collections::HashMap<String, Vec<SpecRequirement>> =
+        std::collections::HashMap::new();
+    for req in all_requirements {
+        requirements_map
+            .entry(req.capability_id.clone())
+            .or_default()
+            .push(req);
+    }
+
+    // Combine everything together
+    let result = capabilities
+        .into_iter()
+        .map(|cap| {
+            let requirements = requirements_map.remove(&cap.id).unwrap_or_default();
+            let requirements_with_scenarios = requirements
+                .into_iter()
+                .map(|req| {
+                    let scenarios = scenarios_map.remove(&req.id).unwrap_or_default();
+                    RequirementWithScenarios {
+                        requirement: req,
+                        scenarios,
+                    }
+                })
+                .collect();
+
+            CapabilityWithRequirementsAndScenarios {
+                capability: cap,
+                requirements: requirements_with_scenarios,
             }
         })
         .collect();
@@ -742,6 +908,13 @@ pub async fn create_spec_change(
     design_markdown: Option<&str>,
     created_by: &str,
 ) -> DbResult<SpecChange> {
+    // Validate content sizes
+    validate_content_size(proposal_markdown, "Change proposal")?;
+    validate_content_size(tasks_markdown, "Change tasks")?;
+    if let Some(design) = design_markdown {
+        validate_content_size(design, "Change design")?;
+    }
+
     let id = crate::storage::generate_project_id();
     let now = Utc::now();
 
