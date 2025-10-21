@@ -13,6 +13,17 @@ use tracing::{error, info, warn};
 use super::auth::CurrentUser;
 use crate::db::DbState;
 
+// Request body size limit: 10MB
+const MAX_REQUEST_SIZE: usize = 10_485_760;
+// Response body size limit: 50MB
+const MAX_RESPONSE_SIZE: usize = 52_428_800;
+// Allowed Content-Type headers for AI API requests
+const ALLOWED_CONTENT_TYPES: &[&str] = &[
+    "application/json",
+    "application/x-ndjson",
+    "text/event-stream",
+];
+
 /// Build an error response with fallback in case Response builder fails
 fn build_error_response(status: StatusCode, message: String) -> Response<Body> {
     Response::builder()
@@ -138,17 +149,53 @@ async fn proxy_ai_request(
     let method = req.method().clone();
     let headers = req.headers().clone();
 
-    // Read the request body
-    let body_bytes = match axum::body::to_bytes(req.into_body(), usize::MAX).await {
+    // Validate Content-Type header
+    if let Some(content_type) = headers.get("content-type") {
+        let content_type_str = content_type.to_str().unwrap_or("");
+        let is_allowed = ALLOWED_CONTENT_TYPES
+            .iter()
+            .any(|allowed| content_type_str.starts_with(allowed));
+
+        if !is_allowed {
+            error!(
+                "Invalid Content-Type header for {} proxy: {}",
+                provider, content_type_str
+            );
+            return build_error_response(
+                StatusCode::UNSUPPORTED_MEDIA_TYPE,
+                format!(
+                    "Content-Type '{}' not allowed. Supported types: {}",
+                    content_type_str,
+                    ALLOWED_CONTENT_TYPES.join(", ")
+                ),
+            );
+        }
+    }
+
+    // Read the request body with size limit
+    let body_bytes = match axum::body::to_bytes(req.into_body(), MAX_REQUEST_SIZE).await {
         Ok(bytes) => bytes,
         Err(e) => {
             error!("Failed to read request body: {}", e);
             return build_error_response(
-                StatusCode::BAD_REQUEST,
-                "Failed to read request body".to_string(),
+                StatusCode::PAYLOAD_TOO_LARGE,
+                format!("Request body too large (max {} bytes)", MAX_REQUEST_SIZE),
             );
         }
     };
+
+    // Validate request body size
+    if body_bytes.len() > MAX_REQUEST_SIZE {
+        error!(
+            "Request body size ({} bytes) exceeds maximum allowed ({} bytes)",
+            body_bytes.len(),
+            MAX_REQUEST_SIZE
+        );
+        return build_error_response(
+            StatusCode::PAYLOAD_TOO_LARGE,
+            format!("Request body too large (max {} bytes)", MAX_REQUEST_SIZE),
+        );
+    }
 
     // Build the request to the AI provider
     let mut proxy_req = client
@@ -187,6 +234,8 @@ async fn proxy_ai_request(
     // Build response
     let status = response.status();
     let headers = response.headers().clone();
+
+    // Read response with size limit
     let body_bytes = match response.bytes().await {
         Ok(bytes) => bytes,
         Err(e) => {
@@ -197,6 +246,19 @@ async fn proxy_ai_request(
             );
         }
     };
+
+    // Validate response body size
+    if body_bytes.len() > MAX_RESPONSE_SIZE {
+        error!(
+            "Response body size ({} bytes) exceeds maximum allowed ({} bytes)",
+            body_bytes.len(),
+            MAX_RESPONSE_SIZE
+        );
+        return build_error_response(
+            StatusCode::INSUFFICIENT_STORAGE,
+            format!("Response body too large (max {} bytes)", MAX_RESPONSE_SIZE),
+        );
+    }
 
     // Build the final response
     let mut builder = Response::builder().status(status);
@@ -213,4 +275,55 @@ async fn proxy_ai_request(
             "Failed to build response from AI provider".to_string(),
         )
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_size_limits_constants() {
+        // Verify size limits match PR review recommendations
+        assert_eq!(MAX_REQUEST_SIZE, 10_485_760); // 10MB
+        assert_eq!(MAX_RESPONSE_SIZE, 52_428_800); // 50MB
+    }
+
+    #[test]
+    fn test_allowed_content_types() {
+        // Verify all expected content types are allowed
+        assert!(ALLOWED_CONTENT_TYPES.contains(&"application/json"));
+        assert!(ALLOWED_CONTENT_TYPES.contains(&"application/x-ndjson"));
+        assert!(ALLOWED_CONTENT_TYPES.contains(&"text/event-stream"));
+
+        // Verify disallowed content types are not in the list
+        assert!(!ALLOWED_CONTENT_TYPES.contains(&"text/html"));
+        assert!(!ALLOWED_CONTENT_TYPES.contains(&"application/xml"));
+    }
+
+    #[test]
+    fn test_content_type_validation_logic() {
+        // Test that content type matching works with charset parameters
+        let valid_json_with_charset = "application/json; charset=utf-8";
+        let is_allowed = ALLOWED_CONTENT_TYPES
+            .iter()
+            .any(|allowed| valid_json_with_charset.starts_with(allowed));
+        assert!(is_allowed);
+
+        // Test that invalid content types are rejected
+        let invalid_html = "text/html";
+        let is_allowed = ALLOWED_CONTENT_TYPES
+            .iter()
+            .any(|allowed| invalid_html.starts_with(allowed));
+        assert!(!is_allowed);
+    }
+
+    #[test]
+    fn test_build_error_response() {
+        let response = build_error_response(
+            StatusCode::BAD_REQUEST,
+            "Test error message".to_string(),
+        );
+
+        assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    }
 }
