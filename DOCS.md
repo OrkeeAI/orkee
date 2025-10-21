@@ -389,6 +389,7 @@ Configure rate limiting, security headers, and error handling:
 | `RATE_LIMIT_BROWSE_RPM` | `20` | Rate limit for directory browsing (requests per minute) |
 | `RATE_LIMIT_PROJECTS_RPM` | `30` | Rate limit for project CRUD operations (requests per minute) |
 | `RATE_LIMIT_PREVIEW_RPM` | `10` | Rate limit for preview server operations (requests per minute) |
+| `RATE_LIMIT_AI_RPM` | `10` | Rate limit for AI proxy endpoints (requests per minute) - prevents cost abuse |
 | `RATE_LIMIT_GLOBAL_RPM` | `30` | Global rate limit for other endpoints (requests per minute) |
 | `RATE_LIMIT_BURST_SIZE` | `5` | Burst size multiplier for rate limiting |
 | `SECURITY_HEADERS_ENABLED` | `true` | Enable/disable security headers middleware |
@@ -415,6 +416,7 @@ RATE_LIMIT_HEALTH_RPM=60
 RATE_LIMIT_BROWSE_RPM=20
 RATE_LIMIT_PROJECTS_RPM=30
 RATE_LIMIT_PREVIEW_RPM=10
+RATE_LIMIT_AI_RPM=10
 RATE_LIMIT_GLOBAL_RPM=30
 RATE_LIMIT_BURST_SIZE=5
 
@@ -698,6 +700,49 @@ All user inputs are validated with:
 - **Command Filtering**: Detection of dangerous shell commands
 - **Path Safety**: Prevention of path traversal attacks
 - **Script Injection**: Protection against code injection in scripts
+
+### API Key Encryption
+
+Orkee encrypts API keys stored in the database using ChaCha20-Poly1305 AEAD with two available modes:
+
+####  Machine-Based Encryption (Default)
+
+- **Use Case**: Personal use, single-user environments
+- **Key Derivation**: HKDF-SHA256 from machine ID + application salt
+- **Security Model**: Transport encryption for backup/sync
+  - Protects data during file transfer and synchronization
+  - **Does NOT provide at-rest encryption** on the local machine
+  - Anyone with local database file access can decrypt keys
+- **Backward Compatible**: Existing installations continue working without changes
+
+#### Password-Based Encryption (Opt-in)
+
+- **Use Case**: Shared machines, sensitive environments
+- **Key Derivation**: Argon2id with recommended security parameters
+  - Memory: 64 MB (m_cost=65536)
+  - Iterations: 3 (t_cost=3)
+  - Parallelism: 4 threads (p_cost=4)
+- **Security Model**: True at-rest encryption
+  - Data cannot be decrypted without the user's password
+  - Password required when accessing encrypted data
+  - Separate verification hash prevents authentication bypass
+
+#### Migration Commands (Future)
+
+```bash
+orkee security set-password       # Upgrade to password-based encryption
+orkee security change-password    # Change existing password
+orkee security remove-password    # Downgrade to machine-based
+orkee security status             # Show current encryption mode
+```
+
+#### Implementation Details
+
+- **File**: `packages/projects/src/security/encryption.rs`
+- **Database**: `~/.orkee/orkee.db` - `encryption_settings` table
+- **Encryption Algorithm**: ChaCha20-Poly1305 with 256-bit keys
+- **Nonce Generation**: Cryptographically secure random (SystemRandom)
+- **Verification**: Separate hash with context differentiation
 
 ### Security Middleware
 

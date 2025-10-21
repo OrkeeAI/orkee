@@ -318,6 +318,77 @@ impl ProjectsManager {
             .await
             .map_err(ManagerError::Storage)
     }
+
+    /// Get current encryption mode
+    pub async fn get_encryption_mode(
+        &self,
+    ) -> ManagerResult<Option<crate::security::encryption::EncryptionMode>> {
+        let storage = self.storage_manager.storage();
+        storage
+            .get_encryption_mode()
+            .await
+            .map_err(ManagerError::Storage)
+    }
+
+    /// Get encryption settings (mode, salt, hash)
+    pub async fn get_encryption_settings(
+        &self,
+    ) -> ManagerResult<
+        Option<(
+            crate::security::encryption::EncryptionMode,
+            Option<Vec<u8>>,
+            Option<Vec<u8>>,
+        )>,
+    > {
+        let storage = self.storage_manager.storage();
+        storage
+            .get_encryption_settings()
+            .await
+            .map_err(ManagerError::Storage)
+    }
+
+    /// Set encryption mode and settings
+    pub async fn set_encryption_mode(
+        &self,
+        mode: crate::security::encryption::EncryptionMode,
+        salt: Option<&[u8]>,
+        hash: Option<&[u8]>,
+    ) -> ManagerResult<()> {
+        let storage = self.storage_manager.storage();
+        storage
+            .set_encryption_mode(mode, salt, hash)
+            .await
+            .map_err(ManagerError::Storage)
+    }
+
+    /// Check if password verification is currently locked due to too many failed attempts
+    /// Returns Ok(()) if not locked, Err if locked with time remaining
+    pub async fn check_password_lockout(&self) -> ManagerResult<()> {
+        let storage = self.storage_manager.storage();
+        storage
+            .check_password_lockout()
+            .await
+            .map_err(ManagerError::Storage)
+    }
+
+    /// Record a failed password verification attempt
+    /// Will lock the account if too many attempts have been made
+    pub async fn record_failed_password_attempt(&self) -> ManagerResult<()> {
+        let storage = self.storage_manager.storage();
+        storage
+            .record_failed_password_attempt()
+            .await
+            .map_err(ManagerError::Storage)
+    }
+
+    /// Reset password attempt counter after successful verification
+    pub async fn reset_password_attempts(&self) -> ManagerResult<()> {
+        let storage = self.storage_manager.storage();
+        storage
+            .reset_password_attempts()
+            .await
+            .map_err(ManagerError::Storage)
+    }
 }
 
 /// Export database as a compressed snapshot

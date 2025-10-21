@@ -9,7 +9,7 @@ repository.workspace = true
 
 [dependencies]
 # Database
-sqlx = { version = "0.8.1", default-features = false, features = ["runtime-tokio-rustls", "sqlite", "uuid", "chrono", "migrate", "macros"] }
+sqlx = { version = "0.8.1", default-features = false, features = ["runtime-tokio-rustls", "sqlite", "uuid", "chrono", "migrate", "macros", "json"] }
 
 # Async
 async-trait = "0.1"
@@ -32,6 +32,13 @@ git2 = "0.18"
 uuid = { version = "1.0", features = ["v4", "serde"] }
 regex = "1.10"
 
+# Encryption
+ring = "0.17"
+base64 = "0.22"
+machine-uid = "0.5"
+argon2 = "0.5"
+hostname = "0.4"
+
 # Compression
 flate2 = "1.0"
 
@@ -40,6 +47,9 @@ orkee-cloud = { path = "../cloud", optional = true }
 
 # Network & Utilities
 mime = "0.3"
+nanoid = "0.4.0"
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "json"] }
+url = "2.5"
 
 [features]
 default = ["cloud"]
@@ -50,3 +60,4 @@ tempfile = "3.0"
 tokio-test = "0.4"
 mockall = "0.13"  # For trait mocking
 wiremock = "0.6"  # For HTTP mocking
+http-body-util = "0.1"  # For response body testing

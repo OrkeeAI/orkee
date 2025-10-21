@@ -40,16 +40,35 @@ export const queryKeys = {
   projects: ['projects'] as const,
   directories: ['directories'] as const,
   health: ['health'] as const,
-  
+  prds: ['prds'] as const,
+
   // Project-specific keys
   projectsList: () => [...queryKeys.projects, 'list'] as const,
   projectsSearch: (query: string) => [...queryKeys.projects, 'search', query] as const,
   projectDetail: (id: string) => [...queryKeys.projects, 'detail', id] as const,
   projectByName: (name: string) => [...queryKeys.projects, 'by-name', name] as const,
   projectByPath: (path: string) => [...queryKeys.projects, 'by-path', path] as const,
-  
+
   // Directory keys
   directoryList: (path: string) => [...queryKeys.directories, 'list', path] as const,
+
+  // PRD keys
+  prdsList: (projectId: string) => [...queryKeys.prds, 'list', projectId] as const,
+  prdDetail: (projectId: string, prdId: string) => [...queryKeys.prds, 'detail', projectId, prdId] as const,
+  prdAnalysis: (projectId: string, prdId: string) => [...queryKeys.prds, 'analysis', projectId, prdId] as const,
+
+  // Spec keys
+  specs: ['specs'] as const,
+  specsList: (projectId: string) => [...queryKeys.specs, 'list', projectId] as const,
+  specDetail: (projectId: string, specId: string) => [...queryKeys.specs, 'detail', projectId, specId] as const,
+  specRequirements: (projectId: string, specId: string) => [...queryKeys.specs, 'requirements', projectId, specId] as const,
+
+  // AI Usage keys
+  aiUsage: ['ai-usage'] as const,
+  aiUsageStats: (params?: { projectId?: string; startDate?: string; endDate?: string }) =>
+    [...queryKeys.aiUsage, 'stats', params] as const,
+  aiUsageLogs: (params?: { projectId?: string; startDate?: string; endDate?: string; operation?: string; model?: string; provider?: string; limit?: number; offset?: number }) =>
+    [...queryKeys.aiUsage, 'logs', params] as const,
 }
 
 // Helper function to invalidate all project-related queries
@@ -61,6 +80,28 @@ export const invalidateProjectQueries = () => {
 export const invalidateProject = (id: string) => {
   queryClient.invalidateQueries({ queryKey: queryKeys.projectDetail(id) })
   queryClient.invalidateQueries({ queryKey: queryKeys.projectsList() })
+}
+
+// PRD invalidation helpers
+export const invalidatePRDQueries = (projectId: string) => {
+  queryClient.invalidateQueries({ queryKey: queryKeys.prdsList(projectId) })
+}
+
+export const invalidatePRD = (projectId: string, prdId: string) => {
+  queryClient.invalidateQueries({ queryKey: queryKeys.prdDetail(projectId, prdId) })
+  queryClient.invalidateQueries({ queryKey: queryKeys.prdsList(projectId) })
+  queryClient.invalidateQueries({ queryKey: queryKeys.prdAnalysis(projectId, prdId) })
+}
+
+// Spec invalidation helpers
+export const invalidateSpecQueries = (projectId: string) => {
+  queryClient.invalidateQueries({ queryKey: queryKeys.specsList(projectId) })
+}
+
+export const invalidateSpec = (projectId: string, specId: string) => {
+  queryClient.invalidateQueries({ queryKey: queryKeys.specDetail(projectId, specId) })
+  queryClient.invalidateQueries({ queryKey: queryKeys.specsList(projectId) })
+  queryClient.invalidateQueries({ queryKey: queryKeys.specRequirements(projectId, specId) })
 }
 
 // Prefetch utilities

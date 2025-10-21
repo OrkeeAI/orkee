@@ -15,7 +15,7 @@ let cachedApiBaseUrl: string | null = null;
  * In web mode: uses generated port config or env var (direct connection)
  * In desktop mode: queries Tauri for the dynamic port and connects directly
  */
-async function getApiBaseUrl(): Promise<string> {
+export async function getApiBaseUrl(): Promise<string> {
   // Return cached value if available
   if (cachedApiBaseUrl) {
     console.log(`[API] Using cached API URL: ${cachedApiBaseUrl}`);

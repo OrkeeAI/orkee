@@ -1,5 +1,6 @@
 use axum::http::{header, HeaderValue, Method};
 use axum_server::tls_rustls::RustlsConfig;
+use colored::Colorize;
 use std::{net::SocketAddr, time::Duration};
 use tower_http::{
     cors::{AllowHeaders, AllowOrigin, CorsLayer},
@@ -8,6 +9,7 @@ use tower_http::{
 use tracing::{error, info};
 
 pub mod api;
+pub mod auth;
 pub mod config;
 pub mod dashboard;
 pub mod error;
@@ -82,11 +84,61 @@ pub async fn run_server_with_options(
     }
 }
 
+/// Check if there are API keys in environment variables that should be migrated to the database
+async fn check_api_key_migration() {
+    match orkee_projects::DbState::init().await {
+        Ok(db_state) => {
+            match orkee_projects::users::UserStorage::new(db_state.pool.clone()) {
+                Ok(user_storage) => {
+                    match user_storage.check_env_key_migration("default-user").await {
+                        Ok(keys_to_migrate) if !keys_to_migrate.is_empty() => {
+                            // Show migration notice
+                            println!(
+                                "\n⚠️  {} detected API keys in environment variables:",
+                                "MIGRATION NOTICE:".yellow().bold()
+                            );
+                            println!(
+                                "   Found API keys for: {}",
+                                keys_to_migrate.join(", ").cyan()
+                            );
+                            println!("\n   These keys are currently being used from environment variables, but should");
+                            println!("   be stored securely in the database for better security and persistence.");
+                            println!("\n   {} You can manage your API keys in the Settings page of the dashboard.", "Recommendation:".green().bold());
+                            println!("   Navigate to Settings > API Keys to save your credentials to the database.");
+                            println!("   Once saved, you can remove the environment variables.\n");
+                        }
+                        Ok(_) => {
+                            // No migration needed
+                        }
+                        Err(e) => {
+                            // Log error but don't fail server startup
+                            tracing::debug!("Could not check for API key migration: {}", e);
+                        }
+                    }
+                }
+                Err(e) => {
+                    tracing::debug!(
+                        "Could not initialize user storage for migration check: {}",
+                        e
+                    );
+                }
+            }
+        }
+        Err(e) => {
+            tracing::debug!("Could not initialize database for migration check: {}", e);
+        }
+    }
+}
+
 async fn run_http_server(
     config: Config,
     dashboard_path: Option<std::path::PathBuf>,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let app = create_application_router(config.clone(), dashboard_path).await?;
+
+    // Check for API key migration from environment variables to database
+    check_api_key_migration().await;
+
     let addr = SocketAddr::from(([127, 0, 0, 1], config.port));
 
     info!("Starting HTTP server on {}", addr);
@@ -112,6 +164,9 @@ async fn run_dual_server_mode(
 
     // Create main application router
     let app = create_application_router(config.clone(), dashboard_path).await?;
+
+    // Check for API key migration from environment variables to database
+    check_api_key_migration().await;
 
     // Create HTTP redirect router (simpler router that just redirects to HTTPS)
     let redirect_app = create_redirect_router(config.clone()).await?;
@@ -184,7 +239,9 @@ async fn create_application_router(
         header::CONTENT_TYPE,
         header::ACCEPT,
         header::AUTHORIZATION, // For future API key
+        header::USER_AGENT,
         header::HeaderName::from_static("x-api-key"),
+        header::HeaderName::from_static("anthropic-version"), // For Anthropic API proxy
     ]);
 
     // Create CORS origin configuration
@@ -198,7 +255,7 @@ async fn create_application_router(
         .max_age(Duration::from_secs(3600));
 
     // Create the router with all middleware layers (in order: outermost to innermost)
-    let mut app_builder = api::create_router_with_options(dashboard_path).await;
+    let mut app_builder = api::create_router_with_options(dashboard_path, None).await;
 
     // Add CORS layer
     app_builder = app_builder.layer(cors);

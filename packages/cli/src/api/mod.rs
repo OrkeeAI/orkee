@@ -15,10 +15,13 @@ pub mod taskmaster;
 pub mod telemetry;
 
 pub async fn create_router() -> Router {
-    create_router_with_options(None).await
+    create_router_with_options(None, None).await
 }
 
-pub async fn create_router_with_options(dashboard_path: Option<std::path::PathBuf>) -> Router {
+pub async fn create_router_with_options(
+    dashboard_path: Option<std::path::PathBuf>,
+    database_path: Option<std::path::PathBuf>,
+) -> Router {
     use crate::config::Config;
     use path_validator::PathValidator;
     use preview::PreviewState;
@@ -51,6 +54,23 @@ pub async fn create_router_with_options(dashboard_path: Option<std::path::PathBu
         Err(e) => {
             error!("Failed to initialize project manager: {}", e);
             // Return a router without preview functionality rather than panicking
+            return Router::new()
+                .route("/api/health", get(health::health_check))
+                .route("/api/status", get(health::status_check))
+                .route(
+                    "/api/browse-directories",
+                    post(directories::browse_directories),
+                )
+                .nest("/api/projects", orkee_projects::create_projects_router());
+        }
+    };
+
+    // Initialize database state for tasks/agents/users
+    let db_state = match orkee_projects::DbState::init_with_path(database_path).await {
+        Ok(state) => state,
+        Err(e) => {
+            error!("Failed to initialize database state: {}", e);
+            // Return a router without task/agent/user functionality
             return Router::new()
                 .route("/api/health", get(health::health_check))
                 .route("/api/status", get(health::status_check))
@@ -172,12 +192,68 @@ pub async fn create_router_with_options(dashboard_path: Option<std::path::PathBu
             "/api/browse-directories",
             post(directories::browse_directories),
         )
+        .nest(
+            "/api",
+            orkee_projects::create_ai_proxy_router().with_state(db_state.clone()),
+        )
         .nest("/api/projects", orkee_projects::create_projects_router())
+        .nest(
+            "/api/projects/:project_id/tasks",
+            orkee_projects::create_tasks_router().with_state(db_state.clone()),
+        )
+        .nest(
+            "/api/projects",
+            orkee_projects::create_prds_router().with_state(db_state.clone()),
+        )
+        .nest(
+            "/api/projects",
+            orkee_projects::create_specs_router().with_state(db_state.clone()),
+        )
         .nest("/api/git", git_router)
         .nest("/api/preview", preview_router)
         .nest("/api/cloud", cloud_router)
         .nest("/api/taskmaster", taskmaster_router)
         .nest("/api/telemetry", telemetry_router)
+        .nest(
+            "/api/agents",
+            orkee_projects::create_agents_router().with_state(db_state.clone()),
+        )
+        .nest(
+            "/api/users",
+            orkee_projects::create_users_router().with_state(db_state.clone()),
+        )
+        .nest(
+            "/api/tags",
+            orkee_projects::create_tags_router().with_state(db_state.clone()),
+        )
+        .nest(
+            "/api/executions",
+            orkee_projects::create_executions_router().with_state(db_state.clone()),
+        )
+        .nest(
+            "/api",
+            orkee_projects::create_prds_router().with_state(db_state.clone()),
+        )
+        .nest(
+            "/api",
+            orkee_projects::create_specs_router().with_state(db_state.clone()),
+        )
+        .nest(
+            "/api",
+            orkee_projects::create_changes_router().with_state(db_state.clone()),
+        )
+        .nest(
+            "/api",
+            orkee_projects::create_task_spec_router().with_state(db_state.clone()),
+        )
+        .nest(
+            "/api",
+            orkee_projects::create_ai_router().with_state(db_state.clone()),
+        )
+        .nest(
+            "/api/ai-usage",
+            orkee_projects::create_ai_usage_router().with_state(db_state),
+        )
         .layer(axum::Extension(path_validator));
 
     // If dashboard path is provided, serve static files

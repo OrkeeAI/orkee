@@ -4,7 +4,8 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { FolderOpen, Plus, Edit, Trash2, Search, LayoutGrid, List, GripVertical, GitBranch } from 'lucide-react';
+import { FolderOpen, Plus, Edit, Trash2, Search, LayoutGrid, List, GripVertical, GitBranch, Sparkles } from 'lucide-react';
+import { AITestDialog } from '@/components/AITestDialog';
 import {
   DndContext,
   closestCenter,
@@ -185,6 +186,7 @@ export function Projects() {
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [aiTestDialogOpen, setAITestDialogOpen] = useState(false);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   
   // Filter and view states
@@ -428,6 +430,15 @@ export function Projects() {
               </Button>
             </div>
 
+            <Button
+              onClick={() => setAITestDialogOpen(true)}
+              variant="outline"
+              className="shrink-0"
+            >
+              <Sparkles className="mr-0 sm:mr-2 h-4 w-4" />
+              <span className="hidden sm:inline">Test AI</span>
+            </Button>
+
             <Button onClick={() => setCreateDialogOpen(true)} className="shrink-0">
               <Plus className="mr-0 sm:mr-2 h-4 w-4" />
               <span className="hidden sm:inline">New</span>
@@ -632,6 +643,11 @@ export function Projects() {
         open={deleteDialogOpen}
         onOpenChange={setDeleteDialogOpen}
         onProjectDeleted={handleProjectDeleted}
+      />
+
+      <AITestDialog
+        open={aiTestDialogOpen}
+        onOpenChange={setAITestDialogOpen}
       />
     </div>
   );

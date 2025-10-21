@@ -400,6 +400,73 @@ System tray menu shows all servers with source indicators:
 - **Error Sanitization**: No internal details exposed, request ID tracking
 - **Input Validation**: Path traversal protection, command injection prevention
 
+### ⚠️ API Key Encryption - CRITICAL SECURITY INFORMATION
+
+**IMPORTANT**: By default, Orkee uses machine-based encryption which provides **transport encryption only**. This means:
+- ✅ API keys are protected during backup/sync operations
+- ❌ API keys can be decrypted by anyone with local database file access on the same machine
+- ❌ This is NOT true at-rest encryption
+
+**RECOMMENDATION**: For production use or shared machines, upgrade to password-based encryption immediately:
+```bash
+orkee security set-password    # Enable password-based encryption
+orkee security status          # Check current encryption mode
+```
+
+#### Implementation Details
+- **Location**: `packages/projects/src/security/encryption.rs`
+- **Encryption Algorithm**: ChaCha20-Poly1305 AEAD with unique nonces per encryption
+- **Key Derivation**: HKDF-SHA256 (machine) or Argon2id (password)
+
+#### Encryption Modes
+
+**Machine-Based Encryption (Default - ⚠️ LIMITED SECURITY)**
+- Derives key from machine ID + username + hostname + application salt using HKDF-SHA256
+- Username and hostname provide additional entropy, especially important on VMs/containers where machine IDs may have low entropy
+- **Security Model**: Transport encryption only
+  - ✅ Protects data during backup/sync
+  - ❌ Does NOT protect at-rest on local machine
+  - ❌ Anyone with `~/.orkee/orkee.db` file access can decrypt keys
+- **Use Case**: Personal use, single-user, trusted environment only
+
+**Password-Based Encryption (Recommended - ✅ STRONG SECURITY)**
+- Derives key from user password using Argon2id (64MB memory, 3 iterations, 4 threads)
+- **Security Model**: True at-rest encryption
+  - ✅ Data cannot be decrypted without password
+  - ✅ Suitable for shared machines
+  - ✅ Production-ready security
+  - ⚠️ Password cannot be recovered if lost
+- **Use Case**: Production, shared machines, sensitive environments
+
+#### Security Management Commands
+
+```bash
+# Check current encryption mode
+orkee security status
+
+# Upgrade to password-based encryption (RECOMMENDED)
+orkee security set-password
+
+# Change existing password
+orkee security change-password
+
+# Downgrade to machine-based encryption (NOT RECOMMENDED)
+orkee security remove-password
+```
+
+**Password Requirements**:
+- Minimum 8 characters (longer is better)
+- Password is hashed separately for verification (never stored in plain text)
+- Account lockout protection after failed password attempts
+
+**Brute-Force Protection**:
+- Maximum attempts before lockout: 5 failed password attempts
+- Lockout duration: 15 minutes
+- Configuration constants: `PASSWORD_MAX_ATTEMPTS` and `PASSWORD_LOCKOUT_DURATION_MINUTES` in `packages/projects/src/storage/sqlite.rs`
+- Exponential backoff strategy prevents rapid brute-force attacks
+
+**Database Schema**: `~/.orkee/orkee.db` encryption_settings table stores mode, salt, and verification hash
+
 ### Cloud Security Architecture (Orkee Cloud)
 - **Authentication**: Token-based authentication with Orkee Cloud API
 - **Access Control**: Token-based authorization with subscription tier validation

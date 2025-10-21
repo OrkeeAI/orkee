@@ -8,6 +8,7 @@ mod cli;
 #[cfg(feature = "cloud")]
 use cli::cloud::CloudCommands;
 use cli::projects::ProjectsCommands;
+use cli::security::SecurityCommands;
 use orkee_cli::dashboard::downloader::ensure_dashboard;
 use orkee_cli::dashboard::DashboardMode;
 use orkee_preview::is_process_running_validated;
@@ -74,6 +75,9 @@ enum Commands {
     /// Manage preview servers
     #[command(subcommand)]
     Preview(PreviewCommands),
+    /// Manage API key encryption security
+    #[command(subcommand)]
+    Security(SecurityCommands),
 }
 
 #[cfg(not(feature = "cloud"))]
@@ -114,6 +118,9 @@ enum Commands {
     /// Manage preview servers
     #[command(subcommand)]
     Preview(PreviewCommands),
+    /// Manage API key encryption security
+    #[command(subcommand)]
+    Security(SecurityCommands),
 }
 
 #[derive(clap::ValueEnum, Clone, Debug)]
@@ -215,6 +222,10 @@ async fn handle_command(command: Commands) -> Result<(), Box<dyn std::error::Err
             .await
             .map_err(|e| e.to_string().into()),
         Commands::Preview(preview_cmd) => handle_preview_command(preview_cmd).await,
+        Commands::Security(security_cmd) => {
+            security_cmd.execute().await;
+            Ok(())
+        }
     }
 }
 

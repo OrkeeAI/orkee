@@ -1,9 +1,9 @@
--- ABOUTME: SQLite migration to add telemetry tables for opt-in usage analytics
--- ABOUTME: Stores user preferences and telemetry events with privacy-first design
+-- ABOUTME: Privacy-first telemetry system for opt-in usage analytics
+-- ABOUTME: Stores user preferences and telemetry events with local buffering
 
 -- Telemetry settings table
 CREATE TABLE IF NOT EXISTS telemetry_settings (
-    id INTEGER PRIMARY KEY CHECK (id = 1), -- Ensure only one row
+    id INTEGER PRIMARY KEY CHECK (id = 1),
     first_run BOOLEAN NOT NULL DEFAULT TRUE,
     onboarding_completed BOOLEAN NOT NULL DEFAULT FALSE,
     error_reporting BOOLEAN NOT NULL DEFAULT FALSE,
@@ -21,13 +21,13 @@ INSERT OR IGNORE INTO telemetry_settings (id) VALUES (1);
 -- Telemetry events table for local buffering
 CREATE TABLE IF NOT EXISTS telemetry_events (
     id TEXT PRIMARY KEY,
-    event_type TEXT NOT NULL, -- 'usage', 'error', 'performance'
+    event_type TEXT NOT NULL,
     event_name TEXT NOT NULL,
-    event_data TEXT, -- JSON data
+    event_data TEXT,
     anonymous BOOLEAN NOT NULL DEFAULT TRUE,
     session_id TEXT,
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
-    sent_at TEXT, -- NULL until successfully sent
+    sent_at TEXT,
     retry_count INTEGER DEFAULT 0
 );
 
@@ -43,7 +43,7 @@ ON telemetry_events(event_type, created_at);
 -- Telemetry statistics table
 CREATE TABLE IF NOT EXISTS telemetry_stats (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    stat_date TEXT NOT NULL, -- Date in YYYY-MM-DD format
+    stat_date TEXT NOT NULL,
     total_events INTEGER DEFAULT 0,
     error_events INTEGER DEFAULT 0,
     usage_events INTEGER DEFAULT 0,

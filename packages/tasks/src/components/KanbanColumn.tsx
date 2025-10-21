@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useDroppable } from '@dnd-kit/core';
 import {
   SortableContext,
@@ -6,13 +6,14 @@ import {
 } from '@dnd-kit/sortable';
 import { KanbanColumnData as KanbanColumnType, Task, TaskStatus } from '../types';
 import { TaskCard } from './TaskCard';
-import { 
-  Plus, 
-  Circle, 
-  Clock, 
-  Eye, 
-  CheckCircle, 
-  XCircle, 
+import { TaskFormDialog } from './TaskFormDialog';
+import {
+  Plus,
+  Circle,
+  Clock,
+  Eye,
+  CheckCircle,
+  XCircle,
   PauseCircle,
   Ban
 } from 'lucide-react';
@@ -32,6 +33,7 @@ export const KanbanColumn: React.FC<KanbanColumnProps> = ({
   onTaskDelete,
   onTaskClick,
 }) => {
+  const [isFormOpen, setIsFormOpen] = useState(false);
   const { setNodeRef, isOver } = useDroppable({
     id: column.id,
   });
@@ -81,12 +83,7 @@ export const KanbanColumn: React.FC<KanbanColumnProps> = ({
   };
 
   const handleAddTask = () => {
-    if (onTaskCreate) {
-      onTaskCreate({
-        title: 'New Task',
-        status: column.status,
-      });
-    }
+    setIsFormOpen(true);
   };
 
   return (
@@ -142,6 +139,13 @@ export const KanbanColumn: React.FC<KanbanColumnProps> = ({
           </button>
         </div>
       )}
+
+      <TaskFormDialog
+        isOpen={isFormOpen}
+        onOpenChange={setIsFormOpen}
+        onTaskCreate={onTaskCreate}
+        defaultStatus={column.status}
+      />
     </div>
   );
 };

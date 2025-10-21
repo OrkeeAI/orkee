@@ -36,29 +36,15 @@ async fn test_status_endpoint() {
 }
 
 #[tokio::test]
-#[serial_test::serial]
 async fn test_projects_list_endpoint() {
-    use std::env;
     use tempfile::TempDir;
 
     // Create a temporary directory for this test's database
     let temp_dir = TempDir::new().unwrap();
-    let original_home = env::var("HOME").ok();
+    let db_path = temp_dir.path().join("orkee.db");
 
-    // Set HOME to temp dir so the database is created there
-    env::set_var("HOME", temp_dir.path());
-
-    // Ensure .orkee directory exists in temp dir
-    let orkee_dir = temp_dir.path().join(".orkee");
-    std::fs::create_dir_all(&orkee_dir).unwrap();
-
-    // Delete any existing database file to ensure clean state
-    let db_path = orkee_dir.join("orkee.db");
-    if db_path.exists() {
-        let _ = std::fs::remove_file(&db_path);
-    }
-
-    let app = api::create_router().await;
+    // Create router with explicit database path
+    let app = api::create_router_with_options(None, Some(db_path)).await;
 
     let request = Request::builder()
         .method(Method::GET)
@@ -67,13 +53,6 @@ async fn test_projects_list_endpoint() {
         .unwrap();
 
     let response = app.oneshot(request).await.unwrap();
-
-    // Restore original HOME
-    if let Some(home) = original_home {
-        env::set_var("HOME", home);
-    } else {
-        env::remove_var("HOME");
-    }
 
     assert_eq!(response.status(), StatusCode::OK);
 }

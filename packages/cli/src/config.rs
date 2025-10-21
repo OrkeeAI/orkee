@@ -115,6 +115,14 @@ impl Config {
                 .unwrap_or_else(|_| "15".to_string())
                 .parse::<u32>()
                 .unwrap_or(15),
+            ai_rpm: env::var("RATE_LIMIT_AI_RPM")
+                .unwrap_or_else(|_| "10".to_string())
+                .parse::<u32>()
+                .unwrap_or(10),
+            users_rpm: env::var("RATE_LIMIT_USERS_RPM")
+                .unwrap_or_else(|_| "10".to_string())
+                .parse::<u32>()
+                .unwrap_or(10),
             global_rpm: env::var("RATE_LIMIT_GLOBAL_RPM")
                 .unwrap_or_else(|_| "30".to_string())
                 .parse::<u32>()

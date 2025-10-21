@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   DndContext,
   DragEndEvent,
@@ -52,6 +52,16 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
     setSelectedTask(task);
     setIsSheetOpen(true);
   };
+
+  // Update selectedTask when the tasks array changes
+  useEffect(() => {
+    if (selectedTask) {
+      const updatedTask = tasks.find(task => task.id === selectedTask.id);
+      if (updatedTask) {
+        setSelectedTask(updatedTask);
+      }
+    }
+  }, [tasks, selectedTask]);
   
   const [columnConfigs, setColumnConfigs] = useState<ColumnConfig[]>([
     { id: 'pending', title: 'Pending', status: TaskStatus.Pending, visible: true, color: 'text-gray-600' },

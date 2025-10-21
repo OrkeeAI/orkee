@@ -1,7 +1,9 @@
+import { useState, useEffect } from 'react';
 import { useTasks, KanbanBoard, Task } from '@orkee/tasks';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Loader2, AlertCircle } from 'lucide-react';
+import { getApiBaseUrl } from '@/services/api';
 
 interface TasksTabProps {
   projectId: string;
@@ -10,6 +12,13 @@ interface TasksTabProps {
 }
 
 export function TasksTab({ projectId, projectPath, taskSource }: TasksTabProps) {
+  const [apiBaseUrl, setApiBaseUrl] = useState<string | null>(null);
+
+  // Get the dynamic API base URL (handles both Tauri and web modes)
+  useEffect(() => {
+    getApiBaseUrl().then(setApiBaseUrl);
+  }, []);
+
   const {
     tasks,
     isLoading,
@@ -21,8 +30,8 @@ export function TasksTab({ projectId, projectPath, taskSource }: TasksTabProps) 
     projectId,
     projectPath,
     providerType: taskSource as 'taskmaster' | 'manual',
-    enabled: true,
-    apiBaseUrl: 'http://localhost:4001'
+    enabled: apiBaseUrl !== null,
+    apiBaseUrl: apiBaseUrl || 'http://localhost:4001'
   });
 
   if (isLoading) {

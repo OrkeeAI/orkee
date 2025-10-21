@@ -81,28 +81,51 @@ fn copy_orkee_binary() -> Result<(), String> {
     let binaries_dir = manifest_dir.join("binaries");
     let dest = binaries_dir.join(&binary_name);
 
-    if dest.exists() {
-        println!("cargo:warning=Orkee binary already exists at {}, skipping copy", dest.display());
-        println!("cargo:rerun-if-changed={}", dest.display());
-        return Ok(());
-    }
-
     // Binary name in target directory
     let source_binary_name = format!("orkee{}", binary_ext);
+
+    // Determine build profile (debug or release)
+    let profile = env::var("PROFILE").unwrap_or_else(|_| "debug".to_string());
 
     // Try target-specific directory first (cross-compile), then fall back to default
     let mut source = workspace_root
         .join("target")
         .join(&target_triple)
-        .join("release")
+        .join(&profile)
         .join(&source_binary_name);
 
     // If not in target-specific directory, check default location
     if !source.exists() {
         source = workspace_root
             .join("target")
-            .join("release")
+            .join(&profile)
             .join(&source_binary_name);
+    }
+
+    // If destination exists, check if source is newer
+    if dest.exists() {
+        if !source.exists() {
+            // Source doesn't exist but dest does - keep existing dest
+            println!("cargo:warning=Orkee binary exists at {} and source not found, using existing", dest.display());
+            println!("cargo:rerun-if-changed={}", dest.display());
+            return Ok(());
+        }
+
+        // Compare modification times
+        let source_modified = fs::metadata(&source)
+            .and_then(|m| m.modified())
+            .map_err(|e| format!("Failed to get source metadata: {}", e))?;
+        let dest_modified = fs::metadata(&dest)
+            .and_then(|m| m.modified())
+            .map_err(|e| format!("Failed to get dest metadata: {}", e))?;
+
+        if source_modified <= dest_modified {
+            println!("cargo:warning=Orkee binary at {} is up-to-date, skipping copy", dest.display());
+            println!("cargo:rerun-if-changed={}", source.display());
+            return Ok(());
+        }
+
+        println!("cargo:warning=Source binary is newer, updating orkee binary at {}", dest.display());
     }
 
     // Check if source exists

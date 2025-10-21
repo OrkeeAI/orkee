@@ -4,7 +4,7 @@ import { useCloudAuth, useCloudSync } from '@/hooks/useCloud'
 import { cloudService, formatLastSync } from '@/services/cloud'
 import { fetchConfig } from '@/services/config'
 import { exportDatabase, importDatabase, type ImportResult } from '@/services/database'
-import { Cloud, User, RefreshCw, Download, Upload, Code2, ExternalLink, Database, AlertTriangle, Shield, Trash2 } from 'lucide-react'
+import { Cloud, User, RefreshCw, Download, Upload, Code2, ExternalLink, Database, AlertTriangle, Shield, Trash2, Key, Check } from 'lucide-react'
 import { useState, useEffect, useRef } from 'react'
 import { SUPPORTED_EDITORS, getDefaultEditorSettings, findEditorById } from '@/lib/editor-utils'
 import type { EditorSettings } from '@/lib/editor-utils'
@@ -15,6 +15,8 @@ import { Label } from '@/components/ui/label'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { CliInstallationSettings } from '@/components/CliInstallationSettings'
 import { useTelemetry } from '@/contexts/TelemetryContext'
+import { usersService } from '@/services/users'
+import type { MaskedUser } from '@/services/users'
 
 export function Settings() {
   const [isCloudEnabled, setIsCloudEnabled] = useState(false)
@@ -40,6 +42,9 @@ export function Settings() {
 
         {/* CLI Installation Settings - macOS only */}
         {navigator.platform.toLowerCase().includes('mac') && <CliInstallationSettings />}
+
+        {/* API Keys Settings - Always show */}
+        <ApiKeysSettings />
 
         {/* Database Settings - Always show */}
         <DatabaseSettings />
@@ -270,6 +275,294 @@ function EditorSettings() {
           <p className="text-xs text-muted-foreground mt-2 text-center">
             Tests if your selected editor can be launched successfully
           </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// API Keys Settings Component
+function ApiKeysSettings() {
+  const [user, setUser] = useState<MaskedUser | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  // Form state
+  const [openaiKey, setOpenaiKey] = useState('');
+  const [anthropicKey, setAnthropicKey] = useState('');
+  const [googleKey, setGoogleKey] = useState('');
+  const [xaiKey, setXaiKey] = useState('');
+  const [gatewayEnabled, setGatewayEnabled] = useState(false);
+  const [gatewayUrl, setGatewayUrl] = useState('');
+  const [gatewayKey, setGatewayKey] = useState('');
+
+  // Load user credentials on mount
+  useEffect(() => {
+    loadUser();
+  }, []);
+
+  const loadUser = async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const userData = await usersService.getCurrentUser();
+      setUser(userData);
+      setGatewayEnabled(userData.ai_gateway_enabled);
+      setGatewayUrl(userData.ai_gateway_url || '');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load credentials');
+      console.error('Failed to load user:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleSave = async () => {
+    setIsSaving(true);
+    setError(null);
+    setSuccessMessage(null);
+
+    try {
+      // Build update payload with only non-empty values
+      const updates: Record<string, string | boolean> = {};
+
+      if (openaiKey.trim()) updates.openai_api_key = openaiKey.trim();
+      if (anthropicKey.trim()) updates.anthropic_api_key = anthropicKey.trim();
+      if (googleKey.trim()) updates.google_api_key = googleKey.trim();
+      if (xaiKey.trim()) updates.xai_api_key = xaiKey.trim();
+
+      updates.ai_gateway_enabled = gatewayEnabled;
+      if (gatewayUrl.trim()) updates.ai_gateway_url = gatewayUrl.trim();
+      if (gatewayKey.trim()) updates.ai_gateway_key = gatewayKey.trim();
+
+      const updatedUser = await usersService.updateCredentials(updates);
+      setUser(updatedUser);
+
+      // Clear form fields
+      setOpenaiKey('');
+      setAnthropicKey('');
+      setGoogleKey('');
+      setXaiKey('');
+      setGatewayKey('');
+
+      setSuccessMessage('API keys updated successfully');
+      setTimeout(() => setSuccessMessage(null), 3000);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to save credentials');
+      console.error('Failed to save credentials:', err);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="rounded-lg border p-6">
+        <div className="flex items-center gap-2 mb-4">
+          <Key className="h-5 w-5 text-primary" />
+          <h2 className="text-xl font-semibold">API Keys</h2>
+        </div>
+        <p className="text-muted-foreground">Loading...</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="rounded-lg border p-6">
+      <div className="flex items-center gap-2 mb-4">
+        <Key className="h-5 w-5 text-primary" />
+        <h2 className="text-xl font-semibold">API Keys</h2>
+      </div>
+
+      <div className="space-y-6">
+        <Alert>
+          <Shield className="h-4 w-4" />
+          <AlertDescription>
+            API keys are stored securely in your local database and are never exposed in API responses.
+            Leave fields empty to keep existing keys unchanged.
+          </AlertDescription>
+        </Alert>
+
+        {/* Error Display */}
+        {error && (
+          <Alert variant="destructive">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
+
+        {/* Success Display */}
+        {successMessage && (
+          <Alert>
+            <Check className="h-4 w-4" />
+            <AlertDescription>{successMessage}</AlertDescription>
+          </Alert>
+        )}
+
+        {/* AI Provider Keys */}
+        <div className="space-y-4">
+          <h3 className="text-sm font-medium">AI Provider Keys</h3>
+
+          {/* OpenAI */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label htmlFor="openai-key">OpenAI API Key</Label>
+              {user?.has_openai_api_key && (
+                <Badge variant="secondary" className="text-xs">
+                  <Check className="h-3 w-3 mr-1" />
+                  Configured
+                </Badge>
+              )}
+            </div>
+            <Input
+              id="openai-key"
+              type="password"
+              placeholder="sk-..."
+              value={openaiKey}
+              onChange={(e) => setOpenaiKey(e.target.value)}
+              disabled={isSaving}
+            />
+          </div>
+
+          {/* Anthropic */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label htmlFor="anthropic-key">Anthropic API Key</Label>
+              {user?.has_anthropic_api_key && (
+                <Badge variant="secondary" className="text-xs">
+                  <Check className="h-3 w-3 mr-1" />
+                  Configured
+                </Badge>
+              )}
+            </div>
+            <Input
+              id="anthropic-key"
+              type="password"
+              placeholder="sk-ant-..."
+              value={anthropicKey}
+              onChange={(e) => setAnthropicKey(e.target.value)}
+              disabled={isSaving}
+            />
+          </div>
+
+          {/* Google */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label htmlFor="google-key">Google AI API Key</Label>
+              {user?.has_google_api_key && (
+                <Badge variant="secondary" className="text-xs">
+                  <Check className="h-3 w-3 mr-1" />
+                  Configured
+                </Badge>
+              )}
+            </div>
+            <Input
+              id="google-key"
+              type="password"
+              placeholder="AIza..."
+              value={googleKey}
+              onChange={(e) => setGoogleKey(e.target.value)}
+              disabled={isSaving}
+            />
+          </div>
+
+          {/* xAI */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label htmlFor="xai-key">xAI API Key</Label>
+              {user?.has_xai_api_key && (
+                <Badge variant="secondary" className="text-xs">
+                  <Check className="h-3 w-3 mr-1" />
+                  Configured
+                </Badge>
+              )}
+            </div>
+            <Input
+              id="xai-key"
+              type="password"
+              placeholder="xai-..."
+              value={xaiKey}
+              onChange={(e) => setXaiKey(e.target.value)}
+              disabled={isSaving}
+            />
+          </div>
+        </div>
+
+        {/* AI Gateway Settings */}
+        <div className="space-y-4 pt-4 border-t">
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5">
+              <Label htmlFor="gateway-enabled">Vercel AI Gateway</Label>
+              <p className="text-sm text-muted-foreground">
+                Route AI requests through Vercel AI Gateway for monitoring and caching
+              </p>
+            </div>
+            <Switch
+              id="gateway-enabled"
+              checked={gatewayEnabled}
+              onCheckedChange={setGatewayEnabled}
+              disabled={isSaving}
+            />
+          </div>
+
+          {gatewayEnabled && (
+            <>
+              <div className="space-y-2">
+                <Label htmlFor="gateway-url">Gateway URL</Label>
+                <Input
+                  id="gateway-url"
+                  type="url"
+                  placeholder="https://gateway.vercel.com/..."
+                  value={gatewayUrl}
+                  onChange={(e) => setGatewayUrl(e.target.value)}
+                  disabled={isSaving}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="gateway-key">Gateway Key</Label>
+                  {user?.has_ai_gateway_key && (
+                    <Badge variant="secondary" className="text-xs">
+                      <Check className="h-3 w-3 mr-1" />
+                      Configured
+                    </Badge>
+                  )}
+                </div>
+                <Input
+                  id="gateway-key"
+                  type="password"
+                  placeholder="Gateway authentication key"
+                  value={gatewayKey}
+                  onChange={(e) => setGatewayKey(e.target.value)}
+                  disabled={isSaving}
+                />
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* Save Button */}
+        <div className="pt-4 border-t">
+          <Button
+            onClick={handleSave}
+            disabled={isSaving}
+            className="w-full"
+          >
+            {isSaving ? (
+              <>
+                <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                Saving...
+              </>
+            ) : (
+              <>
+                <Key className="mr-2 h-4 w-4" />
+                Save API Keys
+              </>
+            )}
+          </Button>
         </div>
       </div>
     </div>

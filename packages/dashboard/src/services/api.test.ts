@@ -291,18 +291,20 @@ describe('previewService', () => {
 
   describe('getActiveServers', () => {
     it('should return list of active servers on success', async () => {
-      const mockServers = ['project1', 'project2', 'project3'];
+      const mockProjectIds = ['project1', 'project2', 'project3'];
       mockFetch.mockResolvedValue({
         ok: true,
         json: async () => ({
           success: true,
-          data: mockServers,
+          data: {
+            servers: mockProjectIds.map(id => ({ project_id: id })),
+          },
         }),
       });
 
       const result = await previewService.getActiveServers();
 
-      expect(result).toEqual(mockServers);
+      expect(result).toEqual(mockProjectIds);
     });
 
     it('should return empty array on HTTP error', async () => {
