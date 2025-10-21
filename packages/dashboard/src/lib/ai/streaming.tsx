@@ -4,7 +4,7 @@
 import { useState, useCallback } from 'react';
 import { streamObject, streamText } from 'ai';
 import { getPreferredModel } from './providers';
-import { AI_CONFIG, calculateCost } from './config';
+import { AI_CONFIG } from './config';
 import type { z } from 'zod';
 
 /**
@@ -37,7 +37,7 @@ export function useStreamObject<T>() {
     setResult(null);
 
     try {
-      const { provider, model } = getPreferredModel();
+      const { model } = getPreferredModel();
 
       setStatus({ isStreaming: true, progress: 20, message: 'Connecting to AI...' });
 
@@ -119,7 +119,7 @@ export function useStreamText() {
     setText('');
 
     try {
-      const { provider, model } = getPreferredModel();
+      const { model } = getPreferredModel();
 
       setStatus({ isStreaming: true, progress: 20, message: 'Connecting to AI...' });
 

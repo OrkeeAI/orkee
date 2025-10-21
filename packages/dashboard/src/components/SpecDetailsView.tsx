@@ -10,10 +10,8 @@ import {
   CheckCircle2,
   Calendar,
   AlertCircle,
-  ExternalLink,
 } from 'lucide-react';
 import { useSpec, useSpecRequirements } from '@/hooks/useSpecs';
-import type { SpecCapability } from '@/services/specs';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 

@@ -15,7 +15,6 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
   Search,
   Link as LinkIcon,
-  Unlink,
   CheckCircle2,
   XCircle,
   AlertCircle,
@@ -25,7 +24,6 @@ import {
 } from 'lucide-react';
 import { useSpecs } from '@/hooks/useSpecs';
 import { useTaskSpecLinks, useLinkTaskToRequirement, useValidateTask } from '@/hooks/useTaskSpecLinks';
-import type { SpecCapability, SpecRequirement, SpecScenario } from '@/services/specs';
 
 interface TaskSpecLinkerProps {
   projectId: string;

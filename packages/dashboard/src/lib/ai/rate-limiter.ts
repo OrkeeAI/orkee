@@ -33,7 +33,7 @@ export class AIRateLimiter {
   /**
    * Check if a call can be made
    */
-  canMakeCall(operation: string): { allowed: boolean; reason?: string } {
+  canMakeCall(): { allowed: boolean; reason?: string } {
     const now = Date.now();
     this.cleanupOldRecords(now);
 

@@ -14,8 +14,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Progress } from '@/components/ui/progress';
-import { Badge } from '@/components/ui/badge';
-import { useCreateSpec, useValidateSpec } from '@/hooks/useSpecs';
+import { useCreateSpec } from '@/hooks/useSpecs';
 import { usePRDs } from '@/hooks/usePRDs';
 import type { SpecRequirement, SpecScenario, SpecCapabilityCreateInput } from '@/services/specs';
 import type { PRD } from '@/services/prds';
@@ -66,7 +65,6 @@ export function SpecBuilderWizard({
 
   const { data: prds } = usePRDs(projectId);
   const createSpecMutation = useCreateSpec(projectId);
-  const validateSpecMutation = useValidateSpec(projectId);
   const { isPending: isSaving, error: saveError } = createSpecMutation;
 
   const stepIndex = STEPS.indexOf(currentStep);
@@ -314,7 +312,7 @@ function ModeSelectionStep({
   setSelectedPRD: (prd: PRD | null) => void;
   prds: PRD[];
 }) {
-  const modes: Array<{ id: WizardMode; label: string; description: string; icon: any }> = [
+  const modes: Array<{ id: WizardMode; label: string; description: string; icon: React.ComponentType<{ className?: string }> }> = [
     {
       id: 'prd-driven',
       label: 'From PRD',
@@ -493,7 +491,6 @@ function RequirementsEditorStep({
             <RequirementEditor
               key={reqIdx}
               requirement={req}
-              index={reqIdx}
               onUpdate={(updates) => onUpdateRequirement(reqIdx, updates)}
               onDelete={() => onDeleteRequirement(reqIdx)}
               onAddScenario={() => onAddScenario(reqIdx)}
@@ -511,7 +508,6 @@ function RequirementsEditorStep({
 
 function RequirementEditor({
   requirement,
-  index,
   onUpdate,
   onDelete,
   onAddScenario,
@@ -519,7 +515,6 @@ function RequirementEditor({
   onDeleteScenario,
 }: {
   requirement: SpecRequirement;
-  index: number;
   onUpdate: (updates: Partial<SpecRequirement>) => void;
   onDelete: () => void;
   onAddScenario: () => void;

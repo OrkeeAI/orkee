@@ -43,8 +43,6 @@ export function SyncDashboard({ projectId }: SyncDashboardProps) {
     }
   };
 
-  const isLoading = orphansLoading || prdsLoading || specsLoading;
-
   return (
     <div className="space-y-6">
       {/* Header */}

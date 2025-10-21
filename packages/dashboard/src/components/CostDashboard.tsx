@@ -15,9 +15,7 @@ import {
   Zap,
   Clock,
   Loader2,
-  TrendingUp,
   AlertCircle,
-  CheckCircle,
 } from 'lucide-react';
 import { useAiUsageStats, useAiUsageLogs } from '@/hooks/useAiUsage';
 import { formatCost, formatTokens, formatDuration } from '@/services/aiUsage';
@@ -37,8 +35,6 @@ export function CostDashboard({ projectId }: CostDashboardProps) {
     projectId,
     limit: 50,
   });
-
-  const isLoading = statsLoading || logsLoading;
 
   const handleRefresh = () => {
     refetchStats();

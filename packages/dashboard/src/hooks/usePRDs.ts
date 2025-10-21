@@ -7,7 +7,6 @@ import type {
   PRD,
   PRDCreateInput,
   PRDUpdateInput,
-  PRDAnalysisResult,
 } from '@/services/prds';
 
 interface ApiError {

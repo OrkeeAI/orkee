@@ -5,18 +5,9 @@ import { taskSpecLinksService } from '@/services/task-spec-links';
 import { queryKeys } from '@/lib/queryClient';
 import type {
   TaskSpecLinkCreateInput,
-  TaskValidationResult,
-  SuggestSpecResponse,
   GenerateTasksInput,
-  GenerateTasksResponse,
-  OrphanTasksResponse,
 } from '@/services/task-spec-links';
 import type { SpecRequirement } from '@/services/specs';
-
-interface ApiError {
-  message?: string;
-  status?: number;
-}
 
 export function useTaskSpecLinks(taskId: string) {
   return useQuery({
@@ -33,7 +24,7 @@ export function useLinkTaskToRequirement(taskId: string) {
   return useMutation({
     mutationFn: (linkData: TaskSpecLinkCreateInput) =>
       taskSpecLinksService.linkTaskToRequirement(taskId, linkData),
-    onMutate: async (newLink) => {
+    onMutate: async () => {
       await queryClient.cancelQueries({ queryKey: ['task-spec-links', taskId] });
 
       const previousLinks = queryClient.getQueryData<SpecRequirement[]>([

@@ -36,7 +36,7 @@ export function ChangeProposalForm({ projectId, prdId, trigger }: ChangeProposal
   const [proposalMarkdown, setProposalMarkdown] = useState('');
   const [tasksMarkdown, setTasksMarkdown] = useState('');
   const [designMarkdown, setDesignMarkdown] = useState('');
-  const [createdBy, setCreatedBy] = useState('user'); // TODO: Get from auth context
+  const [createdBy] = useState('user'); // TODO: Get from auth context
   const [selectedTab, setSelectedTab] = useState('proposal');
 
   const queryClient = useQueryClient();

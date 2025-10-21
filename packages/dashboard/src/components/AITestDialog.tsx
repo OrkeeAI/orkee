@@ -17,8 +17,6 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Progress } from '@/components/ui/progress';
 import {
   useAnalyzePRD,
-  useGenerateSpec,
-  useSuggestTasks,
   useAIConfiguration,
   usePRDWorkflow,
 } from '@/hooks/useAI';

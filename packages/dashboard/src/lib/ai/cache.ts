@@ -21,7 +21,7 @@ const DEFAULT_CONFIG: CacheConfig = {
  * LRU cache for AI responses
  */
 export class AICache {
-  private cache: Map<string, CacheEntry<any>>;
+  private cache: Map<string, CacheEntry<unknown>>;
   private config: CacheConfig;
   private hits: number = 0;
   private misses: number = 0;
@@ -34,7 +34,7 @@ export class AICache {
   /**
    * Generate cache key from operation and parameters
    */
-  private generateKey(operation: string, params: any): string {
+  private generateKey(operation: string, params: unknown): string {
     // Simple hash function for cache key
     const paramsStr = JSON.stringify(params);
     return `${operation}:${this.simpleHash(paramsStr)}`;
@@ -56,7 +56,7 @@ export class AICache {
   /**
    * Get cached value if exists and not expired
    */
-  get<T>(operation: string, params: any): T | null {
+  get<T>(operation: string, params: unknown): T | null {
     const key = this.generateKey(operation, params);
     const entry = this.cache.get(key);
 
@@ -85,7 +85,7 @@ export class AICache {
   /**
    * Set cache value
    */
-  set<T>(operation: string, params: any, data: T): void {
+  set<T>(operation: string, params: unknown, data: T): void {
     const key = this.generateKey(operation, params);
 
     // Check if we need to evict
@@ -107,7 +107,7 @@ export class AICache {
   /**
    * Check if key exists in cache
    */
-  has(operation: string, params: any): boolean {
+  has(operation: string, params: unknown): boolean {
     const key = this.generateKey(operation, params);
     const entry = this.cache.get(key);
 

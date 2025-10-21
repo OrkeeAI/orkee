@@ -78,8 +78,7 @@ export class SpecWorkflow {
    */
   async processNewPRD(
     prdId: string,
-    prdContent: string,
-    projectId: string
+    prdContent: string
   ): Promise<PRDWorkflowResult> {
     const steps: Array<{ step: string; cost: CostEstimate; timestamp: Date }> = [];
     let totalCost = 0;

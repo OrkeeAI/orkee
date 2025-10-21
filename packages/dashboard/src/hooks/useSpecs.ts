@@ -7,8 +7,6 @@ import type {
   SpecCapability,
   SpecCapabilityCreateInput,
   SpecCapabilityUpdateInput,
-  SpecRequirement,
-  SpecValidationResult,
 } from '@/services/specs';
 
 interface ApiError {

@@ -12,7 +12,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
-import { CheckCircle2, XCircle, AlertTriangle, FileText, Loader2 } from 'lucide-react';
+import { CheckCircle2, AlertTriangle, FileText, Loader2 } from 'lucide-react';
 import { useTaskSpecLinks } from '@/hooks/useTaskSpecLinks';
 import { TaskSpecLinker } from './TaskSpecLinker';
 

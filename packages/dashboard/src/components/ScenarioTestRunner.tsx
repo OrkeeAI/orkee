@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
-import { Play, CheckCircle, XCircle, Loader2, AlertCircle } from 'lucide-react';
+import { Play, Loader2, AlertCircle, Info } from 'lucide-react';
 import { useMutation } from '@tanstack/react-query';
 import { aiSpecService } from '@/lib/ai/services';
 import { ValidationResultsPanel } from './ValidationResultsPanel';
@@ -28,7 +28,6 @@ interface ScenarioTestRunnerProps {
 }
 
 export function ScenarioTestRunner({
-  taskId,
   taskTitle,
   taskDescription,
   scenarios,
