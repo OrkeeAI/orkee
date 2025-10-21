@@ -89,6 +89,8 @@ impl UserStorage {
     ) -> Result<User, StorageError> {
         debug!("Updating credentials for user: {}", user_id);
 
+        // Using QueryBuilder with push_bind() for all values to prevent SQL injection.
+        // Column names use push() (not parameterizable), values use push_bind() (parameterized).
         let mut query_builder =
             QueryBuilder::new("UPDATE users SET updated_at = datetime('now', 'utc')");
         let mut has_updates = false;
@@ -98,7 +100,7 @@ impl UserStorage {
                 StorageError::Encryption(format!("Failed to encrypt OpenAI API key: {}", e))
             })?;
             query_builder.push(", openai_api_key = ");
-            query_builder.push_bind(encrypted);
+            query_builder.push_bind(encrypted); // Parameterized - safe from SQL injection
             has_updates = true;
         }
         if let Some(key) = &input.anthropic_api_key {
@@ -106,7 +108,7 @@ impl UserStorage {
                 StorageError::Encryption(format!("Failed to encrypt Anthropic API key: {}", e))
             })?;
             query_builder.push(", anthropic_api_key = ");
-            query_builder.push_bind(encrypted);
+            query_builder.push_bind(encrypted); // Parameterized - safe from SQL injection
             has_updates = true;
         }
         if let Some(key) = &input.google_api_key {
@@ -114,7 +116,7 @@ impl UserStorage {
                 StorageError::Encryption(format!("Failed to encrypt Google API key: {}", e))
             })?;
             query_builder.push(", google_api_key = ");
-            query_builder.push_bind(encrypted);
+            query_builder.push_bind(encrypted); // Parameterized - safe from SQL injection
             has_updates = true;
         }
         if let Some(key) = &input.xai_api_key {
@@ -122,17 +124,17 @@ impl UserStorage {
                 StorageError::Encryption(format!("Failed to encrypt xAI API key: {}", e))
             })?;
             query_builder.push(", xai_api_key = ");
-            query_builder.push_bind(encrypted);
+            query_builder.push_bind(encrypted); // Parameterized - safe from SQL injection
             has_updates = true;
         }
         if let Some(enabled) = input.ai_gateway_enabled {
             query_builder.push(", ai_gateway_enabled = ");
-            query_builder.push_bind(enabled);
+            query_builder.push_bind(enabled); // Parameterized - safe from SQL injection
             has_updates = true;
         }
         if let Some(url) = &input.ai_gateway_url {
             query_builder.push(", ai_gateway_url = ");
-            query_builder.push_bind(url);
+            query_builder.push_bind(url); // Parameterized - safe from SQL injection
             has_updates = true;
         }
         if let Some(key) = &input.ai_gateway_key {
@@ -140,7 +142,7 @@ impl UserStorage {
                 StorageError::Encryption(format!("Failed to encrypt AI gateway key: {}", e))
             })?;
             query_builder.push(", ai_gateway_key = ");
-            query_builder.push_bind(encrypted);
+            query_builder.push_bind(encrypted); // Parameterized - safe from SQL injection
             has_updates = true;
         }
 
@@ -149,7 +151,7 @@ impl UserStorage {
         }
 
         query_builder.push(" WHERE id = ");
-        query_builder.push_bind(user_id);
+        query_builder.push_bind(user_id); // Parameterized - safe from SQL injection
 
         let mut tx = self.pool.begin().await.map_err(StorageError::Sqlx)?;
 
