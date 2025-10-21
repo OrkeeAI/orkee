@@ -1,7 +1,7 @@
 // ABOUTME: User storage layer using SQLite
 // ABOUTME: Handles CRUD operations for users and their settings
 
-use sqlx::{Row, SqlitePool};
+use sqlx::{QueryBuilder, Row, SqlitePool};
 use std::env;
 use tracing::debug;
 
@@ -84,71 +84,57 @@ impl UserStorage {
     ) -> Result<User, StorageError> {
         debug!("Updating credentials for user: {}", user_id);
 
-        let mut query = String::from("UPDATE users SET updated_at = datetime('now', 'utc')");
+        let mut query_builder = QueryBuilder::new("UPDATE users SET updated_at = datetime('now', 'utc')");
         let mut has_updates = false;
 
-        if input.openai_api_key.is_some() {
-            query.push_str(", openai_api_key = ?");
+        if let Some(key) = &input.openai_api_key {
+            query_builder.push(", openai_api_key = ");
+            query_builder.push_bind(key);
             has_updates = true;
         }
-        if input.anthropic_api_key.is_some() {
-            query.push_str(", anthropic_api_key = ?");
+        if let Some(key) = &input.anthropic_api_key {
+            query_builder.push(", anthropic_api_key = ");
+            query_builder.push_bind(key);
             has_updates = true;
         }
-        if input.google_api_key.is_some() {
-            query.push_str(", google_api_key = ?");
+        if let Some(key) = &input.google_api_key {
+            query_builder.push(", google_api_key = ");
+            query_builder.push_bind(key);
             has_updates = true;
         }
-        if input.xai_api_key.is_some() {
-            query.push_str(", xai_api_key = ?");
+        if let Some(key) = &input.xai_api_key {
+            query_builder.push(", xai_api_key = ");
+            query_builder.push_bind(key);
             has_updates = true;
         }
-        if input.ai_gateway_enabled.is_some() {
-            query.push_str(", ai_gateway_enabled = ?");
+        if let Some(enabled) = input.ai_gateway_enabled {
+            query_builder.push(", ai_gateway_enabled = ");
+            query_builder.push_bind(enabled);
             has_updates = true;
         }
-        if input.ai_gateway_url.is_some() {
-            query.push_str(", ai_gateway_url = ?");
+        if let Some(url) = &input.ai_gateway_url {
+            query_builder.push(", ai_gateway_url = ");
+            query_builder.push_bind(url);
             has_updates = true;
         }
-        if input.ai_gateway_key.is_some() {
-            query.push_str(", ai_gateway_key = ?");
+        if let Some(key) = &input.ai_gateway_key {
+            query_builder.push(", ai_gateway_key = ");
+            query_builder.push_bind(key);
             has_updates = true;
         }
-
-        query.push_str(" WHERE id = ?");
 
         if !has_updates {
             return self.get_user(user_id).await;
         }
 
-        let mut q = sqlx::query(&query);
+        query_builder.push(" WHERE id = ");
+        query_builder.push_bind(user_id);
 
-        if let Some(key) = &input.openai_api_key {
-            q = q.bind(key);
-        }
-        if let Some(key) = &input.anthropic_api_key {
-            q = q.bind(key);
-        }
-        if let Some(key) = &input.google_api_key {
-            q = q.bind(key);
-        }
-        if let Some(key) = &input.xai_api_key {
-            q = q.bind(key);
-        }
-        if let Some(enabled) = input.ai_gateway_enabled {
-            q = q.bind(enabled);
-        }
-        if let Some(url) = &input.ai_gateway_url {
-            q = q.bind(url);
-        }
-        if let Some(key) = &input.ai_gateway_key {
-            q = q.bind(key);
-        }
-
-        q = q.bind(user_id);
-
-        q.execute(&self.pool).await.map_err(StorageError::Sqlx)?;
+        query_builder
+            .build()
+            .execute(&self.pool)
+            .await
+            .map_err(StorageError::Sqlx)?;
 
         self.get_user(user_id).await
     }
