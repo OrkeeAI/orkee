@@ -313,7 +313,69 @@ async fn change_password_command() {
         }
     };
 
-    // Update encryption settings
+    // Initialize database access to rotate API keys
+    use orkee_projects::DbState;
+    let db_state = match DbState::init().await {
+        Ok(db) => db,
+        Err(e) => {
+            eprintln!(
+                "{} Failed to initialize database: {}",
+                "✗".red().bold(),
+                e
+            );
+            process::exit(1);
+        }
+    };
+
+    // Create encryption instances for key rotation
+    let old_encryption =
+        match ApiKeyEncryption::with_password(&current_password, &salt) {
+            Ok(enc) => enc,
+            Err(e) => {
+                eprintln!(
+                    "{} Failed to create old encryption: {}",
+                    "✗".red().bold(),
+                    e
+                );
+                process::exit(1);
+            }
+        };
+
+    let new_encryption = match ApiKeyEncryption::with_password(&new_password, &new_salt) {
+        Ok(enc) => enc,
+        Err(e) => {
+            eprintln!(
+                "{} Failed to create new encryption: {}",
+                "✗".red().bold(),
+                e
+            );
+            process::exit(1);
+        }
+    };
+
+    // Rotate encryption keys BEFORE updating encryption settings
+    println!();
+    println!("{}", "Rotating encrypted API keys...".cyan());
+    match db_state
+        .user_storage
+        .rotate_encryption_keys("default-user", &old_encryption, &new_encryption)
+        .await
+    {
+        Ok(_) => {
+            println!("{} API keys re-encrypted successfully", "✓".green().bold());
+        }
+        Err(e) => {
+            eprintln!(
+                "{} Failed to rotate encryption keys: {}",
+                "✗".red().bold(),
+                e
+            );
+            eprintln!("  Encryption settings not updated - your data is still safe");
+            process::exit(1);
+        }
+    }
+
+    // Now update encryption settings (salt and hash)
     match manager
         .set_encryption_mode(EncryptionMode::Password, Some(&new_salt), Some(&new_hash))
         .await
@@ -322,15 +384,16 @@ async fn change_password_command() {
             println!();
             println!("{} Password changed successfully!", "✓".green().bold());
             println!();
-            println!("{}", "⚠ IMPORTANT:".yellow().bold());
-            println!(
-                "  • Previously encrypted data will need to be re-encrypted with the new password"
-            );
+            println!("{}", "Security status:".bold());
+            println!("  • All encrypted API keys have been re-encrypted with the new password");
+            println!("  • Encryption settings updated");
             println!("  • You will need the new password to access encrypted API keys");
             println!();
         }
         Err(e) => {
-            eprintln!("{} Failed to change password: {}", "✗".red().bold(), e);
+            eprintln!("{} Failed to update encryption settings: {}", "✗".red().bold(), e);
+            eprintln!("  WARNING: API keys were re-encrypted but settings update failed");
+            eprintln!("  You may need to manually fix the encryption_settings table");
             process::exit(1);
         }
     }
