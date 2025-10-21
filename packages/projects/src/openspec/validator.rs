@@ -54,8 +54,16 @@ pub enum ValidationError {
 
 pub type ValidationResult<T> = Result<T, ValidationError>;
 
+/// Maximum length for names (capabilities, requirements, scenarios)
+/// Matches database schema VARCHAR(200) constraint
 const MAX_NAME_LENGTH: usize = 200;
+
+/// Maximum length for text content (purpose, description)
+/// Balances user experience with database performance
 const MAX_TEXT_LENGTH: usize = 5000;
+
+/// Maximum length for WHEN/THEN/AND clauses
+/// Prevents overly complex scenarios while allowing detailed descriptions
 const MAX_CLAUSE_LENGTH: usize = 1000;
 
 /// Validate a complete parsed spec
