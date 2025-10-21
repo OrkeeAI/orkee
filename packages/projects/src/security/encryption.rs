@@ -123,18 +123,15 @@ impl ApiKeyEncryption {
 
         // Get hostname for additional entropy
         let hostname = hostname::get()
-            .map_err(|e| {
-                EncryptionError::KeyDerivation(format!("Failed to get hostname: {}", e))
-            })?
+            .map_err(|e| EncryptionError::KeyDerivation(format!("Failed to get hostname: {}", e)))?
             .to_string_lossy()
             .to_string();
 
         // Derive 256-bit key from machine ID + username + hostname + app salt using HKDF
         // Including username and hostname provides additional entropy, especially on VMs/containers
         // where machine IDs may have low entropy
-        let mut key_material = Vec::with_capacity(
-            machine_id.len() + username.len() + hostname.len() + APP_SALT.len(),
-        );
+        let mut key_material =
+            Vec::with_capacity(machine_id.len() + username.len() + hostname.len() + APP_SALT.len());
         key_material.extend_from_slice(machine_id.as_bytes());
         key_material.extend_from_slice(username.as_bytes());
         key_material.extend_from_slice(hostname.as_bytes());
