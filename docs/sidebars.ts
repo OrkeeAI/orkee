@@ -99,6 +99,28 @@ const sidebars: SidebarsConfig = {
       ],
     },
 
+    // OpenSpec Integration
+    {
+      type: 'category',
+      label: 'OpenSpec',
+      link: {
+        type: 'generated-index',
+        title: 'OpenSpec Integration',
+        description: 'Comprehensive spec-driven development with AI-powered PRD analysis, task generation, and validation.',
+      },
+      collapsed: false,
+      items: [
+        'openspec/overview',
+        'openspec/getting-started',
+        'openspec/prds',
+        'openspec/specs',
+        'openspec/tasks',
+        'openspec/workflows',
+        'openspec/ai-features',
+        'openspec/cost-tracking',
+      ],
+    },
+
     // Security
     {
       type: 'category',

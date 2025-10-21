@@ -505,6 +505,227 @@ ORKEE_CLOUD_API_URL=https://api.orkee.ai
 | `OLLAMA_API_KEY` | Optional | Ollama API key (for remote servers) |
 | `GITHUB_API_KEY` | Optional | GitHub API for import/export (format: `ghp_...` or `github_pat_...`) |
 
+## OpenSpec Integration
+
+Orkee includes a comprehensive OpenSpec implementation for spec-driven development methodology. This section documents the configuration and usage of OpenSpec features.
+
+### Overview
+
+OpenSpec provides end-to-end workflows from Product Requirements Documents (PRDs) to validated task execution:
+- **Database-backed**: All specs stored in SQLite (9 additional tables)
+- **AI-powered**: Vercel AI SDK integration for PRD analysis and task generation
+- **Bidirectional sync**: Tasks ↔ Specs ↔ PRDs with automatic updates
+- **WHEN/THEN scenarios**: Testable requirements with validation
+
+### Database Schema
+
+OpenSpec extends the SQLite database with 9 tables:
+
+| Table | Purpose |
+|-------|---------|
+| `prds` | Product Requirements Documents with versioning |
+| `spec_capabilities` | High-level functional capabilities |
+| `spec_requirements` | Individual requirements within capabilities |
+| `spec_scenarios` | WHEN/THEN/AND test scenarios |
+| `spec_changes` | Change proposals with approval workflow |
+| `spec_deltas` | Capability changes (added/modified/removed) |
+| `task_spec_links` | Links between tasks and requirements |
+| `prd_spec_sync_history` | Audit trail for sync operations |
+| `ai_usage_logs` | AI cost tracking and usage monitoring |
+
+### AI Configuration
+
+OpenSpec uses the Vercel AI SDK with support for multiple providers:
+
+#### Required Environment Variables
+
+| Variable | Purpose | Example |
+|----------|---------|---------|
+| `ANTHROPIC_API_KEY` | Primary AI provider for PRD analysis | `sk-ant-api03-...` |
+
+#### Optional Environment Variables
+
+| Variable | Purpose | Default |
+|----------|---------|---------|
+| `OPENAI_API_KEY` | OpenAI GPT models | - |
+| `VITE_AI_PROVIDER` | Default AI provider | `anthropic` |
+| `VITE_AI_MODEL` | Default model | `claude-3-5-sonnet-20241022` |
+
+#### AI Operations
+
+OpenSpec performs the following AI operations:
+- **PRD Analysis**: Extract capabilities and requirements from documents
+- **Spec Generation**: Generate specs from requirements
+- **Task Suggestions**: Generate tasks from spec requirements
+- **Orphan Task Analysis**: Suggest spec links for unlinked tasks
+- **Validation**: Verify task completion against WHEN/THEN scenarios
+- **Spec Refinement**: Improve specs based on feedback
+
+### API Endpoints
+
+OpenSpec adds 28 REST endpoints across 5 categories:
+
+#### PRD Management (`/api/projects/:id/prds`)
+
+| Method | Endpoint | Purpose |
+|--------|----------|---------|
+| POST | `/api/projects/:id/prds` | Upload/create PRD |
+| GET | `/api/projects/:id/prds` | List PRDs |
+| GET | `/api/projects/:id/prds/:prd_id` | Get specific PRD |
+| PUT | `/api/projects/:id/prds/:prd_id` | Update PRD |
+| DELETE | `/api/projects/:id/prds/:prd_id` | Delete PRD |
+| POST | `/api/projects/:id/prds/:prd_id/analyze` | AI analyze PRD to specs |
+
+#### Spec/Capability Management (`/api/projects/:id/specs`)
+
+| Method | Endpoint | Purpose |
+|--------|----------|---------|
+| GET | `/api/projects/:id/specs` | List all capabilities |
+| GET | `/api/projects/:id/specs/:spec_id` | Get specific capability |
+| POST | `/api/projects/:id/specs` | Create new capability |
+| PUT | `/api/projects/:id/specs/:spec_id` | Update capability |
+| DELETE | `/api/projects/:id/specs/:spec_id` | Delete capability |
+| POST | `/api/projects/:id/specs/validate` | Validate spec format |
+| GET | `/api/projects/:id/specs/:spec_id/requirements` | Get requirements |
+
+#### Change Management (`/api/:project_id/changes`)
+
+| Method | Endpoint | Purpose |
+|--------|----------|---------|
+| GET | `/api/:project_id/changes` | List all changes |
+| GET | `/api/:project_id/changes/:change_id` | Get specific change |
+| POST | `/api/:project_id/changes` | Create new change |
+| PUT | `/api/:project_id/changes/:change_id/status` | Update status |
+| GET | `/api/:project_id/changes/:change_id/deltas` | Get deltas |
+| POST | `/api/:project_id/changes/:change_id/deltas` | Create delta |
+
+#### Task-Spec Integration (`/api/tasks`)
+
+| Method | Endpoint | Purpose |
+|--------|----------|---------|
+| POST | `/api/tasks/:task_id/link-spec` | Link task to requirement |
+| GET | `/api/tasks/:task_id/spec-links` | Get task's spec links |
+| POST | `/api/tasks/:task_id/validate-spec` | Validate against scenarios |
+| POST | `/api/tasks/:task_id/suggest-spec` | AI suggest spec |
+| POST | `/api/:project_id/tasks/generate-from-spec` | Generate tasks from spec |
+| GET | `/api/:project_id/tasks/orphans` | Find unlinked tasks |
+
+#### AI Usage Tracking (`/api/ai-usage`)
+
+| Method | Endpoint | Purpose |
+|--------|----------|---------|
+| GET | `/api/ai-usage/logs` | Get AI usage logs |
+| GET | `/api/ai-usage/stats` | Get aggregated statistics |
+
+### Frontend Components
+
+OpenSpec provides 11 React components accessible through the dashboard:
+
+1. **PRDUploadDialog** - Upload and analyze PRDs (3-tab interface)
+2. **SpecBuilderWizard** - Create specs with 4-step wizard
+3. **TaskSpecLinker** - Link tasks to requirements
+4. **SyncDashboard** - View orphan tasks and sync status
+5. **TaskSpecIndicator** - Show spec status on tasks
+6. **SpecDetailsView** - View spec details with scenarios
+7. **ChangeProposalForm** - Create change proposals
+8. **ValidationResultsPanel** - View validation results
+9. **SpecDiffViewer** - Compare spec versions
+10. **ScenarioTestRunner** - Test tasks against scenarios
+11. **CostDashboard** - Monitor AI usage and costs
+
+### File Locations
+
+OpenSpec data is stored in the existing SQLite database:
+
+| Location | Content |
+|----------|---------|
+| `~/.orkee/orkee.db` | SQLite database with OpenSpec tables |
+| `~/.orkee/.env` | AI API keys (ANTHROPIC_API_KEY, etc.) |
+
+### Workflows
+
+#### PRD → Spec → Task Flow
+
+```bash
+# 1. Upload PRD via dashboard
+# 2. AI analyzes and extracts capabilities
+# 3. Break down into requirements with scenarios
+# 4. Generate tasks from requirements
+# 5. Tasks validated against scenarios
+# 6. Mark requirements complete when tasks finish
+```
+
+#### Task → Spec → PRD Flow
+
+```bash
+# 1. Developer creates manual task
+# 2. System detects orphan task
+# 3. AI suggests spec requirement
+# 4. Create change proposal
+# 5. Approve and update spec
+# 6. Regenerate PRD
+# 7. Task now linked to requirement
+```
+
+### Cost Tracking
+
+AI usage is tracked in the `ai_usage_logs` table:
+
+```sql
+SELECT
+  operation,
+  COUNT(*) as requests,
+  SUM(total_tokens) as tokens,
+  SUM(estimated_cost) as cost
+FROM ai_usage_logs
+WHERE project_id = 'your-project-id'
+GROUP BY operation;
+```
+
+### Performance Considerations
+
+- **Caching**: AI responses cached to reduce costs
+- **Rate Limiting**: Prevents runaway AI costs
+- **Batch Operations**: Multiple specs can be processed together
+- **Indexes**: All foreign keys indexed for fast queries
+
+### Troubleshooting
+
+#### AI Analysis Errors
+
+```bash
+# Check API key configuration
+echo $ANTHROPIC_API_KEY
+
+# Verify API connectivity
+curl -H "x-api-key: $ANTHROPIC_API_KEY" \
+  https://api.anthropic.com/v1/messages
+```
+
+#### Missing Specs in Dashboard
+
+```bash
+# Check spec tables exist
+sqlite3 ~/.orkee/orkee.db ".tables" | grep spec_
+
+# Verify migration ran
+sqlite3 ~/.orkee/orkee.db \
+  "SELECT * FROM schema_migrations WHERE version LIKE '%openspec%';"
+```
+
+#### Cost Dashboard Not Loading
+
+```bash
+# Check AI usage logs exist
+sqlite3 ~/.orkee/orkee.db \
+  "SELECT COUNT(*) FROM ai_usage_logs;"
+
+# Verify API endpoints
+curl http://localhost:4001/api/ai-usage/stats
+```
+
+For detailed implementation information, see [SPEC_TASK.md](SPEC_TASK.md).
+
 ## Cloud Sync Configuration
 
 Orkee features a SQLite-first architecture with optional cloud synchronization capabilities. Data is stored locally in SQLite with full offline functionality, and can optionally be backed up and synchronized to Orkee Cloud.
