@@ -112,6 +112,26 @@ pub trait ProjectStorage: Send + Sync {
     // Cloud sync operations (for future use)
     async fn export_snapshot(&self) -> StorageResult<Vec<u8>>;
     async fn import_snapshot(&self, data: &[u8]) -> StorageResult<ImportResult>;
+
+    // Encryption settings operations
+    async fn get_encryption_mode(
+        &self,
+    ) -> StorageResult<Option<crate::security::encryption::EncryptionMode>>;
+    async fn get_encryption_settings(
+        &self,
+    ) -> StorageResult<
+        Option<(
+            crate::security::encryption::EncryptionMode,
+            Option<Vec<u8>>,
+            Option<Vec<u8>>,
+        )>,
+    >;
+    async fn set_encryption_mode(
+        &self,
+        mode: crate::security::encryption::EncryptionMode,
+        salt: Option<&[u8]>,
+        hash: Option<&[u8]>,
+    ) -> StorageResult<()>;
 }
 
 /// Filter for querying projects

@@ -794,6 +794,73 @@ impl ProjectStorage for SqliteStorage {
             conflicts,
         })
     }
+
+    async fn get_encryption_mode(
+        &self,
+    ) -> StorageResult<Option<crate::security::encryption::EncryptionMode>> {
+        let row: Option<(String,)> = sqlx::query_as(
+            "SELECT encryption_mode FROM encryption_settings WHERE id = 1"
+        )
+        .fetch_optional(&self.pool)
+        .await?;
+
+        match row {
+            Some((mode_str,)) => {
+                let mode = mode_str.parse().map_err(|_| {
+                    StorageError::Database(format!("Invalid encryption mode: {}", mode_str))
+                })?;
+                Ok(Some(mode))
+            }
+            None => Ok(None),
+        }
+    }
+
+    async fn get_encryption_settings(
+        &self,
+    ) -> StorageResult<
+        Option<(
+            crate::security::encryption::EncryptionMode,
+            Option<Vec<u8>>,
+            Option<Vec<u8>>,
+        )>,
+    > {
+        let row: Option<(String, Option<Vec<u8>>, Option<Vec<u8>>)> = sqlx::query_as(
+            "SELECT encryption_mode, password_salt, password_hash FROM encryption_settings WHERE id = 1"
+        )
+        .fetch_optional(&self.pool)
+        .await?;
+
+        match row {
+            Some((mode_str, salt, hash)) => {
+                let mode = mode_str.parse().map_err(|_| {
+                    StorageError::Database(format!("Invalid encryption mode: {}", mode_str))
+                })?;
+                Ok(Some((mode, salt, hash)))
+            }
+            None => Ok(None),
+        }
+    }
+
+    async fn set_encryption_mode(
+        &self,
+        mode: crate::security::encryption::EncryptionMode,
+        salt: Option<&[u8]>,
+        hash: Option<&[u8]>,
+    ) -> StorageResult<()> {
+        let mode_str = mode.to_string();
+
+        sqlx::query(
+            "INSERT OR REPLACE INTO encryption_settings (id, encryption_mode, password_salt, password_hash, updated_at)
+             VALUES (1, ?, ?, ?, datetime('now'))"
+        )
+        .bind(&mode_str)
+        .bind(salt)
+        .bind(hash)
+        .execute(&self.pool)
+        .await?;
+
+        Ok(())
+    }
 }
 
 #[cfg(test)]

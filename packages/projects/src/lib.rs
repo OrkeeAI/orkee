@@ -37,6 +37,9 @@ pub use manager::{
     ManagerResult, ProjectsManager,
 };
 
+// Type alias for convenience
+pub type ProjectManager = ProjectsManager;
+
 // Re-export storage types and traits
 pub use storage::{
     // Legacy JSON storage functions for backward compatibility
