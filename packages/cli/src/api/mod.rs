@@ -4,7 +4,6 @@ use axum::{
 };
 use tracing::error;
 
-pub mod ai_proxy;
 pub mod cloud;
 pub mod config;
 pub mod directories;
