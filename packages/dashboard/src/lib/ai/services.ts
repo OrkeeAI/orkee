@@ -4,8 +4,15 @@
 import { generateObject, generateText } from 'ai';
 import { getPreferredModel } from './providers';
 import { AI_CONFIG, calculateCost } from './config';
-import { aiRateLimiter, RateLimitError } from './rate-limiter';
+import { aiRateLimiter } from './rate-limiter';
 import { aiCache } from './cache';
+import {
+  RateLimitError,
+  TimeoutError,
+  NetworkError,
+  ValidationError,
+  AIServiceError,
+} from './errors';
 import {
   PRDAnalysisSchema,
   type PRDAnalysis,
@@ -52,17 +59,41 @@ export class AISpecService {
    * Automatically handles large PRDs via chunking if needed
    */
   async analyzePRD(prdContent: string): Promise<AIResult<PRDAnalysis>> {
-    // Check cache first
-    const cachedResult = aiCache.get<AIResult<PRDAnalysis>>('analyzePRD', { prdContent });
-    if (cachedResult) {
-      return cachedResult;
-    }
+    try {
+      // Check cache first
+      const cachedResult = aiCache.get<AIResult<PRDAnalysis>>('analyzePRD', { prdContent });
+      if (cachedResult) {
+        return cachedResult;
+      }
 
-    // Check rate limits
-    const rateLimitCheck = aiRateLimiter.canMakeCall('analyzePRD');
-    if (!rateLimitCheck.allowed) {
-      throw new RateLimitError(rateLimitCheck.reason!);
+      // Check rate limits
+      const rateLimitCheck = aiRateLimiter.canMakeCall('analyzePRD');
+      if (!rateLimitCheck.allowed) {
+        throw new RateLimitError(rateLimitCheck.reason!);
+      }
+
+      return await this._analyzePRDImpl(prdContent);
+    } catch (error) {
+      if (error instanceof RateLimitError) {
+        throw error;
+      }
+      if (error instanceof TimeoutError) {
+        throw new AIServiceError('PRD analysis timed out', 'analyzePRD', error, true);
+      }
+      if (error instanceof NetworkError) {
+        throw new AIServiceError('Network error during PRD analysis', 'analyzePRD', error, error.retryable);
+      }
+      if (error instanceof ValidationError) {
+        throw new AIServiceError('Invalid PRD analysis response', 'analyzePRD', error, false);
+      }
+      throw new AIServiceError('Failed to analyze PRD', 'analyzePRD', error, false);
     }
+  }
+
+  /**
+   * Internal implementation of PRD analysis
+   */
+  private async _analyzePRDImpl(prdContent: string): Promise<AIResult<PRDAnalysis>> {
 
     const { provider, model, modelName } = getPreferredModel();
     const { maxPRDTokens, promptOverhead, timeoutMs } = AI_CONFIG.sizeLimits;

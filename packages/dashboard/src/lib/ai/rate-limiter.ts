@@ -1,6 +1,8 @@
 // ABOUTME: Rate limiting for AI API calls to prevent runaway costs
 // ABOUTME: Tracks call frequency and enforces configurable limits per operation type
 
+import { RateLimitError } from './errors';
+
 interface RateLimitConfig {
   maxCallsPerMinute: number;
   maxCostPerHour: number; // in USD
@@ -184,11 +186,6 @@ export class AIRateLimiter {
 export const aiRateLimiter = new AIRateLimiter();
 
 /**
- * Custom error for rate limit exceeded
+ * Re-export RateLimitError for backward compatibility
  */
-export class RateLimitError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = 'RateLimitError';
-  }
-}
+export { RateLimitError };

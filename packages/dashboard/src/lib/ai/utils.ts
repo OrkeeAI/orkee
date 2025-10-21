@@ -1,6 +1,8 @@
 // ABOUTME: Utility functions for AI operations including token estimation and text chunking
 // ABOUTME: Provides helpers for size validation, cost calculation, and intelligent text splitting
 
+import { TimeoutError } from './errors';
+
 /**
  * Estimate token count from text
  * Uses rough approximation: ~4 characters per token for English text
@@ -160,7 +162,7 @@ export function estimateProcessingCost(
 export function createTimeout<T>(ms: number, errorMessage: string): Promise<T> {
   return new Promise((_, reject) => {
     setTimeout(() => {
-      reject(new Error(errorMessage));
+      reject(new TimeoutError(errorMessage, ms));
     }, ms);
   });
 }
