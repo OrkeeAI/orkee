@@ -50,6 +50,7 @@ struct Message {
 
 #[derive(Debug, Deserialize)]
 struct AnthropicResponse {
+    #[allow(dead_code)]
     id: String,
     content: Vec<ContentBlock>,
     usage: Usage,
@@ -58,6 +59,7 @@ struct AnthropicResponse {
 #[derive(Debug, Deserialize)]
 struct ContentBlock {
     #[serde(rename = "type")]
+    #[allow(dead_code)]
     content_type: String,
     text: String,
 }
