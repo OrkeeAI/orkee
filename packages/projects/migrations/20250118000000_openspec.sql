@@ -1,15 +1,16 @@
--- ABOUTME: OpenSpec integration schema for spec-driven development
--- ABOUTME: Tables for PRDs, capabilities, requirements, scenarios, changes, and AI tracking
+-- ABOUTME: OpenSpec integration for spec-driven development with PRDs, capabilities, requirements
+-- ABOUTME: Includes AI usage tracking, soft delete support, performance indexes, and data retention
 
 -- Product Requirements Documents
 CREATE TABLE IF NOT EXISTS prds (
     id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(8)))),
     project_id TEXT NOT NULL,
     title TEXT NOT NULL,
-    content_markdown TEXT NOT NULL,        -- Full PRD in markdown
+    content_markdown TEXT NOT NULL,
     version INTEGER DEFAULT 1,
     status TEXT DEFAULT 'draft' CHECK(status IN ('draft', 'approved', 'superseded')),
     source TEXT DEFAULT 'manual' CHECK(source IN ('manual', 'generated', 'synced')),
+    deleted_at TIMESTAMP,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     created_by TEXT,
@@ -20,15 +21,15 @@ CREATE TABLE IF NOT EXISTS prds (
 CREATE TABLE IF NOT EXISTS spec_capabilities (
     id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(8)))),
     project_id TEXT NOT NULL,
-    prd_id TEXT,                          -- Link to source PRD
-    name TEXT NOT NULL,                    -- e.g., "auth", "profile-search"
-    purpose_markdown TEXT,                 -- Purpose section
-    spec_markdown TEXT NOT NULL,          -- Full spec.md content
-    design_markdown TEXT,                  -- Optional design.md content
+    prd_id TEXT,
+    name TEXT NOT NULL,
+    purpose_markdown TEXT,
+    spec_markdown TEXT NOT NULL,
+    design_markdown TEXT,
     requirement_count INTEGER DEFAULT 0,
     version INTEGER DEFAULT 1,
     status TEXT DEFAULT 'active' CHECK(status IN ('active', 'deprecated', 'archived')),
-    deleted_at TIMESTAMP,                  -- Soft delete timestamp for data recovery
+    deleted_at TIMESTAMP,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
@@ -52,9 +53,9 @@ CREATE TABLE IF NOT EXISTS spec_capabilities_history (
 CREATE TABLE IF NOT EXISTS spec_requirements (
     id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(8)))),
     capability_id TEXT NOT NULL,
-    name TEXT NOT NULL,                    -- e.g., "User Authentication"
-    content_markdown TEXT NOT NULL,        -- Requirement description
-    position INTEGER DEFAULT 0,            -- Order within capability
+    name TEXT NOT NULL,
+    content_markdown TEXT NOT NULL,
+    position INTEGER DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (capability_id) REFERENCES spec_capabilities(id) ON DELETE CASCADE
@@ -64,10 +65,10 @@ CREATE TABLE IF NOT EXISTS spec_requirements (
 CREATE TABLE IF NOT EXISTS spec_scenarios (
     id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(8)))),
     requirement_id TEXT NOT NULL,
-    name TEXT NOT NULL,                    -- e.g., "Valid credentials"
-    when_clause TEXT NOT NULL,             -- WHEN condition
-    then_clause TEXT NOT NULL,             -- THEN expectation
-    and_clauses TEXT,                      -- JSON array of AND conditions
+    name TEXT NOT NULL,
+    when_clause TEXT NOT NULL,
+    then_clause TEXT NOT NULL,
+    and_clauses TEXT,
     position INTEGER DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (requirement_id) REFERENCES spec_requirements(id) ON DELETE CASCADE
@@ -75,18 +76,18 @@ CREATE TABLE IF NOT EXISTS spec_scenarios (
 
 -- Change Proposals (equivalent to openspec/changes/[change-id]/)
 CREATE TABLE IF NOT EXISTS spec_changes (
-    id TEXT PRIMARY KEY,                   -- change-id like "add-2fa"
+    id TEXT PRIMARY KEY,
     project_id TEXT NOT NULL,
-    prd_id TEXT,                          -- PRD this change relates to
-    proposal_markdown TEXT NOT NULL,       -- proposal.md content
-    tasks_markdown TEXT NOT NULL,          -- tasks.md with checkboxes
-    design_markdown TEXT,                   -- Optional design.md
+    prd_id TEXT,
+    proposal_markdown TEXT NOT NULL,
+    tasks_markdown TEXT NOT NULL,
+    design_markdown TEXT,
     status TEXT DEFAULT 'draft' CHECK(status IN ('draft', 'review', 'approved', 'implementing', 'completed', 'archived')),
     created_by TEXT NOT NULL,
     approved_by TEXT,
     approved_at TIMESTAMP,
     archived_at TIMESTAMP,
-    deleted_at TIMESTAMP,                  -- Soft delete timestamp for data recovery
+    deleted_at TIMESTAMP,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
@@ -97,10 +98,10 @@ CREATE TABLE IF NOT EXISTS spec_changes (
 CREATE TABLE IF NOT EXISTS spec_deltas (
     id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(8)))),
     change_id TEXT NOT NULL,
-    capability_id TEXT,                    -- NULL for new capabilities
-    capability_name TEXT NOT NULL,         -- Name if new capability
+    capability_id TEXT,
+    capability_name TEXT NOT NULL,
     delta_type TEXT NOT NULL CHECK(delta_type IN ('added', 'modified', 'removed')),
-    delta_markdown TEXT NOT NULL,          -- The delta content
+    delta_markdown TEXT NOT NULL,
     position INTEGER DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (change_id) REFERENCES spec_changes(id) ON DELETE CASCADE,
@@ -113,7 +114,7 @@ CREATE TABLE IF NOT EXISTS task_spec_links (
     requirement_id TEXT NOT NULL,
     scenario_id TEXT,
     validation_status TEXT DEFAULT 'pending' CHECK(validation_status IN ('pending', 'passed', 'failed')),
-    validation_result TEXT,                -- JSON with validation details
+    validation_result TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (task_id, requirement_id),
@@ -127,7 +128,7 @@ CREATE TABLE IF NOT EXISTS prd_spec_sync_history (
     id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(8)))),
     prd_id TEXT NOT NULL,
     direction TEXT NOT NULL CHECK(direction IN ('prd_to_spec', 'spec_to_prd', 'task_to_spec')),
-    changes_json TEXT NOT NULL,            -- JSON of what changed
+    changes_json TEXT NOT NULL,
     performed_by TEXT,
     performed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (prd_id) REFERENCES prds(id) ON DELETE CASCADE
@@ -137,10 +138,10 @@ CREATE TABLE IF NOT EXISTS prd_spec_sync_history (
 CREATE TABLE IF NOT EXISTS ai_usage_logs (
     id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(8)))),
     project_id TEXT NOT NULL,
-    request_id TEXT,                       -- Vercel AI Gateway request ID
-    operation TEXT NOT NULL,               -- analyze_prd, generate_spec, etc.
-    model TEXT NOT NULL,                   -- gpt-4, claude-3, etc.
-    provider TEXT NOT NULL,                -- openai, anthropic, etc.
+    request_id TEXT,
+    operation TEXT NOT NULL,
+    model TEXT NOT NULL,
+    provider TEXT NOT NULL,
     input_tokens INTEGER,
     output_tokens INTEGER,
     total_tokens INTEGER,
@@ -156,7 +157,7 @@ ALTER TABLE tasks ADD COLUMN spec_driven BOOLEAN DEFAULT FALSE;
 ALTER TABLE tasks ADD COLUMN change_id TEXT REFERENCES spec_changes(id);
 ALTER TABLE tasks ADD COLUMN from_prd_id TEXT REFERENCES prds(id);
 ALTER TABLE tasks ADD COLUMN spec_validation_status TEXT;
-ALTER TABLE tasks ADD COLUMN spec_validation_result TEXT; -- JSON
+ALTER TABLE tasks ADD COLUMN spec_validation_result TEXT;
 
 -- Create indexes for performance
 CREATE INDEX IF NOT EXISTS idx_prds_project ON prds(project_id);
@@ -186,3 +187,34 @@ CREATE INDEX IF NOT EXISTS idx_spec_capabilities_history_capability_version ON s
 -- Additional indexes for task_spec_links and ai_usage_logs
 CREATE INDEX IF NOT EXISTS idx_task_spec_links_status ON task_spec_links(validation_status);
 CREATE INDEX IF NOT EXISTS idx_task_spec_links_scenario ON task_spec_links(scenario_id);
+
+-- Partial indexes only index rows where deleted_at IS NULL
+CREATE INDEX IF NOT EXISTS idx_spec_capabilities_not_deleted
+  ON spec_capabilities(id) WHERE deleted_at IS NULL;
+
+CREATE INDEX IF NOT EXISTS idx_spec_changes_not_deleted
+  ON spec_changes(id) WHERE deleted_at IS NULL;
+
+CREATE INDEX IF NOT EXISTS idx_prds_not_deleted
+  ON prds(id) WHERE deleted_at IS NULL;
+
+-- Composite partial indexes for common query patterns
+CREATE INDEX IF NOT EXISTS idx_spec_capabilities_project_not_deleted
+  ON spec_capabilities(project_id, status) WHERE deleted_at IS NULL;
+
+CREATE INDEX IF NOT EXISTS idx_spec_capabilities_prd_not_deleted
+  ON spec_capabilities(prd_id) WHERE deleted_at IS NULL;
+
+CREATE INDEX IF NOT EXISTS idx_spec_changes_project_not_deleted
+  ON spec_changes(project_id, status) WHERE deleted_at IS NULL;
+
+CREATE INDEX IF NOT EXISTS idx_prds_project_not_deleted
+  ON prds(project_id, status) WHERE deleted_at IS NULL;
+
+-- Add retention policy for AI usage logs (90 days)
+CREATE TRIGGER IF NOT EXISTS cleanup_old_ai_logs
+AFTER INSERT ON ai_usage_logs
+BEGIN
+  DELETE FROM ai_usage_logs
+  WHERE created_at < datetime('now', '-90 days');
+END;

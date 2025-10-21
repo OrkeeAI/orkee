@@ -1,5 +1,5 @@
--- Task Management Schema
--- Adds users, agents, user_agents, and tasks tables for manual task tracking
+-- ABOUTME: Task management system with users, agents, tasks, tags, and execution tracking
+-- ABOUTME: Includes agent execution history, PR reviews, and AI gateway configuration
 
 -- Users table
 CREATE TABLE IF NOT EXISTS users (
@@ -12,6 +12,9 @@ CREATE TABLE IF NOT EXISTS users (
     anthropic_api_key TEXT,
     google_api_key TEXT,
     xai_api_key TEXT,
+    ai_gateway_enabled INTEGER DEFAULT 0,
+    ai_gateway_url TEXT,
+    ai_gateway_key TEXT,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
 );
@@ -88,6 +91,23 @@ VALUES
 -- Update default user to use Claude Code as default agent
 UPDATE users SET default_agent_id = 'claude-code' WHERE id = 'default-user';
 
+-- Tags table for organizing tasks
+CREATE TABLE IF NOT EXISTS tags (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL UNIQUE,
+    color TEXT,
+    description TEXT,
+    created_at TEXT NOT NULL,
+    archived_at TEXT
+);
+
+-- Create index for active tags
+CREATE INDEX IF NOT EXISTS idx_tags_archived_at ON tags(archived_at);
+
+-- Insert default "main" tag
+INSERT OR IGNORE INTO tags (id, name, color, description, created_at)
+VALUES ('tag-main', 'main', '#3b82f6', 'Default tag for general tasks', datetime('now', 'utc'));
+
 -- Tasks table
 CREATE TABLE IF NOT EXISTS tasks (
     id TEXT PRIMARY KEY,
@@ -100,6 +120,7 @@ CREATE TABLE IF NOT EXISTS tasks (
     assigned_agent_id TEXT REFERENCES agents(id) ON DELETE SET NULL,
     reviewed_by_agent_id TEXT REFERENCES agents(id) ON DELETE SET NULL,
     parent_id TEXT REFERENCES tasks(id) ON DELETE CASCADE,
+    tag_id TEXT REFERENCES tags(id) ON DELETE SET NULL,
     position INTEGER NOT NULL DEFAULT 0,
     dependencies TEXT,
     blockers TEXT,
@@ -132,6 +153,7 @@ CREATE INDEX IF NOT EXISTS idx_tasks_parent_id ON tasks(parent_id);
 CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status);
 CREATE INDEX IF NOT EXISTS idx_tasks_assigned_agent_id ON tasks(assigned_agent_id);
 CREATE INDEX IF NOT EXISTS idx_tasks_created_by_user_id ON tasks(created_by_user_id);
+CREATE INDEX IF NOT EXISTS idx_tasks_tag_id ON tasks(tag_id);
 
 -- Full-text search for tasks
 CREATE VIRTUAL TABLE IF NOT EXISTS tasks_fts USING fts5(
@@ -158,4 +180,167 @@ CREATE TRIGGER IF NOT EXISTS tasks_fts_update AFTER UPDATE ON tasks BEGIN
     DELETE FROM tasks_fts WHERE rowid = old.rowid;
     INSERT INTO tasks_fts(rowid, task_id, title, description, details, tags)
     VALUES (new.rowid, new.id, new.title, new.description, new.details, new.tags);
+END;
+
+-- Agent executions table for tracking multiple AI attempts per task
+CREATE TABLE IF NOT EXISTS agent_executions (
+    id TEXT PRIMARY KEY,
+    task_id TEXT NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+    agent_id TEXT REFERENCES agents(id) ON DELETE SET NULL,
+    model TEXT,
+    started_at TEXT NOT NULL,
+    completed_at TEXT,
+    status TEXT NOT NULL DEFAULT 'running',
+    execution_time_seconds INTEGER,
+    tokens_input INTEGER,
+    tokens_output INTEGER,
+    total_cost REAL,
+    prompt TEXT,
+    response TEXT,
+    error_message TEXT,
+    retry_attempt INTEGER NOT NULL DEFAULT 0,
+    files_changed INTEGER DEFAULT 0,
+    lines_added INTEGER DEFAULT 0,
+    lines_removed INTEGER DEFAULT 0,
+    files_created TEXT,
+    files_modified TEXT,
+    files_deleted TEXT,
+    branch_name TEXT,
+    commit_hash TEXT,
+    commit_message TEXT,
+    pr_number INTEGER,
+    pr_url TEXT,
+    pr_title TEXT,
+    pr_status TEXT,
+    pr_created_at TEXT,
+    pr_merged_at TEXT,
+    pr_merge_commit TEXT,
+    review_status TEXT,
+    review_comments INTEGER DEFAULT 0,
+    test_results TEXT,
+    performance_metrics TEXT,
+    metadata TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+
+-- Indexes for agent executions
+CREATE INDEX IF NOT EXISTS idx_agent_executions_task_id ON agent_executions(task_id);
+CREATE INDEX IF NOT EXISTS idx_agent_executions_agent_id ON agent_executions(agent_id);
+CREATE INDEX IF NOT EXISTS idx_agent_executions_status ON agent_executions(status);
+CREATE INDEX IF NOT EXISTS idx_agent_executions_pr_number ON agent_executions(pr_number);
+
+-- PR reviews table for detailed review tracking
+CREATE TABLE IF NOT EXISTS pr_reviews (
+    id TEXT PRIMARY KEY,
+    execution_id TEXT NOT NULL REFERENCES agent_executions(id) ON DELETE CASCADE,
+    reviewer_id TEXT REFERENCES agents(id) ON DELETE SET NULL,
+    reviewer_type TEXT NOT NULL DEFAULT 'ai',
+    review_status TEXT NOT NULL,
+    review_body TEXT,
+    comments TEXT,
+    suggested_changes TEXT,
+    approval_date TEXT,
+    dismissal_reason TEXT,
+    reviewed_at TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+
+-- Indexes for PR reviews
+CREATE INDEX IF NOT EXISTS idx_pr_reviews_execution_id ON pr_reviews(execution_id);
+CREATE INDEX IF NOT EXISTS idx_pr_reviews_reviewer_id ON pr_reviews(reviewer_id);
+CREATE INDEX IF NOT EXISTS idx_pr_reviews_status ON pr_reviews(review_status);
+
+-- Migrate existing tasks with tags to use the new tag system
+WITH parsed_tags AS (
+    SELECT
+        id as task_id,
+        TRIM(REPLACE(REPLACE(
+            SUBSTR(tags, 3, INSTR(tags || '","', '","') - 3),
+            '[', ''), '"', '')) as tag_name
+    FROM tasks
+    WHERE tags IS NOT NULL
+      AND tags != '[]'
+      AND tags != ''
+      AND tag_id IS NULL
+)
+INSERT OR IGNORE INTO tags (id, name, color, created_at)
+SELECT
+    'tag-' || LOWER(REPLACE(tag_name, ' ', '-')),
+    tag_name,
+    CASE
+        WHEN tag_name LIKE '%feature%' THEN '#10b981'
+        WHEN tag_name LIKE '%bug%' THEN '#ef4444'
+        WHEN tag_name LIKE '%fix%' THEN '#ef4444'
+        WHEN tag_name LIKE '%refactor%' THEN '#f59e0b'
+        WHEN tag_name LIKE '%test%' THEN '#8b5cf6'
+        WHEN tag_name LIKE '%docs%' THEN '#6b7280'
+        ELSE '#3b82f6'
+    END,
+    datetime('now', 'utc')
+FROM parsed_tags
+WHERE tag_name IS NOT NULL AND tag_name != '';
+
+-- Update tasks to reference the new tag_id
+WITH parsed_tags AS (
+    SELECT
+        id as task_id,
+        'tag-' || LOWER(REPLACE(
+            TRIM(REPLACE(REPLACE(
+                SUBSTR(tags, 3, INSTR(tags || '","', '","') - 3),
+                '[', ''), '"', '')), ' ', '-')) as tag_id
+    FROM tasks
+    WHERE tags IS NOT NULL
+      AND tags != '[]'
+      AND tags != ''
+      AND tag_id IS NULL
+)
+UPDATE tasks
+SET tag_id = pt.tag_id
+FROM parsed_tags pt
+WHERE tasks.id = pt.task_id
+  AND tasks.tag_id IS NULL;
+
+-- Set default tag for tasks without tags
+UPDATE tasks
+SET tag_id = 'tag-main'
+WHERE tag_id IS NULL;
+
+-- Create triggers for timestamp management
+CREATE TRIGGER IF NOT EXISTS agent_executions_updated_at
+AFTER UPDATE ON agent_executions
+BEGIN
+    UPDATE agent_executions SET updated_at = datetime('now', 'utc')
+    WHERE id = NEW.id;
+END;
+
+CREATE TRIGGER IF NOT EXISTS pr_reviews_updated_at
+AFTER UPDATE ON pr_reviews
+BEGIN
+    UPDATE pr_reviews SET updated_at = datetime('now', 'utc')
+    WHERE id = NEW.id;
+END;
+
+-- Add trigger to update task actual_hours when execution completes
+CREATE TRIGGER IF NOT EXISTS update_task_actual_hours
+AFTER UPDATE ON agent_executions
+WHEN NEW.status = 'completed' AND NEW.execution_time_seconds IS NOT NULL
+BEGIN
+    UPDATE tasks
+    SET actual_hours = COALESCE(actual_hours, 0) + (NEW.execution_time_seconds / 3600.0)
+    WHERE id = NEW.task_id;
+END;
+
+-- Add trigger to update task status when PR is merged
+CREATE TRIGGER IF NOT EXISTS update_task_on_pr_merge
+AFTER UPDATE ON agent_executions
+WHEN NEW.pr_status = 'merged' AND OLD.pr_status != 'merged'
+BEGIN
+    UPDATE tasks
+    SET
+        status = 'completed',
+        completed_at = NEW.pr_merged_at
+    WHERE id = NEW.task_id
+      AND status != 'completed';
 END;

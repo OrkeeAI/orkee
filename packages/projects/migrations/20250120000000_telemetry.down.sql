@@ -1,4 +1,4 @@
--- ABOUTME: Rollback for telemetry tables migration
+-- ABOUTME: Rollback for telemetry system migration
 -- ABOUTME: Drops telemetry_settings, telemetry_events, and telemetry_stats tables
 
 -- Drop trigger

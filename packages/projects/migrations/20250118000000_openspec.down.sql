@@ -1,5 +1,19 @@
--- ABOUTME: Rollback for OpenSpec integration schema migration
--- ABOUTME: Drops all OpenSpec tables, indexes, and columns added to tasks table
+-- ABOUTME: Rollback for OpenSpec integration migration
+-- ABOUTME: Drops all OpenSpec tables, indexes, triggers, and partial indexes
+
+-- Drop trigger
+DROP TRIGGER IF EXISTS cleanup_old_ai_logs;
+
+-- Drop composite partial indexes
+DROP INDEX IF EXISTS idx_prds_project_not_deleted;
+DROP INDEX IF EXISTS idx_spec_changes_project_not_deleted;
+DROP INDEX IF EXISTS idx_spec_capabilities_prd_not_deleted;
+DROP INDEX IF EXISTS idx_spec_capabilities_project_not_deleted;
+
+-- Drop simple partial indexes
+DROP INDEX IF EXISTS idx_prds_not_deleted;
+DROP INDEX IF EXISTS idx_spec_changes_not_deleted;
+DROP INDEX IF EXISTS idx_spec_capabilities_not_deleted;
 
 -- Drop composite indexes
 DROP INDEX IF EXISTS idx_spec_capabilities_history_capability_version;
@@ -39,7 +53,3 @@ DROP TABLE IF EXISTS spec_capabilities_history;
 DROP TABLE IF EXISTS spec_capabilities;
 DROP TABLE IF EXISTS ai_usage_logs;
 DROP TABLE IF EXISTS prds;
-
--- Note: Cannot drop columns from tasks table in SQLite without recreating table
--- Columns spec_driven, change_id, from_prd_id, spec_validation_status, spec_validation_result
--- will remain in the tasks table. If full rollback is needed, tasks table must be recreated.
