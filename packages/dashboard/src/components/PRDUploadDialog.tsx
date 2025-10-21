@@ -4,7 +4,7 @@ import React, { useState, useRef } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
-import rehypeRaw from 'rehype-raw';
+import rehypeSanitize from 'rehype-sanitize';
 import 'highlight.js/styles/github-dark.css';
 import { Button } from '@/components/ui/button';
 import {
@@ -222,7 +222,7 @@ export function PRDUploadDialog({ projectId, open, onOpenChange, onComplete }: P
             <div className="rounded-md border p-6 max-h-[500px] overflow-y-auto prose prose-sm dark:prose-invert max-w-none">
               <ReactMarkdown
                 remarkPlugins={[remarkGfm]}
-                rehypePlugins={[rehypeHighlight, rehypeRaw]}
+                rehypePlugins={[rehypeHighlight, rehypeSanitize]}
               >
                 {contentMarkdown}
               </ReactMarkdown>
