@@ -6,7 +6,7 @@ use orkee_projects::users::{MaskedUser, UserStorage, UserUpdateInput};
 use serde::{Deserialize, Serialize};
 use tracing::{error, info};
 
-use crate::AppState;
+use crate::{auth::CurrentUser, AppState};
 
 #[derive(Debug, Serialize)]
 pub struct ApiResponse<T> {
@@ -38,7 +38,16 @@ pub async fn get_current_user(
 ) -> Result<Json<ApiResponse<MaskedUser>>, (StatusCode, Json<ApiResponse<()>>)> {
     info!("Fetching current user");
 
-    let user_storage = UserStorage::new(state.db.clone());
+    let user_storage = match UserStorage::new(state.db.clone()) {
+        Ok(storage) => storage,
+        Err(e) => {
+            error!("Failed to initialize user storage: {}", e);
+            return Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ApiResponse::error(format!("Failed to initialize storage: {}", e))),
+            ));
+        }
+    };
 
     match user_storage.get_current_user().await {
         Ok(user) => {
@@ -68,11 +77,21 @@ pub struct UpdateCredentialsRequest {
 
 pub async fn update_credentials(
     State(state): State<AppState>,
+    current_user: CurrentUser,
     Json(payload): Json<UpdateCredentialsRequest>,
 ) -> Result<Json<ApiResponse<MaskedUser>>, (StatusCode, Json<ApiResponse<()>>)> {
-    info!("Updating user credentials");
+    info!("Updating user credentials for user: {}", current_user.id);
 
-    let user_storage = UserStorage::new(state.db.clone());
+    let user_storage = match UserStorage::new(state.db.clone()) {
+        Ok(storage) => storage,
+        Err(e) => {
+            error!("Failed to initialize user storage: {}", e);
+            return Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ApiResponse::error(format!("Failed to initialize storage: {}", e))),
+            ));
+        }
+    };
 
     let input = UserUpdateInput {
         openai_api_key: payload.openai_api_key,
@@ -84,7 +103,7 @@ pub async fn update_credentials(
         ai_gateway_key: payload.ai_gateway_key,
     };
 
-    match user_storage.update_credentials("default-user", input).await {
+    match user_storage.update_credentials(&current_user.id, input).await {
         Ok(user) => {
             let masked_user: MaskedUser = user.into();
             Ok(Json(ApiResponse::success(masked_user)))

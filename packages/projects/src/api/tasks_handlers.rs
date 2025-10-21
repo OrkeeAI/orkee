@@ -11,6 +11,7 @@ use chrono::{DateTime, Utc};
 use serde::Deserialize;
 use tracing::info;
 
+use super::auth::CurrentUser;
 use super::response::ApiResponse;
 use crate::db::DbState;
 use crate::tasks::{TaskCreateInput, TaskPriority, TaskStatus, TaskUpdateInput};
@@ -84,15 +85,13 @@ pub struct CreateTaskRequest {
 pub async fn create_task(
     State(db): State<DbState>,
     Path(project_id): Path<String>,
+    current_user: CurrentUser,
     Json(request): Json<CreateTaskRequest>,
 ) -> impl IntoResponse {
     info!(
         "Creating task '{}' for project: {}",
         request.title, project_id
     );
-
-    // Get current user ID (for now, use default user)
-    let user_id = "default-user";
 
     let due_date = request.due_date.as_deref().and_then(parse_due_date);
 
@@ -120,7 +119,7 @@ pub async fn create_task(
 
     match db
         .task_storage
-        .create_task(&project_id, user_id, input)
+        .create_task(&project_id, &current_user.id, input)
         .await
     {
         Ok(task) => (

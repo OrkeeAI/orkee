@@ -10,6 +10,7 @@ use axum::{
 use serde::Deserialize;
 use tracing::info;
 
+use super::auth::CurrentUser;
 use super::response::ApiResponse;
 use crate::db::DbState;
 use crate::users::{MaskedUser, UserUpdateInput};
@@ -119,6 +120,7 @@ pub struct UpdateCredentialsRequest {
 /// Update user's API credentials and gateway configuration
 pub async fn update_credentials(
     State(db): State<DbState>,
+    current_user: CurrentUser,
     Json(request): Json<UpdateCredentialsRequest>,
 ) -> impl IntoResponse {
     info!("Updating user credentials");
@@ -135,7 +137,7 @@ pub async fn update_credentials(
 
     match db
         .user_storage
-        .update_credentials("default-user", input)
+        .update_credentials(&current_user.id, input)
         .await
     {
         Ok(user) => {

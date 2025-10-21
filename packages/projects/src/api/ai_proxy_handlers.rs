@@ -10,6 +10,7 @@ use axum::{
 use reqwest::Client;
 use tracing::{error, info, warn};
 
+use super::auth::CurrentUser;
 use crate::db::DbState;
 
 /// Build an error response with fallback in case Response builder fails
@@ -24,19 +25,32 @@ fn build_error_response(status: StatusCode, message: String) -> Response<Body> {
 }
 
 /// Proxy requests to Anthropic API with API key from database
-pub async fn proxy_anthropic(State(db): State<DbState>, req: Request<Body>) -> impl IntoResponse {
-    proxy_ai_request(&db, "anthropic", "https://api.anthropic.com", req).await
+pub async fn proxy_anthropic(
+    State(db): State<DbState>,
+    current_user: CurrentUser,
+    req: Request<Body>,
+) -> impl IntoResponse {
+    proxy_ai_request(&db, &current_user.id, "anthropic", "https://api.anthropic.com", req).await
 }
 
 /// Proxy requests to OpenAI API with API key from database
-pub async fn proxy_openai(State(db): State<DbState>, req: Request<Body>) -> impl IntoResponse {
-    proxy_ai_request(&db, "openai", "https://api.openai.com", req).await
+pub async fn proxy_openai(
+    State(db): State<DbState>,
+    current_user: CurrentUser,
+    req: Request<Body>,
+) -> impl IntoResponse {
+    proxy_ai_request(&db, &current_user.id, "openai", "https://api.openai.com", req).await
 }
 
 /// Proxy requests to Google AI API with API key from database
-pub async fn proxy_google(State(db): State<DbState>, req: Request<Body>) -> impl IntoResponse {
+pub async fn proxy_google(
+    State(db): State<DbState>,
+    current_user: CurrentUser,
+    req: Request<Body>,
+) -> impl IntoResponse {
     proxy_ai_request(
         &db,
+        &current_user.id,
         "google",
         "https://generativelanguage.googleapis.com",
         req,
@@ -45,13 +59,18 @@ pub async fn proxy_google(State(db): State<DbState>, req: Request<Body>) -> impl
 }
 
 /// Proxy requests to xAI API with API key from database
-pub async fn proxy_xai(State(db): State<DbState>, req: Request<Body>) -> impl IntoResponse {
-    proxy_ai_request(&db, "xai", "https://api.x.ai", req).await
+pub async fn proxy_xai(
+    State(db): State<DbState>,
+    current_user: CurrentUser,
+    req: Request<Body>,
+) -> impl IntoResponse {
+    proxy_ai_request(&db, &current_user.id, "xai", "https://api.x.ai", req).await
 }
 
 /// Generic AI request proxy handler
 async fn proxy_ai_request(
     db: &DbState,
+    user_id: &str,
     provider: &str,
     base_url: &str,
     req: Request<Body>,
@@ -59,7 +78,7 @@ async fn proxy_ai_request(
     info!("Proxying {} API request", provider);
 
     // Get API key from database with env fallback
-    let api_key = match db.user_storage.get_api_key("default-user", provider).await {
+    let api_key = match db.user_storage.get_api_key(user_id, provider).await {
         Ok(Some(key)) => key,
         Ok(None) => {
             error!("{} API key not configured", provider);

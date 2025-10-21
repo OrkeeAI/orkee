@@ -9,6 +9,7 @@ pub mod agents_handlers;
 pub mod ai_handlers;
 pub mod ai_proxy_handlers;
 pub mod ai_usage_log_handlers;
+pub mod auth;
 pub mod change_handlers;
 pub mod executions_handlers;
 pub mod handlers;
