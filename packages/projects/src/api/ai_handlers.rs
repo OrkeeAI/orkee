@@ -325,7 +325,7 @@ fn calculate_cost(input_tokens: u32, output_tokens: u32) -> f64 {
 }
 
 // ============================================================================
-// Placeholder Implementations (TODO: Implement with real AI)
+// Spec and Task Management Endpoints
 // ============================================================================
 
 /// Generate spec from requirements
