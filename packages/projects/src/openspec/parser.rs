@@ -13,12 +13,87 @@ pub enum ParseError {
 
     #[error("Invalid scenario format in requirement '{0}': {1}")]
     InvalidScenario(String, String),
+
+    #[error("Input validation failed: {0}")]
+    ValidationError(String),
 }
 
 pub type ParseResult<T> = Result<T, ParseError>;
 
+/// Maximum length for a single line in characters
+const MAX_LINE_LENGTH: usize = 10_000;
+
+/// Maximum total document size in bytes (1MB)
+const MAX_DOCUMENT_SIZE: usize = 1_048_576;
+
+/// Dangerous HTML tags that should be rejected
+const DANGEROUS_TAGS: &[&str] = &[
+    "<script", "<iframe", "<object", "<embed", "<link", "<style",
+    "<meta", "<base", "<form", "<input", "<button",
+];
+
+/// Dangerous URL protocols
+const DANGEROUS_PROTOCOLS: &[&str] = &["javascript:", "data:text/html", "vbscript:"];
+
+/// Validate markdown input for security issues
+fn validate_input(markdown: &str) -> ParseResult<()> {
+    // Check total document size
+    if markdown.len() > MAX_DOCUMENT_SIZE {
+        return Err(ParseError::ValidationError(format!(
+            "Document too large: {} bytes (max: {} bytes)",
+            markdown.len(),
+            MAX_DOCUMENT_SIZE
+        )));
+    }
+
+    // Check for extremely long lines
+    for (line_num, line) in markdown.lines().enumerate() {
+        if line.len() > MAX_LINE_LENGTH {
+            return Err(ParseError::ValidationError(format!(
+                "Line {} exceeds maximum length: {} characters (max: {})",
+                line_num + 1,
+                line.len(),
+                MAX_LINE_LENGTH
+            )));
+        }
+    }
+
+    // Check for dangerous HTML tags (case-insensitive)
+    let markdown_lower = markdown.to_lowercase();
+    for tag in DANGEROUS_TAGS {
+        if markdown_lower.contains(tag) {
+            return Err(ParseError::ValidationError(format!(
+                "Potentially malicious HTML tag detected: {}",
+                tag
+            )));
+        }
+    }
+
+    // Check for dangerous URL protocols
+    for protocol in DANGEROUS_PROTOCOLS {
+        if markdown_lower.contains(protocol) {
+            return Err(ParseError::ValidationError(format!(
+                "Potentially malicious URL protocol detected: {}",
+                protocol
+            )));
+        }
+    }
+
+    Ok(())
+}
+
+/// Sanitize a string by removing null bytes and control characters
+fn sanitize_string(input: &str) -> String {
+    input
+        .chars()
+        .filter(|c| !c.is_control() || c.is_whitespace())
+        .collect()
+}
+
 /// Parse a complete spec markdown document into structured capabilities
 pub fn parse_spec_markdown(markdown: &str) -> ParseResult<ParsedSpec> {
+    // Validate input before parsing
+    validate_input(markdown)?;
     let mut capabilities = Vec::new();
 
     // Split by capability sections (## headings)
@@ -108,7 +183,7 @@ fn parse_scenarios(lines: &[&str], _requirement_name: &str) -> ParseResult<Vec<P
                     and,
                 });
             }
-            scenario_name = trimmed.trim_start_matches('#').trim().to_string();
+            scenario_name = sanitize_string(trimmed.trim_start_matches('#').trim());
         } else if trimmed.to_lowercase().starts_with("**scenario:") {
             if let Some((when, then, and)) = current_scenario.take() {
                 scenarios.push(ParsedScenario {
@@ -118,13 +193,14 @@ fn parse_scenarios(lines: &[&str], _requirement_name: &str) -> ParseResult<Vec<P
                     and,
                 });
             }
-            scenario_name = trimmed
-                .trim_start_matches("**")
-                .trim_end_matches("**")
-                .trim_start_matches("Scenario:")
-                .trim_start_matches("scenario:")
-                .trim()
-                .to_string();
+            scenario_name = sanitize_string(
+                trimmed
+                    .trim_start_matches("**")
+                    .trim_end_matches("**")
+                    .trim_start_matches("Scenario:")
+                    .trim_start_matches("scenario:")
+                    .trim(),
+            );
         }
         // WHEN clause
         else if trimmed.to_uppercase().starts_with("WHEN ") || trimmed.starts_with("**WHEN") {
@@ -197,7 +273,8 @@ fn extract_clause_text(line: &str, clause_type: &str) -> String {
         .trim_start_matches(':')
         .trim();
 
-    text.to_string()
+    // Sanitize the extracted text
+    sanitize_string(text)
 }
 
 /// Split markdown by heading level
@@ -217,7 +294,7 @@ fn split_by_heading(content: &str, level: usize) -> Vec<(String, String)> {
             if !current_name.is_empty() {
                 sections.push((current_name.clone(), current_content.clone()));
             }
-            current_name = line.trim_start_matches('#').trim().to_string();
+            current_name = sanitize_string(line.trim_start_matches('#').trim());
             current_content.clear();
         } else {
             current_content.push_str(line);
@@ -263,7 +340,7 @@ fn extract_purpose(lines: &[&str]) -> Option<String> {
     if purpose.is_empty() {
         None
     } else {
-        Some(purpose)
+        Some(sanitize_string(&purpose))
     }
 }
 
@@ -295,7 +372,7 @@ fn extract_description(lines: &[&str]) -> Option<String> {
     if description.is_empty() {
         None
     } else {
-        Some(description)
+        Some(sanitize_string(&description))
     }
 }
 
