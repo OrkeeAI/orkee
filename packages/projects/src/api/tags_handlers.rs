@@ -3,15 +3,14 @@
 
 use axum::{
     extract::{Path, Query, State},
-    http::StatusCode,
-    response::{IntoResponse, Json as ResponseJson},
+    response::IntoResponse,
     Json,
 };
 use chrono::{DateTime, Utc};
 use serde::Deserialize;
 use tracing::info;
 
-use super::response::ApiResponse;
+use super::response::{created_or_internal_error, ok_or_internal_error};
 use crate::db::DbState;
 use crate::pagination::{PaginatedResponse, PaginationParams};
 use crate::tags::{TagCreateInput, TagUpdateInput};
@@ -35,23 +34,21 @@ pub async fn list_tags(
         params.pagination.page()
     );
 
-    match db.tag_storage.list_tags_paginated(params.include_archived, Some(params.pagination.limit()), Some(params.pagination.offset())).await {
-        Ok((tags, total)) => {
-            let response = PaginatedResponse::new(tags, &params.pagination, total);
-            (StatusCode::OK, ResponseJson(ApiResponse::success(response))).into_response()
-        }
-        Err(e) => e.into_response(),
-    }
+    let result = db
+        .tag_storage
+        .list_tags_paginated(params.include_archived, Some(params.pagination.limit()), Some(params.pagination.offset()))
+        .await
+        .map(|(tags, total)| PaginatedResponse::new(tags, &params.pagination, total));
+
+    ok_or_internal_error(result, "Failed to list tags")
 }
 
 /// Get a single tag by ID
 pub async fn get_tag(State(db): State<DbState>, Path(tag_id): Path<String>) -> impl IntoResponse {
     info!("Getting tag: {}", tag_id);
 
-    match db.tag_storage.get_tag(&tag_id).await {
-        Ok(tag) => (StatusCode::OK, ResponseJson(ApiResponse::success(tag))).into_response(),
-        Err(e) => e.into_response(),
-    }
+    let result = db.tag_storage.get_tag(&tag_id).await;
+    ok_or_internal_error(result, "Failed to get tag")
 }
 
 /// Request body for creating a tag
@@ -75,10 +72,8 @@ pub async fn create_tag(
         description: request.description,
     };
 
-    match db.tag_storage.create_tag(input).await {
-        Ok(tag) => (StatusCode::CREATED, ResponseJson(ApiResponse::success(tag))).into_response(),
-        Err(e) => e.into_response(),
-    }
+    let result = db.tag_storage.create_tag(input).await;
+    created_or_internal_error(result, "Failed to create tag")
 }
 
 /// Request body for updating a tag
@@ -112,10 +107,8 @@ pub async fn update_tag(
         archived_at,
     };
 
-    match db.tag_storage.update_tag(&tag_id, input).await {
-        Ok(tag) => (StatusCode::OK, ResponseJson(ApiResponse::success(tag))).into_response(),
-        Err(e) => e.into_response(),
-    }
+    let result = db.tag_storage.update_tag(&tag_id, input).await;
+    ok_or_internal_error(result, "Failed to update tag")
 }
 
 /// Archive a tag
@@ -125,10 +118,8 @@ pub async fn archive_tag(
 ) -> impl IntoResponse {
     info!("Archiving tag: {}", tag_id);
 
-    match db.tag_storage.archive_tag(&tag_id).await {
-        Ok(tag) => (StatusCode::OK, ResponseJson(ApiResponse::success(tag))).into_response(),
-        Err(e) => e.into_response(),
-    }
+    let result = db.tag_storage.archive_tag(&tag_id).await;
+    ok_or_internal_error(result, "Failed to archive tag")
 }
 
 /// Unarchive a tag
@@ -138,10 +129,8 @@ pub async fn unarchive_tag(
 ) -> impl IntoResponse {
     info!("Unarchiving tag: {}", tag_id);
 
-    match db.tag_storage.unarchive_tag(&tag_id).await {
-        Ok(tag) => (StatusCode::OK, ResponseJson(ApiResponse::success(tag))).into_response(),
-        Err(e) => e.into_response(),
-    }
+    let result = db.tag_storage.unarchive_tag(&tag_id).await;
+    ok_or_internal_error(result, "Failed to unarchive tag")
 }
 
 /// Delete a tag (only if unused)
@@ -151,12 +140,6 @@ pub async fn delete_tag(
 ) -> impl IntoResponse {
     info!("Deleting tag: {}", tag_id);
 
-    match db.tag_storage.delete_tag(&tag_id).await {
-        Ok(_) => (
-            StatusCode::OK,
-            ResponseJson(ApiResponse::success("Tag deleted successfully")),
-        )
-            .into_response(),
-        Err(e) => e.into_response(),
-    }
+    let result = db.tag_storage.delete_tag(&tag_id).await.map(|_| "Tag deleted successfully");
+    ok_or_internal_error(result, "Failed to delete tag")
 }

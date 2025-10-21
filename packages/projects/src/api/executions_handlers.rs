@@ -3,15 +3,14 @@
 
 use axum::{
     extract::{Path, Query, State},
-    http::StatusCode,
-    response::{IntoResponse, Json as ResponseJson},
+    response::IntoResponse,
     Json,
 };
 use chrono::{DateTime, Utc};
 use serde::Deserialize;
 use tracing::info;
 
-use super::response::ApiResponse;
+use super::response::{created_or_internal_error, ok_or_internal_error};
 use crate::db::DbState;
 use crate::executions::{
     AgentExecutionCreateInput, AgentExecutionUpdateInput, ExecutionStatus, PrReviewCreateInput,
@@ -29,13 +28,11 @@ pub async fn list_executions(
 ) -> impl IntoResponse {
     info!("Listing executions for task: {} (page: {})", task_id, pagination.page());
 
-    match db.execution_storage.list_executions_paginated(&task_id, Some(pagination.limit()), Some(pagination.offset())).await {
-        Ok((executions, total)) => {
-            let response = PaginatedResponse::new(executions, &pagination, total);
-            (StatusCode::OK, ResponseJson(ApiResponse::success(response))).into_response()
-        }
-        Err(e) => e.into_response(),
-    }
+    let result = db.execution_storage.list_executions_paginated(&task_id, Some(pagination.limit()), Some(pagination.offset()))
+        .await
+        .map(|(executions, total)| PaginatedResponse::new(executions, &pagination, total));
+
+    ok_or_internal_error(result, "Failed to list executions")
 }
 
 /// Get a single execution by ID
@@ -45,14 +42,8 @@ pub async fn get_execution(
 ) -> impl IntoResponse {
     info!("Getting execution: {}", execution_id);
 
-    match db.execution_storage.get_execution(&execution_id).await {
-        Ok(execution) => (
-            StatusCode::OK,
-            ResponseJson(ApiResponse::success(execution)),
-        )
-            .into_response(),
-        Err(e) => e.into_response(),
-    }
+    let result = db.execution_storage.get_execution(&execution_id).await;
+    ok_or_internal_error(result, "Failed to get execution")
 }
 
 /// Request body for creating an execution
@@ -83,14 +74,8 @@ pub async fn create_execution(
         retry_attempt: request.retry_attempt,
     };
 
-    match db.execution_storage.create_execution(input).await {
-        Ok(execution) => (
-            StatusCode::CREATED,
-            ResponseJson(ApiResponse::success(execution)),
-        )
-            .into_response(),
-        Err(e) => e.into_response(),
-    }
+    let result = db.execution_storage.create_execution(input).await;
+    created_or_internal_error(result, "Failed to create execution")
 }
 
 /// Request body for updating an execution
@@ -199,18 +184,12 @@ pub async fn update_execution(
         metadata: request.metadata,
     };
 
-    match db
+    let result = db
         .execution_storage
         .update_execution(&execution_id, input)
-        .await
-    {
-        Ok(execution) => (
-            StatusCode::OK,
-            ResponseJson(ApiResponse::success(execution)),
-        )
-            .into_response(),
-        Err(e) => e.into_response(),
-    }
+        .await;
+
+    ok_or_internal_error(result, "Failed to update execution")
 }
 
 /// Delete an execution
@@ -220,14 +199,11 @@ pub async fn delete_execution(
 ) -> impl IntoResponse {
     info!("Deleting execution: {}", execution_id);
 
-    match db.execution_storage.delete_execution(&execution_id).await {
-        Ok(_) => (
-            StatusCode::OK,
-            ResponseJson(ApiResponse::success("Execution deleted successfully")),
-        )
-            .into_response(),
-        Err(e) => e.into_response(),
-    }
+    let result = db.execution_storage.delete_execution(&execution_id)
+        .await
+        .map(|_| "Execution deleted successfully");
+
+    ok_or_internal_error(result, "Failed to delete execution")
 }
 
 // ==================== PR Reviews ====================
@@ -239,12 +215,8 @@ pub async fn list_reviews(
 ) -> impl IntoResponse {
     info!("Listing reviews for execution: {}", execution_id);
 
-    match db.execution_storage.list_reviews(&execution_id).await {
-        Ok(reviews) => {
-            (StatusCode::OK, ResponseJson(ApiResponse::success(reviews))).into_response()
-        }
-        Err(e) => e.into_response(),
-    }
+    let result = db.execution_storage.list_reviews(&execution_id).await;
+    ok_or_internal_error(result, "Failed to list reviews")
 }
 
 /// Get a single review by ID
@@ -254,10 +226,8 @@ pub async fn get_review(
 ) -> impl IntoResponse {
     info!("Getting review: {}", review_id);
 
-    match db.execution_storage.get_review(&review_id).await {
-        Ok(review) => (StatusCode::OK, ResponseJson(ApiResponse::success(review))).into_response(),
-        Err(e) => e.into_response(),
-    }
+    let result = db.execution_storage.get_review(&review_id).await;
+    ok_or_internal_error(result, "Failed to get review")
 }
 
 /// Request body for creating a review
@@ -295,14 +265,8 @@ pub async fn create_review(
         suggested_changes: request.suggested_changes,
     };
 
-    match db.execution_storage.create_review(input).await {
-        Ok(review) => (
-            StatusCode::CREATED,
-            ResponseJson(ApiResponse::success(review)),
-        )
-            .into_response(),
-        Err(e) => e.into_response(),
-    }
+    let result = db.execution_storage.create_review(input).await;
+    created_or_internal_error(result, "Failed to create review")
 }
 
 /// Request body for updating a review
@@ -344,10 +308,8 @@ pub async fn update_review(
         dismissal_reason: request.dismissal_reason,
     };
 
-    match db.execution_storage.update_review(&review_id, input).await {
-        Ok(review) => (StatusCode::OK, ResponseJson(ApiResponse::success(review))).into_response(),
-        Err(e) => e.into_response(),
-    }
+    let result = db.execution_storage.update_review(&review_id, input).await;
+    ok_or_internal_error(result, "Failed to update review")
 }
 
 /// Delete a review
@@ -357,12 +319,9 @@ pub async fn delete_review(
 ) -> impl IntoResponse {
     info!("Deleting review: {}", review_id);
 
-    match db.execution_storage.delete_review(&review_id).await {
-        Ok(_) => (
-            StatusCode::OK,
-            ResponseJson(ApiResponse::success("Review deleted successfully")),
-        )
-            .into_response(),
-        Err(e) => e.into_response(),
-    }
+    let result = db.execution_storage.delete_review(&review_id)
+        .await
+        .map(|_| "Review deleted successfully");
+
+    ok_or_internal_error(result, "Failed to delete review")
 }

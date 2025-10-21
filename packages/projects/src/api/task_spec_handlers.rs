@@ -3,14 +3,13 @@
 
 use axum::{
     extract::{Path, Query, State},
-    http::StatusCode,
-    response::{IntoResponse, Json as ResponseJson},
+    response::IntoResponse,
     Json,
 };
 use serde::{Deserialize, Serialize};
 use tracing::info;
 
-use super::response::ApiResponse;
+use super::response::{created_or_internal_error, ok_or_internal_error};
 use crate::db::DbState;
 use crate::openspec::integration;
 use crate::pagination::{PaginatedResponse, PaginationParams};
@@ -26,17 +25,11 @@ pub async fn link_task_to_requirement(
         task_id, request.requirement_id
     );
 
-    match integration::link_task_to_requirement(&db.pool, &task_id, &request.requirement_id).await {
-        Ok(_) => (StatusCode::OK, ResponseJson(ApiResponse::success(true))).into_response(),
-        Err(e) => (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            ResponseJson(ApiResponse::<()>::error(format!(
-                "Failed to link task to requirement: {}",
-                e
-            ))),
-        )
-            .into_response(),
-    }
+    let result = integration::link_task_to_requirement(&db.pool, &task_id, &request.requirement_id)
+        .await
+        .map(|_| true);
+
+    ok_or_internal_error(result, "Failed to link task to requirement")
 }
 
 /// Request body for linking a task to a spec requirement
@@ -53,21 +46,8 @@ pub async fn get_task_spec_links(
 ) -> impl IntoResponse {
     info!("Getting spec links for task: {}", task_id);
 
-    match integration::get_task_requirements(&db.pool, &task_id).await {
-        Ok(requirements) => (
-            StatusCode::OK,
-            ResponseJson(ApiResponse::success(requirements)),
-        )
-            .into_response(),
-        Err(e) => (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            ResponseJson(ApiResponse::<()>::error(format!(
-                "Failed to get task spec links: {}",
-                e
-            ))),
-        )
-            .into_response(),
-    }
+    let result = integration::get_task_requirements(&db.pool, &task_id).await;
+    ok_or_internal_error(result, "Failed to get task spec links")
 }
 
 /// Validate a task against its linked spec scenarios
@@ -77,21 +57,8 @@ pub async fn validate_task_against_spec(
 ) -> impl IntoResponse {
     info!("Validating task {} against spec scenarios", task_id);
 
-    match integration::validate_task_completion(&db.pool, &task_id).await {
-        Ok(validation_result) => (
-            StatusCode::OK,
-            ResponseJson(ApiResponse::success(validation_result)),
-        )
-            .into_response(),
-        Err(e) => (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            ResponseJson(ApiResponse::<()>::error(format!(
-                "Failed to validate task: {}",
-                e
-            ))),
-        )
-            .into_response(),
-    }
+    let result = integration::validate_task_completion(&db.pool, &task_id).await;
+    ok_or_internal_error(result, "Failed to validate task")
 }
 
 /// AI suggest spec from task (placeholder for future AI integration)
@@ -105,7 +72,8 @@ pub async fn suggest_spec_from_task(Path(task_id): Path<String>) -> impl IntoRes
         note: "AI integration not yet implemented".to_string(),
     };
 
-    (StatusCode::OK, ResponseJson(ApiResponse::success(response))).into_response()
+    let result: Result<SuggestSpecResponse, String> = Ok(response);
+    ok_or_internal_error(result, "Failed to suggest spec")
 }
 
 /// Response for AI spec suggestion
@@ -139,34 +107,19 @@ pub async fn generate_tasks_from_spec(
         request.capability_id, project_id
     );
 
-    match integration::generate_tasks_from_capability(
+    let result = integration::generate_tasks_from_capability(
         &db.pool,
         &request.capability_id,
         &project_id,
         &request.tag_id,
     )
     .await
-    {
-        Ok(task_ids) => {
-            let response = GenerateTasksResponse {
-                task_ids: task_ids.clone(),
-                count: task_ids.len(),
-            };
-            (
-                StatusCode::CREATED,
-                ResponseJson(ApiResponse::success(response)),
-            )
-                .into_response()
-        }
-        Err(e) => (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            ResponseJson(ApiResponse::<()>::error(format!(
-                "Failed to generate tasks from spec: {}",
-                e
-            ))),
-        )
-            .into_response(),
-    }
+    .map(|task_ids| GenerateTasksResponse {
+        task_ids: task_ids.clone(),
+        count: task_ids.len(),
+    });
+
+    created_or_internal_error(result, "Failed to generate tasks from spec")
 }
 
 /// Response for task generation
@@ -195,21 +148,18 @@ pub async fn find_orphan_tasks(
         )
     "#;
 
-    let total: i64 = match sqlx::query_scalar(count_query)
+    let total_result: Result<i64, sqlx::Error> = sqlx::query_scalar(count_query)
         .bind(&project_id)
         .fetch_one(&db.pool)
-        .await
-    {
+        .await;
+
+    let total = match total_result {
         Ok(count) => count,
         Err(e) => {
-            return (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                ResponseJson(ApiResponse::<()>::error(format!(
-                    "Failed to count orphan tasks: {}",
-                    e
-                ))),
-            )
-                .into_response();
+            return ok_or_internal_error(
+                Err::<(), _>(e),
+                "Failed to count orphan tasks"
+            );
         }
     };
 
@@ -229,24 +179,13 @@ pub async fn find_orphan_tasks(
         pagination.offset()
     );
 
-    match sqlx::query_as::<_, OrphanTask>(&query)
+    let result = sqlx::query_as::<_, OrphanTask>(&query)
         .bind(&project_id)
         .fetch_all(&db.pool)
         .await
-    {
-        Ok(orphan_tasks) => {
-            let response = PaginatedResponse::new(orphan_tasks, &pagination, total);
-            (StatusCode::OK, ResponseJson(ApiResponse::success(response))).into_response()
-        }
-        Err(e) => (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            ResponseJson(ApiResponse::<()>::error(format!(
-                "Failed to find orphan tasks: {}",
-                e
-            ))),
-        )
-            .into_response(),
-    }
+        .map(|orphan_tasks| PaginatedResponse::new(orphan_tasks, &pagination, total));
+
+    ok_or_internal_error(result, "Failed to find orphan tasks")
 }
 
 /// Task without spec links

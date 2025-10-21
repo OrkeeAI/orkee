@@ -3,14 +3,13 @@
 
 use axum::{
     extract::{Query, State},
-    http::StatusCode,
-    response::{IntoResponse, Json as ResponseJson},
+    response::IntoResponse,
 };
 use chrono::{DateTime, Utc};
 use serde::Deserialize;
 use tracing::info;
 
-use super::response::ApiResponse;
+use super::response::{ok_or_internal_error};
 use crate::ai_usage_logs::AiUsageQuery;
 use crate::db::DbState;
 
@@ -50,10 +49,8 @@ pub async fn list_logs(
         offset: params.offset,
     };
 
-    match db.ai_usage_log_storage.list_logs(query).await {
-        Ok(logs) => (StatusCode::OK, ResponseJson(ApiResponse::success(logs))).into_response(),
-        Err(e) => e.into_response(),
-    }
+    let result = db.ai_usage_log_storage.list_logs(query).await;
+    ok_or_internal_error(result, "Failed to list AI usage logs")
 }
 
 #[derive(Deserialize)]
@@ -87,8 +84,6 @@ pub async fn get_stats(
         offset: None,
     };
 
-    match db.ai_usage_log_storage.get_stats(query).await {
-        Ok(stats) => (StatusCode::OK, ResponseJson(ApiResponse::success(stats))).into_response(),
-        Err(e) => e.into_response(),
-    }
+    let result = db.ai_usage_log_storage.get_stats(query).await;
+    ok_or_internal_error(result, "Failed to get AI usage stats")
 }

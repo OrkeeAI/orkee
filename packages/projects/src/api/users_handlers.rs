@@ -3,15 +3,14 @@
 
 use axum::{
     extract::{Path, State},
-    http::StatusCode,
-    response::{IntoResponse, Json as ResponseJson},
+    response::IntoResponse,
     Json,
 };
 use serde::Deserialize;
 use tracing::info;
 
 use super::auth::CurrentUser;
-use super::response::ApiResponse;
+use super::response::{ok_or_internal_error};
 use crate::db::DbState;
 use crate::users::{MaskedUser, UserUpdateInput};
 
@@ -19,23 +18,19 @@ use crate::users::{MaskedUser, UserUpdateInput};
 pub async fn get_current_user(State(db): State<DbState>) -> impl IntoResponse {
     info!("Getting current user");
 
-    match db.user_storage.get_current_user().await {
-        Ok(user) => {
-            let masked: MaskedUser = user.into();
-            (StatusCode::OK, ResponseJson(ApiResponse::success(masked))).into_response()
-        }
-        Err(e) => e.into_response(),
-    }
+    let result = db.user_storage.get_current_user()
+        .await
+        .map(|user| { let masked: MaskedUser = user.into(); masked });
+
+    ok_or_internal_error(result, "Failed to get current user")
 }
 
 /// Get user by ID
 pub async fn get_user(State(db): State<DbState>, Path(user_id): Path<String>) -> impl IntoResponse {
     info!("Getting user: {}", user_id);
 
-    match db.user_storage.get_user(&user_id).await {
-        Ok(user) => (StatusCode::OK, ResponseJson(ApiResponse::success(user))).into_response(),
-        Err(e) => e.into_response(),
-    }
+    let result = db.user_storage.get_user(&user_id).await;
+    ok_or_internal_error(result, "Failed to get user")
 }
 
 /// Request body for setting default agent
@@ -56,20 +51,13 @@ pub async fn set_default_agent(
         request.agent_id, user_id
     );
 
-    match db
+    let result = db
         .user_storage
         .set_default_agent(&user_id, &request.agent_id)
         .await
-    {
-        Ok(()) => (
-            StatusCode::OK,
-            ResponseJson(ApiResponse::success(serde_json::json!({
-                "message": "Default agent updated successfully"
-            }))),
-        )
-            .into_response(),
-        Err(e) => e.into_response(),
-    }
+        .map(|_| serde_json::json!({"message": "Default agent updated successfully"}));
+
+    ok_or_internal_error(result, "Failed to set default agent")
 }
 
 /// Request body for updating theme
@@ -86,16 +74,11 @@ pub async fn update_theme(
 ) -> impl IntoResponse {
     info!("Updating theme for user {}", user_id);
 
-    match db.user_storage.update_theme(&user_id, &request.theme).await {
-        Ok(()) => (
-            StatusCode::OK,
-            ResponseJson(ApiResponse::success(serde_json::json!({
-                "message": "Theme updated successfully"
-            }))),
-        )
-            .into_response(),
-        Err(e) => e.into_response(),
-    }
+    let result = db.user_storage.update_theme(&user_id, &request.theme)
+        .await
+        .map(|_| serde_json::json!({"message": "Theme updated successfully"}));
+
+    ok_or_internal_error(result, "Failed to update theme")
 }
 
 /// Request body for updating credentials
@@ -188,15 +171,11 @@ pub async fn update_credentials(
         ai_gateway_key: request.ai_gateway_key,
     };
 
-    match db
+    let result = db
         .user_storage
         .update_credentials(&current_user.id, input)
         .await
-    {
-        Ok(user) => {
-            let masked: MaskedUser = user.into();
-            (StatusCode::OK, ResponseJson(ApiResponse::success(masked))).into_response()
-        }
-        Err(e) => e.into_response(),
-    }
+        .map(|user| { let masked: MaskedUser = user.into(); masked });
+
+    ok_or_internal_error(result, "Failed to update credentials")
 }

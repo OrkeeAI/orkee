@@ -3,14 +3,13 @@
 
 use axum::{
     extract::{Path, Query, State},
-    http::StatusCode,
-    response::{IntoResponse, Json as ResponseJson},
+    response::IntoResponse,
     Json,
 };
 use serde::Deserialize;
 use tracing::info;
 
-use super::response::ApiResponse;
+use super::response::{created_or_internal_error, ok_or_internal_error, ok_or_not_found};
 use crate::db::DbState;
 use crate::openspec::db as openspec_db;
 use crate::openspec::types::{ChangeStatus, DeltaType};
@@ -24,20 +23,11 @@ pub async fn list_changes(
 ) -> impl IntoResponse {
     info!("Listing changes for project: {} (page: {})", project_id, pagination.page());
 
-    match openspec_db::get_spec_changes_by_project_paginated(&db.pool, &project_id, Some(pagination.limit()), Some(pagination.offset())).await {
-        Ok((changes, total)) => {
-            let response = PaginatedResponse::new(changes, &pagination, total);
-            (StatusCode::OK, ResponseJson(ApiResponse::success(response))).into_response()
-        }
-        Err(e) => (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            ResponseJson(ApiResponse::<()>::error(format!(
-                "Failed to list changes: {}",
-                e
-            ))),
-        )
-            .into_response(),
-    }
+    let result = openspec_db::get_spec_changes_by_project_paginated(&db.pool, &project_id, Some(pagination.limit()), Some(pagination.offset()))
+        .await
+        .map(|(changes, total)| PaginatedResponse::new(changes, &pagination, total));
+
+    ok_or_internal_error(result, "Failed to list changes")
 }
 
 /// Get a single change by ID
@@ -47,14 +37,8 @@ pub async fn get_change(
 ) -> impl IntoResponse {
     info!("Getting change: {}", change_id);
 
-    match openspec_db::get_spec_change(&db.pool, &change_id).await {
-        Ok(change) => (StatusCode::OK, ResponseJson(ApiResponse::success(change))).into_response(),
-        Err(e) => (
-            StatusCode::NOT_FOUND,
-            ResponseJson(ApiResponse::<()>::error(format!("Change not found: {}", e))),
-        )
-            .into_response(),
-    }
+    let result = openspec_db::get_spec_change(&db.pool, &change_id).await;
+    ok_or_not_found(result, "Change not found")
 }
 
 /// Request body for creating a change
@@ -80,7 +64,7 @@ pub async fn create_change(
 ) -> impl IntoResponse {
     info!("Creating change for project: {}", project_id);
 
-    match openspec_db::create_spec_change(
+    let result = openspec_db::create_spec_change(
         &db.pool,
         &project_id,
         request.prd_id.as_deref(),
@@ -89,22 +73,9 @@ pub async fn create_change(
         request.design_markdown.as_deref(),
         &request.created_by,
     )
-    .await
-    {
-        Ok(change) => (
-            StatusCode::CREATED,
-            ResponseJson(ApiResponse::success(change)),
-        )
-            .into_response(),
-        Err(e) => (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            ResponseJson(ApiResponse::<()>::error(format!(
-                "Failed to create change: {}",
-                e
-            ))),
-        )
-            .into_response(),
-    }
+    .await;
+
+    created_or_internal_error(result, "Failed to create change")
 }
 
 /// Request body for updating change status
@@ -123,24 +94,15 @@ pub async fn update_change_status(
 ) -> impl IntoResponse {
     info!("Updating change status: {}", change_id);
 
-    match openspec_db::update_spec_change_status(
+    let result = openspec_db::update_spec_change_status(
         &db.pool,
         &change_id,
         request.status,
         request.approved_by.as_deref(),
     )
-    .await
-    {
-        Ok(change) => (StatusCode::OK, ResponseJson(ApiResponse::success(change))).into_response(),
-        Err(e) => (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            ResponseJson(ApiResponse::<()>::error(format!(
-                "Failed to update change status: {}",
-                e
-            ))),
-        )
-            .into_response(),
-    }
+    .await;
+
+    ok_or_internal_error(result, "Failed to update change status")
 }
 
 /// Get all deltas for a change
@@ -151,20 +113,11 @@ pub async fn get_change_deltas(
 ) -> impl IntoResponse {
     info!("Getting deltas for change: {} (page: {})", change_id, pagination.page());
 
-    match openspec_db::get_deltas_by_change_paginated(&db.pool, &change_id, Some(pagination.limit()), Some(pagination.offset())).await {
-        Ok((deltas, total)) => {
-            let response = PaginatedResponse::new(deltas, &pagination, total);
-            (StatusCode::OK, ResponseJson(ApiResponse::success(response))).into_response()
-        }
-        Err(e) => (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            ResponseJson(ApiResponse::<()>::error(format!(
-                "Failed to get change deltas: {}",
-                e
-            ))),
-        )
-            .into_response(),
-    }
+    let result = openspec_db::get_deltas_by_change_paginated(&db.pool, &change_id, Some(pagination.limit()), Some(pagination.offset()))
+        .await
+        .map(|(deltas, total)| PaginatedResponse::new(deltas, &pagination, total));
+
+    ok_or_internal_error(result, "Failed to get change deltas")
 }
 
 /// Request body for creating a delta
@@ -189,7 +142,7 @@ pub async fn create_delta(
 ) -> impl IntoResponse {
     info!("Creating delta for change: {}", change_id);
 
-    match openspec_db::create_spec_delta(
+    let result = openspec_db::create_spec_delta(
         &db.pool,
         &change_id,
         request.capability_id.as_deref(),
@@ -198,20 +151,7 @@ pub async fn create_delta(
         &request.delta_markdown,
         request.position,
     )
-    .await
-    {
-        Ok(delta) => (
-            StatusCode::CREATED,
-            ResponseJson(ApiResponse::success(delta)),
-        )
-            .into_response(),
-        Err(e) => (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            ResponseJson(ApiResponse::<()>::error(format!(
-                "Failed to create delta: {}",
-                e
-            ))),
-        )
-            .into_response(),
-    }
+    .await;
+
+    created_or_internal_error(result, "Failed to create delta")
 }

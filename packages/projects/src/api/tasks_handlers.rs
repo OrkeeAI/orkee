@@ -3,8 +3,7 @@
 
 use axum::{
     extract::{Path, Query, State},
-    http::StatusCode,
-    response::{IntoResponse, Json as ResponseJson},
+    response::IntoResponse,
     Json,
 };
 use chrono::{DateTime, Utc};
@@ -12,7 +11,7 @@ use serde::Deserialize;
 use tracing::info;
 
 use super::auth::CurrentUser;
-use super::response::ApiResponse;
+use super::response::{created_or_internal_error, ok_or_internal_error};
 use crate::db::DbState;
 use crate::pagination::{PaginatedResponse, PaginationParams};
 use crate::tasks::{TaskCreateInput, TaskPriority, TaskStatus, TaskUpdateInput};
@@ -32,17 +31,13 @@ pub async fn list_tasks(
 ) -> impl IntoResponse {
     info!("Listing tasks for project: {} (page: {})", project_id, pagination.page());
 
-    match db
+    let result = db
         .task_storage
         .list_tasks_paginated(&project_id, Some(pagination.limit()), Some(pagination.offset()))
         .await
-    {
-        Ok((tasks, total)) => {
-            let response = PaginatedResponse::new(tasks, &pagination, total);
-            (StatusCode::OK, ResponseJson(ApiResponse::success(response))).into_response()
-        }
-        Err(e) => e.into_response(),
-    }
+        .map(|(tasks, total)| PaginatedResponse::new(tasks, &pagination, total));
+
+    ok_or_internal_error(result, "Failed to list tasks")
 }
 
 /// Get a single task by ID
@@ -52,10 +47,8 @@ pub async fn get_task(
 ) -> impl IntoResponse {
     info!("Getting task: {}", task_id);
 
-    match db.task_storage.get_task(&task_id).await {
-        Ok(task) => (StatusCode::OK, ResponseJson(ApiResponse::success(task))).into_response(),
-        Err(e) => e.into_response(),
-    }
+    let result = db.task_storage.get_task(&task_id).await;
+    ok_or_internal_error(result, "Failed to get task")
 }
 
 /// Request body for creating a task
@@ -126,18 +119,12 @@ pub async fn create_task(
         category: request.category,
     };
 
-    match db
+    let result = db
         .task_storage
         .create_task(&project_id, &current_user.id, input)
-        .await
-    {
-        Ok(task) => (
-            StatusCode::CREATED,
-            ResponseJson(ApiResponse::success(task)),
-        )
-            .into_response(),
-        Err(e) => e.into_response(),
-    }
+        .await;
+
+    created_or_internal_error(result, "Failed to create task")
 }
 
 /// Request body for updating a task
@@ -197,10 +184,8 @@ pub async fn update_task(
         category: request.category,
     };
 
-    match db.task_storage.update_task(&task_id, input).await {
-        Ok(task) => (StatusCode::OK, ResponseJson(ApiResponse::success(task))).into_response(),
-        Err(e) => e.into_response(),
-    }
+    let result = db.task_storage.update_task(&task_id, input).await;
+    ok_or_internal_error(result, "Failed to update task")
 }
 
 /// Delete a task
@@ -210,14 +195,15 @@ pub async fn delete_task(
 ) -> impl IntoResponse {
     info!("Deleting task: {}", task_id);
 
-    match db.task_storage.delete_task(&task_id).await {
-        Ok(()) => (
-            StatusCode::OK,
-            ResponseJson(ApiResponse::success(serde_json::json!({
+    let result = db
+        .task_storage
+        .delete_task(&task_id)
+        .await
+        .map(|_| {
+            serde_json::json!({
                 "message": format!("Task {} deleted successfully", task_id)
-            }))),
-        )
-            .into_response(),
-        Err(e) => e.into_response(),
-    }
+            })
+        });
+
+    ok_or_internal_error(result, "Failed to delete task")
 }

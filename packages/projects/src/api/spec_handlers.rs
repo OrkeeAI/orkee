@@ -10,7 +10,7 @@ use axum::{
 use serde::{Deserialize, Serialize};
 use tracing::info;
 
-use super::response::ApiResponse;
+use super::response::{created_or_internal_error, ok_or_internal_error, ok_or_not_found, ApiResponse};
 use crate::db::DbState;
 use crate::openspec::db as openspec_db;
 use crate::openspec::parser;
@@ -26,20 +26,11 @@ pub async fn list_capabilities(
 ) -> impl IntoResponse {
     info!("Listing capabilities for project: {} (page: {})", project_id, pagination.page());
 
-    match openspec_db::get_capabilities_by_project_paginated(&db.pool, &project_id, Some(pagination.limit()), Some(pagination.offset())).await {
-        Ok((capabilities, total)) => {
-            let response = PaginatedResponse::new(capabilities, &pagination, total);
-            (StatusCode::OK, ResponseJson(ApiResponse::success(response))).into_response()
-        }
-        Err(e) => (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            ResponseJson(ApiResponse::<()>::error(format!(
-                "Failed to list capabilities: {}",
-                e
-            ))),
-        )
-            .into_response(),
-    }
+    let result = openspec_db::get_capabilities_by_project_paginated(&db.pool, &project_id, Some(pagination.limit()), Some(pagination.offset()))
+        .await
+        .map(|(capabilities, total)| PaginatedResponse::new(capabilities, &pagination, total));
+
+    ok_or_internal_error(result, "Failed to list capabilities")
 }
 
 /// List all capabilities with their requirements for a project (optimized)
@@ -52,21 +43,8 @@ pub async fn list_capabilities_with_requirements(
         project_id
     );
 
-    match openspec_db::get_capabilities_with_requirements_by_project(&db.pool, &project_id).await {
-        Ok(capabilities_with_reqs) => (
-            StatusCode::OK,
-            ResponseJson(ApiResponse::success(capabilities_with_reqs)),
-        )
-            .into_response(),
-        Err(e) => (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            ResponseJson(ApiResponse::<()>::error(format!(
-                "Failed to list capabilities with requirements: {}",
-                e
-            ))),
-        )
-            .into_response(),
-    }
+    let result = openspec_db::get_capabilities_with_requirements_by_project(&db.pool, &project_id).await;
+    ok_or_internal_error(result, "Failed to list capabilities with requirements")
 }
 
 /// Get a single capability by ID
@@ -76,21 +54,8 @@ pub async fn get_capability(
 ) -> impl IntoResponse {
     info!("Getting capability: {}", capability_id);
 
-    match openspec_db::get_capability(&db.pool, &capability_id).await {
-        Ok(capability) => (
-            StatusCode::OK,
-            ResponseJson(ApiResponse::success(capability)),
-        )
-            .into_response(),
-        Err(e) => (
-            StatusCode::NOT_FOUND,
-            ResponseJson(ApiResponse::<()>::error(format!(
-                "Capability not found: {}",
-                e
-            ))),
-        )
-            .into_response(),
-    }
+    let result = openspec_db::get_capability(&db.pool, &capability_id).await;
+    ok_or_not_found(result, "Capability not found")
 }
 
 /// Request body for creating a capability
@@ -118,7 +83,7 @@ pub async fn create_capability(
         request.name, project_id
     );
 
-    match openspec_db::create_capability(
+    let result = openspec_db::create_capability(
         &db.pool,
         &project_id,
         request.prd_id.as_deref(),
@@ -127,22 +92,9 @@ pub async fn create_capability(
         &request.spec_markdown,
         request.design_markdown.as_deref(),
     )
-    .await
-    {
-        Ok(capability) => (
-            StatusCode::CREATED,
-            ResponseJson(ApiResponse::success(capability)),
-        )
-            .into_response(),
-        Err(e) => (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            ResponseJson(ApiResponse::<()>::error(format!(
-                "Failed to create capability: {}",
-                e
-            ))),
-        )
-            .into_response(),
-    }
+    .await;
+
+    created_or_internal_error(result, "Failed to create capability")
 }
 
 /// Request body for updating a capability
@@ -165,7 +117,7 @@ pub async fn update_capability(
 ) -> impl IntoResponse {
     info!("Updating capability: {}", capability_id);
 
-    match openspec_db::update_capability(
+    let result = openspec_db::update_capability(
         &db.pool,
         &capability_id,
         request.spec_markdown.as_deref(),
@@ -173,22 +125,9 @@ pub async fn update_capability(
         request.design_markdown.as_deref(),
         request.status,
     )
-    .await
-    {
-        Ok(capability) => (
-            StatusCode::OK,
-            ResponseJson(ApiResponse::success(capability)),
-        )
-            .into_response(),
-        Err(e) => (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            ResponseJson(ApiResponse::<()>::error(format!(
-                "Failed to update capability: {}",
-                e
-            ))),
-        )
-            .into_response(),
-    }
+    .await;
+
+    ok_or_internal_error(result, "Failed to update capability")
 }
 
 /// Delete a capability (soft delete)
@@ -224,20 +163,11 @@ pub async fn get_capability_requirements(
 ) -> impl IntoResponse {
     info!("Getting requirements for capability: {} (page: {})", capability_id, pagination.page());
 
-    match openspec_db::get_requirements_by_capability_paginated(&db.pool, &capability_id, Some(pagination.limit()), Some(pagination.offset())).await {
-        Ok((requirements, total)) => {
-            let response = PaginatedResponse::new(requirements, &pagination, total);
-            (StatusCode::OK, ResponseJson(ApiResponse::success(response))).into_response()
-        }
-        Err(e) => (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            ResponseJson(ApiResponse::<()>::error(format!(
-                "Failed to get capability requirements: {}",
-                e
-            ))),
-        )
-            .into_response(),
-    }
+    let result = openspec_db::get_requirements_by_capability_paginated(&db.pool, &capability_id, Some(pagination.limit()), Some(pagination.offset()))
+        .await
+        .map(|(requirements, total)| PaginatedResponse::new(requirements, &pagination, total));
+
+    ok_or_internal_error(result, "Failed to get capability requirements")
 }
 
 /// Request body for validating spec markdown

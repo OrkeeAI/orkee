@@ -2563,6 +2563,7 @@ dependencies = [
  "flate2",
  "git2",
  "hex",
+ "http-body-util",
  "machine-uid",
  "mime",
  "mockall 0.13.1",

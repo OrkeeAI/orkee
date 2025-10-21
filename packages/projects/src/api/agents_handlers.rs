@@ -3,14 +3,13 @@
 
 use axum::{
     extract::{Path, Query, State},
-    http::StatusCode,
-    response::{IntoResponse, Json as ResponseJson},
+    response::IntoResponse,
     Json,
 };
 use serde::Deserialize;
 use tracing::info;
 
-use super::response::ApiResponse;
+use super::response::{ok_or_internal_error};
 use crate::db::DbState;
 use crate::pagination::{PaginatedResponse, PaginationParams};
 
@@ -21,13 +20,11 @@ pub async fn list_agents(
 ) -> impl IntoResponse {
     info!("Listing all agents (page: {})", pagination.page());
 
-    match db.agent_storage.list_agents_paginated(Some(pagination.limit()), Some(pagination.offset())).await {
-        Ok((agents, total)) => {
-            let response = PaginatedResponse::new(agents, &pagination, total);
-            (StatusCode::OK, ResponseJson(ApiResponse::success(response))).into_response()
-        }
-        Err(e) => e.into_response(),
-    }
+    let result = db.agent_storage.list_agents_paginated(Some(pagination.limit()), Some(pagination.offset()))
+        .await
+        .map(|(agents, total)| PaginatedResponse::new(agents, &pagination, total));
+
+    ok_or_internal_error(result, "Failed to list agents")
 }
 
 /// Get a single agent by ID
@@ -37,10 +34,8 @@ pub async fn get_agent(
 ) -> impl IntoResponse {
     info!("Getting agent: {}", agent_id);
 
-    match db.agent_storage.get_agent(&agent_id).await {
-        Ok(agent) => (StatusCode::OK, ResponseJson(ApiResponse::success(agent))).into_response(),
-        Err(e) => e.into_response(),
-    }
+    let result = db.agent_storage.get_agent(&agent_id).await;
+    ok_or_internal_error(result, "Failed to get agent")
 }
 
 /// List user's agent configurations
@@ -51,13 +46,11 @@ pub async fn list_user_agents(
 ) -> impl IntoResponse {
     info!("Listing agents for user: {} (page: {})", user_id, pagination.page());
 
-    match db.agent_storage.list_user_agents_paginated(&user_id, Some(pagination.limit()), Some(pagination.offset())).await {
-        Ok((user_agents, total)) => {
-            let response = PaginatedResponse::new(user_agents, &pagination, total);
-            (StatusCode::OK, ResponseJson(ApiResponse::success(response))).into_response()
-        }
-        Err(e) => e.into_response(),
-    }
+    let result = db.agent_storage.list_user_agents_paginated(&user_id, Some(pagination.limit()), Some(pagination.offset()))
+        .await
+        .map(|(user_agents, total)| PaginatedResponse::new(user_agents, &pagination, total));
+
+    ok_or_internal_error(result, "Failed to list user agents")
 }
 
 /// Get a specific user-agent configuration
@@ -67,14 +60,8 @@ pub async fn get_user_agent(
 ) -> impl IntoResponse {
     info!("Getting user-agent: {} for user: {}", agent_id, user_id);
 
-    match db.agent_storage.get_user_agent(&user_id, &agent_id).await {
-        Ok(user_agent) => (
-            StatusCode::OK,
-            ResponseJson(ApiResponse::success(user_agent)),
-        )
-            .into_response(),
-        Err(e) => e.into_response(),
-    }
+    let result = db.agent_storage.get_user_agent(&user_id, &agent_id).await;
+    ok_or_internal_error(result, "Failed to get user agent")
 }
 
 /// Request body for activating an agent
@@ -92,27 +79,15 @@ pub async fn update_agent_activation(
 ) -> impl IntoResponse {
     if request.is_active {
         info!("Activating agent {} for user {}", agent_id, user_id);
-        match db.agent_storage.activate_agent(&user_id, &agent_id).await {
-            Ok(()) => (
-                StatusCode::OK,
-                ResponseJson(ApiResponse::success(serde_json::json!({
-                    "message": "Agent activated successfully"
-                }))),
-            )
-                .into_response(),
-            Err(e) => e.into_response(),
-        }
+        let result = db.agent_storage.activate_agent(&user_id, &agent_id)
+            .await
+            .map(|_| serde_json::json!({"message": "Agent activated successfully"}));
+        ok_or_internal_error(result, "Failed to activate agent")
     } else {
         info!("Deactivating agent {} for user {}", agent_id, user_id);
-        match db.agent_storage.deactivate_agent(&user_id, &agent_id).await {
-            Ok(()) => (
-                StatusCode::OK,
-                ResponseJson(ApiResponse::success(serde_json::json!({
-                    "message": "Agent deactivated successfully"
-                }))),
-            )
-                .into_response(),
-            Err(e) => e.into_response(),
-        }
+        let result = db.agent_storage.deactivate_agent(&user_id, &agent_id)
+            .await
+            .map(|_| serde_json::json!({"message": "Agent deactivated successfully"}));
+        ok_or_internal_error(result, "Failed to deactivate agent")
     }
 }
