@@ -89,8 +89,8 @@ impl UserStorage {
     ) -> Result<User, StorageError> {
         debug!("Updating credentials for user: {}", user_id);
 
-        // Using QueryBuilder with push_bind() for all values to prevent SQL injection.
-        // Column names use push() (not parameterizable), values use push_bind() (parameterized).
+        // SQL injection safety: Column names are hardcoded string literals (safe),
+        // user values use push_bind() for parameterization (protected from injection).
         let mut query_builder =
             QueryBuilder::new("UPDATE users SET updated_at = datetime('now', 'utc')");
         let mut has_updates = false;
