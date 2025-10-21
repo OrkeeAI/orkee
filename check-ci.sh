@@ -197,7 +197,7 @@ if [ "$SKIP_TESTS" = false ]; then
   echo -e "${BLUE}6/6 Running frontend tests...${NC}"
   echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 
-  bun run test || {
+  turbo test || {
     echo -e "${RED}✗ Frontend tests failed${NC}"
     exit 1
   }
