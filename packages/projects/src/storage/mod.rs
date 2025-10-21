@@ -27,6 +27,8 @@ pub enum StorageError {
     Json(#[from] serde_json::Error),
     #[error("Compression error: {0}")]
     Compression(String),
+    #[error("Encryption error: {0}")]
+    Encryption(String),
     #[error("Project not found")]
     NotFound,
     #[error("Invalid configuration format")]

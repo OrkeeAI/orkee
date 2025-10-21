@@ -32,6 +32,11 @@ git2 = "0.18"
 uuid = { version = "1.0", features = ["v4", "serde"] }
 regex = "1.10"
 
+# Encryption
+ring = "0.17"
+base64 = "0.22"
+machine-uid = "0.5"
+
 # Compression
 flate2 = "1.0"
 

@@ -27,15 +27,15 @@ pub struct DbState {
 
 impl DbState {
     /// Create new database state from a SQLite pool
-    pub fn new(pool: SqlitePool) -> Self {
+    pub fn new(pool: SqlitePool) -> Result<Self, StorageError> {
         let task_storage = Arc::new(TaskStorage::new(pool.clone()));
         let agent_storage = Arc::new(AgentStorage::new(pool.clone()));
-        let user_storage = Arc::new(UserStorage::new(pool.clone()));
+        let user_storage = Arc::new(UserStorage::new(pool.clone())?);
         let tag_storage = Arc::new(TagStorage::new(pool.clone()));
         let execution_storage = Arc::new(ExecutionStorage::new(pool.clone()));
         let ai_usage_log_storage = Arc::new(AiUsageLogStorage::new(pool.clone()));
 
-        Self {
+        Ok(Self {
             pool,
             task_storage,
             agent_storage,
@@ -43,7 +43,7 @@ impl DbState {
             tag_storage,
             execution_storage,
             ai_usage_log_storage,
-        }
+        })
     }
 
     /// Initialize database state with default configuration
@@ -85,6 +85,6 @@ impl DbState {
 
         info!("Database connection established");
 
-        Ok(Self::new(pool))
+        Self::new(pool)
     }
 }

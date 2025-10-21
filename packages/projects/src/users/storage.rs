@@ -6,15 +6,19 @@ use std::env;
 use tracing::debug;
 
 use super::types::{User, UserUpdateInput};
+use crate::security::ApiKeyEncryption;
 use crate::storage::StorageError;
 
 pub struct UserStorage {
     pool: SqlitePool,
+    encryption: ApiKeyEncryption,
 }
 
 impl UserStorage {
-    pub fn new(pool: SqlitePool) -> Self {
-        Self { pool }
+    pub fn new(pool: SqlitePool) -> Result<Self, StorageError> {
+        let encryption = ApiKeyEncryption::new()
+            .map_err(|e| StorageError::Encryption(format!("Failed to initialize encryption: {}", e)))?;
+        Ok(Self { pool, encryption })
     }
 
     pub async fn get_user(&self, user_id: &str) -> Result<User, StorageError> {
@@ -88,23 +92,31 @@ impl UserStorage {
         let mut has_updates = false;
 
         if let Some(key) = &input.openai_api_key {
+            let encrypted = self.encryption.encrypt(key)
+                .map_err(|e| StorageError::Encryption(format!("Failed to encrypt OpenAI API key: {}", e)))?;
             query_builder.push(", openai_api_key = ");
-            query_builder.push_bind(key);
+            query_builder.push_bind(encrypted);
             has_updates = true;
         }
         if let Some(key) = &input.anthropic_api_key {
+            let encrypted = self.encryption.encrypt(key)
+                .map_err(|e| StorageError::Encryption(format!("Failed to encrypt Anthropic API key: {}", e)))?;
             query_builder.push(", anthropic_api_key = ");
-            query_builder.push_bind(key);
+            query_builder.push_bind(encrypted);
             has_updates = true;
         }
         if let Some(key) = &input.google_api_key {
+            let encrypted = self.encryption.encrypt(key)
+                .map_err(|e| StorageError::Encryption(format!("Failed to encrypt Google API key: {}", e)))?;
             query_builder.push(", google_api_key = ");
-            query_builder.push_bind(key);
+            query_builder.push_bind(encrypted);
             has_updates = true;
         }
         if let Some(key) = &input.xai_api_key {
+            let encrypted = self.encryption.encrypt(key)
+                .map_err(|e| StorageError::Encryption(format!("Failed to encrypt xAI API key: {}", e)))?;
             query_builder.push(", xai_api_key = ");
-            query_builder.push_bind(key);
+            query_builder.push_bind(encrypted);
             has_updates = true;
         }
         if let Some(enabled) = input.ai_gateway_enabled {
@@ -118,8 +130,10 @@ impl UserStorage {
             has_updates = true;
         }
         if let Some(key) = &input.ai_gateway_key {
+            let encrypted = self.encryption.encrypt(key)
+                .map_err(|e| StorageError::Encryption(format!("Failed to encrypt AI gateway key: {}", e)))?;
             query_builder.push(", ai_gateway_key = ");
-            query_builder.push_bind(key);
+            query_builder.push_bind(encrypted);
             has_updates = true;
         }
 
@@ -175,6 +189,24 @@ impl UserStorage {
     }
 
     fn row_to_user(&self, row: &sqlx::sqlite::SqliteRow) -> Result<User, StorageError> {
+        // Helper to decrypt API keys with migration support
+        let decrypt_key = |key: Option<String>| -> Result<Option<String>, StorageError> {
+            match key {
+                Some(value) if !value.is_empty() => {
+                    if ApiKeyEncryption::is_encrypted(&value) {
+                        // Encrypted key - decrypt it
+                        self.encryption.decrypt(&value)
+                            .map(Some)
+                            .map_err(|e| StorageError::Encryption(format!("Failed to decrypt API key: {}", e)))
+                    } else {
+                        // Plaintext key - return as-is for backward compatibility
+                        Ok(Some(value))
+                    }
+                }
+                _ => Ok(None),
+            }
+        };
+
         Ok(User {
             id: row.try_get("id")?,
             email: row.try_get("email")?,
@@ -182,16 +214,16 @@ impl UserStorage {
             avatar_url: row.try_get("avatar_url")?,
             default_agent_id: row.try_get("default_agent_id")?,
             theme: row.try_get("theme")?,
-            openai_api_key: row.try_get("openai_api_key")?,
-            anthropic_api_key: row.try_get("anthropic_api_key")?,
-            google_api_key: row.try_get("google_api_key")?,
-            xai_api_key: row.try_get("xai_api_key")?,
+            openai_api_key: decrypt_key(row.try_get("openai_api_key")?)?,
+            anthropic_api_key: decrypt_key(row.try_get("anthropic_api_key")?)?,
+            google_api_key: decrypt_key(row.try_get("google_api_key")?)?,
+            xai_api_key: decrypt_key(row.try_get("xai_api_key")?)?,
             ai_gateway_enabled: row
                 .try_get::<Option<i32>, _>("ai_gateway_enabled")?
                 .map(|v| v != 0)
                 .unwrap_or(false),
             ai_gateway_url: row.try_get("ai_gateway_url")?,
-            ai_gateway_key: row.try_get("ai_gateway_key")?,
+            ai_gateway_key: decrypt_key(row.try_get("ai_gateway_key")?)?,
             preferences: row
                 .try_get::<Option<String>, _>("preferences")?
                 .and_then(|s| serde_json::from_str(&s).ok()),

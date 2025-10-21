@@ -13,6 +13,7 @@ pub mod formatter;
 pub mod git_utils;
 pub mod manager;
 pub mod openspec;
+pub mod security;
 pub mod storage;
 pub mod tags;
 pub mod tasks;
