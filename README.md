@@ -47,13 +47,13 @@ The **Dashboard** and **Desktop App** require the CLI server to be running. The 
 
 ## Installation
 
-### Option 1: Desktop App (Native GUI + CLI + TUI) - v0.0.8 (Recommended)
+### Option 1: Desktop App (Native GUI + CLI + TUI) - v0.0.9 (Recommended)
 
 Download the native desktop application for your platform:
 
 #### macOS
-- **Apple Silicon**: [Orkee_0.0.8_aarch64.dmg](https://github.com/OrkeeAI/orkee/releases/download/desktop-v0.0.8/Orkee_0.0.8_aarch64.dmg) (12 MB)
-- **Intel**: [Orkee_0.0.8_x64.dmg](https://github.com/OrkeeAI/orkee/releases/download/desktop-v0.0.8/Orkee_0.0.8_x64.dmg) (12 MB)
+- **Apple Silicon**: [Orkee_0.0.9_aarch64.dmg](https://github.com/OrkeeAI/orkee/releases/download/desktop-v0.0.9/Orkee_0.0.9_aarch64.dmg) (12 MB)
+- **Intel**: [Orkee_0.0.9_x64.dmg](https://github.com/OrkeeAI/orkee/releases/download/desktop-v0.0.9/Orkee_0.0.9_x64.dmg) (12 MB)
 
 **Installation (IMPORTANT):**
 1. Double-click the .dmg file and drag Orkee to your Applications folder
@@ -65,24 +65,24 @@ Download the native desktop application for your platform:
 3. Launch Orkee from Applications folder or Spotlight
 
 #### Windows
-- **Installer (recommended)**: [Orkee_0.0.8_x64_en-US.msi](https://github.com/OrkeeAI/orkee/releases/download/desktop-v0.0.8/Orkee_0.0.8_x64_en-US.msi) (10 MB)
-- **Setup EXE**: [Orkee_0.0.8_x64-setup.exe](https://github.com/OrkeeAI/orkee/releases/download/desktop-v0.0.8/Orkee_0.0.8_x64-setup.exe) (7 MB)
+- **Installer (recommended)**: [Orkee_0.0.9_x64_en-US.msi](https://github.com/OrkeeAI/orkee/releases/download/desktop-v0.0.9/Orkee_0.0.9_x64_en-US.msi) (10 MB)
+- **Setup EXE**: [Orkee_0.0.9_x64-setup.exe](https://github.com/OrkeeAI/orkee/releases/download/desktop-v0.0.9/Orkee_0.0.9_x64-setup.exe) (7 MB)
 
 **Installation**: Download and run the installer. You may see a Windows SmartScreen warning - click "More info" and then "Run anyway" (app is unsigned).
 
 #### Linux
-- **Debian/Ubuntu**: [Orkee_0.0.8_amd64.deb](https://github.com/OrkeeAI/orkee/releases/download/desktop-v0.0.8/Orkee_0.0.8_amd64.deb) (12 MB)
+- **Debian/Ubuntu**: [Orkee_0.0.9_amd64.deb](https://github.com/OrkeeAI/orkee/releases/download/desktop-v0.0.9/Orkee_0.0.9_amd64.deb) (12 MB)
   ```bash
-  sudo dpkg -i Orkee_0.0.8_amd64.deb
+  sudo dpkg -i Orkee_0.0.9_amd64.deb
   ```
-- **Fedora/RHEL**: [Orkee-0.0.8-1.x86_64.rpm](https://github.com/OrkeeAI/orkee/releases/download/desktop-v0.0.8/Orkee-0.0.8-1.x86_64.rpm) (12 MB)
+- **Fedora/RHEL**: [Orkee-0.0.9-1.x86_64.rpm](https://github.com/OrkeeAI/orkee/releases/download/desktop-v0.0.9/Orkee-0.0.9-1.x86_64.rpm) (12 MB)
   ```bash
-  sudo rpm -i Orkee-0.0.8-1.x86_64.rpm
+  sudo rpm -i Orkee-0.0.9-1.x86_64.rpm
   ```
-- **Universal (AppImage)**: [Orkee_0.0.8_amd64.AppImage](https://github.com/OrkeeAI/orkee/releases/download/desktop-v0.0.8/Orkee_0.0.8_amd64.AppImage) (86 MB)
+- **Universal (AppImage)**: [Orkee_0.0.9_amd64.AppImage](https://github.com/OrkeeAI/orkee/releases/download/desktop-v0.0.9/Orkee_0.0.9_amd64.AppImage) (86 MB)
   ```bash
-  chmod +x Orkee_0.0.8_amd64.AppImage
-  ./Orkee_0.0.8_amd64.AppImage
+  chmod +x Orkee_0.0.9_amd64.AppImage
+  ./Orkee_0.0.9_amd64.AppImage
   ```
 
 The desktop app includes:
@@ -91,7 +91,7 @@ The desktop app includes:
 - 🎨 Terminal UI (`orkee tui`)
 - 🌐 Web dashboard in native window
 
-[View all releases](https://github.com/OrkeeAI/orkee/releases) | [Checksums](https://github.com/OrkeeAI/orkee/releases/download/desktop-v0.0.8/checksums.txt)
+[View all releases](https://github.com/OrkeeAI/orkee/releases) | [Checksums](https://github.com/OrkeeAI/orkee/releases/download/desktop-v0.0.9/checksums.txt)
 
 ### Option 2: npm (CLI + TUI + Web Dashboard)
 
