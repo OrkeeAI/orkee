@@ -116,10 +116,7 @@ impl AIService {
         prompt: String,
         system_prompt: Option<String>,
     ) -> AIServiceResult<AIResponse<T>> {
-        let api_key = self
-            .api_key
-            .as_ref()
-            .ok_or(AIServiceError::NoApiKey)?;
+        let api_key = self.api_key.as_ref().ok_or(AIServiceError::NoApiKey)?;
 
         let request = AnthropicRequest {
             model: DEFAULT_MODEL.to_string(),
@@ -189,10 +186,7 @@ impl AIService {
         prompt: String,
         system_prompt: Option<String>,
     ) -> AIServiceResult<AIResponse<String>> {
-        let api_key = self
-            .api_key
-            .as_ref()
-            .ok_or(AIServiceError::NoApiKey)?;
+        let api_key = self.api_key.as_ref().ok_or(AIServiceError::NoApiKey)?;
 
         let request = AnthropicRequest {
             model: DEFAULT_MODEL.to_string(),
