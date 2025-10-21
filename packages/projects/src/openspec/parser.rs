@@ -203,7 +203,7 @@ fn parse_scenarios(lines: &[&str], _requirement_name: &str) -> ParseResult<Vec<P
             );
         }
         // WHEN clause
-        else if trimmed.to_uppercase().starts_with("WHEN ") || trimmed.starts_with("**WHEN") {
+        else if starts_with_ignore_case(trimmed, "WHEN ") || trimmed.starts_with("**WHEN") {
             let when_text = extract_clause_text(trimmed, "WHEN");
             if let Some((_, then, and)) = current_scenario.take() {
                 scenarios.push(ParsedScenario {
@@ -216,14 +216,14 @@ fn parse_scenarios(lines: &[&str], _requirement_name: &str) -> ParseResult<Vec<P
             current_scenario = Some((when_text, String::new(), Vec::new()));
         }
         // THEN clause
-        else if trimmed.to_uppercase().starts_with("THEN ") || trimmed.starts_with("**THEN") {
+        else if starts_with_ignore_case(trimmed, "THEN ") || trimmed.starts_with("**THEN") {
             if let Some((when, _, and)) = current_scenario.take() {
                 let then_text = extract_clause_text(trimmed, "THEN");
                 current_scenario = Some((when, then_text, and));
             }
         }
         // AND clause
-        else if trimmed.to_uppercase().starts_with("AND ") || trimmed.starts_with("**AND") {
+        else if starts_with_ignore_case(trimmed, "AND ") || trimmed.starts_with("**AND") {
             if let Some((when, then, mut and)) = current_scenario.take() {
                 let and_text = extract_clause_text(trimmed, "AND");
                 and.push(and_text);
@@ -249,6 +249,12 @@ fn parse_scenarios(lines: &[&str], _requirement_name: &str) -> ParseResult<Vec<P
     Ok(scenarios)
 }
 
+/// Check if string starts with prefix (case-insensitive, ASCII only)
+fn starts_with_ignore_case(text: &str, prefix: &str) -> bool {
+    text.len() >= prefix.len()
+        && text[..prefix.len()].eq_ignore_ascii_case(prefix)
+}
+
 /// Extract clause text (WHEN/THEN/AND)
 fn extract_clause_text(line: &str, clause_type: &str) -> String {
     let mut text = line.trim();
@@ -257,13 +263,8 @@ fn extract_clause_text(line: &str, clause_type: &str) -> String {
     text = text.trim_start_matches("**").trim_end_matches("**");
 
     // Remove clause keyword (case insensitive)
-    let upper = clause_type.to_uppercase();
-    let lower = clause_type.to_lowercase();
-
-    if text.to_uppercase().starts_with(&upper) {
-        text = &text[upper.len()..];
-    } else if text.to_lowercase().starts_with(&lower) {
-        text = &text[lower.len()..];
+    if starts_with_ignore_case(text, clause_type) {
+        text = &text[clause_type.len()..];
     }
 
     // Remove any remaining bold markers and colon
@@ -326,7 +327,7 @@ fn extract_purpose(lines: &[&str]) -> Option<String> {
         }
 
         // Skip headings
-        if trimmed.starts_with('#') || trimmed.to_uppercase().starts_with("WHEN") {
+        if trimmed.starts_with('#') || starts_with_ignore_case(trimmed, "WHEN") {
             break;
         }
 
@@ -353,8 +354,8 @@ fn extract_description(lines: &[&str]) -> Option<String> {
 
         // Stop at scenario markers
         if trimmed.starts_with("####")
-            || trimmed.to_uppercase().starts_with("WHEN")
-            || trimmed.to_uppercase().starts_with("**WHEN")
+            || starts_with_ignore_case(trimmed, "WHEN")
+            || starts_with_ignore_case(trimmed, "**WHEN")
         {
             break;
         }

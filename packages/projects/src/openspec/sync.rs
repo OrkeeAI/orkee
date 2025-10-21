@@ -129,9 +129,8 @@ fn is_capability_modified(old: &SpecCapability, new: &ParsedCapability) -> bool 
         return true;
     }
 
-    // Deep comparison would require parsing old spec markdown
-    // For now, we assume any difference in requirement count or purpose means modified
-    true
+    // No changes detected
+    false
 }
 
 /// Detect which requirements changed within a capability
