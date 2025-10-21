@@ -14,6 +14,11 @@ use crate::types::{
     Priority, Project, ProjectCreateInput, ProjectStatus, ProjectUpdateInput, TaskSource,
 };
 
+/// Password lockout configuration constants
+/// These values control the brute-force protection mechanism for password-based encryption
+pub const PASSWORD_MAX_ATTEMPTS: i64 = 5; // Maximum failed password attempts before lockout
+pub const PASSWORD_LOCKOUT_DURATION_MINUTES: i64 = 15; // Duration of account lockout in minutes
+
 /// SQLite implementation of ProjectStorage
 pub struct SqliteStorage {
     pool: SqlitePool,
@@ -913,9 +918,6 @@ impl ProjectStorage for SqliteStorage {
     }
 
     async fn record_failed_password_attempt(&self) -> StorageResult<()> {
-        const MAX_ATTEMPTS: i64 = 5;
-        const LOCKOUT_MINUTES: i64 = 15;
-
         // Get current attempt count
         let row: Option<(i64,)> =
             sqlx::query_as("SELECT attempt_count FROM password_attempts WHERE id = 1")
@@ -939,9 +941,9 @@ impl ProjectStorage for SqliteStorage {
         // Update attempt count and last_attempt_at
         // If we've hit the max attempts, set locked_until
         let now = Utc::now();
-        let locked_until = if new_count >= MAX_ATTEMPTS {
+        let locked_until = if new_count >= PASSWORD_MAX_ATTEMPTS {
             Some(
-                (now + chrono::Duration::minutes(LOCKOUT_MINUTES))
+                (now + chrono::Duration::minutes(PASSWORD_LOCKOUT_DURATION_MINUTES))
                     .to_rfc3339_opts(chrono::SecondsFormat::Secs, true),
             )
         } else {

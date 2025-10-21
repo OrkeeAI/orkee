@@ -421,7 +421,8 @@ orkee security status          # Check current encryption mode
 #### Encryption Modes
 
 **Machine-Based Encryption (Default - ⚠️ LIMITED SECURITY)**
-- Derives key from machine ID + application salt using HKDF-SHA256
+- Derives key from machine ID + username + hostname + application salt using HKDF-SHA256
+- Username and hostname provide additional entropy, especially important on VMs/containers where machine IDs may have low entropy
 - **Security Model**: Transport encryption only
   - ✅ Protects data during backup/sync
   - ❌ Does NOT protect at-rest on local machine
@@ -457,6 +458,12 @@ orkee security remove-password
 - Minimum 8 characters (longer is better)
 - Password is hashed separately for verification (never stored in plain text)
 - Account lockout protection after failed password attempts
+
+**Brute-Force Protection**:
+- Maximum attempts before lockout: 5 failed password attempts
+- Lockout duration: 15 minutes
+- Configuration constants: `PASSWORD_MAX_ATTEMPTS` and `PASSWORD_LOCKOUT_DURATION_MINUTES` in `packages/projects/src/storage/sqlite.rs`
+- Exponential backoff strategy prevents rapid brute-force attacks
 
 **Database Schema**: `~/.orkee/orkee.db` encryption_settings table stores mode, salt, and verification hash
 

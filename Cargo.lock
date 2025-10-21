@@ -2563,6 +2563,7 @@ dependencies = [
  "flate2",
  "git2",
  "hex",
+ "hostname",
  "http-body-util",
  "machine-uid",
  "mime",
