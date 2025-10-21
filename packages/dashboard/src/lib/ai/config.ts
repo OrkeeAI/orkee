@@ -1,8 +1,7 @@
-// ABOUTME: AI configuration for OpenAI, Anthropic, and Vercel AI Gateway
-// ABOUTME: Provides centralized settings for models, tokens, and API endpoints
+// ABOUTME: AI configuration for OpenAI and Anthropic models
+// ABOUTME: Provides centralized settings for models, tokens, and limits (keys stored server-side)
 
 export interface AIProviderConfig {
-  apiKey?: string;
   defaultModel: string;
   models: {
     [key: string]: {
@@ -14,14 +13,7 @@ export interface AIProviderConfig {
   };
 }
 
-export interface AIGatewayConfig {
-  enabled: boolean;
-  baseURL?: string;
-  apiKey?: string;
-}
-
 export interface AIConfig {
-  gateway: AIGatewayConfig;
   providers: {
     openai: AIProviderConfig;
     anthropic: AIProviderConfig;
@@ -49,14 +41,8 @@ export interface AIConfig {
 }
 
 export const AI_CONFIG: AIConfig = {
-  gateway: {
-    enabled: !!import.meta.env.VITE_VERCEL_AI_GATEWAY_URL,
-    baseURL: import.meta.env.VITE_VERCEL_AI_GATEWAY_URL || 'https://gateway.vercel.sh',
-    apiKey: import.meta.env.VITE_VERCEL_AI_GATEWAY_KEY,
-  },
   providers: {
     openai: {
-      apiKey: import.meta.env.VITE_OPENAI_API_KEY,
       defaultModel: 'gpt-4-turbo',
       models: {
         'gpt-4-turbo': {
@@ -80,7 +66,6 @@ export const AI_CONFIG: AIConfig = {
       },
     },
     anthropic: {
-      apiKey: import.meta.env.VITE_ANTHROPIC_API_KEY,
       defaultModel: 'claude-3-5-sonnet-20241022',
       models: {
         'claude-3-5-sonnet-20241022': {
@@ -133,16 +118,11 @@ export const AI_CONFIG: AIConfig = {
 };
 
 /**
- * Get the preferred provider based on available API keys
+ * Get the preferred provider
+ * Defaults to Anthropic as it's configured via proxy
  */
-export function getPreferredProvider(): 'openai' | 'anthropic' | null {
-  if (import.meta.env.VITE_ANTHROPIC_API_KEY) {
-    return 'anthropic';
-  }
-  if (import.meta.env.VITE_OPENAI_API_KEY) {
-    return 'openai';
-  }
-  return null;
+export function getPreferredProvider(): 'anthropic' {
+  return 'anthropic';
 }
 
 /**
@@ -175,28 +155,4 @@ export function calculateCost(
   const outputCost = (outputTokens / 1000) * modelConfig.costPer1kOutput;
 
   return inputCost + outputCost;
-}
-
-/**
- * Check if a provider is configured
- */
-export function isProviderConfigured(provider: 'openai' | 'anthropic'): boolean {
-  const config = AI_CONFIG.providers[provider];
-  return !!config.apiKey;
-}
-
-/**
- * Get all configured providers
- */
-export function getConfiguredProviders(): Array<'openai' | 'anthropic'> {
-  const providers: Array<'openai' | 'anthropic'> = [];
-
-  if (isProviderConfigured('openai')) {
-    providers.push('openai');
-  }
-  if (isProviderConfigured('anthropic')) {
-    providers.push('anthropic');
-  }
-
-  return providers;
 }

@@ -1,49 +1,41 @@
 // ABOUTME: AI provider initialization and configuration
-// ABOUTME: Sets up OpenAI and Anthropic clients with optional Vercel AI Gateway
+// ABOUTME: Sets up OpenAI and Anthropic clients using secure proxy endpoints
 
 import { createOpenAI } from '@ai-sdk/openai';
 import { createAnthropic } from '@ai-sdk/anthropic';
-import { AI_CONFIG, isProviderConfigured } from './config';
+import { AI_CONFIG } from './config';
 
 /**
- * Initialize OpenAI provider
+ * Get API base URL for proxy endpoints
+ */
+function getApiBaseUrl(): string {
+  return window.location.origin.includes('localhost')
+    ? 'http://localhost:4001'
+    : window.location.origin;
+}
+
+/**
+ * Initialize OpenAI provider via secure proxy
+ * API keys are stored in database and retrieved server-side
  */
 export function getOpenAIProvider() {
-  if (!isProviderConfigured('openai')) {
-    throw new Error('OpenAI API key not configured. Please set VITE_OPENAI_API_KEY.');
-  }
+  const apiBaseUrl = getApiBaseUrl();
 
-  const config = AI_CONFIG.providers.openai;
-
-  // Use Vercel AI Gateway if configured
-  if (AI_CONFIG.gateway.enabled && AI_CONFIG.gateway.baseURL && AI_CONFIG.gateway.apiKey) {
-    return createOpenAI({
-      apiKey: config.apiKey,
-      baseURL: `${AI_CONFIG.gateway.baseURL}/openai/v1`,
-      headers: {
-        'Helicone-Auth': `Bearer ${AI_CONFIG.gateway.apiKey}`,
-      },
-    });
-  }
-
-  // Direct OpenAI connection
   return createOpenAI({
-    apiKey: config.apiKey,
+    apiKey: 'proxy', // Dummy key - actual key is retrieved from database on server
+    baseURL: `${apiBaseUrl}/api/ai/openai/v1`,
   });
 }
 
 /**
- * Initialize Anthropic provider
+ * Initialize Anthropic provider via secure proxy
+ * API keys are stored in database and retrieved server-side
  */
 export function getAnthropicProvider() {
-  // Use local proxy endpoint to avoid CORS issues
-  // The proxy will forward requests to Anthropic with the API key from server environment
-  const apiBaseUrl = window.location.origin.includes('localhost')
-    ? 'http://localhost:4001'
-    : window.location.origin;
+  const apiBaseUrl = getApiBaseUrl();
 
   return createAnthropic({
-    apiKey: 'proxy', // Dummy key - actual key is on server
+    apiKey: 'proxy', // Dummy key - actual key is retrieved from database on server
     baseURL: `${apiBaseUrl}/api/ai/anthropic`,
   });
 }
@@ -87,13 +79,6 @@ export function getModel(provider: 'openai' | 'anthropic', modelName?: string) {
 export function getAvailableModels(provider: 'openai' | 'anthropic'): string[] {
   const config = AI_CONFIG.providers[provider];
   return Object.keys(config.models);
-}
-
-/**
- * Check if any provider is configured
- */
-export function isAnyProviderConfigured(): boolean {
-  return isProviderConfigured('openai') || isProviderConfigured('anthropic');
 }
 
 /**
