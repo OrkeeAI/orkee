@@ -373,7 +373,10 @@ async fn change_password_command() {
 
     // Atomically rotate encryption keys AND update encryption settings
     println!();
-    println!("{}", "Changing password (rotating keys and updating settings)...".cyan());
+    println!(
+        "{}",
+        "Changing password (rotating keys and updating settings)...".cyan()
+    );
     match db_state
         .change_encryption_password_atomic(
             "default-user",
@@ -395,11 +398,7 @@ async fn change_password_command() {
             println!();
         }
         Err(e) => {
-            eprintln!(
-                "{} Failed to change password: {}",
-                "✗".red().bold(),
-                e
-            );
+            eprintln!("{} Failed to change password: {}", "✗".red().bold(), e);
             eprintln!("  No changes were made - your existing password still works");
             process::exit(1);
         }

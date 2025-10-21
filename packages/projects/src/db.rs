@@ -119,7 +119,10 @@ impl DbState {
         // Helper to decrypt with old key and re-encrypt with new key
         let rotate_key = |encrypted_key: Option<String>| -> Result<Option<String>, StorageError> {
             match encrypted_key {
-                Some(value) if !value.is_empty() && crate::security::ApiKeyEncryption::is_encrypted(&value) => {
+                Some(value)
+                    if !value.is_empty()
+                        && crate::security::ApiKeyEncryption::is_encrypted(&value) =>
+                {
                     // Decrypt with old encryption
                     let plaintext = old_encryption.decrypt(&value).map_err(|e| {
                         StorageError::Encryption(format!(
@@ -189,7 +192,10 @@ impl DbState {
         // Commit transaction - both operations succeed or fail together
         tx.commit().await.map_err(StorageError::Sqlx)?;
 
-        debug!("Successfully completed atomic password change for user: {}", user_id);
+        debug!(
+            "Successfully completed atomic password change for user: {}",
+            user_id
+        );
         Ok(())
     }
 }
