@@ -132,6 +132,11 @@ pub trait ProjectStorage: Send + Sync {
         salt: Option<&[u8]>,
         hash: Option<&[u8]>,
     ) -> StorageResult<()>;
+
+    // Password attempt tracking for brute-force protection
+    async fn check_password_lockout(&self) -> StorageResult<()>;
+    async fn record_failed_password_attempt(&self) -> StorageResult<()>;
+    async fn reset_password_attempts(&self) -> StorageResult<()>;
 }
 
 /// Filter for querying projects

@@ -860,6 +860,125 @@ impl ProjectStorage for SqliteStorage {
 
         Ok(())
     }
+
+    async fn check_password_lockout(&self) -> StorageResult<()> {
+        let row: Option<(i64, Option<String>)> = sqlx::query_as(
+            "SELECT attempt_count, locked_until FROM password_attempts WHERE id = 1",
+        )
+        .fetch_optional(&self.pool)
+        .await?;
+
+        match row {
+            Some((attempt_count, Some(locked_until_str))) => {
+                // Parse the locked_until timestamp
+                let locked_until = DateTime::parse_from_rfc3339(&locked_until_str)
+                    .map_err(|e| {
+                        StorageError::Database(format!("Invalid locked_until timestamp: {}", e))
+                    })?
+                    .with_timezone(&Utc);
+
+                let now = Utc::now();
+
+                // Check if still locked
+                if locked_until > now {
+                    let remaining_seconds = (locked_until - now).num_seconds();
+                    let remaining_minutes = (remaining_seconds + 59) / 60; // Round up
+
+                    return Err(StorageError::Database(format!(
+                        "Account locked due to too many failed password attempts. {} failed attempts. Try again in {} minute{}.",
+                        attempt_count,
+                        remaining_minutes,
+                        if remaining_minutes == 1 { "" } else { "s" }
+                    )));
+                }
+
+                // Lockout has expired, allow access
+                Ok(())
+            }
+            Some((_, None)) => {
+                // Not locked
+                Ok(())
+            }
+            None => {
+                // No row exists, initialize it
+                sqlx::query(
+                    "INSERT INTO password_attempts (id, attempt_count) VALUES (1, 0)
+                     ON CONFLICT(id) DO NOTHING",
+                )
+                .execute(&self.pool)
+                .await?;
+                Ok(())
+            }
+        }
+    }
+
+    async fn record_failed_password_attempt(&self) -> StorageResult<()> {
+        const MAX_ATTEMPTS: i64 = 5;
+        const LOCKOUT_MINUTES: i64 = 15;
+
+        // Get current attempt count
+        let row: Option<(i64,)> =
+            sqlx::query_as("SELECT attempt_count FROM password_attempts WHERE id = 1")
+                .fetch_optional(&self.pool)
+                .await?;
+
+        let new_count = match row {
+            Some((count,)) => count + 1,
+            None => {
+                // Initialize if not exists
+                sqlx::query(
+                    "INSERT INTO password_attempts (id, attempt_count) VALUES (1, 0)
+                     ON CONFLICT(id) DO NOTHING",
+                )
+                .execute(&self.pool)
+                .await?;
+                1
+            }
+        };
+
+        // Update attempt count and last_attempt_at
+        // If we've hit the max attempts, set locked_until
+        let now = Utc::now();
+        let locked_until = if new_count >= MAX_ATTEMPTS {
+            Some(
+                (now + chrono::Duration::minutes(LOCKOUT_MINUTES))
+                    .to_rfc3339_opts(chrono::SecondsFormat::Secs, true),
+            )
+        } else {
+            None
+        };
+
+        sqlx::query(
+            "UPDATE password_attempts
+             SET attempt_count = ?,
+                 last_attempt_at = ?,
+                 locked_until = ?,
+                 updated_at = datetime('now', 'utc')
+             WHERE id = 1",
+        )
+        .bind(new_count)
+        .bind(now.to_rfc3339_opts(chrono::SecondsFormat::Secs, true))
+        .bind(locked_until)
+        .execute(&self.pool)
+        .await?;
+
+        Ok(())
+    }
+
+    async fn reset_password_attempts(&self) -> StorageResult<()> {
+        sqlx::query(
+            "UPDATE password_attempts
+             SET attempt_count = 0,
+                 last_attempt_at = NULL,
+                 locked_until = NULL,
+                 updated_at = datetime('now', 'utc')
+             WHERE id = 1",
+        )
+        .execute(&self.pool)
+        .await?;
+
+        Ok(())
+    }
 }
 
 #[cfg(test)]

@@ -360,6 +360,35 @@ impl ProjectsManager {
             .await
             .map_err(ManagerError::Storage)
     }
+
+    /// Check if password verification is currently locked due to too many failed attempts
+    /// Returns Ok(()) if not locked, Err if locked with time remaining
+    pub async fn check_password_lockout(&self) -> ManagerResult<()> {
+        let storage = self.storage_manager.storage();
+        storage
+            .check_password_lockout()
+            .await
+            .map_err(ManagerError::Storage)
+    }
+
+    /// Record a failed password verification attempt
+    /// Will lock the account if too many attempts have been made
+    pub async fn record_failed_password_attempt(&self) -> ManagerResult<()> {
+        let storage = self.storage_manager.storage();
+        storage
+            .record_failed_password_attempt()
+            .await
+            .map_err(ManagerError::Storage)
+    }
+
+    /// Reset password attempt counter after successful verification
+    pub async fn reset_password_attempts(&self) -> ManagerResult<()> {
+        let storage = self.storage_manager.storage();
+        storage
+            .reset_password_attempts()
+            .await
+            .map_err(ManagerError::Storage)
+    }
 }
 
 /// Export database as a compressed snapshot

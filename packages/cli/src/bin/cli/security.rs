@@ -230,6 +230,12 @@ async fn change_password_command() {
         }
     };
 
+    // Check if account is locked due to too many failed attempts
+    if let Err(e) = manager.check_password_lockout().await {
+        eprintln!("{} {}", "✗".red().bold(), e);
+        process::exit(1);
+    }
+
     // Verify current password
     let current_password = match Password::new("Enter current password:")
         .with_display_mode(PasswordDisplayMode::Masked)
@@ -244,9 +250,26 @@ async fn change_password_command() {
 
     match ApiKeyEncryption::verify_password(&current_password, &salt, &hash) {
         Ok(true) => {
-            // Password correct, continue
+            // Password correct, reset attempt counter
+            if let Err(e) = manager.reset_password_attempts().await {
+                eprintln!(
+                    "{} Warning: Failed to reset password attempts: {}",
+                    "⚠".yellow().bold(),
+                    e
+                );
+                // Continue anyway - this is not critical
+            }
         }
         Ok(false) => {
+            // Record failed attempt
+            if let Err(e) = manager.record_failed_password_attempt().await {
+                eprintln!(
+                    "{} Warning: Failed to record attempt: {}",
+                    "⚠".yellow().bold(),
+                    e
+                );
+                // Continue to show error anyway
+            }
             eprintln!("{} Current password is incorrect", "✗".red().bold());
             process::exit(1);
         }
