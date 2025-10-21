@@ -125,6 +125,59 @@ pub async fn update_credentials(
 ) -> impl IntoResponse {
     info!("Updating user credentials");
 
+    // Check if any API keys are being saved
+    let has_api_keys = request.openai_api_key.is_some()
+        || request.anthropic_api_key.is_some()
+        || request.google_api_key.is_some()
+        || request.xai_api_key.is_some()
+        || request.ai_gateway_key.is_some();
+
+    if has_api_keys {
+        // Check current encryption mode and log appropriate warning
+        // Query encryption_settings table directly
+        let encryption_mode_result: Result<Option<(String,)>, sqlx::Error> =
+            sqlx::query_as("SELECT encryption_mode FROM encryption_settings WHERE id = 1")
+                .fetch_optional(&db.pool)
+                .await;
+
+        match encryption_mode_result {
+            Ok(Some((mode_str,))) if mode_str == "password" => {
+                info!("✓ API keys being saved with PASSWORD-BASED encryption (at-rest encryption)");
+            }
+            Ok(Some((mode_str,))) if mode_str == "machine" => {
+                tracing::warn!(
+                    "⚠️  API keys being saved with MACHINE-BASED encryption (transport encryption only)"
+                );
+                tracing::warn!("   Machine-based encryption does NOT protect API keys at-rest on local machine");
+                tracing::warn!(
+                    "   Anyone with database file access can decrypt keys on this machine"
+                );
+                tracing::warn!(
+                    "   RECOMMENDATION: Upgrade to password-based encryption with 'orkee security set-password'"
+                );
+            }
+            Ok(None) => {
+                // No encryption settings found - using default machine-based
+                tracing::warn!(
+                    "⚠️  API keys being saved with MACHINE-BASED encryption (transport encryption only)"
+                );
+                tracing::warn!("   Machine-based encryption does NOT protect API keys at-rest on local machine");
+                tracing::warn!(
+                    "   Anyone with database file access can decrypt keys on this machine"
+                );
+                tracing::warn!(
+                    "   RECOMMENDATION: Upgrade to password-based encryption with 'orkee security set-password'"
+                );
+            }
+            Err(e) => {
+                tracing::warn!("Failed to check encryption mode: {}", e);
+            }
+            _ => {
+                tracing::warn!("Unknown encryption mode - assuming machine-based");
+            }
+        }
+    }
+
     let input = UserUpdateInput {
         openai_api_key: request.openai_api_key,
         anthropic_api_key: request.anthropic_api_key,
