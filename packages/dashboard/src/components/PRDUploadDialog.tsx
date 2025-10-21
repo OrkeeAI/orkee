@@ -20,9 +20,9 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Progress } from '@/components/ui/progress';
-import { useCreatePRD, useTriggerPRDAnalysis } from '@/hooks/usePRDs';
+import { useCreatePRD, useTriggerPRDAnalysis, useDeletePRD } from '@/hooks/usePRDs';
 import type { PRDAnalysisResult, SpecCapability } from '@/services/prds';
-import { FileText, Upload, Eye, Sparkles, CheckCircle } from 'lucide-react';
+import { FileText, Upload, Eye, Sparkles, CheckCircle, Loader2 } from 'lucide-react';
 
 interface PRDUploadDialogProps {
   projectId: string;
@@ -37,16 +37,20 @@ export function PRDUploadDialog({ projectId, open, onOpenChange, onComplete }: P
   const [activeTab, setActiveTab] = useState('upload');
   const [analysisResult, setAnalysisResult] = useState<PRDAnalysisResult | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [tempPRDId, setTempPRDId] = useState<string | null>(null);
+  const [isLoadingFile, setIsLoadingFile] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const createPRDMutation = useCreatePRD(projectId);
   const analyzePRDMutation = useTriggerPRDAnalysis(projectId);
+  const deletePRDMutation = useDeletePRD(projectId);
   const { isPending: isSaving, error: saveError } = createPRDMutation;
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    setIsLoadingFile(true);
     try {
       const text = await file.text();
       setContentMarkdown(text);
@@ -57,6 +61,8 @@ export function PRDUploadDialog({ projectId, open, onOpenChange, onComplete }: P
       setActiveTab('preview');
     } catch (error) {
       console.error('Failed to read file:', error);
+    } finally {
+      setIsLoadingFile(false);
     }
   };
 
@@ -64,6 +70,8 @@ export function PRDUploadDialog({ projectId, open, onOpenChange, onComplete }: P
     if (!contentMarkdown.trim()) return;
 
     setIsAnalyzing(true);
+    let createdPRDId: string | null = null;
+
     try {
       const tempPRD = await createPRDMutation.mutateAsync({
         title: title || 'Untitled PRD',
@@ -72,11 +80,23 @@ export function PRDUploadDialog({ projectId, open, onOpenChange, onComplete }: P
         source: 'manual',
       });
 
+      createdPRDId = tempPRD.id;
+      setTempPRDId(createdPRDId);
+
       const result = await analyzePRDMutation.mutateAsync(tempPRD.id);
       setAnalysisResult(result);
       setActiveTab('analysis');
     } catch (error) {
       console.error('Analysis failed:', error);
+
+      if (createdPRDId) {
+        try {
+          await deletePRDMutation.mutateAsync(createdPRDId);
+          setTempPRDId(null);
+        } catch (deleteError) {
+          console.error('Failed to clean up temp PRD:', deleteError);
+        }
+      }
     } finally {
       setIsAnalyzing(false);
     }
@@ -86,6 +106,11 @@ export function PRDUploadDialog({ projectId, open, onOpenChange, onComplete }: P
     if (!title.trim() || !contentMarkdown.trim()) return;
 
     try {
+      if (tempPRDId) {
+        await deletePRDMutation.mutateAsync(tempPRDId);
+        setTempPRDId(null);
+      }
+
       const prd = await createPRDMutation.mutateAsync({
         title,
         contentMarkdown,
@@ -101,12 +126,22 @@ export function PRDUploadDialog({ projectId, open, onOpenChange, onComplete }: P
     }
   };
 
-  const resetForm = () => {
+  const resetForm = async () => {
+    if (tempPRDId) {
+      try {
+        await deletePRDMutation.mutateAsync(tempPRDId);
+      } catch (error) {
+        console.error('Failed to clean up temp PRD on reset:', error);
+      }
+    }
+
     setTitle('');
     setContentMarkdown('');
     setActiveTab('upload');
     setAnalysisResult(null);
     setIsAnalyzing(false);
+    setTempPRDId(null);
+    setIsLoadingFile(false);
     createPRDMutation.reset();
   };
 
@@ -163,19 +198,34 @@ export function PRDUploadDialog({ projectId, open, onOpenChange, onComplete }: P
                   accept=".md,.markdown,.txt"
                   ref={fileInputRef}
                   onChange={handleFileUpload}
+                  disabled={isLoadingFile}
                   className="file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-primary-foreground hover:file:bg-primary/90"
                 />
                 <Button
                   type="button"
                   variant="outline"
                   onClick={() => fileInputRef.current?.click()}
+                  disabled={isLoadingFile}
                 >
-                  Browse
+                  {isLoadingFile ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                      Loading
+                    </>
+                  ) : (
+                    'Browse'
+                  )}
                 </Button>
               </div>
               <p className="text-sm text-muted-foreground">
                 Or paste your markdown content below
               </p>
+              {isLoadingFile && (
+                <div className="flex items-center gap-2 text-sm text-primary">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Loading file...
+                </div>
+              )}
             </div>
 
             <div className="grid gap-2">
