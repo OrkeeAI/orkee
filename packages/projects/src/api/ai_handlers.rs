@@ -73,6 +73,24 @@ struct SpecGenerationData {
 }
 
 // ============================================================================
+// Task Suggestions
+// ============================================================================
+
+#[derive(Debug, Serialize, Deserialize)]
+struct TaskSuggestionItem {
+    title: String,
+    description: String,
+    priority: String,
+    complexity_score: i32,
+    linked_requirements: Vec<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct TaskSuggestionsData {
+    tasks: Vec<TaskSuggestionItem>,
+}
+
+// ============================================================================
 // PRD Analysis
 // ============================================================================
 
@@ -486,47 +504,160 @@ pub struct GenerateSpecResponse {
 }
 
 /// Suggest tasks from spec
-pub async fn suggest_tasks(Json(request): Json<SuggestTasksRequest>) -> impl IntoResponse {
+pub async fn suggest_tasks(
+    State(db): State<DbState>,
+    Json(request): Json<SuggestTasksRequest>,
+) -> impl IntoResponse {
     info!(
         "AI task suggestions requested for capability: {}",
         request.capability_id
     );
 
-    let response = SuggestTasksResponse {
-        capability_id: request.capability_id,
-        suggested_tasks: vec![
-            SuggestedTask {
-                title: "Implement primary workflow".to_string(),
-                description: "Build the core functionality as described in the requirements"
-                    .to_string(),
-                priority: "high".to_string(),
-                complexity_score: 8,
-                linked_requirements: vec!["req-1".to_string()],
-            },
-            SuggestedTask {
-                title: "Add error handling".to_string(),
-                description: "Implement error handling and user feedback mechanisms".to_string(),
-                priority: "medium".to_string(),
-                complexity_score: 5,
-                linked_requirements: vec!["req-2".to_string()],
-            },
-            SuggestedTask {
-                title: "Write tests for scenarios".to_string(),
-                description: "Create automated tests for all WHEN/THEN scenarios".to_string(),
-                priority: "high".to_string(),
-                complexity_score: 6,
-                linked_requirements: vec!["req-1".to_string(), "req-2".to_string()],
-            },
-        ],
-        token_usage: TokenUsage {
-            input: 200,
-            output: 150,
-            total: 350,
-        },
-        note: "AI integration not yet implemented - this is mock data".to_string(),
-    };
+    // Initialize AI service
+    let ai_service = AIService::new();
 
-    (StatusCode::OK, ResponseJson(ApiResponse::success(response))).into_response()
+    let user_prompt = format!(
+        r#"Analyze the following specification and generate actionable development tasks.
+
+Specification:
+{}
+
+Your tasks should:
+1. Cover all requirements and scenarios in the spec
+2. Be specific and actionable for developers
+3. Include both implementation tasks and testing tasks
+4. Have realistic complexity scores (1-10, where 10 is most complex)
+5. Reference specific requirement IDs from the spec
+6. Use priorities: "high", "medium", or "low"
+
+Respond with ONLY valid JSON matching this exact structure (no markdown, no code blocks):
+{{
+  "tasks": [
+    {{
+      "title": "Task title",
+      "description": "Detailed description of what needs to be done",
+      "priority": "high",
+      "complexity_score": 7,
+      "linked_requirements": ["req-1", "req-2"]
+    }}
+  ]
+}}"#,
+        request.spec_markdown
+    );
+
+    let system_prompt = Some(
+        r#"You are an expert software development project manager breaking down specifications into actionable tasks.
+
+Your task is to:
+1. Read the specification carefully
+2. Identify all requirements and scenarios
+3. Create specific, actionable tasks for developers
+4. Ensure tasks cover implementation, testing, and documentation
+5. Assign realistic complexity scores based on:
+   - 1-3: Simple changes, configuration
+   - 4-6: Medium features, moderate complexity
+   - 7-9: Complex features, significant work
+   - 10: Very complex, architectural changes
+6. Set priorities based on:
+   - high: Core functionality, critical path
+   - medium: Important but not blocking
+   - low: Nice-to-have, can be deferred
+7. Link tasks to specific requirements they address
+
+Important guidelines:
+- Tasks should be granular enough to be assigned to individual developers
+- Each task should be completable in 1-3 days
+- Include both happy path and error handling tasks
+- Don't forget testing and documentation tasks
+- Use requirement IDs that match the spec (e.g., "req-1", "req-2")
+
+Respond with ONLY valid JSON. Do not include markdown formatting, code blocks, or any other text."#
+            .to_string(),
+    );
+
+    // Make AI call
+    match ai_service
+        .generate_structured::<TaskSuggestionsData>(user_prompt, system_prompt)
+        .await
+    {
+        Ok(ai_response) => {
+            // Convert AI response to API format
+            let suggested_tasks: Vec<SuggestedTask> = ai_response
+                .data
+                .tasks
+                .into_iter()
+                .map(|task| SuggestedTask {
+                    title: task.title,
+                    description: task.description,
+                    priority: task.priority,
+                    complexity_score: task.complexity_score,
+                    linked_requirements: task.linked_requirements,
+                })
+                .collect();
+
+            let token_usage = TokenUsage {
+                input: ai_response.usage.input_tokens,
+                output: ai_response.usage.output_tokens,
+                total: ai_response.usage.total_tokens(),
+            };
+
+            // Log AI usage to database
+            let usage_log = AiUsageLog {
+                id: nanoid::nanoid!(10),
+                project_id: request.capability_id.clone(),
+                request_id: None,
+                operation: "suggestTasks".to_string(),
+                provider: "anthropic".to_string(),
+                model: "claude-3-5-sonnet-20241022".to_string(),
+                input_tokens: Some(ai_response.usage.input_tokens as i64),
+                output_tokens: Some(ai_response.usage.output_tokens as i64),
+                total_tokens: Some(ai_response.usage.total_tokens() as i64),
+                estimated_cost: Some(calculate_cost(
+                    ai_response.usage.input_tokens,
+                    ai_response.usage.output_tokens,
+                )),
+                duration_ms: Some(0),
+                error: None,
+                created_at: chrono::Utc::now(),
+            };
+
+            // Save to database (non-blocking)
+            if let Err(e) = db.ai_usage_log_storage.create_log(&usage_log).await {
+                error!("Failed to log AI usage: {}", e);
+            }
+
+            let response = SuggestTasksResponse {
+                capability_id: request.capability_id,
+                suggested_tasks,
+                token_usage,
+                note: String::new(),
+            };
+
+            (StatusCode::OK, ResponseJson(ApiResponse::success(response))).into_response()
+        }
+        Err(e) => {
+            error!("AI task suggestion failed: {}", e);
+            let error_message = match e {
+                AIServiceError::NoApiKey => {
+                    "Anthropic API key not configured. Please set ANTHROPIC_API_KEY environment variable.".to_string()
+                }
+                AIServiceError::ApiError(msg) => format!("Anthropic API error: {}", msg),
+                AIServiceError::ParseError(msg) => {
+                    format!("Failed to parse AI response: {}", msg)
+                }
+                AIServiceError::RequestFailed(e) => format!("Request failed: {}", e),
+                AIServiceError::InvalidResponse => {
+                    "Invalid response from AI service".to_string()
+                }
+            };
+
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                ResponseJson(ApiResponse::<()>::error(error_message)),
+            )
+                .into_response()
+        }
+    }
 }
 
 #[derive(Deserialize)]
