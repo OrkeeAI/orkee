@@ -204,6 +204,87 @@ pub async fn get_capabilities_by_prd(
     .await?)
 }
 
+/// Result type for capability with requirements
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct CapabilityWithRequirements {
+    pub capability: SpecCapability,
+    pub requirements: Vec<SpecRequirement>,
+}
+
+/// Get a capability with all its requirements in a single query
+pub async fn get_capability_with_requirements(
+    pool: &Pool<Sqlite>,
+    capability_id: &str,
+) -> DbResult<CapabilityWithRequirements> {
+    // Fetch capability
+    let capability = get_capability(pool, capability_id).await?;
+
+    // Fetch all requirements for this capability
+    let requirements = get_requirements_by_capability(pool, capability_id).await?;
+
+    Ok(CapabilityWithRequirements {
+        capability,
+        requirements,
+    })
+}
+
+/// Get all capabilities with their requirements for a project in optimized way
+pub async fn get_capabilities_with_requirements_by_project(
+    pool: &Pool<Sqlite>,
+    project_id: &str,
+) -> DbResult<Vec<CapabilityWithRequirements>> {
+    // First, get all capabilities for the project
+    let capabilities = get_capabilities_by_project(pool, project_id).await?;
+
+    if capabilities.is_empty() {
+        return Ok(Vec::new());
+    }
+
+    // Build a query to fetch all requirements for all capabilities at once
+    // This avoids N+1 queries
+    let capability_ids: Vec<String> = capabilities.iter().map(|c| c.id.clone()).collect();
+
+    // Create placeholders for IN clause
+    let placeholders = capability_ids.iter().map(|_| "?").collect::<Vec<_>>().join(",");
+    let query = format!(
+        "SELECT * FROM spec_requirements WHERE capability_id IN ({}) ORDER BY capability_id, position",
+        placeholders
+    );
+
+    // Build the query with bindings
+    let mut query_builder = sqlx::query_as::<_, SpecRequirement>(&query);
+    for id in &capability_ids {
+        query_builder = query_builder.bind(id);
+    }
+
+    let all_requirements = query_builder.fetch_all(pool).await?;
+
+    // Group requirements by capability_id
+    let mut requirements_map: std::collections::HashMap<String, Vec<SpecRequirement>> =
+        std::collections::HashMap::new();
+
+    for req in all_requirements {
+        requirements_map
+            .entry(req.capability_id.clone())
+            .or_insert_with(Vec::new)
+            .push(req);
+    }
+
+    // Combine capabilities with their requirements
+    let result = capabilities
+        .into_iter()
+        .map(|cap| {
+            let requirements = requirements_map.remove(&cap.id).unwrap_or_default();
+            CapabilityWithRequirements {
+                capability: cap,
+                requirements,
+            }
+        })
+        .collect();
+
+    Ok(result)
+}
+
 /// Update capability
 pub async fn update_capability(
     pool: &Pool<Sqlite>,
@@ -686,5 +767,70 @@ mod tests {
 
         let updated_cap = get_capability(&pool, &capability.id).await.unwrap();
         assert_eq!(updated_cap.requirement_count, 1);
+    }
+
+    #[tokio::test]
+    async fn test_get_capabilities_with_requirements_optimized() {
+        let pool = setup_test_db().await;
+        create_test_project(&pool, "test-project").await;
+
+        // Create multiple capabilities with requirements
+        let cap1 = create_capability(
+            &pool,
+            "test-project",
+            None,
+            "Capability 1",
+            Some("Purpose 1"),
+            "# Spec 1",
+            None,
+        )
+        .await
+        .unwrap();
+
+        let cap2 = create_capability(
+            &pool,
+            "test-project",
+            None,
+            "Capability 2",
+            Some("Purpose 2"),
+            "# Spec 2",
+            None,
+        )
+        .await
+        .unwrap();
+
+        // Add requirements to cap1
+        let req1 = create_requirement(&pool, &cap1.id, "Requirement 1", "Content 1", 1)
+            .await
+            .unwrap();
+        let req2 = create_requirement(&pool, &cap1.id, "Requirement 2", "Content 2", 2)
+            .await
+            .unwrap();
+
+        // Add requirement to cap2
+        let req3 = create_requirement(&pool, &cap2.id, "Requirement 3", "Content 3", 1)
+            .await
+            .unwrap();
+
+        // Fetch all capabilities with requirements using optimized query
+        let results = get_capabilities_with_requirements_by_project(&pool, "test-project")
+            .await
+            .unwrap();
+
+        // Verify results
+        assert_eq!(results.len(), 2);
+
+        // Find cap1 and cap2 in results
+        let cap1_result = results.iter().find(|r| r.capability.id == cap1.id).unwrap();
+        let cap2_result = results.iter().find(|r| r.capability.id == cap2.id).unwrap();
+
+        // Verify cap1 has 2 requirements
+        assert_eq!(cap1_result.requirements.len(), 2);
+        assert_eq!(cap1_result.requirements[0].id, req1.id);
+        assert_eq!(cap1_result.requirements[1].id, req2.id);
+
+        // Verify cap2 has 1 requirement
+        assert_eq!(cap2_result.requirements.len(), 1);
+        assert_eq!(cap2_result.requirements[0].id, req3.id);
     }
 }

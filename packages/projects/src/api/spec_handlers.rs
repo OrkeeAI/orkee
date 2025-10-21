@@ -41,6 +41,33 @@ pub async fn list_capabilities(
     }
 }
 
+/// List all capabilities with their requirements for a project (optimized)
+pub async fn list_capabilities_with_requirements(
+    State(db): State<DbState>,
+    Path(project_id): Path<String>,
+) -> impl IntoResponse {
+    info!(
+        "Listing capabilities with requirements for project: {}",
+        project_id
+    );
+
+    match openspec_db::get_capabilities_with_requirements_by_project(&db.pool, &project_id).await {
+        Ok(capabilities_with_reqs) => (
+            StatusCode::OK,
+            ResponseJson(ApiResponse::success(capabilities_with_reqs)),
+        )
+            .into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            ResponseJson(ApiResponse::<()>::error(format!(
+                "Failed to list capabilities with requirements: {}",
+                e
+            ))),
+        )
+            .into_response(),
+    }
+}
+
 /// Get a single capability by ID
 pub async fn get_capability(
     State(db): State<DbState>,
