@@ -337,7 +337,10 @@ async fn proxy_ai_request(
             error!("Failed to proxy request to {}: {}", provider, e);
             return build_error_response(
                 StatusCode::BAD_GATEWAY,
-                format!("Failed to connect to {} API. Please check server logs for details.", provider),
+                format!(
+                    "Failed to connect to {} API. Please check server logs for details.",
+                    provider
+                ),
             );
         }
     };

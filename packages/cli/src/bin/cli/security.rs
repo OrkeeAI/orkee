@@ -341,28 +341,23 @@ async fn change_password_command() {
     let db_state = match DbState::init().await {
         Ok(db) => db,
         Err(e) => {
+            eprintln!("{} Failed to initialize database: {}", "✗".red().bold(), e);
+            process::exit(1);
+        }
+    };
+
+    // Create encryption instances for key rotation
+    let old_encryption = match ApiKeyEncryption::with_password(&current_password, &salt) {
+        Ok(enc) => enc,
+        Err(e) => {
             eprintln!(
-                "{} Failed to initialize database: {}",
+                "{} Failed to create old encryption: {}",
                 "✗".red().bold(),
                 e
             );
             process::exit(1);
         }
     };
-
-    // Create encryption instances for key rotation
-    let old_encryption =
-        match ApiKeyEncryption::with_password(&current_password, &salt) {
-            Ok(enc) => enc,
-            Err(e) => {
-                eprintln!(
-                    "{} Failed to create old encryption: {}",
-                    "✗".red().bold(),
-                    e
-                );
-                process::exit(1);
-            }
-        };
 
     let new_encryption = match ApiKeyEncryption::with_password(&new_password, &new_salt) {
         Ok(enc) => enc,
@@ -414,7 +409,11 @@ async fn change_password_command() {
             println!();
         }
         Err(e) => {
-            eprintln!("{} Failed to update encryption settings: {}", "✗".red().bold(), e);
+            eprintln!(
+                "{} Failed to update encryption settings: {}",
+                "✗".red().bold(),
+                e
+            );
             eprintln!("  WARNING: API keys were re-encrypted but settings update failed");
             eprintln!("  You may need to manually fix the encryption_settings table");
             process::exit(1);

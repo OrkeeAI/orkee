@@ -235,12 +235,18 @@ impl UserStorage {
                 Some(value) if !value.is_empty() && ApiKeyEncryption::is_encrypted(&value) => {
                     // Decrypt with old encryption
                     let plaintext = old_encryption.decrypt(&value).map_err(|e| {
-                        StorageError::Encryption(format!("Failed to decrypt API key with old password: {}", e))
+                        StorageError::Encryption(format!(
+                            "Failed to decrypt API key with old password: {}",
+                            e
+                        ))
                     })?;
 
                     // Re-encrypt with new encryption
                     let new_encrypted = new_encryption.encrypt(&plaintext).map_err(|e| {
-                        StorageError::Encryption(format!("Failed to encrypt API key with new password: {}", e))
+                        StorageError::Encryption(format!(
+                            "Failed to encrypt API key with new password: {}",
+                            e
+                        ))
                     })?;
 
                     Ok(Some(new_encrypted))
@@ -287,7 +293,10 @@ impl UserStorage {
     }
 
     /// Check if there are environment variable API keys that should be migrated to the database
-    pub async fn check_env_key_migration(&self, user_id: &str) -> Result<Vec<String>, StorageError> {
+    pub async fn check_env_key_migration(
+        &self,
+        user_id: &str,
+    ) -> Result<Vec<String>, StorageError> {
         let user = self.get_user(user_id).await?;
         let mut env_keys_to_migrate = Vec::new();
 

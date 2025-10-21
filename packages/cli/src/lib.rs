@@ -93,8 +93,14 @@ async fn check_api_key_migration() {
                     match user_storage.check_env_key_migration("default-user").await {
                         Ok(keys_to_migrate) if !keys_to_migrate.is_empty() => {
                             // Show migration notice
-                            println!("\n⚠️  {} detected API keys in environment variables:", "MIGRATION NOTICE:".yellow().bold());
-                            println!("   Found API keys for: {}", keys_to_migrate.join(", ").cyan());
+                            println!(
+                                "\n⚠️  {} detected API keys in environment variables:",
+                                "MIGRATION NOTICE:".yellow().bold()
+                            );
+                            println!(
+                                "   Found API keys for: {}",
+                                keys_to_migrate.join(", ").cyan()
+                            );
                             println!("\n   These keys are currently being used from environment variables, but should");
                             println!("   be stored securely in the database for better security and persistence.");
                             println!("\n   {} You can manage your API keys in the Settings page of the dashboard.", "Recommendation:".green().bold());
@@ -111,7 +117,10 @@ async fn check_api_key_migration() {
                     }
                 }
                 Err(e) => {
-                    tracing::debug!("Could not initialize user storage for migration check: {}", e);
+                    tracing::debug!(
+                        "Could not initialize user storage for migration check: {}",
+                        e
+                    );
                 }
             }
         }

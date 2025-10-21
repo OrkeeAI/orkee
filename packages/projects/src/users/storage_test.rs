@@ -369,37 +369,27 @@ mod tests {
 
         // Verify new encryption can decrypt the keys
         assert_eq!(
-            new_encryption
-                .decrypt(&encrypted_keys.0.unwrap())
-                .unwrap(),
+            new_encryption.decrypt(&encrypted_keys.0.unwrap()).unwrap(),
             openai_key,
             "New encryption should be able to decrypt OpenAI key"
         );
         assert_eq!(
-            new_encryption
-                .decrypt(&encrypted_keys.1.unwrap())
-                .unwrap(),
+            new_encryption.decrypt(&encrypted_keys.1.unwrap()).unwrap(),
             anthropic_key,
             "New encryption should be able to decrypt Anthropic key"
         );
         assert_eq!(
-            new_encryption
-                .decrypt(&encrypted_keys.2.unwrap())
-                .unwrap(),
+            new_encryption.decrypt(&encrypted_keys.2.unwrap()).unwrap(),
             google_key,
             "New encryption should be able to decrypt Google key"
         );
         assert_eq!(
-            new_encryption
-                .decrypt(&encrypted_keys.3.unwrap())
-                .unwrap(),
+            new_encryption.decrypt(&encrypted_keys.3.unwrap()).unwrap(),
             xai_key,
             "New encryption should be able to decrypt xAI key"
         );
         assert_eq!(
-            new_encryption
-                .decrypt(&encrypted_keys.4.unwrap())
-                .unwrap(),
+            new_encryption.decrypt(&encrypted_keys.4.unwrap()).unwrap(),
             gateway_key,
             "New encryption should be able to decrypt AI Gateway key"
         );
