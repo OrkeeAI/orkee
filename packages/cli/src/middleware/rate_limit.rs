@@ -34,6 +34,7 @@ pub struct RateLimitConfig {
     pub preview_rpm: u32,   // Preview operations
     pub telemetry_rpm: u32, // Telemetry tracking endpoints
     pub ai_rpm: u32,        // AI proxy endpoints
+    pub users_rpm: u32,     // User management (credentials, settings)
     pub global_rpm: u32,    // Global fallback
     pub burst_size: u32,    // Burst size multiplier
 }
@@ -48,6 +49,7 @@ impl Default for RateLimitConfig {
             preview_rpm: 10,
             telemetry_rpm: 15, // More restrictive for DoS prevention
             ai_rpm: 10,        // Strict limit to prevent cost abuse and DoS
+            users_rpm: 10,     // Strict limit for expensive encryption operations
             global_rpm: 30,
             burst_size: 5,
         }
@@ -79,6 +81,7 @@ impl RateLimitLayer {
             EndpointCategory::Preview => self.config.preview_rpm,
             EndpointCategory::Telemetry => self.config.telemetry_rpm,
             EndpointCategory::AI => self.config.ai_rpm,
+            EndpointCategory::Users => self.config.users_rpm,
             EndpointCategory::Other => self.config.global_rpm,
         };
 
@@ -119,6 +122,7 @@ enum EndpointCategory {
     Preview,
     Telemetry,
     AI,
+    Users,
     Other,
 }
 
@@ -131,6 +135,7 @@ impl EndpointCategory {
             EndpointCategory::Preview => "preview",
             EndpointCategory::Telemetry => "telemetry",
             EndpointCategory::AI => "ai",
+            EndpointCategory::Users => "users",
             EndpointCategory::Other => "other",
         }
     }
@@ -148,6 +153,8 @@ fn categorize_endpoint(path: &str) -> EndpointCategory {
         EndpointCategory::Preview
     } else if path.contains("/telemetry") {
         EndpointCategory::Telemetry
+    } else if path.contains("/users") {
+        EndpointCategory::Users
     } else if path.contains("/ai") {
         EndpointCategory::AI
     } else {
@@ -278,6 +285,7 @@ mod tests {
             preview_rpm: 10,
             telemetry_rpm: 15,
             ai_rpm: 10,
+            users_rpm: 10,
             global_rpm: 30,
             burst_size: 5,
         };
@@ -318,7 +326,25 @@ mod tests {
         assert_eq!(config.preview_rpm, 10);
         assert_eq!(config.telemetry_rpm, 15);
         assert_eq!(config.ai_rpm, 10);
+        assert_eq!(config.users_rpm, 10);
         assert_eq!(config.global_rpm, 30);
         assert_eq!(config.burst_size, 5);
+    }
+
+    #[test]
+    fn test_users_endpoint_categorization() {
+        // User management endpoints should be categorized as Users
+        assert!(matches!(
+            categorize_endpoint("/api/users/current"),
+            EndpointCategory::Users
+        ));
+        assert!(matches!(
+            categorize_endpoint("/api/users/credentials"),
+            EndpointCategory::Users
+        ));
+        assert!(matches!(
+            categorize_endpoint("/api/users/default-user/theme"),
+            EndpointCategory::Users
+        ));
     }
 }

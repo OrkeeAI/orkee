@@ -9,6 +9,7 @@ use axum::{
 };
 use reqwest::Client;
 use tracing::{error, info, warn};
+use url::Url;
 
 use super::auth::CurrentUser;
 use crate::db::DbState;
@@ -23,6 +24,103 @@ const ALLOWED_CONTENT_TYPES: &[&str] = &[
     "application/x-ndjson",
     "text/event-stream",
 ];
+
+// Known valid API path prefixes for each provider
+const ANTHROPIC_ALLOWED_PATHS: &[&str] = &[
+    "/v1/messages",
+    "/v1/complete",
+    "/v1/models",
+];
+const OPENAI_ALLOWED_PATHS: &[&str] = &[
+    "/v1/chat/completions",
+    "/v1/completions",
+    "/v1/models",
+    "/v1/embeddings",
+    "/v1/audio/transcriptions",
+    "/v1/audio/translations",
+    "/v1/images/generations",
+];
+const GOOGLE_ALLOWED_PATHS: &[&str] = &[
+    "/v1beta/models",
+    "/v1/models",
+];
+const XAI_ALLOWED_PATHS: &[&str] = &[
+    "/v1/chat/completions",
+    "/v1/completions",
+    "/v1/models",
+];
+
+/// Validates that the API path is safe and matches known provider endpoints
+fn validate_api_path(path: &str, provider: &str) -> Result<(), String> {
+    // Check for path traversal attempts
+    if path.contains("..") || path.contains("//") || path.contains('@') {
+        return Err("Path contains invalid characters".to_string());
+    }
+
+    // Check for URL-encoded traversal attempts
+    if path.contains("%2e%2e") || path.contains("%2f%2f") || path.contains("%40") {
+        return Err("Path contains URL-encoded invalid characters".to_string());
+    }
+
+    // Get allowed paths for this provider
+    let allowed_paths = match provider {
+        "anthropic" => ANTHROPIC_ALLOWED_PATHS,
+        "openai" => OPENAI_ALLOWED_PATHS,
+        "google" => GOOGLE_ALLOWED_PATHS,
+        "xai" => XAI_ALLOWED_PATHS,
+        _ => return Err(format!("Unknown provider: {}", provider)),
+    };
+
+    // Check if the path matches any allowed prefix
+    let is_allowed = allowed_paths.iter().any(|allowed| path.starts_with(allowed));
+
+    if !is_allowed {
+        return Err(format!(
+            "Path '{}' not allowed for provider '{}'. Allowed paths: {}",
+            path,
+            provider,
+            allowed_paths.join(", ")
+        ));
+    }
+
+    Ok(())
+}
+
+/// Validates that the constructed URL matches the expected base URL
+fn validate_target_url(url_str: &str, expected_base: &str) -> Result<(), String> {
+    let url = Url::parse(url_str).map_err(|e| format!("Invalid URL: {}", e))?;
+
+    let base = Url::parse(expected_base).map_err(|e| format!("Invalid base URL: {}", e))?;
+
+    // Verify scheme matches (https)
+    if url.scheme() != base.scheme() {
+        return Err(format!(
+            "URL scheme mismatch: expected {}, got {}",
+            base.scheme(),
+            url.scheme()
+        ));
+    }
+
+    // Verify host matches exactly
+    if url.host_str() != base.host_str() {
+        return Err(format!(
+            "URL host mismatch: expected {:?}, got {:?}",
+            base.host_str(),
+            url.host_str()
+        ));
+    }
+
+    // Verify port matches (or both are default)
+    if url.port() != base.port() {
+        return Err(format!(
+            "URL port mismatch: expected {:?}, got {:?}",
+            base.port(),
+            url.port()
+        ));
+    }
+
+    Ok(())
+}
 
 /// Build an error response with fallback in case Response builder fails
 fn build_error_response(status: StatusCode, message: String) -> Response<Body> {
@@ -138,7 +236,32 @@ async fn proxy_ai_request(
     // Remove the /api/ai/{provider} prefix from the path
     let provider_prefix = format!("/api/ai/{}", provider);
     let target_path = path.strip_prefix(&provider_prefix).unwrap_or(path);
+
+    // Validate the API path against provider whitelist
+    if let Err(e) = validate_api_path(target_path, provider) {
+        error!(
+            "Invalid API path for {} proxy: {} (path: {})",
+            provider, e, target_path
+        );
+        return build_error_response(
+            StatusCode::BAD_REQUEST,
+            format!("Invalid API path: {}", e),
+        );
+    }
+
     let target_url = format!("{}{}{}", base_url, target_path, query);
+
+    // Validate that the constructed URL matches the expected base
+    if let Err(e) = validate_target_url(&target_url, base_url) {
+        error!(
+            "Target URL validation failed for {} proxy: {} (url: {})",
+            provider, e, target_url
+        );
+        return build_error_response(
+            StatusCode::BAD_REQUEST,
+            format!("Invalid target URL: {}", e),
+        );
+    }
 
     info!("Forwarding to: {}", target_url);
 
@@ -325,5 +448,87 @@ mod tests {
         );
 
         assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    }
+
+    #[test]
+    fn test_validate_api_path_anthropic() {
+        // Valid paths
+        assert!(validate_api_path("/v1/messages", "anthropic").is_ok());
+        assert!(validate_api_path("/v1/complete", "anthropic").is_ok());
+        assert!(validate_api_path("/v1/models", "anthropic").is_ok());
+
+        // Invalid paths
+        assert!(validate_api_path("/v1/admin", "anthropic").is_err());
+        assert!(validate_api_path("/../../etc/passwd", "anthropic").is_err());
+        assert!(validate_api_path("/v1/../admin", "anthropic").is_err());
+    }
+
+    #[test]
+    fn test_validate_api_path_traversal_attacks() {
+        // Path traversal attempts should be rejected
+        assert!(validate_api_path("/../etc/passwd", "openai").is_err());
+        assert!(validate_api_path("/v1/../../admin", "anthropic").is_err());
+        assert!(validate_api_path("//etc/passwd", "google").is_err());
+        assert!(validate_api_path("/v1/@attacker.com/endpoint", "xai").is_err());
+
+        // URL-encoded traversal attempts
+        assert!(validate_api_path("/v1/%2e%2e/admin", "anthropic").is_err());
+        assert!(validate_api_path("/%2f%2fetc/passwd", "openai").is_err());
+        assert!(validate_api_path("/v1/%40attacker.com", "google").is_err());
+    }
+
+    #[test]
+    fn test_validate_api_path_openai() {
+        // Valid paths
+        assert!(validate_api_path("/v1/chat/completions", "openai").is_ok());
+        assert!(validate_api_path("/v1/completions", "openai").is_ok());
+        assert!(validate_api_path("/v1/models", "openai").is_ok());
+        assert!(validate_api_path("/v1/embeddings", "openai").is_ok());
+
+        // Invalid paths
+        assert!(validate_api_path("/v2/chat/completions", "openai").is_err());
+        assert!(validate_api_path("/admin", "openai").is_err());
+    }
+
+    #[test]
+    fn test_validate_target_url() {
+        // Valid URLs matching base
+        assert!(validate_target_url(
+            "https://api.anthropic.com/v1/messages",
+            "https://api.anthropic.com"
+        )
+        .is_ok());
+
+        assert!(validate_target_url(
+            "https://api.openai.com/v1/chat/completions",
+            "https://api.openai.com"
+        )
+        .is_ok());
+
+        // Invalid - host mismatch
+        assert!(validate_target_url(
+            "https://attacker.com/v1/messages",
+            "https://api.anthropic.com"
+        )
+        .is_err());
+
+        // Invalid - scheme mismatch
+        assert!(validate_target_url(
+            "http://api.anthropic.com/v1/messages",
+            "https://api.anthropic.com"
+        )
+        .is_err());
+
+        // Invalid - port mismatch
+        assert!(validate_target_url(
+            "https://api.anthropic.com:8080/v1/messages",
+            "https://api.anthropic.com"
+        )
+        .is_err());
+    }
+
+    #[test]
+    fn test_validate_api_path_unknown_provider() {
+        assert!(validate_api_path("/v1/messages", "unknown-provider").is_err());
     }
 }
