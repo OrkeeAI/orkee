@@ -497,3 +497,445 @@ RATE_LIMIT_PROJECTS_RPM=60 orkee dashboard
 SECURITY_HEADERS_ENABLED=false orkee dashboard
 ```
 
+## Encryption & Key Management
+
+Orkee provides encryption capabilities for sensitive data like API keys stored in the database. This section covers key rotation, backup strategies, and best practices.
+
+### Encryption Modes
+
+Orkee supports two encryption modes configured in the `encryption_settings` table:
+
+| Mode | Description | Security Level | Use Case |
+|------|-------------|----------------|----------|
+| **Machine-based** | Derives key from machine ID + salt | Medium | Development, single-user environments |
+| **Password-based** | Uses user password with Argon2id | High | Production, shared machines |
+
+### Encryption Key Rotation
+
+Key rotation is critical for maintaining security. Follow this process to rotate encryption keys safely.
+
+#### Pre-Rotation Checklist
+
+1. **Create a backup** of your database:
+   ```bash
+   # Backup the entire database
+   cp ~/.orkee/orkee.db ~/.orkee/orkee.db.backup-$(date +%Y%m%d-%H%M%S)
+
+   # Verify backup integrity
+   sqlite3 ~/.orkee/orkee.db.backup-* "PRAGMA integrity_check;"
+   ```
+
+2. **Document current encryption mode**:
+   ```bash
+   sqlite3 ~/.orkee/orkee.db "SELECT encryption_mode FROM encryption_settings WHERE id = 1;"
+   ```
+
+3. **Export encrypted data** (optional, for verification):
+   ```bash
+   # Export API keys table
+   sqlite3 ~/.orkee/orkee.db "SELECT * FROM users;" > users_export.sql
+   ```
+
+#### Rotation Process
+
+<Tabs>
+<TabItem value="password-rotation" label="Password Rotation" default>
+
+**When to use**: Changing password-based encryption to a new password
+
+**Process**:
+1. The application must decrypt all sensitive data with the old password
+2. Generate new salt and password hash
+3. Re-encrypt all sensitive data with the new password
+4. Atomically update the `encryption_settings` table
+
+**Implementation** (in Rust code at `packages/projects/src/security/encryption.rs`):
+```rust
+// Pseudo-code for rotation
+fn rotate_password(old_password: &str, new_password: &str) -> Result<()> {
+    let tx = db.transaction()?;
+
+    // 1. Decrypt all API keys with old password
+    let decrypted_keys = decrypt_all_keys(old_password)?;
+
+    // 2. Generate new salt and hash
+    let new_salt = generate_salt();
+    let new_hash = hash_password(new_password, &new_salt)?;
+
+    // 3. Re-encrypt with new password-derived key
+    let new_key = derive_key_from_password(new_password, &new_salt)?;
+    for key in decrypted_keys {
+        encrypt_and_store(&key, &new_key)?;
+    }
+
+    // 4. Update encryption settings atomically
+    update_encryption_settings(new_salt, new_hash)?;
+
+    tx.commit()?;
+    Ok(())
+}
+```
+
+</TabItem>
+<TabItem value="mode-change" label="Mode Change">
+
+**When to use**: Switching between machine-based and password-based encryption
+
+**Process**:
+1. Decrypt all data using current mode
+2. Update `encryption_mode` in `encryption_settings`
+3. Re-encrypt all data using new mode
+4. Verify all data is accessible
+
+**Migration Example** (Machine → Password):
+```sql
+-- This requires application code to handle re-encryption
+-- DO NOT run these SQL commands manually
+
+BEGIN TRANSACTION;
+
+-- Application decrypts with machine key
+-- Application re-encrypts with password-derived key
+
+UPDATE encryption_settings
+SET
+    encryption_mode = 'password',
+    password_salt = ?, -- New salt
+    password_hash = ?, -- Argon2id hash
+    updated_at = datetime('now')
+WHERE id = 1;
+
+COMMIT;
+```
+
+</TabItem>
+</Tabs>
+
+#### Post-Rotation Verification
+
+1. **Verify encryption mode**:
+   ```bash
+   sqlite3 ~/.orkee/orkee.db "SELECT encryption_mode, updated_at FROM encryption_settings;"
+   ```
+
+2. **Test data access**:
+   ```bash
+   # Start Orkee and verify API keys are accessible
+   orkee dashboard
+
+   # Check logs for decryption errors
+   tail -f ~/.orkee/orkee.log | grep -i "decrypt\|encryption"
+   ```
+
+3. **Verify all encrypted fields**:
+   ```bash
+   # Count encrypted API key entries
+   sqlite3 ~/.orkee/orkee.db "SELECT COUNT(*) FROM users WHERE
+       openai_api_key IS NOT NULL OR
+       anthropic_api_key IS NOT NULL OR
+       google_api_key IS NOT NULL OR
+       xai_api_key IS NOT NULL;"
+   ```
+
+### Backup Recommendations
+
+#### What to Backup
+
+1. **Database file**: `~/.orkee/orkee.db` (contains encrypted data)
+2. **Encryption settings**: Stored in database
+3. **Password** (password-based mode): Store securely in password manager
+4. **Machine ID** (machine-based mode): May be needed for recovery
+
+#### Backup Strategies
+
+<Tabs>
+<TabItem value="local" label="Local Backups" default>
+
+**Daily automated backups**:
+```bash
+#!/bin/bash
+# ~/.config/orkee/backup.sh
+
+BACKUP_DIR=~/.orkee/backups
+DATE=$(date +%Y%m%d-%H%M%S)
+DB_PATH=~/.orkee/orkee.db
+
+# Create backup directory
+mkdir -p "$BACKUP_DIR"
+
+# Create backup with timestamp
+cp "$DB_PATH" "$BACKUP_DIR/orkee-$DATE.db"
+
+# Keep only last 30 days
+find "$BACKUP_DIR" -name "orkee-*.db" -mtime +30 -delete
+
+# Verify backup
+sqlite3 "$BACKUP_DIR/orkee-$DATE.db" "PRAGMA integrity_check;"
+```
+
+**Schedule with cron**:
+```cron
+# Run daily at 2 AM
+0 2 * * * ~/.config/orkee/backup.sh
+```
+
+</TabItem>
+<TabItem value="cloud" label="Cloud Backups">
+
+**Encrypted cloud backup**:
+```bash
+#!/bin/bash
+# Backup with encryption before upload
+
+BACKUP_DIR=~/.orkee/backups
+DATE=$(date +%Y%m%d-%H%M%S)
+DB_PATH=~/.orkee/orkee.db
+
+# Create encrypted backup
+gpg --symmetric --cipher-algo AES256 \
+    --output "$BACKUP_DIR/orkee-$DATE.db.gpg" \
+    "$DB_PATH"
+
+# Upload to cloud (example with AWS S3)
+aws s3 cp "$BACKUP_DIR/orkee-$DATE.db.gpg" \
+    s3://my-orkee-backups/$(date +%Y/%m/)
+
+# Or use rclone for other cloud providers
+rclone copy "$BACKUP_DIR/orkee-$DATE.db.gpg" \
+    remote:orkee-backups/$(date +%Y/%m/)
+```
+
+**Restore from cloud**:
+```bash
+# Download encrypted backup
+aws s3 cp s3://my-orkee-backups/2024/01/orkee-20240115.db.gpg \
+    ~/.orkee/orkee-restore.db.gpg
+
+# Decrypt
+gpg --decrypt orkee-restore.db.gpg > ~/.orkee/orkee.db
+
+# Verify
+sqlite3 ~/.orkee/orkee.db "PRAGMA integrity_check;"
+```
+
+</TabItem>
+<TabItem value="version-control" label="Version Control">
+
+**Git-based backups** (for team environments):
+```bash
+# Initialize git repository for backups
+cd ~/.orkee/backups
+git init
+git lfs install
+
+# Track database files with Git LFS
+git lfs track "*.db"
+git add .gitattributes
+
+# Backup script
+#!/bin/bash
+DATE=$(date +%Y%m%d-%H%M%S)
+cp ~/.orkee/orkee.db ~/.orkee/backups/orkee-$DATE.db
+
+cd ~/.orkee/backups
+git add orkee-$DATE.db
+git commit -m "Backup: $DATE"
+git push origin main
+```
+
+**Important**: Ensure the git repository is private and encrypted at rest.
+
+</TabItem>
+</Tabs>
+
+#### Backup Testing
+
+Test your backups regularly:
+
+```bash
+#!/bin/bash
+# Backup verification script
+
+BACKUP_PATH=$1
+TEST_DIR=$(mktemp -d)
+
+# Copy backup to test directory
+cp "$BACKUP_PATH" "$TEST_DIR/test.db"
+
+# Verify database integrity
+if sqlite3 "$TEST_DIR/test.db" "PRAGMA integrity_check;" | grep -q "ok"; then
+    echo "✅ Backup integrity verified"
+else
+    echo "❌ Backup corrupted"
+    exit 1
+fi
+
+# Verify table structure
+TABLES=$(sqlite3 "$TEST_DIR/test.db" "SELECT COUNT(*) FROM sqlite_master WHERE type='table';")
+if [ "$TABLES" -gt 10 ]; then
+    echo "✅ Table structure intact ($TABLES tables)"
+else
+    echo "❌ Missing tables (found $TABLES)"
+    exit 1
+fi
+
+# Cleanup
+rm -rf "$TEST_DIR"
+echo "✅ Backup verification complete"
+```
+
+### Security Best Practices
+
+#### Password Management
+
+1. **Use strong passwords** (minimum 12 characters, mix of types)
+2. **Store password securely** (password manager like 1Password, Bitwarden)
+3. **Rotate passwords annually** or after suspected compromise
+4. **Never commit passwords** to version control
+5. **Document password policy** for team environments
+
+#### Key Storage
+
+1. **Machine-based mode**:
+   - Machine ID is derived from system properties
+   - Backup machine ID if planning to migrate to new hardware
+   - Not suitable for shared or frequently-reimaged machines
+
+2. **Password-based mode**:
+   - Password never stored in plain text (only Argon2id hash)
+   - Salt is unique per installation (stored in `encryption_settings`)
+   - Lost passwords cannot be recovered - backups are critical
+
+#### Access Control
+
+1. **Restrict database file permissions**:
+   ```bash
+   chmod 600 ~/.orkee/orkee.db
+   chmod 700 ~/.orkee
+   ```
+
+2. **Backup permissions**:
+   ```bash
+   chmod 600 ~/.orkee/backups/*.db
+   chmod 700 ~/.orkee/backups
+   ```
+
+3. **Multi-user systems**:
+   - Use password-based encryption
+   - Separate user accounts for each person
+   - Never share passwords
+
+### Disaster Recovery
+
+#### Recovery Scenarios
+
+<Tabs>
+<TabItem value="db-corruption" label="Database Corruption" default>
+
+**Symptoms**: SQLite errors, data inconsistency
+
+**Recovery**:
+```bash
+# 1. Stop Orkee
+pkill -f "orkee dashboard"
+
+# 2. Verify corruption
+sqlite3 ~/.orkee/orkee.db "PRAGMA integrity_check;"
+
+# 3. Restore from backup
+mv ~/.orkee/orkee.db ~/.orkee/orkee.db.corrupted
+cp ~/.orkee/backups/orkee-LATEST.db ~/.orkee/orkee.db
+
+# 4. Verify restored database
+sqlite3 ~/.orkee/orkee.db "PRAGMA integrity_check;"
+
+# 5. Restart Orkee
+orkee dashboard
+```
+
+</TabItem>
+<TabItem value="lost-password" label="Lost Password">
+
+**Password-based encryption** with lost password:
+
+⚠️ **There is no password recovery** - the password is never stored.
+
+**Options**:
+1. **Restore from backup** created before password change
+2. **Re-initialize** database (loses all encrypted data)
+
+**Prevention**:
+- Store password in password manager immediately
+- Document password location in team wiki
+- Test password regularly
+
+</TabItem>
+<TabItem value="hardware-migration" label="Hardware Migration">
+
+**Moving to new machine**:
+
+1. **On old machine**:
+   ```bash
+   # Backup database
+   cp ~/.orkee/orkee.db ~/Desktop/orkee-migration.db
+
+   # Document encryption mode
+   sqlite3 ~/Desktop/orkee-migration.db \
+       "SELECT encryption_mode FROM encryption_settings;"
+   ```
+
+2. **On new machine**:
+   ```bash
+   # Install Orkee
+   npm install -g orkee
+
+   # Copy database
+   mkdir -p ~/.orkee
+   cp ~/Desktop/orkee-migration.db ~/.orkee/orkee.db
+
+   # Start Orkee (will prompt for password if needed)
+   orkee dashboard
+   ```
+
+**Machine-based encryption caveat**: Machine ID may change on new hardware. Consider migrating to password-based encryption before hardware change.
+
+</TabItem>
+</Tabs>
+
+### Encryption Troubleshooting
+
+#### Common Issues
+
+**Decryption failures**:
+```bash
+# Check encryption mode
+sqlite3 ~/.orkee/orkee.db "SELECT * FROM encryption_settings;"
+
+# Check for encryption errors
+RUST_LOG=debug orkee dashboard 2>&1 | grep -i encrypt
+```
+
+**Password verification fails**:
+```bash
+# Verify password hash exists
+sqlite3 ~/.orkee/orkee.db \
+    "SELECT length(password_hash) FROM encryption_settings WHERE id = 1;"
+
+# Check password attempt lockout
+sqlite3 ~/.orkee/orkee.db \
+    "SELECT * FROM password_attempts;"
+```
+
+**Salt/hash corruption**:
+```bash
+# Verify salt and hash are present
+sqlite3 ~/.orkee/orkee.db \
+    "SELECT
+        length(password_salt) as salt_len,
+        length(password_hash) as hash_len,
+        encryption_mode
+     FROM encryption_settings;"
+
+# Expected: salt_len=32, hash_len varies, mode='password'
+```
+
