@@ -144,7 +144,7 @@ export function CostDashboard({ projectId }: CostDashboardProps) {
                 <div className="flex items-center justify-center py-8">
                   <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
                 </div>
-              ) : !stats || stats.byOperation.length === 0 ? (
+              ) : !stats || !stats.byOperation || stats.byOperation.length === 0 ? (
                 <Alert>
                   <AlertCircle className="h-4 w-4" />
                   <AlertTitle>No data yet</AlertTitle>
@@ -213,7 +213,7 @@ export function CostDashboard({ projectId }: CostDashboardProps) {
                 <div className="flex items-center justify-center py-8">
                   <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
                 </div>
-              ) : !stats || stats.byModel.length === 0 ? (
+              ) : !stats || !stats.byModel || stats.byModel.length === 0 ? (
                 <Alert>
                   <AlertCircle className="h-4 w-4" />
                   <AlertTitle>No data yet</AlertTitle>
@@ -282,7 +282,7 @@ export function CostDashboard({ projectId }: CostDashboardProps) {
                 <div className="flex items-center justify-center py-8">
                   <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
                 </div>
-              ) : !stats || stats.byProvider.length === 0 ? (
+              ) : !stats || !stats.byProvider || stats.byProvider.length === 0 ? (
                 <Alert>
                   <AlertCircle className="h-4 w-4" />
                   <AlertTitle>No data yet</AlertTitle>
@@ -351,7 +351,7 @@ export function CostDashboard({ projectId }: CostDashboardProps) {
                 <div className="flex items-center justify-center py-8">
                   <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
                 </div>
-              ) : logs.length === 0 ? (
+              ) : !Array.isArray(logs) || logs.length === 0 ? (
                 <Alert>
                   <AlertCircle className="h-4 w-4" />
                   <AlertTitle>No logs yet</AlertTitle>

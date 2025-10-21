@@ -103,7 +103,8 @@ export async function getAiUsageStats(params?: {
 /**
  * Format cost in a readable way
  */
-export function formatCost(cost: number): string {
+export function formatCost(cost: number | undefined | null): string {
+  if (cost === undefined || cost === null) return '$0.00';
   if (cost === 0) return '$0.00';
   if (cost < 0.01) return `${(cost * 100).toFixed(3)}¢`;
   return `$${cost.toFixed(2)}`;
@@ -112,14 +113,16 @@ export function formatCost(cost: number): string {
 /**
  * Format token count with commas
  */
-export function formatTokens(tokens: number): string {
+export function formatTokens(tokens: number | undefined | null): string {
+  if (tokens === undefined || tokens === null) return '0';
   return tokens.toLocaleString();
 }
 
 /**
  * Format duration in milliseconds
  */
-export function formatDuration(ms: number): string {
+export function formatDuration(ms: number | undefined | null): string {
+  if (ms === undefined || ms === null) return '0ms';
   if (ms < 1000) return `${ms.toFixed(0)}ms`;
   return `${(ms / 1000).toFixed(2)}s`;
 }
