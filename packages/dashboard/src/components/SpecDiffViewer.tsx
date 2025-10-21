@@ -8,6 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Plus, Minus, Edit } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import rehypeSanitize from 'rehype-sanitize';
 
 interface SpecVersion {
   id: string;
@@ -133,7 +134,7 @@ export function SpecDiffViewer({ oldVersion, newVersion }: SpecDiffViewerProps) 
                       <h4 className="font-medium">{req.name}</h4>
                     </div>
                     <div className="prose prose-sm dark:prose-invert max-w-none">
-                      <ReactMarkdown remarkPlugins={[remarkGfm]}>{req.content}</ReactMarkdown>
+                      <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeSanitize]}>{req.content}</ReactMarkdown>
                     </div>
                   </div>
                 ))}
@@ -151,13 +152,13 @@ export function SpecDiffViewer({ oldVersion, newVersion }: SpecDiffViewerProps) 
                       <div>
                         <p className="text-xs font-medium text-muted-foreground mb-2">Old Version</p>
                         <div className="prose prose-sm dark:prose-invert max-w-none bg-red-100 dark:bg-red-900/30 p-2 rounded">
-                          <ReactMarkdown remarkPlugins={[remarkGfm]}>{req.oldContent}</ReactMarkdown>
+                          <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeSanitize]}>{req.oldContent}</ReactMarkdown>
                         </div>
                       </div>
                       <div>
                         <p className="text-xs font-medium text-muted-foreground mb-2">New Version</p>
                         <div className="prose prose-sm dark:prose-invert max-w-none bg-green-100 dark:bg-green-900/30 p-2 rounded">
-                          <ReactMarkdown remarkPlugins={[remarkGfm]}>{req.newContent}</ReactMarkdown>
+                          <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeSanitize]}>{req.newContent}</ReactMarkdown>
                         </div>
                       </div>
                     </div>
@@ -174,7 +175,7 @@ export function SpecDiffViewer({ oldVersion, newVersion }: SpecDiffViewerProps) 
                       <h4 className="font-medium">{req.name}</h4>
                     </div>
                     <div className="prose prose-sm dark:prose-invert max-w-none opacity-70">
-                      <ReactMarkdown remarkPlugins={[remarkGfm]}>{req.content}</ReactMarkdown>
+                      <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeSanitize]}>{req.content}</ReactMarkdown>
                     </div>
                   </div>
                 ))}
@@ -187,13 +188,13 @@ export function SpecDiffViewer({ oldVersion, newVersion }: SpecDiffViewerProps) 
               <div>
                 <h3 className="font-medium mb-2">v{oldVersion.version}</h3>
                 <div className="prose prose-sm dark:prose-invert max-w-none border rounded-lg p-4">
-                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{oldVersion.specMarkdown}</ReactMarkdown>
+                  <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeSanitize]}>{oldVersion.specMarkdown}</ReactMarkdown>
                 </div>
               </div>
               <div>
                 <h3 className="font-medium mb-2">v{newVersion.version}</h3>
                 <div className="prose prose-sm dark:prose-invert max-w-none border rounded-lg p-4">
-                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{newVersion.specMarkdown}</ReactMarkdown>
+                  <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeSanitize]}>{newVersion.specMarkdown}</ReactMarkdown>
                 </div>
               </div>
             </div>
@@ -204,7 +205,7 @@ export function SpecDiffViewer({ oldVersion, newVersion }: SpecDiffViewerProps) 
               <div key={idx} className="rounded-lg border p-4">
                 <h4 className="font-medium mb-2">{req.name}</h4>
                 <div className="prose prose-sm dark:prose-invert max-w-none">
-                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{req.content}</ReactMarkdown>
+                  <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeSanitize]}>{req.content}</ReactMarkdown>
                 </div>
               </div>
             ))}

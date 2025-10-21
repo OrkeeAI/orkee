@@ -14,6 +14,7 @@ import {
 import { useSpec, useSpecRequirements } from '@/hooks/useSpecs';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import rehypeSanitize from 'rehype-sanitize';
 
 interface SpecDetailsViewProps {
   projectId: string;
@@ -143,7 +144,7 @@ export function SpecDetailsView({ projectId, specId, onEdit }: SpecDetailsViewPr
             </CardHeader>
             <CardContent>
               <div className="prose prose-sm max-w-none">
-                <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeSanitize]}>
                   {spec.purpose || 'No purpose specified'}
                 </ReactMarkdown>
               </div>
@@ -157,7 +158,7 @@ export function SpecDetailsView({ projectId, specId, onEdit }: SpecDetailsViewPr
               </CardHeader>
               <CardContent>
                 <div className="prose prose-sm max-w-none">
-                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                  <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeSanitize]}>
                     {spec.specMarkdown}
                   </ReactMarkdown>
                 </div>
@@ -187,7 +188,7 @@ export function SpecDetailsView({ projectId, specId, onEdit }: SpecDetailsViewPr
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="prose prose-sm max-w-none">
-                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                    <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeSanitize]}>
                       {req.content}
                     </ReactMarkdown>
                   </div>
@@ -245,7 +246,7 @@ export function SpecDetailsView({ projectId, specId, onEdit }: SpecDetailsViewPr
               </CardHeader>
               <CardContent>
                 <div className="prose prose-sm max-w-none">
-                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                  <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeSanitize]}>
                     {spec.designMarkdown}
                   </ReactMarkdown>
                 </div>

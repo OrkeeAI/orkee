@@ -15,6 +15,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '@/lib/queryClient';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import rehypeSanitize from 'rehype-sanitize';
 
 interface ChangeProposalFormProps {
   projectId: string;
@@ -166,7 +167,7 @@ What will change and what won't..."
                   <Label>Preview</Label>
                   <div className="border rounded-md p-4 min-h-[400px] overflow-y-auto prose prose-sm dark:prose-invert max-w-none">
                     {proposalMarkdown ? (
-                      <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                      <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeSanitize]}>
                         {proposalMarkdown}
                       </ReactMarkdown>
                     ) : (
@@ -203,7 +204,7 @@ What will change and what won't..."
                   <Label>Preview</Label>
                   <div className="border rounded-md p-4 min-h-[400px] overflow-y-auto prose prose-sm dark:prose-invert max-w-none">
                     {tasksMarkdown ? (
-                      <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                      <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeSanitize]}>
                         {tasksMarkdown}
                       </ReactMarkdown>
                     ) : (
@@ -241,7 +242,7 @@ Describe schema changes..."
                   <Label>Preview</Label>
                   <div className="border rounded-md p-4 min-h-[400px] overflow-y-auto prose prose-sm dark:prose-invert max-w-none">
                     {designMarkdown ? (
-                      <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                      <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeSanitize]}>
                         {designMarkdown}
                       </ReactMarkdown>
                     ) : (
