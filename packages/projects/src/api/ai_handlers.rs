@@ -91,6 +91,36 @@ struct TaskSuggestionsData {
 }
 
 // ============================================================================
+// Spec Refinement
+// ============================================================================
+
+#[derive(Debug, Serialize, Deserialize)]
+struct SpecRefinementData {
+    refined_spec: String,
+    changes_made: Vec<String>,
+}
+
+// ============================================================================
+// Completion Validation
+// ============================================================================
+
+#[derive(Debug, Serialize, Deserialize)]
+struct ValidationItem {
+    scenario: String,
+    passed: bool,
+    confidence: f32,
+    notes: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct CompletionValidationData {
+    is_complete: bool,
+    validation_results: Vec<ValidationItem>,
+    overall_confidence: f32,
+    recommendations: Vec<String>,
+}
+
+// ============================================================================
 // PRD Analysis
 // ============================================================================
 
@@ -691,29 +721,134 @@ pub struct SuggestedTask {
 }
 
 /// Refine spec with feedback
-pub async fn refine_spec(Json(request): Json<RefineSpecRequest>) -> impl IntoResponse {
+pub async fn refine_spec(
+    State(db): State<DbState>,
+    Json(request): Json<RefineSpecRequest>,
+) -> impl IntoResponse {
     info!(
         "AI spec refinement requested for capability: {}",
         request.capability_id
     );
 
-    let response = RefineSpecResponse {
-        capability_id: request.capability_id.clone(),
-        refined_spec_markdown: request.current_spec_markdown.clone() + "\n\n### Additional Considerations\n\nBased on feedback, added:\n- Performance optimization requirements\n- Security considerations\n- Accessibility requirements",
-        changes_made: vec![
-            "Added performance requirements".to_string(),
-            "Clarified security constraints".to_string(),
-            "Enhanced accessibility scenarios".to_string(),
-        ],
-        token_usage: TokenUsage {
-            input: 350,
-            output: 200,
-            total: 550,
-        },
-        note: "AI integration not yet implemented - this is mock data".to_string(),
-    };
+    // Initialize AI service
+    let ai_service = AIService::new();
 
-    (StatusCode::OK, ResponseJson(ApiResponse::success(response))).into_response()
+    let user_prompt = format!(
+        r#"Refine the following specification based on user feedback.
+
+Current Specification:
+{}
+
+User Feedback:
+{}
+
+Your task is to:
+1. Analyze the current specification and the feedback
+2. Update the specification to address all feedback points
+3. Keep the same markdown structure and format
+4. Preserve existing content that isn't affected by the feedback
+5. Track what changes you made
+
+Respond with ONLY valid JSON matching this exact structure (no markdown, no code blocks):
+{{
+  "refined_spec": "The complete refined specification in markdown format",
+  "changes_made": ["Description of change 1", "Description of change 2"]
+}}"#,
+        request.current_spec_markdown, request.feedback
+    );
+
+    let system_prompt = Some(
+        r#"You are an expert technical writer refining software specifications based on feedback.
+
+Your task is to:
+1. Carefully read the current specification
+2. Understand the user's feedback and concerns
+3. Update the specification to address the feedback while maintaining quality
+4. Preserve the spec's structure, clarity, and testability
+5. Track all changes made for transparency
+
+Important guidelines:
+- Keep the WHEN/THEN/AND scenario format
+- Maintain markdown formatting
+- Don't remove content unless explicitly requested
+- Add clarifications, not just rephrasing
+- Ensure all changes directly address the feedback
+- List specific changes made (e.g., "Added error handling scenario for X", "Clarified requirement Y")
+
+Respond with ONLY valid JSON. Do not include markdown formatting, code blocks, or any other text."#
+            .to_string(),
+    );
+
+    // Make AI call
+    match ai_service
+        .generate_structured::<SpecRefinementData>(user_prompt, system_prompt)
+        .await
+    {
+        Ok(ai_response) => {
+            let token_usage = TokenUsage {
+                input: ai_response.usage.input_tokens,
+                output: ai_response.usage.output_tokens,
+                total: ai_response.usage.total_tokens(),
+            };
+
+            // Log AI usage to database
+            let usage_log = AiUsageLog {
+                id: nanoid::nanoid!(10),
+                project_id: request.capability_id.clone(),
+                request_id: None,
+                operation: "refineSpec".to_string(),
+                provider: "anthropic".to_string(),
+                model: "claude-3-5-sonnet-20241022".to_string(),
+                input_tokens: Some(ai_response.usage.input_tokens as i64),
+                output_tokens: Some(ai_response.usage.output_tokens as i64),
+                total_tokens: Some(ai_response.usage.total_tokens() as i64),
+                estimated_cost: Some(calculate_cost(
+                    ai_response.usage.input_tokens,
+                    ai_response.usage.output_tokens,
+                )),
+                duration_ms: Some(0),
+                error: None,
+                created_at: chrono::Utc::now(),
+            };
+
+            // Save to database (non-blocking)
+            if let Err(e) = db.ai_usage_log_storage.create_log(&usage_log).await {
+                error!("Failed to log AI usage: {}", e);
+            }
+
+            let response = RefineSpecResponse {
+                capability_id: request.capability_id,
+                refined_spec_markdown: ai_response.data.refined_spec,
+                changes_made: ai_response.data.changes_made,
+                token_usage,
+                note: String::new(),
+            };
+
+            (StatusCode::OK, ResponseJson(ApiResponse::success(response))).into_response()
+        }
+        Err(e) => {
+            error!("AI spec refinement failed: {}", e);
+            let error_message = match e {
+                AIServiceError::NoApiKey => {
+                    "Anthropic API key not configured. Please set ANTHROPIC_API_KEY environment variable.".to_string()
+                }
+                AIServiceError::ApiError(msg) => format!("Anthropic API error: {}", msg),
+                AIServiceError::ParseError(msg) => {
+                    format!("Failed to parse AI response: {}", msg)
+                }
+                AIServiceError::RequestFailed(e) => format!("Request failed: {}", e),
+                AIServiceError::InvalidResponse => {
+                    "Invalid response from AI service".to_string()
+                }
+            };
+
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                ResponseJson(ApiResponse::<()>::error(error_message)),
+            )
+                .into_response()
+        }
+    }
 }
 
 #[derive(Deserialize)]
@@ -740,41 +875,173 @@ pub struct RefineSpecResponse {
 
 /// Validate task completion against spec
 pub async fn validate_completion(
+    State(db): State<DbState>,
     Json(request): Json<ValidateCompletionRequest>,
 ) -> impl IntoResponse {
     info!("AI validation requested for task: {}", request.task_id);
 
-    let response = ValidateCompletionResponse {
-        task_id: request.task_id,
-        is_complete: true,
-        validation_results: vec![
-            ValidationResult {
-                scenario: "User can complete primary action".to_string(),
-                passed: true,
-                confidence: 0.92,
-                notes: Some("Implementation matches expected behavior".to_string()),
-            },
-            ValidationResult {
-                scenario: "System handles errors gracefully".to_string(),
-                passed: true,
-                confidence: 0.88,
-                notes: Some("Error handling appears comprehensive".to_string()),
-            },
-        ],
-        overall_confidence: 0.90,
-        recommendations: vec![
-            "Consider adding more edge case handling".to_string(),
-            "Add performance benchmarks".to_string(),
-        ],
-        token_usage: TokenUsage {
-            input: 280,
-            output: 120,
-            total: 400,
-        },
-        note: "AI integration not yet implemented - this is mock data".to_string(),
+    // Initialize AI service
+    let ai_service = AIService::new();
+
+    // Build scenario list for validation
+    let scenarios_text = if request.linked_scenarios.is_empty() {
+        "No specific scenarios linked".to_string()
+    } else {
+        request
+            .linked_scenarios
+            .iter()
+            .enumerate()
+            .map(|(i, scenario)| format!("{}. {}", i + 1, scenario))
+            .collect::<Vec<_>>()
+            .join("\n")
     };
 
-    (StatusCode::OK, ResponseJson(ApiResponse::success(response))).into_response()
+    let user_prompt = format!(
+        r#"Validate whether the following implementation completes the specified scenarios.
+
+Implementation Details:
+{}
+
+Scenarios to Validate:
+{}
+
+Your task is to:
+1. Analyze the implementation details
+2. Check if each scenario is adequately addressed
+3. Assess confidence in completion for each scenario
+4. Provide an overall assessment
+5. Suggest improvements if needed
+
+Respond with ONLY valid JSON matching this exact structure (no markdown, no code blocks):
+{{
+  "is_complete": true,
+  "validation_results": [
+    {{
+      "scenario": "Scenario description",
+      "passed": true,
+      "confidence": 0.95,
+      "notes": "Optional notes about this validation"
+    }}
+  ],
+  "overall_confidence": 0.93,
+  "recommendations": ["Recommendation 1", "Recommendation 2"]
+}}"#,
+        request.implementation_details, scenarios_text
+    );
+
+    let system_prompt = Some(
+        r#"You are an expert QA engineer validating task completion against specifications.
+
+Your task is to:
+1. Carefully read the implementation details
+2. Compare against each specified scenario
+3. Determine if the scenario is fully implemented
+4. Assign confidence scores (0.0 to 1.0):
+   - 1.0: Perfectly matches, no doubt
+   - 0.9-0.99: Excellent match, minor uncertainties
+   - 0.8-0.89: Good match, some assumptions made
+   - 0.7-0.79: Adequate match, several assumptions
+   - Below 0.7: Insufficient evidence or concerns
+5. Provide specific notes for failed or uncertain scenarios
+6. Give actionable recommendations for improvement
+
+Important guidelines:
+- Be thorough but fair in assessment
+- If implementation is incomplete, set passed: false
+- Consider edge cases and error handling
+- Recommendations should be specific and actionable
+- Overall confidence should reflect the weakest link
+- If no scenarios provided, evaluate based on implementation quality
+
+Respond with ONLY valid JSON. Do not include markdown formatting, code blocks, or any other text."#
+            .to_string(),
+    );
+
+    // Make AI call
+    match ai_service
+        .generate_structured::<CompletionValidationData>(user_prompt, system_prompt)
+        .await
+    {
+        Ok(ai_response) => {
+            // Convert AI response to API format
+            let validation_results: Vec<ValidationResult> = ai_response
+                .data
+                .validation_results
+                .into_iter()
+                .map(|item| ValidationResult {
+                    scenario: item.scenario,
+                    passed: item.passed,
+                    confidence: item.confidence,
+                    notes: item.notes,
+                })
+                .collect();
+
+            let token_usage = TokenUsage {
+                input: ai_response.usage.input_tokens,
+                output: ai_response.usage.output_tokens,
+                total: ai_response.usage.total_tokens(),
+            };
+
+            // Log AI usage to database
+            let usage_log = AiUsageLog {
+                id: nanoid::nanoid!(10),
+                project_id: request.task_id.clone(),
+                request_id: None,
+                operation: "validateCompletion".to_string(),
+                provider: "anthropic".to_string(),
+                model: "claude-3-5-sonnet-20241022".to_string(),
+                input_tokens: Some(ai_response.usage.input_tokens as i64),
+                output_tokens: Some(ai_response.usage.output_tokens as i64),
+                total_tokens: Some(ai_response.usage.total_tokens() as i64),
+                estimated_cost: Some(calculate_cost(
+                    ai_response.usage.input_tokens,
+                    ai_response.usage.output_tokens,
+                )),
+                duration_ms: Some(0),
+                error: None,
+                created_at: chrono::Utc::now(),
+            };
+
+            // Save to database (non-blocking)
+            if let Err(e) = db.ai_usage_log_storage.create_log(&usage_log).await {
+                error!("Failed to log AI usage: {}", e);
+            }
+
+            let response = ValidateCompletionResponse {
+                task_id: request.task_id,
+                is_complete: ai_response.data.is_complete,
+                validation_results,
+                overall_confidence: ai_response.data.overall_confidence,
+                recommendations: ai_response.data.recommendations,
+                token_usage,
+                note: String::new(),
+            };
+
+            (StatusCode::OK, ResponseJson(ApiResponse::success(response))).into_response()
+        }
+        Err(e) => {
+            error!("AI validation failed: {}", e);
+            let error_message = match e {
+                AIServiceError::NoApiKey => {
+                    "Anthropic API key not configured. Please set ANTHROPIC_API_KEY environment variable.".to_string()
+                }
+                AIServiceError::ApiError(msg) => format!("Anthropic API error: {}", msg),
+                AIServiceError::ParseError(msg) => {
+                    format!("Failed to parse AI response: {}", msg)
+                }
+                AIServiceError::RequestFailed(e) => format!("Request failed: {}", e),
+                AIServiceError::InvalidResponse => {
+                    "Invalid response from AI service".to_string()
+                }
+            };
+
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                ResponseJson(ApiResponse::<()>::error(error_message)),
+            )
+                .into_response()
+        }
+    }
 }
 
 #[derive(Deserialize)]
