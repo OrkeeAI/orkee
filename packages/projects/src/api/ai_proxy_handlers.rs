@@ -13,34 +13,28 @@ use tracing::{error, info};
 use crate::db::DbState;
 
 /// Proxy requests to Anthropic API with API key from database
-pub async fn proxy_anthropic(
-    State(db): State<DbState>,
-    req: Request<Body>,
-) -> impl IntoResponse {
+pub async fn proxy_anthropic(State(db): State<DbState>, req: Request<Body>) -> impl IntoResponse {
     proxy_ai_request(&db, "anthropic", "https://api.anthropic.com", req).await
 }
 
 /// Proxy requests to OpenAI API with API key from database
-pub async fn proxy_openai(
-    State(db): State<DbState>,
-    req: Request<Body>,
-) -> impl IntoResponse {
+pub async fn proxy_openai(State(db): State<DbState>, req: Request<Body>) -> impl IntoResponse {
     proxy_ai_request(&db, "openai", "https://api.openai.com", req).await
 }
 
 /// Proxy requests to Google AI API with API key from database
-pub async fn proxy_google(
-    State(db): State<DbState>,
-    req: Request<Body>,
-) -> impl IntoResponse {
-    proxy_ai_request(&db, "google", "https://generativelanguage.googleapis.com", req).await
+pub async fn proxy_google(State(db): State<DbState>, req: Request<Body>) -> impl IntoResponse {
+    proxy_ai_request(
+        &db,
+        "google",
+        "https://generativelanguage.googleapis.com",
+        req,
+    )
+    .await
 }
 
 /// Proxy requests to xAI API with API key from database
-pub async fn proxy_xai(
-    State(db): State<DbState>,
-    req: Request<Body>,
-) -> impl IntoResponse {
+pub async fn proxy_xai(State(db): State<DbState>, req: Request<Body>) -> impl IntoResponse {
     proxy_ai_request(&db, "xai", "https://api.x.ai", req).await
 }
 
@@ -60,7 +54,10 @@ async fn proxy_ai_request(
             error!("{} API key not configured", provider);
             return Response::builder()
                 .status(StatusCode::UNAUTHORIZED)
-                .body(Body::from(format!("{} API key not configured. Please add it in Settings.", provider)))
+                .body(Body::from(format!(
+                    "{} API key not configured. Please add it in Settings.",
+                    provider
+                )))
                 .unwrap();
         }
         Err(e) => {
@@ -74,7 +71,11 @@ async fn proxy_ai_request(
 
     // Build the target URL by preserving the path from the original request
     let path = req.uri().path();
-    let query = req.uri().query().map(|q| format!("?{}", q)).unwrap_or_default();
+    let query = req
+        .uri()
+        .query()
+        .map(|q| format!("?{}", q))
+        .unwrap_or_default();
 
     // Remove the /api/ai/{provider} prefix from the path
     let provider_prefix = format!("/api/ai/{}", provider);
@@ -131,7 +132,10 @@ async fn proxy_ai_request(
             error!("Failed to proxy request to {}: {}", provider, e);
             return Response::builder()
                 .status(StatusCode::BAD_GATEWAY)
-                .body(Body::from(format!("Failed to connect to {} API: {}", provider, e)))
+                .body(Body::from(format!(
+                    "Failed to connect to {} API: {}",
+                    provider, e
+                )))
                 .unwrap();
         }
     };

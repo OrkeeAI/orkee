@@ -246,7 +246,10 @@ pub fn create_ai_usage_router() -> Router<DbState> {
 /// Creates the AI proxy API router for secure credential management
 pub fn create_ai_proxy_router() -> Router<DbState> {
     Router::new()
-        .route("/ai/anthropic/*path", post(ai_proxy_handlers::proxy_anthropic))
+        .route(
+            "/ai/anthropic/*path",
+            post(ai_proxy_handlers::proxy_anthropic),
+        )
         .route("/ai/openai/*path", post(ai_proxy_handlers::proxy_openai))
         .route("/ai/google/*path", post(ai_proxy_handlers::proxy_google))
         .route("/ai/xai/*path", post(ai_proxy_handlers::proxy_xai))
