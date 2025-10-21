@@ -320,15 +320,31 @@ impl ProjectsManager {
     }
 
     /// Get current encryption mode
-    pub async fn get_encryption_mode(&self) -> ManagerResult<Option<crate::security::encryption::EncryptionMode>> {
+    pub async fn get_encryption_mode(
+        &self,
+    ) -> ManagerResult<Option<crate::security::encryption::EncryptionMode>> {
         let storage = self.storage_manager.storage();
-        storage.get_encryption_mode().await.map_err(ManagerError::Storage)
+        storage
+            .get_encryption_mode()
+            .await
+            .map_err(ManagerError::Storage)
     }
 
     /// Get encryption settings (mode, salt, hash)
-    pub async fn get_encryption_settings(&self) -> ManagerResult<Option<(crate::security::encryption::EncryptionMode, Option<Vec<u8>>, Option<Vec<u8>>)>> {
+    pub async fn get_encryption_settings(
+        &self,
+    ) -> ManagerResult<
+        Option<(
+            crate::security::encryption::EncryptionMode,
+            Option<Vec<u8>>,
+            Option<Vec<u8>>,
+        )>,
+    > {
         let storage = self.storage_manager.storage();
-        storage.get_encryption_settings().await.map_err(ManagerError::Storage)
+        storage
+            .get_encryption_settings()
+            .await
+            .map_err(ManagerError::Storage)
     }
 
     /// Set encryption mode and settings
@@ -339,7 +355,10 @@ impl ProjectsManager {
         hash: Option<&[u8]>,
     ) -> ManagerResult<()> {
         let storage = self.storage_manager.storage();
-        storage.set_encryption_mode(mode, salt, hash).await.map_err(ManagerError::Storage)
+        storage
+            .set_encryption_mode(mode, salt, hash)
+            .await
+            .map_err(ManagerError::Storage)
     }
 }
 

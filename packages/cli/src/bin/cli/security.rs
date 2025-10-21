@@ -32,7 +32,10 @@ impl SecurityCommands {
 }
 
 async fn set_password_command() {
-    println!("{}", "Setting up password-based encryption...".bold().cyan());
+    println!(
+        "{}",
+        "Setting up password-based encryption...".bold().cyan()
+    );
     println!();
 
     // Initialize project manager to access database
@@ -47,15 +50,25 @@ async fn set_password_command() {
     // Check current encryption mode
     match manager.get_encryption_mode().await {
         Ok(Some(EncryptionMode::Password)) => {
-            eprintln!("{} Password-based encryption is already enabled.", "✗".red().bold());
-            eprintln!("  Use {} to change the password.", "orkee security change-password".yellow());
+            eprintln!(
+                "{} Password-based encryption is already enabled.",
+                "✗".red().bold()
+            );
+            eprintln!(
+                "  Use {} to change the password.",
+                "orkee security change-password".yellow()
+            );
             process::exit(1);
         }
         Ok(Some(EncryptionMode::Machine)) | Ok(None) => {
             // Continue with setup
         }
         Err(e) => {
-            eprintln!("{} Failed to check encryption mode: {}", "✗".red().bold(), e);
+            eprintln!(
+                "{} Failed to check encryption mode: {}",
+                "✗".red().bold(),
+                e
+            );
             process::exit(1);
         }
     }
@@ -81,7 +94,10 @@ async fn set_password_command() {
     };
 
     if password.len() < 8 {
-        eprintln!("{} Password must be at least 8 characters", "✗".red().bold());
+        eprintln!(
+            "{} Password must be at least 8 characters",
+            "✗".red().bold()
+        );
         process::exit(1);
     }
 
@@ -112,7 +128,8 @@ async fn set_password_command() {
     };
 
     // Generate verification hash
-    let verification_hash = match ApiKeyEncryption::hash_password_for_verification(&password, &salt) {
+    let verification_hash = match ApiKeyEncryption::hash_password_for_verification(&password, &salt)
+    {
         Ok(h) => h,
         Err(e) => {
             eprintln!("{} Failed to hash password: {}", "✗".red().bold(), e);
@@ -122,21 +139,35 @@ async fn set_password_command() {
 
     // Save encryption settings to database
     match manager
-        .set_encryption_mode(EncryptionMode::Password, Some(&salt), Some(&verification_hash))
+        .set_encryption_mode(
+            EncryptionMode::Password,
+            Some(&salt),
+            Some(&verification_hash),
+        )
         .await
     {
         Ok(_) => {
             println!();
-            println!("{} Password-based encryption enabled successfully!", "✓".green().bold());
+            println!(
+                "{} Password-based encryption enabled successfully!",
+                "✓".green().bold()
+            );
             println!();
             println!("{}", "Next steps:".bold());
             println!("  • Your API keys are now encrypted with your password");
             println!("  • Keep your password secure - it cannot be recovered if lost");
-            println!("  • Use {} to check encryption status", "orkee security status".cyan());
+            println!(
+                "  • Use {} to check encryption status",
+                "orkee security status".cyan()
+            );
             println!();
         }
         Err(e) => {
-            eprintln!("{} Failed to enable password-based encryption: {}", "✗".red().bold(), e);
+            eprintln!(
+                "{} Failed to enable password-based encryption: {}",
+                "✗".red().bold(),
+                e
+            );
             process::exit(1);
         }
     }
@@ -162,14 +193,24 @@ async fn change_password_command() {
             process::exit(1);
         }
         Err(e) => {
-            eprintln!("{} Failed to get encryption settings: {}", "✗".red().bold(), e);
+            eprintln!(
+                "{} Failed to get encryption settings: {}",
+                "✗".red().bold(),
+                e
+            );
             process::exit(1);
         }
     };
 
     if current_mode != EncryptionMode::Password {
-        eprintln!("{} Password-based encryption is not enabled.", "✗".red().bold());
-        eprintln!("  Use {} to enable it first.", "orkee security set-password".yellow());
+        eprintln!(
+            "{} Password-based encryption is not enabled.",
+            "✗".red().bold()
+        );
+        eprintln!(
+            "  Use {} to enable it first.",
+            "orkee security set-password".yellow()
+        );
         process::exit(1);
     }
 
@@ -229,7 +270,10 @@ async fn change_password_command() {
     };
 
     if new_password.len() < 8 {
-        eprintln!("{} Password must be at least 8 characters", "✗".red().bold());
+        eprintln!(
+            "{} Password must be at least 8 characters",
+            "✗".red().bold()
+        );
         process::exit(1);
     }
 
@@ -260,7 +304,8 @@ async fn change_password_command() {
     };
 
     // Generate new verification hash
-    let new_hash = match ApiKeyEncryption::hash_password_for_verification(&new_password, &new_salt) {
+    let new_hash = match ApiKeyEncryption::hash_password_for_verification(&new_password, &new_salt)
+    {
         Ok(h) => h,
         Err(e) => {
             eprintln!("{} Failed to hash password: {}", "✗".red().bold(), e);
@@ -278,7 +323,9 @@ async fn change_password_command() {
             println!("{} Password changed successfully!", "✓".green().bold());
             println!();
             println!("{}", "⚠ IMPORTANT:".yellow().bold());
-            println!("  • Previously encrypted data will need to be re-encrypted with the new password");
+            println!(
+                "  • Previously encrypted data will need to be re-encrypted with the new password"
+            );
             println!("  • You will need the new password to access encrypted API keys");
             println!();
         }
@@ -304,14 +351,21 @@ async fn remove_password_command() {
     // Check current encryption mode
     match manager.get_encryption_mode().await {
         Ok(Some(EncryptionMode::Machine)) | Ok(None) => {
-            eprintln!("{} Password-based encryption is not enabled.", "✗".red().bold());
+            eprintln!(
+                "{} Password-based encryption is not enabled.",
+                "✗".red().bold()
+            );
             process::exit(1);
         }
         Ok(Some(EncryptionMode::Password)) => {
             // Continue with removal
         }
         Err(e) => {
-            eprintln!("{} Failed to check encryption mode: {}", "✗".red().bold(), e);
+            eprintln!(
+                "{} Failed to check encryption mode: {}",
+                "✗".red().bold(),
+                e
+            );
             process::exit(1);
         }
     }
@@ -323,16 +377,17 @@ async fn remove_password_command() {
     println!();
 
     // Confirm removal
-    let confirm = match inquire::Confirm::new("Are you sure you want to remove password-based encryption?")
-        .with_default(false)
-        .prompt()
-    {
-        Ok(c) => c,
-        Err(_) => {
-            eprintln!("{} Operation cancelled", "✗".red().bold());
-            process::exit(1);
-        }
-    };
+    let confirm =
+        match inquire::Confirm::new("Are you sure you want to remove password-based encryption?")
+            .with_default(false)
+            .prompt()
+        {
+            Ok(c) => c,
+            Err(_) => {
+                eprintln!("{} Operation cancelled", "✗".red().bold());
+                process::exit(1);
+            }
+        };
 
     if !confirm {
         println!("Operation cancelled");
@@ -351,7 +406,11 @@ async fn remove_password_command() {
             println!();
         }
         Err(e) => {
-            eprintln!("{} Failed to remove password-based encryption: {}", "✗".red().bold(), e);
+            eprintln!(
+                "{} Failed to remove password-based encryption: {}",
+                "✗".red().bold(),
+                e
+            );
             process::exit(1);
         }
     }
@@ -382,7 +441,11 @@ async fn status_command() {
 
     match mode {
         EncryptionMode::Machine => {
-            println!("{} {}", "Current Mode:".bold(), "Machine-Based Encryption".yellow());
+            println!(
+                "{} {}",
+                "Current Mode:".bold(),
+                "Machine-Based Encryption".yellow()
+            );
             println!();
             println!("{}", "Security Level:".bold());
             println!("  • {} Transport encryption only", "⚠".yellow());
@@ -391,11 +454,18 @@ async fn status_command() {
             println!("  • Anyone with local database access can decrypt keys");
             println!();
             println!("{}", "Recommendation:".bold());
-            println!("  Use {} for stronger security", "orkee security set-password".green());
+            println!(
+                "  Use {} for stronger security",
+                "orkee security set-password".green()
+            );
             println!();
         }
         EncryptionMode::Password => {
-            println!("{} {}", "Current Mode:".bold(), "Password-Based Encryption".green());
+            println!(
+                "{} {}",
+                "Current Mode:".bold(),
+                "Password-Based Encryption".green()
+            );
             println!();
             println!("{}", "Security Level:".bold());
             println!("  • {} True at-rest encryption", "✓".green());
@@ -403,8 +473,14 @@ async fn status_command() {
             println!("  • Suitable for shared machines and sensitive environments");
             println!();
             println!("{}", "Management:".bold());
-            println!("  • Change password: {}", "orkee security change-password".cyan());
-            println!("  • Remove protection: {}", "orkee security remove-password".cyan());
+            println!(
+                "  • Change password: {}",
+                "orkee security change-password".cyan()
+            );
+            println!(
+                "  • Remove protection: {}",
+                "orkee security remove-password".cyan()
+            );
             println!();
         }
     }

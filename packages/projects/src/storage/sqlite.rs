@@ -798,11 +798,10 @@ impl ProjectStorage for SqliteStorage {
     async fn get_encryption_mode(
         &self,
     ) -> StorageResult<Option<crate::security::encryption::EncryptionMode>> {
-        let row: Option<(String,)> = sqlx::query_as(
-            "SELECT encryption_mode FROM encryption_settings WHERE id = 1"
-        )
-        .fetch_optional(&self.pool)
-        .await?;
+        let row: Option<(String,)> =
+            sqlx::query_as("SELECT encryption_mode FROM encryption_settings WHERE id = 1")
+                .fetch_optional(&self.pool)
+                .await?;
 
         match row {
             Some((mode_str,)) => {

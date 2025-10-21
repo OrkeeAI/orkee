@@ -157,8 +157,8 @@ impl ApiKeyEncryption {
         // Memory: 64 MB, Iterations: 3, Parallelism: 4
         let params = ParamsBuilder::new()
             .m_cost(65536) // 64 MB
-            .t_cost(3)     // 3 iterations
-            .p_cost(4)     // 4 parallel threads
+            .t_cost(3) // 3 iterations
+            .p_cost(4) // 4 parallel threads
             .output_len(32) // 256-bit key
             .build()
             .map_err(|e| EncryptionError::KeyDerivation(format!("Invalid Argon2 params: {}", e)))?;
@@ -167,7 +167,9 @@ impl ApiKeyEncryption {
 
         argon2
             .hash_password_into(password.as_bytes(), salt, &mut encryption_key)
-            .map_err(|e| EncryptionError::KeyDerivation(format!("Argon2 derivation failed: {}", e)))?;
+            .map_err(|e| {
+                EncryptionError::KeyDerivation(format!("Argon2 derivation failed: {}", e))
+            })?;
 
         Ok(Self {
             rng: Arc::new(SystemRandom::new()),
@@ -185,8 +187,9 @@ impl ApiKeyEncryption {
     pub fn generate_salt() -> Result<Vec<u8>, EncryptionError> {
         let mut salt = vec![0u8; 32];
         let rng = SystemRandom::new();
-        rng.fill(&mut salt)
-            .map_err(|_| EncryptionError::RandomGeneration("Failed to generate salt".to_string()))?;
+        rng.fill(&mut salt).map_err(|_| {
+            EncryptionError::RandomGeneration("Failed to generate salt".to_string())
+        })?;
         Ok(salt)
     }
 
@@ -222,7 +225,9 @@ impl ApiKeyEncryption {
         let password_with_context = format!("{}|verification", password);
         argon2
             .hash_password_into(password_with_context.as_bytes(), salt, &mut password_hash)
-            .map_err(|e| EncryptionError::KeyDerivation(format!("Argon2 derivation failed: {}", e)))?;
+            .map_err(|e| {
+                EncryptionError::KeyDerivation(format!("Argon2 derivation failed: {}", e))
+            })?;
 
         Ok(password_hash)
     }
@@ -393,7 +398,7 @@ mod tests {
         assert!(encryption.decrypt(&BASE64.encode(b"short")).is_err());
 
         // Valid base64 but wrong data
-        let wrong_data = BASE64.encode(&vec![0u8; 50]);
+        let wrong_data = BASE64.encode(vec![0u8; 50]);
         assert!(encryption.decrypt(&wrong_data).is_err());
     }
 
@@ -483,7 +488,8 @@ mod tests {
         let password = "test-password";
         let salt = ApiKeyEncryption::generate_salt().unwrap();
 
-        let verification_hash = ApiKeyEncryption::hash_password_for_verification(password, &salt).unwrap();
+        let verification_hash =
+            ApiKeyEncryption::hash_password_for_verification(password, &salt).unwrap();
         let encryption = ApiKeyEncryption::with_password(password, &salt).unwrap();
 
         // Verification hash should be different from encryption key
@@ -496,7 +502,10 @@ mod tests {
         let result = ApiKeyEncryption::with_password("", &salt);
 
         assert!(result.is_err());
-        assert!(matches!(result.unwrap_err(), EncryptionError::PasswordRequired));
+        assert!(matches!(
+            result.unwrap_err(),
+            EncryptionError::PasswordRequired
+        ));
     }
 
     #[test]
@@ -526,10 +535,22 @@ mod tests {
 
     #[test]
     fn test_encryption_mode_from_str() {
-        assert_eq!("machine".parse::<EncryptionMode>().unwrap(), EncryptionMode::Machine);
-        assert_eq!("password".parse::<EncryptionMode>().unwrap(), EncryptionMode::Password);
-        assert_eq!("MACHINE".parse::<EncryptionMode>().unwrap(), EncryptionMode::Machine);
-        assert_eq!("Password".parse::<EncryptionMode>().unwrap(), EncryptionMode::Password);
+        assert_eq!(
+            "machine".parse::<EncryptionMode>().unwrap(),
+            EncryptionMode::Machine
+        );
+        assert_eq!(
+            "password".parse::<EncryptionMode>().unwrap(),
+            EncryptionMode::Password
+        );
+        assert_eq!(
+            "MACHINE".parse::<EncryptionMode>().unwrap(),
+            EncryptionMode::Machine
+        );
+        assert_eq!(
+            "Password".parse::<EncryptionMode>().unwrap(),
+            EncryptionMode::Password
+        );
 
         assert!("invalid".parse::<EncryptionMode>().is_err());
     }
@@ -542,7 +563,10 @@ mod tests {
         let password_encryption = ApiKeyEncryption::with_password("test-password", &salt).unwrap();
 
         // Machine and password-based keys should be different
-        assert_ne!(machine_encryption.encryption_key, password_encryption.encryption_key);
+        assert_ne!(
+            machine_encryption.encryption_key,
+            password_encryption.encryption_key
+        );
         assert_eq!(machine_encryption.mode(), EncryptionMode::Machine);
         assert_eq!(password_encryption.mode(), EncryptionMode::Password);
     }
@@ -626,11 +650,7 @@ mod tests {
     #[test]
     fn test_bulk_key_rotation() {
         // Test rotating multiple encrypted values at once
-        let plaintexts = vec![
-            "sk-openai-key-1",
-            "sk-anthropic-key-2",
-            "sk-google-key-3",
-        ];
+        let plaintexts = vec!["sk-openai-key-1", "sk-anthropic-key-2", "sk-google-key-3"];
 
         // Encrypt all with old key
         let old_salt = ApiKeyEncryption::generate_salt().unwrap();
@@ -715,11 +735,9 @@ mod tests {
         // Original database (Machine A)
         let original_encryption = ApiKeyEncryption::with_password(password, &salt).unwrap();
 
-        let api_keys = vec![
-            ("openai", "sk-openai-original"),
+        let api_keys = [("openai", "sk-openai-original"),
             ("anthropic", "sk-ant-original"),
-            ("google", "sk-google-original"),
-        ];
+            ("google", "sk-google-original")];
 
         // Encrypt all keys
         let encrypted_keys: Vec<(&str, String)> = api_keys

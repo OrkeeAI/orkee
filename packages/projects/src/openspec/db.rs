@@ -245,7 +245,11 @@ pub async fn get_capabilities_with_requirements_by_project(
     let capability_ids: Vec<String> = capabilities.iter().map(|c| c.id.clone()).collect();
 
     // Create placeholders for IN clause
-    let placeholders = capability_ids.iter().map(|_| "?").collect::<Vec<_>>().join(",");
+    let placeholders = capability_ids
+        .iter()
+        .map(|_| "?")
+        .collect::<Vec<_>>()
+        .join(",");
     let query = format!(
         "SELECT * FROM spec_requirements WHERE capability_id IN ({}) ORDER BY capability_id, position",
         placeholders
@@ -266,7 +270,7 @@ pub async fn get_capabilities_with_requirements_by_project(
     for req in all_requirements {
         requirements_map
             .entry(req.capability_id.clone())
-            .or_insert_with(Vec::new)
+            .or_default()
             .push(req);
     }
 

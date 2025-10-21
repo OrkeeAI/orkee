@@ -3,7 +3,7 @@
 
 #[cfg(test)]
 mod tests {
-    use super::super::types::{User, MaskedUser};
+    use super::super::types::{MaskedUser, User};
     use chrono::Utc;
 
     fn create_test_user_with_api_keys() -> User {
@@ -142,11 +142,26 @@ mod tests {
         assert!(json.get("ai_gateway_key").is_none());
 
         // Verify JSON has presence flags instead
-        assert_eq!(json.get("has_openai_api_key").and_then(|v| v.as_bool()), Some(true));
-        assert_eq!(json.get("has_anthropic_api_key").and_then(|v| v.as_bool()), Some(true));
-        assert_eq!(json.get("has_google_api_key").and_then(|v| v.as_bool()), Some(true));
-        assert_eq!(json.get("has_xai_api_key").and_then(|v| v.as_bool()), Some(true));
-        assert_eq!(json.get("has_ai_gateway_key").and_then(|v| v.as_bool()), Some(true));
+        assert_eq!(
+            json.get("has_openai_api_key").and_then(|v| v.as_bool()),
+            Some(true)
+        );
+        assert_eq!(
+            json.get("has_anthropic_api_key").and_then(|v| v.as_bool()),
+            Some(true)
+        );
+        assert_eq!(
+            json.get("has_google_api_key").and_then(|v| v.as_bool()),
+            Some(true)
+        );
+        assert_eq!(
+            json.get("has_xai_api_key").and_then(|v| v.as_bool()),
+            Some(true)
+        );
+        assert_eq!(
+            json.get("has_ai_gateway_key").and_then(|v| v.as_bool()),
+            Some(true)
+        );
     }
 
     #[test]
@@ -184,7 +199,8 @@ mod tests {
 
         // Test with realistic API key formats
         user.openai_api_key = Some("sk-proj-1234567890abcdefghijklmnopqrstuvwxyz".to_string());
-        user.anthropic_api_key = Some("sk-ant-api03-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx-yyyyyyyyyyyyyyyyyyyy".to_string());
+        user.anthropic_api_key =
+            Some("sk-ant-api03-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx-yyyyyyyyyyyyyyyyyyyy".to_string());
         user.google_api_key = Some("AIzaSyD1234567890abcdefghijklmnopqrstuv".to_string());
 
         let masked: MaskedUser = user.into();

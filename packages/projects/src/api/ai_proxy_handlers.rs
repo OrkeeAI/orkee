@@ -26,11 +26,7 @@ const ALLOWED_CONTENT_TYPES: &[&str] = &[
 ];
 
 // Known valid API path prefixes for each provider
-const ANTHROPIC_ALLOWED_PATHS: &[&str] = &[
-    "/v1/messages",
-    "/v1/complete",
-    "/v1/models",
-];
+const ANTHROPIC_ALLOWED_PATHS: &[&str] = &["/v1/messages", "/v1/complete", "/v1/models"];
 const OPENAI_ALLOWED_PATHS: &[&str] = &[
     "/v1/chat/completions",
     "/v1/completions",
@@ -40,15 +36,8 @@ const OPENAI_ALLOWED_PATHS: &[&str] = &[
     "/v1/audio/translations",
     "/v1/images/generations",
 ];
-const GOOGLE_ALLOWED_PATHS: &[&str] = &[
-    "/v1beta/models",
-    "/v1/models",
-];
-const XAI_ALLOWED_PATHS: &[&str] = &[
-    "/v1/chat/completions",
-    "/v1/completions",
-    "/v1/models",
-];
+const GOOGLE_ALLOWED_PATHS: &[&str] = &["/v1beta/models", "/v1/models"];
+const XAI_ALLOWED_PATHS: &[&str] = &["/v1/chat/completions", "/v1/completions", "/v1/models"];
 
 /// Validates that the API path is safe and matches known provider endpoints
 fn validate_api_path(path: &str, provider: &str) -> Result<(), String> {
@@ -72,7 +61,9 @@ fn validate_api_path(path: &str, provider: &str) -> Result<(), String> {
     };
 
     // Check if the path matches any allowed prefix
-    let is_allowed = allowed_paths.iter().any(|allowed| path.starts_with(allowed));
+    let is_allowed = allowed_paths
+        .iter()
+        .any(|allowed| path.starts_with(allowed));
 
     if !is_allowed {
         return Err(format!(
@@ -243,10 +234,7 @@ async fn proxy_ai_request(
             "Invalid API path for {} proxy: {} (path: {})",
             provider, e, target_path
         );
-        return build_error_response(
-            StatusCode::BAD_REQUEST,
-            format!("Invalid API path: {}", e),
-        );
+        return build_error_response(StatusCode::BAD_REQUEST, format!("Invalid API path: {}", e));
     }
 
     let target_url = format!("{}{}{}", base_url, target_path, query);
@@ -442,10 +430,8 @@ mod tests {
 
     #[test]
     fn test_build_error_response() {
-        let response = build_error_response(
-            StatusCode::BAD_REQUEST,
-            "Test error message".to_string(),
-        );
+        let response =
+            build_error_response(StatusCode::BAD_REQUEST, "Test error message".to_string());
 
         assert_eq!(response.status(), StatusCode::BAD_REQUEST);
     }

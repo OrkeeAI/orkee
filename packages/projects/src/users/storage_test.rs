@@ -166,13 +166,15 @@ mod tests {
             .await
             .unwrap();
 
-        let row: (
+        type ApiKeysRow = (
             Option<String>,
             Option<String>,
             Option<String>,
             Option<String>,
             Option<String>,
-        ) = sqlx::query_as(
+        );
+
+        let row: ApiKeysRow = sqlx::query_as(
             r#"
             SELECT openai_api_key, anthropic_api_key, google_api_key, xai_api_key, ai_gateway_key
             FROM users WHERE id = 'test-user'
