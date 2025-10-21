@@ -546,4 +546,232 @@ mod tests {
         assert_eq!(machine_encryption.mode(), EncryptionMode::Machine);
         assert_eq!(password_encryption.mode(), EncryptionMode::Password);
     }
+
+    // Encryption key rotation tests
+
+    #[test]
+    fn test_key_rotation_machine_to_machine() {
+        // Simulate key rotation: encrypt with old key, decrypt with old key,
+        // re-encrypt with new key (simulated by different instance)
+        let old_encryption = ApiKeyEncryption::with_machine_key().unwrap();
+        let plaintext = "sk-test-rotation-key";
+
+        // Encrypt with old key
+        let encrypted_old = old_encryption.encrypt(plaintext).unwrap();
+
+        // Decrypt with old key
+        let decrypted = old_encryption.decrypt(&encrypted_old).unwrap();
+        assert_eq!(decrypted, plaintext);
+
+        // Re-encrypt with "new" key (same machine = same key, but demonstrates pattern)
+        let new_encryption = ApiKeyEncryption::with_machine_key().unwrap();
+        let encrypted_new = new_encryption.encrypt(&decrypted).unwrap();
+
+        // Should be able to decrypt with new encryption instance
+        let final_plaintext = new_encryption.decrypt(&encrypted_new).unwrap();
+        assert_eq!(final_plaintext, plaintext);
+    }
+
+    #[test]
+    fn test_key_rotation_machine_to_password() {
+        // Rotate from machine-based to password-based encryption
+        let machine_encryption = ApiKeyEncryption::with_machine_key().unwrap();
+        let plaintext = "sk-test-migration-key";
+
+        // Step 1: Decrypt existing data with machine key
+        let encrypted_machine = machine_encryption.encrypt(plaintext).unwrap();
+        let decrypted = machine_encryption.decrypt(&encrypted_machine).unwrap();
+        assert_eq!(decrypted, plaintext);
+
+        // Step 2: Re-encrypt with password-based key
+        let salt = ApiKeyEncryption::generate_salt().unwrap();
+        let password_encryption = ApiKeyEncryption::with_password("new-password", &salt).unwrap();
+        let encrypted_password = password_encryption.encrypt(&decrypted).unwrap();
+
+        // Step 3: Verify can decrypt with password key
+        let final_plaintext = password_encryption.decrypt(&encrypted_password).unwrap();
+        assert_eq!(final_plaintext, plaintext);
+
+        // Step 4: Verify old machine key cannot decrypt new password-encrypted data
+        assert!(machine_encryption.decrypt(&encrypted_password).is_err());
+    }
+
+    #[test]
+    fn test_key_rotation_password_to_new_password() {
+        // Rotate from one password to another
+        let plaintext = "sk-test-password-rotation";
+
+        // Old password setup
+        let salt1 = ApiKeyEncryption::generate_salt().unwrap();
+        let old_encryption = ApiKeyEncryption::with_password("old-password", &salt1).unwrap();
+        let encrypted_old = old_encryption.encrypt(plaintext).unwrap();
+
+        // Step 1: Decrypt with old password
+        let decrypted = old_encryption.decrypt(&encrypted_old).unwrap();
+        assert_eq!(decrypted, plaintext);
+
+        // Step 2: Re-encrypt with new password
+        let salt2 = ApiKeyEncryption::generate_salt().unwrap();
+        let new_encryption = ApiKeyEncryption::with_password("new-password", &salt2).unwrap();
+        let encrypted_new = new_encryption.encrypt(&decrypted).unwrap();
+
+        // Step 3: Verify new password works
+        let final_plaintext = new_encryption.decrypt(&encrypted_new).unwrap();
+        assert_eq!(final_plaintext, plaintext);
+
+        // Step 4: Verify old password cannot decrypt new data
+        assert!(old_encryption.decrypt(&encrypted_new).is_err());
+    }
+
+    #[test]
+    fn test_bulk_key_rotation() {
+        // Test rotating multiple encrypted values at once
+        let plaintexts = vec![
+            "sk-openai-key-1",
+            "sk-anthropic-key-2",
+            "sk-google-key-3",
+        ];
+
+        // Encrypt all with old key
+        let old_salt = ApiKeyEncryption::generate_salt().unwrap();
+        let old_encryption = ApiKeyEncryption::with_password("old-pass", &old_salt).unwrap();
+        let encrypted_values: Vec<String> = plaintexts
+            .iter()
+            .map(|p| old_encryption.encrypt(p).unwrap())
+            .collect();
+
+        // Rotate all to new key
+        let new_salt = ApiKeyEncryption::generate_salt().unwrap();
+        let new_encryption = ApiKeyEncryption::with_password("new-pass", &new_salt).unwrap();
+
+        let rotated_values: Vec<String> = encrypted_values
+            .iter()
+            .map(|encrypted| {
+                // Decrypt with old key
+                let plaintext = old_encryption.decrypt(encrypted).unwrap();
+                // Re-encrypt with new key
+                new_encryption.encrypt(&plaintext).unwrap()
+            })
+            .collect();
+
+        // Verify all values can be decrypted with new key
+        let decrypted: Vec<String> = rotated_values
+            .iter()
+            .map(|encrypted| new_encryption.decrypt(encrypted).unwrap())
+            .collect();
+
+        assert_eq!(decrypted, plaintexts);
+    }
+
+    // Database portability tests
+
+    #[test]
+    fn test_database_portability_machine_encryption_warning() {
+        // Machine-based encryption is NOT portable across machines
+        // This test documents that behavior
+
+        let encryption = ApiKeyEncryption::with_machine_key().unwrap();
+        let plaintext = "sk-test-portable-key";
+        let encrypted = encryption.encrypt(plaintext).unwrap();
+
+        // On the SAME machine, decryption works
+        let same_machine_encryption = ApiKeyEncryption::with_machine_key().unwrap();
+        let decrypted = same_machine_encryption.decrypt(&encrypted).unwrap();
+        assert_eq!(decrypted, plaintext);
+
+        // NOTE: If you copy this database to a DIFFERENT machine,
+        // decryption will fail because machine ID will be different.
+        // This is expected behavior for machine-based encryption.
+        // For portable encryption, use password-based encryption.
+    }
+
+    #[test]
+    fn test_database_portability_password_encryption() {
+        // Password-based encryption IS portable across machines
+        // As long as you have the password and salt
+
+        let password = "portable-password-123";
+        let salt = ApiKeyEncryption::generate_salt().unwrap();
+
+        // Machine A: Encrypt data
+        let encryption_a = ApiKeyEncryption::with_password(password, &salt).unwrap();
+        let plaintext = "sk-test-portable-key";
+        let encrypted = encryption_a.encrypt(plaintext).unwrap();
+
+        // Simulate copying database to Machine B
+        // Machine B can decrypt if it has the same password and salt
+        let encryption_b = ApiKeyEncryption::with_password(password, &salt).unwrap();
+        let decrypted = encryption_b.decrypt(&encrypted).unwrap();
+
+        assert_eq!(decrypted, plaintext);
+    }
+
+    #[test]
+    fn test_database_export_import_password_based() {
+        // Test complete export/import cycle with password-based encryption
+        let password = "export-password";
+        let salt = ApiKeyEncryption::generate_salt().unwrap();
+
+        // Original database (Machine A)
+        let original_encryption = ApiKeyEncryption::with_password(password, &salt).unwrap();
+
+        let api_keys = vec![
+            ("openai", "sk-openai-original"),
+            ("anthropic", "sk-ant-original"),
+            ("google", "sk-google-original"),
+        ];
+
+        // Encrypt all keys
+        let encrypted_keys: Vec<(&str, String)> = api_keys
+            .iter()
+            .map(|(provider, key)| (*provider, original_encryption.encrypt(key).unwrap()))
+            .collect();
+
+        // Simulate export: Store encrypted_keys + salt
+        // (In real scenario, both would be in the database file)
+
+        // Import to new machine (Machine B)
+        let imported_encryption = ApiKeyEncryption::with_password(password, &salt).unwrap();
+
+        // Decrypt all keys on new machine
+        let decrypted_keys: Vec<(&str, String)> = encrypted_keys
+            .iter()
+            .map(|(provider, encrypted)| {
+                (*provider, imported_encryption.decrypt(encrypted).unwrap())
+            })
+            .collect();
+
+        // Verify all keys match original
+        for ((provider_orig, key_orig), (provider_new, key_new)) in
+            api_keys.iter().zip(decrypted_keys.iter())
+        {
+            assert_eq!(provider_orig, provider_new);
+            assert_eq!(key_orig, key_new);
+        }
+    }
+
+    #[test]
+    fn test_salt_must_be_stored_for_portability() {
+        // This test demonstrates that salt MUST be stored with encrypted data
+        // for password-based encryption to be portable
+
+        let password = "test-password";
+        let salt1 = ApiKeyEncryption::generate_salt().unwrap();
+        let salt2 = ApiKeyEncryption::generate_salt().unwrap();
+
+        let encryption1 = ApiKeyEncryption::with_password(password, &salt1).unwrap();
+        let plaintext = "sk-test-key";
+        let encrypted = encryption1.encrypt(plaintext).unwrap();
+
+        // With correct salt: decryption works
+        let encryption_correct_salt = ApiKeyEncryption::with_password(password, &salt1).unwrap();
+        assert_eq!(
+            encryption_correct_salt.decrypt(&encrypted).unwrap(),
+            plaintext
+        );
+
+        // With wrong salt: decryption fails even with correct password
+        let encryption_wrong_salt = ApiKeyEncryption::with_password(password, &salt2).unwrap();
+        assert!(encryption_wrong_salt.decrypt(&encrypted).is_err());
+    }
 }
