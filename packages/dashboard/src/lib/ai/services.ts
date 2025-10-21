@@ -21,6 +21,14 @@ import {
   type SpecRefinement,
   type CostEstimate,
 } from './schemas';
+import {
+  estimateTokens,
+  validateContentSize,
+  chunkText,
+  createChunkPrompt,
+  estimateProcessingCost,
+  withTimeout,
+} from './utils';
 
 /**
  * Result type including cost information
@@ -43,6 +51,7 @@ export interface AIResult<T> {
 export class AISpecService {
   /**
    * Analyze a PRD and extract capabilities, requirements, and scenarios
+   * Automatically handles large PRDs via chunking if needed
    */
   async analyzePRD(prdContent: string): Promise<AIResult<PRDAnalysis>> {
     // Check cache first
@@ -58,8 +67,24 @@ export class AISpecService {
     }
 
     const { provider, model, modelName } = getPreferredModel();
+    const { maxPRDTokens, chunkSize, promptOverhead, timeoutMs } = AI_CONFIG.sizeLimits;
 
-    const prompt = `You are an expert software architect analyzing a Product Requirements Document (PRD).
+    // Validate size and check if chunking is needed
+    const sizeCheck = validateContentSize(prdContent, maxPRDTokens, promptOverhead);
+
+    if (!sizeCheck.valid) {
+      console.warn(`PRD size check: ${sizeCheck.reason}`);
+      console.warn(`Estimated tokens: ${sizeCheck.estimatedTokens}`);
+      console.warn(`Will attempt to process via chunking...`);
+
+      // Try chunking approach for large PRDs
+      return this.analyzePRDChunked(prdContent);
+    }
+
+    // Log size info for transparency
+    console.log(`Processing PRD: ~${sizeCheck.estimatedTokens} tokens`);
+
+    const basePrompt = `You are an expert software architect analyzing a Product Requirements Document (PRD).
 
 Your task is to:
 1. Extract high-level capabilities (functional areas) from the PRD
@@ -68,9 +93,6 @@ Your task is to:
 4. Suggest 5-10 actionable tasks to implement the capabilities
 5. Identify dependencies and technical considerations
 
-PRD Content:
-${prdContent}
-
 Important guidelines:
 - Capability IDs must be kebab-case (e.g., "user-auth", "data-sync")
 - Each requirement must have at least one scenario
@@ -78,15 +100,25 @@ Important guidelines:
 - Tasks should be specific, actionable, and include complexity scores (1-10)
 - Tasks should reference the capability and requirement they implement
 - Be specific and actionable
-- Focus on testable behaviors`;
+- Focus on testable behaviors
 
-    const result = await generateObject({
+PRD Content:
+${prdContent}`;
+
+    const analysisPromise = generateObject({
       model,
       schema: PRDAnalysisSchema,
-      prompt,
+      prompt: basePrompt,
       temperature: AI_CONFIG.defaults.temperature,
       maxTokens: AI_CONFIG.defaults.maxTokens,
     });
+
+    // Apply timeout
+    const result = await withTimeout(
+      analysisPromise,
+      timeoutMs,
+      `PRD analysis for ${modelName}`
+    );
 
     const usage = {
       inputTokens: result.usage?.promptTokens || 0,
@@ -118,6 +150,167 @@ Important guidelines:
     aiCache.set('analyzePRD', { prdContent }, aiResult);
 
     return aiResult;
+  }
+
+  /**
+   * Process a large PRD by chunking it and merging results
+   */
+  private async analyzePRDChunked(prdContent: string): Promise<AIResult<PRDAnalysis>> {
+    const { provider, model, modelName } = getPreferredModel();
+    const { chunkSize, timeoutMs } = AI_CONFIG.sizeLimits;
+
+    // Split PRD into semantic chunks
+    const chunks = chunkText(prdContent, chunkSize);
+    console.log(`Processing large PRD in ${chunks.length} chunks`);
+
+    const basePrompt = `You are an expert software architect analyzing a section of a Product Requirements Document (PRD).
+
+Extract from this section:
+1. Capabilities (functional areas)
+2. Requirements for each capability
+3. WHEN/THEN/AND scenarios for requirements
+4. Task suggestions
+5. Dependencies and technical considerations
+
+Guidelines:
+- Capability IDs must be kebab-case
+- Each requirement needs at least one scenario
+- Scenarios follow WHEN/THEN/AND structure
+- Tasks should be actionable with complexity scores (1-10)`;
+
+    // Process each chunk
+    const chunkResults: PRDAnalysis[] = [];
+    let totalInputTokens = 0;
+    let totalOutputTokens = 0;
+    let totalCost = 0;
+
+    for (let i = 0; i < chunks.length; i++) {
+      const chunkPrompt = createChunkPrompt(chunks[i], i, chunks.length, basePrompt);
+
+      console.log(`Processing chunk ${i + 1}/${chunks.length}...`);
+
+      const chunkPromise = generateObject({
+        model,
+        schema: PRDAnalysisSchema,
+        prompt: chunkPrompt,
+        temperature: AI_CONFIG.defaults.temperature,
+        maxTokens: AI_CONFIG.defaults.maxTokens,
+      });
+
+      const result = await withTimeout(
+        chunkPromise,
+        timeoutMs,
+        `PRD chunk ${i + 1}/${chunks.length} analysis`
+      );
+
+      chunkResults.push(result.object);
+
+      totalInputTokens += result.usage?.promptTokens || 0;
+      totalOutputTokens += result.usage?.completionTokens || 0;
+      totalCost += calculateCost(
+        provider,
+        modelName,
+        result.usage?.promptTokens || 0,
+        result.usage?.completionTokens || 0
+      );
+
+      // Record rate limit for each chunk
+      aiRateLimiter.recordCall(
+        'analyzePRD',
+        calculateCost(
+          provider,
+          modelName,
+          result.usage?.promptTokens || 0,
+          result.usage?.completionTokens || 0
+        )
+      );
+    }
+
+    // Merge all chunk results
+    const mergedAnalysis = this.mergeChunkAnalyses(chunkResults);
+
+    const cost: CostEstimate = {
+      inputTokens: totalInputTokens,
+      outputTokens: totalOutputTokens,
+      totalTokens: totalInputTokens + totalOutputTokens,
+      estimatedCost: totalCost,
+      model: modelName,
+      provider,
+    };
+
+    const aiResult: AIResult<PRDAnalysis> = {
+      data: mergedAnalysis,
+      usage: {
+        inputTokens: totalInputTokens,
+        outputTokens: totalOutputTokens,
+        totalTokens: totalInputTokens + totalOutputTokens,
+      },
+      cost,
+      model: modelName,
+      provider,
+    };
+
+    // Cache the merged result
+    aiCache.set('analyzePRD', { prdContent }, aiResult);
+
+    return aiResult;
+  }
+
+  /**
+   * Merge multiple PRD analyses from chunks into a single cohesive analysis
+   */
+  private mergeChunkAnalyses(analyses: PRDAnalysis[]): PRDAnalysis {
+    if (analyses.length === 0) {
+      throw new Error('No analyses to merge');
+    }
+
+    if (analyses.length === 1) {
+      return analyses[0];
+    }
+
+    // Merge summaries
+    const summary = `Combined analysis from ${analyses.length} sections:\n\n${analyses.map((a, i) => `Section ${i + 1}: ${a.summary}`).join('\n\n')}`;
+
+    // Merge capabilities, deduplicating by ID
+    const capabilitiesMap = new Map<string, SpecCapability>();
+    for (const analysis of analyses) {
+      for (const capability of analysis.capabilities) {
+        if (capabilitiesMap.has(capability.id)) {
+          // Merge requirements if capability already exists
+          const existing = capabilitiesMap.get(capability.id)!;
+          existing.requirements.push(...capability.requirements);
+        } else {
+          capabilitiesMap.set(capability.id, { ...capability });
+        }
+      }
+    }
+
+    // Merge tasks, deduplicating by title
+    const tasksMap = new Map<string, TaskSuggestion>();
+    for (const analysis of analyses) {
+      for (const task of analysis.suggestedTasks) {
+        if (!tasksMap.has(task.title)) {
+          tasksMap.set(task.title, task);
+        }
+      }
+    }
+
+    // Merge dependencies and technical considerations
+    const dependenciesSet = new Set<string>();
+    const techConsiderationsSet = new Set<string>();
+
+    for (const analysis of analyses) {
+      analysis.dependencies?.forEach((dep) => dependenciesSet.add(dep));
+      analysis.technicalConsiderations?.forEach((tech) => techConsiderationsSet.add(tech));
+    }
+
+    return {
+      summary,
+      capabilities: Array.from(capabilitiesMap.values()),
+      suggestedTasks: Array.from(tasksMap.values()),
+      dependencies: Array.from(dependenciesSet),
+      technicalConsiderations: Array.from(techConsiderationsSet),
+    };
   }
 
   /**

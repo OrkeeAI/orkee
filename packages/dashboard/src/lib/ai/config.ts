@@ -40,6 +40,12 @@ export interface AIConfig {
     requestsPerMinute: number;
     tokensPerMinute: number;
   };
+  sizeLimits: {
+    maxPRDTokens: number;
+    chunkSize: number;
+    promptOverhead: number;
+    timeoutMs: number;
+  };
 }
 
 export const AI_CONFIG: AIConfig = {
@@ -117,6 +123,12 @@ export const AI_CONFIG: AIConfig = {
   rateLimits: {
     requestsPerMinute: 60,
     tokensPerMinute: 100000,
+  },
+  sizeLimits: {
+    maxPRDTokens: 100000, // ~400KB text - safe for both providers with output buffer
+    chunkSize: 30000, // ~120KB per chunk
+    promptOverhead: 500, // Estimated prompt template tokens
+    timeoutMs: 120000, // 2 minutes timeout for AI calls
   },
 };
 
