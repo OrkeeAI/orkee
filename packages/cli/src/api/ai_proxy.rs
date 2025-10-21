@@ -11,6 +11,9 @@ use reqwest::Client;
 use std::env;
 use tracing::{error, info};
 
+/// Maximum request body size (10MB) to prevent DoS attacks
+const MAX_BODY_SIZE: usize = 10 * 1024 * 1024;
+
 /// Proxy requests to Anthropic API
 /// This solves CORS issues and keeps API keys secure on the server
 pub async fn anthropic_proxy(request: Request) -> impl IntoResponse {
@@ -28,16 +31,16 @@ pub async fn anthropic_proxy(request: Request) -> impl IntoResponse {
         }
     };
 
-    // Read the request body
-    let body_bytes = match axum::body::to_bytes(request.into_body(), usize::MAX).await {
+    // Read the request body with size limit to prevent DoS
+    let body_bytes = match axum::body::to_bytes(request.into_body(), MAX_BODY_SIZE).await {
         Ok(bytes) => bytes,
         Err(e) => {
             error!("Failed to read request body: {}", e);
             return Response::builder()
-                .status(StatusCode::BAD_REQUEST)
+                .status(StatusCode::PAYLOAD_TOO_LARGE)
                 .body(Body::from(format!(
-                    r#"{{"error": "Failed to read request body: {}"}}"#,
-                    e
+                    r#"{{"error": "Request body too large (max {} bytes): {}"}}"#,
+                    MAX_BODY_SIZE, e
                 )))
                 .unwrap();
         }

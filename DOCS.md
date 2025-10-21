@@ -389,6 +389,7 @@ Configure rate limiting, security headers, and error handling:
 | `RATE_LIMIT_BROWSE_RPM` | `20` | Rate limit for directory browsing (requests per minute) |
 | `RATE_LIMIT_PROJECTS_RPM` | `30` | Rate limit for project CRUD operations (requests per minute) |
 | `RATE_LIMIT_PREVIEW_RPM` | `10` | Rate limit for preview server operations (requests per minute) |
+| `RATE_LIMIT_AI_RPM` | `10` | Rate limit for AI proxy endpoints (requests per minute) - prevents cost abuse |
 | `RATE_LIMIT_GLOBAL_RPM` | `30` | Global rate limit for other endpoints (requests per minute) |
 | `RATE_LIMIT_BURST_SIZE` | `5` | Burst size multiplier for rate limiting |
 | `SECURITY_HEADERS_ENABLED` | `true` | Enable/disable security headers middleware |
@@ -415,6 +416,7 @@ RATE_LIMIT_HEALTH_RPM=60
 RATE_LIMIT_BROWSE_RPM=20
 RATE_LIMIT_PROJECTS_RPM=30
 RATE_LIMIT_PREVIEW_RPM=10
+RATE_LIMIT_AI_RPM=10
 RATE_LIMIT_GLOBAL_RPM=30
 RATE_LIMIT_BURST_SIZE=5
 

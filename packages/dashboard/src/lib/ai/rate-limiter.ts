@@ -19,6 +19,8 @@ const DEFAULT_CONFIG: RateLimitConfig = {
   maxCostPerDay: 50.0, // $50/day
 };
 
+const STORAGE_KEY = 'orkee_ai_rate_limiter_history';
+
 /**
  * Rate limiter for AI API calls
  */
@@ -28,6 +30,33 @@ export class AIRateLimiter {
 
   constructor(config: Partial<RateLimitConfig> = {}) {
     this.config = { ...DEFAULT_CONFIG, ...config };
+    this.loadFromStorage();
+  }
+
+  /**
+   * Load call history from localStorage
+   */
+  private loadFromStorage(): void {
+    try {
+      const stored = localStorage.getItem(STORAGE_KEY);
+      if (stored) {
+        this.callHistory = JSON.parse(stored);
+      }
+    } catch (error) {
+      console.warn('Failed to load rate limiter history from localStorage:', error);
+      this.callHistory = [];
+    }
+  }
+
+  /**
+   * Save call history to localStorage
+   */
+  private saveToStorage(): void {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(this.callHistory));
+    } catch (error) {
+      console.warn('Failed to save rate limiter history to localStorage:', error);
+    }
   }
 
   /**
@@ -86,6 +115,7 @@ export class AIRateLimiter {
       cost,
       operation,
     });
+    this.saveToStorage();
   }
 
   /**
@@ -132,6 +162,7 @@ export class AIRateLimiter {
    */
   reset(): void {
     this.callHistory = [];
+    this.saveToStorage();
   }
 
   /**
@@ -139,7 +170,11 @@ export class AIRateLimiter {
    */
   private cleanupOldRecords(now: number): void {
     const cutoff = now - 24 * 60 * 60 * 1000;
+    const oldLength = this.callHistory.length;
     this.callHistory = this.callHistory.filter((r) => r.timestamp > cutoff);
+    if (this.callHistory.length !== oldLength) {
+      this.saveToStorage();
+    }
   }
 }
 
