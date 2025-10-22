@@ -223,6 +223,10 @@ pub async fn create_router_with_options(
             orkee_projects::create_users_router().with_state(db_state.clone()),
         )
         .nest(
+            "/api",
+            orkee_projects::create_security_router().with_state(db_state.clone()),
+        )
+        .nest(
             "/api/tags",
             orkee_projects::create_tags_router().with_state(db_state.clone()),
         )

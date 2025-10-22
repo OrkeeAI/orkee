@@ -77,8 +77,8 @@ pub use constants::{orkee_dir, projects_file, PROJECTS_VERSION};
 pub use api::{
     create_agents_router, create_ai_proxy_router, create_ai_router, create_ai_usage_router,
     create_changes_router, create_executions_router, create_prds_router, create_projects_router,
-    create_specs_router, create_tags_router, create_task_spec_router, create_tasks_router,
-    create_users_router,
+    create_security_router, create_specs_router, create_tags_router, create_task_spec_router,
+    create_tasks_router, create_users_router,
 };
 
 // Re-export database state
