@@ -3,9 +3,15 @@
 
 import { apiClient, apiRequest } from './api';
 
+// Encryption mode enum matching Rust backend
+export enum EncryptionMode {
+  Machine = 'machine',
+  Password = 'password',
+}
+
 // TypeScript interfaces matching Rust types
 export interface SecurityStatus {
-  encryptionMode: string; // "machine" or "password"
+  encryptionMode: EncryptionMode;
   isLocked: boolean;
   failedAttempts?: number;
   lockoutEndsAt?: string;
@@ -104,8 +110,8 @@ export class SecurityService {
   /**
    * Set password to enable password-based encryption
    */
-  async setPassword(password: string): Promise<{ message: string; encryptionMode: string }> {
-    const result = await apiRequest<ApiResponse<{ message: string; encryptionMode: string }>>('/api/security/set-password', {
+  async setPassword(password: string): Promise<{ message: string; encryptionMode: EncryptionMode }> {
+    const result = await apiRequest<ApiResponse<{ message: string; encryptionMode: EncryptionMode }>>('/api/security/set-password', {
       method: 'POST',
       body: JSON.stringify({ password }),
     });
@@ -116,8 +122,8 @@ export class SecurityService {
   /**
    * Change encryption password
    */
-  async changePassword(currentPassword: string, newPassword: string): Promise<{ message: string; encryptionMode: string }> {
-    const result = await apiRequest<ApiResponse<{ message: string; encryptionMode: string }>>('/api/security/change-password', {
+  async changePassword(currentPassword: string, newPassword: string): Promise<{ message: string; encryptionMode: EncryptionMode }> {
+    const result = await apiRequest<ApiResponse<{ message: string; encryptionMode: EncryptionMode }>>('/api/security/change-password', {
       method: 'POST',
       body: JSON.stringify({
         currentPassword,
@@ -131,8 +137,8 @@ export class SecurityService {
   /**
    * Remove password-based encryption (downgrade to machine-based)
    */
-  async removePassword(): Promise<{ message: string; encryptionMode: string }> {
-    const result = await apiRequest<ApiResponse<{ message: string; encryptionMode: string }>>('/api/security/remove-password', {
+  async removePassword(): Promise<{ message: string; encryptionMode: EncryptionMode }> {
+    const result = await apiRequest<ApiResponse<{ message: string; encryptionMode: EncryptionMode }>>('/api/security/remove-password', {
       method: 'POST',
     });
 

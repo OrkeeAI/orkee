@@ -6,6 +6,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Shield, AlertTriangle, Lock, RefreshCw, Check } from 'lucide-react';
 import { useSecurityStatus } from '@/hooks/useSecurity';
+import { EncryptionMode } from '@/services/security';
 
 interface SecurityStatusSectionProps {
   onManagePassword: (mode: 'set' | 'change' | 'remove') => void;
@@ -36,8 +37,8 @@ export function SecurityStatusSection({ onManagePassword }: SecurityStatusSectio
     );
   }
 
-  const isMachineMode = securityStatus?.encryptionMode === 'machine';
-  const isPasswordMode = securityStatus?.encryptionMode === 'password';
+  const isMachineMode = securityStatus?.encryptionMode === EncryptionMode.Machine;
+  const isPasswordMode = securityStatus?.encryptionMode === EncryptionMode.Password;
 
   return (
     <div className="rounded-lg border p-4 bg-gradient-to-r from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800">
