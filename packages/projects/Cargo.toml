@@ -42,6 +42,13 @@ hostname = "0.4"
 # Compression
 flate2 = "1.0"
 
+# Tree-sitter for AST parsing
+tree-sitter = "0.20"
+tree-sitter-rust = "0.20"
+tree-sitter-typescript = "0.20"
+tree-sitter-javascript = "0.20"
+tree-sitter-python = "0.20"
+
 # Cloud functionality (optional)
 orkee-cloud = { path = "../cloud", optional = true }
 

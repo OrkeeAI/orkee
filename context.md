@@ -608,7 +608,7 @@ pub fn context_routes() -> Router<AppState> {
 ### Day 1-2: Tree-sitter Setup
 
 #### Task 2.1: Add Dependencies
-- [ ] Add Tree-sitter dependencies
+- [x] Add Tree-sitter dependencies
 
 Update `packages/projects/Cargo.toml`:
 
