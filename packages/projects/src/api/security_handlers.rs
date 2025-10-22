@@ -16,6 +16,104 @@ const MIN_PASSWORD_LENGTH: usize = 8;
 const PASSWORD_MAX_ATTEMPTS: i64 = 5;
 const PASSWORD_LOCKOUT_DURATION_MINUTES: i64 = 15;
 
+/// Check account lockout status within a transaction (atomic read)
+async fn check_lockout_status(
+    tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>,
+) -> Result<(i64, Option<String>), (StatusCode, Json<ApiResponse<()>>)> {
+    let lockout_check: Result<Option<(i64, Option<String>)>, sqlx::Error> =
+        sqlx::query_as("SELECT attempt_count, locked_until FROM password_attempts WHERE id = 1")
+            .fetch_optional(&mut **tx)
+            .await;
+
+    match lockout_check {
+        Ok(Some((count, locked_str))) => {
+            // Check if account is currently locked
+            if let Some(ref locked_until_str) = locked_str {
+                if let Ok(locked_time) = chrono::DateTime::parse_from_rfc3339(locked_until_str) {
+                    let now = chrono::Utc::now();
+                    if locked_time.with_timezone(&chrono::Utc) > now {
+                        error!("Account locked due to too many failed password attempts");
+                        return Err((
+                            StatusCode::TOO_MANY_REQUESTS,
+                            Json(ApiResponse::<()>::error(format!(
+                                "Account locked until {}. Too many failed password attempts.",
+                                locked_until_str
+                            ))),
+                        ));
+                    }
+                }
+            }
+            Ok((count, locked_str))
+        }
+        Ok(None) => Ok((0, None)),
+        Err(e) => {
+            error!("Failed to check lockout status: {}", e);
+            Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ApiResponse::<()>::error(
+                    "Failed to check account status".to_string(),
+                )),
+            ))
+        }
+    }
+}
+
+/// Update password attempt counter within a transaction
+async fn update_attempt_counter(
+    tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>,
+    attempt_count: i64,
+    success: bool,
+) -> Result<Option<String>, sqlx::Error> {
+    if success {
+        // Reset counter on success
+        sqlx::query(
+            r#"
+            UPDATE password_attempts
+            SET attempt_count = 0,
+                locked_until = NULL,
+                last_attempt_at = datetime('now', 'utc'),
+                updated_at = datetime('now', 'utc')
+            WHERE id = 1
+            "#,
+        )
+        .execute(&mut **tx)
+        .await?;
+        Ok(None)
+    } else {
+        // Increment counter on failure
+        let new_attempt_count = attempt_count + 1;
+        let locked_until_new = if new_attempt_count >= PASSWORD_MAX_ATTEMPTS {
+            let lockout_time =
+                chrono::Utc::now() + chrono::Duration::minutes(PASSWORD_LOCKOUT_DURATION_MINUTES);
+            let locked_str = lockout_time.to_rfc3339();
+            error!(
+                "Too many failed password attempts. Account locked until {}",
+                lockout_time
+            );
+            Some(locked_str)
+        } else {
+            None
+        };
+
+        sqlx::query(
+            r#"
+            UPDATE password_attempts
+            SET attempt_count = ?,
+                locked_until = ?,
+                last_attempt_at = datetime('now', 'utc'),
+                updated_at = datetime('now', 'utc')
+            WHERE id = 1
+            "#,
+        )
+        .bind(new_attempt_count)
+        .bind(&locked_until_new)
+        .execute(&mut **tx)
+        .await?;
+
+        Ok(locked_until_new)
+    }
+}
+
 // Type alias for encryption settings query result
 type EncryptionSettingsResult =
     Result<Option<(String, Option<Vec<u8>>, Option<Vec<u8>>)>, sqlx::Error>;
@@ -400,56 +498,41 @@ pub async fn change_password(
 ) -> impl IntoResponse {
     info!("Changing encryption password");
 
-    // SECURITY: Check account lockout status first
-    let lockout_check: Result<Option<(i64, Option<String>)>, sqlx::Error> =
-        sqlx::query_as("SELECT attempt_count, locked_until FROM password_attempts WHERE id = 1")
-            .fetch_optional(&db.pool)
-            .await;
-
-    let (attempt_count, _locked_until) = match lockout_check {
-        Ok(Some((count, locked_str))) => {
-            // Check if account is currently locked
-            if let Some(ref locked_until_str) = locked_str {
-                if let Ok(locked_time) = chrono::DateTime::parse_from_rfc3339(locked_until_str) {
-                    let now = chrono::Utc::now();
-                    if locked_time.with_timezone(&chrono::Utc) > now {
-                        error!("Account locked due to too many failed password attempts");
-                        return (
-                            StatusCode::TOO_MANY_REQUESTS,
-                            Json(ApiResponse::<()>::error(format!(
-                                "Account locked until {}. Too many failed password attempts.",
-                                locked_until_str
-                            ))),
-                        )
-                            .into_response();
-                    }
-                }
-            }
-            (count, locked_str)
-        }
-        Ok(None) => (0, None),
+    // SECURITY: Use transaction to prevent race conditions in lockout checking
+    let mut tx = match db.pool.begin().await {
+        Ok(t) => t,
         Err(e) => {
-            error!("Failed to check lockout status: {}", e);
+            error!("Failed to start transaction: {}", e);
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(ApiResponse::<()>::error(
-                    "Failed to check account status".to_string(),
+                    "Failed to process request".to_string(),
                 )),
             )
                 .into_response();
         }
     };
 
+    // SECURITY: Check account lockout status atomically within transaction
+    let (attempt_count, _locked_until) = match check_lockout_status(&mut tx).await {
+        Ok(result) => result,
+        Err(response) => {
+            let _ = tx.rollback().await;
+            return response.into_response();
+        }
+    };
+
     // Get current encryption settings
     let settings: EncryptionSettingsResult =
         sqlx::query_as("SELECT encryption_mode, password_salt, password_hash FROM encryption_settings WHERE id = 1")
-            .fetch_optional(&db.pool)
+            .fetch_optional(&mut *tx)
             .await;
 
     let (mode, salt, stored_hash) = match settings {
         Ok(Some(row)) => row,
         Ok(None) => {
             error!("No encryption settings found");
+            let _ = tx.rollback().await;
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(ApiResponse::<()>::error(
@@ -460,6 +543,7 @@ pub async fn change_password(
         }
         Err(e) => {
             error!("Failed to fetch encryption settings: {}", e);
+            let _ = tx.rollback().await;
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(ApiResponse::<()>::error(
@@ -473,6 +557,7 @@ pub async fn change_password(
     // Ensure we're using password-based encryption
     if mode != "password" {
         error!("Not using password-based encryption");
+        let _ = tx.rollback().await;
         return (
             StatusCode::BAD_REQUEST,
             Json(ApiResponse::<()>::error(
@@ -486,6 +571,7 @@ pub async fn change_password(
         Some(s) => s,
         None => {
             error!("Password salt not found");
+            let _ = tx.rollback().await;
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(ApiResponse::<()>::error(
@@ -500,6 +586,7 @@ pub async fn change_password(
         Some(h) => h,
         None => {
             error!("Password hash not found");
+            let _ = tx.rollback().await;
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(ApiResponse::<()>::error(
@@ -511,11 +598,13 @@ pub async fn change_password(
     };
 
     // SECURITY: Verify current password using constant-time comparison (via Argon2)
+    // Note: This is a slow operation but must be done within the transaction for atomicity
     let password_valid =
         match ApiKeyEncryption::verify_password(&request.current_password, &salt, &stored_hash) {
             Ok(valid) => valid,
             Err(e) => {
                 error!("Password verification failed: {}", e);
+                let _ = tx.rollback().await;
                 return (
                     StatusCode::INTERNAL_SERVER_ERROR,
                     Json(ApiResponse::<()>::error(
@@ -526,38 +615,29 @@ pub async fn change_password(
             }
         };
 
-    if !password_valid {
-        // SECURITY: Increment failed attempt counter
-        let new_attempt_count = attempt_count + 1;
-        let mut locked_until_new = None;
+    // SECURITY: Update attempt counter atomically within transaction
+    let locked_until = match update_attempt_counter(&mut tx, attempt_count, password_valid).await {
+        Ok(locked) => locked,
+        Err(e) => {
+            error!("Failed to update attempt counter: {}", e);
+            let _ = tx.rollback().await;
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ApiResponse::<()>::error(
+                    "Failed to update security status".to_string(),
+                )),
+            )
+                .into_response();
+        }
+    };
 
-        if new_attempt_count >= PASSWORD_MAX_ATTEMPTS {
-            // Lock account for PASSWORD_LOCKOUT_DURATION_MINUTES
-            let lockout_time =
-                chrono::Utc::now() + chrono::Duration::minutes(PASSWORD_LOCKOUT_DURATION_MINUTES);
-            locked_until_new = Some(lockout_time.to_rfc3339());
-            error!(
-                "Too many failed password attempts. Account locked until {}",
-                lockout_time
-            );
+    if !password_valid {
+        // Commit the failed attempt before returning
+        if let Err(e) = tx.commit().await {
+            error!("Failed to commit transaction: {}", e);
         }
 
-        let _ = sqlx::query(
-            r#"
-            UPDATE password_attempts
-            SET attempt_count = ?,
-                locked_until = ?,
-                last_attempt_at = datetime('now', 'utc'),
-                updated_at = datetime('now', 'utc')
-            WHERE id = 1
-            "#,
-        )
-        .bind(new_attempt_count)
-        .bind(&locked_until_new)
-        .execute(&db.pool)
-        .await;
-
-        if locked_until_new.is_some() {
+        if locked_until.is_some() {
             return (
                 StatusCode::TOO_MANY_REQUESTS,
                 Json(ApiResponse::<()>::error(
@@ -576,22 +656,9 @@ pub async fn change_password(
             .into_response();
     }
 
-    // SECURITY: Reset attempt counter on successful password verification
-    let _ = sqlx::query(
-        r#"
-        UPDATE password_attempts
-        SET attempt_count = 0,
-            locked_until = NULL,
-            last_attempt_at = datetime('now', 'utc'),
-            updated_at = datetime('now', 'utc')
-        WHERE id = 1
-        "#,
-    )
-    .execute(&db.pool)
-    .await;
-
     // SECURITY: Validate new password strength (never log password)
     if let Err(error_message) = validate_password_strength(&request.new_password) {
+        let _ = tx.rollback().await;
         return (
             StatusCode::BAD_REQUEST,
             Json(ApiResponse::<()>::error(error_message)),
@@ -604,6 +671,7 @@ pub async fn change_password(
         Ok(s) => s,
         Err(e) => {
             error!("Failed to generate new salt: {}", e);
+            let _ = tx.rollback().await;
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(ApiResponse::<()>::error(
@@ -620,6 +688,7 @@ pub async fn change_password(
             Ok(h) => h,
             Err(e) => {
                 error!("Failed to hash new password: {}", e);
+                let _ = tx.rollback().await;
                 return (
                     StatusCode::INTERNAL_SERVER_ERROR,
                     Json(ApiResponse::<()>::error(
@@ -635,6 +704,7 @@ pub async fn change_password(
         Ok(enc) => enc,
         Err(e) => {
             error!("Failed to create old encryption: {}", e);
+            let _ = tx.rollback().await;
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(ApiResponse::<()>::error(
@@ -649,6 +719,7 @@ pub async fn change_password(
         Ok(enc) => enc,
         Err(e) => {
             error!("Failed to create new encryption: {}", e);
+            let _ = tx.rollback().await;
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(ApiResponse::<()>::error(
@@ -666,6 +737,7 @@ pub async fn change_password(
         .await
     {
         error!("Failed to rotate encryption keys: {}", e);
+        let _ = tx.rollback().await;
         return (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(ApiResponse::<()>::error(
@@ -675,7 +747,7 @@ pub async fn change_password(
             .into_response();
     }
 
-    // Save new encryption settings
+    // Save new encryption settings within the transaction
     let result = sqlx::query(
         r#"
         UPDATE encryption_settings
@@ -687,15 +759,28 @@ pub async fn change_password(
     )
     .bind(&new_salt)
     .bind(&new_password_hash)
-    .execute(&db.pool)
+    .execute(&mut *tx)
     .await;
 
     if let Err(e) = result {
         error!("Failed to save new encryption settings: {}", e);
+        let _ = tx.rollback().await;
         return (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(ApiResponse::<()>::error(
                 "Failed to save new encryption settings".to_string(),
+            )),
+        )
+            .into_response();
+    }
+
+    // Commit the transaction
+    if let Err(e) = tx.commit().await {
+        error!("Failed to commit transaction: {}", e);
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ApiResponse::<()>::error(
+                "Failed to save changes".to_string(),
             )),
         )
             .into_response();
@@ -728,16 +813,41 @@ pub async fn remove_password(
 ) -> impl IntoResponse {
     info!("Removing password-based encryption (downgrading to machine-based)");
 
+    // SECURITY: Use transaction to prevent race conditions in lockout checking
+    let mut tx = match db.pool.begin().await {
+        Ok(t) => t,
+        Err(e) => {
+            error!("Failed to start transaction: {}", e);
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ApiResponse::<()>::error(
+                    "Failed to process request".to_string(),
+                )),
+            )
+                .into_response();
+        }
+    };
+
+    // SECURITY: Check account lockout status atomically within transaction
+    let (attempt_count, _locked_until) = match check_lockout_status(&mut tx).await {
+        Ok(result) => result,
+        Err(response) => {
+            let _ = tx.rollback().await;
+            return response.into_response();
+        }
+    };
+
     // Get current encryption settings
     let settings: EncryptionSettingsResult =
         sqlx::query_as("SELECT encryption_mode, password_salt, password_hash FROM encryption_settings WHERE id = 1")
-            .fetch_optional(&db.pool)
+            .fetch_optional(&mut *tx)
             .await;
 
     let (mode, salt, stored_hash) = match settings {
         Ok(Some(row)) => row,
         Ok(None) => {
             error!("No encryption settings found");
+            let _ = tx.rollback().await;
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(ApiResponse::<()>::error(
@@ -748,6 +858,7 @@ pub async fn remove_password(
         }
         Err(e) => {
             error!("Failed to fetch encryption settings: {}", e);
+            let _ = tx.rollback().await;
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(ApiResponse::<()>::error(
@@ -761,6 +872,7 @@ pub async fn remove_password(
     // Ensure we're using password-based encryption
     if mode != "password" {
         error!("Not using password-based encryption");
+        let _ = tx.rollback().await;
         return (
             StatusCode::BAD_REQUEST,
             Json(ApiResponse::<()>::error(
@@ -775,6 +887,7 @@ pub async fn remove_password(
         Some(s) => s,
         None => {
             error!("Password salt not found");
+            let _ = tx.rollback().await;
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(ApiResponse::<()>::error(
@@ -789,6 +902,7 @@ pub async fn remove_password(
         Some(h) => h,
         None => {
             error!("Password hash not found");
+            let _ = tx.rollback().await;
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(ApiResponse::<()>::error(
@@ -800,11 +914,13 @@ pub async fn remove_password(
     };
 
     // SECURITY: Verify current password before removing protection
+    // Note: This is a slow operation but must be done within the transaction for atomicity
     let password_valid =
         match ApiKeyEncryption::verify_password(&request.current_password, &salt, &stored_hash) {
             Ok(valid) => valid,
             Err(e) => {
                 error!("Password verification failed: {}", e);
+                let _ = tx.rollback().await;
                 return (
                     StatusCode::INTERNAL_SERVER_ERROR,
                     Json(ApiResponse::<()>::error(
@@ -815,8 +931,38 @@ pub async fn remove_password(
             }
         };
 
+    // SECURITY: Update attempt counter atomically within transaction
+    let locked_until = match update_attempt_counter(&mut tx, attempt_count, password_valid).await {
+        Ok(locked) => locked,
+        Err(e) => {
+            error!("Failed to update attempt counter: {}", e);
+            let _ = tx.rollback().await;
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ApiResponse::<()>::error(
+                    "Failed to update security status".to_string(),
+                )),
+            )
+                .into_response();
+        }
+    };
+
     if !password_valid {
-        error!("Invalid password provided for removing encryption");
+        // Commit the failed attempt before returning
+        if let Err(e) = tx.commit().await {
+            error!("Failed to commit transaction: {}", e);
+        }
+
+        if locked_until.is_some() {
+            return (
+                StatusCode::TOO_MANY_REQUESTS,
+                Json(ApiResponse::<()>::error(
+                    "Too many failed password attempts. Account locked.".to_string(),
+                )),
+            )
+                .into_response();
+        }
+
         return (
             StatusCode::UNAUTHORIZED,
             Json(ApiResponse::<()>::error(
@@ -831,6 +977,7 @@ pub async fn remove_password(
         Ok(enc) => enc,
         Err(e) => {
             error!("Failed to create password encryption: {}", e);
+            let _ = tx.rollback().await;
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(ApiResponse::<()>::error(
@@ -845,6 +992,7 @@ pub async fn remove_password(
         Ok(enc) => enc,
         Err(e) => {
             error!("Failed to create machine encryption: {}", e);
+            let _ = tx.rollback().await;
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(ApiResponse::<()>::error(
@@ -862,6 +1010,7 @@ pub async fn remove_password(
         .await
     {
         error!("Failed to rotate encryption keys: {}", e);
+        let _ = tx.rollback().await;
         return (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(ApiResponse::<()>::error(
@@ -871,7 +1020,7 @@ pub async fn remove_password(
             .into_response();
     }
 
-    // Update encryption settings to machine-based
+    // Update encryption settings to machine-based within the transaction
     let result = sqlx::query(
         r#"
         UPDATE encryption_settings
@@ -882,11 +1031,12 @@ pub async fn remove_password(
         WHERE id = 1
         "#,
     )
-    .execute(&db.pool)
+    .execute(&mut *tx)
     .await;
 
     if let Err(e) = result {
         error!("Failed to update encryption settings: {}", e);
+        let _ = tx.rollback().await;
         return (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(ApiResponse::<()>::error(
@@ -896,19 +1046,17 @@ pub async fn remove_password(
             .into_response();
     }
 
-    // Reset password attempts
-    let _ = sqlx::query(
-        r#"
-        UPDATE password_attempts
-        SET attempt_count = 0,
-            locked_until = NULL,
-            last_attempt_at = NULL,
-            updated_at = datetime('now', 'utc')
-        WHERE id = 1
-        "#,
-    )
-    .execute(&db.pool)
-    .await;
+    // Commit the transaction
+    if let Err(e) = tx.commit().await {
+        error!("Failed to commit transaction: {}", e);
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ApiResponse::<()>::error(
+                "Failed to save changes".to_string(),
+            )),
+        )
+            .into_response();
+    }
 
     info!("Successfully downgraded to machine-based encryption");
 
