@@ -84,7 +84,11 @@
             },
             "http:allow-fetch-cancel",
             "http:allow-fetch-read-body",
-            "http:allow-fetch-send"
+            "http:allow-fetch-send",
+            "notification:default",
+            "notification:allow-is-permission-granted",
+            "notification:allow-request-permission",
+            "notification:allow-show"
           ]
         }
       ]

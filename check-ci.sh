@@ -92,12 +92,12 @@ echo -e "${BLUE}2/6 Running Clippy (Rust linter)...${NC}"
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 
 CLIPPY_PACKAGES=(
-  "orkee-cli"
   "orkee-config"
 )
 
-# Note: orkee-projects requires database setup for sqlx macros
-# Run manually with: DATABASE_URL=<url> cargo test --package orkee-projects
+# Note: orkee-projects and orkee-cli require database setup for sqlx macros
+# Run manually with: DATABASE_URL=sqlite:orkee.db cargo test --package orkee-projects
+# Run manually with: DATABASE_URL=sqlite:orkee.db cargo test --package orkee-cli
 
 # Set DATABASE_URL for sqlx macros if not already set
 if [ -z "$DATABASE_URL" ]; then
