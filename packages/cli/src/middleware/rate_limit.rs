@@ -35,6 +35,7 @@ pub struct RateLimitConfig {
     pub telemetry_rpm: u32, // Telemetry tracking endpoints
     pub ai_rpm: u32,        // AI proxy endpoints
     pub users_rpm: u32,     // User management (credentials, settings)
+    pub security_rpm: u32,  // Security endpoints (password management, encryption)
     pub global_rpm: u32,    // Global fallback
     pub burst_size: u32,    // Burst size multiplier
 }
@@ -50,6 +51,7 @@ impl Default for RateLimitConfig {
             telemetry_rpm: 15, // More restrictive for DoS prevention
             ai_rpm: 10,        // Strict limit to prevent cost abuse and DoS
             users_rpm: 10,     // Strict limit for expensive encryption operations
+            security_rpm: 10,  // Strict limit to prevent brute-force and DoS on password operations
             global_rpm: 30,
             burst_size: 5,
         }
@@ -82,6 +84,7 @@ impl RateLimitLayer {
             EndpointCategory::Telemetry => self.config.telemetry_rpm,
             EndpointCategory::AI => self.config.ai_rpm,
             EndpointCategory::Users => self.config.users_rpm,
+            EndpointCategory::Security => self.config.security_rpm,
             EndpointCategory::Other => self.config.global_rpm,
         };
 
@@ -123,6 +126,7 @@ enum EndpointCategory {
     Telemetry,
     AI,
     Users,
+    Security,
     Other,
 }
 
@@ -136,6 +140,7 @@ impl EndpointCategory {
             EndpointCategory::Telemetry => "telemetry",
             EndpointCategory::AI => "ai",
             EndpointCategory::Users => "users",
+            EndpointCategory::Security => "security",
             EndpointCategory::Other => "other",
         }
     }
@@ -143,7 +148,10 @@ impl EndpointCategory {
 
 /// Categorize endpoint based on path
 fn categorize_endpoint(path: &str) -> EndpointCategory {
-    if path.contains("/health") || path.contains("/status") {
+    // Check more specific paths first to avoid false matches
+    if path.contains("/security") {
+        EndpointCategory::Security
+    } else if path.contains("/health") || path.contains("/status") {
         EndpointCategory::Health
     } else if path.contains("/browse-directories") {
         EndpointCategory::Browse
@@ -286,6 +294,7 @@ mod tests {
             telemetry_rpm: 15,
             ai_rpm: 10,
             users_rpm: 10,
+            security_rpm: 10,
             global_rpm: 30,
             burst_size: 5,
         };
@@ -327,6 +336,7 @@ mod tests {
         assert_eq!(config.telemetry_rpm, 15);
         assert_eq!(config.ai_rpm, 10);
         assert_eq!(config.users_rpm, 10);
+        assert_eq!(config.security_rpm, 10);
         assert_eq!(config.global_rpm, 30);
         assert_eq!(config.burst_size, 5);
     }
@@ -345,6 +355,31 @@ mod tests {
         assert!(matches!(
             categorize_endpoint("/api/users/default-user/theme"),
             EndpointCategory::Users
+        ));
+    }
+
+    #[test]
+    fn test_security_endpoint_categorization() {
+        // Security endpoints should be categorized as Security
+        assert!(matches!(
+            categorize_endpoint("/api/security/status"),
+            EndpointCategory::Security
+        ));
+        assert!(matches!(
+            categorize_endpoint("/api/security/keys-status"),
+            EndpointCategory::Security
+        ));
+        assert!(matches!(
+            categorize_endpoint("/api/security/set-password"),
+            EndpointCategory::Security
+        ));
+        assert!(matches!(
+            categorize_endpoint("/api/security/change-password"),
+            EndpointCategory::Security
+        ));
+        assert!(matches!(
+            categorize_endpoint("/api/security/remove-password"),
+            EndpointCategory::Security
         ));
     }
 }

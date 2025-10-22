@@ -123,6 +123,10 @@ impl Config {
                 .unwrap_or_else(|_| "10".to_string())
                 .parse::<u32>()
                 .unwrap_or(10),
+            security_rpm: env::var("RATE_LIMIT_SECURITY_RPM")
+                .unwrap_or_else(|_| "10".to_string())
+                .parse::<u32>()
+                .unwrap_or(10),
             global_rpm: env::var("RATE_LIMIT_GLOBAL_RPM")
                 .unwrap_or_else(|_| "30".to_string())
                 .parse::<u32>()
