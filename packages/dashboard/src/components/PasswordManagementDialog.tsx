@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { AlertTriangle, Lock, Shield, RefreshCw, Check, X } from 'lucide-react';
 import { useSetPassword, useChangePassword, useRemovePassword } from '@/hooks/useSecurity';
+import { validatePasswordStrength } from '@/lib/password-validation';
 
 interface PasswordManagementDialogProps {
   open: boolean;
@@ -47,8 +48,9 @@ export function PasswordManagementDialog({ open, onOpenChange, mode }: PasswordM
     setError(null);
     setSuccess(null);
 
-    if (newPassword.length < 8) {
-      setError('Password must be at least 8 characters long');
+    const validation = validatePasswordStrength(newPassword);
+    if (!validation.valid) {
+      setError(validation.error!);
       return;
     }
 
@@ -74,8 +76,9 @@ export function PasswordManagementDialog({ open, onOpenChange, mode }: PasswordM
       return;
     }
 
-    if (newPassword.length < 8) {
-      setError('New password must be at least 8 characters long');
+    const validation = validatePasswordStrength(newPassword);
+    if (!validation.valid) {
+      setError(validation.error!);
       return;
     }
 
@@ -218,7 +221,7 @@ export function PasswordManagementDialog({ open, onOpenChange, mode }: PasswordM
                     type="password"
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
-                    placeholder="Minimum 8 characters"
+                    placeholder="At least 8 characters with uppercase, lowercase, digit, and special character"
                     disabled={isLoading}
                     required
                     aria-label={mode === 'set' ? 'Password' : 'New password'}
@@ -226,7 +229,7 @@ export function PasswordManagementDialog({ open, onOpenChange, mode }: PasswordM
                     aria-describedby="new-password-help"
                   />
                   <p id="new-password-help" className="text-xs text-muted-foreground">
-                    Use a strong password you can remember but others can't guess
+                    Must include: uppercase letter, lowercase letter, digit, and special character
                   </p>
                 </div>
 
