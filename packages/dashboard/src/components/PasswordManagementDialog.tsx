@@ -102,8 +102,13 @@ export function PasswordManagementDialog({ open, onOpenChange, mode }: PasswordM
     setError(null);
     setSuccess(null);
 
+    if (!currentPassword) {
+      setError('Current password is required');
+      return;
+    }
+
     try {
-      const result = await removePasswordMutation.mutateAsync();
+      const result = await removePasswordMutation.mutateAsync(currentPassword);
       setSuccess(result.message);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to remove password');
@@ -191,8 +196,8 @@ export function PasswordManagementDialog({ open, onOpenChange, mode }: PasswordM
               </Alert>
             )}
 
-            {/* Current Password (for change mode) */}
-            {mode === 'change' && (
+            {/* Current Password (for change and remove modes) */}
+            {(mode === 'change' || mode === 'remove') && (
               <div className="space-y-2">
                 <Label htmlFor="current-password">Current Password</Label>
                 <Input

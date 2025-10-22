@@ -67,7 +67,7 @@ export function useRemovePassword() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: () => securityService.removePassword(),
+    mutationFn: (currentPassword: string) => securityService.removePassword(currentPassword),
     onSuccess: () => {
       // Invalidate security status and keys status to refetch
       queryClient.invalidateQueries({ queryKey: ['security', 'status'] });

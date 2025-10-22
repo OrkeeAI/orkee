@@ -137,9 +137,10 @@ export class SecurityService {
   /**
    * Remove password-based encryption (downgrade to machine-based)
    */
-  async removePassword(): Promise<{ message: string; encryptionMode: EncryptionMode }> {
+  async removePassword(currentPassword: string): Promise<{ message: string; encryptionMode: EncryptionMode }> {
     const result = await apiRequest<ApiResponse<{ message: string; encryptionMode: EncryptionMode }>>('/api/security/remove-password', {
       method: 'POST',
+      body: JSON.stringify({ currentPassword }),
     });
 
     return extractMutationData(result, 'Failed to remove password');
