@@ -85,7 +85,10 @@ pub async fn get_security_status(
             (false, Some(0), None)
         }
         Err(e) => {
-            tracing::error!("Failed to read password lockout status from database: {}", e);
+            tracing::error!(
+                "Failed to read password lockout status from database: {}",
+                e
+            );
             (false, None, None)
         }
     };
@@ -119,11 +122,7 @@ pub struct KeysStatusResponse {
 }
 
 /// Helper function to check status of a single API key
-fn check_key_status(
-    key_name: &str,
-    db_key: Option<&String>,
-    env_var_name: &str,
-) -> KeyStatus {
+fn check_key_status(key_name: &str, db_key: Option<&String>, env_var_name: &str) -> KeyStatus {
     let has_db = db_key.is_some();
     let has_env = std::env::var(env_var_name).is_ok();
 
@@ -159,31 +158,15 @@ pub async fn get_keys_status(
     };
 
     let keys = vec![
-        check_key_status(
-            "openai",
-            user.openai_api_key.as_ref(),
-            "OPENAI_API_KEY",
-        ),
+        check_key_status("openai", user.openai_api_key.as_ref(), "OPENAI_API_KEY"),
         check_key_status(
             "anthropic",
             user.anthropic_api_key.as_ref(),
             "ANTHROPIC_API_KEY",
         ),
-        check_key_status(
-            "google",
-            user.google_api_key.as_ref(),
-            "GOOGLE_API_KEY",
-        ),
-        check_key_status(
-            "xai",
-            user.xai_api_key.as_ref(),
-            "XAI_API_KEY",
-        ),
-        check_key_status(
-            "ai_gateway",
-            user.ai_gateway_key.as_ref(),
-            "AI_GATEWAY_KEY",
-        ),
+        check_key_status("google", user.google_api_key.as_ref(), "GOOGLE_API_KEY"),
+        check_key_status("xai", user.xai_api_key.as_ref(), "XAI_API_KEY"),
+        check_key_status("ai_gateway", user.ai_gateway_key.as_ref(), "AI_GATEWAY_KEY"),
     ];
 
     let response = KeysStatusResponse { keys };
