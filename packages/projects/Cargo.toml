@@ -53,6 +53,7 @@ tree-sitter-python = "0.20"
 walkdir = "2.4"
 sha2 = "0.10"
 num_cpus = "1.16"
+lazy_static = "1.4"
 
 # Cloud functionality (optional)
 orkee-cloud = { path = "../cloud", optional = true }
