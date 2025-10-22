@@ -1,7 +1,7 @@
 // ABOUTME: Dialog for managing password-based encryption
 // ABOUTME: Supports setting, changing, and removing password encryption
 
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -29,7 +29,7 @@ export function PasswordManagementDialog({ open, onOpenChange, mode }: PasswordM
 
   const isLoading = setPasswordMutation.isPending || changePasswordMutation.isPending || removePasswordMutation.isPending;
 
-  const handleClose = () => {
+  const handleClose = useCallback(() => {
     // Prevent closing during async operations
     if (isLoading) {
       return;
@@ -41,7 +41,7 @@ export function PasswordManagementDialog({ open, onOpenChange, mode }: PasswordM
     setError(null);
     setSuccess(null);
     onOpenChange(false);
-  };
+  }, [isLoading, onOpenChange]);
 
   const handleSetPassword = async () => {
     setError(null);
