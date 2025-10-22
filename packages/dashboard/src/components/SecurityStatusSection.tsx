@@ -16,7 +16,7 @@ export function SecurityStatusSection({ onManagePassword }: SecurityStatusSectio
 
   if (isLoading) {
     return (
-      <div className="rounded-lg border p-4">
+      <div className="rounded-lg border p-4" role="status" aria-live="polite">
         <div className="flex items-center gap-2">
           <RefreshCw className="h-4 w-4 animate-spin" />
           <span className="text-sm">Loading security status...</span>
@@ -27,7 +27,7 @@ export function SecurityStatusSection({ onManagePassword }: SecurityStatusSectio
 
   if (error) {
     return (
-      <Alert variant="destructive">
+      <Alert variant="destructive" role="alert" aria-live="assertive">
         <AlertTriangle className="h-4 w-4" />
         <AlertDescription>
           Failed to load security status: {error.message}
@@ -128,7 +128,7 @@ export function SecurityStatusSection({ onManagePassword }: SecurityStatusSectio
       )}
 
       {securityStatus?.isLocked && (
-        <Alert variant="destructive" className="mt-3">
+        <Alert variant="destructive" className="mt-3" role="alert" aria-live="assertive">
           <AlertTriangle className="h-4 w-4" />
           <AlertDescription className="text-sm">
             Account locked due to failed password attempts. Please wait before trying again.

@@ -12,7 +12,7 @@ export function KeySourcesTable() {
 
   if (isLoading) {
     return (
-      <div className="rounded-lg border p-4">
+      <div className="rounded-lg border p-4" role="status" aria-live="polite">
         <div className="flex items-center gap-2">
           <RefreshCw className="h-4 w-4 animate-spin" />
           <span className="text-sm">Loading API key status...</span>
@@ -23,7 +23,7 @@ export function KeySourcesTable() {
 
   if (error) {
     return (
-      <Alert variant="destructive">
+      <Alert variant="destructive" role="alert" aria-live="assertive">
         <AlertTriangle className="h-4 w-4" />
         <AlertDescription>
           Failed to load key status: {error.message}
@@ -53,6 +53,7 @@ export function KeySourcesTable() {
           onClick={() => refetch()}
           variant="ghost"
           size="sm"
+          aria-label="Refresh API key status"
         >
           <RefreshCw className="h-3 w-3 mr-1" />
           Refresh
@@ -75,7 +76,6 @@ export function KeySourcesTable() {
               <th className="text-left text-xs font-medium p-3">Provider</th>
               <th className="text-center text-xs font-medium p-3">Status</th>
               <th className="text-center text-xs font-medium p-3">Source</th>
-              <th className="text-right text-xs font-medium p-3">Last Updated</th>
             </tr>
           </thead>
           <tbody className="divide-y">
@@ -115,15 +115,6 @@ export function KeySourcesTable() {
                       </Badge>
                     )}
                     {source === 'none' && (
-                      <span className="text-xs text-muted-foreground">-</span>
-                    )}
-                  </td>
-                  <td className="p-3 text-right">
-                    {keyStatus.lastUpdated ? (
-                      <span className="text-xs text-muted-foreground">
-                        {new Date(keyStatus.lastUpdated).toLocaleDateString()}
-                      </span>
-                    ) : (
                       <span className="text-xs text-muted-foreground">-</span>
                     )}
                   </td>

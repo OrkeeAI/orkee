@@ -244,7 +244,7 @@ export function PasswordManagementDialog({ open, onOpenChange, mode }: PasswordM
 
             {/* Error Display */}
             {error && (
-              <Alert variant="destructive">
+              <Alert variant="destructive" role="alert" aria-live="assertive">
                 <X className="h-4 w-4" />
                 <AlertDescription>{error}</AlertDescription>
               </Alert>
@@ -252,7 +252,7 @@ export function PasswordManagementDialog({ open, onOpenChange, mode }: PasswordM
 
             {/* Success Display */}
             {success && (
-              <Alert>
+              <Alert role="status" aria-live="polite">
                 <Check className="h-4 w-4" />
                 <AlertDescription>{success}</AlertDescription>
               </Alert>
