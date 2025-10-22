@@ -260,7 +260,7 @@ async fn create_application_router(
 
     // Create CSRF layer for CSRF protection
     let csrf_layer = middleware::CsrfLayer::new();
-    info!("CSRF protection enabled with token: {}", csrf_layer.token());
+    info!("CSRF protection enabled");
 
     // Add CSRF layer as extension (available to all handlers)
     app_builder = app_builder.layer(axum::Extension(csrf_layer));
