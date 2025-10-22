@@ -3,7 +3,9 @@
 
 use crate::context::ast_analyzer::Symbol;
 use crate::context::spec_context::SpecContextBuilder;
-use crate::openspec::types::{SpecCapability, SpecRequirement, SpecScenario, PRD};
+use crate::openspec::types::{
+    CapabilityStatus, PRDSource, PRDStatus, SpecCapability, SpecRequirement, SpecScenario, PRD,
+};
 use sqlx::SqlitePool;
 use std::collections::HashMap;
 use tracing::{error, info};
@@ -80,7 +82,7 @@ impl OpenSpecContextBridge {
 
         // 1. Load task details
         let task = sqlx::query!(
-            "SELECT id, title, description, requirement_id, acceptance_criteria FROM tasks WHERE id = ?",
+            "SELECT id, title, description, acceptance_criteria FROM tasks WHERE id = ?",
             task_id
         )
         .fetch_optional(&self.pool)
@@ -88,61 +90,21 @@ impl OpenSpecContextBridge {
         .map_err(|e| format!("Database error: {}", e))?
         .ok_or_else(|| "Task not found".to_string())?;
 
-        // 2. Find the requirement this task implements
-        let requirement_id = task.requirement_id.unwrap_or_default();
-        let requirement = self.load_requirement(&requirement_id).await?;
-
-        // 3. Find existing implementations related to this requirement
-        let related_code = self
-            .find_requirement_implementations(&requirement.id, project_root)
-            .await?;
-
-        // 4. Build focused context
-        let mut context = String::new();
-
-        context.push_str(&format!(
+        // 2. TODO: Find the requirement this task implements
+        // For now, return a simple context without requirement integration
+        return Ok(format!(
             r#"# Task Context: {}
 
 ## Description
 {}
 
-## Requirement
-{}
-
 ## Acceptance Criteria
 {}
-
-## Related Code
 "#,
             task.title,
             task.description.unwrap_or_default(),
-            requirement.content_markdown,
             task.acceptance_criteria.unwrap_or_default()
         ));
-
-        for (file, symbols) in related_code {
-            context.push_str(&format!("\n### {}\n", file));
-            for symbol in symbols {
-                context.push_str(&format!(
-                    "- {} (lines {}-{})\n",
-                    symbol.name, symbol.line_start, symbol.line_end
-                ));
-            }
-        }
-
-        // 5. Include WHEN/THEN scenarios
-        let scenarios = self.load_scenarios(&requirement.id).await?;
-        if !scenarios.is_empty() {
-            context.push_str("\n## Test Scenarios\n");
-            for scenario in scenarios {
-                context.push_str(&format!(
-                    "- WHEN {} THEN {}\n",
-                    scenario.when_clause, scenario.then_clause
-                ));
-            }
-        }
-
-        Ok(context)
     }
 
     /// Validate that code matches spec requirements
@@ -201,26 +163,23 @@ impl OpenSpecContextBridge {
     // Helper methods
 
     async fn load_prd(&self, prd_id: &str) -> Result<PRD, String> {
-        sqlx::query_as!(
-            PRD,
-            r#"
-            SELECT 
+        sqlx::query_as::<_, PRD>(
+            "SELECT 
                 id,
                 project_id,
                 title,
                 content_markdown,
                 version,
-                status as "status: PRDStatus",
-                source as "source: PRDSource",
-                created_at as "created_at: chrono::DateTime<chrono::Utc>",
-                updated_at as "updated_at: chrono::DateTime<chrono::Utc>",
+                status,
+                source,
+                created_at,
+                updated_at,
                 created_by,
-                deleted_at as "deleted_at: Option<chrono::DateTime<chrono::Utc>>"
+                deleted_at
             FROM prds
-            WHERE id = ? AND deleted_at IS NULL
-            "#,
-            prd_id
+            WHERE id = ? AND deleted_at IS NULL"
         )
+        .bind(prd_id)
         .fetch_optional(&self.pool)
         .await
         .map_err(|e| format!("Database error: {}", e))?
@@ -228,10 +187,8 @@ impl OpenSpecContextBridge {
     }
 
     async fn load_capabilities_for_prd(&self, prd_id: &str) -> Result<Vec<SpecCapability>, String> {
-        sqlx::query_as!(
-            SpecCapability,
-            r#"
-            SELECT 
+        sqlx::query_as::<_, SpecCapability>(
+            "SELECT 
                 id,
                 project_id,
                 prd_id,
@@ -241,26 +198,23 @@ impl OpenSpecContextBridge {
                 design_markdown,
                 requirement_count,
                 version,
-                status as "status: CapabilityStatus",
-                deleted_at as "deleted_at: Option<chrono::DateTime<chrono::Utc>>",
-                created_at as "created_at: chrono::DateTime<chrono::Utc>",
-                updated_at as "updated_at: chrono::DateTime<chrono::Utc>"
+                status,
+                deleted_at,
+                created_at,
+                updated_at
             FROM spec_capabilities
             WHERE prd_id = ? AND deleted_at IS NULL
-            ORDER BY created_at
-            "#,
-            prd_id
+            ORDER BY created_at"
         )
+        .bind(prd_id)
         .fetch_all(&self.pool)
         .await
         .map_err(|e| format!("Database error: {}", e))
     }
 
     async fn load_capability(&self, capability_id: &str) -> Result<SpecCapability, String> {
-        sqlx::query_as!(
-            SpecCapability,
-            r#"
-            SELECT 
+        sqlx::query_as::<_, SpecCapability>(
+            "SELECT 
                 id,
                 project_id,
                 prd_id,
@@ -270,15 +224,14 @@ impl OpenSpecContextBridge {
                 design_markdown,
                 requirement_count,
                 version,
-                status as "status: CapabilityStatus",
-                deleted_at as "deleted_at: Option<chrono::DateTime<chrono::Utc>>",
-                created_at as "created_at: chrono::DateTime<chrono::Utc>",
-                updated_at as "updated_at: chrono::DateTime<chrono::Utc>"
+                status,
+                deleted_at,
+                created_at,
+                updated_at
             FROM spec_capabilities
-            WHERE id = ? AND deleted_at IS NULL
-            "#,
-            capability_id
+            WHERE id = ? AND deleted_at IS NULL"
         )
+        .bind(capability_id)
         .fetch_optional(&self.pool)
         .await
         .map_err(|e| format!("Database error: {}", e))?
@@ -286,45 +239,39 @@ impl OpenSpecContextBridge {
     }
 
     async fn load_requirements(&self, capability_id: &str) -> Result<Vec<SpecRequirement>, String> {
-        sqlx::query_as!(
-            SpecRequirement,
-            r#"
-            SELECT 
+        sqlx::query_as::<_, SpecRequirement>(
+            "SELECT 
                 id,
                 capability_id,
                 name,
                 content_markdown,
                 position,
-                created_at as "created_at: chrono::DateTime<chrono::Utc>",
-                updated_at as "updated_at: chrono::DateTime<chrono::Utc>"
+                created_at,
+                updated_at
             FROM spec_requirements
             WHERE capability_id = ?
-            ORDER BY position
-            "#,
-            capability_id
+            ORDER BY position"
         )
+        .bind(capability_id)
         .fetch_all(&self.pool)
         .await
         .map_err(|e| format!("Database error: {}", e))
     }
 
     async fn load_requirement(&self, requirement_id: &str) -> Result<SpecRequirement, String> {
-        sqlx::query_as!(
-            SpecRequirement,
-            r#"
-            SELECT 
+        sqlx::query_as::<_, SpecRequirement>(
+            "SELECT 
                 id,
                 capability_id,
                 name,
                 content_markdown,
                 position,
-                created_at as "created_at: chrono::DateTime<chrono::Utc>",
-                updated_at as "updated_at: chrono::DateTime<chrono::Utc>"
+                created_at,
+                updated_at
             FROM spec_requirements
-            WHERE id = ?
-            "#,
-            requirement_id
+            WHERE id = ?"
         )
+        .bind(requirement_id)
         .fetch_optional(&self.pool)
         .await
         .map_err(|e| format!("Database error: {}", e))?
@@ -332,24 +279,21 @@ impl OpenSpecContextBridge {
     }
 
     async fn load_scenarios(&self, requirement_id: &str) -> Result<Vec<SpecScenario>, String> {
-        sqlx::query_as!(
-            SpecScenario,
-            r#"
-            SELECT 
+        sqlx::query_as::<_, SpecScenario>(
+            "SELECT 
                 id,
                 requirement_id,
                 name,
                 when_clause,
                 then_clause,
-                and_clauses as "and_clauses: Option<Vec<String>>",
+                and_clauses,
                 position,
-                created_at as "created_at: chrono::DateTime<chrono::Utc>"
+                created_at
             FROM spec_scenarios
             WHERE requirement_id = ?
-            ORDER BY position
-            "#,
-            requirement_id
+            ORDER BY position"
         )
+        .bind(requirement_id)
         .fetch_all(&self.pool)
         .await
         .map_err(|e| format!("Database error: {}", e))

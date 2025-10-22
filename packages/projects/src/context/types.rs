@@ -9,10 +9,10 @@ pub struct ContextConfiguration {
     pub project_id: String,
     pub name: String,
     pub description: Option<String>,
-    #[sqlx(default)]
+    #[sqlx(json)]
     #[serde(default)]
     pub include_patterns: Vec<String>,
-    #[sqlx(default)]
+    #[sqlx(json)]
     #[serde(default)]
     pub exclude_patterns: Vec<String>,
     pub max_tokens: i32,

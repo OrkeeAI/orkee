@@ -7,11 +7,12 @@ CREATE TABLE context_configurations (
     project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
     name TEXT NOT NULL,
     description TEXT,
-    include_patterns TEXT DEFAULT '[]',  -- JSON array: ["src/**/*.ts", "lib/**/*.js"]
-    exclude_patterns TEXT DEFAULT '[]',  -- JSON array: ["node_modules", "*.test.ts"]
-    max_tokens INTEGER DEFAULT 100000,
-    created_at TEXT DEFAULT (datetime('now')),
-    updated_at TEXT DEFAULT (datetime('now'))
+    include_patterns TEXT NOT NULL DEFAULT '[]',  -- JSON array: ["src/**/*.ts", "lib/**/*.js"]
+    exclude_patterns TEXT NOT NULL DEFAULT '[]',  -- JSON array: ["node_modules", "*.test.ts"]
+    max_tokens INTEGER NOT NULL DEFAULT 100000,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+    spec_capability_id TEXT REFERENCES spec_capabilities(id) ON DELETE SET NULL
 );
 
 -- Store generated context snapshots
@@ -20,10 +21,10 @@ CREATE TABLE context_snapshots (
     configuration_id TEXT REFERENCES context_configurations(id) ON DELETE SET NULL,
     project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
     content TEXT NOT NULL,  -- The actual generated context
-    file_count INTEGER,
-    total_tokens INTEGER,
-    metadata TEXT,  -- JSON object with file list, generation time, etc.
-    created_at TEXT DEFAULT (datetime('now'))
+    file_count INTEGER NOT NULL DEFAULT 0,
+    total_tokens INTEGER NOT NULL DEFAULT 0,
+    metadata TEXT NOT NULL DEFAULT '{}',  -- JSON object with file list, generation time, etc.
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
 -- Track which files/folders users commonly include
@@ -31,8 +32,8 @@ CREATE TABLE context_usage_patterns (
     id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
     project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
     file_path TEXT NOT NULL,
-    inclusion_count INTEGER DEFAULT 0,
-    last_used TEXT DEFAULT (datetime('now')),
+    inclusion_count INTEGER NOT NULL DEFAULT 0,
+    last_used TEXT NOT NULL DEFAULT (datetime('now')),
     UNIQUE(project_id, file_path) ON CONFLICT REPLACE
 );
 

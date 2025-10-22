@@ -18,6 +18,7 @@ tower = { version = "0.4", features = ["limit", "util", "timeout"] }
 governor = "0.6"
 dotenvy = "0.15"
 tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 thiserror = "2.0"
 anyhow = "1.0"
 orkee-config = { path = "../config" }

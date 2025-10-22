@@ -840,6 +840,35 @@ impl TrayManager {
         });
     }
 
+    async fn wait_for_backend_ready(&self) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        let mut attempt = 0;
+        let max_attempts = 30; // 30 seconds max wait with 1s intervals
+
+        loop {
+            attempt += 1;
+            let url = format!("http://{}:{}/api/health", get_api_host(), self.api_port);
+
+            match self.http_client.get(&url).send().await {
+                Ok(response) if response.status().is_success() => {
+                    info!("Backend health check successful after {} attempts", attempt);
+                    return Ok(());
+                }
+                Ok(response) => {
+                    debug!("Backend health check attempt {}: HTTP {} (retrying...)", attempt, response.status());
+                }
+                Err(e) => {
+                    debug!("Backend health check attempt {}: {} (retrying...)", attempt, e);
+                }
+            }
+
+            if attempt >= max_attempts {
+                return Err(format!("Backend failed to become ready after {} seconds", max_attempts).into());
+            }
+
+            tokio::time::sleep(Duration::from_secs(1)).await;
+        }
+    }
+
     pub fn start_server_polling(&self) {
         let app_handle = self.app_handle.clone();
         let tray_icon = self.tray_icon.clone();
@@ -847,6 +876,12 @@ impl TrayManager {
         let manager = self.clone();
 
         tauri::async_runtime::spawn(async move {
+            // Wait for backend to be ready before starting polling
+            if let Err(e) = manager.wait_for_backend_ready().await {
+                error!("Failed to wait for backend ready: {}", e);
+                return;
+            }
+
             let mut last_servers_hash: u64 = 0; // Cache hash of last server list
             let mut last_rebuild_time = std::time::Instant::now();
             let min_rebuild_interval = Duration::from_secs(MENU_REBUILD_DEBOUNCE_SECS);

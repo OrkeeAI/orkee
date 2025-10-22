@@ -104,7 +104,8 @@ impl HistoryService {
     ) -> Result<Vec<ContextSnapshot>, sqlx::Error> {
         let rows = sqlx::query!(
             r#"
-            SELECT id, project_id, content, file_count, total_tokens as token_count, 
+            SELECT id, project_id, content, CAST(file_count AS INTEGER) as "file_count!: i32", 
+                   CAST(total_tokens AS INTEGER) as "token_count!: i32", 
                    metadata, created_at
             FROM context_snapshots
             WHERE project_id = ?
@@ -121,9 +122,13 @@ impl HistoryService {
         for row in rows {
             let files_included: Vec<String> =
                 serde_json::from_str(&row.metadata).unwrap_or_default();
+            
+            let created_at = DateTime::parse_from_rfc3339(&row.created_at)
+                .map(|dt| dt.with_timezone(&Utc))
+                .unwrap_or_else(|_| Utc::now());
 
             snapshots.push(ContextSnapshot {
-                id: row.id,
+                id: row.id.unwrap_or_default(),
                 project_id: row.project_id,
                 content: row.content,
                 token_count: row.token_count,
@@ -132,7 +137,7 @@ impl HistoryService {
                 task_id: None,
                 task_success: None,
                 files_included,
-                created_at: row.created_at,
+                created_at,
             });
         }
 
@@ -146,7 +151,8 @@ impl HistoryService {
     ) -> Result<Option<ContextSnapshot>, sqlx::Error> {
         let row = sqlx::query!(
             r#"
-            SELECT id, project_id, content, file_count, total_tokens as token_count,
+            SELECT id, project_id, content, CAST(file_count AS INTEGER) as "file_count!: i32", 
+                   CAST(total_tokens AS INTEGER) as "token_count!: i32",
                    metadata, created_at
             FROM context_snapshots
             WHERE id = ?
@@ -158,9 +164,12 @@ impl HistoryService {
 
         Ok(row.map(|r| {
             let files_included: Vec<String> = serde_json::from_str(&r.metadata).unwrap_or_default();
+            let created_at = DateTime::parse_from_rfc3339(&r.created_at)
+                .map(|dt| dt.with_timezone(&Utc))
+                .unwrap_or_else(|_| Utc::now());
 
             ContextSnapshot {
-                id: r.id,
+                id: r.id.unwrap_or_default(),
                 project_id: r.project_id,
                 content: r.content,
                 token_count: r.token_count,
@@ -169,7 +178,7 @@ impl HistoryService {
                 task_id: None,
                 task_success: None,
                 files_included,
-                created_at: r.created_at,
+                created_at,
             }
         }))
     }
@@ -178,20 +187,19 @@ impl HistoryService {
     pub async fn get_stats(&self, project_id: &str) -> Result<ContextStats, sqlx::Error> {
         // Total contexts
         let total = sqlx::query_scalar!(
-            "SELECT COUNT(*) as count FROM context_snapshots WHERE project_id = ?",
+            "SELECT CAST(COUNT(*) AS INTEGER) FROM context_snapshots WHERE project_id = ?",
             project_id
         )
         .fetch_one(&self.pool)
         .await?;
 
         // Average tokens
-        let avg_tokens = sqlx::query_scalar!(
-            "SELECT AVG(CAST(total_tokens AS REAL)) as avg FROM context_snapshots WHERE project_id = ?",
-            project_id
+        let avg_tokens = sqlx::query_scalar::<_, f64>(
+            "SELECT COALESCE(AVG(CAST(total_tokens AS REAL)), 0.0) FROM context_snapshots WHERE project_id = ?"
         )
+        .bind(project_id)
         .fetch_one(&self.pool)
-        .await?
-        .unwrap_or(0.0);
+        .await?;
 
         // Success rate (placeholder - would need task tracking)
         let success_rate = self.calculate_success_rate(project_id).await?;
@@ -199,7 +207,7 @@ impl HistoryService {
         // Most used files
         let most_used = sqlx::query!(
             r#"
-            SELECT file_path, inclusion_count
+            SELECT file_path, CAST(inclusion_count AS INTEGER) as "inclusion_count!: i32"
             FROM context_usage_patterns
             WHERE project_id = ?
             ORDER BY inclusion_count DESC
@@ -237,13 +245,13 @@ impl HistoryService {
         let rows = sqlx::query!(
             r#"
             SELECT
-                DATE(created_at) as date,
-                SUM(total_tokens) as tokens
+                DATE(created_at) as "date: String",
+                CAST(SUM(total_tokens) AS INTEGER) as "tokens!: i32"
             FROM context_snapshots
             WHERE project_id = ?
             AND created_at > datetime('now', '-30 days')
             GROUP BY DATE(created_at)
-            ORDER BY date
+            ORDER BY DATE(created_at)
             "#,
             project_id
         )
@@ -254,7 +262,7 @@ impl HistoryService {
             .into_iter()
             .map(|r| TokenUsage {
                 date: r.date.unwrap_or_default(),
-                tokens: r.tokens.unwrap_or(0) as i32,
+                tokens: r.tokens as i32,
             })
             .collect())
     }

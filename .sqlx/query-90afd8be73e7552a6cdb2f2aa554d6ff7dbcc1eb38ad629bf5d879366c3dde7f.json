@@ -1,0 +1,62 @@
+{
+  "db_name": "SQLite",
+  "query": "\n            SELECT \n                id,\n                requirement_id,\n                name,\n                when_clause,\n                then_clause,\n                and_clauses as \"and_clauses: Option<Vec<String>>\",\n                CAST(position AS INTEGER) as \"position!: i32\",\n                created_at as \"created_at!: chrono::DateTime<chrono::Utc>\"\n            FROM spec_scenarios\n            WHERE requirement_id = ?\n            ORDER BY position\n            ",
+  "describe": {
+    "columns": [
+      {
+        "name": "id",
+        "ordinal": 0,
+        "type_info": "Text"
+      },
+      {
+        "name": "requirement_id",
+        "ordinal": 1,
+        "type_info": "Text"
+      },
+      {
+        "name": "name",
+        "ordinal": 2,
+        "type_info": "Text"
+      },
+      {
+        "name": "when_clause",
+        "ordinal": 3,
+        "type_info": "Text"
+      },
+      {
+        "name": "then_clause",
+        "ordinal": 4,
+        "type_info": "Text"
+      },
+      {
+        "name": "and_clauses: Option<Vec<String>>",
+        "ordinal": 5,
+        "type_info": "Text"
+      },
+      {
+        "name": "position!: i32",
+        "ordinal": 6,
+        "type_info": "Null"
+      },
+      {
+        "name": "created_at!: chrono::DateTime<chrono::Utc>",
+        "ordinal": 7,
+        "type_info": "Datetime"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      true,
+      false,
+      false,
+      false,
+      false,
+      true,
+      null,
+      true
+    ]
+  },
+  "hash": "90afd8be73e7552a6cdb2f2aa554d6ff7dbcc1eb38ad629bf5d879366c3dde7f"
+}

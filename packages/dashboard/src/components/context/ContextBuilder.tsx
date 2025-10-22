@@ -71,16 +71,18 @@ export function ContextBuilder({ projectId, onContextGenerated }: ContextBuilder
       });
 
       if (!response.ok) {
-        throw new Error('Failed to load files');
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `HTTP ${response.status}: Failed to load files`);
       }
 
       const data = await response.json();
-      setFiles(data.files || []);
+      console.log('Loaded files:', data.files?.length || 0, 'files');
       
       // Build file tree from flat list
       const tree = buildFileTree(data.files || []);
       setFileTree(tree);
     } catch (error) {
+      console.error('Error loading files:', error);
       toast({
         title: 'Error loading files',
         description: error instanceof Error ? error.message : 'Failed to load project files',

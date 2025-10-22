@@ -119,14 +119,16 @@ pub async fn generate_context(
     let metadata_json = serde_json::to_string(&metadata).unwrap_or_default();
 
     let snapshot_id = nanoid::nanoid!(16);
+    let file_count_i32 = file_count as i32;
+    let total_tokens_i32 = total_tokens as i32;
     sqlx::query!(
         "INSERT INTO context_snapshots (id, project_id, content, file_count, total_tokens, metadata)
          VALUES (?, ?, ?, ?, ?, ?)",
         snapshot_id,
         project_id,
         context_content,
-        file_count as i32,
-        total_tokens as i32,
+        file_count_i32,
+        total_tokens_i32,
         metadata_json
     )
     .execute(&db.pool)
@@ -143,13 +145,14 @@ pub async fn generate_context(
 
     // 7. Update usage patterns
     for file_path in &files_included {
+        let pattern_id = nanoid::nanoid!(16);
         let _ = sqlx::query!(
             "INSERT INTO context_usage_patterns (id, project_id, file_path, inclusion_count, last_used)
              VALUES (?, ?, ?, 1, datetime('now'))
              ON CONFLICT(project_id, file_path) DO UPDATE SET
                 inclusion_count = inclusion_count + 1,
                 last_used = datetime('now')",
-            nanoid::nanoid!(16),
+            pattern_id,
             project_id,
             file_path
         )
@@ -157,7 +160,7 @@ pub async fn generate_context(
         .await;
     }
 
-    Ok(Json(GeneratedContext {
+    Ok::<_, (StatusCode, Json<serde_json::Value>)>(Json(GeneratedContext {
         content: context_content,
         file_count,
         total_tokens,
@@ -309,25 +312,23 @@ pub async fn list_configurations(
 ) -> Result<Json<Vec<ContextConfiguration>>, impl IntoResponse> {
     info!("Listing configurations for project: {}", project_id);
 
-    let configs = sqlx::query_as!(
-        ContextConfiguration,
-        r#"
-        SELECT 
+    let configs = sqlx::query_as::<_, ContextConfiguration>(
+        "SELECT 
             id,
             project_id,
             name,
             description,
-            include_patterns as "include_patterns: Vec<String>",
-            exclude_patterns as "exclude_patterns: Vec<String>",
+            include_patterns,
+            exclude_patterns,
             max_tokens,
-            created_at as "created_at: chrono::DateTime<chrono::Utc>",
-            updated_at as "updated_at: chrono::DateTime<chrono::Utc>"
+            created_at,
+            updated_at,
+            spec_capability_id
         FROM context_configurations
         WHERE project_id = ?
-        ORDER BY updated_at DESC
-        "#,
-        project_id
+        ORDER BY updated_at DESC"
     )
+    .bind(&project_id)
     .fetch_all(&db.pool)
     .await
     .map_err(|e| {
@@ -340,7 +341,7 @@ pub async fn list_configurations(
         )
     })?;
 
-    Ok(Json(configs))
+    Ok::<_, (StatusCode, Json<serde_json::Value>)>(Json(configs))
 }
 
 /// Save a context configuration
@@ -382,24 +383,22 @@ pub async fn save_configuration(
     })?;
 
     // Fetch the created configuration
-    let saved_config = sqlx::query_as!(
-        ContextConfiguration,
-        r#"
-        SELECT 
+    let saved_config = sqlx::query_as::<_, ContextConfiguration>(
+        "SELECT 
             id,
             project_id,
             name,
             description,
-            include_patterns as "include_patterns: Vec<String>",
-            exclude_patterns as "exclude_patterns: Vec<String>",
+            include_patterns,
+            exclude_patterns,
             max_tokens,
-            created_at as "created_at: chrono::DateTime<chrono::Utc>",
-            updated_at as "updated_at: chrono::DateTime<chrono::Utc>"
+            created_at,
+            updated_at,
+            spec_capability_id
         FROM context_configurations
-        WHERE id = ?
-        "#,
-        config_id
+        WHERE id = ?"
     )
+    .bind(&config_id)
     .fetch_one(&db.pool)
     .await
     .map_err(|e| {
@@ -412,7 +411,7 @@ pub async fn save_configuration(
         )
     })?;
 
-    Ok(Json(saved_config))
+    Ok::<_, (StatusCode, Json<serde_json::Value>)>(Json(saved_config))
 }
 
 /// Request body for generating context from PRD
@@ -480,7 +479,7 @@ pub async fn generate_prd_context(
         total_tokens,
         files_included: vec![],
         truncated: false,
-    }))
+    })) as Result<Json<GeneratedContext>, (StatusCode, Json<serde_json::Value>)>
 }
 
 /// Request body for generating context from task
@@ -548,7 +547,7 @@ pub async fn generate_task_context(
         total_tokens,
         files_included: vec![],
         truncated: false,
-    }))
+    })) as Result<Json<GeneratedContext>, (StatusCode, Json<serde_json::Value>)>
 }
 
 /// Request body for validating spec implementation
@@ -562,7 +561,7 @@ pub async fn validate_spec(
     Path(project_id): Path<String>,
     State(db): State<DbState>,
     Json(request): Json<ValidateSpecRequest>,
-) -> Result<impl IntoResponse, impl IntoResponse> {
+) -> Result<Json<crate::context::openspec_bridge::SpecValidationReport>, impl IntoResponse> {
     info!(
         "Validating spec for project: {}, capability: {}",
         project_id, request.capability_id
@@ -608,7 +607,7 @@ pub async fn validate_spec(
             )
         })?;
 
-    Ok(Json(report))
+    Ok::<_, (StatusCode, Json<serde_json::Value>)>(Json(report))
 }
 
 /// Get context history for a project
@@ -624,8 +623,8 @@ pub async fn get_context_history(
             id,
             project_id,
             content,
-            file_count,
-            total_tokens,
+            CAST(file_count AS INTEGER) as "file_count!: i32",
+            CAST(total_tokens AS INTEGER) as "total_tokens!: i32",
             metadata,
             created_at
         FROM context_snapshots
@@ -661,7 +660,7 @@ pub async fn get_context_history(
         })
         .collect();
 
-    Ok(Json(serde_json::json!({
+    Ok::<_, (StatusCode, Json<serde_json::Value>)>(Json(serde_json::json!({
         "snapshots": history
     })))
 }
@@ -675,7 +674,7 @@ pub async fn get_context_stats(
 
     // Get snapshot count
     let snapshot_count = sqlx::query!(
-        "SELECT COUNT(*) as count FROM context_snapshots WHERE project_id = ?",
+        "SELECT CAST(COUNT(*) AS INTEGER) as \"count!: i32\" FROM context_snapshots WHERE project_id = ?",
         project_id
     )
     .fetch_one(&db.pool)
@@ -693,7 +692,7 @@ pub async fn get_context_stats(
     // Get most used files
     let most_used = sqlx::query!(
         r#"
-        SELECT file_path, inclusion_count, last_used
+        SELECT file_path, CAST(inclusion_count AS INTEGER) as "inclusion_count!: i32", last_used
         FROM context_usage_patterns
         WHERE project_id = ?
         ORDER BY inclusion_count DESC
@@ -713,15 +712,17 @@ pub async fn get_context_stats(
         )
     })?;
 
-    Ok(Json(serde_json::json!({
+    let most_used_files: Vec<serde_json::Value> = most_used.iter().map(|f| {
+        serde_json::json!({
+            "path": f.file_path,
+            "inclusion_count": f.inclusion_count,
+            "last_used": f.last_used
+        })
+    }).collect();
+
+    Ok::<_, (StatusCode, Json<serde_json::Value>)>(Json(serde_json::json!({
         "total_snapshots": snapshot_count.count,
-        "most_used_files": most_used.iter().map(|f| {
-            serde_json::json!({
-                "path": f.file_path,
-                "inclusion_count": f.inclusion_count,
-                "last_used": f.last_used
-            })
-        }).collect::<Vec<_>>()
+        "most_used_files": most_used_files,
     })))
 }
 
@@ -749,8 +750,8 @@ pub async fn restore_context_snapshot(
             id,
             project_id,
             content,
-            file_count,
-            total_tokens,
+            CAST(file_count AS INTEGER) as "file_count!: i32",
+            CAST(total_tokens AS INTEGER) as "total_tokens!: i32",
             metadata
         FROM context_snapshots
         WHERE id = ? AND project_id = ?
@@ -786,7 +787,7 @@ pub async fn restore_context_snapshot(
             git_commit: None,
         });
 
-    Ok(Json(GeneratedContext {
+    Ok::<_, (StatusCode, Json<serde_json::Value>)>(Json(GeneratedContext {
         content: snapshot.content,
         file_count: snapshot.file_count as usize,
         total_tokens: snapshot.total_tokens as usize,
