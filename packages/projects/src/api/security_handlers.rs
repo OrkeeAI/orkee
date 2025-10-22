@@ -26,6 +26,7 @@ fn validate_password(password: &str) -> Result<(), String> {
 
 /// Security status response
 #[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct SecurityStatusResponse {
     pub encryption_mode: String,
     pub is_locked: bool,
@@ -100,6 +101,7 @@ pub struct KeyStatus {
 
 /// Keys status response
 #[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct KeysStatusResponse {
     pub keys: Vec<KeyStatus>,
 }
@@ -207,7 +209,7 @@ pub async fn set_password(
     // This requires more complex database operations
     let response = serde_json::json!({
         "message": "Password management not yet implemented in API",
-        "encryption_mode": "machine"
+        "encryptionMode": "machine"
     });
 
     ok_or_internal_error::<serde_json::Value, sqlx::Error>(
@@ -218,6 +220,7 @@ pub async fn set_password(
 
 /// Request body for changing password
 #[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ChangePasswordRequest {
     pub current_password: String,
     pub new_password: String,
@@ -243,7 +246,7 @@ pub async fn change_password(
     // TODO: Implement password change functionality
     let response = serde_json::json!({
         "message": "Password management not yet implemented in API",
-        "encryption_mode": "machine"
+        "encryptionMode": "machine"
     });
 
     ok_or_internal_error::<serde_json::Value, sqlx::Error>(
@@ -262,7 +265,7 @@ pub async fn remove_password(
     // TODO: Implement password removal functionality
     let response = serde_json::json!({
         "message": "Password management not yet implemented in API",
-        "encryption_mode": "machine"
+        "encryptionMode": "machine"
     });
 
     ok_or_internal_error::<serde_json::Value, sqlx::Error>(

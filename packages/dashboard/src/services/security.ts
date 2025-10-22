@@ -15,7 +15,6 @@ export interface KeyStatus {
   key: string;
   configured: boolean;
   source: 'database' | 'environment' | 'none';
-  lastUpdated?: string;
 }
 
 export interface KeysStatusResponse {
@@ -77,7 +76,7 @@ export class SecurityService {
    * Set password to enable password-based encryption
    */
   async setPassword(password: string): Promise<{ message: string; encryptionMode: string }> {
-    const result = await apiRequest<ApiResponse<{ message: string; encryption_mode: string }>>('/api/security/set-password', {
+    const result = await apiRequest<ApiResponse<{ message: string; encryptionMode: string }>>('/api/security/set-password', {
       method: 'POST',
       body: JSON.stringify({ password }),
     });
@@ -94,21 +93,18 @@ export class SecurityService {
       throw new Error('No response data returned');
     }
 
-    return {
-      message: result.data.data.message,
-      encryptionMode: result.data.data.encryption_mode,
-    };
+    return result.data.data;
   }
 
   /**
    * Change encryption password
    */
   async changePassword(currentPassword: string, newPassword: string): Promise<{ message: string; encryptionMode: string }> {
-    const result = await apiRequest<ApiResponse<{ message: string; encryption_mode: string }>>('/api/security/change-password', {
+    const result = await apiRequest<ApiResponse<{ message: string; encryptionMode: string }>>('/api/security/change-password', {
       method: 'POST',
       body: JSON.stringify({
-        current_password: currentPassword,
-        new_password: newPassword,
+        currentPassword,
+        newPassword,
       }),
     });
 
@@ -124,17 +120,14 @@ export class SecurityService {
       throw new Error('No response data returned');
     }
 
-    return {
-      message: result.data.data.message,
-      encryptionMode: result.data.data.encryption_mode,
-    };
+    return result.data.data;
   }
 
   /**
    * Remove password-based encryption (downgrade to machine-based)
    */
   async removePassword(): Promise<{ message: string; encryptionMode: string }> {
-    const result = await apiRequest<ApiResponse<{ message: string; encryption_mode: string }>>('/api/security/remove-password', {
+    const result = await apiRequest<ApiResponse<{ message: string; encryptionMode: string }>>('/api/security/remove-password', {
       method: 'POST',
     });
 
@@ -150,10 +143,7 @@ export class SecurityService {
       throw new Error('No response data returned');
     }
 
-    return {
-      message: result.data.data.message,
-      encryptionMode: result.data.data.encryption_mode,
-    };
+    return result.data.data;
   }
 }
 
