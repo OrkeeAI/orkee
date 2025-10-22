@@ -68,17 +68,14 @@ pub async fn generate_context(
     let mut files_included = Vec::new();
 
     // Add header
-    context_content.push_str(&format!(
-        "# Context for Project: {}\n\n",
-        project.name
-    ));
+    context_content.push_str(&format!("# Context for Project: {}\n\n", project.name));
     context_content.push_str(&format!("Project Root: {}\n\n", project.project_root));
     context_content.push_str("---\n\n");
 
     // 3. Process each included file/pattern
     for pattern in &request.include_patterns {
         let file_path = project_path.join(pattern);
-        
+
         if file_path.exists() && file_path.is_file() {
             match fs::read_to_string(&file_path) {
                 Ok(content) => {
@@ -87,7 +84,7 @@ pub async fn generate_context(
                     context_content.push_str("```\n");
                     context_content.push_str(&content);
                     context_content.push_str("\n```\n\n");
-                    
+
                     file_count += 1;
                     files_included.push(pattern.clone());
                 }
@@ -104,7 +101,7 @@ pub async fn generate_context(
     // 5. Check if truncated
     let max_tokens = request.max_tokens.unwrap_or(100000) as usize;
     let truncated = total_tokens > max_tokens;
-    
+
     if truncated {
         // Truncate content to max tokens
         let max_chars = max_tokens * 4;
@@ -118,9 +115,9 @@ pub async fn generate_context(
         generation_time_ms: 0, // TODO: Track actual generation time
         git_commit: None,      // TODO: Get current git commit
     };
-    
+
     let metadata_json = serde_json::to_string(&metadata).unwrap_or_default();
-    
+
     let snapshot_id = nanoid::nanoid!(16);
     sqlx::query!(
         "INSERT INTO context_snapshots (id, project_id, content, file_count, total_tokens, metadata)
@@ -203,7 +200,7 @@ pub async fn list_project_files(
     })?;
 
     let project_path = PathBuf::from(&project.project_root);
-    
+
     if !project_path.exists() {
         return Err((
             StatusCode::NOT_FOUND,
@@ -216,7 +213,7 @@ pub async fn list_project_files(
     // Walk directory and collect files
     let mut files = Vec::new();
     let max_depth = query.max_depth.unwrap_or(10);
-    
+
     if let Err(e) = walk_directory(&project_path, &project_path, &mut files, 0, max_depth) {
         error!("Failed to walk directory: {}", e);
         return Err((
@@ -275,7 +272,7 @@ fn walk_directory(
             if name_str.starts_with('.') {
                 continue;
             }
-            
+
             // Skip common excluded directories
             if metadata.is_dir() && skip_dirs.contains(&name_str.as_ref()) {
                 continue;

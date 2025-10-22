@@ -40,6 +40,7 @@ export function ASTExplorer({ projectId, filePath, onSymbolsSelected }: ASTExplo
     if (filePath) {
       loadSymbols();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filePath, projectId]);
 
   const loadSymbols = async () => {

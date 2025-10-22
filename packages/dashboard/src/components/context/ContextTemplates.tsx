@@ -177,7 +177,7 @@ export function ContextTemplates({ projectId, onTemplateApplied }: ContextTempla
                   <SelectValue placeholder={specsLoading ? "Loading specs..." : "Select a spec capability"} />
                 </SelectTrigger>
                 <SelectContent>
-                  {specs.map((spec: any) => (
+                  {specs.map((spec: { id: string; name: string }) => (
                     <SelectItem key={spec.id} value={spec.id}>
                       {spec.name}
                     </SelectItem>
@@ -196,7 +196,7 @@ export function ContextTemplates({ projectId, onTemplateApplied }: ContextTempla
                   <SelectValue placeholder={prdsLoading ? "Loading PRDs..." : "Select a PRD"} />
                 </SelectTrigger>
                 <SelectContent>
-                  {prds.map((prd: any) => (
+                  {prds.map((prd: { id: string; title: string }) => (
                     <SelectItem key={prd.id} value={prd.id}>
                       {prd.title}
                     </SelectItem>

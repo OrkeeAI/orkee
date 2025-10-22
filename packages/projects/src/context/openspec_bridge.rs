@@ -3,7 +3,7 @@
 
 use crate::context::spec_context::SpecContextBuilder;
 use crate::context::types::Symbol;
-use crate::openspec::types::{PRD, SpecCapability, SpecRequirement, SpecScenario};
+use crate::openspec::types::{SpecCapability, SpecRequirement, SpecScenario, PRD};
 use sqlx::SqlitePool;
 use std::collections::HashMap;
 use tracing::{error, info};
@@ -171,7 +171,10 @@ impl OpenSpecContextBridge {
 
             let status = if implementations.is_empty() {
                 RequirementStatus::NotImplemented
-            } else if self.validates_scenarios(&requirement, &implementations).await {
+            } else if self
+                .validates_scenarios(&requirement, &implementations)
+                .await
+            {
                 RequirementStatus::Implemented
             } else {
                 RequirementStatus::PartiallyImplemented
@@ -222,10 +225,7 @@ impl OpenSpecContextBridge {
         .ok_or_else(|| "PRD not found".to_string())
     }
 
-    async fn load_capabilities_for_prd(
-        &self,
-        prd_id: &str,
-    ) -> Result<Vec<SpecCapability>, String> {
+    async fn load_capabilities_for_prd(&self, prd_id: &str) -> Result<Vec<SpecCapability>, String> {
         sqlx::query_as!(
             SpecCapability,
             r#"
@@ -283,10 +283,7 @@ impl OpenSpecContextBridge {
         .ok_or_else(|| "Capability not found".to_string())
     }
 
-    async fn load_requirements(
-        &self,
-        capability_id: &str,
-    ) -> Result<Vec<SpecRequirement>, String> {
+    async fn load_requirements(&self, capability_id: &str) -> Result<Vec<SpecRequirement>, String> {
         sqlx::query_as!(
             SpecRequirement,
             r#"
@@ -332,10 +329,7 @@ impl OpenSpecContextBridge {
         .ok_or_else(|| "Requirement not found".to_string())
     }
 
-    async fn load_scenarios(
-        &self,
-        requirement_id: &str,
-    ) -> Result<Vec<SpecScenario>, String> {
+    async fn load_scenarios(&self, requirement_id: &str) -> Result<Vec<SpecScenario>, String> {
         sqlx::query_as!(
             SpecScenario,
             r#"
@@ -368,7 +362,7 @@ impl OpenSpecContextBridge {
         // For now, return common test file patterns
         use std::path::PathBuf;
         let project_path = PathBuf::from(project_root);
-        
+
         let test_patterns = vec![
             "**/*.test.ts",
             "**/*.test.js",

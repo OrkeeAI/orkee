@@ -1,5 +1,7 @@
 use crate::context::ast_analyzer::{Symbol, SymbolKind};
-use crate::context::language_support::{LanguageConfig, LANGUAGE_CONFIGS, estimate_tokens, remove_comments};
+use crate::context::language_support::{
+    estimate_tokens, remove_comments, LanguageConfig, LANGUAGE_CONFIGS,
+};
 use std::collections::HashMap;
 
 pub struct ContextFormatter {
@@ -41,7 +43,7 @@ impl ContextFormatter {
         if self.group_by_language {
             // Group files by language
             let mut by_language: HashMap<String, Vec<ParsedFileInfo>> = HashMap::new();
-            
+
             for file in files {
                 by_language
                     .entry(file.language.clone())
@@ -53,7 +55,7 @@ impl ContextFormatter {
             for (language, files) in by_language {
                 let config = LANGUAGE_CONFIGS.get(&language);
                 let lang_name = config.map(|c| c.name.as_str()).unwrap_or(&language);
-                
+
                 output.push_str(&format!("\n## {} Files\n\n", lang_name));
 
                 for file in files {
@@ -85,7 +87,7 @@ impl ContextFormatter {
 
         // File header
         output.push_str(&format!("\n### File: `{}`\n\n", file.path));
-        
+
         let config = LANGUAGE_CONFIGS.get(&file.language);
         if let Some(cfg) = config {
             output.push_str(&format!("**Language**: {}\n\n", cfg.name));
@@ -98,10 +100,7 @@ impl ContextFormatter {
                 let icon = self.get_symbol_icon(&symbol.kind);
                 output.push_str(&format!(
                     "- {} **`{}`** (lines {}-{})\n",
-                    icon,
-                    symbol.name,
-                    symbol.line_start,
-                    symbol.line_end
+                    icon, symbol.name, symbol.line_start, symbol.line_end
                 ));
             }
             output.push('\n');
@@ -154,6 +153,9 @@ impl ContextFormatter {
             SymbolKind::Trait => "T",
             SymbolKind::Variable => "v",
             SymbolKind::Field => "v",
+            SymbolKind::Import => "→",
+            SymbolKind::Export => "←",
+            SymbolKind::Module => "M",
             SymbolKind::Unknown => "?",
         }
     }
@@ -190,16 +192,22 @@ pub fn create_summary_context(files: Vec<ParsedFileInfo>) -> FormattedContext {
     };
 
     // Strip content from files for summary
-    let summary_files: Vec<ParsedFileInfo> = files.into_iter().map(|mut f| {
-        f.content = None;
-        f
-    }).collect();
+    let summary_files: Vec<ParsedFileInfo> = files
+        .into_iter()
+        .map(|mut f| {
+            f.content = None;
+            f
+        })
+        .collect();
 
     formatter.format_context(summary_files)
 }
 
 /// Create a detailed context (with full file content)
-pub fn create_detailed_context(files: Vec<ParsedFileInfo>, include_comments: bool) -> FormattedContext {
+pub fn create_detailed_context(
+    files: Vec<ParsedFileInfo>,
+    include_comments: bool,
+) -> FormattedContext {
     let formatter = ContextFormatter {
         include_imports: true,
         include_comments,
@@ -227,10 +235,13 @@ pub fn optimize_context_for_tokens(
     }
 
     // Try summary only (no content)
-    let summary_files: Vec<ParsedFileInfo> = current_files.into_iter().map(|mut f| {
-        f.content = None;
-        f
-    }).collect();
+    let summary_files: Vec<ParsedFileInfo> = current_files
+        .into_iter()
+        .map(|mut f| {
+            f.content = None;
+            f
+        })
+        .collect();
 
     result = formatter.format_context(summary_files.clone());
 
@@ -240,12 +251,15 @@ pub fn optimize_context_for_tokens(
 
     // Last resort: truncate files
     let available_per_file = max_tokens / summary_files.len().max(1);
-    let truncated_files: Vec<ParsedFileInfo> = summary_files.into_iter().map(|mut f| {
-        if f.symbols.len() > available_per_file / 10 {
-            f.symbols.truncate(available_per_file / 10);
-        }
-        f
-    }).collect();
+    let truncated_files: Vec<ParsedFileInfo> = summary_files
+        .into_iter()
+        .map(|mut f| {
+            if f.symbols.len() > available_per_file / 10 {
+                f.symbols.truncate(available_per_file / 10);
+            }
+            f
+        })
+        .collect();
 
     formatter.format_context(truncated_files)
 }
@@ -257,26 +271,24 @@ mod tests {
     #[test]
     fn test_format_file() {
         let formatter = ContextFormatter::new();
-        
+
         let file = ParsedFileInfo {
             path: "test.ts".to_string(),
             language: "typescript".to_string(),
-            symbols: vec![
-                Symbol {
-                    name: "testFunction".to_string(),
-                    kind: SymbolKind::Function,
-                    line_start: 1,
-                    line_end: 5,
-                    children: vec![],
-                    doc_comment: None,
-                }
-            ],
+            symbols: vec![Symbol {
+                name: "testFunction".to_string(),
+                kind: SymbolKind::Function,
+                line_start: 1,
+                line_end: 5,
+                children: vec![],
+                doc_comment: None,
+            }],
             imports: vec!["import { foo } from './bar'".to_string()],
             content: Some("function testFunction() {\n  return true;\n}".to_string()),
         };
 
         let formatted = formatter.format_file(&file);
-        
+
         assert!(formatted.contains("test.ts"));
         assert!(formatted.contains("testFunction"));
         assert!(formatted.contains("TypeScript"));
@@ -284,18 +296,16 @@ mod tests {
 
     #[test]
     fn test_summary_context() {
-        let files = vec![
-            ParsedFileInfo {
-                path: "a.ts".to_string(),
-                language: "typescript".to_string(),
-                symbols: vec![],
-                imports: vec![],
-                content: Some("const x = 10;".to_string()),
-            }
-        ];
+        let files = vec![ParsedFileInfo {
+            path: "a.ts".to_string(),
+            language: "typescript".to_string(),
+            symbols: vec![],
+            imports: vec![],
+            content: Some("const x = 10;".to_string()),
+        }];
 
         let result = create_summary_context(files);
-        
+
         // Summary should not include content
         assert!(!result.content.contains("const x = 10"));
         assert!(result.content.contains("a.ts"));
@@ -304,7 +314,7 @@ mod tests {
     #[test]
     fn test_context_grouping() {
         let formatter = ContextFormatter::new();
-        
+
         let files = vec![
             ParsedFileInfo {
                 path: "a.ts".to_string(),
@@ -330,7 +340,7 @@ mod tests {
         ];
 
         let result = formatter.format_context(files);
-        
+
         // Should group by language
         assert!(result.content.contains("## TypeScript Files"));
         assert!(result.content.contains("## Rust Files"));

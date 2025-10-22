@@ -1,6 +1,6 @@
-use tree_sitter::{Parser, Language};
-use std::collections::HashMap;
 use lazy_static::lazy_static;
+use std::collections::HashMap;
+use tree_sitter::{Language, Parser};
 
 #[derive(Clone)]
 pub struct LanguageConfig {
@@ -90,22 +90,30 @@ impl MultiLanguageParser {
 
         // Initialize TypeScript parser
         let mut ts_parser = Parser::new();
-        ts_parser.set_language(tree_sitter_typescript::language_typescript()).unwrap();
+        ts_parser
+            .set_language(tree_sitter_typescript::language_typescript())
+            .unwrap();
         parsers.insert("typescript".to_string(), ts_parser);
 
         // Initialize JavaScript parser
         let mut js_parser = Parser::new();
-        js_parser.set_language(tree_sitter_javascript::language()).unwrap();
+        js_parser
+            .set_language(tree_sitter_javascript::language())
+            .unwrap();
         parsers.insert("javascript".to_string(), js_parser);
 
         // Initialize Rust parser
         let mut rust_parser = Parser::new();
-        rust_parser.set_language(tree_sitter_rust::language()).unwrap();
+        rust_parser
+            .set_language(tree_sitter_rust::language())
+            .unwrap();
         parsers.insert("rust".to_string(), rust_parser);
 
         // Initialize Python parser
         let mut python_parser = Parser::new();
-        python_parser.set_language(tree_sitter_python::language()).unwrap();
+        python_parser
+            .set_language(tree_sitter_python::language())
+            .unwrap();
         parsers.insert("python".to_string(), python_parser);
 
         Self { parsers }
@@ -143,9 +151,9 @@ impl MultiLanguageParser {
 
     /// Check if a file extension is supported
     pub fn is_supported_extension(ext: &str) -> bool {
-        LANGUAGE_CONFIGS.values().any(|config| {
-            config.file_extensions.contains(&ext)
-        })
+        LANGUAGE_CONFIGS
+            .values()
+            .any(|config| config.file_extensions.contains(&ext))
     }
 }
 
@@ -153,7 +161,7 @@ impl MultiLanguageParser {
 pub fn estimate_tokens(content: &str, language: &str) -> usize {
     let config = LANGUAGE_CONFIGS.get(language);
     let multiplier = config.map(|c| c.token_multiplier).unwrap_or(0.25);
-    
+
     (content.len() as f64 * multiplier) as usize
 }
 
@@ -192,7 +200,9 @@ pub fn remove_comments(content: &str, language: &str) -> String {
         }
 
         // Handle single-line comments
-        if !in_multi_line_comment && ch.to_string() + &chars.peek().unwrap_or(&' ').to_string() == config.comment_single {
+        if !in_multi_line_comment
+            && ch.to_string() + &chars.peek().unwrap_or(&' ').to_string() == config.comment_single
+        {
             in_single_line_comment = true;
             chars.next(); // Skip next char
             continue;
@@ -208,7 +218,10 @@ pub fn remove_comments(content: &str, language: &str) -> String {
 
         // Handle multi-line comments
         if !in_single_line_comment {
-            let next_chars: String = chars.clone().take(config.comment_multi_start.len() - 1).collect();
+            let next_chars: String = chars
+                .clone()
+                .take(config.comment_multi_start.len() - 1)
+                .collect();
             if ch.to_string() + &next_chars == config.comment_multi_start {
                 in_multi_line_comment = true;
                 for _ in 0..config.comment_multi_start.len() - 1 {
@@ -219,7 +232,10 @@ pub fn remove_comments(content: &str, language: &str) -> String {
         }
 
         if in_multi_line_comment {
-            let next_chars: String = chars.clone().take(config.comment_multi_end.len() - 1).collect();
+            let next_chars: String = chars
+                .clone()
+                .take(config.comment_multi_end.len() - 1)
+                .collect();
             if ch.to_string() + &next_chars == config.comment_multi_end {
                 in_multi_line_comment = false;
                 for _ in 0..config.comment_multi_end.len() - 1 {
@@ -254,7 +270,7 @@ pub fn analyze_language_stats(content: &str, language: &str) -> LanguageStats {
     let has_functions = match language {
         "typescript" | "javascript" => {
             content.contains("function ") || content.contains("const ") && content.contains("=>")
-        },
+        }
         "python" => content.contains("def "),
         "rust" => content.contains("fn "),
         "go" => content.contains("func "),
@@ -291,11 +307,20 @@ mod tests {
     #[test]
     fn test_language_detection() {
         let parser = MultiLanguageParser::new();
-        
-        assert_eq!(parser.detect_language("test.ts"), Some("typescript".to_string()));
-        assert_eq!(parser.detect_language("test.js"), Some("javascript".to_string()));
+
+        assert_eq!(
+            parser.detect_language("test.ts"),
+            Some("typescript".to_string())
+        );
+        assert_eq!(
+            parser.detect_language("test.js"),
+            Some("javascript".to_string())
+        );
         assert_eq!(parser.detect_language("test.rs"), Some("rust".to_string()));
-        assert_eq!(parser.detect_language("test.py"), Some("python".to_string()));
+        assert_eq!(
+            parser.detect_language("test.py"),
+            Some("python".to_string())
+        );
         assert_eq!(parser.detect_language("test.unknown"), None);
     }
 

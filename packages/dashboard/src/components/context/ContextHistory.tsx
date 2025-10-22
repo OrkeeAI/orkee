@@ -7,7 +7,7 @@ import {
   BarChart, Bar, LineChart, Line, XAxis, YAxis,
   CartesianGrid, Tooltip, ResponsiveContainer
 } from 'recharts';
-import { Clock, TrendingUp, FileText, Hash } from 'lucide-react';
+import { Clock, FileText, Hash } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 
 interface ContextSnapshot {
@@ -40,11 +40,11 @@ export function ContextHistory({ projectId }: ContextHistoryProps) {
   const [snapshots, setSnapshots] = useState<ContextSnapshot[]>([]);
   const [stats, setStats] = useState<UsageStats | null>(null);
   const [selectedSnapshot, setSelectedSnapshot] = useState<ContextSnapshot | null>(null);
-  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     loadHistory();
     loadStats();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId]);
 
   const loadHistory = async () => {
@@ -52,15 +52,13 @@ export function ContextHistory({ projectId }: ContextHistoryProps) {
       const response = await fetch(`/api/projects/${projectId}/context/history`);
       const data = await response.json();
       if (data.success) {
-        setSnapshots(data.data.snapshots.map((s: any) => ({
+        setSnapshots(data.data.snapshots.map((s: ContextSnapshot & { createdAt: string }) => ({
           ...s,
           createdAt: new Date(s.createdAt)
         })));
       }
     } catch (error) {
       console.error('Failed to load history:', error);
-    } finally {
-      setLoading(false);
     }
   };
 

@@ -59,12 +59,18 @@ impl DependencyGraph {
 
     /// Add an exported symbol
     pub fn add_export(&mut self, file: String, symbol: ExportedSymbol) {
-        self.exports.entry(file).or_insert_with(Vec::new).push(symbol);
+        self.exports
+            .entry(file)
+            .or_insert_with(Vec::new)
+            .push(symbol);
     }
 
     /// Add an imported symbol
     pub fn add_import(&mut self, file: String, symbol: ImportedSymbol) {
-        self.imports.entry(file).or_insert_with(Vec::new).push(symbol);
+        self.imports
+            .entry(file)
+            .or_insert_with(Vec::new)
+            .push(symbol);
     }
 
     /// Get all direct dependencies of a file
@@ -284,7 +290,7 @@ impl DependencyGraph {
     /// Get all files in the graph
     pub fn get_all_files(&self) -> Vec<String> {
         let mut files: HashSet<String> = self.edges.keys().cloned().collect();
-        
+
         // Also include files that are only dependencies (no outgoing edges)
         for deps in self.edges.values() {
             files.extend(deps.iter().cloned());
@@ -306,7 +312,7 @@ impl DependencyGraph {
         for file in self.edges.keys() {
             let deps = self.get_direct_dependencies(file);
             let dependents = self.get_dependents(file);
-            
+
             max_dependencies = max_dependencies.max(deps.len());
             max_dependents = max_dependents.max(dependents.len());
         }
@@ -334,10 +340,7 @@ impl DependencyGraph {
             has_incoming.extend(deps.iter().cloned());
         }
 
-        all_files
-            .difference(&has_incoming)
-            .cloned()
-            .collect()
+        all_files.difference(&has_incoming).cloned().collect()
     }
 
     /// Find all files that are not dependencies of any other file (leaf nodes)
@@ -380,7 +383,7 @@ mod tests {
     fn test_add_edge() {
         let mut graph = DependencyGraph::new();
         graph.add_edge("a.ts".to_string(), "b.ts".to_string());
-        
+
         let deps = graph.get_direct_dependencies("a.ts");
         assert_eq!(deps.len(), 1);
         assert!(deps.contains(&"b.ts".to_string()));
@@ -391,7 +394,7 @@ mod tests {
         let mut graph = DependencyGraph::new();
         graph.add_edge("a.ts".to_string(), "b.ts".to_string());
         graph.add_edge("b.ts".to_string(), "c.ts".to_string());
-        
+
         let deps = graph.get_all_dependencies("a.ts");
         assert_eq!(deps.len(), 2);
         assert!(deps.contains(&"b.ts".to_string()));
@@ -403,7 +406,7 @@ mod tests {
         let mut graph = DependencyGraph::new();
         graph.add_edge("a.ts".to_string(), "c.ts".to_string());
         graph.add_edge("b.ts".to_string(), "c.ts".to_string());
-        
+
         let dependents = graph.get_dependents("c.ts");
         assert_eq!(dependents.len(), 2);
         assert!(dependents.contains(&"a.ts".to_string()));
@@ -416,7 +419,7 @@ mod tests {
         graph.add_edge("a.ts".to_string(), "b.ts".to_string());
         graph.add_edge("b.ts".to_string(), "c.ts".to_string());
         graph.add_edge("c.ts".to_string(), "a.ts".to_string());
-        
+
         let cycles = graph.detect_cycles();
         assert!(!cycles.is_empty());
     }
@@ -426,7 +429,7 @@ mod tests {
         let mut graph = DependencyGraph::new();
         graph.add_edge("main.ts".to_string(), "utils.ts".to_string());
         graph.add_edge("utils.ts".to_string(), "helpers.ts".to_string());
-        
+
         let entry_points = graph.find_entry_points();
         assert!(entry_points.contains(&"main.ts".to_string()));
         assert!(!entry_points.contains(&"utils.ts".to_string()));

@@ -1,7 +1,7 @@
+use super::incremental_parser::{IncrementalParser, ParsedFile};
+use std::path::PathBuf;
 use tokio::sync::mpsc;
 use tokio::task::JoinSet;
-use std::path::PathBuf;
-use super::incremental_parser::{IncrementalParser, ParsedFile};
 
 /// Processes multiple files concurrently with controlled parallelism
 pub struct BatchProcessor {
@@ -16,7 +16,11 @@ impl BatchProcessor {
     }
 
     /// Process all files in a directory with concurrent parsing
-    pub async fn process_directory(&self, dir: PathBuf, file_extensions: &[&str]) -> Vec<ProcessedFileResult> {
+    pub async fn process_directory(
+        &self,
+        dir: PathBuf,
+        file_extensions: &[&str],
+    ) -> Vec<ProcessedFileResult> {
         let files = self.collect_files(&dir, file_extensions);
         self.process_files(files).await
     }
@@ -25,9 +29,13 @@ impl BatchProcessor {
     pub async fn process_files(&self, files: Vec<PathBuf>) -> Vec<ProcessedFileResult> {
         let (tx, mut rx) = mpsc::channel(100);
         let mut tasks = JoinSet::new();
-        
+
         let total_files = files.len();
-        tracing::info!("Processing {} files with max {} concurrent tasks", total_files, self.max_concurrent);
+        tracing::info!(
+            "Processing {} files with max {} concurrent tasks",
+            total_files,
+            self.max_concurrent
+        );
 
         // Process files in batches
         for chunk in files.chunks(self.max_concurrent) {
@@ -84,7 +92,7 @@ impl BatchProcessor {
 
 async fn process_single_file(path: PathBuf) -> ProcessedFileResult {
     let mut parser = IncrementalParser::new();
-    
+
     match parser.parse_file(&path) {
         Ok(parsed) => {
             let tokens = estimate_tokens(&parsed);
@@ -97,16 +105,14 @@ async fn process_single_file(path: PathBuf) -> ProcessedFileResult {
                 error: None,
             }
         }
-        Err(e) => {
-            ProcessedFileResult {
-                path,
-                success: false,
-                symbols: vec![],
-                dependencies: vec![],
-                tokens: 0,
-                error: Some(e),
-            }
-        }
+        Err(e) => ProcessedFileResult {
+            path,
+            success: false,
+            symbols: vec![],
+            dependencies: vec![],
+            tokens: 0,
+            error: Some(e),
+        },
     }
 }
 

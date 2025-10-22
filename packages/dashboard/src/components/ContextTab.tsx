@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
-import { FileTree, Package, Settings, History, Copy, CheckCircle } from 'lucide-react';
+import { FolderTree, Package, Settings, History, Copy, CheckCircle } from 'lucide-react';
 import { ContextBuilder } from './context/ContextBuilder';
 import { ContextTemplates } from './context/ContextTemplates';
 import { ContextHistory } from './context/ContextHistory';
@@ -37,7 +37,7 @@ export function ContextTab({ projectId, projectPath }: ContextTabProps) {
         description: `${tokenCount.toLocaleString()} tokens copied successfully`,
       });
       setTimeout(() => setCopied(false), 2000);
-    } catch (error) {
+    } catch {
       toast({
         title: 'Failed to copy',
         description: 'Could not copy context to clipboard',
@@ -88,7 +88,7 @@ export function ContextTab({ projectId, projectPath }: ContextTabProps) {
       <Tabs defaultValue="builder" className="space-y-4">
         <TabsList>
           <TabsTrigger value="builder">
-            <FileTree className="mr-2 h-4 w-4" />
+            <FolderTree className="h-4 w-4" />
             Builder
           </TabsTrigger>
           <TabsTrigger value="templates">

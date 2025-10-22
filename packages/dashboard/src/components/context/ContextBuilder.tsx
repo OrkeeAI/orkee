@@ -31,8 +31,7 @@ interface FileTreeNode {
   size?: number;
 }
 
-export function ContextBuilder({ projectId, projectPath, onContextGenerated }: ContextBuilderProps) {
-  const [files, setFiles] = useState<FileInfo[]>([]);
+export function ContextBuilder({ projectId, onContextGenerated }: ContextBuilderProps) {
   const [fileTree, setFileTree] = useState<FileTreeNode[]>([]);
   const [selectedFiles, setSelectedFiles] = useState<Set<string>>(new Set());
   const [expandedDirs, setExpandedDirs] = useState<Set<string>>(new Set());
@@ -60,6 +59,7 @@ export function ContextBuilder({ projectId, projectPath, onContextGenerated }: C
     if (apiBaseUrl && projectId) {
       loadFiles();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [apiBaseUrl, projectId]);
 
   const loadFiles = async () => {

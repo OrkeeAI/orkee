@@ -9,7 +9,7 @@ import type {
   ContextConfiguration,
 } from '@/services/context';
 
-interface ApiError {
+export interface ApiError {
   message?: string;
   status?: number;
 }

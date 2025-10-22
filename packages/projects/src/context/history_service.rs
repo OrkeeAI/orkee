@@ -1,6 +1,6 @@
-use sqlx::{SqlitePool, Row};
-use serde::{Serialize, Deserialize};
 use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
+use sqlx::{Row, SqlitePool};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ContextSnapshot {
@@ -49,8 +49,8 @@ impl HistoryService {
     /// Save a context snapshot to the database
     pub async fn save_snapshot(&self, snapshot: &ContextSnapshot) -> Result<String, sqlx::Error> {
         let id = generate_id();
-        let files_json = serde_json::to_string(&snapshot.files_included)
-            .unwrap_or_else(|_| "[]".to_string());
+        let files_json =
+            serde_json::to_string(&snapshot.files_included).unwrap_or_else(|_| "[]".to_string());
 
         sqlx::query!(
             r#"
@@ -97,7 +97,11 @@ impl HistoryService {
     }
 
     /// Get all snapshots for a project
-    pub async fn get_snapshots(&self, project_id: &str, limit: i32) -> Result<Vec<ContextSnapshot>, sqlx::Error> {
+    pub async fn get_snapshots(
+        &self,
+        project_id: &str,
+        limit: i32,
+    ) -> Result<Vec<ContextSnapshot>, sqlx::Error> {
         let rows = sqlx::query!(
             r#"
             SELECT id, project_id, content, file_count, total_tokens as token_count, 
@@ -115,8 +119,8 @@ impl HistoryService {
 
         let mut snapshots = Vec::new();
         for row in rows {
-            let files_included: Vec<String> = serde_json::from_str(&row.metadata)
-                .unwrap_or_default();
+            let files_included: Vec<String> =
+                serde_json::from_str(&row.metadata).unwrap_or_default();
 
             snapshots.push(ContextSnapshot {
                 id: row.id,
@@ -136,7 +140,10 @@ impl HistoryService {
     }
 
     /// Get a specific snapshot by ID
-    pub async fn get_snapshot(&self, snapshot_id: &str) -> Result<Option<ContextSnapshot>, sqlx::Error> {
+    pub async fn get_snapshot(
+        &self,
+        snapshot_id: &str,
+    ) -> Result<Option<ContextSnapshot>, sqlx::Error> {
         let row = sqlx::query!(
             r#"
             SELECT id, project_id, content, file_count, total_tokens as token_count,
@@ -150,8 +157,7 @@ impl HistoryService {
         .await?;
 
         Ok(row.map(|r| {
-            let files_included: Vec<String> = serde_json::from_str(&r.metadata)
-                .unwrap_or_default();
+            let files_included: Vec<String> = serde_json::from_str(&r.metadata).unwrap_or_default();
 
             ContextSnapshot {
                 id: r.id,
@@ -244,14 +250,21 @@ impl HistoryService {
         .fetch_all(&self.pool)
         .await?;
 
-        Ok(rows.into_iter().map(|r| TokenUsage {
-            date: r.date.unwrap_or_default(),
-            tokens: r.tokens.unwrap_or(0) as i32,
-        }).collect())
+        Ok(rows
+            .into_iter()
+            .map(|r| TokenUsage {
+                date: r.date.unwrap_or_default(),
+                tokens: r.tokens.unwrap_or(0) as i32,
+            })
+            .collect())
     }
 
     /// Delete old snapshots to manage storage
-    pub async fn cleanup_old_snapshots(&self, project_id: &str, keep_recent: i32) -> Result<u64, sqlx::Error> {
+    pub async fn cleanup_old_snapshots(
+        &self,
+        project_id: &str,
+        keep_recent: i32,
+    ) -> Result<u64, sqlx::Error> {
         let result = sqlx::query!(
             r#"
             DELETE FROM context_snapshots

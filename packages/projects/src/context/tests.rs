@@ -151,7 +151,7 @@ mod tests {
     #[test]
     fn test_token_estimation() {
         use crate::context::language_support::estimate_tokens;
-        
+
         let python_code = "def hello(): return 'world'";
         let java_code = "public class Hello { public String greet() { return \"world\"; } }";
         let typescript_code = "const hello = (): string => 'world';";
@@ -199,9 +199,18 @@ mod tests {
         let parser = MultiLanguageParser::new();
 
         // Test language detection
-        assert_eq!(parser.detect_language("test.ts"), Some("typescript".to_string()));
-        assert_eq!(parser.detect_language("test.js"), Some("javascript".to_string()));
-        assert_eq!(parser.detect_language("test.py"), Some("python".to_string()));
+        assert_eq!(
+            parser.detect_language("test.ts"),
+            Some("typescript".to_string())
+        );
+        assert_eq!(
+            parser.detect_language("test.js"),
+            Some("javascript".to_string())
+        );
+        assert_eq!(
+            parser.detect_language("test.py"),
+            Some("python".to_string())
+        );
         assert_eq!(parser.detect_language("test.rs"), Some("rust".to_string()));
         assert_eq!(parser.detect_language("test.go"), Some("go".to_string()));
     }
@@ -240,10 +249,7 @@ function goodbye() {
         let result = analyzer.extract_symbols(code).unwrap();
 
         let hello_fn = result.iter().find(|s| s.name == "hello").unwrap();
-        let goodbye_fn = result
-            .iter()
-            .find(|s| s.name == "goodbye")
-            .unwrap();
+        let goodbye_fn = result.iter().find(|s| s.name == "goodbye").unwrap();
 
         // hello should span multiple lines
         assert!(hello_fn.line_end > hello_fn.line_start + 2);

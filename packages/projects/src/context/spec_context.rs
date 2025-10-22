@@ -77,21 +77,21 @@ impl SpecContextBuilder {
 
         // 1. Add capability header
         context.push_str(&format!("# Capability: {}\n\n", capability.name));
-        
+
         if let Some(purpose) = &capability.purpose_markdown {
             context.push_str(&format!("## Purpose\n{}\n\n", purpose));
         }
 
         // 2. Add spec content
-        context.push_str(&format!("## Specification\n{}\n\n", capability.spec_markdown));
+        context.push_str(&format!(
+            "## Specification\n{}\n\n",
+            capability.spec_markdown
+        ));
 
         // 3. Add requirements
         context.push_str("## Requirements\n\n");
         for req in requirements {
-            context.push_str(&format!(
-                "### {}\n{}\n\n",
-                req.name, req.content_markdown
-            ));
+            context.push_str(&format!("### {}\n{}\n\n", req.name, req.content_markdown));
         }
 
         // 4. Find and add implementing code
@@ -135,7 +135,7 @@ impl SpecContextBuilder {
         // Search for matching symbols in the codebase
         // This is a placeholder implementation
         // TODO: Implement actual file traversal and symbol matching
-        
+
         implementations
     }
 
@@ -148,12 +148,7 @@ impl SpecContextBuilder {
         let mut terms = Vec::new();
 
         // Extract words from capability name
-        terms.extend(
-            capability
-                .name
-                .split_whitespace()
-                .map(|s| s.to_lowercase()),
-        );
+        terms.extend(capability.name.split_whitespace().map(|s| s.to_lowercase()));
 
         // Extract words from requirement names
         for req in requirements {
@@ -283,7 +278,7 @@ mod tests {
         }];
 
         let terms = builder.extract_search_terms(&capability, &requirements);
-        
+
         // Should extract meaningful terms
         assert!(terms.contains(&"user".to_string()));
         assert!(terms.contains(&"authentication".to_string()));
