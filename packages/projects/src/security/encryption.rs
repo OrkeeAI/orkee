@@ -105,6 +105,21 @@ pub struct ApiKeyEncryption {
 }
 
 impl ApiKeyEncryption {
+    /// Validate password and salt parameters
+    fn validate_password_and_salt(password: &str, salt: &[u8]) -> Result<(), EncryptionError> {
+        if password.is_empty() {
+            return Err(EncryptionError::PasswordRequired);
+        }
+
+        if salt.len() != 32 {
+            return Err(EncryptionError::KeyDerivation(
+                "Salt must be 32 bytes".to_string(),
+            ));
+        }
+
+        Ok(())
+    }
+
     /// Create new encryption service with machine-derived key (backward compatible)
     pub fn new() -> Result<Self, EncryptionError> {
         Self::with_machine_key()
@@ -156,15 +171,7 @@ impl ApiKeyEncryption {
 
     /// Create encryption service with password-derived key (at-rest encryption)
     pub fn with_password(password: &str, salt: &[u8]) -> Result<Self, EncryptionError> {
-        if password.is_empty() {
-            return Err(EncryptionError::PasswordRequired);
-        }
-
-        if salt.len() != 32 {
-            return Err(EncryptionError::KeyDerivation(
-                "Salt must be 32 bytes".to_string(),
-            ));
-        }
+        Self::validate_password_and_salt(password, salt)?;
 
         // Derive encryption key using Argon2id with recommended parameters
         let mut encryption_key = vec![0u8; 32]; // 256-bit key
@@ -214,15 +221,7 @@ impl ApiKeyEncryption {
         password: &str,
         salt: &[u8],
     ) -> Result<Vec<u8>, EncryptionError> {
-        if password.is_empty() {
-            return Err(EncryptionError::PasswordRequired);
-        }
-
-        if salt.len() != 32 {
-            return Err(EncryptionError::KeyDerivation(
-                "Salt must be 32 bytes".to_string(),
-            ));
-        }
+        Self::validate_password_and_salt(password, salt)?;
 
         // Use a different input to ensure verification hash != encryption key
         let mut password_hash = vec![0u8; 32];
