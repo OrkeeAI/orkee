@@ -9,9 +9,12 @@ use std::path::PathBuf;
 use tracing::{error, info};
 
 use crate::{
-    context::types::{
-        ContextConfiguration, ContextGenerationRequest, ContextMetadata, ContextSnapshot,
-        FileInfo, GeneratedContext, ListFilesResponse,
+    context::{
+        openspec_bridge::OpenSpecContextBridge,
+        types::{
+            ContextConfiguration, ContextGenerationRequest, ContextMetadata, ContextSnapshot,
+            FileInfo, GeneratedContext, ListFilesResponse,
+        },
     },
     db::DbState,
     manager::ManagerError,
@@ -413,4 +416,384 @@ pub async fn save_configuration(
     })?;
 
     Ok(Json(saved_config))
+}
+
+/// Request body for generating context from PRD
+#[derive(Debug, Deserialize)]
+pub struct GeneratePRDContextRequest {
+    pub prd_id: String,
+}
+
+/// Generate context from a PRD
+pub async fn generate_prd_context(
+    Path(project_id): Path<String>,
+    State(db): State<DbState>,
+    Json(request): Json<GeneratePRDContextRequest>,
+) -> Result<Json<GeneratedContext>, impl IntoResponse> {
+    info!(
+        "Generating PRD context for project: {}, PRD: {}",
+        project_id, request.prd_id
+    );
+
+    // Get project from database
+    let project = sqlx::query!(
+        "SELECT id, name, project_root FROM projects WHERE id = ?",
+        project_id
+    )
+    .fetch_optional(&db.pool)
+    .await
+    .map_err(|e| {
+        error!("Database error: {}", e);
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({
+                "error": "Database error"
+            })),
+        )
+    })?
+    .ok_or_else(|| {
+        (
+            StatusCode::NOT_FOUND,
+            Json(serde_json::json!({
+                "error": "Project not found"
+            })),
+        )
+    })?;
+
+    // Create bridge and generate context
+    let bridge = OpenSpecContextBridge::new(db.pool.clone());
+    let context_content = bridge
+        .generate_prd_context(&request.prd_id, &project.project_root)
+        .await
+        .map_err(|e| {
+            error!("Failed to generate PRD context: {}", e);
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(serde_json::json!({
+                    "error": format!("Failed to generate context: {}", e)
+                })),
+            )
+        })?;
+
+    let total_tokens = context_content.len() / 4;
+
+    Ok(Json(GeneratedContext {
+        content: context_content,
+        file_count: 0,
+        total_tokens,
+        files_included: vec![],
+        truncated: false,
+    }))
+}
+
+/// Request body for generating context from task
+#[derive(Debug, Deserialize)]
+pub struct GenerateTaskContextRequest {
+    pub task_id: String,
+}
+
+/// Generate context from a task
+pub async fn generate_task_context(
+    Path(project_id): Path<String>,
+    State(db): State<DbState>,
+    Json(request): Json<GenerateTaskContextRequest>,
+) -> Result<Json<GeneratedContext>, impl IntoResponse> {
+    info!(
+        "Generating task context for project: {}, task: {}",
+        project_id, request.task_id
+    );
+
+    // Get project from database
+    let project = sqlx::query!(
+        "SELECT id, name, project_root FROM projects WHERE id = ?",
+        project_id
+    )
+    .fetch_optional(&db.pool)
+    .await
+    .map_err(|e| {
+        error!("Database error: {}", e);
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({
+                "error": "Database error"
+            })),
+        )
+    })?
+    .ok_or_else(|| {
+        (
+            StatusCode::NOT_FOUND,
+            Json(serde_json::json!({
+                "error": "Project not found"
+            })),
+        )
+    })?;
+
+    // Create bridge and generate context
+    let bridge = OpenSpecContextBridge::new(db.pool.clone());
+    let context_content = bridge
+        .generate_task_context(&request.task_id, &project.project_root)
+        .await
+        .map_err(|e| {
+            error!("Failed to generate task context: {}", e);
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(serde_json::json!({
+                    "error": format!("Failed to generate context: {}", e)
+                })),
+            )
+        })?;
+
+    let total_tokens = context_content.len() / 4;
+
+    Ok(Json(GeneratedContext {
+        content: context_content,
+        file_count: 0,
+        total_tokens,
+        files_included: vec![],
+        truncated: false,
+    }))
+}
+
+/// Request body for validating spec implementation
+#[derive(Debug, Deserialize)]
+pub struct ValidateSpecRequest {
+    pub capability_id: String,
+}
+
+/// Validate spec implementation
+pub async fn validate_spec(
+    Path(project_id): Path<String>,
+    State(db): State<DbState>,
+    Json(request): Json<ValidateSpecRequest>,
+) -> Result<impl IntoResponse, impl IntoResponse> {
+    info!(
+        "Validating spec for project: {}, capability: {}",
+        project_id, request.capability_id
+    );
+
+    // Get project from database
+    let project = sqlx::query!(
+        "SELECT id, name, project_root FROM projects WHERE id = ?",
+        project_id
+    )
+    .fetch_optional(&db.pool)
+    .await
+    .map_err(|e| {
+        error!("Database error: {}", e);
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({
+                "error": "Database error"
+            })),
+        )
+    })?
+    .ok_or_else(|| {
+        (
+            StatusCode::NOT_FOUND,
+            Json(serde_json::json!({
+                "error": "Project not found"
+            })),
+        )
+    })?;
+
+    // Create bridge and validate
+    let bridge = OpenSpecContextBridge::new(db.pool.clone());
+    let report = bridge
+        .validate_spec_coverage(&request.capability_id, &project.project_root)
+        .await
+        .map_err(|e| {
+            error!("Failed to validate spec: {}", e);
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(serde_json::json!({
+                    "error": format!("Failed to validate: {}", e)
+                })),
+            )
+        })?;
+
+    Ok(Json(report))
+}
+
+/// Get context history for a project
+pub async fn get_context_history(
+    Path(project_id): Path<String>,
+    State(db): State<DbState>,
+) -> Result<impl IntoResponse, impl IntoResponse> {
+    info!("Getting context history for project: {}", project_id);
+
+    let snapshots = sqlx::query!(
+        r#"
+        SELECT 
+            id,
+            project_id,
+            content,
+            file_count,
+            total_tokens,
+            metadata,
+            created_at
+        FROM context_snapshots
+        WHERE project_id = ?
+        ORDER BY created_at DESC
+        LIMIT 50
+        "#,
+        project_id
+    )
+    .fetch_all(&db.pool)
+    .await
+    .map_err(|e| {
+        error!("Database error: {}", e);
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({
+                "error": "Database error"
+            })),
+        )
+    })?;
+
+    let history: Vec<serde_json::Value> = snapshots
+        .iter()
+        .map(|s| {
+            serde_json::json!({
+                "id": s.id,
+                "project_id": s.project_id,
+                "file_count": s.file_count,
+                "total_tokens": s.total_tokens,
+                "created_at": s.created_at,
+                "metadata": serde_json::from_str::<serde_json::Value>(&s.metadata).ok()
+            })
+        })
+        .collect();
+
+    Ok(Json(serde_json::json!({
+        "snapshots": history
+    })))
+}
+
+/// Get context usage statistics
+pub async fn get_context_stats(
+    Path(project_id): Path<String>,
+    State(db): State<DbState>,
+) -> Result<impl IntoResponse, impl IntoResponse> {
+    info!("Getting context stats for project: {}", project_id);
+
+    // Get snapshot count
+    let snapshot_count = sqlx::query!(
+        "SELECT COUNT(*) as count FROM context_snapshots WHERE project_id = ?",
+        project_id
+    )
+    .fetch_one(&db.pool)
+    .await
+    .map_err(|e| {
+        error!("Database error: {}", e);
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({
+                "error": "Database error"
+            })),
+        )
+    })?;
+
+    // Get most used files
+    let most_used = sqlx::query!(
+        r#"
+        SELECT file_path, inclusion_count, last_used
+        FROM context_usage_patterns
+        WHERE project_id = ?
+        ORDER BY inclusion_count DESC
+        LIMIT 10
+        "#,
+        project_id
+    )
+    .fetch_all(&db.pool)
+    .await
+    .map_err(|e| {
+        error!("Database error: {}", e);
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({
+                "error": "Database error"
+            })),
+        )
+    })?;
+
+    Ok(Json(serde_json::json!({
+        "total_snapshots": snapshot_count.count,
+        "most_used_files": most_used.iter().map(|f| {
+            serde_json::json!({
+                "path": f.file_path,
+                "inclusion_count": f.inclusion_count,
+                "last_used": f.last_used
+            })
+        }).collect::<Vec<_>>()
+    })))
+}
+
+/// Request body for restoring context snapshot
+#[derive(Debug, Deserialize)]
+pub struct RestoreContextRequest {
+    pub snapshot_id: String,
+}
+
+/// Restore a context snapshot
+pub async fn restore_context_snapshot(
+    Path(project_id): Path<String>,
+    State(db): State<DbState>,
+    Json(request): Json<RestoreContextRequest>,
+) -> Result<Json<GeneratedContext>, impl IntoResponse> {
+    info!(
+        "Restoring context snapshot for project: {}, snapshot: {}",
+        project_id, request.snapshot_id
+    );
+
+    // Get snapshot from database
+    let snapshot = sqlx::query!(
+        r#"
+        SELECT 
+            id,
+            project_id,
+            content,
+            file_count,
+            total_tokens,
+            metadata
+        FROM context_snapshots
+        WHERE id = ? AND project_id = ?
+        "#,
+        request.snapshot_id,
+        project_id
+    )
+    .fetch_optional(&db.pool)
+    .await
+    .map_err(|e| {
+        error!("Database error: {}", e);
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({
+                "error": "Database error"
+            })),
+        )
+    })?
+    .ok_or_else(|| {
+        (
+            StatusCode::NOT_FOUND,
+            Json(serde_json::json!({
+                "error": "Snapshot not found"
+            })),
+        )
+    })?;
+
+    // Parse metadata to get files_included
+    let metadata: ContextMetadata =
+        serde_json::from_str(&snapshot.metadata).unwrap_or(ContextMetadata {
+            files_included: vec![],
+            generation_time_ms: 0,
+            git_commit: None,
+        });
+
+    Ok(Json(GeneratedContext {
+        content: snapshot.content,
+        file_count: snapshot.file_count as usize,
+        total_tokens: snapshot.total_tokens as usize,
+        files_included: metadata.files_included,
+        truncated: false,
+    }))
 }

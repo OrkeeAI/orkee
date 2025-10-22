@@ -286,6 +286,7 @@ pub fn create_security_router() -> Router<DbState> {
 /// Creates the context API router for context generation and management
 pub fn create_context_router() -> Router<DbState> {
     Router::new()
+        // Basic context generation
         .route(
             "/:project_id/context/generate",
             post(context_handlers::generate_context),
@@ -301,5 +302,31 @@ pub fn create_context_router() -> Router<DbState> {
         .route(
             "/:project_id/context/configurations",
             post(context_handlers::save_configuration),
+        )
+        // OpenSpec integration
+        .route(
+            "/:project_id/context/from-prd",
+            post(context_handlers::generate_prd_context),
+        )
+        .route(
+            "/:project_id/context/from-task",
+            post(context_handlers::generate_task_context),
+        )
+        .route(
+            "/:project_id/context/validate-spec",
+            post(context_handlers::validate_spec),
+        )
+        // History and analytics
+        .route(
+            "/:project_id/context/history",
+            get(context_handlers::get_context_history),
+        )
+        .route(
+            "/:project_id/context/stats",
+            get(context_handlers::get_context_stats),
+        )
+        .route(
+            "/:project_id/context/restore",
+            post(context_handlers::restore_context_snapshot),
         )
 }

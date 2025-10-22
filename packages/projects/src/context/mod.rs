@@ -5,6 +5,7 @@ pub mod formatter;
 pub mod history_service;
 pub mod incremental_parser;
 pub mod language_support;
+pub mod openspec_bridge;
 pub mod spec_context;
 pub mod types;
 
@@ -15,5 +16,6 @@ pub use formatter::*;
 pub use history_service::*;
 pub use incremental_parser::*;
 pub use language_support::*;
+pub use openspec_bridge::*;
 pub use spec_context::*;
 pub use types::*;
