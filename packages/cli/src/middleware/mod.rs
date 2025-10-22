@@ -1,9 +1,11 @@
 //! Middleware modules for security, rate limiting, and error handling
 
+pub mod csrf;
 pub mod https_redirect;
 pub mod rate_limit;
 pub mod security_headers;
 
+pub use csrf::{CsrfLayer, CSRF_TOKEN_HEADER};
 pub use rate_limit::{RateLimitConfig, RateLimitLayer};
 pub use security_headers::SecurityHeadersLayer;
 

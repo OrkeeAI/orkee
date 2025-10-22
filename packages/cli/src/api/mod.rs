@@ -187,6 +187,7 @@ pub async fn create_router_with_options(
     let mut router = Router::new()
         .route("/api/health", get(health::health_check))
         .route("/api/status", get(health::status_check))
+        .route("/api/csrf-token", get(health::get_csrf_token))
         .route("/api/config", get(config::get_config))
         .route(
             "/api/browse-directories",
@@ -221,6 +222,10 @@ pub async fn create_router_with_options(
         .nest(
             "/api/users",
             orkee_projects::create_users_router().with_state(db_state.clone()),
+        )
+        .nest(
+            "/api",
+            orkee_projects::create_security_router().with_state(db_state.clone()),
         )
         .nest(
             "/api/tags",

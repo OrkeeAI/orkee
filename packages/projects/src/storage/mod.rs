@@ -137,6 +137,15 @@ pub trait ProjectStorage: Send + Sync {
     async fn check_password_lockout(&self) -> StorageResult<()>;
     async fn record_failed_password_attempt(&self) -> StorageResult<()>;
     async fn reset_password_attempts(&self) -> StorageResult<()>;
+    async fn get_password_lockout_status(&self) -> StorageResult<PasswordLockoutStatus>;
+}
+
+/// Password lockout status information
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PasswordLockoutStatus {
+    pub is_locked: bool,
+    pub attempt_count: i32,
+    pub locked_until: Option<DateTime<Utc>>,
 }
 
 /// Filter for querying projects

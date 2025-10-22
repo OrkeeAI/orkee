@@ -1,4 +1,9 @@
-use axum::{extract::ConnectInfo, http::Request, middleware::Next, response::Response};
+use axum::{
+    extract::ConnectInfo,
+    http::{header::HeaderName, Request},
+    middleware::Next,
+    response::Response,
+};
 use governor::{
     clock::DefaultClock,
     middleware::NoOpMiddleware,
@@ -35,6 +40,7 @@ pub struct RateLimitConfig {
     pub telemetry_rpm: u32, // Telemetry tracking endpoints
     pub ai_rpm: u32,        // AI proxy endpoints
     pub users_rpm: u32,     // User management (credentials, settings)
+    pub security_rpm: u32,  // Security endpoints (password management, encryption)
     pub global_rpm: u32,    // Global fallback
     pub burst_size: u32,    // Burst size multiplier
 }
@@ -50,6 +56,7 @@ impl Default for RateLimitConfig {
             telemetry_rpm: 15, // More restrictive for DoS prevention
             ai_rpm: 10,        // Strict limit to prevent cost abuse and DoS
             users_rpm: 10,     // Strict limit for expensive encryption operations
+            security_rpm: 10,  // Strict limit to prevent brute-force and DoS on password operations
             global_rpm: 30,
             burst_size: 5,
         }
@@ -71,6 +78,22 @@ impl RateLimitLayer {
         }
     }
 
+    /// Get rate limit for specific endpoint category
+    fn get_rate_limit_for_path(&self, path: &str) -> u32 {
+        let category = categorize_endpoint(path);
+        match category {
+            EndpointCategory::Health => self.config.health_rpm,
+            EndpointCategory::Browse => self.config.browse_rpm,
+            EndpointCategory::Projects => self.config.projects_rpm,
+            EndpointCategory::Preview => self.config.preview_rpm,
+            EndpointCategory::Telemetry => self.config.telemetry_rpm,
+            EndpointCategory::AI => self.config.ai_rpm,
+            EndpointCategory::Users => self.config.users_rpm,
+            EndpointCategory::Security => self.config.security_rpm,
+            EndpointCategory::Other => self.config.global_rpm,
+        }
+    }
+
     /// Get or create rate limiter for specific endpoint category
     fn get_limiter_for_path(&self, path: &str) -> RateLimiterInstance {
         let category = categorize_endpoint(path);
@@ -82,6 +105,7 @@ impl RateLimitLayer {
             EndpointCategory::Telemetry => self.config.telemetry_rpm,
             EndpointCategory::AI => self.config.ai_rpm,
             EndpointCategory::Users => self.config.users_rpm,
+            EndpointCategory::Security => self.config.security_rpm,
             EndpointCategory::Other => self.config.global_rpm,
         };
 
@@ -123,6 +147,7 @@ enum EndpointCategory {
     Telemetry,
     AI,
     Users,
+    Security,
     Other,
 }
 
@@ -136,6 +161,7 @@ impl EndpointCategory {
             EndpointCategory::Telemetry => "telemetry",
             EndpointCategory::AI => "ai",
             EndpointCategory::Users => "users",
+            EndpointCategory::Security => "security",
             EndpointCategory::Other => "other",
         }
     }
@@ -143,7 +169,10 @@ impl EndpointCategory {
 
 /// Categorize endpoint based on path
 fn categorize_endpoint(path: &str) -> EndpointCategory {
-    if path.contains("/health") || path.contains("/status") {
+    // Check more specific paths first to avoid false matches
+    if path.contains("/security") {
+        EndpointCategory::Security
+    } else if path.contains("/health") || path.contains("/status") {
         EndpointCategory::Health
     } else if path.contains("/browse-directories") {
         EndpointCategory::Browse
@@ -182,6 +211,7 @@ pub async fn rate_limit_middleware(
 
     let path = request.uri().path();
     let limiter = layer.get_limiter_for_path(path);
+    let rate_limit = layer.get_rate_limit_for_path(path);
     let ip = addr.ip();
 
     // Check rate limit
@@ -192,7 +222,17 @@ pub async fn rate_limit_middleware(
                 path = %path,
                 "Rate limit check passed"
             );
-            Ok(next.run(request).await)
+
+            // Get response and add rate limit headers
+            let mut response = next.run(request).await;
+            let headers = response.headers_mut();
+
+            // Add X-RateLimit-Limit header (requests per minute)
+            if let Ok(limit_value) = axum::http::HeaderValue::from_str(&rate_limit.to_string()) {
+                headers.insert(HeaderName::from_static("x-ratelimit-limit"), limit_value);
+            }
+
+            Ok(response)
         }
         Err(_) => {
             warn!(
@@ -205,7 +245,10 @@ pub async fn rate_limit_middleware(
             // Calculate retry-after based on limiter state
             let retry_after = calculate_retry_after(&limiter);
 
-            Err(AppError::RateLimitExceeded { retry_after })
+            Err(AppError::RateLimitExceeded {
+                retry_after,
+                limit: rate_limit,
+            })
         }
     }
 }
@@ -286,6 +329,7 @@ mod tests {
             telemetry_rpm: 15,
             ai_rpm: 10,
             users_rpm: 10,
+            security_rpm: 10,
             global_rpm: 30,
             burst_size: 5,
         };
@@ -327,6 +371,7 @@ mod tests {
         assert_eq!(config.telemetry_rpm, 15);
         assert_eq!(config.ai_rpm, 10);
         assert_eq!(config.users_rpm, 10);
+        assert_eq!(config.security_rpm, 10);
         assert_eq!(config.global_rpm, 30);
         assert_eq!(config.burst_size, 5);
     }
@@ -345,6 +390,31 @@ mod tests {
         assert!(matches!(
             categorize_endpoint("/api/users/default-user/theme"),
             EndpointCategory::Users
+        ));
+    }
+
+    #[test]
+    fn test_security_endpoint_categorization() {
+        // Security endpoints should be categorized as Security
+        assert!(matches!(
+            categorize_endpoint("/api/security/status"),
+            EndpointCategory::Security
+        ));
+        assert!(matches!(
+            categorize_endpoint("/api/security/keys-status"),
+            EndpointCategory::Security
+        ));
+        assert!(matches!(
+            categorize_endpoint("/api/security/set-password"),
+            EndpointCategory::Security
+        ));
+        assert!(matches!(
+            categorize_endpoint("/api/security/change-password"),
+            EndpointCategory::Security
+        ));
+        assert!(matches!(
+            categorize_endpoint("/api/security/remove-password"),
+            EndpointCategory::Security
         ));
     }
 }

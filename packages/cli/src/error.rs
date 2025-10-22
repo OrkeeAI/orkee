@@ -19,10 +19,13 @@ pub enum AppError {
     NotFound,
 
     #[error("Rate limit exceeded")]
-    RateLimitExceeded { retry_after: u64 },
+    RateLimitExceeded { retry_after: u64, limit: u32 },
 
     #[error("Unauthorized access")]
     Unauthorized,
+
+    #[error("Forbidden: {message}")]
+    Forbidden { message: String },
 
     #[error("Access denied to path: {0}")]
     PathAccessDenied(String),
@@ -77,6 +80,7 @@ impl AppError {
                 (StatusCode::TOO_MANY_REQUESTS, "RATE_LIMIT_EXCEEDED")
             }
             AppError::Unauthorized => (StatusCode::UNAUTHORIZED, "UNAUTHORIZED"),
+            AppError::Forbidden { .. } => (StatusCode::FORBIDDEN, "FORBIDDEN"),
             AppError::PathAccessDenied(_) => (StatusCode::FORBIDDEN, "PATH_ACCESS_DENIED"),
             AppError::PathTraversal => (StatusCode::FORBIDDEN, "PATH_TRAVERSAL"),
             AppError::SensitiveDirectory => (StatusCode::FORBIDDEN, "SENSITIVE_DIRECTORY"),
@@ -142,6 +146,7 @@ impl AppError {
                 "Too many requests. Please try again later".to_string()
             }
             AppError::Unauthorized => "Authentication required".to_string(),
+            AppError::Forbidden { message } => message.clone(),
             AppError::PathAccessDenied(_) => "Access to this path is not allowed".to_string(),
             AppError::PathTraversal => "Path traversal detected and blocked".to_string(),
             AppError::SensitiveDirectory => "Access to sensitive directory blocked".to_string(),
@@ -247,10 +252,11 @@ impl IntoResponse for AppError {
                     "Path traversal attempt detected"
                 );
             }
-            AppError::RateLimitExceeded { retry_after } => {
+            AppError::RateLimitExceeded { retry_after, limit } => {
                 error!(
                     request_id = %request_id,
                     retry_after = %retry_after,
+                    limit = %limit,
                     audit = true,
                     "Rate limit exceeded"
                 );
@@ -274,7 +280,7 @@ impl IntoResponse for AppError {
         };
 
         // Add retry_after for rate limiting
-        if let AppError::RateLimitExceeded { retry_after } = &self {
+        if let AppError::RateLimitExceeded { retry_after, .. } = &self {
             error_detail.retry_after = Some(*retry_after);
         }
 
@@ -288,10 +294,10 @@ impl IntoResponse for AppError {
         *response.status_mut() = status_code;
 
         // Add rate limiting headers
-        if let AppError::RateLimitExceeded { retry_after } = &self {
+        if let AppError::RateLimitExceeded { retry_after, limit } = &self {
             let headers = response.headers_mut();
             headers.insert("Retry-After", retry_after.to_string().parse().unwrap());
-            headers.insert("X-RateLimit-Limit", "30".parse().unwrap()); // Will be configurable
+            headers.insert("X-RateLimit-Limit", limit.to_string().parse().unwrap());
             headers.insert("X-RateLimit-Remaining", "0".parse().unwrap());
             headers.insert(
                 "X-RateLimit-Reset",
@@ -324,8 +330,8 @@ impl AppError {
         Self::Configuration(msg.into())
     }
 
-    pub fn rate_limited(retry_after: u64) -> Self {
-        Self::RateLimitExceeded { retry_after }
+    pub fn rate_limited(retry_after: u64, limit: u32) -> Self {
+        Self::RateLimitExceeded { retry_after, limit }
     }
 }
 
@@ -352,7 +358,7 @@ mod tests {
 
     #[test]
     fn test_rate_limit_error() {
-        let error = AppError::rate_limited(60);
+        let error = AppError::rate_limited(60, 30);
         let (status, code) = error.to_status_and_code();
         assert_eq!(status, StatusCode::TOO_MANY_REQUESTS);
         assert_eq!(code, "RATE_LIMIT_EXCEEDED");

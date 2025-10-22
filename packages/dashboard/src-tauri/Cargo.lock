@@ -3371,14 +3371,14 @@ dependencies = [
 
 [[package]]
 name = "orkee-config"
-version = "0.0.8"
+version = "0.0.9"
 dependencies = [
  "tracing",
 ]
 
 [[package]]
 name = "orkee-desktop"
-version = "0.0.8"
+version = "0.0.9"
 dependencies = [
  "dirs 6.0.0",
  "futures",
@@ -3407,7 +3407,7 @@ dependencies = [
 
 [[package]]
 name = "orkee-preview"
-version = "0.0.8"
+version = "0.0.9"
 dependencies = [
  "anyhow",
  "axum",

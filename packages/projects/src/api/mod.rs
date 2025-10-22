@@ -15,6 +15,7 @@ pub mod executions_handlers;
 pub mod handlers;
 pub mod prd_handlers;
 pub mod response;
+pub mod security_handlers;
 pub mod spec_handlers;
 pub mod tags_handlers;
 pub mod task_spec_handlers;
@@ -254,4 +255,29 @@ pub fn create_ai_proxy_router() -> Router<DbState> {
         .route("/ai/openai/*path", post(ai_proxy_handlers::proxy_openai))
         .route("/ai/google/*path", post(ai_proxy_handlers::proxy_google))
         .route("/ai/xai/*path", post(ai_proxy_handlers::proxy_xai))
+}
+
+/// Creates the security API router for encryption and key management
+pub fn create_security_router() -> Router<DbState> {
+    Router::new()
+        .route(
+            "/security/status",
+            get(security_handlers::get_security_status),
+        )
+        .route(
+            "/security/keys-status",
+            get(security_handlers::get_keys_status),
+        )
+        .route(
+            "/security/set-password",
+            post(security_handlers::set_password),
+        )
+        .route(
+            "/security/change-password",
+            post(security_handlers::change_password),
+        )
+        .route(
+            "/security/remove-password",
+            post(security_handlers::remove_password),
+        )
 }

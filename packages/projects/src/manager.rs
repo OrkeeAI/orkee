@@ -4,7 +4,6 @@ use crate::types::{Project, ProjectCreateInput, ProjectStatus, ProjectUpdateInpu
 use crate::validator::{validate_project_data, validate_project_update, ValidationError};
 use std::sync::Arc;
 use thiserror::Error;
-use tokio::sync::OnceCell;
 use tracing::{debug, info, warn};
 
 /// Manager errors
@@ -22,37 +21,157 @@ pub enum ManagerError {
     DuplicatePath(String),
 }
 
-/// Global storage manager instance
-static STORAGE_MANAGER: OnceCell<Arc<StorageManager>> = OnceCell::const_new();
+use std::sync::Mutex;
+
+/// Global storage manager instance wrapped in Mutex to allow resetting in tests
+static STORAGE_MANAGER: Mutex<Option<Arc<StorageManager>>> = Mutex::new(None);
+
+/// Thread-local storage manager for test isolation
+/// This allows parallel test execution without global singleton conflicts
+#[cfg(any(test, feature = "test-utils"))]
+thread_local! {
+    static TEST_STORAGE_MANAGER: std::cell::RefCell<Option<Arc<StorageManager>>> = std::cell::RefCell::new(None);
+}
+
+/// Reset the storage manager for testing
+///
+/// In test mode, this resets the thread-local storage manager, allowing parallel test execution.
+/// Tests no longer need to be marked with #[serial].
+#[cfg(any(test, feature = "test-utils"))]
+pub fn reset_storage_for_testing() {
+    TEST_STORAGE_MANAGER.with(|storage| {
+        *storage.borrow_mut() = None;
+    });
+}
 
 /// Initialize the global storage manager
 pub async fn initialize_storage() -> ManagerResult<()> {
     let storage_manager = Arc::new(StorageManager::default().await?);
-    STORAGE_MANAGER.set(storage_manager).map_err(|_| {
-        ManagerError::Storage(StorageError::Database(
-            "Storage already initialized".to_string(),
-        ))
-    })?;
-    info!("Storage manager initialized successfully");
-    Ok(())
+
+    #[cfg(any(test, feature = "test-utils"))]
+    {
+        // In test mode, use thread-local storage for isolation
+        TEST_STORAGE_MANAGER.with(|storage| {
+            let mut storage = storage.borrow_mut();
+            if storage.is_some() {
+                return Err(ManagerError::Storage(StorageError::Database(
+                    "Storage already initialized".to_string(),
+                )));
+            }
+            *storage = Some(storage_manager);
+            Ok(())
+        })?;
+        info!("Storage manager initialized successfully (thread-local)");
+        return Ok(());
+    }
+
+    #[cfg(not(any(test, feature = "test-utils")))]
+    {
+        let mut storage = STORAGE_MANAGER.lock().unwrap();
+        if storage.is_some() {
+            return Err(ManagerError::Storage(StorageError::Database(
+                "Storage already initialized".to_string(),
+            )));
+        }
+        *storage = Some(storage_manager);
+        info!("Storage manager initialized successfully");
+        Ok(())
+    }
+}
+
+/// Initialize the global storage manager with a custom database path
+pub async fn initialize_storage_with_path(db_path: std::path::PathBuf) -> ManagerResult<()> {
+    use crate::storage::{StorageConfig, StorageProvider};
+
+    let config = StorageConfig {
+        provider: StorageProvider::Sqlite { path: db_path },
+        enable_wal: true,
+        enable_fts: true,
+        max_connections: 5,
+        busy_timeout_seconds: 10,
+    };
+
+    let storage_manager = Arc::new(StorageManager::new(config).await?);
+
+    #[cfg(any(test, feature = "test-utils"))]
+    {
+        // In test mode, use thread-local storage for isolation
+        TEST_STORAGE_MANAGER.with(|storage| {
+            let mut storage = storage.borrow_mut();
+            if storage.is_some() {
+                return Err(ManagerError::Storage(StorageError::Database(
+                    "Storage already initialized".to_string(),
+                )));
+            }
+            *storage = Some(storage_manager);
+            Ok(())
+        })?;
+        info!("Storage manager initialized successfully with custom path (thread-local)");
+        return Ok(());
+    }
+
+    #[cfg(not(any(test, feature = "test-utils")))]
+    {
+        let mut storage = STORAGE_MANAGER.lock().unwrap();
+        if storage.is_some() {
+            return Err(ManagerError::Storage(StorageError::Database(
+                "Storage already initialized".to_string(),
+            )));
+        }
+        *storage = Some(storage_manager);
+        info!("Storage manager initialized successfully with custom path");
+        Ok(())
+    }
 }
 
 /// Get the global storage manager instance
 pub async fn get_storage_manager() -> ManagerResult<Arc<StorageManager>> {
-    match STORAGE_MANAGER.get() {
-        Some(manager) => Ok(manager.clone()),
-        None => {
-            warn!("Storage manager not initialized, initializing now");
-            initialize_storage().await?;
-            STORAGE_MANAGER
-                .get()
-                .ok_or_else(|| {
-                    ManagerError::Storage(StorageError::Database(
-                        "Failed to initialize storage manager".to_string(),
-                    ))
-                })
-                .cloned()
+    #[cfg(any(test, feature = "test-utils"))]
+    {
+        // In test mode, use thread-local storage for isolation
+        let existing = TEST_STORAGE_MANAGER.with(|storage| storage.borrow().clone());
+        if let Some(manager) = existing {
+            return Ok(manager);
         }
+
+        // If not initialized, initialize it
+        warn!("Storage manager not initialized, initializing now (thread-local)");
+        initialize_storage().await?;
+
+        // Get the initialized manager
+        TEST_STORAGE_MANAGER.with(|storage| {
+            storage.borrow().clone().ok_or_else(|| {
+                ManagerError::Storage(StorageError::Database(
+                    "Failed to initialize storage manager".to_string(),
+                ))
+            })
+        })
+    }
+
+    #[cfg(not(any(test, feature = "test-utils")))]
+    {
+        // First, try to get existing manager
+        {
+            let storage = STORAGE_MANAGER.lock().unwrap();
+            if let Some(manager) = storage.as_ref() {
+                return Ok(manager.clone());
+            }
+        }
+
+        // If not initialized, initialize it
+        warn!("Storage manager not initialized, initializing now");
+        initialize_storage().await?;
+
+        // Get the initialized manager
+        let storage = STORAGE_MANAGER.lock().unwrap();
+        storage
+            .as_ref()
+            .ok_or_else(|| {
+                ManagerError::Storage(StorageError::Database(
+                    "Failed to initialize storage manager".to_string(),
+                ))
+            })
+            .cloned()
     }
 }
 

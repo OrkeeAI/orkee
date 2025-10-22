@@ -1,6 +1,8 @@
-use axum::{response::Result, Json};
+use axum::{extract::Extension, response::Result, Json};
 use serde_json::{json, Value};
 use std::time::{SystemTime, UNIX_EPOCH};
+
+use crate::middleware::CsrfLayer;
 
 pub async fn health_check() -> Result<Json<Value>> {
     let timestamp = SystemTime::now()
@@ -37,5 +39,12 @@ pub async fn status_check() -> Result<Json<Value>> {
             "active": 0,
             "total": 0
         }
+    })))
+}
+
+pub async fn get_csrf_token(Extension(csrf_layer): Extension<CsrfLayer>) -> Result<Json<Value>> {
+    let token = csrf_layer.token().await;
+    Ok(Json(json!({
+        "csrf_token": token
     })))
 }

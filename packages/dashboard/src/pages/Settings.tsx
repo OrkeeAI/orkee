@@ -14,6 +14,9 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { CliInstallationSettings } from '@/components/CliInstallationSettings'
+import { SecurityStatusSection } from '@/components/SecurityStatusSection'
+import { KeySourcesTable } from '@/components/KeySourcesTable'
+import { PasswordManagementDialog } from '@/components/PasswordManagementDialog'
 import { useTelemetry } from '@/contexts/TelemetryContext'
 import { usersService } from '@/services/users'
 import type { MaskedUser } from '@/services/users'
@@ -298,6 +301,10 @@ function ApiKeysSettings() {
   const [gatewayUrl, setGatewayUrl] = useState('');
   const [gatewayKey, setGatewayKey] = useState('');
 
+  // Password management dialog state
+  const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
+  const [passwordDialogMode, setPasswordDialogMode] = useState<'set' | 'change' | 'remove'>('set');
+
   // Load user credentials on mount
   useEffect(() => {
     loadUser();
@@ -357,6 +364,11 @@ function ApiKeysSettings() {
     }
   };
 
+  const openPasswordDialog = (mode: 'set' | 'change' | 'remove') => {
+    setPasswordDialogMode(mode);
+    setPasswordDialogOpen(true);
+  };
+
   if (isLoading) {
     return (
       <div className="rounded-lg border p-6">
@@ -373,14 +385,20 @@ function ApiKeysSettings() {
     <div className="rounded-lg border p-6">
       <div className="flex items-center gap-2 mb-4">
         <Key className="h-5 w-5 text-primary" />
-        <h2 className="text-xl font-semibold">API Keys</h2>
+        <h2 className="text-xl font-semibold">API Keys & Security</h2>
       </div>
 
       <div className="space-y-6">
+        {/* Security Status Section */}
+        <SecurityStatusSection onManagePassword={openPasswordDialog} />
+
+        {/* Key Sources Table */}
+        <KeySourcesTable />
+
         <Alert>
           <Shield className="h-4 w-4" />
           <AlertDescription>
-            API keys are stored securely in your local database and are never exposed in API responses.
+            API keys are encrypted and stored in your local database. Environment variables override database keys.
             Leave fields empty to keep existing keys unchanged.
           </AlertDescription>
         </Alert>
@@ -403,7 +421,7 @@ function ApiKeysSettings() {
 
         {/* AI Provider Keys */}
         <div className="space-y-4">
-          <h3 className="text-sm font-medium">AI Provider Keys</h3>
+          <h3 className="text-sm font-medium">Update API Keys</h3>
 
           {/* OpenAI */}
           <div className="space-y-2">
@@ -565,6 +583,13 @@ function ApiKeysSettings() {
           </Button>
         </div>
       </div>
+
+      {/* Password Management Dialog */}
+      <PasswordManagementDialog
+        open={passwordDialogOpen}
+        onOpenChange={setPasswordDialogOpen}
+        mode={passwordDialogMode}
+      />
     </div>
   );
 }

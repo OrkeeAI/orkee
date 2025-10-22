@@ -71,3 +71,4 @@ tokio-test = "0.4"
 axum-test = "15.0"
 futures = "0.3"
 serial_test = "3.0"
+orkee-projects = { path = "../projects", features = ["test-utils"] }
