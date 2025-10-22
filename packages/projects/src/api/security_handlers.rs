@@ -3,17 +3,55 @@
 
 use axum::{extract::State, http::StatusCode, response::IntoResponse, Json};
 use serde::{Deserialize, Serialize};
-use tracing::info;
+use tracing::{error, info};
 
 use super::auth::CurrentUser;
 use super::response::{ok_or_internal_error, ApiResponse};
 use crate::db::DbState;
+use crate::security::ApiKeyEncryption;
 use crate::storage::StorageError;
 
 // Password validation constants
 const MIN_PASSWORD_LENGTH: usize = 8;
+const PASSWORD_MAX_ATTEMPTS: i64 = 5;
+const PASSWORD_LOCKOUT_DURATION_MINUTES: i64 = 15;
 
 /// Validates password meets security requirements
+/// - Minimum 8 characters (longer is better for Argon2)
+/// - At least one uppercase letter
+/// - At least one lowercase letter
+/// - At least one digit
+/// - At least one special character
+fn validate_password_strength(password: &str) -> Result<(), String> {
+    if password.len() < MIN_PASSWORD_LENGTH {
+        return Err(format!(
+            "Password must be at least {} characters long",
+            MIN_PASSWORD_LENGTH
+        ));
+    }
+
+    let has_uppercase = password.chars().any(|c| c.is_ascii_uppercase());
+    let has_lowercase = password.chars().any(|c| c.is_ascii_lowercase());
+    let has_digit = password.chars().any(|c| c.is_ascii_digit());
+    let has_special = password.chars().any(|c| !c.is_alphanumeric());
+
+    if !has_uppercase {
+        return Err("Password must contain at least one uppercase letter".to_string());
+    }
+    if !has_lowercase {
+        return Err("Password must contain at least one lowercase letter".to_string());
+    }
+    if !has_digit {
+        return Err("Password must contain at least one digit".to_string());
+    }
+    if !has_special {
+        return Err("Password must contain at least one special character".to_string());
+    }
+
+    Ok(())
+}
+
+/// Basic password validation for compatibility with older tests
 fn validate_password(password: &str) -> Result<(), String> {
     if password.len() < MIN_PASSWORD_LENGTH {
         return Err(format!(
@@ -185,14 +223,14 @@ pub struct SetPasswordRequest {
 
 /// Set password for password-based encryption
 pub async fn set_password(
-    State(_db): State<DbState>,
-    _current_user: CurrentUser,
+    State(db): State<DbState>,
+    current_user: CurrentUser,
     Json(request): Json<SetPasswordRequest>,
 ) -> impl IntoResponse {
-    info!("Setting password for encryption");
+    info!("Setting password-based encryption");
 
-    // Validate password
-    if let Err(error_message) = validate_password(&request.password) {
+    // SECURITY: Validate password strength (never log password)
+    if let Err(error_message) = validate_password_strength(&request.password) {
         return (
             StatusCode::BAD_REQUEST,
             Json(ApiResponse::<()>::error(error_message)),
@@ -200,16 +238,133 @@ pub async fn set_password(
             .into_response();
     }
 
-    // TODO: Implement password-based encryption setup
-    // This requires more complex database operations
+    // Check if already using password-based encryption
+    let current_mode: Result<Option<(String,)>, sqlx::Error> =
+        sqlx::query_as("SELECT encryption_mode FROM encryption_settings WHERE id = 1")
+            .fetch_optional(&db.pool)
+            .await;
+
+    let mode = match current_mode {
+        Ok(Some((mode_str,))) if mode_str == "password" => {
+            error!("Already using password-based encryption. Use change-password instead.");
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(ApiResponse::<()>::error(
+                    "Already using password-based encryption. Use change-password to update.".to_string(),
+                )),
+            )
+                .into_response();
+        }
+        Ok(Some((mode_str,))) => mode_str,
+        Ok(None) => "machine".to_string(),
+        Err(e) => {
+            error!("Failed to check encryption mode: {}", e);
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ApiResponse::<()>::error("Failed to check encryption status".to_string())),
+            )
+                .into_response();
+        }
+    };
+
+    info!("Upgrading from {} to password-based encryption", mode);
+
+    // Generate salt for password-based encryption
+    let salt = match ApiKeyEncryption::generate_salt() {
+        Ok(s) => s,
+        Err(e) => {
+            error!("Failed to generate salt: {}", e);
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ApiResponse::<()>::error("Failed to generate encryption salt".to_string())),
+            )
+                .into_response();
+        }
+    };
+
+    // SECURITY: Hash password for verification (separate from encryption key)
+    let password_hash = match ApiKeyEncryption::hash_password_for_verification(&request.password, &salt) {
+        Ok(h) => h,
+        Err(e) => {
+            error!("Failed to hash password: {}", e);
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ApiResponse::<()>::error("Failed to process password".to_string())),
+            )
+                .into_response();
+        }
+    };
+
+    // Create old and new encryption instances
+    let old_encryption = match ApiKeyEncryption::with_machine_key() {
+        Ok(enc) => enc,
+        Err(e) => {
+            error!("Failed to create machine encryption: {}", e);
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ApiResponse::<()>::error("Failed to initialize encryption".to_string())),
+            )
+                .into_response();
+        }
+    };
+
+    let new_encryption = match ApiKeyEncryption::with_password(&request.password, &salt) {
+        Ok(enc) => enc,
+        Err(e) => {
+            error!("Failed to create password encryption: {}", e);
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ApiResponse::<()>::error("Failed to initialize password encryption".to_string())),
+            )
+                .into_response();
+        }
+    };
+
+    // Re-encrypt all API keys with new password-based encryption
+    if let Err(e) = db.user_storage.rotate_encryption_keys(&current_user.id, &old_encryption, &new_encryption).await {
+        error!("Failed to rotate encryption keys: {}", e);
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ApiResponse::<()>::error("Failed to re-encrypt API keys".to_string())),
+        )
+            .into_response();
+    }
+
+    // Save encryption settings to database
+    let result = sqlx::query(
+        r#"
+        UPDATE encryption_settings
+        SET encryption_mode = 'password',
+            password_salt = ?,
+            password_hash = ?,
+            updated_at = datetime('now')
+        WHERE id = 1
+        "#,
+    )
+    .bind(&salt)
+    .bind(&password_hash)
+    .execute(&db.pool)
+    .await;
+
+    if let Err(e) = result {
+        error!("Failed to save encryption settings: {}", e);
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ApiResponse::<()>::error("Failed to save encryption settings".to_string())),
+        )
+            .into_response();
+    }
+
+    info!("Successfully upgraded to password-based encryption");
+
     let response = serde_json::json!({
-        "message": "Password management not yet implemented in API",
-        "encryptionMode": "machine"
+        "message": "Password-based encryption enabled successfully",
+        "encryptionMode": "password"
     });
 
     ok_or_internal_error::<serde_json::Value, sqlx::Error>(
         Ok(response),
-        "Password management not implemented",
+        "Failed to enable password-based encryption",
     )
 }
 
@@ -223,14 +378,185 @@ pub struct ChangePasswordRequest {
 
 /// Change encryption password
 pub async fn change_password(
-    State(_db): State<DbState>,
-    _current_user: CurrentUser,
+    State(db): State<DbState>,
+    current_user: CurrentUser,
     Json(request): Json<ChangePasswordRequest>,
 ) -> impl IntoResponse {
     info!("Changing encryption password");
 
-    // Validate new password
-    if let Err(error_message) = validate_password(&request.new_password) {
+    // SECURITY: Check account lockout status first
+    let lockout_check: Result<Option<(i64, Option<String>)>, sqlx::Error> =
+        sqlx::query_as("SELECT attempt_count, locked_until FROM password_attempts WHERE id = 1")
+            .fetch_optional(&db.pool)
+            .await;
+
+    let (attempt_count, _locked_until) = match lockout_check {
+        Ok(Some((count, locked_str))) => {
+            // Check if account is currently locked
+            if let Some(ref locked_until_str) = locked_str {
+                if let Ok(locked_time) = chrono::DateTime::parse_from_rfc3339(locked_until_str) {
+                    let now = chrono::Utc::now();
+                    if locked_time.with_timezone(&chrono::Utc) > now {
+                        error!("Account locked due to too many failed password attempts");
+                        return (
+                            StatusCode::TOO_MANY_REQUESTS,
+                            Json(ApiResponse::<()>::error(format!(
+                                "Account locked until {}. Too many failed password attempts.",
+                                locked_until_str
+                            ))),
+                        )
+                            .into_response();
+                    }
+                }
+            }
+            (count, locked_str)
+        }
+        Ok(None) => (0, None),
+        Err(e) => {
+            error!("Failed to check lockout status: {}", e);
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ApiResponse::<()>::error("Failed to check account status".to_string())),
+            )
+                .into_response();
+        }
+    };
+
+    // Get current encryption settings
+    let settings: Result<Option<(String, Option<Vec<u8>>, Option<Vec<u8>>)>, sqlx::Error> =
+        sqlx::query_as("SELECT encryption_mode, password_salt, password_hash FROM encryption_settings WHERE id = 1")
+            .fetch_optional(&db.pool)
+            .await;
+
+    let (mode, salt, stored_hash) = match settings {
+        Ok(Some(row)) => row,
+        Ok(None) => {
+            error!("No encryption settings found");
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ApiResponse::<()>::error("Encryption settings not found".to_string())),
+            )
+                .into_response();
+        }
+        Err(e) => {
+            error!("Failed to fetch encryption settings: {}", e);
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ApiResponse::<()>::error("Failed to fetch encryption settings".to_string())),
+            )
+                .into_response();
+        }
+    };
+
+    // Ensure we're using password-based encryption
+    if mode != "password" {
+        error!("Not using password-based encryption");
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(ApiResponse::<()>::error(
+                "Not using password-based encryption. Use set-password instead.".to_string(),
+            )),
+        )
+            .into_response();
+    }
+
+    let salt = match salt {
+        Some(s) => s,
+        None => {
+            error!("Password salt not found");
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ApiResponse::<()>::error("Password configuration is corrupt".to_string())),
+            )
+                .into_response();
+        }
+    };
+
+    let stored_hash = match stored_hash {
+        Some(h) => h,
+        None => {
+            error!("Password hash not found");
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ApiResponse::<()>::error("Password configuration is corrupt".to_string())),
+            )
+                .into_response();
+        }
+    };
+
+    // SECURITY: Verify current password using constant-time comparison (via Argon2)
+    let password_valid = match ApiKeyEncryption::verify_password(&request.current_password, &salt, &stored_hash) {
+        Ok(valid) => valid,
+        Err(e) => {
+            error!("Password verification failed: {}", e);
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ApiResponse::<()>::error("Password verification failed".to_string())),
+            )
+                .into_response();
+        }
+    };
+
+    if !password_valid {
+        // SECURITY: Increment failed attempt counter
+        let new_attempt_count = attempt_count + 1;
+        let mut locked_until_new = None;
+
+        if new_attempt_count >= PASSWORD_MAX_ATTEMPTS {
+            // Lock account for PASSWORD_LOCKOUT_DURATION_MINUTES
+            let lockout_time = chrono::Utc::now() + chrono::Duration::minutes(PASSWORD_LOCKOUT_DURATION_MINUTES);
+            locked_until_new = Some(lockout_time.to_rfc3339());
+            error!("Too many failed password attempts. Account locked until {}", lockout_time);
+        }
+
+        let _ = sqlx::query(
+            r#"
+            UPDATE password_attempts
+            SET attempt_count = ?,
+                locked_until = ?,
+                last_attempt_at = datetime('now', 'utc'),
+                updated_at = datetime('now', 'utc')
+            WHERE id = 1
+            "#,
+        )
+        .bind(new_attempt_count)
+        .bind(&locked_until_new)
+        .execute(&db.pool)
+        .await;
+
+        if locked_until_new.is_some() {
+            return (
+                StatusCode::TOO_MANY_REQUESTS,
+                Json(ApiResponse::<()>::error(
+                    "Too many failed password attempts. Account locked.".to_string(),
+                )),
+            )
+                .into_response();
+        }
+
+        return (
+            StatusCode::UNAUTHORIZED,
+            Json(ApiResponse::<()>::error("Current password is incorrect".to_string())),
+        )
+            .into_response();
+    }
+
+    // SECURITY: Reset attempt counter on successful password verification
+    let _ = sqlx::query(
+        r#"
+        UPDATE password_attempts
+        SET attempt_count = 0,
+            locked_until = NULL,
+            last_attempt_at = datetime('now', 'utc'),
+            updated_at = datetime('now', 'utc')
+        WHERE id = 1
+        "#,
+    )
+    .execute(&db.pool)
+    .await;
+
+    // SECURITY: Validate new password strength (never log password)
+    if let Err(error_message) = validate_password_strength(&request.new_password) {
         return (
             StatusCode::BAD_REQUEST,
             Json(ApiResponse::<()>::error(error_message)),
@@ -238,34 +564,284 @@ pub async fn change_password(
             .into_response();
     }
 
-    // TODO: Implement password change functionality
+    // Generate new salt for new password
+    let new_salt = match ApiKeyEncryption::generate_salt() {
+        Ok(s) => s,
+        Err(e) => {
+            error!("Failed to generate new salt: {}", e);
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ApiResponse::<()>::error("Failed to generate encryption salt".to_string())),
+            )
+                .into_response();
+        }
+    };
+
+    // SECURITY: Hash new password for verification
+    let new_password_hash = match ApiKeyEncryption::hash_password_for_verification(&request.new_password, &new_salt) {
+        Ok(h) => h,
+        Err(e) => {
+            error!("Failed to hash new password: {}", e);
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ApiResponse::<()>::error("Failed to process new password".to_string())),
+            )
+                .into_response();
+        }
+    };
+
+    // Create encryption instances
+    let old_encryption = match ApiKeyEncryption::with_password(&request.current_password, &salt) {
+        Ok(enc) => enc,
+        Err(e) => {
+            error!("Failed to create old encryption: {}", e);
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ApiResponse::<()>::error("Failed to initialize encryption".to_string())),
+            )
+                .into_response();
+        }
+    };
+
+    let new_encryption = match ApiKeyEncryption::with_password(&request.new_password, &new_salt) {
+        Ok(enc) => enc,
+        Err(e) => {
+            error!("Failed to create new encryption: {}", e);
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ApiResponse::<()>::error("Failed to initialize new encryption".to_string())),
+            )
+                .into_response();
+        }
+    };
+
+    // Re-encrypt all API keys
+    if let Err(e) = db.user_storage.rotate_encryption_keys(&current_user.id, &old_encryption, &new_encryption).await {
+        error!("Failed to rotate encryption keys: {}", e);
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ApiResponse::<()>::error("Failed to re-encrypt API keys".to_string())),
+        )
+            .into_response();
+    }
+
+    // Save new encryption settings
+    let result = sqlx::query(
+        r#"
+        UPDATE encryption_settings
+        SET password_salt = ?,
+            password_hash = ?,
+            updated_at = datetime('now')
+        WHERE id = 1
+        "#,
+    )
+    .bind(&new_salt)
+    .bind(&new_password_hash)
+    .execute(&db.pool)
+    .await;
+
+    if let Err(e) = result {
+        error!("Failed to save new encryption settings: {}", e);
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ApiResponse::<()>::error("Failed to save new encryption settings".to_string())),
+        )
+            .into_response();
+    }
+
+    info!("Successfully changed encryption password");
+
     let response = serde_json::json!({
-        "message": "Password management not yet implemented in API",
-        "encryptionMode": "machine"
+        "message": "Password changed successfully",
+        "encryptionMode": "password"
     });
 
     ok_or_internal_error::<serde_json::Value, sqlx::Error>(
         Ok(response),
-        "Password management not implemented",
+        "Failed to change password",
     )
+}
+
+/// Request body for removing password
+#[derive(Deserialize)]
+pub struct RemovePasswordRequest {
+    pub current_password: String,
 }
 
 /// Remove password-based encryption (downgrade to machine-based)
 pub async fn remove_password(
-    State(_db): State<DbState>,
-    _current_user: CurrentUser,
+    State(db): State<DbState>,
+    current_user: CurrentUser,
+    Json(request): Json<RemovePasswordRequest>,
 ) -> impl IntoResponse {
-    info!("Removing password-based encryption");
+    info!("Removing password-based encryption (downgrading to machine-based)");
 
-    // TODO: Implement password removal functionality
+    // Get current encryption settings
+    let settings: Result<Option<(String, Option<Vec<u8>>, Option<Vec<u8>>)>, sqlx::Error> =
+        sqlx::query_as("SELECT encryption_mode, password_salt, password_hash FROM encryption_settings WHERE id = 1")
+            .fetch_optional(&db.pool)
+            .await;
+
+    let (mode, salt, stored_hash) = match settings {
+        Ok(Some(row)) => row,
+        Ok(None) => {
+            error!("No encryption settings found");
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ApiResponse::<()>::error("Encryption settings not found".to_string())),
+            )
+                .into_response();
+        }
+        Err(e) => {
+            error!("Failed to fetch encryption settings: {}", e);
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ApiResponse::<()>::error("Failed to fetch encryption settings".to_string())),
+            )
+                .into_response();
+        }
+    };
+
+    // Ensure we're using password-based encryption
+    if mode != "password" {
+        error!("Not using password-based encryption");
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(ApiResponse::<()>::error(
+                "Not using password-based encryption. Already using machine-based encryption.".to_string(),
+            )),
+        )
+            .into_response();
+    }
+
+    let salt = match salt {
+        Some(s) => s,
+        None => {
+            error!("Password salt not found");
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ApiResponse::<()>::error("Password configuration is corrupt".to_string())),
+            )
+                .into_response();
+        }
+    };
+
+    let stored_hash = match stored_hash {
+        Some(h) => h,
+        None => {
+            error!("Password hash not found");
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ApiResponse::<()>::error("Password configuration is corrupt".to_string())),
+            )
+                .into_response();
+        }
+    };
+
+    // SECURITY: Verify current password before removing protection
+    let password_valid = match ApiKeyEncryption::verify_password(&request.current_password, &salt, &stored_hash) {
+        Ok(valid) => valid,
+        Err(e) => {
+            error!("Password verification failed: {}", e);
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ApiResponse::<()>::error("Password verification failed".to_string())),
+            )
+                .into_response();
+        }
+    };
+
+    if !password_valid {
+        error!("Invalid password provided for removing encryption");
+        return (
+            StatusCode::UNAUTHORIZED,
+            Json(ApiResponse::<()>::error("Current password is incorrect".to_string())),
+        )
+            .into_response();
+    }
+
+    // Create encryption instances
+    let old_encryption = match ApiKeyEncryption::with_password(&request.current_password, &salt) {
+        Ok(enc) => enc,
+        Err(e) => {
+            error!("Failed to create password encryption: {}", e);
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ApiResponse::<()>::error("Failed to initialize encryption".to_string())),
+            )
+                .into_response();
+        }
+    };
+
+    let new_encryption = match ApiKeyEncryption::with_machine_key() {
+        Ok(enc) => enc,
+        Err(e) => {
+            error!("Failed to create machine encryption: {}", e);
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ApiResponse::<()>::error("Failed to initialize machine encryption".to_string())),
+            )
+                .into_response();
+        }
+    };
+
+    // Re-encrypt all API keys with machine-based encryption
+    if let Err(e) = db.user_storage.rotate_encryption_keys(&current_user.id, &old_encryption, &new_encryption).await {
+        error!("Failed to rotate encryption keys: {}", e);
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ApiResponse::<()>::error("Failed to re-encrypt API keys".to_string())),
+        )
+            .into_response();
+    }
+
+    // Update encryption settings to machine-based
+    let result = sqlx::query(
+        r#"
+        UPDATE encryption_settings
+        SET encryption_mode = 'machine',
+            password_salt = NULL,
+            password_hash = NULL,
+            updated_at = datetime('now')
+        WHERE id = 1
+        "#,
+    )
+    .execute(&db.pool)
+    .await;
+
+    if let Err(e) = result {
+        error!("Failed to update encryption settings: {}", e);
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ApiResponse::<()>::error("Failed to update encryption settings".to_string())),
+        )
+            .into_response();
+    }
+
+    // Reset password attempts
+    let _ = sqlx::query(
+        r#"
+        UPDATE password_attempts
+        SET attempt_count = 0,
+            locked_until = NULL,
+            last_attempt_at = NULL,
+            updated_at = datetime('now', 'utc')
+        WHERE id = 1
+        "#,
+    )
+    .execute(&db.pool)
+    .await;
+
+    info!("Successfully downgraded to machine-based encryption");
+
     let response = serde_json::json!({
-        "message": "Password management not yet implemented in API",
+        "message": "Password-based encryption removed. Now using machine-based encryption.",
         "encryptionMode": "machine"
     });
 
     ok_or_internal_error::<serde_json::Value, sqlx::Error>(
         Ok(response),
-        "Password management not implemented",
+        "Failed to remove password-based encryption",
     )
 }
 
@@ -311,5 +887,61 @@ mod tests {
         // 7 characters should be invalid
         let result = validate_password("1234567");
         assert!(result.is_err());
+    }
+
+    // Password strength validation tests
+    #[test]
+    fn test_validate_password_strength_valid() {
+        assert!(validate_password_strength("Password123!").is_ok());
+        assert!(validate_password_strength("Secure#Pass1").is_ok());
+        assert!(validate_password_strength("MyP@ssw0rd").is_ok());
+    }
+
+    #[test]
+    fn test_validate_password_strength_too_short() {
+        let result = validate_password_strength("Pass1!");
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("at least 8 characters"));
+    }
+
+    #[test]
+    fn test_validate_password_strength_no_uppercase() {
+        let result = validate_password_strength("password123!");
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("uppercase letter"));
+    }
+
+    #[test]
+    fn test_validate_password_strength_no_lowercase() {
+        let result = validate_password_strength("PASSWORD123!");
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("lowercase letter"));
+    }
+
+    #[test]
+    fn test_validate_password_strength_no_digit() {
+        let result = validate_password_strength("Password!");
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("digit"));
+    }
+
+    #[test]
+    fn test_validate_password_strength_no_special() {
+        let result = validate_password_strength("Password123");
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("special character"));
+    }
+
+    #[test]
+    fn test_validate_password_strength_comprehensive() {
+        // Test all missing requirements
+        assert!(validate_password_strength("alllowercase").is_err());
+        assert!(validate_password_strength("ALLUPPERCASE").is_err());
+        assert!(validate_password_strength("NoDigitsHere!").is_err());
+        assert!(validate_password_strength("NoSpecial123").is_err());
+
+        // Valid combinations
+        assert!(validate_password_strength("Abcdefg1!").is_ok());
+        assert!(validate_password_strength("MySecure#Pass123").is_ok());
     }
 }
