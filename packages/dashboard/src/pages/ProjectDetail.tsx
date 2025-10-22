@@ -20,7 +20,8 @@ import {
   Play,
   ListTodo,
   FileText,
-  DollarSign
+  DollarSign,
+  Layers
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -35,6 +36,7 @@ import { OpenInEditorButton } from '@/components/ui/OpenInEditorButton';
 import { TasksTab } from '@/components/TasksTab';
 import { SpecsTab } from '@/components/SpecsTab';
 import { CostDashboard } from '@/components/CostDashboard';
+import { ContextTab } from '@/components/ContextTab';
 import { useProject } from '@/hooks/useProjects';
 import { useCommitHistory } from '@/services/git';
 
@@ -183,7 +185,7 @@ export function ProjectDetail() {
 
       {/* Tabbed Content */}
       <Tabs defaultValue="overview" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-7">
+        <TabsList className="grid w-full grid-cols-8">
           <TabsTrigger value="overview" className="flex items-center gap-2">
             <Info className="h-4 w-4" />
             Overview
@@ -195,6 +197,10 @@ export function ProjectDetail() {
           <TabsTrigger value="tasks" className="flex items-center gap-2">
             <ListTodo className="h-4 w-4" />
             Tasks
+          </TabsTrigger>
+          <TabsTrigger value="context" className="flex items-center gap-2">
+            <Layers className="h-4 w-4" />
+            Context
           </TabsTrigger>
           <TabsTrigger value="ai-usage" className="flex items-center gap-2">
             <DollarSign className="h-4 w-4" />
@@ -224,6 +230,10 @@ export function ProjectDetail() {
             projectPath={project.projectRoot}
             taskSource={project.taskSource || 'manual'}
           />
+        </TabsContent>
+
+        <TabsContent value="context" className="space-y-4">
+          <ContextTab projectId={project.id} projectPath={project.projectRoot} />
         </TabsContent>
 
         <TabsContent value="ai-usage" className="space-y-4">
