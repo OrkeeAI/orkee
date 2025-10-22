@@ -1,9 +1,7 @@
 -- Context-OpenSpec Integration - Phase 3
 -- Link context configurations to spec capabilities and enable spec-driven context
 
--- Link context configurations to spec capabilities
-ALTER TABLE context_configurations
-ADD COLUMN spec_capability_id TEXT REFERENCES spec_capabilities(id);
+-- Note: spec_capability_id already added in 20250122000000_context.sql
 
 -- Map AST symbols to spec requirements
 CREATE TABLE ast_spec_mappings (
@@ -39,5 +37,4 @@ ADD COLUMN context_snapshot_id TEXT REFERENCES context_snapshots(id);
 -- Indexes for performance
 CREATE INDEX idx_ast_spec_mappings_project ON ast_spec_mappings(project_id);
 CREATE INDEX idx_ast_spec_mappings_requirement ON ast_spec_mappings(requirement_id);
-CREATE INDEX idx_context_configs_spec ON context_configurations(spec_capability_id);
 CREATE INDEX idx_ai_usage_logs_context ON ai_usage_logs(context_snapshot_id);

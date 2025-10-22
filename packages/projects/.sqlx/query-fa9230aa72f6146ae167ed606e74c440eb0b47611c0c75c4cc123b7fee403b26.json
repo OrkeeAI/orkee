@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "\n            INSERT INTO context_usage_patterns (project_id, file_path, inclusion_count, last_used)\n            VALUES (?1, ?2, 1, CURRENT_TIMESTAMP)\n            ON CONFLICT(project_id, file_path)\n            DO UPDATE SET\n                inclusion_count = inclusion_count + 1,\n                last_used = CURRENT_TIMESTAMP\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": []
+  },
+  "hash": "fa9230aa72f6146ae167ed606e74c440eb0b47611c0c75c4cc123b7fee403b26"
+}
