@@ -30,6 +30,11 @@ export function PasswordManagementDialog({ open, onOpenChange, mode }: PasswordM
   const isLoading = setPasswordMutation.isPending || changePasswordMutation.isPending || removePasswordMutation.isPending;
 
   const handleClose = () => {
+    // Prevent closing during async operations
+    if (isLoading) {
+      return;
+    }
+
     setCurrentPassword('');
     setNewPassword('');
     setConfirmPassword('');
@@ -115,8 +120,8 @@ export function PasswordManagementDialog({ open, onOpenChange, mode }: PasswordM
   };
 
   return (
-    <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-[500px]">
+    <Dialog open={open} onOpenChange={isLoading ? undefined : handleClose}>
+      <DialogContent className="sm:max-w-[500px]" onPointerDownOutside={(e) => isLoading && e.preventDefault()} onEscapeKeyDown={(e) => isLoading && e.preventDefault()}>
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             {mode === 'set' && (
