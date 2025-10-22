@@ -8,6 +8,7 @@ pub mod ai_service;
 pub mod ai_usage_logs;
 pub mod api;
 pub mod constants;
+pub mod context;
 pub mod db;
 pub mod executions;
 pub mod formatter;
