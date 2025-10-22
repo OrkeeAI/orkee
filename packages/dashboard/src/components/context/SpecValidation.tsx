@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
-import { CheckCircle2, XCircle, AlertCircle, Loader2, Code2, FileCode } from 'lucide-react';
+import { CheckCircle2, XCircle, AlertCircle, Loader2, Code2, FileCode, Shield } from 'lucide-react';
 
 interface SpecValidationProps {
   projectId: string;

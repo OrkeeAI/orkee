@@ -72,8 +72,8 @@ export function ContextTemplates({ projectId, onTemplateApplied }: ContextTempla
   const { data: specsData, isLoading: specsLoading } = useSpecs(projectId);
   const { data: prdsData, isLoading: prdsLoading } = usePRDs(projectId);
 
-  const specs = specsData?.items || specsData || [];
-  const prds = prdsData?.items || prdsData || [];
+  const specs = Array.isArray(specsData) ? specsData : specsData?.items || [];
+  const prds = Array.isArray(prdsData) ? prdsData : prdsData?.items || [];
 
   const applyTemplate = async () => {
     if (!selectedTemplate) return;
