@@ -232,8 +232,6 @@ describe('Context Tab Integration Tests', () => {
   });
 
   it('should handle API errors gracefully', async () => {
-    const user = userEvent.setup();
-
     // Mock failed request
     mockFetch.mockRejectedValueOnce(new Error('Network error'));
 
@@ -242,18 +240,17 @@ describe('Context Tab Integration Tests', () => {
     // Wait for error state
     await waitFor(() => {
       // Should show error message or fallback UI
-      const errorElement = screen.queryByText(/error/i) || screen.queryByText(/failed/i);
       // Component should handle errors, test passes if no crash occurs
       expect(true).toBe(true);
     });
   });
 
   it('should copy context to clipboard', async () => {
-    const user = userEvent.setup();
     const mockClipboard = {
       writeText: vi.fn().mockResolvedValue(undefined),
     };
     Object.assign(navigator, { clipboard: mockClipboard });
+    const user = userEvent.setup();
 
     // Mock context generation
     mockFetch.mockResolvedValueOnce({
