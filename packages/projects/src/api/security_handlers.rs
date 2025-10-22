@@ -49,8 +49,14 @@ pub async fn get_security_status(
 
     let encryption_mode = match encryption_mode_result {
         Ok(Some((mode_str,))) => mode_str,
-        Ok(None) => "machine".to_string(), // Default
-        Err(_) => "machine".to_string(),   // Default on error
+        Ok(None) => {
+            tracing::warn!("No encryption mode found in database, defaulting to 'machine'");
+            "machine".to_string()
+        }
+        Err(e) => {
+            tracing::error!("Failed to read encryption mode from database: {}", e);
+            "machine".to_string()
+        }
     };
 
     // Get password lockout status from database
@@ -74,8 +80,14 @@ pub async fn get_security_status(
                 locked_until.map(|dt| dt.to_rfc3339()),
             )
         }
-        Ok(None) => (false, Some(0), None),
-        Err(_) => (false, None, None),
+        Ok(None) => {
+            tracing::debug!("No password attempt records found, user is not locked out");
+            (false, Some(0), None)
+        }
+        Err(e) => {
+            tracing::error!("Failed to read password lockout status from database: {}", e);
+            (false, None, None)
+        }
     };
 
     let response = SecurityStatusResponse {
