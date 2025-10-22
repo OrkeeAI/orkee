@@ -54,6 +54,14 @@ pub async fn run_server() -> Result<(), Box<dyn std::error::Error>> {
 pub async fn run_server_with_options(
     dashboard_path: Option<std::path::PathBuf>,
 ) -> Result<(), Box<dyn std::error::Error>> {
+    // Initialize tracing subscriber if not already initialized
+    let _ = tracing_subscriber::fmt()
+        .with_env_filter(
+            tracing_subscriber::EnvFilter::try_from_default_env()
+                .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info"))
+        )
+        .try_init();
+
     // Load .env file
     dotenvy::dotenv().ok();
 
@@ -262,9 +270,6 @@ async fn create_application_router(
     let csrf_layer = middleware::CsrfLayer::new();
     info!("CSRF protection enabled");
 
-    // Add CSRF layer as extension (available to all handlers)
-    app_builder = app_builder.layer(axum::Extension(csrf_layer));
-
     // Add CORS layer
     app_builder = app_builder.layer(cors);
 
@@ -285,6 +290,10 @@ async fn create_application_router(
     // Add CSRF protection middleware
     app_builder = app_builder.layer(axum::middleware::from_fn(middleware::csrf::csrf_middleware));
     info!("CSRF middleware enabled for password management endpoints");
+
+    // Add CSRF layer as extension (available to all handlers)
+    // IMPORTANT: This must be added AFTER the middleware that uses it, because layers are applied in reverse order
+    app_builder = app_builder.layer(axum::Extension(csrf_layer));
 
     // Add security headers if enabled
     if config.security_headers_enabled {
