@@ -1,14 +1,98 @@
 # Context Tab Implementation Plan
 
-## 📊 Overall Progress
+## 📊 Overall Progress Dashboard
 
 ### Phase Completion Status
-- [ ] **Phase 1**: Basic Context Generation (Week 1) - 7 tasks
-- [ ] **Phase 2**: Tree-sitter Integration (Week 2) - 4 tasks
-- [ ] **Phase 3**: OpenSpec Integration (Week 3) - 5 tasks (includes context tracking enhancement)
-- [ ] **Phase 4**: Advanced Features (Week 4) - 5 tasks
 
-**Total Tasks**: 21 | **Completed**: 0 | **In Progress**: 0 | **Remaining**: 21
+| Phase | Status | Tasks | Progress | Jump To |
+|-------|--------|-------|----------|----------|
+| **Phase 1** | ⏳ Pending | 0/7 | ░░░░░░░░░░ 0% | [→ Phase 1](#phase-1-basic-context-generation-week-1) |
+| **Phase 2** | ⏳ Pending | 0/4 | ░░░░░░░░░░ 0% | [→ Phase 2](#phase-2-tree-sitter-integration-week-2) |
+| **Phase 3** | ⏳ Pending | 0/5 | ░░░░░░░░░░ 0% | [→ Phase 3](#phase-3-openspec-integration-week-3) |
+| **Phase 4** | ⏳ Pending | 0/5 | ░░░░░░░░░░ 0% | [→ Phase 4](#phase-4-advanced-features-week-4) |
+
+**Overall Progress**: 0/21 tasks complete (0%)
+
+**Legend**: ✅ Complete | 🔄 In Progress | ⏳ Pending | ❌ Blocked
+
+---
+
+## 🗺️ Table of Contents
+
+### Introduction
+- [What is this document?](#what-is-this-document)
+- [Why Context Matters](#why-context-matters)
+- [Architecture Overview](#architecture-overview)
+
+### Implementation Phases
+- [Phase 1: Basic Context Generation](#phase-1-basic-context-generation-week-1) (Week 1 - 7 tasks)
+  - [Task 1.1: Database Migration](#task-11-create-database-migration)
+  - [Task 1.2: Rust Types](#task-12-create-rust-types)
+  - [Task 1.3: Context Tab Component](#task-13-create-context-tab-component)
+  - [Task 1.4: Context Builder Component](#task-14-create-context-builder-component)
+  - [Task 1.5: Context API Handler](#task-15-create-context-api-handler)
+  - [Task 1.6: Wire Up Routes](#task-16-wire-up-routes)
+  - [Phase 1 Success Criteria](#success-criteria-for-phase-1)
+
+- [Phase 2: Tree-sitter Integration](#phase-2-tree-sitter-integration-week-2) (Week 2 - 4 tasks)
+  - [Task 2.1: Add Dependencies](#task-21-add-dependencies)
+  - [Task 2.2: AST Analyzer Module](#task-22-create-ast-analyzer-module)
+  - [Task 2.3: AST Explorer Component](#task-23-create-ast-explorer-component)
+  - [Task 2.4: Dependency Graph Builder](#task-24-create-dependency-graph-builder)
+  - [Phase 2 Success Criteria](#success-criteria-for-phase-2)
+
+- [Phase 3: OpenSpec Integration](#phase-3-openspec-integration-week-3) (Week 3 - 5 tasks)
+  - [Task 3.1: Database Schema](#task-31-update-database-schema)
+  - [Task 3.2: Spec-Aware Context Builder](#task-32-create-spec-aware-context-builder)
+  - [Task 3.3: Context Template System](#task-33-create-context-template-system)
+  - [Task 3.4: Validation Dashboard](#task-34-create-validation-dashboard)
+  - [Phase 3 Success Criteria](#success-criteria-for-phase-3)
+
+- [Phase 4: Advanced Features](#phase-4-advanced-features-week-4) (Week 4 - 5 tasks)
+  - [Task 4.1: Incremental Parsing](#task-41-implement-incremental-parsing)
+  - [Task 4.2: Context History](#task-42-track-context-usage)
+  - [Task 4.3: Multi-language Support](#task-43-add-more-language-parsers)
+  - [Phase 4 Success Criteria](#success-criteria-for-phase-4)
+
+### Appendices
+- [Glossary](#glossary)
+- [Questions This Solves](#questions-this-solves)
+- [Next Steps After Implementation](#next-steps-after-implementation)
+- [Resources and References](#resources-and-references)
+
+---
+
+## 📚 How to Use This Document
+
+### For Developers
+
+1. **Start with the [Overall Progress Dashboard](#overall-progress-dashboard)** to see current status
+2. **Navigate to your assigned phase** using the quick links
+3. **Check the Phase Overview** for goals, dependencies, and timeline
+4. **Review the Tasks Summary table** to understand effort estimates
+5. **Work through tasks sequentially** and check them off as you complete
+6. **Update the phase status** when all tasks are done
+
+### Tracking Progress
+
+**Task Status Icons**:
+- ✅ **Complete** - Task finished and tested
+- 🔄 **In Progress** - Currently being worked on
+- ⏳ **Pending** - Not started yet
+- ❌ **Blocked** - Waiting on dependencies
+
+**How to Update**:
+1. Check off task checkboxes as you complete them: `- [x]`
+2. Update the phase overview progress: `Progress: X/Y tasks`
+3. Update the overall progress dashboard table
+4. Change status icons from ⏳ to 🔄 to ✅
+
+### Navigation Tips
+
+- Use **Back to Top** links to return to the progress dashboard
+- Use **Previous/Next Phase** links to move between phases
+- Use the **Table of Contents** to jump to specific sections
+- Search for task numbers (e.g., "Task 2.3") to find specific tasks
 
 ---
 
@@ -49,7 +133,44 @@ SQLite Database
 
 ## PHASE 1: Basic Context Generation (Week 1)
 
+[⬆️ Back to Top](#context-tab-implementation-plan) | [➡️ Next Phase](#phase-2-tree-sitter-integration-week-2)
+
+### 🎯 Phase 1 Overview
+
 **Goal**: Build the foundation for gathering and displaying code context
+
+**Status**: ⏳ Pending | **Progress**: 0/7 tasks (0%)
+
+**Timeline**: Week 1 (5 days) | **Estimated Effort**: ~40 hours
+
+**Dependencies**: 
+- SQLite database setup
+- Existing Orkee project structure
+- React dashboard framework
+
+### 📝 Phase 1 Tasks Summary
+
+| Task | Status | Estimated Hours | Files |
+|------|--------|----------------|-------|
+| 1.1 Database Migration | ⏳ Pending | 4h | `migrations/005_context.sql` |
+| 1.2 Rust Types | ⏳ Pending | 3h | `context/types.rs` |
+| 1.3 Context Tab Component | ⏳ Pending | 6h | `ContextTab.tsx` |
+| 1.4 Context Builder Component | ⏳ Pending | 8h | `ContextBuilder.tsx` |
+| 1.5 Context API Handler | ⏳ Pending | 10h | `context_handlers.rs` |
+| 1.6 Wire Up Routes | ⏳ Pending | 3h | `api/mod.rs` |
+| **Testing & Integration** | ⏳ Pending | 6h | Various |
+
+### ✅ Success Criteria for Phase 1
+
+- [ ] Database tables created and migrated
+- [ ] Basic file selection UI working
+- [ ] Context generation API endpoint functional
+- [ ] Token counting implemented
+- [ ] Files can be included/excluded
+- [ ] Generated context can be copied to clipboard
+- [ ] Phase 1 complete and tested
+
+---
 
 ### Day 1-2: Database Setup
 
@@ -446,21 +567,44 @@ pub fn context_routes() -> Router<AppState> {
 }
 ```
 
-### Success Criteria for Phase 1
-
-- [ ] Database tables created and migrated
-- [ ] Basic file selection UI working
-- [ ] Context generation API endpoint functional
-- [ ] Token counting implemented
-- [ ] Files can be included/excluded
-- [ ] Generated context can be copied to clipboard
-- [ ] Phase 1 complete and tested
-
 ---
 
 ## PHASE 2: Tree-sitter Integration (Week 2)
 
+[⬆️ Back to Top](#context-tab-implementation-plan) | [⬅️ Previous Phase](#phase-1-basic-context-generation-week-1) | [➡️ Next Phase](#phase-3-openspec-integration-week-3)
+
+### 🎯 Phase 2 Overview
+
 **Goal**: Add code intelligence using AST parsing
+
+**Status**: ⏳ Pending | **Progress**: 0/4 tasks (0%)
+
+**Timeline**: Week 2 (5 days) | **Estimated Effort**: ~35 hours
+
+**Dependencies**:
+- Phase 1 complete (database and basic UI)
+- Tree-sitter Rust crates
+- Language grammar packages
+
+### 📝 Phase 2 Tasks Summary
+
+| Task | Status | Estimated Hours | Files |
+|------|--------|----------------|-------|
+| 2.1 Add Dependencies | ⏳ Pending | 2h | `Cargo.toml` |
+| 2.2 AST Analyzer Module | ⏳ Pending | 12h | `ast_analyzer.rs` |
+| 2.3 AST Explorer Component | ⏳ Pending | 10h | `ASTExplorer.tsx` |
+| 2.4 Dependency Graph Builder | ⏳ Pending | 8h | `dependency_graph.rs` |
+| **Testing & Integration** | ⏳ Pending | 3h | Various |
+
+### ✅ Success Criteria for Phase 2
+
+- [ ] Tree-sitter parsers integrated for TS/JS/Python/Rust
+- [ ] AST symbols extracted from source files
+- [ ] Dependency graph built from imports/exports
+- [ ] UI can display code structure
+- [ ] Users can select specific functions/classes
+- [ ] Context includes only selected symbols
+- [ ] Phase 2 complete and tested
 
 ### Day 1-2: Tree-sitter Setup
 
@@ -752,21 +896,45 @@ impl DependencyGraph {
 }
 ```
 
-### Success Criteria for Phase 2
-
-- [ ] Tree-sitter parsers integrated for TS/JS/Python/Rust
-- [ ] AST symbols extracted from source files
-- [ ] Dependency graph built from imports/exports
-- [ ] UI can display code structure
-- [ ] Users can select specific functions/classes
-- [ ] Context includes only selected symbols
-- [ ] Phase 2 complete and tested
-
 ---
 
 ## PHASE 3: OpenSpec Integration (Week 3)
 
+[⬆️ Back to Top](#context-tab-implementation-plan) | [⬅️ Previous Phase](#phase-2-tree-sitter-integration-week-2) | [➡️ Next Phase](#phase-4-advanced-features-week-4)
+
+### 🎯 Phase 3 Overview
+
 **Goal**: Tightly integrate context with specs, PRDs, and tasks
+
+**Status**: ⏳ Pending | **Progress**: 0/5 tasks (0%)
+
+**Timeline**: Week 3 (5 days) | **Estimated Effort**: ~38 hours
+
+**Dependencies**:
+- Phase 2 complete (AST parsing working)
+- OpenSpec tables (from SPEC_TASK.md)
+- Existing spec capabilities and requirements
+
+### 📝 Phase 3 Tasks Summary
+
+| Task | Status | Estimated Hours | Files |
+|------|--------|----------------|-------|
+| 3.1 Database Schema | ⏳ Pending | 4h | `migrations/006_context_spec_integration.sql` |
+| 3.2 Spec-Aware Context Builder | ⏳ Pending | 10h | `spec_context.rs` |
+| 3.3 Context Template System | ⏳ Pending | 12h | `ContextTemplates.tsx` |
+| 3.4 Validation Dashboard | ⏳ Pending | 8h | `SpecValidation.tsx` |
+| **Testing & Integration** | ⏳ Pending | 4h | Various |
+
+### ✅ Success Criteria for Phase 3
+
+- [ ] Context configs can be linked to spec capabilities
+- [ ] AST symbols mapped to spec requirements
+- [ ] Templates for PRD/Spec/Task contexts
+- [ ] Validation shows which specs have implementing code
+- [ ] Context auto-includes relevant code for specs
+- [ ] WHEN/THEN scenarios validated against code
+- [ ] Context tracking linked to AI usage logs (enhancement)
+- [ ] Phase 3 complete and tested
 
 ### Day 1-2: Link Context to Specs
 
@@ -1187,22 +1355,45 @@ export function SpecValidation({ projectId, specId }: { projectId: string; specI
 }
 ```
 
-### Success Criteria for Phase 3
-
-- [ ] Context configs can be linked to spec capabilities
-- [ ] AST symbols mapped to spec requirements
-- [ ] Templates for PRD/Spec/Task contexts
-- [ ] Validation shows which specs have implementing code
-- [ ] Context auto-includes relevant code for specs
-- [ ] WHEN/THEN scenarios validated against code
-- [ ] Context tracking linked to AI usage logs (enhancement)
-- [ ] Phase 3 complete and tested
-
 ---
 
 ## PHASE 4: Advanced Features (Week 4)
 
+[⬆️ Back to Top](#context-tab-implementation-plan) | [⬅️ Previous Phase](#phase-3-openspec-integration-week-3)
+
+### 🎯 Phase 4 Overview
+
 **Goal**: Polish, optimize, and add power features
+
+**Status**: ⏳ Pending | **Progress**: 0/5 tasks (0%)
+
+**Timeline**: Week 4 (5 days) | **Estimated Effort**: ~42 hours
+
+**Dependencies**:
+- Phase 3 complete (spec integration working)
+- All core features functional
+- Performance baseline established
+
+### 📝 Phase 4 Tasks Summary
+
+| Task | Status | Estimated Hours | Files |
+|------|--------|----------------|-------|
+| 4.1 Incremental Parsing | ⏳ Pending | 10h | `incremental_parser.rs`, `batch_processor.rs` |
+| 4.2 Context History | ⏳ Pending | 12h | `ContextHistory.tsx`, `history_service.rs` |
+| 4.3 Multi-language Support | ⏳ Pending | 12h | `language_support.rs` |
+| **Testing & Integration** | ⏳ Pending | 4h | Various |
+| **Documentation** | ⏳ Pending | 4h | README, API docs |
+
+### ✅ Success Criteria for Phase 4
+
+- [ ] Incremental parsing with SHA256 caching working
+- [ ] Context history tracking and visualization
+- [ ] Multi-language support (TS/JS/Python/Rust/Go/Java)
+- [ ] Batch processing for large codebases
+- [ ] Token tree visualization
+- [ ] Performance optimizations complete
+- [ ] All documentation updated
+- [ ] Phase 4 complete and tested
 
 ### Day 1-2: Performance Optimization
 
