@@ -37,22 +37,60 @@ interface ApiResponse<T> {
   error?: string;
 }
 
+/**
+ * Helper to extract data from nested API response with error checking
+ * Handles the common pattern of checking success flags and extracting data
+ */
+function extractApiData<T>(
+  response: { error?: string; data?: ApiResponse<T> | null },
+  errorMessage: string
+): T {
+  // Check outer response wrapper
+  if (response.error || !response.data?.success) {
+    throw new Error(response.data?.error || response.error || errorMessage);
+  }
+
+  // Check inner data
+  if (!response.data.data) {
+    throw new Error('No data returned from server');
+  }
+
+  return response.data.data;
+}
+
+/**
+ * Helper to extract data from mutation API response with error checking
+ * Handles the common pattern for POST/PUT/DELETE operations
+ */
+function extractMutationData<T>(
+  result: { success: boolean; data?: ApiResponse<T> | null; error?: string },
+  errorMessage: string
+): T {
+  // Check outer result
+  if (!result.success || !result.data) {
+    throw new Error(result.error || errorMessage);
+  }
+
+  // Check inner API response
+  if (!result.data.success) {
+    throw new Error(result.data.error || errorMessage);
+  }
+
+  // Check inner data
+  if (!result.data.data) {
+    throw new Error('No response data returned');
+  }
+
+  return result.data.data;
+}
+
 export class SecurityService {
   /**
    * Get current security and encryption status
    */
   async getSecurityStatus(): Promise<SecurityStatus> {
     const response = await apiClient.get<ApiResponse<SecurityStatus>>('/api/security/status');
-
-    if (response.error || !response.data?.success) {
-      throw new Error(response.data?.error || response.error || 'Failed to fetch security status');
-    }
-
-    if (!response.data.data) {
-      throw new Error('No security status returned');
-    }
-
-    return response.data.data;
+    return extractApiData(response, 'Failed to fetch security status');
   }
 
   /**
@@ -60,16 +98,7 @@ export class SecurityService {
    */
   async getKeysStatus(): Promise<KeysStatusResponse> {
     const response = await apiClient.get<ApiResponse<KeysStatusResponse>>('/api/security/keys-status');
-
-    if (response.error || !response.data?.success) {
-      throw new Error(response.data?.error || response.error || 'Failed to fetch keys status');
-    }
-
-    if (!response.data.data) {
-      throw new Error('No keys status returned');
-    }
-
-    return response.data.data;
+    return extractApiData(response, 'Failed to fetch keys status');
   }
 
   /**
@@ -81,19 +110,7 @@ export class SecurityService {
       body: JSON.stringify({ password }),
     });
 
-    if (!result.success || !result.data) {
-      throw new Error(result.error || 'Failed to set password');
-    }
-
-    if (!result.data.success) {
-      throw new Error(result.data.error || 'Failed to set password');
-    }
-
-    if (!result.data.data) {
-      throw new Error('No response data returned');
-    }
-
-    return result.data.data;
+    return extractMutationData(result, 'Failed to set password');
   }
 
   /**
@@ -108,19 +125,7 @@ export class SecurityService {
       }),
     });
 
-    if (!result.success || !result.data) {
-      throw new Error(result.error || 'Failed to change password');
-    }
-
-    if (!result.data.success) {
-      throw new Error(result.data.error || 'Failed to change password');
-    }
-
-    if (!result.data.data) {
-      throw new Error('No response data returned');
-    }
-
-    return result.data.data;
+    return extractMutationData(result, 'Failed to change password');
   }
 
   /**
@@ -131,19 +136,7 @@ export class SecurityService {
       method: 'POST',
     });
 
-    if (!result.success || !result.data) {
-      throw new Error(result.error || 'Failed to remove password');
-    }
-
-    if (!result.data.success) {
-      throw new Error(result.data.error || 'Failed to remove password');
-    }
-
-    if (!result.data.data) {
-      throw new Error('No response data returned');
-    }
-
-    return result.data.data;
+    return extractMutationData(result, 'Failed to remove password');
   }
 }
 
