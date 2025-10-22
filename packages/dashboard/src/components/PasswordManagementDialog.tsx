@@ -55,9 +55,6 @@ export function PasswordManagementDialog({ open, onOpenChange, mode }: PasswordM
     try {
       const result = await setPasswordMutation.mutateAsync(newPassword);
       setSuccess(result.message);
-      setTimeout(() => {
-        handleClose();
-      }, 2000);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to set password');
     }
@@ -88,9 +85,6 @@ export function PasswordManagementDialog({ open, onOpenChange, mode }: PasswordM
         newPassword,
       });
       setSuccess(result.message);
-      setTimeout(() => {
-        handleClose();
-      }, 2000);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to change password');
     }
@@ -103,9 +97,6 @@ export function PasswordManagementDialog({ open, onOpenChange, mode }: PasswordM
     try {
       const result = await removePasswordMutation.mutateAsync();
       setSuccess(result.message);
-      setTimeout(() => {
-        handleClose();
-      }, 2000);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to remove password');
     }
@@ -269,27 +260,35 @@ export function PasswordManagementDialog({ open, onOpenChange, mode }: PasswordM
           </div>
 
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={handleClose} disabled={isLoading}>
-              Cancel
-            </Button>
-            <Button
-              type="submit"
-              disabled={isLoading}
-              variant={mode === 'remove' ? 'destructive' : 'default'}
-            >
-              {isLoading ? (
-                <>
-                  <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-                  Processing...
-                </>
-              ) : (
-                <>
-                  {mode === 'set' && 'Enable Password Protection'}
-                  {mode === 'change' && 'Change Password'}
-                  {mode === 'remove' && 'Remove Protection'}
-                </>
-              )}
-            </Button>
+            {success ? (
+              <Button type="button" onClick={handleClose}>
+                Close
+              </Button>
+            ) : (
+              <>
+                <Button type="button" variant="outline" onClick={handleClose} disabled={isLoading}>
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={isLoading}
+                  variant={mode === 'remove' ? 'destructive' : 'default'}
+                >
+                  {isLoading ? (
+                    <>
+                      <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                      Processing...
+                    </>
+                  ) : (
+                    <>
+                      {mode === 'set' && 'Enable Password Protection'}
+                      {mode === 'change' && 'Change Password'}
+                      {mode === 'remove' && 'Remove Protection'}
+                    </>
+                  )}
+                </Button>
+              </>
+            )}
           </DialogFooter>
         </form>
       </DialogContent>
