@@ -96,7 +96,6 @@ pub struct KeyStatus {
     pub key: String,
     pub configured: bool,
     pub source: String, // "database", "environment", or "none"
-    pub last_updated: Option<String>,
 }
 
 /// Keys status response
@@ -110,7 +109,6 @@ fn check_key_status(
     key_name: &str,
     db_key: Option<&String>,
     env_var_name: &str,
-    updated_at: &chrono::DateTime<chrono::Utc>,
 ) -> KeyStatus {
     let has_db = db_key.is_some();
     let has_env = std::env::var(env_var_name).is_ok();
@@ -124,11 +122,6 @@ fn check_key_status(
             "database".to_string()
         } else {
             "none".to_string()
-        },
-        last_updated: if has_db {
-            Some(updated_at.to_rfc3339())
-        } else {
-            None
         },
     }
 }
@@ -156,31 +149,26 @@ pub async fn get_keys_status(
             "openai",
             user.openai_api_key.as_ref(),
             "OPENAI_API_KEY",
-            &user.updated_at,
         ),
         check_key_status(
             "anthropic",
             user.anthropic_api_key.as_ref(),
             "ANTHROPIC_API_KEY",
-            &user.updated_at,
         ),
         check_key_status(
             "google",
             user.google_api_key.as_ref(),
             "GOOGLE_API_KEY",
-            &user.updated_at,
         ),
         check_key_status(
             "xai",
             user.xai_api_key.as_ref(),
             "XAI_API_KEY",
-            &user.updated_at,
         ),
         check_key_status(
             "ai_gateway",
             user.ai_gateway_key.as_ref(),
             "AI_GATEWAY_KEY",
-            &user.updated_at,
         ),
     ];
 
