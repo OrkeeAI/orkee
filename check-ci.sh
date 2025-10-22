@@ -96,17 +96,37 @@ CLIPPY_PACKAGES=(
   "orkee-config"
 )
 
-# Note: orkee-projects is skipped due to tree-sitter version conflicts
-# The context module uses tree-sitter which has complex dependency requirements
-# Unit tests for orkee-projects can be run separately with: cargo test --package orkee-projects
+# Note: orkee-projects requires database setup for sqlx macros
+# Run manually with: DATABASE_URL=<url> cargo test --package orkee-projects
 
 # Set DATABASE_URL for sqlx macros if not already set
 if [ -z "$DATABASE_URL" ]; then
   export DATABASE_URL="sqlite::memory:"
 fi
 
-echo -e "${YELLOW}⚠️  Skipping Rust Clippy checks (tree-sitter dependency conflicts)${NC}"
-echo -e "${YELLOW}Run 'cargo clippy --package orkee-cli' manually if needed${NC}"
+# SQLX_OFFLINE requires .sqlx directory with prepared queries
+# For now, orkee-projects is excluded from CI checks
+
+if [ "$FIX_MODE" = true ]; then
+  for package in "${CLIPPY_PACKAGES[@]}"; do
+    echo -e "${YELLOW}Fixing $package...${NC}"
+    cargo clippy --package "$package" --fix --allow-dirty --allow-staged -- -D warnings || {
+      echo -e "${RED}✗ Clippy fix failed for $package${NC}"
+      exit 1
+    }
+  done
+  echo -e "${GREEN}✓ Clippy fixes applied${NC}"
+else
+  for package in "${CLIPPY_PACKAGES[@]}"; do
+    echo -e "${YELLOW}Checking $package...${NC}"
+    cargo clippy --package "$package" -- -D warnings || {
+      echo -e "${RED}✗ Clippy failed for $package${NC}"
+      echo -e "${YELLOW}Tip: Run './check-ci.sh --fix' to auto-fix some issues${NC}"
+      exit 1
+    }
+  done
+  echo -e "${GREEN}✓ Clippy checks passed${NC}"
+fi
 echo ""
 
 #####################################
@@ -117,8 +137,14 @@ if [ "$SKIP_TESTS" = false ]; then
   echo -e "${BLUE}3/6 Running Rust tests...${NC}"
   echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 
-  echo -e "${YELLOW}⚠️  Skipping Rust tests (tree-sitter dependency conflicts)${NC}"
-  echo -e "${YELLOW}Run 'cargo test --package orkee-projects' manually if needed${NC}"
+  for package in "${CLIPPY_PACKAGES[@]}"; do
+    echo -e "${YELLOW}Testing $package...${NC}"
+    cargo test --package "$package" || {
+      echo -e "${RED}✗ Tests failed for $package${NC}"
+      exit 1
+    }
+  done
+  echo -e "${GREEN}✓ All Rust tests passed${NC}"
   echo ""
 else
   echo -e "${YELLOW}⏭️  Skipping Rust tests${NC}"

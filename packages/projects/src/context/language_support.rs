@@ -102,12 +102,12 @@ impl MultiLanguageParser {
             .unwrap();
         parsers.insert("javascript".to_string(), js_parser);
 
-        // Initialize Rust parser
-        let mut rust_parser = Parser::new();
-        rust_parser
-            .set_language(tree_sitter_rust::language())
-            .unwrap();
-        parsers.insert("rust".to_string(), rust_parser);
+        // Rust parser disabled due to dependency conflicts
+        // let mut rust_parser = Parser::new();
+        // rust_parser
+        //     .set_language(tree_sitter_rust::language())
+        //     .unwrap();
+        // parsers.insert("rust".to_string(), rust_parser);
 
         // Initialize Python parser
         let mut python_parser = Parser::new();

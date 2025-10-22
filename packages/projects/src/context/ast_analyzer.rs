@@ -84,17 +84,19 @@ impl AstAnalyzer {
     }
 
     /// Create a new analyzer for Rust
+    /// Note: Disabled due to tree-sitter version conflicts
     pub fn new_rust() -> Result<Self, String> {
-        let mut parser = Parser::new();
-        let language = tree_sitter_rust::language();
-        parser
-            .set_language(language)
-            .map_err(|e| format!("Failed to set Rust language: {:?}", e))?;
-        Ok(Self {
-            parser,
-            language,
-            language_name: "rust".to_string(),
-        })
+        Err("Rust language support temporarily disabled due to dependency conflicts".to_string())
+        // let mut parser = Parser::new();
+        // let language = tree_sitter_rust::language();
+        // parser
+        //     .set_language(language)
+        //     .map_err(|e| format!("Failed to set Rust language: {:?}", e))?;
+        // Ok(Self {
+        //     parser,
+        //     language,
+        //     language_name: "rust".to_string(),
+        // })
     }
 
     /// Create an analyzer for a specific language by file extension
@@ -103,7 +105,8 @@ impl AstAnalyzer {
             "ts" | "tsx" => Self::new_typescript(),
             "js" | "jsx" => Self::new_javascript(),
             "py" => Self::new_python(),
-            "rs" => Self::new_rust(),
+            // "rs" => Self::new_rust(),  // Disabled
+            "rs" => Err("Rust support temporarily disabled".to_string()),
             _ => Err(format!("Unsupported file extension: {}", ext)),
         }
     }

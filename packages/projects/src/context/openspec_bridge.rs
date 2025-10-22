@@ -1,8 +1,8 @@
 // ABOUTME: Bridge between OpenSpec system and Context generation
 // ABOUTME: Generates context from PRDs, tasks, and validates spec coverage
 
+use crate::context::ast_analyzer::Symbol;
 use crate::context::spec_context::SpecContextBuilder;
-use crate::context::types::Symbol;
 use crate::openspec::types::{SpecCapability, SpecRequirement, SpecScenario, PRD};
 use sqlx::SqlitePool;
 use std::collections::HashMap;
@@ -47,10 +47,12 @@ impl OpenSpecContextBridge {
         ));
 
         // For each capability, find implementing code
-        let mut spec_builder = SpecContextBuilder::new(self.pool.clone());
+        let mut spec_builder = SpecContextBuilder::new();
         for capability in capabilities {
+            // Get requirements for this capability
+            let requirements = vec![]; // TODO: Fetch actual requirements from database
             let cap_context = spec_builder
-                .build_capability_context(&capability, project_root)
+                .build_capability_context(&capability, &requirements, project_root)
                 .await
                 .map_err(|e| format!("Failed to build capability context: {}", e))?;
             context.push_str(&cap_context);

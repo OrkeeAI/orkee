@@ -38,12 +38,12 @@ impl IncrementalParser {
             .unwrap();
         parsers.insert("javascript".to_string(), js_parser);
 
-        // Initialize Rust parser
-        let mut rust_parser = Parser::new();
-        rust_parser
-            .set_language(tree_sitter_rust::language())
-            .unwrap();
-        parsers.insert("rust".to_string(), rust_parser);
+        // Rust parser disabled due to dependency conflicts
+        // let mut rust_parser = Parser::new();
+        // rust_parser
+        //     .set_language(tree_sitter_rust::language())
+        //     .unwrap();
+        // parsers.insert("rust".to_string(), rust_parser);
 
         // Initialize Python parser
         let mut python_parser = Parser::new();
@@ -200,48 +200,6 @@ fn extract_symbols_recursive(
                     symbols.push(Symbol {
                         name: name.to_string(),
                         kind: SymbolKind::Interface,
-                        line_start: node.start_position().row + 1,
-                        line_end: node.end_position().row + 1,
-                        children: vec![],
-                        doc_comment: None,
-                    });
-                }
-            }
-            _ => {}
-        },
-        "rust" => match node.kind() {
-            "function_item" => {
-                if let Some(name_node) = node.child_by_field_name("name") {
-                    let name = &source[name_node.byte_range()];
-                    symbols.push(Symbol {
-                        name: name.to_string(),
-                        kind: SymbolKind::Function,
-                        line_start: node.start_position().row + 1,
-                        line_end: node.end_position().row + 1,
-                        children: vec![],
-                        doc_comment: None,
-                    });
-                }
-            }
-            "struct_item" | "enum_item" => {
-                if let Some(name_node) = node.child_by_field_name("name") {
-                    let name = &source[name_node.byte_range()];
-                    symbols.push(Symbol {
-                        name: name.to_string(),
-                        kind: SymbolKind::Struct,
-                        line_start: node.start_position().row + 1,
-                        line_end: node.end_position().row + 1,
-                        children: vec![],
-                        doc_comment: None,
-                    });
-                }
-            }
-            "trait_item" => {
-                if let Some(name_node) = node.child_by_field_name("name") {
-                    let name = &source[name_node.byte_range()];
-                    symbols.push(Symbol {
-                        name: name.to_string(),
-                        kind: SymbolKind::Trait,
                         line_start: node.start_position().row + 1,
                         line_end: node.end_position().row + 1,
                         children: vec![],

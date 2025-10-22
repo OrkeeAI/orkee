@@ -25,6 +25,13 @@ anyhow = "1"
 thiserror = "2"
 tracing = "0.1"
 
+# Tree-sitter - force version 0.20 for all packages
+tree-sitter = "0.20"
+tree-sitter-rust = "0.20"
+tree-sitter-typescript = "0.20"
+tree-sitter-javascript = "0.20"
+tree-sitter-python = "0.20"
+
 # Dev dependencies shared across workspace
 rstest = "0.18"
 mockall = "0.12"
