@@ -7,6 +7,7 @@ use serial_test::serial;
 use tower::ServiceExt;
 
 #[tokio::test]
+#[serial]
 async fn test_health_endpoint() {
     let app = api::create_router().await;
 
@@ -22,6 +23,7 @@ async fn test_health_endpoint() {
 }
 
 #[tokio::test]
+#[serial]
 async fn test_status_endpoint() {
     let app = api::create_router().await;
 
@@ -72,6 +74,7 @@ async fn test_projects_list_endpoint() {
 }
 
 #[tokio::test]
+#[serial]
 async fn test_invalid_endpoint() {
     let app = api::create_router().await;
 
@@ -87,6 +90,7 @@ async fn test_invalid_endpoint() {
 }
 
 #[tokio::test]
+#[serial]
 async fn test_browse_directories_endpoint() {
     let app = api::create_router().await;
 
@@ -111,6 +115,7 @@ async fn test_browse_directories_endpoint() {
 }
 
 #[tokio::test]
+#[serial]
 async fn test_method_not_allowed() {
     let app = api::create_router().await;
 
@@ -173,6 +178,7 @@ async fn test_projects_create_endpoint() {
 }
 
 #[tokio::test]
+#[serial]
 async fn test_router_cors_preflight() {
     // Note: Full CORS testing requires the middleware to be configured
     // This is a basic test to ensure the router builds correctly
@@ -201,6 +207,7 @@ async fn test_router_cors_preflight() {
 }
 
 #[tokio::test]
+#[serial]
 async fn test_delete_telemetry_data_without_confirmation() {
     let app = api::create_router().await;
 
@@ -228,6 +235,7 @@ async fn test_delete_telemetry_data_without_confirmation() {
 }
 
 #[tokio::test]
+#[serial]
 async fn test_delete_telemetry_data_with_confirmation() {
     let app = api::create_router().await;
 
@@ -255,6 +263,7 @@ async fn test_delete_telemetry_data_with_confirmation() {
 }
 
 #[tokio::test]
+#[serial]
 async fn test_delete_telemetry_data_missing_body() {
     let app = api::create_router().await;
 
@@ -278,6 +287,7 @@ async fn test_delete_telemetry_data_missing_body() {
 }
 
 #[tokio::test]
+#[serial]
 async fn test_track_event_endpoint_with_valid_data() {
     let app = api::create_router().await;
 
@@ -310,6 +320,7 @@ async fn test_track_event_endpoint_with_valid_data() {
 }
 
 #[tokio::test]
+#[serial]
 async fn test_track_event_endpoint_without_event_data() {
     let app = api::create_router().await;
 
@@ -339,6 +350,7 @@ async fn test_track_event_endpoint_without_event_data() {
 }
 
 #[tokio::test]
+#[serial]
 async fn test_track_event_endpoint_missing_required_fields() {
     let app = api::create_router().await;
 
