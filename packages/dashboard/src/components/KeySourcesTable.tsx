@@ -86,7 +86,15 @@ export function KeySourcesTable() {
               return (
                 <tr key={keyStatus.key} className="hover:bg-muted/30 transition-colors">
                   <td className="p-3">
-                    <div className="font-medium text-sm">{getKeyLabel(keyStatus.key)}</div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium text-sm">{getKeyLabel(keyStatus.key)}</span>
+                      {source === 'environment' && (
+                        <Badge variant="default" className="text-xs bg-purple-600 flex-shrink-0" title="From environment variable">
+                          <Server className="h-2.5 w-2.5 mr-1" />
+                          ENV
+                        </Badge>
+                      )}
+                    </div>
                   </td>
                   <td className="p-3 text-center">
                     {isConfigured ? (
