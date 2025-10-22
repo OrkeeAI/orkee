@@ -8,8 +8,7 @@ use tracing::{debug, info, warn};
 use super::{
     compress_data, decompress_data, generate_project_id, ConflictType, DatabaseSnapshot,
     ImportConflict, ImportResult, PasswordLockoutStatus, ProjectFilter, ProjectStorage,
-    StorageCapabilities, StorageConfig, StorageError, StorageInfo, StorageProvider,
-    StorageResult,
+    StorageCapabilities, StorageConfig, StorageError, StorageInfo, StorageProvider, StorageResult,
 };
 use crate::types::{
     Priority, Project, ProjectCreateInput, ProjectStatus, ProjectUpdateInput, TaskSource,
@@ -997,7 +996,7 @@ impl ProjectStorage for SqliteStorage {
                     .map(|dt| dt.with_timezone(&Utc));
 
                 let now = Utc::now();
-                let is_locked = locked_until.map_or(false, |until| until > now);
+                let is_locked = locked_until.is_some_and(|until| until > now);
 
                 Ok(PasswordLockoutStatus {
                     is_locked,

@@ -51,7 +51,7 @@ pub async fn get_security_status(
                 .map(|dt| dt.with_timezone(&chrono::Utc));
 
             let now = chrono::Utc::now();
-            let is_locked = locked_until.map_or(false, |until| until > now);
+            let is_locked = locked_until.is_some_and(|until| until > now);
 
             (
                 is_locked,
@@ -138,11 +138,36 @@ pub async fn get_keys_status(
     };
 
     let keys = vec![
-        check_key_status("openai", user.openai_api_key.as_ref(), "OPENAI_API_KEY", &user.updated_at),
-        check_key_status("anthropic", user.anthropic_api_key.as_ref(), "ANTHROPIC_API_KEY", &user.updated_at),
-        check_key_status("google", user.google_api_key.as_ref(), "GOOGLE_API_KEY", &user.updated_at),
-        check_key_status("xai", user.xai_api_key.as_ref(), "XAI_API_KEY", &user.updated_at),
-        check_key_status("ai_gateway", user.ai_gateway_key.as_ref(), "AI_GATEWAY_KEY", &user.updated_at),
+        check_key_status(
+            "openai",
+            user.openai_api_key.as_ref(),
+            "OPENAI_API_KEY",
+            &user.updated_at,
+        ),
+        check_key_status(
+            "anthropic",
+            user.anthropic_api_key.as_ref(),
+            "ANTHROPIC_API_KEY",
+            &user.updated_at,
+        ),
+        check_key_status(
+            "google",
+            user.google_api_key.as_ref(),
+            "GOOGLE_API_KEY",
+            &user.updated_at,
+        ),
+        check_key_status(
+            "xai",
+            user.xai_api_key.as_ref(),
+            "XAI_API_KEY",
+            &user.updated_at,
+        ),
+        check_key_status(
+            "ai_gateway",
+            user.ai_gateway_key.as_ref(),
+            "AI_GATEWAY_KEY",
+            &user.updated_at,
+        ),
     ];
 
     let response = KeysStatusResponse { keys };
