@@ -49,6 +49,11 @@ tree-sitter-typescript = "0.20"
 tree-sitter-javascript = "0.20"
 tree-sitter-python = "0.20"
 
+# File processing
+walkdir = "2.4"
+sha2 = "0.10"
+num_cpus = "1.16"
+
 # Cloud functionality (optional)
 orkee-cloud = { path = "../cloud", optional = true }
 

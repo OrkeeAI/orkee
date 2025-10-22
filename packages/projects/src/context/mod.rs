@@ -1,9 +1,15 @@
 pub mod ast_analyzer;
+pub mod batch_processor;
 pub mod dependency_graph;
+pub mod history_service;
+pub mod incremental_parser;
 pub mod spec_context;
 pub mod types;
 
 pub use ast_analyzer::*;
+pub use batch_processor::*;
 pub use dependency_graph::*;
+pub use history_service::*;
+pub use incremental_parser::*;
 pub use spec_context::*;
 pub use types::*;
