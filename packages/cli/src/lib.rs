@@ -283,9 +283,7 @@ async fn create_application_router(
     }
 
     // Add CSRF protection middleware
-    app_builder = app_builder.layer(axum::middleware::from_fn(
-        middleware::csrf::csrf_middleware,
-    ));
+    app_builder = app_builder.layer(axum::middleware::from_fn(middleware::csrf::csrf_middleware));
     info!("CSRF middleware enabled for password management endpoints");
 
     // Add security headers if enabled

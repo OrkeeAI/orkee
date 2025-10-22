@@ -1,13 +1,7 @@
 // ABOUTME: CSRF protection middleware for state-changing operations
 // ABOUTME: Validates CSRF tokens on POST/PUT/DELETE requests to sensitive endpoints
 
-use axum::{
-    body::Body,
-    extract::Request,
-    http::Method,
-    middleware::Next,
-    response::Response,
-};
+use axum::{body::Body, extract::Request, http::Method, middleware::Next, response::Response};
 use std::sync::Arc;
 use tracing::{debug, warn};
 use uuid::Uuid;
