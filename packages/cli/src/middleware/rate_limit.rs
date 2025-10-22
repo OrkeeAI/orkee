@@ -1,4 +1,9 @@
-use axum::{extract::ConnectInfo, http::Request, middleware::Next, response::Response};
+use axum::{
+    extract::ConnectInfo,
+    http::{header::HeaderName, Request},
+    middleware::Next,
+    response::Response,
+};
 use governor::{
     clock::DefaultClock,
     middleware::NoOpMiddleware,
@@ -70,6 +75,22 @@ impl RateLimitLayer {
         Self {
             config,
             limiters: Arc::new(Mutex::new(HashMap::new())),
+        }
+    }
+
+    /// Get rate limit for specific endpoint category
+    fn get_rate_limit_for_path(&self, path: &str) -> u32 {
+        let category = categorize_endpoint(path);
+        match category {
+            EndpointCategory::Health => self.config.health_rpm,
+            EndpointCategory::Browse => self.config.browse_rpm,
+            EndpointCategory::Projects => self.config.projects_rpm,
+            EndpointCategory::Preview => self.config.preview_rpm,
+            EndpointCategory::Telemetry => self.config.telemetry_rpm,
+            EndpointCategory::AI => self.config.ai_rpm,
+            EndpointCategory::Users => self.config.users_rpm,
+            EndpointCategory::Security => self.config.security_rpm,
+            EndpointCategory::Other => self.config.global_rpm,
         }
     }
 
@@ -190,6 +211,7 @@ pub async fn rate_limit_middleware(
 
     let path = request.uri().path();
     let limiter = layer.get_limiter_for_path(path);
+    let rate_limit = layer.get_rate_limit_for_path(path);
     let ip = addr.ip();
 
     // Check rate limit
@@ -200,7 +222,20 @@ pub async fn rate_limit_middleware(
                 path = %path,
                 "Rate limit check passed"
             );
-            Ok(next.run(request).await)
+
+            // Get response and add rate limit headers
+            let mut response = next.run(request).await;
+            let headers = response.headers_mut();
+
+            // Add X-RateLimit-Limit header (requests per minute)
+            if let Ok(limit_value) = axum::http::HeaderValue::from_str(&rate_limit.to_string()) {
+                headers.insert(
+                    HeaderName::from_static("x-ratelimit-limit"),
+                    limit_value,
+                );
+            }
+
+            Ok(response)
         }
         Err(_) => {
             warn!(
@@ -213,7 +248,10 @@ pub async fn rate_limit_middleware(
             // Calculate retry-after based on limiter state
             let retry_after = calculate_retry_after(&limiter);
 
-            Err(AppError::RateLimitExceeded { retry_after })
+            Err(AppError::RateLimitExceeded {
+                retry_after,
+                limit: rate_limit,
+            })
         }
     }
 }

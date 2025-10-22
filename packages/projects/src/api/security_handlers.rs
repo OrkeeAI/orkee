@@ -250,12 +250,32 @@ pub struct KeysStatusResponse {
     pub keys: Vec<KeyStatus>,
 }
 
+/// Validate API key from environment variable
+/// Returns true if the value is valid (safe format, reasonable length, safe charset)
+fn validate_env_api_key(value: &str) -> bool {
+    // Minimum length for API keys (reasonable security threshold)
+    const MIN_KEY_LENGTH: usize = 8;
+    // Maximum length to prevent buffer overflow or DOS attacks
+    const MAX_KEY_LENGTH: usize = 512;
+
+    // Check length
+    if value.len() < MIN_KEY_LENGTH || value.len() > MAX_KEY_LENGTH {
+        return false;
+    }
+
+    // Check character set: allow alphanumeric, hyphens, underscores, dots, and common API key separators
+    // This prevents injection attacks while supporting common API key formats
+    value
+        .chars()
+        .all(|c| c.is_alphanumeric() || c == '-' || c == '_' || c == '.')
+}
+
 /// Helper function to check status of a single API key
 fn check_key_status(key_name: &str, db_key: Option<&String>, env_var_name: &str) -> KeyStatus {
     let has_db = db_key.is_some();
     let has_env = std::env::var(env_var_name)
         .ok()
-        .filter(|v| !v.is_empty())
+        .filter(|v| !v.is_empty() && validate_env_api_key(v))
         .is_some();
 
     KeyStatus {
@@ -498,7 +518,7 @@ pub async fn change_password(
 ) -> impl IntoResponse {
     info!("Changing encryption password");
 
-    // SECURITY: Use transaction to prevent race conditions in lockout checking
+    // SECURITY: Read encryption settings and lockout status (separate transaction for read)
     let mut tx = match db.pool.begin().await {
         Ok(t) => t,
         Err(e) => {
@@ -554,10 +574,21 @@ pub async fn change_password(
         }
     };
 
+    // Commit read transaction before expensive password verification
+    if let Err(e) = tx.commit().await {
+        error!("Failed to commit read transaction: {}", e);
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ApiResponse::<()>::error(
+                "Failed to process request".to_string(),
+            )),
+        )
+            .into_response();
+    }
+
     // Ensure we're using password-based encryption
     if mode != "password" {
         error!("Not using password-based encryption");
-        let _ = tx.rollback().await;
         return (
             StatusCode::BAD_REQUEST,
             Json(ApiResponse::<()>::error(
@@ -571,7 +602,6 @@ pub async fn change_password(
         Some(s) => s,
         None => {
             error!("Password salt not found");
-            let _ = tx.rollback().await;
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(ApiResponse::<()>::error(
@@ -586,7 +616,6 @@ pub async fn change_password(
         Some(h) => h,
         None => {
             error!("Password hash not found");
-            let _ = tx.rollback().await;
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(ApiResponse::<()>::error(
@@ -597,14 +626,13 @@ pub async fn change_password(
         }
     };
 
-    // SECURITY: Verify current password using constant-time comparison (via Argon2)
-    // Note: This is a slow operation but must be done within the transaction for atomicity
+    // SECURITY: Verify current password OUTSIDE transaction (expensive Argon2id operation: 64MB, 3 iterations)
+    // This prevents blocking the database during password verification
     let password_valid =
         match ApiKeyEncryption::verify_password(&request.current_password, &salt, &stored_hash) {
             Ok(valid) => valid,
             Err(e) => {
                 error!("Password verification failed: {}", e);
-                let _ = tx.rollback().await;
                 return (
                     StatusCode::INTERNAL_SERVER_ERROR,
                     Json(ApiResponse::<()>::error(
@@ -614,6 +642,21 @@ pub async fn change_password(
                     .into_response();
             }
         };
+
+    // SECURITY: Start new transaction for atomic update of attempt counter and encryption settings
+    let mut tx = match db.pool.begin().await {
+        Ok(t) => t,
+        Err(e) => {
+            error!("Failed to start transaction: {}", e);
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ApiResponse::<()>::error(
+                    "Failed to process request".to_string(),
+                )),
+            )
+                .into_response();
+        }
+    };
 
     // SECURITY: Update attempt counter atomically within transaction
     let locked_until = match update_attempt_counter(&mut tx, attempt_count, password_valid).await {
@@ -813,7 +856,7 @@ pub async fn remove_password(
 ) -> impl IntoResponse {
     info!("Removing password-based encryption (downgrading to machine-based)");
 
-    // SECURITY: Use transaction to prevent race conditions in lockout checking
+    // SECURITY: Read encryption settings and lockout status (separate transaction for read)
     let mut tx = match db.pool.begin().await {
         Ok(t) => t,
         Err(e) => {
@@ -869,10 +912,21 @@ pub async fn remove_password(
         }
     };
 
+    // Commit read transaction before expensive password verification
+    if let Err(e) = tx.commit().await {
+        error!("Failed to commit read transaction: {}", e);
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(ApiResponse::<()>::error(
+                "Failed to process request".to_string(),
+            )),
+        )
+            .into_response();
+    }
+
     // Ensure we're using password-based encryption
     if mode != "password" {
         error!("Not using password-based encryption");
-        let _ = tx.rollback().await;
         return (
             StatusCode::BAD_REQUEST,
             Json(ApiResponse::<()>::error(
@@ -887,7 +941,6 @@ pub async fn remove_password(
         Some(s) => s,
         None => {
             error!("Password salt not found");
-            let _ = tx.rollback().await;
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(ApiResponse::<()>::error(
@@ -902,7 +955,6 @@ pub async fn remove_password(
         Some(h) => h,
         None => {
             error!("Password hash not found");
-            let _ = tx.rollback().await;
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(ApiResponse::<()>::error(
@@ -913,14 +965,13 @@ pub async fn remove_password(
         }
     };
 
-    // SECURITY: Verify current password before removing protection
-    // Note: This is a slow operation but must be done within the transaction for atomicity
+    // SECURITY: Verify current password OUTSIDE transaction (expensive Argon2id operation: 64MB, 3 iterations)
+    // This prevents blocking the database during password verification
     let password_valid =
         match ApiKeyEncryption::verify_password(&request.current_password, &salt, &stored_hash) {
             Ok(valid) => valid,
             Err(e) => {
                 error!("Password verification failed: {}", e);
-                let _ = tx.rollback().await;
                 return (
                     StatusCode::INTERNAL_SERVER_ERROR,
                     Json(ApiResponse::<()>::error(
@@ -930,6 +981,21 @@ pub async fn remove_password(
                     .into_response();
             }
         };
+
+    // SECURITY: Start new transaction for atomic update of attempt counter and encryption settings
+    let mut tx = match db.pool.begin().await {
+        Ok(t) => t,
+        Err(e) => {
+            error!("Failed to start transaction: {}", e);
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ApiResponse::<()>::error(
+                    "Failed to process request".to_string(),
+                )),
+            )
+                .into_response();
+        }
+    };
 
     // SECURITY: Update attempt counter atomically within transaction
     let locked_until = match update_attempt_counter(&mut tx, attempt_count, password_valid).await {
@@ -1129,5 +1195,50 @@ mod tests {
         // Valid combinations
         assert!(validate_password_strength("Abcdefg1!").is_ok());
         assert!(validate_password_strength("MySecure#Pass123").is_ok());
+    }
+
+    // Environment variable API key validation tests
+    #[test]
+    fn test_validate_env_api_key_valid() {
+        // Valid API key formats
+        assert!(validate_env_api_key("sk-1234567890abcdef"));
+        assert!(validate_env_api_key("ABCD1234EFGH5678"));
+        assert!(validate_env_api_key("my_api_key_12345"));
+        assert!(validate_env_api_key("api.key.with.dots"));
+        assert!(validate_env_api_key("key-with-dashes-123"));
+    }
+
+    #[test]
+    fn test_validate_env_api_key_too_short() {
+        // Less than 8 characters
+        assert!(!validate_env_api_key("short"));
+        assert!(!validate_env_api_key("1234567"));
+    }
+
+    #[test]
+    fn test_validate_env_api_key_too_long() {
+        // More than 512 characters
+        let long_key = "a".repeat(513);
+        assert!(!validate_env_api_key(&long_key));
+    }
+
+    #[test]
+    fn test_validate_env_api_key_invalid_chars() {
+        // Special characters that could be injection vectors
+        assert!(!validate_env_api_key("key;rm -rf /"));
+        assert!(!validate_env_api_key("key$(whoami)"));
+        assert!(!validate_env_api_key("key|cat /etc/passwd"));
+        assert!(!validate_env_api_key("key&& malicious"));
+        assert!(!validate_env_api_key("key with spaces"));
+        assert!(!validate_env_api_key("key!@#$%^&*()"));
+    }
+
+    #[test]
+    fn test_validate_env_api_key_boundary_cases() {
+        // Exactly 8 characters (minimum)
+        assert!(validate_env_api_key("abcd1234"));
+        // Exactly 512 characters (maximum)
+        let max_key = "a".repeat(512);
+        assert!(validate_env_api_key(&max_key));
     }
 }
