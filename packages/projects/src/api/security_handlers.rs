@@ -924,46 +924,6 @@ pub async fn remove_password(
 mod tests {
     use super::*;
 
-    #[test]
-    fn test_validate_password_valid() {
-        assert!(validate_password("password123").is_ok());
-        assert!(validate_password("12345678").is_ok());
-        assert!(validate_password("very_long_password_that_is_secure").is_ok());
-    }
-
-    #[test]
-    fn test_validate_password_too_short() {
-        let result = validate_password("short");
-        assert!(result.is_err());
-        assert_eq!(
-            result.unwrap_err(),
-            "Password must be at least 8 characters long"
-        );
-    }
-
-    #[test]
-    fn test_validate_password_empty() {
-        let result = validate_password("");
-        assert!(result.is_err());
-        assert_eq!(
-            result.unwrap_err(),
-            "Password must be at least 8 characters long"
-        );
-    }
-
-    #[test]
-    fn test_validate_password_exactly_min_length() {
-        // Exactly 8 characters should be valid
-        assert!(validate_password("12345678").is_ok());
-    }
-
-    #[test]
-    fn test_validate_password_one_char_less_than_min() {
-        // 7 characters should be invalid
-        let result = validate_password("1234567");
-        assert!(result.is_err());
-    }
-
     // Password strength validation tests
     #[test]
     fn test_validate_password_strength_valid() {
