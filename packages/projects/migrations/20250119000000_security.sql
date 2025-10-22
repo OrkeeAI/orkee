@@ -29,4 +29,4 @@ CREATE TABLE IF NOT EXISTS password_attempts (
 );
 
 -- Insert initial row
-INSERT INTO password_attempts (id, attempt_count) VALUES (1, 0);
+INSERT OR IGNORE INTO password_attempts (id, attempt_count) VALUES (1, 0);
