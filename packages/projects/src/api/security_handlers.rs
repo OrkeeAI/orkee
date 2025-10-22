@@ -81,7 +81,7 @@ async fn update_attempt_counter(
         Ok(None)
     } else {
         // Increment counter on failure
-        let new_attempt_count = attempt_count + 1;
+        let new_attempt_count = attempt_count.saturating_add(1);
         let locked_until_new = if new_attempt_count >= PASSWORD_MAX_ATTEMPTS {
             let lockout_time =
                 chrono::Utc::now() + chrono::Duration::minutes(PASSWORD_LOCKOUT_DURATION_MINUTES);

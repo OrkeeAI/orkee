@@ -3,7 +3,9 @@
 
 use axum::{body::Body, extract::Request, http::Method, middleware::Next, response::Response};
 use std::sync::Arc;
-use tracing::{debug, warn};
+use std::time::{Duration, SystemTime};
+use tokio::sync::RwLock;
+use tracing::{debug, info, warn};
 use uuid::Uuid;
 
 use crate::error::AppError;
@@ -11,20 +13,32 @@ use crate::error::AppError;
 /// CSRF token header name
 pub const CSRF_TOKEN_HEADER: &str = "X-CSRF-Token";
 
-/// CSRF protection layer with server-generated token
+/// Token rotation interval (24 hours)
+const TOKEN_ROTATION_INTERVAL: Duration = Duration::from_secs(24 * 60 * 60);
+
+/// CSRF token data with rotation support
+struct CsrfTokenData {
+    token: String,
+    created_at: SystemTime,
+}
+
+/// CSRF protection layer with server-generated token and rotation
 #[derive(Clone)]
 pub struct CsrfLayer {
-    /// Server-generated CSRF token (created at startup)
-    token: Arc<String>,
+    /// Server-generated CSRF token with rotation support
+    data: Arc<RwLock<CsrfTokenData>>,
 }
 
 impl CsrfLayer {
     /// Create new CSRF layer with generated token
     pub fn new() -> Self {
         let token = Uuid::new_v4().to_string();
-        debug!(token = %token, "Generated CSRF token");
+        debug!("Generated CSRF token");
         Self {
-            token: Arc::new(token),
+            data: Arc::new(RwLock::new(CsrfTokenData {
+                token,
+                created_at: SystemTime::now(),
+            })),
         }
     }
 
@@ -32,13 +46,45 @@ impl CsrfLayer {
     #[cfg(test)]
     pub fn with_token(token: String) -> Self {
         Self {
-            token: Arc::new(token),
+            data: Arc::new(RwLock::new(CsrfTokenData {
+                token,
+                created_at: SystemTime::now(),
+            })),
         }
     }
 
-    /// Get the CSRF token
-    pub fn token(&self) -> &str {
-        &self.token
+    /// Get the current CSRF token
+    pub async fn token(&self) -> String {
+        let data = self.data.read().await;
+        data.token.clone()
+    }
+
+    /// Check if token rotation is needed
+    async fn needs_rotation(&self) -> bool {
+        let data = self.data.read().await;
+        match data.created_at.elapsed() {
+            Ok(elapsed) => elapsed >= TOKEN_ROTATION_INTERVAL,
+            Err(_) => {
+                warn!("System time error when checking token age, forcing rotation");
+                true
+            }
+        }
+    }
+
+    /// Rotate the CSRF token
+    async fn rotate_token(&self) {
+        let mut data = self.data.write().await;
+        let new_token = Uuid::new_v4().to_string();
+        info!("Rotating CSRF token (token age exceeded 24 hours)");
+        data.token = new_token;
+        data.created_at = SystemTime::now();
+    }
+
+    /// Check and rotate token if needed
+    async fn check_and_rotate(&self) {
+        if self.needs_rotation().await {
+            self.rotate_token().await;
+        }
     }
 
     /// Check if path requires CSRF protection
@@ -70,10 +116,16 @@ pub async fn csrf_middleware(
     let path = request.uri().path();
     let method = request.method();
 
+    // Check and rotate token if needed
+    layer.check_and_rotate().await;
+
     // Skip CSRF check if not required
     if !CsrfLayer::requires_csrf_protection(path, method) {
         return Ok(next.run(request).await);
     }
+
+    // Get current token
+    let current_token = layer.token().await;
 
     // Check for CSRF token header
     let token_header = request
@@ -82,7 +134,7 @@ pub async fn csrf_middleware(
         .and_then(|v| v.to_str().ok());
 
     match token_header {
-        Some(provided_token) if provided_token == layer.token() => {
+        Some(provided_token) if provided_token == current_token => {
             debug!(
                 path = %path,
                 method = %method,
@@ -119,22 +171,24 @@ pub async fn csrf_middleware(
 mod tests {
     use super::*;
 
-    #[test]
-    fn test_csrf_layer_generates_valid_uuid() {
+    #[tokio::test]
+    async fn test_csrf_layer_generates_valid_uuid() {
         let layer = CsrfLayer::new();
-        let token = layer.token();
+        let token = layer.token().await;
 
         // Should be a valid UUID format (36 characters with hyphens)
         assert_eq!(token.len(), 36);
-        assert!(Uuid::parse_str(token).is_ok());
+        assert!(Uuid::parse_str(&token).is_ok());
     }
 
-    #[test]
-    fn test_csrf_layer_tokens_are_unique() {
+    #[tokio::test]
+    async fn test_csrf_layer_tokens_are_unique() {
         let layer1 = CsrfLayer::new();
         let layer2 = CsrfLayer::new();
 
-        assert_ne!(layer1.token(), layer2.token());
+        let token1 = layer1.token().await;
+        let token2 = layer2.token().await;
+        assert_ne!(token1, token2);
     }
 
     #[test]
@@ -177,12 +231,13 @@ mod tests {
         ));
     }
 
-    #[test]
-    fn test_csrf_layer_with_custom_token() {
+    #[tokio::test]
+    async fn test_csrf_layer_with_custom_token() {
         let custom_token = "test-token-123";
         let layer = CsrfLayer::with_token(custom_token.to_string());
 
-        assert_eq!(layer.token(), custom_token);
+        let token = layer.token().await;
+        assert_eq!(token, custom_token);
     }
 
     #[test]

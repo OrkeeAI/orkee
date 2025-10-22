@@ -90,6 +90,17 @@ function extractMutationData<T>(
   return result.data.data;
 }
 
+/**
+ * Fetch CSRF token from server
+ */
+async function getCsrfToken(): Promise<string> {
+  const response = await apiClient.get<{ csrf_token: string }>('/api/csrf-token');
+  if (response.error || !response.data?.csrf_token) {
+    throw new Error('Failed to fetch CSRF token');
+  }
+  return response.data.csrf_token;
+}
+
 export class SecurityService {
   /**
    * Get current security and encryption status
@@ -111,8 +122,12 @@ export class SecurityService {
    * Set password to enable password-based encryption
    */
   async setPassword(password: string): Promise<{ message: string; encryptionMode: EncryptionMode }> {
+    const csrfToken = await getCsrfToken();
     const result = await apiRequest<ApiResponse<{ message: string; encryptionMode: EncryptionMode }>>('/api/security/set-password', {
       method: 'POST',
+      headers: {
+        'X-CSRF-Token': csrfToken,
+      },
       body: JSON.stringify({ password }),
     });
 
@@ -123,8 +138,12 @@ export class SecurityService {
    * Change encryption password
    */
   async changePassword(currentPassword: string, newPassword: string): Promise<{ message: string; encryptionMode: EncryptionMode }> {
+    const csrfToken = await getCsrfToken();
     const result = await apiRequest<ApiResponse<{ message: string; encryptionMode: EncryptionMode }>>('/api/security/change-password', {
       method: 'POST',
+      headers: {
+        'X-CSRF-Token': csrfToken,
+      },
       body: JSON.stringify({
         currentPassword,
         newPassword,
@@ -138,8 +157,12 @@ export class SecurityService {
    * Remove password-based encryption (downgrade to machine-based)
    */
   async removePassword(currentPassword: string): Promise<{ message: string; encryptionMode: EncryptionMode }> {
+    const csrfToken = await getCsrfToken();
     const result = await apiRequest<ApiResponse<{ message: string; encryptionMode: EncryptionMode }>>('/api/security/remove-password', {
       method: 'POST',
+      headers: {
+        'X-CSRF-Token': csrfToken,
+      },
       body: JSON.stringify({ currentPassword }),
     });
 

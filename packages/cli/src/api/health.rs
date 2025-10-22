@@ -43,7 +43,8 @@ pub async fn status_check() -> Result<Json<Value>> {
 }
 
 pub async fn get_csrf_token(Extension(csrf_layer): Extension<CsrfLayer>) -> Result<Json<Value>> {
+    let token = csrf_layer.token().await;
     Ok(Json(json!({
-        "csrf_token": csrf_layer.token()
+        "csrf_token": token
     })))
 }
