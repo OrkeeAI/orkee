@@ -24,6 +24,9 @@ pub enum AppError {
     #[error("Unauthorized access")]
     Unauthorized,
 
+    #[error("Forbidden: {message}")]
+    Forbidden { message: String },
+
     #[error("Access denied to path: {0}")]
     PathAccessDenied(String),
 
@@ -77,6 +80,7 @@ impl AppError {
                 (StatusCode::TOO_MANY_REQUESTS, "RATE_LIMIT_EXCEEDED")
             }
             AppError::Unauthorized => (StatusCode::UNAUTHORIZED, "UNAUTHORIZED"),
+            AppError::Forbidden { .. } => (StatusCode::FORBIDDEN, "FORBIDDEN"),
             AppError::PathAccessDenied(_) => (StatusCode::FORBIDDEN, "PATH_ACCESS_DENIED"),
             AppError::PathTraversal => (StatusCode::FORBIDDEN, "PATH_TRAVERSAL"),
             AppError::SensitiveDirectory => (StatusCode::FORBIDDEN, "SENSITIVE_DIRECTORY"),
@@ -142,6 +146,7 @@ impl AppError {
                 "Too many requests. Please try again later".to_string()
             }
             AppError::Unauthorized => "Authentication required".to_string(),
+            AppError::Forbidden { message } => message.clone(),
             AppError::PathAccessDenied(_) => "Access to this path is not allowed".to_string(),
             AppError::PathTraversal => "Path traversal detected and blocked".to_string(),
             AppError::SensitiveDirectory => "Access to sensitive directory blocked".to_string(),

@@ -241,6 +241,7 @@ async fn create_application_router(
         header::AUTHORIZATION, // For future API key
         header::USER_AGENT,
         header::HeaderName::from_static("x-api-key"),
+        header::HeaderName::from_static("x-csrf-token"), // CSRF protection
         header::HeaderName::from_static("anthropic-version"), // For Anthropic API proxy
     ]);
 
@@ -256,6 +257,13 @@ async fn create_application_router(
 
     // Create the router with all middleware layers (in order: outermost to innermost)
     let mut app_builder = api::create_router_with_options(dashboard_path, None).await;
+
+    // Create CSRF layer for CSRF protection
+    let csrf_layer = middleware::CsrfLayer::new();
+    info!("CSRF protection enabled with token: {}", csrf_layer.token());
+
+    // Add CSRF layer as extension (available to all handlers)
+    app_builder = app_builder.layer(axum::Extension(csrf_layer));
 
     // Add CORS layer
     app_builder = app_builder.layer(cors);
@@ -273,6 +281,12 @@ async fn create_application_router(
             middleware::rate_limit::rate_limit_middleware,
         ));
     }
+
+    // Add CSRF protection middleware
+    app_builder = app_builder.layer(axum::middleware::from_fn(
+        middleware::csrf::csrf_middleware,
+    ));
+    info!("CSRF middleware enabled for password management endpoints");
 
     // Add security headers if enabled
     if config.security_headers_enabled {
