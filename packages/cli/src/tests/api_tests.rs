@@ -3,6 +3,7 @@ use axum::body::Body;
 use axum::http::Request;
 use axum::http::{Method, StatusCode};
 use serde_json::json;
+use serial_test::serial;
 use tower::ServiceExt;
 
 #[tokio::test]
@@ -36,9 +37,24 @@ async fn test_status_endpoint() {
 }
 
 #[tokio::test]
-#[ignore] // TODO: Fix this test - ProjectsManager uses global singleton which may not be initialized
+#[serial]
 async fn test_projects_list_endpoint() {
-    // Use default database path (ProjectsManager uses global singleton)
+    // Reset the global singleton for testing
+    orkee_projects::manager::reset_storage_for_testing();
+
+    // Create a temporary database for this test
+    let temp_dir = std::env::temp_dir();
+    let test_db_path = temp_dir.join(format!("orkee_test_list_{}.db", uuid::Uuid::new_v4()));
+
+    // Clean up any existing test database
+    let _ = std::fs::remove_file(&test_db_path);
+
+    // Initialize storage with test database before creating router
+    // Note: This uses the global singleton, which is why we need #[serial]
+    orkee_projects::manager::initialize_storage_with_path(test_db_path.clone())
+        .await
+        .expect("Failed to initialize storage for test");
+
     let app = api::create_router().await;
 
     let request = Request::builder()
@@ -50,6 +66,9 @@ async fn test_projects_list_endpoint() {
     let response = app.oneshot(request).await.unwrap();
 
     assert_eq!(response.status(), StatusCode::OK);
+
+    // Clean up test database
+    let _ = std::fs::remove_file(&test_db_path);
 }
 
 #[tokio::test]
@@ -108,7 +127,24 @@ async fn test_method_not_allowed() {
 }
 
 #[tokio::test]
+#[serial]
 async fn test_projects_create_endpoint() {
+    // Reset the global singleton for testing
+    orkee_projects::manager::reset_storage_for_testing();
+
+    // Create a temporary database for this test
+    let temp_dir = std::env::temp_dir();
+    let test_db_path = temp_dir.join(format!("orkee_test_create_{}.db", uuid::Uuid::new_v4()));
+
+    // Clean up any existing test database
+    let _ = std::fs::remove_file(&test_db_path);
+
+    // Initialize storage with test database before creating router
+    // Note: This uses the global singleton, which is why we need #[serial]
+    orkee_projects::manager::initialize_storage_with_path(test_db_path.clone())
+        .await
+        .expect("Failed to initialize storage for test");
+
     let app = api::create_router().await;
 
     let body = json!({
@@ -126,12 +162,14 @@ async fn test_projects_create_endpoint() {
     let response = app.oneshot(request).await.unwrap();
 
     // Should return CREATED or error if project exists
-    // If there's a storage initialization issue, the endpoint may return INTERNAL_SERVER_ERROR
     assert!(
-        response.status() == StatusCode::CREATED
-            || response.status() == StatusCode::CONFLICT
-            || response.status() == StatusCode::INTERNAL_SERVER_ERROR
+        response.status() == StatusCode::CREATED || response.status() == StatusCode::CONFLICT,
+        "Unexpected status code: {}",
+        response.status()
     );
+
+    // Clean up test database
+    let _ = std::fs::remove_file(&test_db_path);
 }
 
 #[tokio::test]
