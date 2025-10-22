@@ -140,14 +140,11 @@ pub async fn get_storage_manager() -> ManagerResult<Arc<StorageManager>> {
 
         // Get the initialized manager
         TEST_STORAGE_MANAGER.with(|storage| {
-            storage
-                .borrow()
-                .clone()
-                .ok_or_else(|| {
-                    ManagerError::Storage(StorageError::Database(
-                        "Failed to initialize storage manager".to_string(),
-                    ))
-                })
+            storage.borrow().clone().ok_or_else(|| {
+                ManagerError::Storage(StorageError::Database(
+                    "Failed to initialize storage manager".to_string(),
+                ))
+            })
         })
     }
 

@@ -229,10 +229,7 @@ pub async fn rate_limit_middleware(
 
             // Add X-RateLimit-Limit header (requests per minute)
             if let Ok(limit_value) = axum::http::HeaderValue::from_str(&rate_limit.to_string()) {
-                headers.insert(
-                    HeaderName::from_static("x-ratelimit-limit"),
-                    limit_value,
-                );
+                headers.insert(HeaderName::from_static("x-ratelimit-limit"), limit_value);
             }
 
             Ok(response)

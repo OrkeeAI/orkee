@@ -19,10 +19,7 @@ pub enum AppError {
     NotFound,
 
     #[error("Rate limit exceeded")]
-    RateLimitExceeded {
-        retry_after: u64,
-        limit: u32,
-    },
+    RateLimitExceeded { retry_after: u64, limit: u32 },
 
     #[error("Unauthorized access")]
     Unauthorized,
@@ -255,10 +252,7 @@ impl IntoResponse for AppError {
                     "Path traversal attempt detected"
                 );
             }
-            AppError::RateLimitExceeded {
-                retry_after,
-                limit,
-            } => {
+            AppError::RateLimitExceeded { retry_after, limit } => {
                 error!(
                     request_id = %request_id,
                     retry_after = %retry_after,
@@ -300,11 +294,7 @@ impl IntoResponse for AppError {
         *response.status_mut() = status_code;
 
         // Add rate limiting headers
-        if let AppError::RateLimitExceeded {
-            retry_after,
-            limit,
-        } = &self
-        {
+        if let AppError::RateLimitExceeded { retry_after, limit } = &self {
             let headers = response.headers_mut();
             headers.insert("Retry-After", retry_after.to_string().parse().unwrap());
             headers.insert("X-RateLimit-Limit", limit.to_string().parse().unwrap());
@@ -341,10 +331,7 @@ impl AppError {
     }
 
     pub fn rate_limited(retry_after: u64, limit: u32) -> Self {
-        Self::RateLimitExceeded {
-            retry_after,
-            limit,
-        }
+        Self::RateLimitExceeded { retry_after, limit }
     }
 }
 
