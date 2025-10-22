@@ -20,7 +20,10 @@ pub struct SecurityStatusResponse {
 }
 
 /// Get current encryption and security status
-pub async fn get_security_status(State(db): State<DbState>) -> impl IntoResponse {
+pub async fn get_security_status(
+    State(db): State<DbState>,
+    _current_user: CurrentUser,
+) -> impl IntoResponse {
     info!("Getting security status");
 
     // Get encryption mode from database
