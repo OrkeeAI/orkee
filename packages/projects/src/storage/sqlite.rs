@@ -7,8 +7,9 @@ use tracing::{debug, info, warn};
 
 use super::{
     compress_data, decompress_data, generate_project_id, ConflictType, DatabaseSnapshot,
-    ImportConflict, ImportResult, ProjectFilter, ProjectStorage, StorageCapabilities,
-    StorageConfig, StorageError, StorageInfo, StorageProvider, StorageResult,
+    ImportConflict, ImportResult, PasswordLockoutStatus, ProjectFilter, ProjectStorage,
+    StorageCapabilities, StorageConfig, StorageError, StorageInfo, StorageProvider,
+    StorageResult,
 };
 use crate::types::{
     Priority, Project, ProjectCreateInput, ProjectStatus, ProjectUpdateInput, TaskSource,
@@ -980,6 +981,39 @@ impl ProjectStorage for SqliteStorage {
         .await?;
 
         Ok(())
+    }
+
+    async fn get_password_lockout_status(&self) -> StorageResult<PasswordLockoutStatus> {
+        let row: Option<(i64, Option<String>)> = sqlx::query_as(
+            "SELECT attempt_count, locked_until FROM password_attempts WHERE id = 1",
+        )
+        .fetch_optional(&self.pool)
+        .await?;
+
+        match row {
+            Some((attempt_count, locked_until_str)) => {
+                let locked_until = locked_until_str
+                    .and_then(|s| DateTime::parse_from_rfc3339(&s).ok())
+                    .map(|dt| dt.with_timezone(&Utc));
+
+                let now = Utc::now();
+                let is_locked = locked_until.map_or(false, |until| until > now);
+
+                Ok(PasswordLockoutStatus {
+                    is_locked,
+                    attempt_count: attempt_count as i32,
+                    locked_until,
+                })
+            }
+            None => {
+                // No row exists, return default (not locked)
+                Ok(PasswordLockoutStatus {
+                    is_locked: false,
+                    attempt_count: 0,
+                    locked_until: None,
+                })
+            }
+        }
     }
 }
 

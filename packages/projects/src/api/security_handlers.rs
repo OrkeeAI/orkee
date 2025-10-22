@@ -35,11 +35,30 @@ pub async fn get_security_status(State(db): State<DbState>) -> impl IntoResponse
         Err(_) => "machine".to_string(),   // Default on error
     };
 
-    // For now, we don't implement password lockout checking here
-    // This would require checking failed_attempts and lockout_until fields
-    let is_locked = false;
-    let failed_attempts = None;
-    let lockout_ends_at = None;
+    // Get password lockout status from database
+    let lockout_result: Result<Option<(i64, Option<String>)>, sqlx::Error> =
+        sqlx::query_as("SELECT attempt_count, locked_until FROM password_attempts WHERE id = 1")
+            .fetch_optional(&db.pool)
+            .await;
+
+    let (is_locked, failed_attempts, lockout_ends_at) = match lockout_result {
+        Ok(Some((attempt_count, locked_until_str))) => {
+            let locked_until = locked_until_str
+                .and_then(|s| chrono::DateTime::parse_from_rfc3339(&s).ok())
+                .map(|dt| dt.with_timezone(&chrono::Utc));
+
+            let now = chrono::Utc::now();
+            let is_locked = locked_until.map_or(false, |until| until > now);
+
+            (
+                is_locked,
+                Some(attempt_count as i32),
+                locked_until.map(|dt| dt.to_rfc3339()),
+            )
+        }
+        Ok(None) => (false, Some(0), None),
+        Err(_) => (false, None, None),
+    };
 
     let response = SecurityStatusResponse {
         encryption_mode,
