@@ -1,14 +1,28 @@
 // ABOUTME: HTTP request handlers for security and encryption management
 // ABOUTME: Provides endpoints for password-based encryption setup and API key status
 
-use axum::{extract::State, response::IntoResponse, Json};
+use axum::{extract::State, http::StatusCode, response::IntoResponse, Json};
 use serde::{Deserialize, Serialize};
 use tracing::info;
 
 use super::auth::CurrentUser;
-use super::response::ok_or_internal_error;
+use super::response::{ok_or_internal_error, ApiResponse};
 use crate::db::DbState;
 use crate::storage::StorageError;
+
+// Password validation constants
+const MIN_PASSWORD_LENGTH: usize = 8;
+
+/// Validates password meets security requirements
+fn validate_password(password: &str) -> Result<(), String> {
+    if password.len() < MIN_PASSWORD_LENGTH {
+        return Err(format!(
+            "Password must be at least {} characters long",
+            MIN_PASSWORD_LENGTH
+        ));
+    }
+    Ok(())
+}
 
 /// Security status response
 #[derive(Debug, Serialize)]
@@ -188,9 +202,18 @@ pub struct SetPasswordRequest {
 pub async fn set_password(
     State(_db): State<DbState>,
     _current_user: CurrentUser,
-    Json(_request): Json<SetPasswordRequest>,
+    Json(request): Json<SetPasswordRequest>,
 ) -> impl IntoResponse {
     info!("Setting password for encryption");
+
+    // Validate password
+    if let Err(error_message) = validate_password(&request.password) {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(ApiResponse::<()>::error(error_message)),
+        )
+            .into_response();
+    }
 
     // TODO: Implement password-based encryption setup
     // This requires more complex database operations
@@ -216,9 +239,18 @@ pub struct ChangePasswordRequest {
 pub async fn change_password(
     State(_db): State<DbState>,
     _current_user: CurrentUser,
-    Json(_request): Json<ChangePasswordRequest>,
+    Json(request): Json<ChangePasswordRequest>,
 ) -> impl IntoResponse {
     info!("Changing encryption password");
+
+    // Validate new password
+    if let Err(error_message) = validate_password(&request.new_password) {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(ApiResponse::<()>::error(error_message)),
+        )
+            .into_response();
+    }
 
     // TODO: Implement password change functionality
     let response = serde_json::json!({
@@ -249,4 +281,49 @@ pub async fn remove_password(
         Ok(response),
         "Password management not implemented",
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_validate_password_valid() {
+        assert!(validate_password("password123").is_ok());
+        assert!(validate_password("12345678").is_ok());
+        assert!(validate_password("very_long_password_that_is_secure").is_ok());
+    }
+
+    #[test]
+    fn test_validate_password_too_short() {
+        let result = validate_password("short");
+        assert!(result.is_err());
+        assert_eq!(
+            result.unwrap_err(),
+            "Password must be at least 8 characters long"
+        );
+    }
+
+    #[test]
+    fn test_validate_password_empty() {
+        let result = validate_password("");
+        assert!(result.is_err());
+        assert_eq!(
+            result.unwrap_err(),
+            "Password must be at least 8 characters long"
+        );
+    }
+
+    #[test]
+    fn test_validate_password_exactly_min_length() {
+        // Exactly 8 characters should be valid
+        assert!(validate_password("12345678").is_ok());
+    }
+
+    #[test]
+    fn test_validate_password_one_char_less_than_min() {
+        // 7 characters should be invalid
+        let result = validate_password("1234567");
+        assert!(result.is_err());
+    }
 }
