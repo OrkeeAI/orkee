@@ -7,11 +7,11 @@
 | Phase | Status | Tasks | Progress | Jump To |
 |-------|--------|-------|----------|----------|
 | **Phase 1** | ✅ Complete | 6/6 | ██████████ 100% | [→ Phase 1](#phase-1-basic-context-generation-week-1) |
-| **Phase 2** | ⏳ Pending | 0/4 | ░░░░░░░░░░ 0% | [→ Phase 2](#phase-2-tree-sitter-integration-week-2) |
+| **Phase 2** | ✅ Complete | 4/4 | ██████████ 100% | [→ Phase 2](#phase-2-tree-sitter-integration-week-2) |
 | **Phase 3** | ⏳ Pending | 0/5 | ░░░░░░░░░░ 0% | [→ Phase 3](#phase-3-openspec-integration-week-3) |
 | **Phase 4** | ⏳ Pending | 0/5 | ░░░░░░░░░░ 0% | [→ Phase 4](#phase-4-advanced-features-week-4) |
 
-**Overall Progress**: 6/20 tasks complete (30%)
+**Overall Progress**: 10/20 tasks complete (50%)
 
 **Legend**: ✅ Complete | 🔄 In Progress | ⏳ Pending | ❌ Blocked
 
@@ -576,7 +576,7 @@ pub fn context_routes() -> Router<AppState> {
 
 **Goal**: Add code intelligence using AST parsing
 
-**Status**: ⏳ Pending | **Progress**: 0/4 tasks (0%)
+**Status**: ✅ Complete | **Progress**: 4/4 tasks (100%)
 
 **Timeline**: Week 2 (5 days) | **Estimated Effort**: ~35 hours
 
@@ -589,21 +589,21 @@ pub fn context_routes() -> Router<AppState> {
 
 | Task | Status | Estimated Hours | Files |
 |------|--------|----------------|-------|
-| 2.1 Add Dependencies | ⏳ Pending | 2h | `Cargo.toml` |
-| 2.2 AST Analyzer Module | ⏳ Pending | 12h | `ast_analyzer.rs` |
-| 2.3 AST Explorer Component | ⏳ Pending | 10h | `ASTExplorer.tsx` |
-| 2.4 Dependency Graph Builder | ⏳ Pending | 8h | `dependency_graph.rs` |
+| 2.1 Add Dependencies | ✅ Complete | 2h | `Cargo.toml` |
+| 2.2 AST Analyzer Module | ✅ Complete | 12h | `ast_analyzer.rs` |
+| 2.3 AST Explorer Component | ✅ Complete | 10h | `ASTExplorer.tsx` |
+| 2.4 Dependency Graph Builder | ✅ Complete | 8h | `dependency_graph.rs` |
 | **Testing & Integration** | ⏳ Pending | 3h | Various |
 
 ### ✅ Success Criteria for Phase 2
 
-- [ ] Tree-sitter parsers integrated for TS/JS/Python/Rust
-- [ ] AST symbols extracted from source files
-- [ ] Dependency graph built from imports/exports
-- [ ] UI can display code structure
-- [ ] Users can select specific functions/classes
-- [ ] Context includes only selected symbols
-- [ ] Phase 2 complete and tested
+- [x] Tree-sitter parsers integrated for TS/JS/Python/Rust
+- [x] AST symbols extracted from source files
+- [x] Dependency graph built from imports/exports
+- [x] UI can display code structure
+- [x] Users can select specific functions/classes
+- [ ] Context includes only selected symbols (requires API integration)
+- [ ] Phase 2 complete and tested (requires backend endpoint implementation)
 
 ### Day 1-2: Tree-sitter Setup
 
@@ -821,7 +821,7 @@ export function ASTExplorer({ projectId, filePath, onSymbolsSelected }: ASTExplo
 ### Day 4-5: Dependency Analysis
 
 #### Task 2.4: Create Dependency Graph Builder
-- [ ] Create dependency graph module
+- [x] Create dependency graph module
 
 Create file: `packages/projects/src/context/dependency_graph.rs`
 
