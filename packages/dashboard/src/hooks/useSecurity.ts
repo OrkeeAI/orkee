@@ -36,8 +36,9 @@ export function useSetPassword() {
   return useMutation({
     mutationFn: (password: string) => securityService.setPassword(password),
     onSuccess: () => {
-      // Invalidate security status to refetch
+      // Invalidate security status and keys status to refetch
       queryClient.invalidateQueries({ queryKey: ['security', 'status'] });
+      queryClient.invalidateQueries({ queryKey: ['security', 'keys-status'] });
     },
   });
 }
@@ -52,8 +53,9 @@ export function useChangePassword() {
     mutationFn: ({ currentPassword, newPassword }: { currentPassword: string; newPassword: string }) =>
       securityService.changePassword(currentPassword, newPassword),
     onSuccess: () => {
-      // Invalidate security status to refetch
+      // Invalidate security status and keys status to refetch
       queryClient.invalidateQueries({ queryKey: ['security', 'status'] });
+      queryClient.invalidateQueries({ queryKey: ['security', 'keys-status'] });
     },
   });
 }
@@ -67,8 +69,9 @@ export function useRemovePassword() {
   return useMutation({
     mutationFn: () => securityService.removePassword(),
     onSuccess: () => {
-      // Invalidate security status to refetch
+      // Invalidate security status and keys status to refetch
       queryClient.invalidateQueries({ queryKey: ['security', 'status'] });
+      queryClient.invalidateQueries({ queryKey: ['security', 'keys-status'] });
     },
   });
 }

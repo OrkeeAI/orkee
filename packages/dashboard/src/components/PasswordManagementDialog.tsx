@@ -204,6 +204,8 @@ export function PasswordManagementDialog({ open, onOpenChange, mode }: PasswordM
                   placeholder="Enter current password"
                   disabled={isLoading}
                   required
+                  aria-label="Current password"
+                  aria-required="true"
                 />
               </div>
             )}
@@ -223,8 +225,11 @@ export function PasswordManagementDialog({ open, onOpenChange, mode }: PasswordM
                     placeholder="Minimum 8 characters"
                     disabled={isLoading}
                     required
+                    aria-label={mode === 'set' ? 'Password' : 'New password'}
+                    aria-required="true"
+                    aria-describedby="new-password-help"
                   />
-                  <p className="text-xs text-muted-foreground">
+                  <p id="new-password-help" className="text-xs text-muted-foreground">
                     Use a strong password you can remember but others can't guess
                   </p>
                 </div>
@@ -239,6 +244,8 @@ export function PasswordManagementDialog({ open, onOpenChange, mode }: PasswordM
                     placeholder="Confirm your password"
                     disabled={isLoading}
                     required
+                    aria-label="Confirm password"
+                    aria-required="true"
                   />
                 </div>
               </>

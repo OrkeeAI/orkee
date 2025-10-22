@@ -69,6 +69,34 @@ pub struct KeysStatusResponse {
     pub keys: Vec<KeyStatus>,
 }
 
+/// Helper function to check status of a single API key
+fn check_key_status(
+    key_name: &str,
+    db_key: Option<&String>,
+    env_var_name: &str,
+    updated_at: &chrono::DateTime<chrono::Utc>,
+) -> KeyStatus {
+    let has_db = db_key.is_some();
+    let has_env = std::env::var(env_var_name).is_ok();
+
+    KeyStatus {
+        key: key_name.to_string(),
+        configured: has_db || has_env,
+        source: if has_env {
+            "environment".to_string()
+        } else if has_db {
+            "database".to_string()
+        } else {
+            "none".to_string()
+        },
+        last_updated: if has_db {
+            Some(updated_at.to_rfc3339())
+        } else {
+            None
+        },
+    }
+}
+
 /// Get status of all API keys (sources and configuration state)
 pub async fn get_keys_status(
     State(db): State<DbState>,
@@ -87,108 +115,13 @@ pub async fn get_keys_status(
         }
     };
 
-    let mut keys = Vec::new();
-
-    // Check each key type
-    // OpenAI
-    let has_openai_db = user.openai_api_key.is_some();
-    let has_openai_env = std::env::var("OPENAI_API_KEY").is_ok();
-    keys.push(KeyStatus {
-        key: "openai".to_string(),
-        configured: has_openai_db || has_openai_env,
-        source: if has_openai_env {
-            "environment".to_string()
-        } else if has_openai_db {
-            "database".to_string()
-        } else {
-            "none".to_string()
-        },
-        last_updated: if has_openai_db {
-            Some(user.updated_at.to_rfc3339())
-        } else {
-            None
-        },
-    });
-
-    // Anthropic
-    let has_anthropic_db = user.anthropic_api_key.is_some();
-    let has_anthropic_env = std::env::var("ANTHROPIC_API_KEY").is_ok();
-    keys.push(KeyStatus {
-        key: "anthropic".to_string(),
-        configured: has_anthropic_db || has_anthropic_env,
-        source: if has_anthropic_env {
-            "environment".to_string()
-        } else if has_anthropic_db {
-            "database".to_string()
-        } else {
-            "none".to_string()
-        },
-        last_updated: if has_anthropic_db {
-            Some(user.updated_at.to_rfc3339())
-        } else {
-            None
-        },
-    });
-
-    // Google AI
-    let has_google_db = user.google_api_key.is_some();
-    let has_google_env = std::env::var("GOOGLE_API_KEY").is_ok();
-    keys.push(KeyStatus {
-        key: "google".to_string(),
-        configured: has_google_db || has_google_env,
-        source: if has_google_env {
-            "environment".to_string()
-        } else if has_google_db {
-            "database".to_string()
-        } else {
-            "none".to_string()
-        },
-        last_updated: if has_google_db {
-            Some(user.updated_at.to_rfc3339())
-        } else {
-            None
-        },
-    });
-
-    // xAI
-    let has_xai_db = user.xai_api_key.is_some();
-    let has_xai_env = std::env::var("XAI_API_KEY").is_ok();
-    keys.push(KeyStatus {
-        key: "xai".to_string(),
-        configured: has_xai_db || has_xai_env,
-        source: if has_xai_env {
-            "environment".to_string()
-        } else if has_xai_db {
-            "database".to_string()
-        } else {
-            "none".to_string()
-        },
-        last_updated: if has_xai_db {
-            Some(user.updated_at.to_rfc3339())
-        } else {
-            None
-        },
-    });
-
-    // AI Gateway Key
-    let has_gateway_db = user.ai_gateway_key.is_some();
-    let has_gateway_env = std::env::var("AI_GATEWAY_KEY").is_ok();
-    keys.push(KeyStatus {
-        key: "ai_gateway".to_string(),
-        configured: has_gateway_db || has_gateway_env,
-        source: if has_gateway_env {
-            "environment".to_string()
-        } else if has_gateway_db {
-            "database".to_string()
-        } else {
-            "none".to_string()
-        },
-        last_updated: if has_gateway_db {
-            Some(user.updated_at.to_rfc3339())
-        } else {
-            None
-        },
-    });
+    let keys = vec![
+        check_key_status("openai", user.openai_api_key.as_ref(), "OPENAI_API_KEY", &user.updated_at),
+        check_key_status("anthropic", user.anthropic_api_key.as_ref(), "ANTHROPIC_API_KEY", &user.updated_at),
+        check_key_status("google", user.google_api_key.as_ref(), "GOOGLE_API_KEY", &user.updated_at),
+        check_key_status("xai", user.xai_api_key.as_ref(), "XAI_API_KEY", &user.updated_at),
+        check_key_status("ai_gateway", user.ai_gateway_key.as_ref(), "AI_GATEWAY_KEY", &user.updated_at),
+    ];
 
     let response = KeysStatusResponse { keys };
 
