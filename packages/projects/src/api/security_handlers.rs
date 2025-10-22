@@ -155,7 +155,10 @@ pub struct KeysStatusResponse {
 /// Helper function to check status of a single API key
 fn check_key_status(key_name: &str, db_key: Option<&String>, env_var_name: &str) -> KeyStatus {
     let has_db = db_key.is_some();
-    let has_env = std::env::var(env_var_name).is_ok();
+    let has_env = std::env::var(env_var_name)
+        .ok()
+        .filter(|v| !v.is_empty())
+        .is_some();
 
     KeyStatus {
         key: key_name.to_string(),
