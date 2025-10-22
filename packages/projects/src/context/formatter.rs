@@ -159,6 +159,7 @@ impl ContextFormatter {
     }
 }
 
+#[derive(Clone)]
 pub struct ParsedFileInfo {
     pub path: String,
     pub language: String,
@@ -267,6 +268,7 @@ mod tests {
                     line_start: 1,
                     line_end: 5,
                     children: vec![],
+                    doc_comment: None,
                 }
             ],
             imports: vec!["import { foo } from './bar'".to_string()],

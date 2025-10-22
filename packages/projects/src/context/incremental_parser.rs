@@ -169,6 +169,7 @@ fn extract_symbols_recursive(
                             line_start: node.start_position().row + 1,
                             line_end: node.end_position().row + 1,
                             children: vec![],
+                            doc_comment: None,
                         });
                     }
                 }
@@ -181,6 +182,7 @@ fn extract_symbols_recursive(
                             line_start: node.start_position().row + 1,
                             line_end: node.end_position().row + 1,
                             children: vec![],
+                            doc_comment: None,
                         });
                     }
                 }
@@ -193,6 +195,7 @@ fn extract_symbols_recursive(
                             line_start: node.start_position().row + 1,
                             line_end: node.end_position().row + 1,
                             children: vec![],
+                            doc_comment: None,
                         });
                     }
                 }
@@ -210,6 +213,7 @@ fn extract_symbols_recursive(
                             line_start: node.start_position().row + 1,
                             line_end: node.end_position().row + 1,
                             children: vec![],
+                            doc_comment: None,
                         });
                     }
                 }
@@ -222,6 +226,7 @@ fn extract_symbols_recursive(
                             line_start: node.start_position().row + 1,
                             line_end: node.end_position().row + 1,
                             children: vec![],
+                            doc_comment: None,
                         });
                     }
                 }
@@ -234,6 +239,7 @@ fn extract_symbols_recursive(
                             line_start: node.start_position().row + 1,
                             line_end: node.end_position().row + 1,
                             children: vec![],
+                            doc_comment: None,
                         });
                     }
                 }
@@ -251,6 +257,7 @@ fn extract_symbols_recursive(
                             line_start: node.start_position().row + 1,
                             line_end: node.end_position().row + 1,
                             children: vec![],
+                            doc_comment: None,
                         });
                     }
                 }
@@ -263,6 +270,7 @@ fn extract_symbols_recursive(
                             line_start: node.start_position().row + 1,
                             line_end: node.end_position().row + 1,
                             children: vec![],
+                            doc_comment: None,
                         });
                     }
                 }

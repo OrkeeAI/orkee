@@ -18,6 +18,7 @@ pub struct ContextConfiguration {
     pub max_tokens: i32,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
+    pub spec_capability_id: Option<String>,
 }
 
 /// Request to generate context for a project

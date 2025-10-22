@@ -36,6 +36,8 @@ pub enum SymbolKind {
     Enum,
     Trait,
     Module,
+    Field,
+    Unknown,
 }
 
 impl AstAnalyzer {

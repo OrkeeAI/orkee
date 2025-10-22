@@ -19,3 +19,6 @@ pub use language_support::*;
 pub use openspec_bridge::*;
 pub use spec_context::*;
 pub use types::*;
+
+#[cfg(test)]
+mod tests;
