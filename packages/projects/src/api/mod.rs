@@ -11,6 +11,7 @@ pub mod ai_proxy_handlers;
 pub mod ai_usage_log_handlers;
 pub mod auth;
 pub mod change_handlers;
+pub mod context_handlers;
 pub mod executions_handlers;
 pub mod handlers;
 pub mod prd_handlers;
@@ -279,5 +280,26 @@ pub fn create_security_router() -> Router<DbState> {
         .route(
             "/security/remove-password",
             post(security_handlers::remove_password),
+        )
+}
+
+/// Creates the context API router for context generation and management
+pub fn create_context_router() -> Router<DbState> {
+    Router::new()
+        .route(
+            "/:project_id/context/generate",
+            post(context_handlers::generate_context),
+        )
+        .route(
+            "/:project_id/files",
+            get(context_handlers::list_project_files),
+        )
+        .route(
+            "/:project_id/context/configurations",
+            get(context_handlers::list_configurations),
+        )
+        .route(
+            "/:project_id/context/configurations",
+            post(context_handlers::save_configuration),
         )
 }

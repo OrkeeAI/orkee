@@ -257,7 +257,11 @@ pub async fn create_router_with_options(
         )
         .nest(
             "/api/ai-usage",
-            orkee_projects::create_ai_usage_router().with_state(db_state),
+            orkee_projects::create_ai_usage_router().with_state(db_state.clone()),
+        )
+        .nest(
+            "/api/projects",
+            orkee_projects::create_context_router().with_state(db_state),
         )
         .layer(axum::Extension(path_validator));
 
