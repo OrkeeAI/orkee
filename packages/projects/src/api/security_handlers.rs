@@ -187,6 +187,7 @@ pub struct SetPasswordRequest {
 /// Set password for password-based encryption
 pub async fn set_password(
     State(_db): State<DbState>,
+    _current_user: CurrentUser,
     Json(_request): Json<SetPasswordRequest>,
 ) -> impl IntoResponse {
     info!("Setting password for encryption");
@@ -232,7 +233,10 @@ pub async fn change_password(
 }
 
 /// Remove password-based encryption (downgrade to machine-based)
-pub async fn remove_password(State(_db): State<DbState>) -> impl IntoResponse {
+pub async fn remove_password(
+    State(_db): State<DbState>,
+    _current_user: CurrentUser,
+) -> impl IntoResponse {
     info!("Removing password-based encryption");
 
     // TODO: Implement password removal functionality
