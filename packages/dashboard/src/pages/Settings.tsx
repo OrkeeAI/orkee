@@ -4,7 +4,7 @@ import { useCloudAuth, useCloudSync } from '@/hooks/useCloud'
 import { cloudService, formatLastSync } from '@/services/cloud'
 import { fetchConfig } from '@/services/config'
 import { exportDatabase, importDatabase, type ImportResult } from '@/services/database'
-import { Cloud, User, RefreshCw, Download, Upload, Code2, ExternalLink, Database, AlertTriangle, Shield, Trash2, Key, Check } from 'lucide-react'
+import { Cloud, User, RefreshCw, Download, Upload, Code2, ExternalLink, Database, AlertTriangle, Shield, Trash2, Key, Check, Settings as SettingsIcon, Terminal } from 'lucide-react'
 import { useState, useEffect, useRef } from 'react'
 import { SUPPORTED_EDITORS, getDefaultEditorSettings, findEditorById } from '@/lib/editor-utils'
 import type { EditorSettings } from '@/lib/editor-utils'
@@ -13,6 +13,7 @@ import { Switch } from '@/components/ui/switch'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { CliInstallationSettings } from '@/components/CliInstallationSettings'
 import { SecurityStatusSection } from '@/components/SecurityStatusSection'
 import { KeySourcesTable } from '@/components/KeySourcesTable'
@@ -23,12 +24,17 @@ import type { MaskedUser } from '@/services/users'
 
 export function Settings() {
   const [isCloudEnabled, setIsCloudEnabled] = useState(false)
+  const [isMacOS, setIsMacOS] = useState(false)
 
   useEffect(() => {
     fetchConfig().then(config => {
       setIsCloudEnabled(config.cloud_enabled)
     })
+    setIsMacOS(navigator.platform.toLowerCase().includes('mac'))
   }, [])
+
+  // Calculate number of columns based on enabled features
+  const tabCount = 4 + (isMacOS ? 1 : 0) + (isCloudEnabled ? 1 : 0)
 
   return (
     <div className="space-y-6">
@@ -39,35 +45,72 @@ export function Settings() {
         </p>
       </div>
 
-      <div className="grid gap-6">
-        {/* Editor Settings - Always show */}
-        <EditorSettings />
+      <Tabs defaultValue="editor" className="w-full">
+        <TabsList className={`grid w-full grid-cols-${tabCount}`}>
+          <TabsTrigger value="editor" className="flex items-center gap-2">
+            <Code2 className="h-4 w-4" />
+            Editor
+          </TabsTrigger>
+          {isMacOS && (
+            <TabsTrigger value="cli" className="flex items-center gap-2">
+              <Terminal className="h-4 w-4" />
+              CLI
+            </TabsTrigger>
+          )}
+          <TabsTrigger value="security" className="flex items-center gap-2">
+            <Key className="h-4 w-4" />
+            Security
+          </TabsTrigger>
+          <TabsTrigger value="database" className="flex items-center gap-2">
+            <Database className="h-4 w-4" />
+            Database
+          </TabsTrigger>
+          <TabsTrigger value="privacy" className="flex items-center gap-2">
+            <Shield className="h-4 w-4" />
+            Privacy
+          </TabsTrigger>
+          {isCloudEnabled && (
+            <TabsTrigger value="cloud" className="flex items-center gap-2">
+              <Cloud className="h-4 w-4" />
+              Cloud
+            </TabsTrigger>
+          )}
+        </TabsList>
 
-        {/* CLI Installation Settings - macOS only */}
-        {navigator.platform.toLowerCase().includes('mac') && <CliInstallationSettings />}
+        <TabsContent value="editor" className="space-y-6 mt-6">
+          {/* Editor Settings */}
+          <EditorSettings />
+        </TabsContent>
 
-        {/* API Keys Settings - Always show */}
-        <ApiKeysSettings />
-
-        {/* Database Settings - Always show */}
-        <DatabaseSettings />
-
-        {/* Privacy & Telemetry Settings - Always show */}
-        <PrivacySettings />
-
-        {/* Cloud Settings */}
-        {isCloudEnabled && <CloudSettings />}
-
-        {/* When cloud is disabled, show a note */}
-        {!isCloudEnabled && (
-          <div className="rounded-lg border p-6">
-            <h2 className="text-xl font-semibold mb-2">Additional Settings</h2>
-            <p className="text-muted-foreground">
-              Cloud sync and other features will be available here when enabled.
-            </p>
-          </div>
+        {isMacOS && (
+          <TabsContent value="cli" className="space-y-6 mt-6">
+            {/* CLI Installation Settings */}
+            <CliInstallationSettings />
+          </TabsContent>
         )}
-      </div>
+
+        <TabsContent value="security" className="space-y-6 mt-6">
+          {/* API Keys Settings */}
+          <ApiKeysSettings />
+        </TabsContent>
+
+        <TabsContent value="database" className="space-y-6 mt-6">
+          {/* Database Settings */}
+          <DatabaseSettings />
+        </TabsContent>
+
+        <TabsContent value="privacy" className="space-y-6 mt-6">
+          {/* Privacy & Telemetry Settings */}
+          <PrivacySettings />
+        </TabsContent>
+
+        {isCloudEnabled && (
+          <TabsContent value="cloud" className="space-y-6 mt-6">
+            {/* Cloud Settings */}
+            <CloudSettings />
+          </TabsContent>
+        )}
+      </Tabs>
     </div>
   )
 }

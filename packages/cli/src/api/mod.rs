@@ -66,10 +66,18 @@ pub async fn create_router_with_options(
     };
 
     // Initialize database state for tasks/agents/users
+    let db_path_for_error = database_path.clone();
     let db_state = match orkee_projects::DbState::init_with_path(database_path).await {
         Ok(state) => state,
         Err(e) => {
-            error!("Failed to initialize database state: {}", e);
+            error!("CRITICAL: Failed to initialize database state: {}", e);
+            error!("This will cause API endpoints to return 500 errors");
+            error!("Database path: {:?}", db_path_for_error);
+            error!("Please check:");
+            error!("  1. Database file permissions");
+            error!("  2. Disk space availability");
+            error!("  3. SQLite migrations status");
+            error!("  4. Encryption key initialization (machine ID/hostname)");
             // Return a router without task/agent/user functionality
             return Router::new()
                 .route("/api/health", get(health::health_check))

@@ -17,6 +17,11 @@ pub struct UserStorage {
 impl UserStorage {
     pub fn new(pool: SqlitePool) -> Result<Self, StorageError> {
         let encryption = ApiKeyEncryption::new().map_err(|e| {
+            tracing::error!("Failed to initialize API key encryption: {}", e);
+            tracing::error!("This is likely due to:");
+            tracing::error!("  - Unable to get machine ID");
+            tracing::error!("  - Unable to get hostname");
+            tracing::error!("  - Cryptographic library initialization failure");
             StorageError::Encryption(format!("Failed to initialize encryption: {}", e))
         })?;
         Ok(Self { pool, encryption })
