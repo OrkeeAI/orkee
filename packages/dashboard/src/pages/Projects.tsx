@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -381,12 +382,17 @@ export function Projects() {
   };
 
   const handleStartServer = async (projectId: string) => {
+    if (loadingServers.has(projectId)) return;
+
     try {
       setLoadingServers(prev => new Set(prev).add(projectId));
       await previewService.startServer(projectId);
       await loadActiveServers();
     } catch (err) {
       console.error('Failed to start server:', err);
+      toast.error('Failed to start dev server', {
+        description: err instanceof Error ? err.message : 'An unexpected error occurred',
+      });
     } finally {
       setLoadingServers(prev => {
         const newSet = new Set(prev);
@@ -397,12 +403,17 @@ export function Projects() {
   };
 
   const handleStopServer = async (projectId: string) => {
+    if (loadingServers.has(projectId)) return;
+
     try {
       setLoadingServers(prev => new Set(prev).add(projectId));
       await previewService.stopServer(projectId);
       await loadActiveServers();
     } catch (err) {
       console.error('Failed to stop server:', err);
+      toast.error('Failed to stop dev server', {
+        description: err instanceof Error ? err.message : 'An unexpected error occurred',
+      });
     } finally {
       setLoadingServers(prev => {
         const newSet = new Set(prev);
