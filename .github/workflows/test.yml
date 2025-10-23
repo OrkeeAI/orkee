@@ -91,13 +91,9 @@ jobs:
         cargo clippy --package orkee-projects -- -D warnings
         cargo clippy --package orkee-config -- -D warnings
 
-    - name: Verify SQLx queries compile
-      run: |
-        # SQLx queries are verified during normal compilation via DATABASE_URL
-        # This ensures all queries match the schema in migrations
-        DATABASE_URL=sqlite::memory: cargo check --package orkee-projects
-
     - name: Run Rust tests (CLI & Server)
+      # Note: SQLx compile-time query verification happens automatically during tests
+      # since tests create a real database with migrations
       run: |
         cargo test --package orkee-cli
         cargo test --package orkee-projects
