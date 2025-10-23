@@ -264,14 +264,20 @@ export function Projects() {
     });
   }, [serverErrors]);
 
+  // Track previous activeServers to detect state changes
+  const prevActiveServersRef = useRef(new Set<string>());
+
   // Clear loading state when SSE updates activeServers
   useEffect(() => {
-    // When activeServers changes, clear loading state for those servers and cancel timeouts
-    loadingServers.forEach(projectId => {
+    const prevActive = prevActiveServersRef.current;
+    const currentLoading = Array.from(loadingServers);
+
+    currentLoading.forEach(projectId => {
+      const wasActive = prevActive.has(projectId);
       const isActive = activeServers.has(projectId);
 
-      // Clear loading if server state has stabilized (either started or stopped completed)
-      if (isActive || !loadingServers.has(projectId)) {
+      // Clear loading if state changed (server started or stopped)
+      if (wasActive !== isActive) {
         const timeout = loadingTimeoutsRef.current.get(projectId);
         if (timeout) {
           clearTimeout(timeout);
@@ -286,13 +292,17 @@ export function Projects() {
       }
     });
 
+    // Update ref for next comparison
+    prevActiveServersRef.current = new Set(activeServers);
+
     // Cleanup all timeouts on unmount
     const timeouts = loadingTimeoutsRef.current;
     return () => {
       timeouts.forEach(timeout => clearTimeout(timeout));
       timeouts.clear();
     };
-  }, [activeServers, loadingServers]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeServers]); // Only depend on activeServers to avoid memory leak from loadingServers circular dependency
 
   // Dialog states
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
@@ -449,23 +459,24 @@ export function Projects() {
       return next;
     });
 
+    // Set safety timeout BEFORE API call to catch all edge cases
+    const timeout = setTimeout(() => {
+      setLoadingServers(prev => {
+        const next = new Set(prev);
+        next.delete(projectId);
+        return next;
+      });
+      loadingTimeoutsRef.current.delete(projectId);
+    }, 5000);
+    loadingTimeoutsRef.current.set(projectId, timeout);
+
     try {
       await previewService.startServer(projectId);
       // SSE will update activeServers automatically
-
-      // Safety timeout: clear loading state after 5s even if SSE doesn't update
-      const timeout = setTimeout(() => {
-        setLoadingServers(prev => {
-          const next = new Set(prev);
-          next.delete(projectId);
-          return next;
-        });
-        loadingTimeoutsRef.current.delete(projectId);
-      }, 5000);
-
-      loadingTimeoutsRef.current.set(projectId, timeout);
     } catch (err) {
-      // Clear loading immediately on error
+      // Clear timeout and loading immediately on error
+      clearTimeout(timeout);
+      loadingTimeoutsRef.current.delete(projectId);
       setLoadingServers(prev => {
         const next = new Set(prev);
         next.delete(projectId);
@@ -487,23 +498,24 @@ export function Projects() {
       return next;
     });
 
+    // Set safety timeout BEFORE API call to catch all edge cases
+    const timeout = setTimeout(() => {
+      setLoadingServers(prev => {
+        const next = new Set(prev);
+        next.delete(projectId);
+        return next;
+      });
+      loadingTimeoutsRef.current.delete(projectId);
+    }, 5000);
+    loadingTimeoutsRef.current.set(projectId, timeout);
+
     try {
       await previewService.stopServer(projectId);
       // SSE will update activeServers automatically
-
-      // Safety timeout: clear loading state after 5s even if SSE doesn't update
-      const timeout = setTimeout(() => {
-        setLoadingServers(prev => {
-          const next = new Set(prev);
-          next.delete(projectId);
-          return next;
-        });
-        loadingTimeoutsRef.current.delete(projectId);
-      }, 5000);
-
-      loadingTimeoutsRef.current.set(projectId, timeout);
     } catch (err) {
-      // Clear loading immediately on error
+      // Clear timeout and loading immediately on error
+      clearTimeout(timeout);
+      loadingTimeoutsRef.current.delete(projectId);
       setLoadingServers(prev => {
         const next = new Set(prev);
         next.delete(projectId);
