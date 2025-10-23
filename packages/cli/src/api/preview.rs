@@ -503,7 +503,10 @@ pub async fn server_events(
                 }
                 Err(tokio::sync::broadcast::error::RecvError::Lagged(n)) => {
                     // Client lagged behind - send current state to help recovery
-                    tracing::warn!("SSE client lagged, missed {} events - sending sync event", n);
+                    tracing::warn!(
+                        "SSE client lagged, missed {} events - sending sync event",
+                        n
+                    );
 
                     // Refetch current state
                     let active_servers = preview_manager.list_servers().await;
