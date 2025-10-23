@@ -6,9 +6,11 @@ use axum::{
     http::StatusCode,
     Json,
 };
+use crate::error::AppError;
 use orkee_projects::{
     db::DbState,
     settings::{BulkSettingUpdate, SettingUpdate, SettingsResponse},
+    storage::StorageError,
 };
 use serde_json::{json, Value};
 use tracing::info;
@@ -67,7 +69,7 @@ pub async fn update_setting(
     State(db): State<DbState>,
     Path(key): Path<String>,
     Json(update): Json<SettingUpdate>,
-) -> Result<Json<Value>, StatusCode> {
+) -> Result<Json<Value>, AppError> {
     info!("Updating setting: {}", key);
 
     match db.settings_storage.update(&key, update, "user").await {
@@ -76,9 +78,21 @@ pub async fn update_setting(
             "data": setting,
             "error": null
         }))),
+        Err(StorageError::Validation(msg)) => {
+            // Check if this is an is_env_only error (should be 403 Forbidden)
+            if msg.contains("environment-only") {
+                Err(AppError::Forbidden { message: msg })
+            } else {
+                // Otherwise it's a validation error (400 Bad Request)
+                Err(AppError::Validation(msg))
+            }
+        }
+        Err(StorageError::NotFound) => {
+            Err(AppError::NotFound)
+        }
         Err(e) => {
             tracing::error!("Failed to update setting {}: {}", key, e);
-            Err(StatusCode::INTERNAL_SERVER_ERROR)
+            Err(AppError::internal(anyhow::anyhow!("Storage error: {}", e)))
         }
     }
 }
@@ -87,7 +101,7 @@ pub async fn update_setting(
 pub async fn bulk_update_settings(
     State(db): State<DbState>,
     Json(updates): Json<BulkSettingUpdate>,
-) -> Result<Json<Value>, StatusCode> {
+) -> Result<Json<Value>, AppError> {
     info!("Bulk updating {} settings", updates.settings.len());
 
     match db.settings_storage.bulk_update(updates, "user").await {
@@ -102,9 +116,18 @@ pub async fn bulk_update_settings(
                 "error": null
             })))
         }
+        Err(StorageError::Validation(msg)) => {
+            // Check if this is an is_env_only error (should be 403 Forbidden)
+            if msg.contains("environment-only") {
+                Err(AppError::Forbidden { message: msg })
+            } else {
+                // Otherwise it's a validation error (400 Bad Request)
+                Err(AppError::Validation(msg))
+            }
+        }
         Err(e) => {
             tracing::error!("Failed to bulk update settings: {}", e);
-            Err(StatusCode::INTERNAL_SERVER_ERROR)
+            Err(AppError::internal(anyhow::anyhow!("Storage error: {}", e)))
         }
     }
 }

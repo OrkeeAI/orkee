@@ -66,9 +66,23 @@ impl SettingsStorage {
         update: SettingUpdate,
         updated_by: &str,
     ) -> Result<SystemSetting, StorageError> {
+        // Get the setting first to check is_env_only and data_type
+        let setting = self.get(key).await?;
+
+        // Enforce is_env_only restriction
+        if setting.is_env_only {
+            return Err(StorageError::Validation(format!(
+                "Setting '{}' is environment-only and must be configured via environment variables or .env file",
+                key
+            )));
+        }
+
+        // Validate the new value
+        crate::settings::validation::validate_setting_value(key, &update.value, &setting.data_type)?;
+
         sqlx::query(
-            "UPDATE system_settings 
-             SET value = ?, updated_at = datetime('now', 'utc'), updated_by = ? 
+            "UPDATE system_settings
+             SET value = ?, updated_at = datetime('now', 'utc'), updated_by = ?
              WHERE key = ?",
         )
         .bind(&update.value)
@@ -87,12 +101,51 @@ impl SettingsStorage {
         updates: BulkSettingUpdate,
         updated_by: &str,
     ) -> Result<Vec<SystemSetting>, StorageError> {
+        // Pre-validate all settings before starting transaction
+        let mut env_only_keys = Vec::new();
+        let mut validation_errors = Vec::new();
+
+        for item in &updates.settings {
+            // Get the setting to check is_env_only and data_type
+            let setting = self.get(&item.key).await?;
+
+            // Check is_env_only restriction
+            if setting.is_env_only {
+                env_only_keys.push(item.key.clone());
+            }
+
+            // Validate the value
+            if let Err(e) =
+                crate::settings::validation::validate_setting_value(&item.key, &item.value, &setting.data_type)
+            {
+                validation_errors.push(format!("{}: {}", item.key, e));
+            }
+        }
+
+        // If any settings are env-only, reject the entire batch
+        if !env_only_keys.is_empty() {
+            return Err(StorageError::Validation(format!(
+                "The following settings are environment-only and cannot be modified via API: {}",
+                env_only_keys.join(", ")
+            )));
+        }
+
+        // If any validation errors, reject the entire batch
+        if !validation_errors.is_empty() {
+            return Err(StorageError::Validation(format!(
+                "Validation failed for {} setting(s): {}",
+                validation_errors.len(),
+                validation_errors.join("; ")
+            )));
+        }
+
+        // All validations passed, proceed with transaction
         let mut tx = self.pool.begin().await.map_err(StorageError::Sqlx)?;
 
         for item in &updates.settings {
             sqlx::query(
-                "UPDATE system_settings 
-                 SET value = ?, updated_at = datetime('now', 'utc'), updated_by = ? 
+                "UPDATE system_settings
+                 SET value = ?, updated_at = datetime('now', 'utc'), updated_by = ?
                  WHERE key = ?",
             )
             .bind(&item.value)
@@ -105,7 +158,7 @@ impl SettingsStorage {
 
         tx.commit().await.map_err(StorageError::Sqlx)?;
 
-        // Return all updated settings
+        // Return all updated settings (optimized to fetch in batch)
         let keys: Vec<String> = updates.settings.iter().map(|s| s.key.clone()).collect();
         let mut results = Vec::new();
         for key in keys {

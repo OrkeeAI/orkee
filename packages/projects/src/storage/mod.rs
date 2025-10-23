@@ -29,6 +29,8 @@ pub enum StorageError {
     Compression(String),
     #[error("Encryption error: {0}")]
     Encryption(String),
+    #[error("Validation error: {0}")]
+    Validation(String),
     #[error("Project not found")]
     NotFound,
     #[error("Invalid configuration format")]
