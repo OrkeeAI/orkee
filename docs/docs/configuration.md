@@ -9,11 +9,30 @@ Orkee provides flexible configuration options to suit development, production, a
 
 ## Configuration Methods
 
-Orkee can be configured through three primary methods, listed in order of precedence:
+Orkee provides flexible configuration through multiple methods:
 
-1. **CLI Flags** - Highest precedence, overrides all other settings
-2. **Environment Variables** - Middle precedence, overrides .env files
-3. **.env Files** - Lowest precedence, provides default values
+1. **Settings UI** (Recommended) - Configure runtime settings via the dashboard's Settings tab
+2. **CLI Flags** - Override settings for a single session
+3. **Environment Variables** - Bootstrap settings that control application startup
+4. **.env Files** - Persistent bootstrap configuration
+
+### Settings UI (Database-Managed)
+
+Most settings are now configured via the Settings UI in the dashboard and stored in the database:
+- Security settings (CORS, directory browsing, security headers)
+- Rate limiting configuration
+- TLS/HTTPS settings
+- Cloud sync preferences
+
+These settings persist across restarts and don't require .env configuration.
+
+### Bootstrap Configuration (.env / Environment Variables)
+
+Only essential bootstrap settings need to be in `.env`:
+- `ORKEE_API_PORT` - API server port
+- `ORKEE_UI_PORT` - Dashboard UI port  
+- `ORKEE_DEV_MODE` - Development mode flag
+- `ORKEE_CLOUD_TOKEN` - Cloud authentication token (optional)
 
 ### CLI Flags
 
@@ -92,28 +111,33 @@ orkee dashboard --dev
 
 ### Security Configuration
 
-Configure CORS, path validation, and TLS settings:
+**✨ Configured via Settings UI** (Settings > Security tab):
 
-- `ORKEE_CORS_ORIGIN` - Allowed CORS origin (auto-calculated if not set)
-- `CORS_ALLOW_ANY_LOCALHOST` - Allow any localhost origin in dev (default: true)
-- `BROWSE_SANDBOX_MODE` - Path validation mode: `strict`, `relaxed`, or `disabled` (default: relaxed)
-- `ALLOWED_BROWSE_PATHS` - Comma-separated allowed directories
-- `TLS_ENABLED` - Enable HTTPS (default: false)
-- `TLS_CERT_PATH` - Path to TLS certificate
-- `TLS_KEY_PATH` - Path to TLS private key
+- CORS configuration (allow any localhost)
+- Directory browsing paths and sandbox mode
+- Security headers (HSTS, request ID, etc.)
 
 See [Security Configuration](./configuration/security) for detailed security settings.
 
 ### Rate Limiting
 
-Control API rate limits to protect against abuse:
+**✨ Configured via Settings UI** (Settings > Advanced tab):
 
-- `RATE_LIMIT_ENABLED` - Enable rate limiting (default: true)
-- `RATE_LIMIT_HEALTH_RPM` - Health endpoint limit (default: 60/min)
-- `RATE_LIMIT_BROWSE_RPM` - Directory browsing limit (default: 20/min)
-- `RATE_LIMIT_PROJECTS_RPM` - Projects API limit (default: 30/min)
+- Rate limiting for all endpoints (health, browse, projects, preview, AI, global)
+- Burst size configuration
+- Enable/disable rate limiting
 
 See [Rate Limiting](./configuration/rate-limiting) for all rate limit settings.
+
+### TLS/HTTPS Configuration
+
+**✨ Configured via Settings UI** (Settings > Advanced tab):
+
+- Enable/disable HTTPS
+- Certificate and key paths
+- Auto-generate certificates for development
+
+See [Security Configuration](./configuration/security) for TLS setup.
 
 ### Cloud Sync Configuration
 
@@ -135,29 +159,29 @@ For local development with hot reloading:
 ORKEE_API_PORT=4001
 ORKEE_UI_PORT=5173
 ORKEE_DEV_MODE=true
-CORS_ALLOW_ANY_LOCALHOST=true
-RATE_LIMIT_ENABLED=false
 ```
 
 ```bash
 orkee dashboard --dev
 ```
 
+Then configure security/rate limiting via Settings UI as needed.
+
 ### Production Environment
 
-For production deployments with security enabled:
+For production deployments:
 
 ```bash
 # .env.production
 ORKEE_API_PORT=4001
 ORKEE_UI_PORT=3000
-TLS_ENABLED=true
-TLS_CERT_PATH=/etc/orkee/certs/cert.pem
-TLS_KEY_PATH=/etc/orkee/certs/key.pem
-RATE_LIMIT_ENABLED=true
-SECURITY_HEADERS_ENABLED=true
-BROWSE_SANDBOX_MODE=strict
+ORKEE_DEV_MODE=false
 ```
+
+Then configure via Settings UI:
+- **Settings > Security**: Enable strict sandbox mode, configure CORS
+- **Settings > Advanced**: Enable TLS/HTTPS, set certificate paths, configure rate limiting
+- **Settings > Cloud**: Enable cloud sync if needed
 
 See [Production Deployment](../deployment/production) for complete production setup.
 
@@ -169,9 +193,11 @@ For shared team environments with cloud sync:
 # .env.team
 ORKEE_API_PORT=4001
 ORKEE_CLOUD_TOKEN=your_team_token
-ORKEE_CLOUD_API_URL=https://api.orkee.ai
-ALLOWED_BROWSE_PATHS=/home/projects,/shared/workspace
 ```
+
+Then configure via Settings UI:
+- **Settings > Security**: Set allowed browse paths
+- **Settings > Cloud**: Set cloud API URL
 
 ### Docker Environment
 
@@ -185,8 +211,9 @@ services:
     environment:
       - ORKEE_API_PORT=4001
       - ORKEE_UI_PORT=3000
-      - TLS_ENABLED=false  # Let reverse proxy handle TLS
 ```
+
+Configure TLS, rate limiting, and security via the Settings UI after startup.
 
 See [Docker Deployment](../deployment/docker) for complete Docker setup.
 
@@ -224,25 +251,27 @@ These variables are deprecated but still supported for backward compatibility:
 
 ## Quick Reference
 
-### Essential Variables
+### Minimal .env Configuration
 
 ```bash
-# Ports
+# Bootstrap Settings (Required in .env)
 ORKEE_API_PORT=4001
 ORKEE_UI_PORT=5173
-
-# Development
 ORKEE_DEV_MODE=false
 
-# Security
-TLS_ENABLED=false
-RATE_LIMIT_ENABLED=true
-BROWSE_SANDBOX_MODE=relaxed
-
-# Cloud
-ORKEE_CLOUD_TOKEN=your_token
-ORKEE_CLOUD_API_URL=https://api.orkee.ai
+# Cloud Authentication (Optional)
+# ORKEE_CLOUD_TOKEN=your_token
 ```
+
+### Settings UI Configuration
+
+All other settings are configured via the dashboard:
+- **Settings > General**: Editor integration, preferences
+- **Settings > Security**: CORS, directory browsing, security headers
+- **Settings > Database**: Import/export, data management  
+- **Settings > Privacy**: Telemetry, error reporting
+- **Settings > Cloud**: Cloud sync, API URL
+- **Settings > Advanced**: Rate limiting, TLS/HTTPS, certificates
 
 ### Essential CLI Flags
 
@@ -251,4 +280,4 @@ orkee dashboard --api-port 4001 --ui-port 5173 --dev
 orkee tui --refresh-interval 20 --theme dark
 ```
 
-For a complete list of all configuration options, see the [Environment Variables Reference](./configuration/environment-variables).
+For legacy environment variable documentation, see the [Environment Variables Reference](./configuration/environment-variables).

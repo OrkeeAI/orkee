@@ -361,9 +361,16 @@ The GitHub workflow can enforce size limits:
 
 ## Environment Variables
 
-### CLI Server Variables
+### Overview: Settings Management
 
-These variables configure the Orkee CLI server (Rust backend):
+Orkee uses a hybrid configuration approach:
+- **Bootstrap settings** (ports, dev mode) must be in `.env` - they control how the application starts
+- **Runtime settings** (security, rate limiting, TLS, etc.) are managed via the Settings UI in the dashboard
+- Settings configured via the UI persist in the database and take effect after restart
+
+### Bootstrap Variables (Required in .env)
+
+These variables control application startup and cannot be changed at runtime. They appear as read-only in the Settings UI.
 
 | Variable | Default | Description |
 |----------|---------|-------------|
@@ -371,60 +378,45 @@ These variables configure the Orkee CLI server (Rust backend):
 | `ORKEE_UI_PORT` | `5173` | Dashboard UI port (can be overridden by `--ui-port` flag) |
 | `ORKEE_DEV_MODE` | `false` | Enable development mode for dashboard (uses source with hot reload) |
 | `ORKEE_DASHBOARD_PATH` | Auto-detected | Explicit path to dashboard directory (overrides auto-detection) |
-| `ORKEE_CORS_ORIGIN` | Auto-calculated from UI port | Allowed CORS origin (auto-set to `http://localhost:${ORKEE_UI_PORT}`) |
-| `CORS_ALLOW_ANY_LOCALHOST` | `true` | Allow any localhost origin in development |
-| `ALLOWED_BROWSE_PATHS` | `~/Documents,~/Projects,~/Desktop,~/Downloads` | Comma-separated list of allowed directory paths |
-| `BROWSE_SANDBOX_MODE` | `relaxed` | Directory browsing security mode: `strict`/`relaxed`/`disabled` |
-| ~~`PORT`~~ | ~~`4001`~~ | **Deprecated** - Use `ORKEE_API_PORT` instead |
-| ~~`CORS_ORIGIN`~~ | ~~`http://localhost:5173`~~ | **Deprecated** - Use `ORKEE_CORS_ORIGIN` or let it auto-configure |
 
-### Security Middleware Variables
+### Database-Managed Settings (Configure via Settings UI)
 
-Configure rate limiting, security headers, and error handling:
+These settings are managed through the dashboard's Settings page and stored in the database. Changes require a server restart to take effect.
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `RATE_LIMIT_ENABLED` | `true` | Enable/disable rate limiting middleware |
-| `RATE_LIMIT_HEALTH_RPM` | `60` | Rate limit for health endpoints (requests per minute) |
-| `RATE_LIMIT_BROWSE_RPM` | `20` | Rate limit for directory browsing (requests per minute) |
-| `RATE_LIMIT_PROJECTS_RPM` | `30` | Rate limit for project CRUD operations (requests per minute) |
-| `RATE_LIMIT_PREVIEW_RPM` | `10` | Rate limit for preview server operations (requests per minute) |
-| `RATE_LIMIT_AI_RPM` | `10` | Rate limit for AI proxy endpoints (requests per minute) - prevents cost abuse |
-| `RATE_LIMIT_GLOBAL_RPM` | `30` | Global rate limit for other endpoints (requests per minute) |
-| `RATE_LIMIT_BURST_SIZE` | `5` | Burst size multiplier for rate limiting |
-| `SECURITY_HEADERS_ENABLED` | `true` | Enable/disable security headers middleware |
-| `ENABLE_HSTS` | `false` | Enable HTTP Strict Transport Security (only for HTTPS) |
-| `ENABLE_REQUEST_ID` | `true` | Enable request ID generation for audit logging |
+**To configure these settings:**
+1. Start Orkee: `orkee dashboard`
+2. Navigate to the Settings tab
+3. Configure via the UI - changes persist automatically
 
-#### Example .env configuration:
+#### Settings > Security
+- CORS configuration (allow any localhost)
+- Directory browsing paths and sandbox mode
+- Security headers (HSTS, request ID, etc.)
+
+#### Settings > Advanced
+- Rate limiting for all endpoints (health, browse, projects, preview, AI, global)
+- Burst size configuration
+- TLS/HTTPS settings
+- Certificate paths and auto-generation
+
+#### Settings > Cloud
+- Cloud sync enabled/disabled
+- Cloud API URL
+
+### Example .env Configuration
+
+**Minimal configuration (recommended):**
 ```bash
-# Port Configuration (simple and clean - just two ports!)
+# Bootstrap Configuration (Required)
 ORKEE_API_PORT=4001       # API server port
 ORKEE_UI_PORT=5173        # Dashboard UI port
-# ORKEE_CORS_ORIGIN is auto-calculated from UI port if not set
+ORKEE_DEV_MODE=false      # Development mode
 
-# Server Configuration
-CORS_ALLOW_ANY_LOCALHOST=true
-
-# Directory Browsing Security
-ALLOWED_BROWSE_PATHS="~/Documents,~/Projects,~/Code,~/Desktop"
-BROWSE_SANDBOX_MODE=relaxed
-
-# Rate Limiting
-RATE_LIMIT_ENABLED=true
-RATE_LIMIT_HEALTH_RPM=60
-RATE_LIMIT_BROWSE_RPM=20
-RATE_LIMIT_PROJECTS_RPM=30
-RATE_LIMIT_PREVIEW_RPM=10
-RATE_LIMIT_AI_RPM=10
-RATE_LIMIT_GLOBAL_RPM=30
-RATE_LIMIT_BURST_SIZE=5
-
-# Security Headers
-SECURITY_HEADERS_ENABLED=true
-ENABLE_HSTS=false  # Set to true only when using HTTPS
-ENABLE_REQUEST_ID=true
+# Cloud Authentication (Optional - for cloud sync)
+# ORKEE_CLOUD_TOKEN=ok_live_abc123...
 ```
+
+**Note**: All security, rate limiting, and TLS settings are now configured via the Settings UI. See the Settings page in the dashboard for the complete list of available options.
 
 ### Dashboard Variables
 
