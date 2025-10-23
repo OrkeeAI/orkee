@@ -8,7 +8,7 @@ use axum::{
 };
 use orkee_projects::{
     db::DbState,
-    settings::{BulkSettingUpdate, SettingUpdate, SettingsResponse, SystemSetting},
+    settings::{BulkSettingUpdate, SettingUpdate, SettingsResponse},
 };
 use serde_json::{json, Value};
 use tracing::info;

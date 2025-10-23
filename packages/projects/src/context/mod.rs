@@ -13,7 +13,7 @@ pub use ast_analyzer::*;
 pub use batch_processor::*;
 pub use dependency_graph::*;
 pub use formatter::*;
-pub use history_service::*;
+pub use history_service::HistoryService;
 pub use incremental_parser::*;
 pub use language_support::*;
 pub use openspec_bridge::*;

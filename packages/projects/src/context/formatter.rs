@@ -1,6 +1,6 @@
 use crate::context::ast_analyzer::{Symbol, SymbolKind};
 use crate::context::language_support::{
-    estimate_tokens, remove_comments, LanguageConfig, LANGUAGE_CONFIGS,
+    estimate_tokens, remove_comments, LANGUAGE_CONFIGS,
 };
 use std::collections::HashMap;
 
@@ -47,7 +47,7 @@ impl ContextFormatter {
             for file in files {
                 by_language
                     .entry(file.language.clone())
-                    .or_insert_with(Vec::new)
+                    .or_default()
                     .push(file);
             }
 
@@ -223,7 +223,7 @@ pub fn optimize_context_for_tokens(
     files: Vec<ParsedFileInfo>,
     max_tokens: usize,
 ) -> FormattedContext {
-    let mut current_files = files;
+    let current_files = files;
     let mut formatter = ContextFormatter::new();
 
     // Try without comments first

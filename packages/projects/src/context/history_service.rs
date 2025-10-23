@@ -1,6 +1,6 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use sqlx::{Row, SqlitePool};
+use sqlx::SqlitePool;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ContextSnapshot {
@@ -262,7 +262,7 @@ impl HistoryService {
             .into_iter()
             .map(|r| TokenUsage {
                 date: r.date.unwrap_or_default(),
-                tokens: r.tokens as i32,
+                tokens: r.tokens,
             })
             .collect())
     }

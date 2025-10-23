@@ -1,6 +1,6 @@
 use lazy_static::lazy_static;
 use std::collections::HashMap;
-use tree_sitter::{Language, Parser};
+use tree_sitter::Parser;
 
 #[derive(Clone)]
 pub struct LanguageConfig {
@@ -181,8 +181,8 @@ pub fn remove_comments(content: &str, language: &str) -> String {
 
     while let Some(ch) = chars.next() {
         // Handle string literals to avoid removing comments in strings
-        if !in_single_line_comment && !in_multi_line_comment {
-            if ch == '"' || ch == '\'' {
+        if !in_single_line_comment && !in_multi_line_comment
+            && (ch == '"' || ch == '\'') {
                 if !in_string {
                     in_string = true;
                     string_delimiter = ch;
@@ -192,7 +192,6 @@ pub fn remove_comments(content: &str, language: &str) -> String {
                 result.push(ch);
                 continue;
             }
-        }
 
         if in_string {
             result.push(ch);

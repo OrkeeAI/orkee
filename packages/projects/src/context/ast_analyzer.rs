@@ -1,10 +1,10 @@
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
-use tree_sitter::{Node, Parser, Query, QueryCursor};
+use tree_sitter::{Node, Parser};
 
 /// AST analyzer for extracting code structure and symbols
 pub struct AstAnalyzer {
     parser: Parser,
+    #[allow(dead_code)]
     language: tree_sitter::Language,
     language_name: String,
 }

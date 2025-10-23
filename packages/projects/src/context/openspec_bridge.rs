@@ -4,11 +4,11 @@
 use crate::context::ast_analyzer::Symbol;
 use crate::context::spec_context::SpecContextBuilder;
 use crate::openspec::types::{
-    CapabilityStatus, PRDSource, PRDStatus, SpecCapability, SpecRequirement, SpecScenario, PRD,
+    SpecCapability, SpecRequirement, SpecScenario, PRD,
 };
 use sqlx::SqlitePool;
 use std::collections::HashMap;
-use tracing::{error, info};
+use tracing::info;
 
 pub struct OpenSpecContextBridge {
     pool: SqlitePool,
@@ -76,7 +76,7 @@ impl OpenSpecContextBridge {
     pub async fn generate_task_context(
         &self,
         task_id: &str,
-        project_root: &str,
+        _project_root: &str,
     ) -> Result<String, String> {
         info!("Generating context for task: {}", task_id);
 
@@ -92,7 +92,7 @@ impl OpenSpecContextBridge {
 
         // 2. TODO: Find the requirement this task implements
         // For now, return a simple context without requirement integration
-        return Ok(format!(
+        Ok(format!(
             r#"# Task Context: {}
 
 ## Description
@@ -104,7 +104,7 @@ impl OpenSpecContextBridge {
             task.title,
             task.description.unwrap_or_default(),
             task.acceptance_criteria.unwrap_or_default()
-        ));
+        ))
     }
 
     /// Validate that code matches spec requirements
@@ -258,6 +258,7 @@ impl OpenSpecContextBridge {
         .map_err(|e| format!("Database error: {}", e))
     }
 
+    #[allow(dead_code)]
     async fn load_requirement(&self, requirement_id: &str) -> Result<SpecRequirement, String> {
         sqlx::query_as::<_, SpecRequirement>(
             "SELECT 
@@ -278,6 +279,7 @@ impl OpenSpecContextBridge {
         .ok_or_else(|| "Requirement not found".to_string())
     }
 
+    #[allow(dead_code)]
     async fn load_scenarios(&self, requirement_id: &str) -> Result<Vec<SpecScenario>, String> {
         sqlx::query_as::<_, SpecScenario>(
             "SELECT 
@@ -302,21 +304,10 @@ impl OpenSpecContextBridge {
     async fn find_test_files(
         &self,
         _capability: &SpecCapability,
-        project_root: &str,
+        _project_root: &str,
     ) -> Result<Vec<String>, String> {
         // TODO: Implement test file discovery based on capability name
         // For now, return common test file patterns
-        use std::path::PathBuf;
-        let project_path = PathBuf::from(project_root);
-
-        let test_patterns = vec![
-            "**/*.test.ts",
-            "**/*.test.js",
-            "**/*.spec.ts",
-            "**/*.spec.js",
-            "**/test_*.py",
-            "**/*_test.rs",
-        ];
 
         // In a real implementation, we'd walk the directory and filter
         // based on the capability name being mentioned in the files

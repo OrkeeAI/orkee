@@ -1,4 +1,4 @@
-use crate::context::ast_analyzer::{AstAnalyzer, Symbol, SymbolKind};
+use crate::context::ast_analyzer::{AstAnalyzer, Symbol};
 use crate::openspec::types::{SpecCapability, SpecRequirement, SpecScenario};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -111,7 +111,7 @@ impl SpecContextBuilder {
                         symbol.name, symbol.line_start, symbol.line_end
                     ));
                 }
-                context.push_str("\n");
+                context.push('\n');
             }
         }
 
@@ -125,12 +125,12 @@ impl SpecContextBuilder {
         &mut self,
         capability: &SpecCapability,
         requirements: &[SpecRequirement],
-        project_root: &str,
+        _project_root: &str,
     ) -> HashMap<String, Vec<Symbol>> {
-        let mut implementations: HashMap<String, Vec<Symbol>> = HashMap::new();
+        let implementations: HashMap<String, Vec<Symbol>> = HashMap::new();
 
         // Extract key terms from capability and requirements
-        let search_terms = self.extract_search_terms(capability, requirements);
+        let _search_terms = self.extract_search_terms(capability, requirements);
 
         // Search for matching symbols in the codebase
         // This is a placeholder implementation
@@ -168,7 +168,7 @@ impl SpecContextBuilder {
         &mut self,
         requirement: &SpecRequirement,
         scenarios: &[SpecScenario],
-        code_files: &[String],
+        _code_files: &[String],
     ) -> Vec<ValidationResult> {
         let mut results = Vec::new();
 

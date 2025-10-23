@@ -3,7 +3,7 @@ use axum::{
     http::StatusCode,
     response::{IntoResponse, Json},
 };
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use std::fs;
 use std::path::PathBuf;
 use tracing::{error, info};
@@ -12,12 +12,11 @@ use crate::{
     context::{
         openspec_bridge::OpenSpecContextBridge,
         types::{
-            ContextConfiguration, ContextGenerationRequest, ContextMetadata, ContextSnapshot,
+            ContextConfiguration, ContextGenerationRequest, ContextMetadata,
             FileInfo, GeneratedContext, ListFilesResponse,
         },
     },
     db::DbState,
-    manager::ManagerError,
 };
 
 /// Query parameters for listing files

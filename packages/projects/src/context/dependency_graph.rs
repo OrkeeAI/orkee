@@ -1,6 +1,5 @@
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet, VecDeque};
-use std::path::{Path, PathBuf};
 
 /// Represents a dependency graph for code files
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -53,7 +52,7 @@ impl DependencyGraph {
     pub fn add_edge(&mut self, from: String, to: String) {
         self.edges
             .entry(from)
-            .or_insert_with(HashSet::new)
+            .or_default()
             .insert(to);
     }
 
@@ -61,7 +60,7 @@ impl DependencyGraph {
     pub fn add_export(&mut self, file: String, symbol: ExportedSymbol) {
         self.exports
             .entry(file)
-            .or_insert_with(Vec::new)
+            .or_default()
             .push(symbol);
     }
 
@@ -69,7 +68,7 @@ impl DependencyGraph {
     pub fn add_import(&mut self, file: String, symbol: ImportedSymbol) {
         self.imports
             .entry(file)
-            .or_insert_with(Vec::new)
+            .or_default()
             .push(symbol);
     }
 
@@ -207,7 +206,6 @@ impl DependencyGraph {
 
     /// Calculate the maximum depth from this file to any leaf
     fn calculate_depth(&self, file: &str) -> usize {
-        let mut max_depth = 0;
         let mut visited = HashSet::new();
 
         fn dfs(
