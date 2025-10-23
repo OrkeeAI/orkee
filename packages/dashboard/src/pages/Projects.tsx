@@ -404,13 +404,14 @@ export function Projects() {
   };
 
   const handleStartServer = async (projectId: string) => {
-    if (loadingServers.has(projectId)) return;
+    if (loadingServers.has(projectId) || activeServers.has(projectId)) return;
 
     addToSet(setLoadingServers, projectId);
     addToSet(setActiveServers, projectId);
 
     try {
       await previewService.startServer(projectId);
+      await loadActiveServers();
     } catch (err) {
       console.error('Failed to start server:', err);
       removeFromSet(setActiveServers, projectId);
@@ -424,13 +425,14 @@ export function Projects() {
   };
 
   const handleStopServer = async (projectId: string) => {
-    if (loadingServers.has(projectId)) return;
+    if (loadingServers.has(projectId) || !activeServers.has(projectId)) return;
 
     addToSet(setLoadingServers, projectId);
     removeFromSet(setActiveServers, projectId);
 
     try {
       await previewService.stopServer(projectId);
+      await loadActiveServers();
     } catch (err) {
       console.error('Failed to stop server:', err);
       addToSet(setActiveServers, projectId);
