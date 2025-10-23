@@ -7,6 +7,7 @@ use tracing::{debug, info};
 
 use crate::agents::AgentStorage;
 use crate::ai_usage_logs::AiUsageLogStorage;
+use crate::api_tokens::TokenStorage;
 use crate::executions::ExecutionStorage;
 use crate::settings::SettingsStorage;
 use crate::storage::StorageError;
@@ -25,6 +26,7 @@ pub struct DbState {
     pub execution_storage: Arc<ExecutionStorage>,
     pub ai_usage_log_storage: Arc<AiUsageLogStorage>,
     pub settings_storage: Arc<SettingsStorage>,
+    pub token_storage: Arc<TokenStorage>,
 }
 
 impl DbState {
@@ -37,6 +39,7 @@ impl DbState {
         let execution_storage = Arc::new(ExecutionStorage::new(pool.clone()));
         let ai_usage_log_storage = Arc::new(AiUsageLogStorage::new(pool.clone()));
         let settings_storage = Arc::new(SettingsStorage::new(pool.clone()));
+        let token_storage = Arc::new(TokenStorage::new(pool.clone()));
 
         Ok(Self {
             pool,
@@ -47,6 +50,7 @@ impl DbState {
             execution_storage,
             ai_usage_log_storage,
             settings_storage,
+            token_storage,
         })
     }
 

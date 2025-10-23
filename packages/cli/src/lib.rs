@@ -92,6 +92,80 @@ pub async fn run_server_with_options(
     }
 }
 
+/// Initialize API token on first startup
+/// Generates a default token if none exist, logs it once, and stores it in ~/.orkee/api-token
+async fn initialize_api_token() {
+    match orkee_projects::DbState::init().await {
+        Ok(db_state) => {
+            // Check if any active tokens exist
+            match db_state.token_storage.count_active_tokens().await {
+                Ok(count) if count == 0 => {
+                    // No tokens exist - generate default token
+                    match db_state.token_storage.create_token("Default API Token").await {
+                        Ok(token_gen) => {
+                            // Token file path
+                            let token_file = orkee_projects::constants::orkee_dir().join("api-token");
+
+                            // Check if file already exists (shouldn't happen, but be safe)
+                            if token_file.exists() {
+                                info!("API token file already exists at: {}", token_file.display());
+                            } else {
+                                // Write token to file with secure permissions
+                                match std::fs::write(&token_file, &token_gen.token) {
+                                    Ok(_) => {
+                                        // Set file permissions to 0600 (owner read/write only)
+                                        #[cfg(unix)]
+                                        {
+                                            use std::os::unix::fs::PermissionsExt;
+                                            let mut perms = std::fs::metadata(&token_file)
+                                                .expect("Failed to get file metadata")
+                                                .permissions();
+                                            perms.set_mode(0o600);
+                                            let _ = std::fs::set_permissions(&token_file, perms);
+                                        }
+
+                                        println!("\n{}", "🔑 API Token Generated".green().bold());
+                                        println!("   Token: {}", token_gen.token.cyan().bold());
+                                        println!("   Stored in: {}", token_file.display().to_string().yellow());
+                                        println!("\n   {} This token is required for API authentication.", "IMPORTANT:".red().bold());
+                                        println!("   Keep it secure and do not share it.");
+                                        println!("   The dashboard will automatically use this token.\n");
+                                        info!("API token generated and stored successfully");
+                                    }
+                                    Err(e) => {
+                                        error!("Failed to write API token file: {}", e);
+                                        println!("\n{} Failed to write API token to file: {}", "⚠️".yellow(), e);
+                                        println!("   Your token: {}", token_gen.token.cyan().bold());
+                                        println!("   Please save this token manually.\n");
+                                    }
+                                }
+                            }
+                        }
+                        Err(e) => {
+                            error!("Failed to generate API token: {}", e);
+                        }
+                    }
+                }
+                Ok(_) => {
+                    // Tokens exist - check if token file exists
+                    let token_file = orkee_projects::constants::orkee_dir().join("api-token");
+                    if !token_file.exists() {
+                        info!("API tokens exist in database but token file is missing");
+                        println!("\n{} API token file not found", "⚠️".yellow());
+                        println!("   If you need a new token, use: orkee tokens regenerate\n");
+                    }
+                }
+                Err(e) => {
+                    error!("Failed to check for existing API tokens: {}", e);
+                }
+            }
+        }
+        Err(e) => {
+            error!("Failed to initialize database for token check: {}", e);
+        }
+    }
+}
+
 /// Check if there are API keys in environment variables that should be migrated to the database
 async fn check_api_key_migration() {
     match orkee_projects::DbState::init().await {
@@ -144,6 +218,9 @@ async fn run_http_server(
 ) -> Result<(), Box<dyn std::error::Error>> {
     let app = create_application_router(config.clone(), dashboard_path).await?;
 
+    // Initialize API token if needed
+    initialize_api_token().await;
+
     // Check for API key migration from environment variables to database
     check_api_key_migration().await;
 
@@ -172,6 +249,9 @@ async fn run_dual_server_mode(
 
     // Create main application router
     let app = create_application_router(config.clone(), dashboard_path).await?;
+
+    // Initialize API token if needed
+    initialize_api_token().await;
 
     // Check for API key migration from environment variables to database
     check_api_key_migration().await;

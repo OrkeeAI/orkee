@@ -7,6 +7,7 @@ pub mod agents;
 pub mod ai_service;
 pub mod ai_usage_logs;
 pub mod api;
+pub mod api_tokens;
 pub mod constants;
 pub mod context;
 pub mod db;
@@ -88,3 +89,6 @@ pub use db::DbState;
 
 // Re-export pagination types
 pub use pagination::{PaginatedResponse, PaginationMeta, PaginationParams};
+
+// Re-export API token types
+pub use api_tokens::{ApiToken, TokenGeneration, TokenStorage};
