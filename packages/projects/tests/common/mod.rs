@@ -19,6 +19,7 @@ static TEST_MUTEX: Mutex<()> = Mutex::const_new(());
 /// Test context containing server URL and database pool
 pub struct TestContext {
     pub base_url: String,
+    #[allow(dead_code)]
     pub pool: SqlitePool,
     pub _temp_dir: TempDir,
 }
@@ -99,6 +100,7 @@ pub async fn get(base_url: &str, path: &str) -> reqwest::Response {
 }
 
 /// Helper to make POST requests with JSON body
+#[allow(dead_code)]
 pub async fn post_json<T: serde::Serialize>(
     base_url: &str,
     path: &str,
@@ -114,6 +116,7 @@ pub async fn post_json<T: serde::Serialize>(
 }
 
 /// Helper to make PUT requests with JSON body
+#[allow(dead_code)]
 pub async fn put_json<T: serde::Serialize>(
     base_url: &str,
     path: &str,
@@ -129,6 +132,7 @@ pub async fn put_json<T: serde::Serialize>(
 }
 
 /// Helper to make DELETE requests
+#[allow(dead_code)]
 pub async fn delete(base_url: &str, path: &str) -> reqwest::Response {
     let client = reqwest::Client::new();
     client
@@ -139,6 +143,7 @@ pub async fn delete(base_url: &str, path: &str) -> reqwest::Response {
 }
 
 /// Create a test project in the database
+#[allow(dead_code)]
 pub async fn create_test_project(pool: &SqlitePool, name: &str, path: &str) -> String {
     let id = nanoid::nanoid!(8);
     // Use runtime query to avoid compile-time validation issues in tests
