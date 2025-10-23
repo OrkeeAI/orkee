@@ -130,7 +130,7 @@ function SortableRow({ project, onEdit, onDelete, onView, formatDate, getPriorit
             isDevServerRunning(project) ? 'bg-green-500 dark:bg-green-400' : 'bg-muted-foreground/40'
           }`} />
           {isServerLoading(project.id) ? (
-            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" aria-label="Server starting" />
           ) : isDevServerRunning(project) ? (
             <Button
               size="sm"
@@ -141,6 +141,8 @@ function SortableRow({ project, onEdit, onDelete, onView, formatDate, getPriorit
               }}
               className="h-7 w-7 p-0"
               title="Stop dev server"
+              aria-label="Stop dev server"
+              disabled={isServerLoading(project.id)}
             >
               <Square className="h-3.5 w-3.5" />
             </Button>
@@ -154,6 +156,8 @@ function SortableRow({ project, onEdit, onDelete, onView, formatDate, getPriorit
               }}
               className="h-7 w-7 p-0"
               title="Start dev server"
+              aria-label="Start dev server"
+              disabled={isServerLoading(project.id)}
             >
               <Play className="h-3.5 w-3.5" />
             </Button>
@@ -384,12 +388,19 @@ export function Projects() {
   const handleStartServer = async (projectId: string) => {
     if (loadingServers.has(projectId)) return;
 
+    setLoadingServers(prev => new Set(prev).add(projectId));
+    setActiveServers(prev => new Set(prev).add(projectId));
+
     try {
-      setLoadingServers(prev => new Set(prev).add(projectId));
       await previewService.startServer(projectId);
-      await loadActiveServers();
     } catch (err) {
       console.error('Failed to start server:', err);
+      setActiveServers(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(projectId);
+        return newSet;
+      });
+      await loadActiveServers();
       toast.error('Failed to start dev server', {
         description: err instanceof Error ? err.message : 'An unexpected error occurred',
       });
@@ -405,12 +416,19 @@ export function Projects() {
   const handleStopServer = async (projectId: string) => {
     if (loadingServers.has(projectId)) return;
 
+    setLoadingServers(prev => new Set(prev).add(projectId));
+    setActiveServers(prev => {
+      const newSet = new Set(prev);
+      newSet.delete(projectId);
+      return newSet;
+    });
+
     try {
-      setLoadingServers(prev => new Set(prev).add(projectId));
       await previewService.stopServer(projectId);
-      await loadActiveServers();
     } catch (err) {
       console.error('Failed to stop server:', err);
+      setActiveServers(prev => new Set(prev).add(projectId));
+      await loadActiveServers();
       toast.error('Failed to stop dev server', {
         description: err instanceof Error ? err.message : 'An unexpected error occurred',
       });
@@ -660,7 +678,7 @@ export function Projects() {
                             isDevServerRunning(project) ? 'bg-green-500 dark:bg-green-400' : 'bg-muted-foreground/40'
                           }`} />
                           {isServerLoading(project.id) ? (
-                            <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
+                            <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" aria-label="Server starting" />
                           ) : isDevServerRunning(project) ? (
                             <Button
                               size="sm"
@@ -671,6 +689,8 @@ export function Projects() {
                               }}
                               className="h-6 w-6 p-0"
                               title="Stop dev server"
+                              aria-label="Stop dev server"
+                              disabled={isServerLoading(project.id)}
                             >
                               <Square className="h-3 w-3" />
                             </Button>
@@ -684,6 +704,8 @@ export function Projects() {
                               }}
                               className="h-6 w-6 p-0"
                               title="Start dev server"
+                              aria-label="Start dev server"
+                              disabled={isServerLoading(project.id)}
                             >
                               <Play className="h-3 w-3" />
                             </Button>
