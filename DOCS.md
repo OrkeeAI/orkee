@@ -430,6 +430,23 @@ Orkee uses API token authentication to secure API endpoints. The system is desig
 3. **Database Storage**: Token hash (SHA-256) stored in SQLite for verification
 4. **Automatic Authentication**: Desktop app automatically includes token in all API requests
 5. **Whitelisted Endpoints**: Health and status endpoints don't require authentication
+6. **Development Mode Bypass**: Authentication skipped when `ORKEE_DEV_MODE=true` (see below)
+
+#### Development Mode
+
+When running `orkee dashboard --dev` (or manually setting `ORKEE_DEV_MODE=true`):
+
+- **Authentication is completely bypassed** for all API endpoints
+- **No token required** - useful for web dashboard development
+- **Localhost only** - server binds to 127.0.0.1, not accessible from network
+- **Production mode** - Full authentication required for Tauri desktop app
+
+**Use Cases**:
+- Web dashboard development (`bun run dev` in `packages/dashboard/`)
+- Local API testing without managing tokens
+- Rapid prototyping and debugging
+
+**Security**: Development mode should only be used on localhost for development. Production deployments must not set `ORKEE_DEV_MODE`.
 
 #### Token File Location
 

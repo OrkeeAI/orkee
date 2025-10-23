@@ -316,6 +316,12 @@ CORS_ALLOW_ANY_LOCALHOST=true           # Dev mode flexibility
 - `/api/status` - Detailed service status
 - `/api/csrf-token` - CSRF token retrieval
 
+✅ **Development Mode Bypass**: Authentication disabled in dev mode
+- Enabled with `ORKEE_DEV_MODE=true` (automatic with `orkee dashboard --dev`)
+- All API endpoints accessible without tokens
+- Web dashboard works without token file access
+- Security: Only on localhost (127.0.0.1), single-user trusted environment
+
 ✅ **Automatic Rotation Support**: Infrastructure ready for token rotation
 - Token revocation support (`is_active` flag)
 - Multiple token support (name field)
@@ -330,6 +336,7 @@ CORS_ALLOW_ANY_LOCALHOST=true           # Dev mode flexibility
 
 2. Middleware Check
    ├─ Whitelisted paths: Skip authentication
+   ├─ Development mode (ORKEE_DEV_MODE=true): Skip authentication
    └─ Protected paths: Continue to validation
 
 3. Token Extraction

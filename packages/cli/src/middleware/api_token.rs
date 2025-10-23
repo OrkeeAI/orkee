@@ -42,6 +42,12 @@ pub async fn api_token_middleware(
         return Ok(next.run(request).await);
     }
 
+    // Skip authentication in development mode
+    if std::env::var("ORKEE_DEV_MODE").is_ok() {
+        debug!(path = %path, "Development mode active, skipping token validation");
+        return Ok(next.run(request).await);
+    }
+
     // Extract token from header
     let token = request
         .headers()

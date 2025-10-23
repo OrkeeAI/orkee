@@ -114,6 +114,7 @@ CREATE INDEX idx_api_tokens_token_hash ON api_tokens(token_hash);
 
 2. Middleware checks if path requires authentication
    ├─ Whitelisted paths bypass check: /api/health, /api/status, /api/csrf-token
+   ├─ Development mode bypass: If ORKEE_DEV_MODE=true, skip authentication entirely
    └─ Protected paths continue to token validation
 
 3. Token extraction
@@ -145,14 +146,27 @@ The Tauri desktop app handles authentication automatically:
 
 2. API requests
    ├─ Dashboard detects platform (Tauri vs web)
-   ├─ Tauri: Include token from file
-   └─ Web (dev): Skip token (CORS handles security)
+   ├─ Tauri (production): Include token from file
+   └─ Web (development): No token needed (ORKEE_DEV_MODE=true bypasses auth)
 
 3. Token refresh
    ├─ Token cached in memory
    ├─ Re-read on 401 errors (handles token rotation)
    └─ Prompt user if file missing
 ```
+
+### Development Mode Bypass
+
+When `ORKEE_DEV_MODE=true` is set (automatically enabled by `orkee dashboard --dev`):
+
+- **Authentication is completely bypassed** for all API endpoints
+- **Web dashboard works without tokens** - no need for the browser to access `~/.orkee/api-token`
+- **Only works on localhost** - server binds to 127.0.0.1, not accessible from network
+- **Production Tauri app** - Uses full authentication with tokens from file
+
+**Security Model**:
+- Development: Localhost-only, single-user, trusted environment = no auth needed
+- Production: Desktop app with file-based tokens = full authentication required
 
 ---
 
