@@ -26,10 +26,10 @@ use std::sync::Mutex;
 /// Global storage manager instance wrapped in Mutex to allow resetting in tests
 static STORAGE_MANAGER: Mutex<Option<Arc<StorageManager>>> = Mutex::new(None);
 
-/// Thread-local storage manager for test isolation
-/// This allows parallel test execution without global singleton conflicts
 #[cfg(any(test, feature = "test-utils"))]
 thread_local! {
+    /// Thread-local storage manager for test isolation
+    /// This allows parallel test execution without global singleton conflicts
     static TEST_STORAGE_MANAGER: std::cell::RefCell<Option<Arc<StorageManager>>> = std::cell::RefCell::new(None);
 }
 

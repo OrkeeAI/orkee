@@ -33,7 +33,7 @@ Orkee follows a **defense-in-depth** strategy with **zero-trust principles**, im
 | **Cloud Authentication** | ✅ Complete | OAuth 2.0 + token storage | Secure auth flow |
 | **Cloud API Security** | ✅ Complete | HTTPS + Bearer tokens | Transport security |
 | **Token Management** | ✅ Complete | Local secure storage | ~/.orkee/auth.toml |
-| **Authentication** | ⚠️ By Design | Not implemented | Local CLI tool |
+| **API Token Authentication** | ✅ Complete | SHA-256 + constant-time | Local API protection |
 
 ## Threat Model
 
@@ -55,6 +55,8 @@ Orkee follows a **defense-in-depth** strategy with **zero-trust principles**, im
 | **Token Theft** | Local secure storage | File permissions & encryption | ✅ Active |
 | **API Abuse** | Authentication tokens | Bearer token validation | ✅ Active |
 | **Replay Attacks** | Nonce generation | Crypto secure RNG | ✅ Active |
+| **Unauthorized API Access** | API token authentication | SHA-256 + constant-time | ✅ Active |
+| **Cross-Origin API Abuse** | Token + CORS | Whitelisted origins + tokens | ✅ Active |
 
 ### Trust Boundaries
 
@@ -252,122 +254,193 @@ CORS_ALLOW_ANY_LOCALHOST=true           # Dev mode flexibility
 
 ## Authentication Strategy
 
-### Current Approach: No Authentication ✅
+### API Token Authentication ✅ IMPLEMENTED
 
-**Design Decision**: Orkee is designed as a **local CLI tool** (similar to `cargo`, `npm`, `git`, `docker` CLI) for single-user or trusted network use.
+**Design Decision**: Orkee implements API token authentication designed for **local-first desktop applications** with automatic token management.
 
-**Why No Authentication**:
-- Primary use case is local development
-- Similar to other CLI tools that don't require auth
-- Reduces complexity for the intended use case
-- Can be added later if multi-user support is needed
+**Security Model**:
+- **Local-first**: App runs on localhost, user owns the machine
+- **Simple API tokens**: No complex OAuth flows or user login required
+- **Automatic token generation**: Token created on first startup
+- **Defense in depth**: Protects against localhost malware and cross-origin attacks
+- **Transparent to users**: Desktop app handles authentication automatically
 
-**If Authentication Is Needed**: The architecture supports adding authentication:
-- Middleware hooks are in place
-- Can implement JWT or API key authentication
-- RBAC can be layered on top
-- OAuth2 integration possible
+### Implementation Overview
 
-### Optional Authentication Implementation
+**Components**:
+- **Token Generation**: `packages/projects/src/api_tokens/storage.rs`
+- **Token Middleware**: `packages/cli/src/middleware/api_token.rs`
+- **Token Storage**: `~/.orkee/api-token` (file) + `api_tokens` table (database)
+- **Desktop Integration**: `packages/dashboard/src-tauri/src/lib.rs`
 
-If you need to add authentication for a multi-user scenario, here's the implementation approach:
+### Token System
 
-<details>
-<summary>Click to expand authentication implementation guide</summary>
+**Token Format**:
+- 32 random bytes encoded as base64 (URL-safe, no padding)
+- Example: `mK3tN9xQ8vR2jP7wL4yF6hS1dC5bA0zX8uI2oE9gT7r`
+- Length: 43 characters
 
-#### Dependencies Required
-```toml
-# Add to packages/cli/Cargo.toml
-[dependencies]
-jsonwebtoken = "9.2"
-argon2 = "0.5"
-tower-http = { version = "0.5", features = ["auth"] }
+**Token Storage**:
+1. **File Storage**: `~/.orkee/api-token`
+   - Permissions: `0600` (owner read/write only on Unix)
+   - Allows desktop app to read token automatically
+   - Enables manual API testing
+
+2. **Database Storage**: `api_tokens` table
+   - Stores SHA-256 hash (not plaintext token)
+   - Tracks creation time, last used time, active status
+   - Supports future multi-token scenarios
+
+**Token Lifecycle**:
+1. First startup: Generate token, display once, save to file and database
+2. Subsequent startups: Token already exists, read from file
+3. Authentication: Hash incoming token, compare with database using constant-time comparison
+4. Update: Record last_used_at timestamp on successful authentication
+
+### Security Features
+
+✅ **SHA-256 Hashing**: Tokens stored as hashes in database
+- Protects against database export attacks
+- Attacker cannot recover plaintext tokens from database
+
+✅ **Constant-Time Comparison**: Prevents timing attacks
+- Uses `subtle` crate for constant-time comparison
+- Verification time same regardless of match accuracy
+
+✅ **File Permissions**: Token file readable only by owner
+- Unix: `0600` permissions (owner read/write only)
+- Windows: NTFS permissions for current user only
+
+✅ **Whitelisted Endpoints**: Health/status endpoints bypass auth
+- `/api/health` - Basic health check
+- `/api/status` - Detailed service status
+- `/api/csrf-token` - CSRF token retrieval
+
+✅ **Development Mode Bypass**: Authentication disabled in dev mode
+- Enabled with `ORKEE_DEV_MODE=true` (automatic with `orkee dashboard --dev`)
+- All API endpoints accessible without tokens
+- Web dashboard works without token file access
+- Security: Only on localhost (127.0.0.1), single-user trusted environment
+
+✅ **Automatic Rotation Support**: Infrastructure ready for token rotation
+- Token revocation support (`is_active` flag)
+- Multiple token support (name field)
+- Last used tracking for unused token cleanup
+
+### Authentication Flow
+
+```
+1. Client Request
+   ├─ Desktop app: Automatically includes token from ~/.orkee/api-token
+   └─ Manual: Include X-API-Token header
+
+2. Middleware Check
+   ├─ Whitelisted paths: Skip authentication
+   ├─ Development mode (ORKEE_DEV_MODE=true): Skip authentication
+   └─ Protected paths: Continue to validation
+
+3. Token Extraction
+   ├─ Extract X-API-Token header
+   └─ Return 401 if missing
+
+4. Token Verification
+   ├─ Hash provided token (SHA-256)
+   ├─ Query database for matching hash where is_active = 1
+   ├─ Constant-time comparison
+   └─ Return 401 if no match
+
+5. Update Timestamp
+   ├─ Update last_used_at in database
+   └─ Non-fatal error if update fails
+
+6. Request Proceeds
+   └─ Pass to handler
 ```
 
-#### Implementation Steps
+### Desktop App Integration
 
-1. **User Model & Storage**
+**Automatic Authentication**:
 ```rust
-// packages/projects/src/user.rs
-#[derive(Serialize, Deserialize, Clone)]
-pub struct User {
-    pub id: String,
-    pub email: String,
-    pub password_hash: String,
-    pub role: UserRole,
-    pub created_at: DateTime<Utc>,
-}
+// packages/dashboard/src-tauri/src/lib.rs
+#[tauri::command]
+async fn get_api_token() -> Result<String, String> {
+    let home = dirs::home_dir()
+        .ok_or_else(|| "Unable to determine home directory".to_string())?;
 
-#[derive(Serialize, Deserialize, Clone)]
-pub enum UserRole {
-    Admin,
-    User,
-    ReadOnly,
+    let token_path = home.join(".orkee").join("api-token");
+
+    fs::read_to_string(&token_path)
+        .map(|t| t.trim().to_string())
+        .map_err(|e| format!("Failed to read API token: {}", e))
 }
 ```
 
-2. **JWT Authentication Middleware**
-```rust
-// packages/cli/src/middleware/auth.rs
-use axum::extract::{Request, State};
-use axum::middleware::Next;
-use axum::response::Response;
-use jsonwebtoken::{decode, DecodingKey, Validation};
+**API Client**:
+```typescript
+// packages/dashboard/src/services/api.ts
+async get<T>(endpoint: string, options?: RequestOptions): Promise<ApiResponse<T>> {
+  const token = await getApiToken();
+  const headers: HeadersInit = {
+    ...options?.headers,
+  };
 
-pub async fn auth_middleware(
-    State(app_state): State<AppState>,
-    mut req: Request,
-    next: Next,
-) -> Result<Response, StatusCode> {
-    let token = req.headers()
-        .get("Authorization")
-        .and_then(|h| h.to_str().ok())
-        .and_then(|h| h.strip_prefix("Bearer "));
+  if (token) {
+    headers['X-API-Token'] = token;
+  }
 
-    match token {
-        Some(token) => {
-            match validate_token(token, &app_state.jwt_secret) {
-                Ok(claims) => {
-                    req.extensions_mut().insert(claims);
-                    Ok(next.run(req).await)
-                }
-                Err(_) => Err(StatusCode::UNAUTHORIZED)
-            }
-        }
-        None => Err(StatusCode::UNAUTHORIZED)
-    }
+  // ... rest of request
 }
 ```
 
-3. **Protected Routes Configuration**
-```rust
-// packages/cli/src/api/mod.rs
-pub fn create_router() -> Router {
-    Router::new()
-        // Public routes
-        .route("/api/auth/login", post(login))
-        .route("/api/auth/register", post(register))
-        .route("/api/health", get(health_check))
-        
-        // Protected routes
-        .nest("/api/projects", projects_routes())
-        .layer(middleware::from_fn_with_state(
-            app_state.clone(),
-            auth_middleware
-        ))
-}
-```
+### Protected Endpoints
 
-4. **Environment Configuration**
+All API endpoints except whitelisted paths require authentication:
+- Projects API: `/api/projects/*`
+- Settings API: `/api/settings/*`
+- Preview Servers: `/api/preview/*`
+- Directory Browsing: `/api/browse-directories`
+- Tasks & Specs: `/api/tasks/*`, `/api/specs/*`
+
+### Testing Coverage
+
+**Unit Tests**: 6 tests in `packages/projects/src/api_tokens/storage.rs`
+- Token generation uniqueness
+- Hash determinism
+- Hash uniqueness for different inputs
+- Valid token verification
+- Invalid token rejection
+- Constant-time comparison
+
+**Middleware Tests**: 6 tests in `packages/cli/src/middleware/api_token.rs`
+- Whitelisted paths bypass authentication
+- Missing token returns 401
+- Invalid token returns 401
+- Valid token allows access
+- Token updates last_used timestamp
+- Authentication logic correctness
+
+### Future Enhancements
+
+**Token Management** (Planned):
 ```bash
-# Add to .env
-JWT_SECRET=your-secret-key-here-change-in-production
-JWT_EXPIRY=24h
-BCRYPT_COST=12
-AUTH_REQUIRED=true
+orkee tokens list              # List all tokens
+orkee tokens generate <name>   # Generate named token
+orkee tokens revoke <id>       # Revoke specific token
+orkee tokens regenerate        # Rotate default token
 ```
 
-</details>
+**Additional Features**:
+- Token expiration dates
+- Named tokens for different purposes (CI, testing, admin)
+- Token permissions (future RBAC)
+- Auto-renewal before expiration
+
+### Related Documentation
+
+For complete authentication documentation, see:
+- **[API_SECURITY.md](API_SECURITY.md)** - Complete API authentication guide
+- **[MANUAL_TESTING.md](MANUAL_TESTING.md)** - Manual testing procedures
+- **[DOCS.md](DOCS.md#api-authentication)** - Configuration reference
 
 ## Security Configuration
 

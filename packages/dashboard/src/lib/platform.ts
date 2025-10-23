@@ -119,6 +119,36 @@ export async function getApiPort(): Promise<number> {
 }
 
 /**
+ * Get the API token for authenticating with the CLI server
+ * In desktop mode, reads token from ~/.orkee/api-token via Tauri command
+ * In web mode, returns null (web mode doesn't need token authentication)
+ */
+export async function getApiToken(): Promise<string | null> {
+  const isTauri = isTauriApp();
+  console.log('[Platform] getApiToken - isTauriApp:', isTauri);
+
+  if (isTauri) {
+    try {
+      console.log('[Platform] Invoking get_api_token command...');
+      // Dynamically import Tauri modules only when needed
+      const { invoke } = await import('@tauri-apps/api/core');
+      // Query Tauri for the API token
+      const token = await invoke<string>('get_api_token');
+      console.log('[Platform] Got API token from Tauri (length:', token.length, ')');
+      return token;
+    } catch (error) {
+      console.error('[Platform] Failed to get API token from Tauri:', error);
+      // Don't return null here - propagate error so API calls fail with clear message
+      throw new Error('Failed to read API token. Please restart the Orkee server.');
+    }
+  }
+
+  // Web mode: no token needed (assumes development environment)
+  console.log('[Platform] Web mode - no API token needed');
+  return null;
+}
+
+/**
  * Platform-aware fetch that bypasses CORS in Tauri
  * In desktop mode, uses Tauri's HTTP client which bypasses browser CORS
  * In web mode, uses standard fetch (which respects CORS)

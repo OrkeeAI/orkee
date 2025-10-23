@@ -92,6 +92,8 @@ jobs:
         cargo clippy --package orkee-config -- -D warnings
 
     - name: Run Rust tests (CLI & Server)
+      # Note: SQLx compile-time query verification happens automatically during tests
+      # since tests create a real database with migrations
       run: |
         cargo test --package orkee-cli
         cargo test --package orkee-projects

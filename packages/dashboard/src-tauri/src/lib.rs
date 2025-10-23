@@ -200,6 +200,46 @@ fn get_api_port(state: tauri::State<CliServerState>) -> u16 {
     state.api_port
 }
 
+/// Get the API token for authenticating with the CLI server.
+///
+/// Reads the API token from ~/.orkee/api-token file. This token is required
+/// for authenticating API requests to the backend server.
+///
+/// # Returns
+///
+/// Returns `Ok(String)` with the API token, or `Err(String)` if the token
+/// file cannot be read.
+///
+/// # Errors
+///
+/// Returns error if:
+/// - Home directory cannot be determined
+/// - Token file does not exist
+/// - Token file cannot be read
+/// - Token is empty or invalid
+#[tauri::command]
+fn get_api_token() -> Result<String, String> {
+    let home_dir = dirs::home_dir()
+        .ok_or_else(|| "Could not determine home directory".to_string())?;
+
+    let token_path = home_dir.join(".orkee").join("api-token");
+
+    if !token_path.exists() {
+        return Err("API token file not found. Please restart the Orkee server to generate a new token.".to_string());
+    }
+
+    let token = std::fs::read_to_string(&token_path)
+        .map_err(|e| format!("Failed to read API token: {}", e))?
+        .trim()
+        .to_string();
+
+    if token.is_empty() {
+        return Err("API token is empty. Please restart the Orkee server to generate a new token.".to_string());
+    }
+
+    Ok(token)
+}
+
 /// Check if the orkee CLI binary is installed in the system PATH.
 ///
 /// Uses the `which` command on Unix systems to determine if `orkee` is available.
@@ -641,6 +681,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             get_api_port,
+            get_api_token,
             check_cli_installed,
             install_cli_macos,
             get_cli_prompt_preference,

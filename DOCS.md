@@ -8,15 +8,16 @@ This document provides comprehensive information about Orkee configuration, envi
 2. [Dashboard Distribution](#dashboard-distribution)
 3. [Bundle Optimization](#bundle-optimization)
 4. [Environment Variables](#environment-variables)
-5. [Cloud Sync Configuration](#cloud-sync-configuration)
-6. [Security Configuration](#security-configuration)
-7. [TLS/HTTPS Configuration](#tlshttps-configuration)
-8. [File Locations & Data Storage](#file-locations--data-storage)
-9. [CLI Commands Reference](#cli-commands-reference)
-10. [API Reference](#api-reference)
-11. [Default Ports & URLs](#default-ports--urls)
-12. [Development vs Production](#development-vs-production)
-13. [Troubleshooting](#troubleshooting)
+5. [API Authentication](#api-authentication)
+6. [Cloud Sync Configuration](#cloud-sync-configuration)
+7. [Security Configuration](#security-configuration)
+8. [TLS/HTTPS Configuration](#tlshttps-configuration)
+9. [File Locations & Data Storage](#file-locations--data-storage)
+10. [CLI Commands Reference](#cli-commands-reference)
+11. [API Reference](#api-reference)
+12. [Default Ports & URLs](#default-ports--urls)
+13. [Development vs Production](#development-vs-production)
+14. [Troubleshooting](#troubleshooting)
 
 ## Launch Modes
 
@@ -361,9 +362,16 @@ The GitHub workflow can enforce size limits:
 
 ## Environment Variables
 
-### CLI Server Variables
+### Overview: Settings Management
 
-These variables configure the Orkee CLI server (Rust backend):
+Orkee uses a hybrid configuration approach:
+- **Bootstrap settings** (ports, dev mode) must be in `.env` - they control how the application starts
+- **Runtime settings** (security, rate limiting, TLS, etc.) are managed via the Settings UI in the dashboard
+- Settings configured via the UI persist in the database and take effect after restart
+
+### Bootstrap Variables (Required in .env)
+
+These variables control application startup and cannot be changed at runtime. They appear as read-only in the Settings UI.
 
 | Variable | Default | Description |
 |----------|---------|-------------|
@@ -371,60 +379,154 @@ These variables configure the Orkee CLI server (Rust backend):
 | `ORKEE_UI_PORT` | `5173` | Dashboard UI port (can be overridden by `--ui-port` flag) |
 | `ORKEE_DEV_MODE` | `false` | Enable development mode for dashboard (uses source with hot reload) |
 | `ORKEE_DASHBOARD_PATH` | Auto-detected | Explicit path to dashboard directory (overrides auto-detection) |
-| `ORKEE_CORS_ORIGIN` | Auto-calculated from UI port | Allowed CORS origin (auto-set to `http://localhost:${ORKEE_UI_PORT}`) |
-| `CORS_ALLOW_ANY_LOCALHOST` | `true` | Allow any localhost origin in development |
-| `ALLOWED_BROWSE_PATHS` | `~/Documents,~/Projects,~/Desktop,~/Downloads` | Comma-separated list of allowed directory paths |
-| `BROWSE_SANDBOX_MODE` | `relaxed` | Directory browsing security mode: `strict`/`relaxed`/`disabled` |
-| ~~`PORT`~~ | ~~`4001`~~ | **Deprecated** - Use `ORKEE_API_PORT` instead |
-| ~~`CORS_ORIGIN`~~ | ~~`http://localhost:5173`~~ | **Deprecated** - Use `ORKEE_CORS_ORIGIN` or let it auto-configure |
 
-### Security Middleware Variables
+### Database-Managed Settings (Configure via Settings UI)
 
-Configure rate limiting, security headers, and error handling:
+These settings are managed through the dashboard's Settings page and stored in the database. Changes require a server restart to take effect.
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `RATE_LIMIT_ENABLED` | `true` | Enable/disable rate limiting middleware |
-| `RATE_LIMIT_HEALTH_RPM` | `60` | Rate limit for health endpoints (requests per minute) |
-| `RATE_LIMIT_BROWSE_RPM` | `20` | Rate limit for directory browsing (requests per minute) |
-| `RATE_LIMIT_PROJECTS_RPM` | `30` | Rate limit for project CRUD operations (requests per minute) |
-| `RATE_LIMIT_PREVIEW_RPM` | `10` | Rate limit for preview server operations (requests per minute) |
-| `RATE_LIMIT_AI_RPM` | `10` | Rate limit for AI proxy endpoints (requests per minute) - prevents cost abuse |
-| `RATE_LIMIT_GLOBAL_RPM` | `30` | Global rate limit for other endpoints (requests per minute) |
-| `RATE_LIMIT_BURST_SIZE` | `5` | Burst size multiplier for rate limiting |
-| `SECURITY_HEADERS_ENABLED` | `true` | Enable/disable security headers middleware |
-| `ENABLE_HSTS` | `false` | Enable HTTP Strict Transport Security (only for HTTPS) |
-| `ENABLE_REQUEST_ID` | `true` | Enable request ID generation for audit logging |
+**To configure these settings:**
+1. Start Orkee: `orkee dashboard`
+2. Navigate to the Settings tab
+3. Configure via the UI - changes persist automatically
 
-#### Example .env configuration:
+#### Settings > Security
+- CORS configuration (allow any localhost)
+- Directory browsing paths and sandbox mode
+- Security headers (HSTS, request ID, etc.)
+
+#### Settings > Advanced
+- Rate limiting for all endpoints (health, browse, projects, preview, AI, global)
+- Burst size configuration
+- TLS/HTTPS settings
+- Certificate paths and auto-generation
+
+#### Settings > Cloud
+- Cloud sync enabled/disabled
+- Cloud API URL
+
+### Example .env Configuration
+
+**Minimal configuration (recommended):**
 ```bash
-# Port Configuration (simple and clean - just two ports!)
+# Bootstrap Configuration (Required)
 ORKEE_API_PORT=4001       # API server port
 ORKEE_UI_PORT=5173        # Dashboard UI port
-# ORKEE_CORS_ORIGIN is auto-calculated from UI port if not set
+ORKEE_DEV_MODE=false      # Development mode
 
-# Server Configuration
-CORS_ALLOW_ANY_LOCALHOST=true
-
-# Directory Browsing Security
-ALLOWED_BROWSE_PATHS="~/Documents,~/Projects,~/Code,~/Desktop"
-BROWSE_SANDBOX_MODE=relaxed
-
-# Rate Limiting
-RATE_LIMIT_ENABLED=true
-RATE_LIMIT_HEALTH_RPM=60
-RATE_LIMIT_BROWSE_RPM=20
-RATE_LIMIT_PROJECTS_RPM=30
-RATE_LIMIT_PREVIEW_RPM=10
-RATE_LIMIT_AI_RPM=10
-RATE_LIMIT_GLOBAL_RPM=30
-RATE_LIMIT_BURST_SIZE=5
-
-# Security Headers
-SECURITY_HEADERS_ENABLED=true
-ENABLE_HSTS=false  # Set to true only when using HTTPS
-ENABLE_REQUEST_ID=true
+# Cloud Authentication (Optional - for cloud sync)
+# ORKEE_CLOUD_TOKEN=ok_live_abc123...
 ```
+
+**Note**: All security, rate limiting, and TLS settings are now configured via the Settings UI. See the Settings page in the dashboard for the complete list of available options.
+
+### API Authentication
+
+Orkee uses API token authentication to secure API endpoints. The system is designed for local-first desktop applications with automatic token management.
+
+#### How It Works
+
+1. **Automatic Token Generation**: On first startup, Orkee automatically generates a secure API token
+2. **Token Storage**: Token saved to `~/.orkee/api-token` (file permissions: 0600)
+3. **Database Storage**: Token hash (SHA-256) stored in SQLite for verification
+4. **Automatic Authentication**: Desktop app automatically includes token in all API requests
+5. **Whitelisted Endpoints**: Health and status endpoints don't require authentication
+6. **Development Mode Bypass**: Authentication skipped when `ORKEE_DEV_MODE=true` (see below)
+
+#### Development Mode
+
+When running `orkee dashboard --dev` (or manually setting `ORKEE_DEV_MODE=true`):
+
+- **Authentication is completely bypassed** for all API endpoints
+- **No token required** - useful for web dashboard development
+- **Localhost only** - server binds to 127.0.0.1, not accessible from network
+- **Production mode** - Full authentication required for Tauri desktop app
+
+**Use Cases**:
+- Web dashboard development (`bun run dev` in `packages/dashboard/`)
+- Local API testing without managing tokens
+- Rapid prototyping and debugging
+
+**Security**: Development mode should only be used on localhost for development. Production deployments must not set `ORKEE_DEV_MODE`.
+
+#### Token File Location
+
+| Platform | Token File Path |
+|----------|----------------|
+| macOS/Linux | `~/.orkee/api-token` |
+| Windows | `%USERPROFILE%\.orkee\api-token` |
+
+#### Authentication Headers
+
+All protected API endpoints require the `X-API-Token` header:
+
+```bash
+# Read token from file
+export TOKEN=$(cat ~/.orkee/api-token)
+
+# Make authenticated request
+curl -H "X-API-Token: $TOKEN" http://localhost:4001/api/projects
+```
+
+#### Whitelisted Endpoints (No Auth Required)
+
+The following endpoints are accessible without authentication:
+- `GET /api/health` - Basic health check
+- `GET /api/status` - Detailed service status
+- `GET /api/csrf-token` - CSRF token retrieval
+
+#### Protected Endpoints (Auth Required)
+
+All other API endpoints require authentication:
+- Projects API - `/api/projects/*`
+- Settings API - `/api/settings/*`
+- Preview Servers - `/api/preview/*`
+- Directory Browsing - `/api/browse-directories`
+- Tasks & Specs - `/api/tasks/*`, `/api/specs/*`
+
+#### Desktop App Integration
+
+The Tauri desktop app handles authentication automatically:
+1. Reads token from `~/.orkee/api-token` on startup
+2. Includes `X-API-Token` header in all API requests
+3. No user configuration required
+
+#### Manual API Testing
+
+For development or scripting, you can manually authenticate:
+
+```bash
+# Example: List projects
+curl -H "X-API-Token: $(cat ~/.orkee/api-token)" \
+  http://localhost:4001/api/projects
+
+# Example: Create project
+curl -X POST \
+  -H "X-API-Token: $(cat ~/.orkee/api-token)" \
+  -H "Content-Type: application/json" \
+  -d '{"name": "My Project", "projectRoot": "/path/to/project"}' \
+  http://localhost:4001/api/projects
+```
+
+#### Security Features
+
+- **SHA-256 Hashing**: Tokens stored as hashes in database
+- **Constant-Time Comparison**: Prevents timing attacks during verification
+- **File Permissions**: Token file readable only by owner (Unix)
+- **Single-Use Display**: Token shown once during generation
+
+#### Troubleshooting Authentication
+
+**401 Unauthorized Errors**:
+1. Verify token file exists: `cat ~/.orkee/api-token`
+2. Check token is included in request headers
+3. Verify server is running: `curl http://localhost:4001/api/health`
+
+**Token File Missing**:
+1. Stop Orkee server
+2. Delete database: `rm ~/.orkee/orkee.db`
+3. Restart server - new token will be generated
+
+For complete authentication documentation, see [API_SECURITY.md](API_SECURITY.md).
 
 ### Dashboard Variables
 

@@ -7,7 +7,9 @@ pub mod agents;
 pub mod ai_service;
 pub mod ai_usage_logs;
 pub mod api;
+pub mod api_tokens;
 pub mod constants;
+pub mod context;
 pub mod db;
 pub mod executions;
 pub mod formatter;
@@ -16,6 +18,7 @@ pub mod manager;
 pub mod openspec;
 pub mod pagination;
 pub mod security;
+pub mod settings;
 pub mod storage;
 pub mod tags;
 pub mod tasks;
@@ -76,9 +79,9 @@ pub use constants::{orkee_dir, projects_file, PROJECTS_VERSION};
 // Re-export API routers
 pub use api::{
     create_agents_router, create_ai_proxy_router, create_ai_router, create_ai_usage_router,
-    create_changes_router, create_executions_router, create_prds_router, create_projects_router,
-    create_security_router, create_specs_router, create_tags_router, create_task_spec_router,
-    create_tasks_router, create_users_router,
+    create_changes_router, create_context_router, create_executions_router, create_prds_router,
+    create_projects_router, create_security_router, create_specs_router, create_tags_router,
+    create_task_spec_router, create_tasks_router, create_users_router,
 };
 
 // Re-export database state
@@ -86,3 +89,6 @@ pub use db::DbState;
 
 // Re-export pagination types
 pub use pagination::{PaginatedResponse, PaginationMeta, PaginationParams};
+
+// Re-export API token types
+pub use api_tokens::{ApiToken, TokenGeneration, TokenStorage};

@@ -29,6 +29,10 @@ pub enum StorageError {
     Compression(String),
     #[error("Encryption error: {0}")]
     Encryption(String),
+    #[error("Validation error: {0}")]
+    Validation(String),
+    #[error("Setting '{0}' is environment-only and cannot be modified at runtime")]
+    EnvOnly(String),
     #[error("Project not found")]
     NotFound,
     #[error("Invalid configuration format")]

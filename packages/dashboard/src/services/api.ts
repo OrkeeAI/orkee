@@ -1,4 +1,4 @@
-import { isTauriApp, platformFetch, getApiPort } from '@/lib/platform';
+import { isTauriApp, platformFetch, getApiPort, getApiToken } from '@/lib/platform';
 
 console.log('[API] Module loaded - checking platform...');
 console.log('[API] isTauriApp():', isTauriApp());
@@ -63,14 +63,25 @@ export class ApiClient {
   async get<T>(endpoint: string): Promise<ApiResponse<T>> {
     try {
       const baseUrl = await this.baseURL;
+      const token = await getApiToken();
+
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
+
+      if (token) {
+        headers['X-API-Token'] = token;
+      }
+
       const response = await platformFetch(`${baseUrl}${endpoint}`, {
         method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers,
       });
 
       if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error('Authentication failed. Please restart the Orkee server.');
+        }
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
@@ -88,15 +99,26 @@ export class ApiClient {
   async post<T>(endpoint: string, body: unknown): Promise<ApiResponse<T>> {
     try {
       const baseUrl = await this.baseURL;
+      const token = await getApiToken();
+
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
+
+      if (token) {
+        headers['X-API-Token'] = token;
+      }
+
       const response = await platformFetch(`${baseUrl}${endpoint}`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers,
         body: JSON.stringify(body),
       });
 
       if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error('Authentication failed. Please restart the Orkee server.');
+        }
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
@@ -116,21 +138,27 @@ export const apiClient = new ApiClient();
 
 // Generic API request function for consistent response handling
 export async function apiRequest<T>(
-  url: string, 
+  url: string,
   options: RequestInit = {}
 ): Promise<{ success: boolean; data?: T; error?: string }> {
   try {
-    // Include auth token if available
+    // Include both API token (for Tauri) and auth token (for cloud features)
     const accessToken = localStorage.getItem('orkee_access_token');
+    const apiToken = await getApiToken();
+
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
       ...(options.headers as Record<string, string> || {}),
     };
-    
+
+    if (apiToken) {
+      headers['X-API-Token'] = apiToken;
+    }
+
     if (accessToken) {
       headers['Authorization'] = `Bearer ${accessToken}`;
     }
-    
+
     const baseUrl = await getApiBaseUrl();
     const response = await platformFetch(`${baseUrl}${url}`, {
       ...options,
@@ -138,12 +166,24 @@ export async function apiRequest<T>(
     });
 
     const result = await response.json();
-    
+
     if (!response.ok) {
+      if (response.status === 401) {
+        return {
+          success: false,
+          error: 'Authentication failed. Please restart the Orkee server.',
+        };
+      }
       return {
         success: false,
         error: result.error || `HTTP error! status: ${response.status}`,
       };
+    }
+
+    // If the API already returns {success, data}, unwrap it
+    // Otherwise, wrap the raw result
+    if (result && typeof result === 'object' && 'success' in result && 'data' in result) {
+      return result as { success: boolean; data?: T; error?: string };
     }
 
     return {
@@ -176,8 +216,22 @@ export const previewService = {
   async getActiveServers(): Promise<string[]> {
     try {
       const baseUrl = await getApiBaseUrl();
-      const response = await platformFetch(`${baseUrl}/api/preview/servers`);
+      const token = await getApiToken();
+
+      const headers: Record<string, string> = {};
+      if (token) {
+        headers['X-API-Token'] = token;
+      }
+
+      const response = await platformFetch(`${baseUrl}/api/preview/servers`, {
+        headers,
+      });
+
       if (!response.ok) {
+        if (response.status === 401) {
+          console.error('Authentication failed for preview servers');
+          return [];
+        }
         throw new Error(`HTTP error! status: ${response.status}`);
       }
       const result: PreviewApiResponse<ServersListResponse> = await response.json();

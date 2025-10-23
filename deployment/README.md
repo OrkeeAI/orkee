@@ -312,6 +312,28 @@ docker run -d \
 
 ## Security Hardening
 
+### ⚠️ Production Environment Variables
+
+**CRITICAL**: Ensure these environment variables are NEVER set in production:
+
+```bash
+# ❌ NEVER SET IN PRODUCTION
+ORKEE_DEV_MODE=true  # Bypasses API authentication - DEVELOPMENT ONLY
+```
+
+**Why this matters**:
+- `ORKEE_DEV_MODE=true` completely disables API token authentication
+- All API endpoints become accessible without credentials
+- Only safe on localhost for development
+- **Security Risk**: Setting this in production exposes all data
+
+**Verify before deploying**:
+```bash
+# Check your environment file
+grep -i "ORKEE_DEV_MODE" /etc/orkee/production.env
+# Should return nothing or ORKEE_DEV_MODE=false
+```
+
 ### Systemd Service
 
 Use the systemd service template:

@@ -441,8 +441,9 @@ cargo run --bin orkee -- dashboard --dev --api-port 8080 --ui-port 3000
 - `--dev` or `ORKEE_DEV_MODE=true` enables development mode
 - Uses local dashboard from `packages/dashboard/` instead of `~/.orkee/dashboard/`
 - Falls back to downloaded version if local dashboard isn't found
+- **Bypasses API authentication** for easier web dashboard development (localhost only)
 
-See [DEV_MODE_README.md](DEV_MODE_README.md) for detailed usage instructions.
+See [DEV_MODE.md](DEV_MODE.md) for detailed usage instructions and [API_SECURITY.md](API_SECURITY.md) for authentication details.
 
 ## Contributing
 

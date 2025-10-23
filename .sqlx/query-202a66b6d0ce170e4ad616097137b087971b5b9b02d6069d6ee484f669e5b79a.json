@@ -1,0 +1,80 @@
+{
+  "db_name": "SQLite",
+  "query": "\n            SELECT \n                id,\n                project_id,\n                title,\n                content_markdown,\n                CAST(version AS INTEGER) as \"version!: i32\",\n                status as \"status!: PRDStatus\",\n                source as \"source!: PRDSource\",\n                created_at as \"created_at!: chrono::DateTime<chrono::Utc>\",\n                updated_at as \"updated_at!: chrono::DateTime<chrono::Utc>\",\n                created_by,\n                deleted_at as \"deleted_at: Option<chrono::DateTime<chrono::Utc>>\"\n            FROM prds\n            WHERE id = ? AND deleted_at IS NULL\n            ",
+  "describe": {
+    "columns": [
+      {
+        "name": "id",
+        "ordinal": 0,
+        "type_info": "Text"
+      },
+      {
+        "name": "project_id",
+        "ordinal": 1,
+        "type_info": "Text"
+      },
+      {
+        "name": "title",
+        "ordinal": 2,
+        "type_info": "Text"
+      },
+      {
+        "name": "content_markdown",
+        "ordinal": 3,
+        "type_info": "Text"
+      },
+      {
+        "name": "version!: i32",
+        "ordinal": 4,
+        "type_info": "Null"
+      },
+      {
+        "name": "status!: PRDStatus",
+        "ordinal": 5,
+        "type_info": "Text"
+      },
+      {
+        "name": "source!: PRDSource",
+        "ordinal": 6,
+        "type_info": "Text"
+      },
+      {
+        "name": "created_at!: chrono::DateTime<chrono::Utc>",
+        "ordinal": 7,
+        "type_info": "Datetime"
+      },
+      {
+        "name": "updated_at!: chrono::DateTime<chrono::Utc>",
+        "ordinal": 8,
+        "type_info": "Datetime"
+      },
+      {
+        "name": "created_by",
+        "ordinal": 9,
+        "type_info": "Text"
+      },
+      {
+        "name": "deleted_at: Option<chrono::DateTime<chrono::Utc>>",
+        "ordinal": 10,
+        "type_info": "Datetime"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      true,
+      false,
+      false,
+      false,
+      null,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "202a66b6d0ce170e4ad616097137b087971b5b9b02d6069d6ee484f669e5b79a"
+}

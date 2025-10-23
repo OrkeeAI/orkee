@@ -136,20 +136,20 @@ export function KeySourcesTable() {
       <div className="flex items-start gap-2 text-xs text-muted-foreground pt-2">
         <Info className="h-3 w-3 mt-0.5 flex-shrink-0" />
         <div>
-          <p>
-            <Badge variant="default" className="text-xs bg-blue-600 mr-1 inline-flex items-center">
+          <div className="flex items-center gap-1">
+            <Badge variant="default" className="text-xs bg-blue-600 inline-flex items-center">
               <Database className="h-2 w-2 mr-1" />
               Database
             </Badge>
-            Keys stored encrypted in local database
-          </p>
-          <p className="mt-1">
-            <Badge variant="default" className="text-xs bg-purple-600 mr-1 inline-flex items-center">
+            <span>Keys stored encrypted in local database</span>
+          </div>
+          <div className="flex items-center gap-1 mt-1">
+            <Badge variant="default" className="text-xs bg-purple-600 inline-flex items-center">
               <Server className="h-2 w-2 mr-1" />
               Environment
             </Badge>
-            Keys from environment variables (override database)
-          </p>
+            <span>Keys from environment variables (override database)</span>
+          </div>
         </div>
       </div>
     </div>
