@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, memo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -66,7 +66,7 @@ interface SortableRowProps {
   isServerLoading: (projectId: string) => boolean;
 }
 
-function SortableRow({ project, onEdit, onDelete, onView, formatDate, getPriorityColor, isDevServerRunning, onStartServer, onStopServer, isServerLoading }: SortableRowProps) {
+const SortableRow = memo(function SortableRow({ project, onEdit, onDelete, onView, formatDate, getPriorityColor, isDevServerRunning, onStartServer, onStopServer, isServerLoading }: SortableRowProps) {
   const {
     attributes,
     listeners,
@@ -94,7 +94,7 @@ function SortableRow({ project, onEdit, onDelete, onView, formatDate, getPriorit
             <GripVertical className="h-4 w-4 text-muted-foreground" />
           </button>
           <FolderOpen className="h-4 w-4 text-primary" />
-          <button 
+          <button
             onClick={() => onView(project)}
             className="font-medium text-sm sm:text-base truncate hover:text-primary transition-colors text-left"
           >
@@ -213,7 +213,7 @@ function SortableRow({ project, onEdit, onDelete, onView, formatDate, getPriorit
       </td>
     </tr>
   );
-}
+});
 
 export function Projects() {
   const navigate = useNavigate();
