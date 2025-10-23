@@ -32,7 +32,7 @@ import { GlobalSyncStatus } from '@/components/cloud/GlobalSyncStatus';
 import { ProjectSyncBadge } from '@/components/cloud/ProjectSyncBadge';
 import { useProjects, useUpdateProject, useSearchProjects } from '@/hooks/useProjects';
 import { Project } from '@/services/projects';
-import { previewService } from '@/services/api';
+import { previewService } from '@/services/preview';
 
 type ViewType = 'card' | 'list';
 type SortType = 'rank' | 'priority' | 'alpha';
