@@ -2,7 +2,7 @@
 // ABOUTME: Implements retry logic with automatic fallback to polling after max retries
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { getApiBaseUrl } from '@/lib/platform';
+import { getApiBaseUrl } from '@/services/api';
 
 interface ServerEvent {
   type: 'server_started' | 'server_stopped' | 'server_error' | 'initial_state';
