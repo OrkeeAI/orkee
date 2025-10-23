@@ -2,7 +2,6 @@ use crate::registry::{ServerRegistryEntry, GLOBAL_REGISTRY};
 use crate::types::*;
 use chrono::Utc;
 use orkee_config::constants;
-#[cfg(unix)]
 use orkee_config::env::parse_env_or_default_with_validation;
 use serde_json;
 use std::collections::hash_map::DefaultHasher;
@@ -159,7 +158,14 @@ impl PreviewManager {
     ///
     /// Returns a new `PreviewManager` instance with empty server and log collections.
     pub fn new() -> Self {
-        let (event_tx, _rx) = broadcast::channel(SSE_CHANNEL_CAPACITY);
+        // Make channel capacity configurable via environment variable
+        let capacity = parse_env_or_default_with_validation(
+            "ORKEE_EVENT_CHANNEL_SIZE",
+            SSE_CHANNEL_CAPACITY,
+            |v| v >= 10 && v <= 10000,
+        );
+
+        let (event_tx, _rx) = broadcast::channel(capacity);
         Self {
             active_servers: Arc::new(RwLock::new(HashMap::new())),
             server_logs: Arc::new(RwLock::new(HashMap::new())),

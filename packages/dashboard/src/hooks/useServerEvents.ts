@@ -14,9 +14,10 @@ interface ServerEvent {
   error?: string;
 }
 
-const MAX_RETRIES = 3;
-const RETRY_DELAY = 2000; // 2 seconds
-const POLLING_INTERVAL = 5000; // 5 seconds
+// SSE configuration constants with environment variable overrides
+const MAX_RETRIES = Number(import.meta.env.VITE_SSE_MAX_RETRIES) || 3;
+const RETRY_DELAY = Number(import.meta.env.VITE_SSE_RETRY_DELAY) || 2000; // milliseconds
+const POLLING_INTERVAL = Number(import.meta.env.VITE_SSE_POLLING_INTERVAL) || 5000; // milliseconds
 
 /**
  * React hook for real-time server event updates via SSE.
