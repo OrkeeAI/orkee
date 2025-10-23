@@ -138,6 +138,7 @@ pub async fn create_router_with_options(
     // Create preview router with its own state
     let preview_router = Router::new()
         .route("/health", get(preview::health_check))
+        .route("/events", get(preview::server_events))
         .route("/servers", get(preview::list_active_servers))
         .route("/servers/discover", get(preview::discover_servers))
         .route("/servers/stop-all", post(preview::stop_all_servers))

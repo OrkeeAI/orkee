@@ -16,7 +16,7 @@ use tokio::fs;
 use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::Child;
 use tokio::process::Command;
-use tokio::sync::RwLock;
+use tokio::sync::{broadcast, RwLock};
 use tracing::{debug, error, info, warn};
 use uuid::Uuid;
 
@@ -43,6 +43,7 @@ pub struct SpawnResult {
 pub struct PreviewManager {
     active_servers: Arc<RwLock<HashMap<String, ServerInfo>>>,
     server_logs: Arc<RwLock<HashMap<String, VecDeque<DevServerLog>>>>,
+    event_tx: broadcast::Sender<ServerEvent>,
 }
 
 /// Information about a running development server.
@@ -151,10 +152,17 @@ impl PreviewManager {
     ///
     /// Returns a new `PreviewManager` instance with empty server and log collections.
     pub fn new() -> Self {
+        let (event_tx, _rx) = broadcast::channel(100);
         Self {
             active_servers: Arc::new(RwLock::new(HashMap::new())),
             server_logs: Arc::new(RwLock::new(HashMap::new())),
+            event_tx,
         }
+    }
+
+    /// Subscribe to server events for real-time updates
+    pub fn subscribe(&self) -> broadcast::Receiver<ServerEvent> {
+        self.event_tx.subscribe()
     }
 
     /// Create a new manager and recover existing servers from lock files.
@@ -650,6 +658,14 @@ impl PreviewManager {
                     );
                 }
 
+                // Emit ServerStarted event
+                let _ = self.event_tx.send(ServerEvent::ServerStarted {
+                    project_id: project_id.clone(),
+                    pid: pid.unwrap_or(0),
+                    port,
+                    framework: updated_info.framework_name.clone(),
+                });
+
                 info!(
                     "Successfully started server for project: {} on port {}",
                     project_id, port
@@ -658,6 +674,12 @@ impl PreviewManager {
             }
             Err(e) => {
                 error!("Failed to start server for project {}: {}", project_id, e);
+
+                // Emit ServerError event
+                let _ = self.event_tx.send(ServerEvent::ServerError {
+                    project_id: project_id.clone(),
+                    error: e.to_string(),
+                });
 
                 // Don't store failed server attempts in active_servers to avoid port allocation leaks.
                 // The port was never actually bound, so storing the error entry would mislead
@@ -852,6 +874,11 @@ impl PreviewManager {
                         project_id_owned, e
                     );
                 }
+
+                // Emit ServerStopped event
+                let _ = manager.event_tx.send(ServerEvent::ServerStopped {
+                    project_id: project_id_owned.clone(),
+                });
 
                 info!(
                     "Successfully stopped server for project: {}",

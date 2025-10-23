@@ -1,18 +1,23 @@
 use axum::{
     extract::{Path, Query, State},
     http::StatusCode,
-    response::Json,
+    response::{
+        sse::{Event, KeepAlive, Sse},
+        Json,
+    },
 };
 use chrono::{DateTime, Utc};
+use futures::stream::{self, Stream};
 use orkee_preview::{
     types::{
-        ApiResponse, ServerLogsResponse, ServerStatusInfo, ServerStatusResponse, ServersResponse,
-        StartServerRequest, StartServerResponse,
+        ApiResponse, ServerEvent, ServerLogsResponse, ServerStatusInfo, ServerStatusResponse,
+        ServersResponse, StartServerRequest, StartServerResponse,
     },
     PreviewManager, ServerInfo,
 };
 use orkee_projects::manager::ProjectsManager;
 use serde::Deserialize;
+use std::convert::Infallible;
 use std::sync::Arc;
 use tracing::{error, info};
 
@@ -449,6 +454,59 @@ pub async fn health_check() -> Json<ApiResponse<String>> {
     Json(ApiResponse::success(
         "Preview service is healthy".to_string(),
     ))
+}
+
+/// SSE endpoint for real-time server events
+pub async fn server_events(
+    State(state): State<PreviewState>,
+) -> Sse<impl Stream<Item = Result<Event, Infallible>>> {
+    info!("Client connected to server events stream");
+
+    let rx = state.preview_manager.subscribe();
+
+    // Get initial state of active servers
+    let active_servers = state.preview_manager.list_servers().await;
+    let active_server_ids: Vec<String> = active_servers
+        .iter()
+        .map(|s| s.project_id.clone())
+        .collect();
+
+    let initial_event = ServerEvent::InitialState {
+        active_servers: active_server_ids,
+    };
+
+    // Create the stream - pass initial_event into the closure state
+    let stream = stream::unfold(
+        (rx, Some(initial_event)),
+        |(mut rx, initial_opt)| async move {
+            if let Some(initial_event) = initial_opt {
+                // Send initial state as first event
+                if let Ok(data) = serde_json::to_string(&initial_event) {
+                    let event = Event::default().data(data);
+                    return Some((Ok(event), (rx, None)));
+                }
+            }
+
+            // Wait for and send subsequent events
+            match rx.recv().await {
+                Ok(server_event) => {
+                    if let Ok(data) = serde_json::to_string(&server_event) {
+                        let event = Event::default().data(data);
+                        Some((Ok(event), (rx, None)))
+                    } else {
+                        // JSON serialization failed, skip this event
+                        None
+                    }
+                }
+                Err(_) => {
+                    // Channel closed or lagged
+                    None
+                }
+            }
+        },
+    );
+
+    Sse::new(stream).keep_alive(KeepAlive::default())
 }
 
 #[cfg(test)]

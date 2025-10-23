@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, memo } from 'react';
+import { useState, useMemo, memo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -32,6 +32,7 @@ import { ProjectDeleteDialog } from '@/components/ProjectDeleteDialog';
 import { GlobalSyncStatus } from '@/components/cloud/GlobalSyncStatus';
 import { ProjectSyncBadge } from '@/components/cloud/ProjectSyncBadge';
 import { useProjects, useUpdateProject, useSearchProjects } from '@/hooks/useProjects';
+import { useServerEvents } from '@/hooks/useServerEvents';
 import { Project } from '@/services/projects';
 import { previewService } from '@/services/preview';
 
@@ -248,8 +249,10 @@ SortableRow.displayName = 'SortableRow';
 
 export function Projects() {
   const navigate = useNavigate();
-  const [activeServers, setActiveServers] = useState<Set<string>>(new Set());
   const [loadingServers, setLoadingServers] = useState<Set<string>>(new Set());
+
+  // Server events via SSE
+  const { activeServers, connectionMode } = useServerEvents();
 
   // Dialog states
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
@@ -257,7 +260,7 @@ export function Projects() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [aiTestDialogOpen, setAITestDialogOpen] = useState(false);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
-  
+
   // Filter and view states
   const [searchTerm, setSearchTerm] = useState('');
   const [sortBy, setSortBy] = useState<SortType>('rank');
@@ -267,7 +270,7 @@ export function Projects() {
   // React Query hooks
   const { data: allProjects = [], isLoading, error, isError } = useProjects();
   const { data: searchResults = [], isLoading: isSearching } = useSearchProjects(
-    searchTerm, 
+    searchTerm,
     searchTerm.length >= 2
   );
   const updateProjectMutation = useUpdateProject();
@@ -283,16 +286,6 @@ export function Projects() {
   // Use search results if searching, otherwise use all projects
   const projects = searchTerm.length >= 2 ? searchResults : allProjects;
   const loading = isLoading || (searchTerm.length >= 2 && isSearching);
-
-  const loadActiveServers = async () => {
-    try {
-      const activeServerIds = await previewService.getActiveServers();
-      setActiveServers(new Set(activeServerIds));
-    } catch (err) {
-      console.error('Failed to load active servers:', err);
-      setActiveServers(new Set());
-    }
-  };
 
   // Calculate project counts by status
   const projectCounts = useMemo(() => {
@@ -334,15 +327,6 @@ export function Projects() {
 
     return filtered;
   }, [projects, sortBy, statusFilter]);
-
-  useEffect(() => {
-    loadActiveServers();
-    
-    // Set up periodic refresh for active servers every 20 seconds
-    const interval = setInterval(loadActiveServers, 20000);
-    
-    return () => clearInterval(interval);
-  }, []);
 
   const handleViewProject = (project: Project) => {
     navigate(`/projects/${project.id}`);
@@ -424,21 +408,11 @@ export function Projects() {
       next.add(projectId);
       return next;
     });
-    setActiveServers(prev => {
-      const next = new Set(prev);
-      next.add(projectId);
-      return next;
-    });
 
     try {
       await previewService.startServer(projectId);
-      await loadActiveServers();
+      // SSE will update activeServers automatically
     } catch (err) {
-      setActiveServers(prev => {
-        const next = new Set(prev);
-        next.delete(projectId);
-        return next;
-      });
       toast.error('Failed to start dev server', {
         description: err instanceof Error ? err.message : 'An unexpected error occurred',
       });
@@ -459,21 +433,11 @@ export function Projects() {
       next.add(projectId);
       return next;
     });
-    setActiveServers(prev => {
-      const next = new Set(prev);
-      next.delete(projectId);
-      return next;
-    });
 
     try {
       await previewService.stopServer(projectId);
-      await loadActiveServers();
+      // SSE will update activeServers automatically
     } catch (err) {
-      setActiveServers(prev => {
-        const next = new Set(prev);
-        next.add(projectId);
-        return next;
-      });
       toast.error('Failed to stop dev server', {
         description: err instanceof Error ? err.message : 'An unexpected error occurred',
       });
@@ -509,7 +473,24 @@ export function Projects() {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Projects</h1>
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Projects</h1>
+            {connectionMode === 'sse' && (
+              <Badge variant="outline" className="text-xs border-green-500/30 bg-green-500/10 text-green-700 dark:text-green-400">
+                Live
+              </Badge>
+            )}
+            {connectionMode === 'polling' && (
+              <Badge variant="outline" className="text-xs border-yellow-500/30 bg-yellow-500/10 text-yellow-700 dark:text-yellow-400">
+                Polling
+              </Badge>
+            )}
+            {connectionMode === 'connecting' && (
+              <Badge variant="outline" className="text-xs border-muted-foreground/30 bg-muted/10">
+                Connecting...
+              </Badge>
+            )}
+          </div>
           <p className="text-sm sm:text-base text-muted-foreground">
             Manage your development projects and their configurations.
           </p>

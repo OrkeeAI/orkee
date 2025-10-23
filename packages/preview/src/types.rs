@@ -307,3 +307,25 @@ pub struct ServerStatusInfo {
 pub struct ServersResponse {
     pub servers: Vec<ServerStatusInfo>,
 }
+
+/// Server events for real-time updates via SSE
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum ServerEvent {
+    ServerStarted {
+        project_id: String,
+        pid: u32,
+        port: u16,
+        framework: Option<String>,
+    },
+    ServerStopped {
+        project_id: String,
+    },
+    ServerError {
+        project_id: String,
+        error: String,
+    },
+    InitialState {
+        active_servers: Vec<String>,
+    },
+}
