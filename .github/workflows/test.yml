@@ -95,7 +95,7 @@ jobs:
       run: |
         # SQLx queries are verified during normal compilation via DATABASE_URL
         # This ensures all queries match the schema in migrations
-        DATABASE_URL=sqlite::memory: cargo check --package orkee-projects --features sqlx
+        DATABASE_URL=sqlite::memory: cargo check --package orkee-projects
 
     - name: Run Rust tests (CLI & Server)
       run: |
