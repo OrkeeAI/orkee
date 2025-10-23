@@ -30,6 +30,7 @@ const POLLING_INTERVAL = 5000; // 5 seconds
 export function useServerEvents() {
   const [activeServers, setActiveServers] = useState<Set<string>>(new Set());
   const [connectionMode, setConnectionMode] = useState<'sse' | 'polling' | 'connecting'>('connecting');
+  const [serverErrors, setServerErrors] = useState<Map<string, string>>(new Map());
 
   // Initialize connection on mount
   useEffect(() => {
@@ -102,6 +103,13 @@ export function useServerEvents() {
                 break;
               case 'server_error':
                 console.error('[SSE] Server error:', serverEvent.error);
+                if (serverEvent.project_id && serverEvent.error) {
+                  setServerErrors((prev) => {
+                    const next = new Map(prev);
+                    next.set(serverEvent.project_id!, serverEvent.error!);
+                    return next;
+                  });
+                }
                 break;
             }
           } catch (error) {
@@ -153,5 +161,6 @@ export function useServerEvents() {
     activeServers,
     connectionMode,
     isConnected: connectionMode !== 'connecting',
+    serverErrors,
   };
 }

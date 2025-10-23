@@ -253,7 +253,16 @@ export function Projects() {
   const loadingTimeoutsRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
 
   // Server events via SSE
-  const { activeServers, connectionMode } = useServerEvents();
+  const { activeServers, connectionMode, serverErrors } = useServerEvents();
+
+  // Display server errors as toast notifications
+  useEffect(() => {
+    serverErrors.forEach((error, projectId) => {
+      toast.error('Server error', {
+        description: `${projectId}: ${error}`,
+      });
+    });
+  }, [serverErrors]);
 
   // Clear loading state when SSE updates activeServers
   useEffect(() => {
