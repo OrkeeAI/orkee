@@ -1,7 +1,7 @@
 // ABOUTME: Tests for Projects page server control functionality
 // ABOUTME: Validates state management, error handling, optimistic updates, and accessibility
 
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect } from 'vitest';
 
 describe('Projects - Server Control State Management', () => {
   describe('State Guard Logic', () => {
