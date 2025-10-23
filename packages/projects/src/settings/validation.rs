@@ -98,7 +98,7 @@ pub fn validate_setting_value(
             validate_path_list(value)?;
         }
 
-        // Rate limit settings (must be >= 1)
+        // Rate limit settings (must be >= 1, max 10,000 to prevent misconfiguration)
         "rate_limit_health_rpm"
         | "rate_limit_browse_rpm"
         | "rate_limit_projects_rpm"
@@ -106,7 +106,7 @@ pub fn validate_setting_value(
         | "rate_limit_ai_rpm"
         | "rate_limit_global_rpm"
         | "rate_limit_burst_size" => {
-            validate_integer(value, Some(1), None)?;
+            validate_integer(value, Some(1), Some(10_000))?;
         }
 
         // URL settings
@@ -194,7 +194,36 @@ fn validate_path(value: &str) -> Result<(), ValidationError> {
     }
 
     // Try to parse as PathBuf (basic validity check)
-    let _ = PathBuf::from(value);
+    let path = PathBuf::from(value);
+
+    // For security-sensitive paths, check for symlinks and ensure no absolute path escalation
+    // Note: This only validates expandable paths (non-tilde paths that exist)
+    // Tilde paths (~/) are validated at runtime after expansion
+    if !value.starts_with('~') && path.exists() {
+        // Check if path is a symlink
+        if path.is_symlink() {
+            return Err(ValidationError::InvalidPath(
+                value.to_string(),
+                "Symlinks are not allowed for security reasons".to_string(),
+            ));
+        }
+
+        // Verify path doesn't escape outside intended boundaries via canonicalization
+        if let Ok(canonical) = path.canonicalize() {
+            // Check if canonicalized path points to sensitive system directories
+            let canonical_str = canonical.to_string_lossy();
+            let sensitive_prefixes = ["/etc", "/sys", "/proc", "/dev", "/boot"];
+            if sensitive_prefixes
+                .iter()
+                .any(|prefix| canonical_str.starts_with(prefix))
+            {
+                return Err(ValidationError::InvalidPath(
+                    value.to_string(),
+                    "Path resolves to sensitive system directory".to_string(),
+                ));
+            }
+        }
+    }
 
     Ok(())
 }

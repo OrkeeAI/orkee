@@ -99,7 +99,7 @@ async fn initialize_api_token() {
         Ok(db_state) => {
             // Check if any active tokens exist
             match db_state.token_storage.count_active_tokens().await {
-                Ok(count) if count == 0 => {
+                Ok(0) => {
                     // No tokens exist - generate default token
                     match db_state
                         .token_storage

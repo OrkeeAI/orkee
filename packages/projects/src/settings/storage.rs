@@ -171,6 +171,8 @@ impl SettingsStorage {
         }
 
         // Build query with IN clause
+        // SAFETY: This dynamic query is safe because `placeholders` is derived from the pre-validated
+        // count of keys (not user input), and each actual key value is bound via parameterized query
         let placeholders = keys.iter().map(|_| "?").collect::<Vec<_>>().join(",");
         let query_str = format!(
             "SELECT * FROM system_settings WHERE key IN ({}) ORDER BY category, key",
