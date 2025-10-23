@@ -475,15 +475,18 @@ pub async fn server_events(
         active_servers: active_server_ids,
     };
 
-    // Create the stream - pass initial_event into the closure state
+    // Clone preview_manager for use in the stream closure
+    let preview_manager = state.preview_manager.clone();
+
+    // Create the stream - pass initial_event and preview_manager into the closure state
     let stream = stream::unfold(
-        (rx, Some(initial_event)),
-        |(mut rx, initial_opt)| async move {
+        (rx, Some(initial_event), preview_manager),
+        |(mut rx, initial_opt, preview_manager)| async move {
             if let Some(initial_event) = initial_opt {
                 // Send initial state as first event
                 if let Ok(data) = serde_json::to_string(&initial_event) {
                     let event = Event::default().data(data);
-                    return Some((Ok(event), (rx, None)));
+                    return Some((Ok(event), (rx, None, preview_manager)));
                 }
             }
 
@@ -492,14 +495,36 @@ pub async fn server_events(
                 Ok(server_event) => {
                     if let Ok(data) = serde_json::to_string(&server_event) {
                         let event = Event::default().data(data);
-                        Some((Ok(event), (rx, None)))
+                        Some((Ok(event), (rx, None, preview_manager)))
                     } else {
                         // JSON serialization failed, skip this event
                         None
                     }
                 }
+                Err(tokio::sync::broadcast::error::RecvError::Lagged(n)) => {
+                    // Client lagged behind - send current state to help recovery
+                    tracing::warn!("SSE client lagged, missed {} events - sending sync event", n);
+
+                    // Refetch current state
+                    let active_servers = preview_manager.list_servers().await;
+                    let active_server_ids: Vec<String> = active_servers
+                        .iter()
+                        .map(|s| s.project_id.clone())
+                        .collect();
+
+                    let sync_event = ServerEvent::InitialState {
+                        active_servers: active_server_ids,
+                    };
+
+                    if let Ok(data) = serde_json::to_string(&sync_event) {
+                        let event = Event::default().data(data);
+                        Some((Ok(event), (rx, None, preview_manager)))
+                    } else {
+                        None
+                    }
+                }
                 Err(_) => {
-                    // Channel closed or lagged
+                    // Channel closed
                     None
                 }
             }
