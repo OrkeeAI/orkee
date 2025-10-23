@@ -131,29 +131,3 @@ pub async fn bulk_update_settings(
         }
     }
 }
-
-/// Reset category to defaults
-pub async fn reset_category(
-    State(db): State<DbState>,
-    Path(category): Path<String>,
-) -> Result<Json<Value>, StatusCode> {
-    info!("Resetting category to defaults: {}", category);
-
-    match db.settings_storage.reset_category(&category).await {
-        Ok(settings) => {
-            let requires_restart = settings.iter().any(|s| s.requires_restart);
-            Ok(Json(json!({
-                "success": true,
-                "data": SettingsResponse {
-                    settings,
-                    requires_restart,
-                },
-                "error": null
-            })))
-        }
-        Err(e) => {
-            tracing::error!("Failed to reset category {}: {}", category, e);
-            Err(StatusCode::INTERNAL_SERVER_ERROR)
-        }
-    }
-}

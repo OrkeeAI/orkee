@@ -158,22 +158,32 @@ impl SettingsStorage {
 
         tx.commit().await.map_err(StorageError::Sqlx)?;
 
-        // Return all updated settings (optimized to fetch in batch)
+        // Fetch all updated settings in a single query
         let keys: Vec<String> = updates.settings.iter().map(|s| s.key.clone()).collect();
-        let mut results = Vec::new();
-        for key in keys {
-            results.push(self.get(&key).await?);
+        if keys.is_empty() {
+            return Ok(Vec::new());
         }
 
-        Ok(results)
-    }
+        // Build query with IN clause
+        let placeholders = keys.iter().map(|_| "?").collect::<Vec<_>>().join(",");
+        let query_str = format!(
+            "SELECT * FROM system_settings WHERE key IN ({}) ORDER BY category, key",
+            placeholders
+        );
 
-    /// Reset settings in a category to defaults
-    pub async fn reset_category(&self, category: &str) -> Result<Vec<SystemSetting>, StorageError> {
-        // This would require storing default values separately
-        // For now, we'll just return current settings
-        // TODO: Implement proper reset logic with default values
-        self.get_by_category(category).await
+        let mut query = sqlx::query(&query_str);
+        for key in &keys {
+            query = query.bind(key);
+        }
+
+        let rows = query.fetch_all(&self.pool).await.map_err(StorageError::Sqlx)?;
+
+        let results = rows
+            .into_iter()
+            .map(|row| self.row_to_setting(row))
+            .collect::<Result<Vec<_>, _>>()?;
+
+        Ok(results)
     }
 
     /// Helper to convert row to SystemSetting

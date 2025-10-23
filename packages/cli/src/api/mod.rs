@@ -246,7 +246,6 @@ pub async fn create_router_with_options(
             "/bulk",
             axum::routing::put(settings_handlers::bulk_update_settings),
         )
-        .route("/reset/:category", post(settings_handlers::reset_category))
         .with_state(db_state.clone());
 
     let mut router = Router::new()
