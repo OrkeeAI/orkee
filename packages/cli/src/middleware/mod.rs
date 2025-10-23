@@ -1,10 +1,12 @@
 //! Middleware modules for security, rate limiting, and error handling
 
+pub mod api_token;
 pub mod csrf;
 pub mod https_redirect;
 pub mod rate_limit;
 pub mod security_headers;
 
+pub use api_token::{api_token_middleware, API_TOKEN_HEADER};
 pub use csrf::{CsrfLayer, CSRF_TOKEN_HEADER};
 pub use rate_limit::{RateLimitConfig, RateLimitLayer};
 pub use security_headers::SecurityHeadersLayer;

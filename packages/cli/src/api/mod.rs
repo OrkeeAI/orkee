@@ -16,13 +16,14 @@ pub mod taskmaster;
 pub mod telemetry;
 
 pub async fn create_router() -> Router {
-    create_router_with_options(None, None).await
+    let (router, _db_state) = create_router_with_options(None, None).await;
+    router
 }
 
 pub async fn create_router_with_options(
     dashboard_path: Option<std::path::PathBuf>,
     database_path: Option<std::path::PathBuf>,
-) -> Router {
+) -> (Router, orkee_projects::DbState) {
     use crate::config::Config;
     use path_validator::PathValidator;
     use preview::PreviewState;
@@ -37,8 +38,19 @@ pub async fn create_router_with_options(
         Ok(manager) => Arc::new(manager),
         Err(e) => {
             error!("Failed to initialize preview manager: {}", e);
+            // Create minimal in-memory DbState for error case
+            let pool = sqlx::SqlitePool::connect(":memory:")
+                .await
+                .expect("Failed to create in-memory database for error fallback");
+            sqlx::migrate!("../projects/migrations")
+                .run(&pool)
+                .await
+                .expect("Failed to run migrations for error fallback");
+            let minimal_db = orkee_projects::DbState::new(pool)
+                .expect("Failed to create minimal DbState for error fallback");
+
             // Return a router without preview functionality rather than panicking
-            return Router::new()
+            let router = Router::new()
                 .route("/api/health", get(health::health_check))
                 .route("/api/status", get(health::status_check))
                 .route(
@@ -46,6 +58,7 @@ pub async fn create_router_with_options(
                     post(directories::browse_directories),
                 )
                 .nest("/api/projects", orkee_projects::create_projects_router());
+            return (router, minimal_db);
         }
     };
 
@@ -54,8 +67,19 @@ pub async fn create_router_with_options(
         Ok(manager) => Arc::new(manager),
         Err(e) => {
             error!("Failed to initialize project manager: {}", e);
-            // Return a router without preview functionality rather than panicking
-            return Router::new()
+            // Create minimal in-memory DbState for error case
+            let pool = sqlx::SqlitePool::connect(":memory:")
+                .await
+                .expect("Failed to create in-memory database for error fallback");
+            sqlx::migrate!("../projects/migrations")
+                .run(&pool)
+                .await
+                .expect("Failed to run migrations for error fallback");
+            let minimal_db = orkee_projects::DbState::new(pool)
+                .expect("Failed to create minimal DbState for error fallback");
+
+            // Return a router without project manager functionality rather than panicking
+            let router = Router::new()
                 .route("/api/health", get(health::health_check))
                 .route("/api/status", get(health::status_check))
                 .route(
@@ -63,6 +87,7 @@ pub async fn create_router_with_options(
                     post(directories::browse_directories),
                 )
                 .nest("/api/projects", orkee_projects::create_projects_router());
+            return (router, minimal_db);
         }
     };
 
@@ -79,8 +104,20 @@ pub async fn create_router_with_options(
             error!("  2. Disk space availability");
             error!("  3. SQLite migrations status");
             error!("  4. Encryption key initialization (machine ID/hostname)");
+
+            // Create minimal in-memory DbState for error fallback
+            let pool = sqlx::SqlitePool::connect(":memory:")
+                .await
+                .expect("Failed to create in-memory database for error fallback");
+            sqlx::migrate!("../projects/migrations")
+                .run(&pool)
+                .await
+                .expect("Failed to run migrations for error fallback");
+            let minimal_db = orkee_projects::DbState::new(pool)
+                .expect("Failed to create minimal DbState for error fallback");
+
             // Return a router without task/agent/user functionality
-            return Router::new()
+            let router = Router::new()
                 .route("/api/health", get(health::health_check))
                 .route("/api/status", get(health::status_check))
                 .route(
@@ -88,6 +125,7 @@ pub async fn create_router_with_options(
                     post(directories::browse_directories),
                 )
                 .nest("/api/projects", orkee_projects::create_projects_router());
+            return (router, minimal_db);
         }
     };
 
@@ -292,7 +330,7 @@ pub async fn create_router_with_options(
         )
         .nest(
             "/api/projects",
-            orkee_projects::create_context_router().with_state(db_state),
+            orkee_projects::create_context_router().with_state(db_state.clone()),
         )
         .layer(axum::Extension(path_validator));
 
@@ -311,5 +349,5 @@ pub async fn create_router_with_options(
         }
     }
 
-    router
+    (router, db_state)
 }

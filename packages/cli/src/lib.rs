@@ -329,6 +329,7 @@ async fn create_application_router(
         header::AUTHORIZATION, // For future API key
         header::USER_AGENT,
         header::HeaderName::from_static("x-api-key"),
+        header::HeaderName::from_static("x-api-token"), // API token authentication
         header::HeaderName::from_static("x-csrf-token"), // CSRF protection
         header::HeaderName::from_static("anthropic-version"), // For Anthropic API proxy
     ]);
@@ -344,7 +345,7 @@ async fn create_application_router(
         .max_age(Duration::from_secs(3600));
 
     // Create the router with all middleware layers (in order: outermost to innermost)
-    let mut app_builder = api::create_router_with_options(dashboard_path, None).await;
+    let (mut app_builder, db_state) = api::create_router_with_options(dashboard_path, None).await;
 
     // Create CSRF layer for CSRF protection
     let csrf_layer = middleware::CsrfLayer::new();
@@ -366,6 +367,13 @@ async fn create_application_router(
             middleware::rate_limit::rate_limit_middleware,
         ));
     }
+
+    // Add API token authentication middleware (before CSRF, after rate limiting)
+    app_builder = app_builder.layer(axum::middleware::from_fn_with_state(
+        db_state.clone(),
+        middleware::api_token_middleware,
+    ));
+    info!("API token authentication middleware enabled");
 
     // Add CSRF protection middleware
     app_builder = app_builder.layer(axum::middleware::from_fn(middleware::csrf::csrf_middleware));

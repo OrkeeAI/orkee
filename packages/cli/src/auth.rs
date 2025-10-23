@@ -11,6 +11,7 @@ use axum::{
 #[derive(Debug, Clone)]
 pub struct CurrentUser {
     pub id: String,
+    pub authenticated: bool,
 }
 
 impl CurrentUser {
@@ -18,6 +19,15 @@ impl CurrentUser {
     fn default_user() -> Self {
         Self {
             id: "default-user".to_string(),
+            authenticated: false,
+        }
+    }
+
+    /// Get authenticated user
+    fn authenticated_user() -> Self {
+        Self {
+            id: "default-user".to_string(),
+            authenticated: true,
         }
     }
 }
@@ -29,12 +39,15 @@ where
 {
     type Rejection = (StatusCode, &'static str);
 
-    async fn from_request_parts(_parts: &mut Parts, _state: &S) -> Result<Self, Self::Rejection> {
-        // For now, always return default user for single-user desktop app
-        // In future, this could:
-        // 1. Extract user ID from headers/cookies
-        // 2. Validate session tokens
-        // 3. Support multi-user scenarios
-        Ok(Self::default_user())
+    async fn from_request_parts(parts: &mut Parts, _state: &S) -> Result<Self, Self::Rejection> {
+        // Check if API token authentication was successful
+        // The api_token_middleware sets a boolean extension when auth succeeds
+        let authenticated = parts.extensions.get::<bool>().copied().unwrap_or(false);
+
+        if authenticated {
+            Ok(Self::authenticated_user())
+        } else {
+            Ok(Self::default_user())
+        }
     }
 }
