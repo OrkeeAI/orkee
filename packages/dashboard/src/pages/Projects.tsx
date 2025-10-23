@@ -1,10 +1,11 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, memo } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { FolderOpen, Plus, Edit, Trash2, Search, LayoutGrid, List, GripVertical, GitBranch, Sparkles } from 'lucide-react';
+import { FolderOpen, Plus, Edit, Trash2, Search, LayoutGrid, List, GripVertical, GitBranch, Sparkles, Play, Square, Loader2 } from 'lucide-react';
 import { AITestDialog } from '@/components/AITestDialog';
 import {
   DndContext,
@@ -32,7 +33,7 @@ import { GlobalSyncStatus } from '@/components/cloud/GlobalSyncStatus';
 import { ProjectSyncBadge } from '@/components/cloud/ProjectSyncBadge';
 import { useProjects, useUpdateProject, useSearchProjects } from '@/hooks/useProjects';
 import { Project } from '@/services/projects';
-import { previewService } from '@/services/api';
+import { previewService } from '@/services/preview';
 
 type ViewType = 'card' | 'list';
 type SortType = 'rank' | 'priority' | 'alpha';
@@ -51,6 +52,63 @@ const getRepositoryInfo = (project: Project): { owner: string; repo: string } | 
   return null;
 };
 
+// Server Controls Component
+interface ServerControlsProps {
+  projectId: string;
+  isRunning: boolean;
+  isLoading: boolean;
+  onStart: (projectId: string) => void;
+  onStop: (projectId: string) => void;
+  variant?: 'table' | 'card';
+}
+
+const ServerControls = ({ projectId, isRunning, isLoading, onStart, onStop, variant = 'table' }: ServerControlsProps) => {
+  const iconSize = variant === 'table' ? 'h-3.5 w-3.5' : 'h-3 w-3';
+  const buttonSize = variant === 'table' ? 'h-7 w-7' : 'h-6 w-6';
+  const spinnerSize = variant === 'table' ? 'h-4 w-4' : 'h-3.5 w-3.5';
+
+  return (
+    <div className="flex items-center gap-2">
+      <div className={`w-2 h-2 rounded-full ${
+        isRunning ? 'bg-green-500 dark:bg-green-400' : 'bg-muted-foreground/40'
+      }`} />
+      {isLoading ? (
+        <Loader2 className={`${spinnerSize} animate-spin text-muted-foreground`} aria-label="Server starting" />
+      ) : isRunning ? (
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={(e) => {
+            e.stopPropagation();
+            onStop(projectId);
+          }}
+          className={`${buttonSize} p-0`}
+          title="Stop dev server"
+          aria-label="Stop dev server"
+          disabled={isLoading}
+        >
+          <Square className={iconSize} />
+        </Button>
+      ) : (
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={(e) => {
+            e.stopPropagation();
+            onStart(projectId);
+          }}
+          className={`${buttonSize} p-0`}
+          title="Start dev server"
+          aria-label="Start dev server"
+          disabled={isLoading}
+        >
+          <Play className={iconSize} />
+        </Button>
+      )}
+    </div>
+  );
+};
+
 // Sortable Row Component
 interface SortableRowProps {
   project: Project;
@@ -60,9 +118,12 @@ interface SortableRowProps {
   formatDate: (dateString: string) => string;
   getPriorityColor: (priority: string) => string;
   isDevServerRunning: (project: Project) => boolean;
+  onStartServer: (projectId: string) => void;
+  onStopServer: (projectId: string) => void;
+  isServerLoading: (projectId: string) => boolean;
 }
 
-function SortableRow({ project, onEdit, onDelete, onView, formatDate, getPriorityColor, isDevServerRunning }: SortableRowProps) {
+const SortableRow = memo(function SortableRow({ project, onEdit, onDelete, onView, formatDate, getPriorityColor, isDevServerRunning, onStartServer, onStopServer, isServerLoading }: SortableRowProps) {
   const {
     attributes,
     listeners,
@@ -90,7 +151,7 @@ function SortableRow({ project, onEdit, onDelete, onView, formatDate, getPriorit
             <GripVertical className="h-4 w-4 text-muted-foreground" />
           </button>
           <FolderOpen className="h-4 w-4 text-primary" />
-          <button 
+          <button
             onClick={() => onView(project)}
             className="font-medium text-sm sm:text-base truncate hover:text-primary transition-colors text-left"
           >
@@ -122,9 +183,14 @@ function SortableRow({ project, onEdit, onDelete, onView, formatDate, getPriorit
       </td>
       <td className="py-3 px-2 sm:px-4">
         <div className="flex items-center justify-center">
-          <div className={`w-2 h-2 rounded-full ${
-            isDevServerRunning(project) ? 'bg-green-500 dark:bg-green-400' : 'bg-muted-foreground/40'
-          }`} />
+          <ServerControls
+            projectId={project.id}
+            isRunning={isDevServerRunning(project)}
+            isLoading={isServerLoading(project.id)}
+            onStart={onStartServer}
+            onStop={onStopServer}
+            variant="table"
+          />
         </div>
       </td>
       <td className="py-3 px-2 sm:px-4">
@@ -176,12 +242,15 @@ function SortableRow({ project, onEdit, onDelete, onView, formatDate, getPriorit
       </td>
     </tr>
   );
-}
+});
+
+SortableRow.displayName = 'SortableRow';
 
 export function Projects() {
   const navigate = useNavigate();
   const [activeServers, setActiveServers] = useState<Set<string>>(new Set());
-  
+  const [loadingServers, setLoadingServers] = useState<Set<string>>(new Set());
+
   // Dialog states
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
@@ -341,6 +410,80 @@ export function Projects() {
 
   const isDevServerRunning = (project: Project) => {
     return activeServers.has(project.id);
+  };
+
+  const isServerLoading = (projectId: string) => {
+    return loadingServers.has(projectId);
+  };
+
+  const handleStartServer = async (projectId: string) => {
+    if (loadingServers.has(projectId) || activeServers.has(projectId)) return;
+
+    setLoadingServers(prev => {
+      const next = new Set(prev);
+      next.add(projectId);
+      return next;
+    });
+    setActiveServers(prev => {
+      const next = new Set(prev);
+      next.add(projectId);
+      return next;
+    });
+
+    try {
+      await previewService.startServer(projectId);
+      await loadActiveServers();
+    } catch (err) {
+      setActiveServers(prev => {
+        const next = new Set(prev);
+        next.delete(projectId);
+        return next;
+      });
+      toast.error('Failed to start dev server', {
+        description: err instanceof Error ? err.message : 'An unexpected error occurred',
+      });
+    } finally {
+      setLoadingServers(prev => {
+        const next = new Set(prev);
+        next.delete(projectId);
+        return next;
+      });
+    }
+  };
+
+  const handleStopServer = async (projectId: string) => {
+    if (loadingServers.has(projectId) || !activeServers.has(projectId)) return;
+
+    setLoadingServers(prev => {
+      const next = new Set(prev);
+      next.add(projectId);
+      return next;
+    });
+    setActiveServers(prev => {
+      const next = new Set(prev);
+      next.delete(projectId);
+      return next;
+    });
+
+    try {
+      await previewService.stopServer(projectId);
+      await loadActiveServers();
+    } catch (err) {
+      setActiveServers(prev => {
+        const next = new Set(prev);
+        next.add(projectId);
+        return next;
+      });
+      toast.error('Failed to stop dev server', {
+        description: err instanceof Error ? err.message : 'An unexpected error occurred',
+      });
+    } finally {
+      setLoadingServers(prev => {
+        const next = new Set(prev);
+        next.delete(projectId);
+        return next;
+      });
+    }
   };
 
   if (loading) {
@@ -528,6 +671,9 @@ export function Projects() {
                             formatDate={formatDate}
                             getPriorityColor={getPriorityColor}
                             isDevServerRunning={isDevServerRunning}
+                            onStartServer={handleStartServer}
+                            onStopServer={handleStopServer}
+                            isServerLoading={isServerLoading}
                           />
                         ))}
                       </SortableContext>
@@ -573,15 +719,22 @@ export function Projects() {
                     <div className="space-y-3">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
-                          <div className={`w-2 h-2 rounded-full ${
-                            isDevServerRunning(project) ? 'bg-green-500 dark:bg-green-400' : 'bg-muted-foreground/40'
-                          }`} />
+                          <ServerControls
+                            projectId={project.id}
+                            isRunning={isDevServerRunning(project)}
+                            isLoading={isServerLoading(project.id)}
+                            onStart={handleStartServer}
+                            onStop={handleStopServer}
+                            variant="card"
+                          />
                           <span className="text-sm">Dev Server</span>
                         </div>
-                        <Badge className={getPriorityColor(project.priority)}>
-                          {project.priority}
-                        </Badge>
-                        <ProjectSyncBadge projectId={project.id} variant="compact" />
+                        <div className="flex items-center gap-2">
+                          <Badge className={getPriorityColor(project.priority)}>
+                            {project.priority}
+                          </Badge>
+                          <ProjectSyncBadge projectId={project.id} variant="compact" />
+                        </div>
                       </div>
                       
                       {project.tags && project.tags.length > 0 && (
