@@ -385,63 +385,73 @@ export function Projects() {
     return loadingServers.has(projectId);
   };
 
-  const addToSet = <T,>(setter: React.Dispatch<React.SetStateAction<Set<T>>>, value: T) => {
-    setter(prev => {
-      if (prev.has(value)) return prev;
-      const newSet = new Set(prev);
-      newSet.add(value);
-      return newSet;
-    });
-  };
-
-  const removeFromSet = <T,>(setter: React.Dispatch<React.SetStateAction<Set<T>>>, value: T) => {
-    setter(prev => {
-      if (!prev.has(value)) return prev;
-      const newSet = new Set(prev);
-      newSet.delete(value);
-      return newSet;
-    });
-  };
-
   const handleStartServer = async (projectId: string) => {
     if (loadingServers.has(projectId) || activeServers.has(projectId)) return;
 
-    addToSet(setLoadingServers, projectId);
-    addToSet(setActiveServers, projectId);
+    setLoadingServers(prev => {
+      const next = new Set(prev);
+      next.add(projectId);
+      return next;
+    });
+    setActiveServers(prev => {
+      const next = new Set(prev);
+      next.add(projectId);
+      return next;
+    });
 
     try {
       await previewService.startServer(projectId);
       await loadActiveServers();
     } catch (err) {
-      console.error('Failed to start server:', err);
-      removeFromSet(setActiveServers, projectId);
-      await loadActiveServers();
+      setActiveServers(prev => {
+        const next = new Set(prev);
+        next.delete(projectId);
+        return next;
+      });
       toast.error('Failed to start dev server', {
         description: err instanceof Error ? err.message : 'An unexpected error occurred',
       });
     } finally {
-      removeFromSet(setLoadingServers, projectId);
+      setLoadingServers(prev => {
+        const next = new Set(prev);
+        next.delete(projectId);
+        return next;
+      });
     }
   };
 
   const handleStopServer = async (projectId: string) => {
     if (loadingServers.has(projectId) || !activeServers.has(projectId)) return;
 
-    addToSet(setLoadingServers, projectId);
-    removeFromSet(setActiveServers, projectId);
+    setLoadingServers(prev => {
+      const next = new Set(prev);
+      next.add(projectId);
+      return next;
+    });
+    setActiveServers(prev => {
+      const next = new Set(prev);
+      next.delete(projectId);
+      return next;
+    });
 
     try {
       await previewService.stopServer(projectId);
       await loadActiveServers();
     } catch (err) {
-      console.error('Failed to stop server:', err);
-      addToSet(setActiveServers, projectId);
-      await loadActiveServers();
+      setActiveServers(prev => {
+        const next = new Set(prev);
+        next.add(projectId);
+        return next;
+      });
       toast.error('Failed to stop dev server', {
         description: err instanceof Error ? err.message : 'An unexpected error occurred',
       });
     } finally {
-      removeFromSet(setLoadingServers, projectId);
+      setLoadingServers(prev => {
+        const next = new Set(prev);
+        next.delete(projectId);
+        return next;
+      });
     }
   };
 

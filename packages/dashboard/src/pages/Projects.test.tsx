@@ -96,29 +96,16 @@ describe('Projects - Server Control State Management', () => {
   });
 });
 
-describe('Projects - Helper Functions', () => {
-  describe('addToSet optimization', () => {
-    it('should not create new Set if value already exists', () => {
-      const existingSet = new Set(['a', 'b']);
-
-      // Simulate the helper's early return logic
-      if (existingSet.has('a')) {
-        // Should return same Set reference
-        expect(existingSet.has('a')).toBe(true);
-      }
-    });
-
-    it('should create new Set only when adding new value', () => {
+describe('Projects - Set State Updates', () => {
+  describe('Immutable Set operations', () => {
+    it('should create new Set when adding value', () => {
       const existingSet = new Set(['a']);
+      const newSet = new Set(existingSet);
+      newSet.add('b');
 
-      if (!existingSet.has('b')) {
-        const newSet = new Set(existingSet);
-        newSet.add('b');
-
-        expect(newSet).not.toBe(existingSet); // Different instance
-        expect(newSet.has('b')).toBe(true); // Has new value
-        expect(existingSet.has('b')).toBe(false); // Original unchanged
-      }
+      expect(newSet).not.toBe(existingSet); // Different instance
+      expect(newSet.has('b')).toBe(true); // Has new value
+      expect(existingSet.has('b')).toBe(false); // Original unchanged
     });
 
     it('should maintain immutability when creating new Set', () => {
@@ -131,30 +118,15 @@ describe('Projects - Helper Functions', () => {
       expect(originalSet.size).toBe(originalSize);
       expect(newSet.size).toBe(originalSize + 1);
     });
-  });
 
-  describe('removeFromSet optimization', () => {
-    it('should not create new Set if value does not exist', () => {
+    it('should create new Set when removing value', () => {
       const existingSet = new Set(['a', 'b']);
+      const newSet = new Set(existingSet);
+      newSet.delete('a');
 
-      // Simulate the helper's early return logic
-      if (!existingSet.has('c')) {
-        // Should not create new Set
-        expect(existingSet.size).toBe(2);
-      }
-    });
-
-    it('should create new Set only when removing existing value', () => {
-      const existingSet = new Set(['a', 'b']);
-
-      if (existingSet.has('a')) {
-        const newSet = new Set(existingSet);
-        newSet.delete('a');
-
-        expect(newSet).not.toBe(existingSet); // Different instance
-        expect(newSet.has('a')).toBe(false); // Value removed
-        expect(existingSet.has('a')).toBe(true); // Original unchanged
-      }
+      expect(newSet).not.toBe(existingSet); // Different instance
+      expect(newSet.has('a')).toBe(false); // Value removed
+      expect(existingSet.has('a')).toBe(true); // Original unchanged
     });
 
     it('should maintain immutability when removing from Set', () => {
