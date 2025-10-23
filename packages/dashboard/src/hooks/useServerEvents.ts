@@ -18,6 +18,15 @@ const MAX_RETRIES = 3;
 const RETRY_DELAY = 2000; // 2 seconds
 const POLLING_INTERVAL = 5000; // 5 seconds
 
+/**
+ * React hook for real-time server event updates via SSE.
+ * Automatically falls back to polling if SSE connection fails.
+ *
+ * @returns Server state and connection info
+ * @returns activeServers - Set of active project IDs
+ * @returns connectionMode - Current connection mode (sse/polling/connecting)
+ * @returns isConnected - Whether any connection is established
+ */
 export function useServerEvents() {
   const [activeServers, setActiveServers] = useState<Set<string>>(new Set());
   const [connectionMode, setConnectionMode] = useState<'sse' | 'polling' | 'connecting'>('connecting');

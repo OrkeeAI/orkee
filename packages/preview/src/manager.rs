@@ -20,6 +20,13 @@ use tokio::sync::{broadcast, RwLock};
 use tracing::{debug, error, info, warn};
 use uuid::Uuid;
 
+/// SSE event broadcast channel capacity.
+///
+/// This determines how many events can be buffered per subscriber before the
+/// subscriber is marked as lagged. A value of 100 allows for brief bursts of
+/// rapid server changes without forcing clients to resync.
+const SSE_CHANNEL_CAPACITY: usize = 100;
+
 /// Result of spawning a development server process with associated metadata.
 ///
 /// This struct contains the child process handle along with information about
@@ -152,7 +159,7 @@ impl PreviewManager {
     ///
     /// Returns a new `PreviewManager` instance with empty server and log collections.
     pub fn new() -> Self {
-        let (event_tx, _rx) = broadcast::channel(100);
+        let (event_tx, _rx) = broadcast::channel(SSE_CHANNEL_CAPACITY);
         Self {
             active_servers: Arc::new(RwLock::new(HashMap::new())),
             server_logs: Arc::new(RwLock::new(HashMap::new())),
