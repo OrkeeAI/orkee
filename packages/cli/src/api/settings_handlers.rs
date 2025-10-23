@@ -78,14 +78,12 @@ pub async fn update_setting(
             "data": setting,
             "error": null
         }))),
-        Err(StorageError::EnvOnly(key)) => {
-            Err(AppError::Forbidden {
-                message: format!(
-                    "Setting '{}' is environment-only and cannot be modified at runtime",
-                    key
-                )
-            })
-        }
+        Err(StorageError::EnvOnly(key)) => Err(AppError::Forbidden {
+            message: format!(
+                "Setting '{}' is environment-only and cannot be modified at runtime",
+                key
+            ),
+        }),
         Err(StorageError::Validation(msg)) => Err(AppError::Validation(msg)),
         Err(StorageError::NotFound) => Err(AppError::NotFound),
         Err(e) => {
