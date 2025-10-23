@@ -4,10 +4,8 @@
 #[cfg(test)]
 mod tests {
     use crate::context::{
-        ast_analyzer::AstAnalyzer,
-        dependency_graph::DependencyGraph,
-        incremental_parser::IncrementalParser,
-        types::ContextConfiguration,
+        ast_analyzer::AstAnalyzer, dependency_graph::DependencyGraph,
+        incremental_parser::IncrementalParser, types::ContextConfiguration,
     };
     use std::fs;
     use tempfile::TempDir;
