@@ -16,18 +16,16 @@ use crate::error::AppError;
 pub const API_TOKEN_HEADER: &str = "X-API-Token";
 
 /// Paths that don't require authentication
-const WHITELISTED_PATHS: &[&str] = &[
-    "/api/health",
-    "/api/status",
-    "/api/csrf-token",
-];
+const WHITELISTED_PATHS: &[&str] = &["/api/health", "/api/status", "/api/csrf-token"];
 
 /// Extension key for storing authentication status in request
 pub const AUTHENTICATED_EXTENSION: &str = "api_token_authenticated";
 
 /// Check if a path requires authentication
 fn requires_authentication(path: &str) -> bool {
-    !WHITELISTED_PATHS.iter().any(|&whitelisted| path.starts_with(whitelisted))
+    !WHITELISTED_PATHS
+        .iter()
+        .any(|&whitelisted| path.starts_with(whitelisted))
 }
 
 /// API token validation middleware
@@ -61,16 +59,12 @@ pub async fn api_token_middleware(
     };
 
     // Verify token
-    let token_info = db
-        .token_storage
-        .verify_token(token)
-        .await
-        .map_err(|e| {
-            warn!(error = %e, "Token verification failed");
-            AppError::Unauthorized {
-                message: "Invalid API token".to_string(),
-            }
-        })?;
+    let token_info = db.token_storage.verify_token(token).await.map_err(|e| {
+        warn!(error = %e, "Token verification failed");
+        AppError::Unauthorized {
+            message: "Invalid API token".to_string(),
+        }
+    })?;
 
     if token_info.is_none() {
         warn!(path = %path, "Invalid API token provided");
@@ -99,14 +93,7 @@ pub async fn api_token_middleware(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use axum::{
-        body::Body,
-        extract::Request,
-        http::StatusCode,
-        middleware,
-        routing::get,
-        Router,
-    };
+    use axum::{body::Body, extract::Request, http::StatusCode, middleware, routing::get, Router};
     use orkee_projects::DbState;
     use sqlx::SqlitePool;
     use tower::ServiceExt;
@@ -142,7 +129,10 @@ mod tests {
         Router::new()
             .route("/api/test", get(test_handler))
             .route("/api/health", get(test_handler))
-            .layer(middleware::from_fn_with_state(db.clone(), api_token_middleware))
+            .layer(middleware::from_fn_with_state(
+                db.clone(),
+                api_token_middleware,
+            ))
             .with_state(db)
     }
 
@@ -235,7 +225,10 @@ mod tests {
         // Verify last_used_at was updated from None to Some
         let tokens = db.token_storage.list_tokens().await.unwrap();
         let updated_token = tokens.first().unwrap();
-        assert!(updated_token.last_used_at.is_some(), "last_used_at should be set after use");
+        assert!(
+            updated_token.last_used_at.is_some(),
+            "last_used_at should be set after use"
+        );
     }
 
     #[tokio::test]

@@ -50,26 +50,17 @@ impl DependencyGraph {
 
     /// Add a dependency edge from one file to another
     pub fn add_edge(&mut self, from: String, to: String) {
-        self.edges
-            .entry(from)
-            .or_default()
-            .insert(to);
+        self.edges.entry(from).or_default().insert(to);
     }
 
     /// Add an exported symbol
     pub fn add_export(&mut self, file: String, symbol: ExportedSymbol) {
-        self.exports
-            .entry(file)
-            .or_default()
-            .push(symbol);
+        self.exports.entry(file).or_default().push(symbol);
     }
 
     /// Add an imported symbol
     pub fn add_import(&mut self, file: String, symbol: ImportedSymbol) {
-        self.imports
-            .entry(file)
-            .or_default()
-            .push(symbol);
+        self.imports.entry(file).or_default().push(symbol);
     }
 
     /// Get all direct dependencies of a file

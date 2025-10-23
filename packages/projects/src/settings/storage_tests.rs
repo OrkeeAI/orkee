@@ -22,10 +22,7 @@ mod tests {
             .unwrap();
 
         // Run migrations
-        sqlx::migrate!("./migrations")
-            .run(&pool)
-            .await
-            .unwrap();
+        sqlx::migrate!("./migrations").run(&pool).await.unwrap();
 
         SettingsStorage::new(pool)
     }
@@ -104,14 +101,18 @@ mod tests {
         let update = SettingUpdate {
             value: "true".to_string(),
         };
-        let result = storage.update("telemetry_enabled", update, "test_user").await;
+        let result = storage
+            .update("telemetry_enabled", update, "test_user")
+            .await;
         assert!(result.is_ok());
 
         // Invalid boolean - "yes" is not allowed
         let update = SettingUpdate {
             value: "yes".to_string(),
         };
-        let result = storage.update("telemetry_enabled", update, "test_user").await;
+        let result = storage
+            .update("telemetry_enabled", update, "test_user")
+            .await;
         assert!(result.is_err());
         match result {
             Err(StorageError::Validation(msg)) => {
@@ -153,7 +154,9 @@ mod tests {
         assert!(result.is_err());
         match result {
             Err(StorageError::Validation(msg)) => {
-                assert!(msg.contains("strict") || msg.contains("relaxed") || msg.contains("disabled"));
+                assert!(
+                    msg.contains("strict") || msg.contains("relaxed") || msg.contains("disabled")
+                );
             }
             _ => panic!("Expected Validation error"),
         }

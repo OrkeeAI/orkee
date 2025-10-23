@@ -42,7 +42,10 @@ impl TokenStorage {
 
         // Constant-time comparison to prevent timing attacks
         use subtle::ConstantTimeEq;
-        computed_hash.as_bytes().ct_eq(stored_hash.as_bytes()).into()
+        computed_hash
+            .as_bytes()
+            .ct_eq(stored_hash.as_bytes())
+            .into()
     }
 
     /// Create a new API token
@@ -120,9 +123,7 @@ impl TokenStorage {
         .await
         .map_err(StorageError::Sqlx)?;
 
-        rows.into_iter()
-            .map(|row| self.row_to_token(row))
-            .collect()
+        rows.into_iter().map(|row| self.row_to_token(row)).collect()
     }
 
     /// Get a token by ID

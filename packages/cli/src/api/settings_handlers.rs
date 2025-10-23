@@ -1,12 +1,12 @@
 // ABOUTME: API handlers for system settings management
 // ABOUTME: REST endpoints for runtime configuration
 
+use crate::error::AppError;
 use axum::{
     extract::{Path, State},
     http::StatusCode,
     Json,
 };
-use crate::error::AppError;
 use orkee_projects::{
     db::DbState,
     settings::{BulkSettingUpdate, SettingUpdate, SettingsResponse},
@@ -87,9 +87,7 @@ pub async fn update_setting(
                 Err(AppError::Validation(msg))
             }
         }
-        Err(StorageError::NotFound) => {
-            Err(AppError::NotFound)
-        }
+        Err(StorageError::NotFound) => Err(AppError::NotFound),
         Err(e) => {
             tracing::error!("Failed to update setting {}: {}", key, e);
             Err(AppError::internal(anyhow::anyhow!("Storage error: {}", e)))

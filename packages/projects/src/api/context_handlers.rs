@@ -12,8 +12,8 @@ use crate::{
     context::{
         openspec_bridge::OpenSpecContextBridge,
         types::{
-            ContextConfiguration, ContextGenerationRequest, ContextMetadata,
-            FileInfo, GeneratedContext, ListFilesResponse,
+            ContextConfiguration, ContextGenerationRequest, ContextMetadata, FileInfo,
+            GeneratedContext, ListFilesResponse,
         },
     },
     db::DbState,

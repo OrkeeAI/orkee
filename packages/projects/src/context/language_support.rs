@@ -181,17 +181,16 @@ pub fn remove_comments(content: &str, language: &str) -> String {
 
     while let Some(ch) = chars.next() {
         // Handle string literals to avoid removing comments in strings
-        if !in_single_line_comment && !in_multi_line_comment
-            && (ch == '"' || ch == '\'') {
-                if !in_string {
-                    in_string = true;
-                    string_delimiter = ch;
-                } else if ch == string_delimiter {
-                    in_string = false;
-                }
-                result.push(ch);
-                continue;
+        if !in_single_line_comment && !in_multi_line_comment && (ch == '"' || ch == '\'') {
+            if !in_string {
+                in_string = true;
+                string_delimiter = ch;
+            } else if ch == string_delimiter {
+                in_string = false;
             }
+            result.push(ch);
+            continue;
+        }
 
         if in_string {
             result.push(ch);

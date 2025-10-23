@@ -70,9 +70,16 @@ pub fn validate_setting_value(
         "api_port" | "ui_port" => validate_port(value)?,
 
         // Boolean settings (already validated by data type)
-        "dev_mode" | "cloud_enabled" | "cors_allow_any_localhost" | "tls_enabled"
-        | "auto_generate_cert" | "rate_limit_enabled" | "security_headers_enabled"
-        | "enable_hsts" | "enable_request_id" | "telemetry_enabled" => {
+        "dev_mode"
+        | "cloud_enabled"
+        | "cors_allow_any_localhost"
+        | "tls_enabled"
+        | "auto_generate_cert"
+        | "rate_limit_enabled"
+        | "security_headers_enabled"
+        | "enable_hsts"
+        | "enable_request_id"
+        | "telemetry_enabled" => {
             // Already validated as boolean above
         }
 
@@ -92,8 +99,12 @@ pub fn validate_setting_value(
         }
 
         // Rate limit settings (must be >= 1)
-        "rate_limit_health_rpm" | "rate_limit_browse_rpm" | "rate_limit_projects_rpm"
-        | "rate_limit_preview_rpm" | "rate_limit_ai_rpm" | "rate_limit_global_rpm"
+        "rate_limit_health_rpm"
+        | "rate_limit_browse_rpm"
+        | "rate_limit_projects_rpm"
+        | "rate_limit_preview_rpm"
+        | "rate_limit_ai_rpm"
+        | "rate_limit_global_rpm"
         | "rate_limit_burst_size" => {
             validate_integer(value, Some(1), None)?;
         }
@@ -125,10 +136,7 @@ fn validate_integer(
     max: Option<i64>,
 ) -> Result<(), ValidationError> {
     let parsed = value.parse::<i64>().map_err(|_| {
-        ValidationError::InvalidInteger(
-            value.to_string(),
-            "Not a valid integer".to_string(),
-        )
+        ValidationError::InvalidInteger(value.to_string(), "Not a valid integer".to_string())
     })?;
 
     if let Some(min_val) = min {
@@ -356,9 +364,7 @@ mod tests {
 
     #[test]
     fn test_validate_setting_value_url() {
-        assert!(
-            validate_setting_value("cloud_api_url", "https://api.orkee.ai", "string").is_ok()
-        );
+        assert!(validate_setting_value("cloud_api_url", "https://api.orkee.ai", "string").is_ok());
         assert!(validate_setting_value("cloud_api_url", "invalid-url", "string").is_err());
     }
 }

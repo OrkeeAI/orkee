@@ -78,7 +78,11 @@ impl SettingsStorage {
         }
 
         // Validate the new value
-        crate::settings::validation::validate_setting_value(key, &update.value, &setting.data_type)?;
+        crate::settings::validation::validate_setting_value(
+            key,
+            &update.value,
+            &setting.data_type,
+        )?;
 
         sqlx::query(
             "UPDATE system_settings
@@ -115,9 +119,11 @@ impl SettingsStorage {
             }
 
             // Validate the value
-            if let Err(e) =
-                crate::settings::validation::validate_setting_value(&item.key, &item.value, &setting.data_type)
-            {
+            if let Err(e) = crate::settings::validation::validate_setting_value(
+                &item.key,
+                &item.value,
+                &setting.data_type,
+            ) {
                 validation_errors.push(format!("{}: {}", item.key, e));
             }
         }
@@ -176,7 +182,10 @@ impl SettingsStorage {
             query = query.bind(key);
         }
 
-        let rows = query.fetch_all(&self.pool).await.map_err(StorageError::Sqlx)?;
+        let rows = query
+            .fetch_all(&self.pool)
+            .await
+            .map_err(StorageError::Sqlx)?;
 
         let results = rows
             .into_iter()

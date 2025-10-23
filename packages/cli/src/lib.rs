@@ -101,10 +101,15 @@ async fn initialize_api_token() {
             match db_state.token_storage.count_active_tokens().await {
                 Ok(count) if count == 0 => {
                     // No tokens exist - generate default token
-                    match db_state.token_storage.create_token("Default API Token").await {
+                    match db_state
+                        .token_storage
+                        .create_token("Default API Token")
+                        .await
+                    {
                         Ok(token_gen) => {
                             // Token file path
-                            let token_file = orkee_projects::constants::orkee_dir().join("api-token");
+                            let token_file =
+                                orkee_projects::constants::orkee_dir().join("api-token");
 
                             // Check if file already exists (shouldn't happen, but be safe)
                             if token_file.exists() {
@@ -126,16 +131,28 @@ async fn initialize_api_token() {
 
                                         println!("\n{}", "🔑 API Token Generated".green().bold());
                                         println!("   Token: {}", token_gen.token.cyan().bold());
-                                        println!("   Stored in: {}", token_file.display().to_string().yellow());
+                                        println!(
+                                            "   Stored in: {}",
+                                            token_file.display().to_string().yellow()
+                                        );
                                         println!("\n   {} This token is required for API authentication.", "IMPORTANT:".red().bold());
                                         println!("   Keep it secure and do not share it.");
-                                        println!("   The dashboard will automatically use this token.\n");
+                                        println!(
+                                            "   The dashboard will automatically use this token.\n"
+                                        );
                                         info!("API token generated and stored successfully");
                                     }
                                     Err(e) => {
                                         error!("Failed to write API token file: {}", e);
-                                        println!("\n{} Failed to write API token to file: {}", "⚠️".yellow(), e);
-                                        println!("   Your token: {}", token_gen.token.cyan().bold());
+                                        println!(
+                                            "\n{} Failed to write API token to file: {}",
+                                            "⚠️".yellow(),
+                                            e
+                                        );
+                                        println!(
+                                            "   Your token: {}",
+                                            token_gen.token.cyan().bold()
+                                        );
                                         println!("   Please save this token manually.\n");
                                     }
                                 }

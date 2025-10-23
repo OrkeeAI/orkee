@@ -1,7 +1,5 @@
 use crate::context::ast_analyzer::{Symbol, SymbolKind};
-use crate::context::language_support::{
-    estimate_tokens, remove_comments, LANGUAGE_CONFIGS,
-};
+use crate::context::language_support::{estimate_tokens, remove_comments, LANGUAGE_CONFIGS};
 use std::collections::HashMap;
 
 pub struct ContextFormatter {
