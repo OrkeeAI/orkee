@@ -648,7 +648,6 @@ export function Projects() {
                           <div className={`w-2 h-2 rounded-full ${
                             isDevServerRunning(project) ? 'bg-green-500 dark:bg-green-400' : 'bg-muted-foreground/40'
                           }`} />
-                          <span className="text-sm">Dev Server</span>
                           {isServerLoading(project.id) ? (
                             <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
                           ) : isDevServerRunning(project) ? (
@@ -678,6 +677,7 @@ export function Projects() {
                               <Play className="h-3 w-3" />
                             </Button>
                           )}
+                          <span className="text-sm">Dev Server</span>
                         </div>
                         <div className="flex items-center gap-2">
                           <Badge className={getPriorityColor(project.priority)}>
