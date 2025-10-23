@@ -255,12 +255,19 @@ export function Projects() {
   // Server events via SSE
   const { activeServers, connectionMode, serverErrors } = useServerEvents();
 
+  // Track which errors have been shown to prevent toast spam
+  const shownErrorsRef = useRef<Set<string>>(new Set());
+
   // Display server errors as toast notifications
   useEffect(() => {
     serverErrors.forEach((error, projectId) => {
-      toast.error('Server error', {
-        description: `${projectId}: ${error}`,
-      });
+      const errorKey = `${projectId}:${error}`;
+      if (!shownErrorsRef.current.has(errorKey)) {
+        toast.error('Server error', {
+          description: `${projectId}: ${error}`,
+        });
+        shownErrorsRef.current.add(errorKey);
+      }
     });
   }, [serverErrors]);
 

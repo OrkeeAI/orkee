@@ -120,18 +120,30 @@ export function useServerEvents() {
 
         eventSource.onerror = (error) => {
           console.error('[SSE] Connection error:', error);
-          eventSource?.close();
-          eventSource = null;
 
-          retryCount += 1;
+          // Check if connection is permanently closed vs. temporarily interrupted
+          // EventSource.CONNECTING (0): Connection being established
+          // EventSource.OPEN (1): Connection open and receiving events
+          // EventSource.CLOSED (2): Connection closed (permanent failure)
+          if (eventSource?.readyState === EventSource.CLOSED) {
+            // Permanent failure - close and retry with backoff
+            console.log('[SSE] Connection permanently closed, will retry');
+            eventSource?.close();
+            eventSource = null;
 
-          if (retryCount < MAX_RETRIES) {
-            console.log(`[SSE] Retrying connection (${retryCount}/${MAX_RETRIES})...`);
-            setConnectionMode('connecting');
-            setTimeout(connectSSE, RETRY_DELAY);
+            retryCount += 1;
+
+            if (retryCount < MAX_RETRIES) {
+              console.log(`[SSE] Retrying connection (${retryCount}/${MAX_RETRIES})...`);
+              setConnectionMode('connecting');
+              setTimeout(connectSSE, RETRY_DELAY);
+            } else {
+              console.log('[SSE] Max retries reached, falling back to polling');
+              startPolling();
+            }
           } else {
-            console.log('[SSE] Max retries reached, falling back to polling');
-            startPolling();
+            // Temporary interruption - EventSource will auto-reconnect
+            console.log('[SSE] Temporary interruption, waiting for auto-reconnect');
           }
         };
       } catch (error) {
