@@ -565,6 +565,22 @@ These variables control the preview server registry and process management:
 | `ORKEE_STALE_TIMEOUT_MINUTES` | `5` | Timeout before server entries are considered stale (max: 240 minutes) - controls when inactive servers are cleaned up from the registry |
 | `ORKEE_PROCESS_START_TIME_TOLERANCE_SECS` | `5` | Tolerance for process start time validation (max: 60 seconds) - helps detect PID reuse on systems under heavy load |
 
+### Real-Time Updates (SSE) Configuration (Optional)
+
+Configure Server-Sent Events (SSE) for real-time server status updates:
+
+| Variable | Default | Range/Notes | Description |
+|----------|---------|-------------|-------------|
+| `ORKEE_EVENT_CHANNEL_SIZE` | `100` | 10-10000 | Broadcast channel capacity for SSE events. Increase for CI/CD environments with bulk server operations. |
+| `VITE_SSE_MAX_RETRIES` | `3` | - | Maximum SSE connection retry attempts before falling back to polling |
+| `VITE_SSE_RETRY_DELAY` | `2000` | milliseconds | Delay between SSE retry attempts |
+| `VITE_SSE_POLLING_INTERVAL` | `5000` | milliseconds | Polling interval when SSE connection fails |
+
+**Use Cases**:
+- **CI/CD Environments**: Increase `ORKEE_EVENT_CHANNEL_SIZE` to 500-1000 for handling bulk server start/stop operations
+- **Poor Network Conditions**: Increase `VITE_SSE_RETRY_DELAY` and `VITE_SSE_MAX_RETRIES` for more resilient connections
+- **Low-Latency Networks**: Decrease `VITE_SSE_POLLING_INTERVAL` for faster polling fallback
+
 ### Task Master AI Variables (Optional)
 
 For AI-powered task management features, configure these API keys:
