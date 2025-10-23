@@ -1594,14 +1594,73 @@ function ServerConfigSection() {
     }
   };
 
+  const validateSettingValue = (key: string, value: string, dataType: string): string | null => {
+    // Check for empty value
+    if (!value || value.trim() === '') {
+      return 'Value cannot be empty';
+    }
+
+    // Validate by data type
+    if (dataType === 'boolean') {
+      if (value !== 'true' && value !== 'false') {
+        return 'Must be "true" or "false"';
+      }
+    } else if (dataType === 'integer') {
+      const num = parseInt(value, 10);
+      if (isNaN(num)) {
+        return 'Must be a valid integer';
+      }
+    }
+
+    // Setting-specific validation
+    if (key === 'api_port' || key === 'ui_port') {
+      const port = parseInt(value, 10);
+      if (isNaN(port) || port < 1 || port > 65535) {
+        return 'Port must be between 1 and 65535';
+      }
+    } else if (key === 'browse_sandbox_mode') {
+      if (!['strict', 'relaxed', 'disabled'].includes(value)) {
+        return 'Must be one of: strict, relaxed, disabled';
+      }
+    } else if (key.startsWith('rate_limit_') || key === 'rate_limit_burst_size') {
+      const num = parseInt(value, 10);
+      if (isNaN(num) || num < 1 || num > 10000) {
+        return 'Must be between 1 and 10,000';
+      }
+    } else if (key === 'cloud_api_url') {
+      try {
+        new URL(value);
+      } catch {
+        return 'Must be a valid URL';
+      }
+    }
+
+    return null;
+  };
+
   const handleUpdateSetting = async (key: string, value: string) => {
+    // Find the setting to get its data type
+    const setting = settings.find(s => s.key === key);
+    if (!setting) {
+      alert('Setting not found');
+      return;
+    }
+
+    // Validate before sending to server
+    const validationError = validateSettingValue(key, value, setting.data_type);
+    if (validationError) {
+      alert(`Validation error: ${validationError}`);
+      return;
+    }
+
     setIsSaving(true);
     try {
       await updateSetting(key, value);
       await loadSettings();
     } catch (error) {
       console.error('Failed to update setting:', error);
-      alert('Failed to update setting');
+      const errorMessage = error instanceof Error ? error.message : 'Failed to update setting';
+      alert(errorMessage);
     } finally {
       setIsSaving(false);
     }

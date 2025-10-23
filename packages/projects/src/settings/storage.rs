@@ -71,10 +71,7 @@ impl SettingsStorage {
 
         // Enforce is_env_only restriction
         if setting.is_env_only {
-            return Err(StorageError::Validation(format!(
-                "Setting '{}' is environment-only and must be configured via environment variables or .env file",
-                key
-            )));
+            return Err(StorageError::EnvOnly(key.to_string()));
         }
 
         // Validate the new value
@@ -148,21 +145,39 @@ impl SettingsStorage {
         // All validations passed, proceed with transaction
         let mut tx = self.pool.begin().await.map_err(StorageError::Sqlx)?;
 
-        for item in &updates.settings {
-            sqlx::query(
-                "UPDATE system_settings
-                 SET value = ?, updated_at = datetime('now', 'utc'), updated_by = ?
-                 WHERE key = ?",
-            )
-            .bind(&item.value)
-            .bind(updated_by)
-            .bind(&item.key)
-            .execute(&mut *tx)
-            .await
-            .map_err(StorageError::Sqlx)?;
+        // Execute all updates in transaction, with explicit rollback logging on error
+        let update_result: Result<(), StorageError> = async {
+            for item in &updates.settings {
+                sqlx::query(
+                    "UPDATE system_settings
+                     SET value = ?, updated_at = datetime('now', 'utc'), updated_by = ?
+                     WHERE key = ?",
+                )
+                .bind(&item.value)
+                .bind(updated_by)
+                .bind(&item.key)
+                .execute(&mut *tx)
+                .await
+                .map_err(StorageError::Sqlx)?;
+            }
+            Ok(())
         }
+        .await;
 
-        tx.commit().await.map_err(StorageError::Sqlx)?;
+        match update_result {
+            Ok(_) => {
+                tx.commit().await.map_err(StorageError::Sqlx)?;
+            }
+            Err(e) => {
+                tracing::error!(
+                    "Transaction failed during bulk_update, rolling back {} settings: {}",
+                    updates.settings.len(),
+                    e
+                );
+                // Transaction will auto-rollback on drop, but we explicitly log it
+                return Err(e);
+            }
+        }
 
         // Fetch all updated settings in a single query
         let keys: Vec<String> = updates.settings.iter().map(|s| s.key.clone()).collect();
@@ -171,8 +186,11 @@ impl SettingsStorage {
         }
 
         // Build query with IN clause
-        // SAFETY: This dynamic query is safe because `placeholders` is derived from the pre-validated
-        // count of keys (not user input), and each actual key value is bound via parameterized query
+        // SQL Injection Safety: The dynamic SQL construction here is safe because:
+        // 1. `placeholders` contains only "?" characters (count matches keys.len())
+        // 2. No user input is interpolated into the query string via format!()
+        // 3. All actual key values are bound as parameters via query.bind() below
+        // Example: keys = ["a", "b"] -> "... IN (?,?)" then bind("a"), bind("b")
         let placeholders = keys.iter().map(|_| "?").collect::<Vec<_>>().join(",");
         let query_str = format!(
             "SELECT * FROM system_settings WHERE key IN ({}) ORDER BY category, key",

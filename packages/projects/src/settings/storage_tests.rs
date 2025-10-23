@@ -38,14 +38,13 @@ mod tests {
 
         let result = storage.update("api_port", update, "test_user").await;
 
-        // Should fail with validation error mentioning "environment-only"
+        // Should fail with EnvOnly error
         assert!(result.is_err());
         match result {
-            Err(StorageError::Validation(msg)) => {
-                assert!(msg.contains("environment-only"));
-                assert!(msg.contains("api_port"));
+            Err(StorageError::EnvOnly(key)) => {
+                assert_eq!(key, "api_port");
             }
-            _ => panic!("Expected Validation error"),
+            _ => panic!("Expected EnvOnly error"),
         }
     }
 
