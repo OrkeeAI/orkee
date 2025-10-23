@@ -210,23 +210,20 @@ class PreviewService {
         `${this.baseUrl}/servers`
       );
 
-      console.log('Raw API response:', response);
-
       if (response.error) {
         console.warn('Failed to get active servers:', response.error);
         return [];
       }
 
       const apiResponse = response.data;
-      console.log('API response data:', apiResponse);
 
       if (!apiResponse || typeof apiResponse !== 'object') {
-        console.error('Invalid API response:', apiResponse);
+        console.error('Invalid API response format');
         return [];
       }
 
       if (!apiResponse.success) {
-        console.warn('API request was not successful:', apiResponse);
+        console.warn('API request unsuccessful:', apiResponse.error || 'Unknown error');
         return [];
       }
 
@@ -235,20 +232,16 @@ class PreviewService {
         return [];
       }
 
-      // Extract project_ids from the servers array
       const servers = apiResponse.data.servers;
-      console.log('Servers from response:', servers);
 
       if (!Array.isArray(servers)) {
-        console.error('Expected servers to be an array, got:', typeof servers, servers);
+        console.error('Expected servers array, received:', typeof servers);
         return [];
       }
 
-      const projectIds = servers.map(server => server.project_id);
-      console.log('Extracted project IDs:', projectIds);
-      return projectIds;
+      return servers.map(server => server.project_id);
     } catch (error) {
-      console.error('Exception in getActiveServers:', error);
+      console.error('Failed to get active servers:', error instanceof Error ? error.message : 'Unknown error');
       return [];
     }
   }
