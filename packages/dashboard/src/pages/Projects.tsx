@@ -1,4 +1,4 @@
-import { useState, useMemo, memo } from 'react';
+import { useState, useMemo, memo, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -250,9 +250,40 @@ SortableRow.displayName = 'SortableRow';
 export function Projects() {
   const navigate = useNavigate();
   const [loadingServers, setLoadingServers] = useState<Set<string>>(new Set());
+  const loadingTimeoutsRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
 
   // Server events via SSE
   const { activeServers, connectionMode } = useServerEvents();
+
+  // Clear loading state when SSE updates activeServers
+  useEffect(() => {
+    // When activeServers changes, clear loading state for those servers and cancel timeouts
+    loadingServers.forEach(projectId => {
+      const isActive = activeServers.has(projectId);
+
+      // Clear loading if server state has stabilized (either started or stopped completed)
+      if (isActive || !loadingServers.has(projectId)) {
+        const timeout = loadingTimeoutsRef.current.get(projectId);
+        if (timeout) {
+          clearTimeout(timeout);
+          loadingTimeoutsRef.current.delete(projectId);
+        }
+
+        setLoadingServers(prev => {
+          const next = new Set(prev);
+          next.delete(projectId);
+          return next;
+        });
+      }
+    });
+
+    // Cleanup all timeouts on unmount
+    const timeouts = loadingTimeoutsRef.current;
+    return () => {
+      timeouts.forEach(timeout => clearTimeout(timeout));
+      timeouts.clear();
+    };
+  }, [activeServers, loadingServers]);
 
   // Dialog states
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
@@ -412,15 +443,28 @@ export function Projects() {
     try {
       await previewService.startServer(projectId);
       // SSE will update activeServers automatically
+
+      // Safety timeout: clear loading state after 5s even if SSE doesn't update
+      const timeout = setTimeout(() => {
+        setLoadingServers(prev => {
+          const next = new Set(prev);
+          next.delete(projectId);
+          return next;
+        });
+        loadingTimeoutsRef.current.delete(projectId);
+      }, 5000);
+
+      loadingTimeoutsRef.current.set(projectId, timeout);
     } catch (err) {
-      toast.error('Failed to start dev server', {
-        description: err instanceof Error ? err.message : 'An unexpected error occurred',
-      });
-    } finally {
+      // Clear loading immediately on error
       setLoadingServers(prev => {
         const next = new Set(prev);
         next.delete(projectId);
         return next;
+      });
+
+      toast.error('Failed to start dev server', {
+        description: err instanceof Error ? err.message : 'An unexpected error occurred',
       });
     }
   };
@@ -437,15 +481,28 @@ export function Projects() {
     try {
       await previewService.stopServer(projectId);
       // SSE will update activeServers automatically
+
+      // Safety timeout: clear loading state after 5s even if SSE doesn't update
+      const timeout = setTimeout(() => {
+        setLoadingServers(prev => {
+          const next = new Set(prev);
+          next.delete(projectId);
+          return next;
+        });
+        loadingTimeoutsRef.current.delete(projectId);
+      }, 5000);
+
+      loadingTimeoutsRef.current.set(projectId, timeout);
     } catch (err) {
-      toast.error('Failed to stop dev server', {
-        description: err instanceof Error ? err.message : 'An unexpected error occurred',
-      });
-    } finally {
+      // Clear loading immediately on error
       setLoadingServers(prev => {
         const next = new Set(prev);
         next.delete(projectId);
         return next;
+      });
+
+      toast.error('Failed to stop dev server', {
+        description: err instanceof Error ? err.message : 'An unexpected error occurred',
       });
     }
   };
