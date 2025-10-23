@@ -4,7 +4,7 @@ import { useCloudAuth, useCloudSync } from '@/hooks/useCloud'
 import { cloudService, formatLastSync } from '@/services/cloud'
 import { fetchConfig } from '@/services/config'
 import { exportDatabase, importDatabase, type ImportResult } from '@/services/database'
-import { Cloud, User, RefreshCw, Download, Upload, Code2, ExternalLink, Database, AlertTriangle, Shield, Trash2, Key, Check, Settings as SettingsIcon, Terminal, Sliders, LayoutGrid } from 'lucide-react'
+import { Cloud, User, RefreshCw, Download, Upload, Code2, ExternalLink, Database, AlertTriangle, Shield, Trash2, Key, Check, Terminal, Sliders, LayoutGrid } from 'lucide-react'
 import { useState, useEffect, useRef } from 'react'
 import { SUPPORTED_EDITORS, getDefaultEditorSettings, findEditorById } from '@/lib/editor-utils'
 import type { EditorSettings } from '@/lib/editor-utils'
@@ -168,7 +168,7 @@ function GeneralSettings({ isMacOS }: { isMacOS: boolean }) {
         method: 'GET',
       });
       const result = await response.json();
-      
+
       if (result.success) {
         alert(`✅ ${result.message}\n\nDetected: ${result.detectedCommand || 'N/A'}`);
       } else {
@@ -181,8 +181,6 @@ function GeneralSettings({ isMacOS }: { isMacOS: boolean }) {
       setIsTestingEditor(false);
     }
   };
-
-  const selectedEditor = findEditorById(editorSettings.defaultEditor);
 
   return (
     <div className="space-y-6">

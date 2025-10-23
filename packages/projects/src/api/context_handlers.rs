@@ -326,7 +326,7 @@ pub async fn list_configurations(
             spec_capability_id
         FROM context_configurations
         WHERE project_id = ?
-        ORDER BY updated_at DESC"
+        ORDER BY updated_at DESC",
     )
     .bind(&project_id)
     .fetch_all(&db.pool)
@@ -396,7 +396,7 @@ pub async fn save_configuration(
             updated_at,
             spec_capability_id
         FROM context_configurations
-        WHERE id = ?"
+        WHERE id = ?",
     )
     .bind(&config_id)
     .fetch_one(&db.pool)
@@ -712,13 +712,16 @@ pub async fn get_context_stats(
         )
     })?;
 
-    let most_used_files: Vec<serde_json::Value> = most_used.iter().map(|f| {
-        serde_json::json!({
-            "path": f.file_path,
-            "inclusion_count": f.inclusion_count,
-            "last_used": f.last_used
+    let most_used_files: Vec<serde_json::Value> = most_used
+        .iter()
+        .map(|f| {
+            serde_json::json!({
+                "path": f.file_path,
+                "inclusion_count": f.inclusion_count,
+                "last_used": f.last_used
+            })
         })
-    }).collect();
+        .collect();
 
     Ok::<_, (StatusCode, Json<serde_json::Value>)>(Json(serde_json::json!({
         "total_snapshots": snapshot_count.count,

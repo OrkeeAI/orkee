@@ -21,7 +21,10 @@ pub async fn get_config(State(db): State<DbState>) -> Result<Json<ConfigResponse
     let cloud_enabled = match db.settings_storage.get("cloud_enabled").await {
         Ok(setting) => setting.value.to_lowercase() == "true",
         Err(e) => {
-            warn!("Failed to get cloud_enabled from database, falling back to env var: {}", e);
+            warn!(
+                "Failed to get cloud_enabled from database, falling back to env var: {}",
+                e
+            );
             env::var("ORKEE_CLOUD_ENABLED")
                 .unwrap_or_else(|_| "false".to_string())
                 .to_lowercase()

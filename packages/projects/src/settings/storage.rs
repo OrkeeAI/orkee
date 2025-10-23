@@ -30,7 +30,10 @@ impl SettingsStorage {
     }
 
     /// Get settings by category
-    pub async fn get_by_category(&self, category: &str) -> Result<Vec<SystemSetting>, StorageError> {
+    pub async fn get_by_category(
+        &self,
+        category: &str,
+    ) -> Result<Vec<SystemSetting>, StorageError> {
         let rows = sqlx::query("SELECT * FROM system_settings WHERE category = ? ORDER BY key")
             .bind(category)
             .fetch_all(&self.pool)

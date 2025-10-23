@@ -177,7 +177,7 @@ impl OpenSpecContextBridge {
                 created_by,
                 deleted_at
             FROM prds
-            WHERE id = ? AND deleted_at IS NULL"
+            WHERE id = ? AND deleted_at IS NULL",
         )
         .bind(prd_id)
         .fetch_optional(&self.pool)
@@ -204,7 +204,7 @@ impl OpenSpecContextBridge {
                 updated_at
             FROM spec_capabilities
             WHERE prd_id = ? AND deleted_at IS NULL
-            ORDER BY created_at"
+            ORDER BY created_at",
         )
         .bind(prd_id)
         .fetch_all(&self.pool)
@@ -229,7 +229,7 @@ impl OpenSpecContextBridge {
                 created_at,
                 updated_at
             FROM spec_capabilities
-            WHERE id = ? AND deleted_at IS NULL"
+            WHERE id = ? AND deleted_at IS NULL",
         )
         .bind(capability_id)
         .fetch_optional(&self.pool)
@@ -250,7 +250,7 @@ impl OpenSpecContextBridge {
                 updated_at
             FROM spec_requirements
             WHERE capability_id = ?
-            ORDER BY position"
+            ORDER BY position",
         )
         .bind(capability_id)
         .fetch_all(&self.pool)
@@ -269,7 +269,7 @@ impl OpenSpecContextBridge {
                 created_at,
                 updated_at
             FROM spec_requirements
-            WHERE id = ?"
+            WHERE id = ?",
         )
         .bind(requirement_id)
         .fetch_optional(&self.pool)
@@ -291,7 +291,7 @@ impl OpenSpecContextBridge {
                 created_at
             FROM spec_scenarios
             WHERE requirement_id = ?
-            ORDER BY position"
+            ORDER BY position",
         )
         .bind(requirement_id)
         .fetch_all(&self.pool)

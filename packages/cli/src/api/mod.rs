@@ -196,9 +196,18 @@ pub async fn create_router_with_options(
     // Create settings router
     let settings_router = Router::new()
         .route("/", get(settings_handlers::get_settings))
-        .route("/category/:category", get(settings_handlers::get_settings_by_category))
-        .route("/key/:key", axum::routing::put(settings_handlers::update_setting))
-        .route("/bulk", axum::routing::put(settings_handlers::bulk_update_settings))
+        .route(
+            "/category/:category",
+            get(settings_handlers::get_settings_by_category),
+        )
+        .route(
+            "/key/:key",
+            axum::routing::put(settings_handlers::update_setting),
+        )
+        .route(
+            "/bulk",
+            axum::routing::put(settings_handlers::bulk_update_settings),
+        )
         .route("/reset/:category", post(settings_handlers::reset_category))
         .with_state(db_state.clone());
 
@@ -206,7 +215,10 @@ pub async fn create_router_with_options(
         .route("/api/health", get(health::health_check))
         .route("/api/status", get(health::status_check))
         .route("/api/csrf-token", get(health::get_csrf_token))
-        .route("/api/config", get(config::get_config).with_state(db_state.clone()))
+        .route(
+            "/api/config",
+            get(config::get_config).with_state(db_state.clone()),
+        )
         .route(
             "/api/browse-directories",
             post(directories::browse_directories),

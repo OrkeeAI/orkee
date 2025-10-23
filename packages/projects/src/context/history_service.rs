@@ -122,7 +122,7 @@ impl HistoryService {
         for row in rows {
             let files_included: Vec<String> =
                 serde_json::from_str(&row.metadata).unwrap_or_default();
-            
+
             let created_at = DateTime::parse_from_rfc3339(&row.created_at)
                 .map(|dt| dt.with_timezone(&Utc))
                 .unwrap_or_else(|_| Utc::now());

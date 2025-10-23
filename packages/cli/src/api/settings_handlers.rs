@@ -14,9 +14,7 @@ use serde_json::{json, Value};
 use tracing::info;
 
 /// Get all settings
-pub async fn get_settings(
-    State(db): State<DbState>,
-) -> Result<Json<Value>, StatusCode> {
+pub async fn get_settings(State(db): State<DbState>) -> Result<Json<Value>, StatusCode> {
     info!("Getting all system settings");
 
     match db.settings_storage.get_all().await {
