@@ -52,6 +52,63 @@ const getRepositoryInfo = (project: Project): { owner: string; repo: string } | 
   return null;
 };
 
+// Server Controls Component
+interface ServerControlsProps {
+  projectId: string;
+  isRunning: boolean;
+  isLoading: boolean;
+  onStart: (projectId: string) => void;
+  onStop: (projectId: string) => void;
+  variant?: 'table' | 'card';
+}
+
+const ServerControls = ({ projectId, isRunning, isLoading, onStart, onStop, variant = 'table' }: ServerControlsProps) => {
+  const iconSize = variant === 'table' ? 'h-3.5 w-3.5' : 'h-3 w-3';
+  const buttonSize = variant === 'table' ? 'h-7 w-7' : 'h-6 w-6';
+  const spinnerSize = variant === 'table' ? 'h-4 w-4' : 'h-3.5 w-3.5';
+
+  return (
+    <div className="flex items-center gap-2">
+      <div className={`w-2 h-2 rounded-full ${
+        isRunning ? 'bg-green-500 dark:bg-green-400' : 'bg-muted-foreground/40'
+      }`} />
+      {isLoading ? (
+        <Loader2 className={`${spinnerSize} animate-spin text-muted-foreground`} aria-label="Server starting" />
+      ) : isRunning ? (
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={(e) => {
+            e.stopPropagation();
+            onStop(projectId);
+          }}
+          className={`${buttonSize} p-0`}
+          title="Stop dev server"
+          aria-label="Stop dev server"
+          disabled={isLoading}
+        >
+          <Square className={iconSize} />
+        </Button>
+      ) : (
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={(e) => {
+            e.stopPropagation();
+            onStart(projectId);
+          }}
+          className={`${buttonSize} p-0`}
+          title="Start dev server"
+          aria-label="Start dev server"
+          disabled={isLoading}
+        >
+          <Play className={iconSize} />
+        </Button>
+      )}
+    </div>
+  );
+};
+
 // Sortable Row Component
 interface SortableRowProps {
   project: Project;
@@ -125,43 +182,15 @@ const SortableRow = memo(function SortableRow({ project, onEdit, onDelete, onVie
         </div>
       </td>
       <td className="py-3 px-2 sm:px-4">
-        <div className="flex items-center justify-center gap-2">
-          <div className={`w-2 h-2 rounded-full ${
-            isDevServerRunning(project) ? 'bg-green-500 dark:bg-green-400' : 'bg-muted-foreground/40'
-          }`} />
-          {isServerLoading(project.id) ? (
-            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" aria-label="Server starting" />
-          ) : isDevServerRunning(project) ? (
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={(e) => {
-                e.stopPropagation();
-                onStopServer(project.id);
-              }}
-              className="h-7 w-7 p-0"
-              title="Stop dev server"
-              aria-label="Stop dev server"
-              disabled={isServerLoading(project.id)}
-            >
-              <Square className="h-3.5 w-3.5" />
-            </Button>
-          ) : (
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={(e) => {
-                e.stopPropagation();
-                onStartServer(project.id);
-              }}
-              className="h-7 w-7 p-0"
-              title="Start dev server"
-              aria-label="Start dev server"
-              disabled={isServerLoading(project.id)}
-            >
-              <Play className="h-3.5 w-3.5" />
-            </Button>
-          )}
+        <div className="flex items-center justify-center">
+          <ServerControls
+            projectId={project.id}
+            isRunning={isDevServerRunning(project)}
+            isLoading={isServerLoading(project.id)}
+            onStart={onStartServer}
+            onStop={onStopServer}
+            variant="table"
+          />
         </div>
       </td>
       <td className="py-3 px-2 sm:px-4">
@@ -214,6 +243,8 @@ const SortableRow = memo(function SortableRow({ project, onEdit, onDelete, onVie
     </tr>
   );
 });
+
+SortableRow.displayName = 'SortableRow';
 
 export function Projects() {
   const navigate = useNavigate();
@@ -688,42 +719,14 @@ export function Projects() {
                     <div className="space-y-3">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
-                          <div className={`w-2 h-2 rounded-full ${
-                            isDevServerRunning(project) ? 'bg-green-500 dark:bg-green-400' : 'bg-muted-foreground/40'
-                          }`} />
-                          {isServerLoading(project.id) ? (
-                            <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" aria-label="Server starting" />
-                          ) : isDevServerRunning(project) ? (
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleStopServer(project.id);
-                              }}
-                              className="h-6 w-6 p-0"
-                              title="Stop dev server"
-                              aria-label="Stop dev server"
-                              disabled={isServerLoading(project.id)}
-                            >
-                              <Square className="h-3 w-3" />
-                            </Button>
-                          ) : (
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleStartServer(project.id);
-                              }}
-                              className="h-6 w-6 p-0"
-                              title="Start dev server"
-                              aria-label="Start dev server"
-                              disabled={isServerLoading(project.id)}
-                            >
-                              <Play className="h-3 w-3" />
-                            </Button>
-                          )}
+                          <ServerControls
+                            projectId={project.id}
+                            isRunning={isDevServerRunning(project)}
+                            isLoading={isServerLoading(project.id)}
+                            onStart={handleStartServer}
+                            onStop={handleStopServer}
+                            variant="card"
+                          />
                           <span className="text-sm">Dev Server</span>
                         </div>
                         <div className="flex items-center gap-2">
