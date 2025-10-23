@@ -1,0 +1,26 @@
+{
+  "db_name": "SQLite",
+  "query": "\n            SELECT\n                DATE(created_at) as \"date: String\",\n                CAST(SUM(total_tokens) AS INTEGER) as \"tokens!: i32\"\n            FROM context_snapshots\n            WHERE project_id = ?\n            AND created_at > datetime('now', '-30 days')\n            GROUP BY DATE(created_at)\n            ORDER BY DATE(created_at)\n            ",
+  "describe": {
+    "columns": [
+      {
+        "name": "date: String",
+        "ordinal": 0,
+        "type_info": "Null"
+      },
+      {
+        "name": "tokens!: i32",
+        "ordinal": 1,
+        "type_info": "Null"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      null,
+      null
+    ]
+  },
+  "hash": "3a270db61ceaacedb3261de08497c48bc1c3c9fbf552ff6e478430dbbd0ecaeb"
+}

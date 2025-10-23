@@ -138,12 +138,18 @@ export async function apiRequest<T>(
     });
 
     const result = await response.json();
-    
+
     if (!response.ok) {
       return {
         success: false,
         error: result.error || `HTTP error! status: ${response.status}`,
       };
+    }
+
+    // If the API already returns {success, data}, unwrap it
+    // Otherwise, wrap the raw result
+    if (result && typeof result === 'object' && 'success' in result && 'data' in result) {
+      return result as { success: boolean; data?: T; error?: string };
     }
 
     return {

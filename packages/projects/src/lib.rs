@@ -17,6 +17,7 @@ pub mod manager;
 pub mod openspec;
 pub mod pagination;
 pub mod security;
+pub mod settings;
 pub mod storage;
 pub mod tags;
 pub mod tasks;

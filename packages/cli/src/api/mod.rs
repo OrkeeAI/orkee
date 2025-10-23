@@ -11,6 +11,7 @@ pub mod git;
 pub mod health;
 pub mod path_validator;
 pub mod preview;
+pub mod settings_handlers;
 pub mod taskmaster;
 pub mod telemetry;
 
@@ -192,11 +193,20 @@ pub async fn create_router_with_options(
         }
     };
 
+    // Create settings router
+    let settings_router = Router::new()
+        .route("/", get(settings_handlers::get_settings))
+        .route("/category/:category", get(settings_handlers::get_settings_by_category))
+        .route("/key/:key", axum::routing::put(settings_handlers::update_setting))
+        .route("/bulk", axum::routing::put(settings_handlers::bulk_update_settings))
+        .route("/reset/:category", post(settings_handlers::reset_category))
+        .with_state(db_state.clone());
+
     let mut router = Router::new()
         .route("/api/health", get(health::health_check))
         .route("/api/status", get(health::status_check))
         .route("/api/csrf-token", get(health::get_csrf_token))
-        .route("/api/config", get(config::get_config))
+        .route("/api/config", get(config::get_config).with_state(db_state.clone()))
         .route(
             "/api/browse-directories",
             post(directories::browse_directories),
@@ -223,6 +233,7 @@ pub async fn create_router_with_options(
         .nest("/api/cloud", cloud_router)
         .nest("/api/taskmaster", taskmaster_router)
         .nest("/api/telemetry", telemetry_router)
+        .nest("/api/settings", settings_router)
         .nest(
             "/api/agents",
             orkee_projects::create_agents_router().with_state(db_state.clone()),
