@@ -162,7 +162,7 @@ impl PreviewManager {
         let capacity = parse_env_or_default_with_validation(
             "ORKEE_EVENT_CHANNEL_SIZE",
             SSE_CHANNEL_CAPACITY,
-            |v| v >= 10 && v <= 10000,
+            |v| (10..=10000).contains(&v),
         );
 
         let (event_tx, _rx) = broadcast::channel(capacity);
@@ -671,7 +671,9 @@ impl PreviewManager {
                     );
                 }
 
-                // Emit ServerStarted event
+                // Emit ServerStarted event AFTER all state updates
+                // Ordering: (1) in-memory state updated, (2) disk persistence attempted, (3) event emitted
+                // This ensures subscribers receive events only after state is fully consistent
                 let _ = self.event_tx.send(ServerEvent::ServerStarted {
                     project_id: project_id.clone(),
                     pid: pid.unwrap_or(0),

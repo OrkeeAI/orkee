@@ -15,9 +15,18 @@ interface ServerEvent {
 }
 
 // SSE configuration constants with environment variable overrides
-const MAX_RETRIES = Number(import.meta.env.VITE_SSE_MAX_RETRIES) || 3;
-const RETRY_DELAY = Number(import.meta.env.VITE_SSE_RETRY_DELAY) || 2000; // milliseconds
-const POLLING_INTERVAL = Number(import.meta.env.VITE_SSE_POLLING_INTERVAL) || 5000; // milliseconds
+const MAX_RETRIES = (() => {
+  const val = parseInt(import.meta.env.VITE_SSE_MAX_RETRIES, 10);
+  return !isNaN(val) && val > 0 ? val : 3;
+})();
+const RETRY_DELAY = (() => {
+  const val = parseInt(import.meta.env.VITE_SSE_RETRY_DELAY, 10);
+  return !isNaN(val) && val > 0 ? val : 2000;
+})();
+const POLLING_INTERVAL = (() => {
+  const val = parseInt(import.meta.env.VITE_SSE_POLLING_INTERVAL, 10);
+  return !isNaN(val) && val > 0 ? val : 5000;
+})();
 
 /**
  * React hook for real-time server event updates via SSE.
@@ -38,12 +47,15 @@ export function useServerEvents() {
     let eventSource: EventSource | null = null;
     let pollingInterval: NodeJS.Timeout | null = null;
     let retryCount = 0;
+    let isCleanedUp = false;
 
     // Polling fallback function
     const startPolling = async () => {
+      if (isCleanedUp) return;
       setConnectionMode('polling');
 
       const poll = async () => {
+        if (isCleanedUp) return;
         try {
           const baseUrl = await getApiBaseUrl();
           const response = await fetch(`${baseUrl}/api/preview/servers`);
@@ -62,11 +74,14 @@ export function useServerEvents() {
       await poll();
 
       // Set up polling interval
-      pollingInterval = setInterval(poll, POLLING_INTERVAL);
+      if (!isCleanedUp) {
+        pollingInterval = setInterval(poll, POLLING_INTERVAL);
+      }
     };
 
     // SSE connection with retry logic
     const connectSSE = async (): Promise<void> => {
+      if (isCleanedUp) return;
       try {
         const baseUrl = await getApiBaseUrl();
         eventSource = new EventSource(`${baseUrl}/api/preview/events`);
@@ -91,12 +106,24 @@ export function useServerEvents() {
               case 'server_started':
                 if (serverEvent.project_id) {
                   setActiveServers((prev) => new Set([...prev, serverEvent.project_id!]));
+                  // Clear any previous errors for this server
+                  setServerErrors((prev) => {
+                    const next = new Map(prev);
+                    next.delete(serverEvent.project_id!);
+                    return next;
+                  });
                 }
                 break;
               case 'server_stopped':
                 if (serverEvent.project_id) {
                   setActiveServers((prev) => {
                     const next = new Set(prev);
+                    next.delete(serverEvent.project_id!);
+                    return next;
+                  });
+                  // Clear any errors for stopped server
+                  setServerErrors((prev) => {
+                    const next = new Map(prev);
                     next.delete(serverEvent.project_id!);
                     return next;
                   });
@@ -163,6 +190,7 @@ export function useServerEvents() {
 
     // Cleanup on unmount
     return () => {
+      isCleanedUp = true;
       eventSource?.close();
       if (pollingInterval) {
         clearInterval(pollingInterval);
