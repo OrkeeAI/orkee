@@ -170,7 +170,11 @@ export function useServerEvents() {
             }
           } else {
             // Temporary interruption - EventSource will auto-reconnect
+            // Reset retry count to give browser's auto-reconnect a fresh chance
             console.log('[SSE] Temporary interruption, waiting for auto-reconnect');
+            if (eventSource?.readyState === EventSource.CONNECTING) {
+              retryCount = 0;
+            }
           }
         };
       } catch (error) {

@@ -22,9 +22,12 @@ use uuid::Uuid;
 /// SSE event broadcast channel capacity.
 ///
 /// This determines how many events can be buffered per subscriber before the
-/// subscriber is marked as lagged. A value of 100 allows for brief bursts of
-/// rapid server changes without forcing clients to resync.
-const SSE_CHANNEL_CAPACITY: usize = 100;
+/// subscriber is marked as lagged. A value of 200 provides a good balance for
+/// most use cases including moderate CI/CD workloads with bulk operations.
+///
+/// For heavy CI/CD environments with rapid bulk deployments, consider increasing
+/// via ORKEE_EVENT_CHANNEL_SIZE (e.g., 500-1000) to prevent client lag events.
+const SSE_CHANNEL_CAPACITY: usize = 200;
 
 /// Result of spawning a development server process with associated metadata.
 ///

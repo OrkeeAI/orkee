@@ -277,19 +277,16 @@ export function Projects() {
   // Clear loading state when SSE updates activeServers
   useEffect(() => {
     const prevActive = prevActiveServersRef.current;
-    const currentLoading = Array.from(loadingServers);
 
-    currentLoading.forEach(projectId => {
+    // Iterate over timeouts ref instead of loadingServers state to avoid stale closures
+    loadingTimeoutsRef.current.forEach((timeout, projectId) => {
       const wasActive = prevActive.has(projectId);
       const isActive = activeServers.has(projectId);
 
       // Clear loading if state changed (server started or stopped)
       if (wasActive !== isActive) {
-        const timeout = loadingTimeoutsRef.current.get(projectId);
-        if (timeout) {
-          clearTimeout(timeout);
-          loadingTimeoutsRef.current.delete(projectId);
-        }
+        clearTimeout(timeout);
+        loadingTimeoutsRef.current.delete(projectId);
 
         setLoadingServers(prev => {
           const next = new Set(prev);
@@ -308,8 +305,7 @@ export function Projects() {
       timeouts.forEach(timeout => clearTimeout(timeout));
       timeouts.clear();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeServers]); // Only depend on activeServers to avoid memory leak from loadingServers circular dependency
+  }, [activeServers]); // Only depend on activeServers, use ref for loading state to avoid circular dependency
 
   // Dialog states
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
