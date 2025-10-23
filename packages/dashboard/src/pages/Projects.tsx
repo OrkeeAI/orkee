@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { FolderOpen, Plus, Edit, Trash2, Search, LayoutGrid, List, GripVertical, GitBranch, Sparkles } from 'lucide-react';
+import { FolderOpen, Plus, Edit, Trash2, Search, LayoutGrid, List, GripVertical, GitBranch, Sparkles, Play, Square, Loader2 } from 'lucide-react';
 import { AITestDialog } from '@/components/AITestDialog';
 import {
   DndContext,
@@ -60,9 +60,12 @@ interface SortableRowProps {
   formatDate: (dateString: string) => string;
   getPriorityColor: (priority: string) => string;
   isDevServerRunning: (project: Project) => boolean;
+  onStartServer: (projectId: string) => void;
+  onStopServer: (projectId: string) => void;
+  isServerLoading: (projectId: string) => boolean;
 }
 
-function SortableRow({ project, onEdit, onDelete, onView, formatDate, getPriorityColor, isDevServerRunning }: SortableRowProps) {
+function SortableRow({ project, onEdit, onDelete, onView, formatDate, getPriorityColor, isDevServerRunning, onStartServer, onStopServer, isServerLoading }: SortableRowProps) {
   const {
     attributes,
     listeners,
@@ -121,10 +124,39 @@ function SortableRow({ project, onEdit, onDelete, onView, formatDate, getPriorit
         </div>
       </td>
       <td className="py-3 px-2 sm:px-4">
-        <div className="flex items-center justify-center">
+        <div className="flex items-center justify-center gap-2">
           <div className={`w-2 h-2 rounded-full ${
             isDevServerRunning(project) ? 'bg-green-500 dark:bg-green-400' : 'bg-muted-foreground/40'
           }`} />
+          {isServerLoading(project.id) ? (
+            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+          ) : isDevServerRunning(project) ? (
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={(e) => {
+                e.stopPropagation();
+                onStopServer(project.id);
+              }}
+              className="h-7 w-7 p-0"
+              title="Stop dev server"
+            >
+              <Square className="h-3.5 w-3.5" />
+            </Button>
+          ) : (
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={(e) => {
+                e.stopPropagation();
+                onStartServer(project.id);
+              }}
+              className="h-7 w-7 p-0"
+              title="Start dev server"
+            >
+              <Play className="h-3.5 w-3.5" />
+            </Button>
+          )}
         </div>
       </td>
       <td className="py-3 px-2 sm:px-4">
@@ -181,7 +213,8 @@ function SortableRow({ project, onEdit, onDelete, onView, formatDate, getPriorit
 export function Projects() {
   const navigate = useNavigate();
   const [activeServers, setActiveServers] = useState<Set<string>>(new Set());
-  
+  const [loadingServers, setLoadingServers] = useState<Set<string>>(new Set());
+
   // Dialog states
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
@@ -341,6 +374,42 @@ export function Projects() {
 
   const isDevServerRunning = (project: Project) => {
     return activeServers.has(project.id);
+  };
+
+  const isServerLoading = (projectId: string) => {
+    return loadingServers.has(projectId);
+  };
+
+  const handleStartServer = async (projectId: string) => {
+    try {
+      setLoadingServers(prev => new Set(prev).add(projectId));
+      await previewService.startServer(projectId);
+      await loadActiveServers();
+    } catch (err) {
+      console.error('Failed to start server:', err);
+    } finally {
+      setLoadingServers(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(projectId);
+        return newSet;
+      });
+    }
+  };
+
+  const handleStopServer = async (projectId: string) => {
+    try {
+      setLoadingServers(prev => new Set(prev).add(projectId));
+      await previewService.stopServer(projectId);
+      await loadActiveServers();
+    } catch (err) {
+      console.error('Failed to stop server:', err);
+    } finally {
+      setLoadingServers(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(projectId);
+        return newSet;
+      });
+    }
   };
 
   if (loading) {
@@ -528,6 +597,9 @@ export function Projects() {
                             formatDate={formatDate}
                             getPriorityColor={getPriorityColor}
                             isDevServerRunning={isDevServerRunning}
+                            onStartServer={handleStartServer}
+                            onStopServer={handleStopServer}
+                            isServerLoading={isServerLoading}
                           />
                         ))}
                       </SortableContext>
@@ -577,11 +649,42 @@ export function Projects() {
                             isDevServerRunning(project) ? 'bg-green-500 dark:bg-green-400' : 'bg-muted-foreground/40'
                           }`} />
                           <span className="text-sm">Dev Server</span>
+                          {isServerLoading(project.id) ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
+                          ) : isDevServerRunning(project) ? (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleStopServer(project.id);
+                              }}
+                              className="h-6 w-6 p-0"
+                              title="Stop dev server"
+                            >
+                              <Square className="h-3 w-3" />
+                            </Button>
+                          ) : (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleStartServer(project.id);
+                              }}
+                              className="h-6 w-6 p-0"
+                              title="Start dev server"
+                            >
+                              <Play className="h-3 w-3" />
+                            </Button>
+                          )}
                         </div>
-                        <Badge className={getPriorityColor(project.priority)}>
-                          {project.priority}
-                        </Badge>
-                        <ProjectSyncBadge projectId={project.id} variant="compact" />
+                        <div className="flex items-center gap-2">
+                          <Badge className={getPriorityColor(project.priority)}>
+                            {project.priority}
+                          </Badge>
+                          <ProjectSyncBadge projectId={project.id} variant="compact" />
+                        </div>
                       </div>
                       
                       {project.tags && project.tags.length > 0 && (
