@@ -27,6 +27,11 @@ use tracing::{error, info, warn};
 /// This prevents a single client from exhausting server resources by opening unlimited connections
 const DEFAULT_MAX_SSE_CONNECTIONS_PER_IP: usize = 3;
 
+/// Maximum size for individual SSE events (64KB)
+/// Events exceeding this size will be replaced with a summary event to prevent
+/// excessive memory usage and network bandwidth consumption
+const MAX_SSE_EVENT_SIZE: usize = 64 * 1024;
+
 /// Error returned when SSE connection limit is exceeded
 #[derive(Debug)]
 pub struct SseConnectionLimitExceeded;
@@ -635,8 +640,26 @@ pub async fn server_events(
                 // Send initial state as first event
                 match serde_json::to_string(&initial_event) {
                     Ok(data) => {
-                        let event = Event::default().data(data);
-                        return Some((Ok(event), (rx, None, preview_manager)));
+                        // Check event size to prevent excessive memory/bandwidth usage
+                        if data.len() > MAX_SSE_EVENT_SIZE {
+                            warn!(
+                                audit = true,
+                                size = data.len(),
+                                max = MAX_SSE_EVENT_SIZE,
+                                "SSE initial event exceeds size limit, sending empty state"
+                            );
+                            // Send empty initial state as fallback
+                            let fallback = ServerEvent::InitialState {
+                                active_servers: vec![],
+                            };
+                            if let Ok(fallback_data) = serde_json::to_string(&fallback) {
+                                let event = Event::default().data(fallback_data);
+                                return Some((Ok(event), (rx, None, preview_manager)));
+                            }
+                        } else {
+                            let event = Event::default().data(data);
+                            return Some((Ok(event), (rx, None, preview_manager)));
+                        }
                     }
                     Err(e) => {
                         error!("Failed to serialize initial SSE event: {} - sending empty initial state", e);
@@ -658,6 +681,29 @@ pub async fn server_events(
                 Ok(server_event) => {
                     match serde_json::to_string(&server_event) {
                         Ok(data) => {
+                            // Check event size to prevent excessive memory/bandwidth usage
+                            if data.len() > MAX_SSE_EVENT_SIZE {
+                                warn!(
+                                    audit = true,
+                                    event_type = ?server_event,
+                                    size = data.len(),
+                                    max = MAX_SSE_EVENT_SIZE,
+                                    "SSE event exceeds size limit, sending summary instead"
+                                );
+                                // Send a lightweight summary event instead
+                                let summary = ServerEvent::InitialState {
+                                    active_servers: preview_manager
+                                        .list_servers()
+                                        .await
+                                        .iter()
+                                        .map(|s| s.project_id.clone())
+                                        .collect(),
+                                };
+                                if let Ok(summary_data) = serde_json::to_string(&summary) {
+                                    let event = Event::default().data(summary_data);
+                                    return Some((Ok(event), (rx, None, preview_manager)));
+                                }
+                            }
                             let event = Event::default().data(data);
                             Some((Ok(event), (rx, None, preview_manager)))
                         }
