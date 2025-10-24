@@ -4,7 +4,7 @@
   "version": "0.0.9",
   "identifier": "ai.orkee.desktop",
   "build": {
-    "beforeDevCommand": "bun run dev",
+    "beforeDevCommand": "node ../dev-wrapper.js",
     "devUrl": "http://localhost:5173",
     "beforeBuildCommand": "bun run build",
     "frontendDist": "../dist"
