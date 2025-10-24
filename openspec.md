@@ -12,6 +12,7 @@ This implementation is **production-ready** for the core OpenSpec workflow:
 - ✅ Database export/import to filesystem
 - ✅ CLI provides full command-line interface with auto project detection
 - ✅ Frontend displays changes, deltas, and validation
+- ✅ Approval workflow with status transitions (Draft→Review→Approved→Implementing→Completed→Archived)
 
 **Remaining:** Phase 6 (comprehensive docs/tests) and Phase 7 (deployment) can be completed as needed.
 
@@ -1186,7 +1187,7 @@ WHERE change_id IS NULL;
 - [x] Create change detail view component
 - [x] Add validation error display
 - [x] Update PRD view to show change link
-- [ ] Add approval workflow UI (deferred - can be added later)
+- [x] Add approval workflow UI (✅ **COMPLETED 2025-01-27**: Full status-based workflow with ApprovalDialog, ApprovalHistory, status transitions Draft→Review→Approved→Implementing→Completed→Archived)
 - [ ] Create task completion tracking UI (deferred - can be added later)
 - [ ] Test frontend integration (manual testing recommended)
 - [x] Update API client for new endpoints
@@ -1219,6 +1220,7 @@ WHERE change_id IS NULL;
 - [x] No regression in existing functionality (✅ 69/69 tests passing, no breaking changes)
 - [x] Frontend properly displays all OpenSpec data (✅ ChangesList and ChangeDetails components)
 - [x] CLI commands work as documented (✅ All commands implemented with auto-detection)
+- [x] Approval workflow enforces validation gate (✅ Status-based transitions with ApprovalDialog, optimistic updates, audit trail)
 - [ ] Migration completes without data loss (Phase 7 - deferred to deployment)
 
 ## Notes for Implementation
