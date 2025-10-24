@@ -2,10 +2,10 @@
 // ABOUTME: Generates dependency, symbol, module, and spec-mapping graphs for projects.
 
 use axum::{
-    extract::{Path, Query, State},
+    extract::{Path, State},
     response::Json,
 };
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use std::time::Duration;
 use tokio::time::timeout;
 use tracing::info;
@@ -18,95 +18,6 @@ use crate::{
 
 // Timeout configuration
 const GRAPH_GENERATION_TIMEOUT_SECS: u64 = 30;
-
-// Validation constants
-const MAX_DEPTH: usize = 10;
-const DEFAULT_DEPTH: usize = 3;
-const MAX_FILTER_LENGTH: usize = 256;
-const ALLOWED_LAYOUTS: &[&str] = &["hierarchical", "force", "circular", "grid"];
-const DEFAULT_LAYOUT: &str = "hierarchical";
-
-/// Query parameters for graph requests
-#[derive(Debug, Deserialize)]
-pub struct GraphQuery {
-    #[serde(default)]
-    pub max_depth: Option<usize>,
-    #[serde(default)]
-    pub filter: Option<String>,
-    #[serde(default)]
-    pub layout: Option<String>,
-}
-
-/// Validated query parameters with guaranteed safe values
-#[derive(Debug)]
-pub struct ValidatedGraphQuery {
-    pub max_depth: usize,
-    pub filter: Option<String>,
-    pub layout: String,
-}
-
-impl GraphQuery {
-    /// Validate and normalize query parameters
-    pub fn validate(self) -> ValidatedGraphQuery {
-        let max_depth = self.max_depth.unwrap_or(DEFAULT_DEPTH).min(MAX_DEPTH);
-
-        let filter = self.filter.and_then(|f| {
-            if f.len() <= MAX_FILTER_LENGTH {
-                Some(f)
-            } else {
-                None
-            }
-        });
-
-        let layout = self
-            .layout
-            .and_then(|l| {
-                if ALLOWED_LAYOUTS.contains(&l.as_str()) {
-                    Some(l)
-                } else {
-                    None
-                }
-            })
-            .unwrap_or_else(|| DEFAULT_LAYOUT.to_string());
-
-        ValidatedGraphQuery {
-            max_depth,
-            filter,
-            layout,
-        }
-    }
-
-    /// Validate filter parameter (for testing)
-    #[cfg(test)]
-    fn validate_filter(&self) -> Result<(), String> {
-        if let Some(filter) = &self.filter {
-            if filter.len() > MAX_FILTER_LENGTH {
-                return Err(format!(
-                    "Filter string too long (max {} characters)",
-                    MAX_FILTER_LENGTH
-                ));
-            }
-        }
-        Ok(())
-    }
-
-    /// Validate layout parameter (for testing)
-    #[cfg(test)]
-    fn validate_layout(&self) -> Result<String, String> {
-        if let Some(layout) = &self.layout {
-            if !ALLOWED_LAYOUTS.contains(&layout.as_str()) {
-                return Err(format!(
-                    "Invalid layout '{}'. Allowed: {}",
-                    layout,
-                    ALLOWED_LAYOUTS.join(", ")
-                ));
-            }
-            Ok(layout.clone())
-        } else {
-            Ok(DEFAULT_LAYOUT.to_string())
-        }
-    }
-}
 
 /// Response format for graph API
 #[derive(Debug, Serialize)]
@@ -139,7 +50,6 @@ impl GraphResponse {
 /// Get dependency graph for a project
 pub async fn get_dependency_graph(
     Path(project_id): Path<String>,
-    Query(_params): Query<GraphQuery>,
     State(_db): State<DbState>,
 ) -> Json<GraphResponse> {
     info!("Generating dependency graph for project: {}", project_id);
@@ -200,7 +110,6 @@ pub async fn get_dependency_graph(
 /// Get symbol graph for a project
 pub async fn get_symbol_graph(
     Path(project_id): Path<String>,
-    Query(_params): Query<GraphQuery>,
     State(_db): State<DbState>,
 ) -> Json<GraphResponse> {
     info!("Generating symbol graph for project: {}", project_id);
@@ -261,7 +170,6 @@ pub async fn get_symbol_graph(
 /// Get module graph for a project
 pub async fn get_module_graph(
     Path(project_id): Path<String>,
-    Query(_params): Query<GraphQuery>,
     State(_db): State<DbState>,
 ) -> Json<GraphResponse> {
     info!("Generating module graph for project: {}", project_id);
@@ -322,7 +230,6 @@ pub async fn get_module_graph(
 /// Get spec-mapping graph for a project (placeholder for future implementation)
 pub async fn get_spec_mapping_graph(
     Path(project_id): Path<String>,
-    Query(_params): Query<GraphQuery>,
     State(_db): State<DbState>,
 ) -> Json<GraphResponse> {
     info!("Generating spec-mapping graph for project: {}", project_id);
@@ -366,99 +273,5 @@ mod tests {
         assert!(!response.success);
         assert!(response.data.is_none());
         assert_eq!(response.error, Some("Test error".to_string()));
-    }
-
-    #[test]
-    fn test_graph_query_deserialization() {
-        let json = r#"{"max_depth": 5, "filter": "*.ts"}"#;
-        let query: GraphQuery = serde_json::from_str(json).unwrap();
-        assert_eq!(query.max_depth, Some(5));
-        assert_eq!(query.filter, Some("*.ts".to_string()));
-    }
-
-    #[test]
-    fn test_graph_query_validation_max_depth() {
-        // Valid depth
-        let query = GraphQuery {
-            max_depth: Some(5),
-            filter: None,
-            layout: None,
-        };
-        let validated = query.validate();
-        assert_eq!(validated.max_depth, 5);
-
-        // Exceeds maximum
-        let query = GraphQuery {
-            max_depth: Some(15),
-            filter: None,
-            layout: None,
-        };
-        let validated = query.validate();
-        assert_eq!(validated.max_depth, 10); // Should be capped at MAX_DEPTH
-
-        // None defaults to DEFAULT_DEPTH
-        let query = GraphQuery {
-            max_depth: None,
-            filter: None,
-            layout: None,
-        };
-        let validated = query.validate();
-        assert_eq!(validated.max_depth, 3);
-    }
-
-    #[test]
-    fn test_graph_query_validation_filter() {
-        // Valid filter
-        let query = GraphQuery {
-            max_depth: None,
-            filter: Some("*.ts".to_string()),
-            layout: None,
-        };
-        let result = query.validate_filter();
-        assert!(result.is_ok());
-
-        // Filter too long
-        let long_filter = "a".repeat(300);
-        let query = GraphQuery {
-            max_depth: None,
-            filter: Some(long_filter),
-            layout: None,
-        };
-        let result = query.validate_filter();
-        assert!(result.is_err());
-        assert!(result.unwrap_err().contains("Filter string too long"));
-    }
-
-    #[test]
-    fn test_graph_query_validation_layout() {
-        // Valid layout
-        let query = GraphQuery {
-            max_depth: None,
-            filter: None,
-            layout: Some("hierarchical".to_string()),
-        };
-        let result = query.validate_layout();
-        assert!(result.is_ok());
-        assert_eq!(result.unwrap(), "hierarchical");
-
-        // Invalid layout
-        let query = GraphQuery {
-            max_depth: None,
-            filter: None,
-            layout: Some("invalid".to_string()),
-        };
-        let result = query.validate_layout();
-        assert!(result.is_err());
-        assert!(result.unwrap_err().contains("Invalid layout"));
-
-        // None defaults to hierarchical
-        let query = GraphQuery {
-            max_depth: None,
-            filter: None,
-            layout: None,
-        };
-        let result = query.validate_layout();
-        assert!(result.is_ok());
-        assert_eq!(result.unwrap(), "hierarchical");
     }
 }
