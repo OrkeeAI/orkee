@@ -12,9 +12,11 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeSanitize from 'rehype-sanitize';
 import { useChange, useValidateChange, useArchiveChange, useUpdateChangeStatus } from '@/hooks/useChanges';
+import { useChangeTasks } from '@/hooks/useChangeTasks';
 import type { DeltaType, ChangeStatus } from '@/services/changes';
 import { ApprovalDialog } from './ApprovalDialog';
 import { ApprovalHistory } from './ApprovalHistory';
+import { TaskCompletionTracker } from './TaskCompletionTracker';
 
 interface ChangeDetailsProps {
   projectId: string;
@@ -23,6 +25,11 @@ interface ChangeDetailsProps {
 
 export function ChangeDetails({ projectId, changeId }: ChangeDetailsProps) {
   const { data: change, isLoading, error } = useChange(projectId, changeId);
+  const { stats: taskStats } = useChangeTasks({
+    projectId,
+    changeId,
+    enabled: !!change && change.status === 'implementing',
+  });
   const validateMutation = useValidateChange(projectId);
   const archiveMutation = useArchiveChange(projectId);
   const updateStatusMutation = useUpdateChangeStatus(projectId);
@@ -176,6 +183,12 @@ export function ChangeDetails({ projectId, changeId }: ChangeDetailsProps) {
                   Approved by {change.approvedBy}
                 </Badge>
               )}
+              {change.status === 'implementing' && taskStats.total > 0 && (
+                <Badge variant="outline" className="text-xs flex items-center gap-1">
+                  <CheckCircle2 className="h-3 w-3" />
+                  {taskStats.percentage}% Complete
+                </Badge>
+              )}
             </div>
           </div>
         </CardHeader>
@@ -287,13 +300,32 @@ export function ChangeDetails({ projectId, changeId }: ChangeDetailsProps) {
               <>
                 <Button
                   variant="default"
-                  onClick={() =>
-                    handleStatusTransition('completed', 'Mark implementation as complete?')
-                  }
+                  onClick={() => {
+                    if (taskStats.percentage < 100) {
+                      if (
+                        !confirm(
+                          `Only ${taskStats.percentage}% of tasks are complete. Are you sure you want to mark this change as complete?`
+                        )
+                      ) {
+                        return;
+                      }
+                    }
+                    handleStatusTransition('completed', 'Mark implementation as complete?');
+                  }}
                   disabled={updateStatusMutation.isPending}
+                  title={
+                    taskStats.percentage < 100
+                      ? `${taskStats.completed}/${taskStats.total} tasks complete (${taskStats.percentage}%)`
+                      : 'All tasks complete'
+                  }
                 >
                   <CheckCircle2 className="h-4 w-4 mr-2" />
                   Mark Complete
+                  {taskStats.total > 0 && taskStats.percentage < 100 && (
+                    <span className="ml-2 text-xs opacity-70">
+                      ({taskStats.percentage}%)
+                    </span>
+                  )}
                 </Button>
               </>
             )}
@@ -349,19 +381,12 @@ export function ChangeDetails({ projectId, changeId }: ChangeDetailsProps) {
         </TabsContent>
 
         <TabsContent value="tasks">
-          <Card>
-            <CardHeader>
-              <CardTitle>Implementation Tasks</CardTitle>
-              <CardDescription>Steps required to implement this change</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="prose prose-sm max-w-none dark:prose-invert">
-                <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeSanitize]}>
-                  {change.tasksMarkdown}
-                </ReactMarkdown>
-              </div>
-            </CardContent>
-          </Card>
+          <TaskCompletionTracker
+            projectId={projectId}
+            changeId={changeId}
+            status={change.status}
+            currentUser={change.createdBy}
+          />
         </TabsContent>
 
         <TabsContent value="design">
