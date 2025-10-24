@@ -111,7 +111,7 @@ export function GraphSidebar({
           </div>
         )}
 
-        {nodeDetails.metadata.token_count !== undefined && (
+        {nodeDetails.metadata.token_count != null && (
           <div>
             <p className="text-sm font-medium text-muted-foreground mb-1">
               Token Count
@@ -120,7 +120,7 @@ export function GraphSidebar({
           </div>
         )}
 
-        {nodeDetails.metadata.complexity !== undefined && (
+        {nodeDetails.metadata.complexity != null && (
           <div>
             <p className="text-sm font-medium text-muted-foreground mb-1">
               Complexity
