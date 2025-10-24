@@ -46,11 +46,14 @@ impl GraphBuilder {
 
         // Create nodes for each file
         for (idx, file_path) in files.iter().enumerate() {
-            let relative_path = file_path
-                .strip_prefix(&root_path)
-                .unwrap_or(file_path)
-                .to_string_lossy()
-                .to_string();
+            // Validate file is within project bounds
+            let relative_path = match file_path.strip_prefix(&root_path) {
+                Ok(path) => path.to_string_lossy().to_string(),
+                Err(_) => {
+                    warn!("Skipping file outside project root: {:?}", file_path);
+                    continue;
+                }
+            };
 
             let node_id = format!("file_{}", idx);
             file_id_map.insert(relative_path.clone(), node_id.clone());
@@ -82,11 +85,13 @@ impl GraphBuilder {
             let source_id = format!("file_{}", idx);
 
             // Get the directory of the current file (relative to project root)
-            let file_relative = file_path
-                .strip_prefix(&root_path)
-                .unwrap_or(file_path)
-                .to_string_lossy()
-                .to_string();
+            let file_relative = match file_path.strip_prefix(&root_path) {
+                Ok(path) => path.to_string_lossy().to_string(),
+                Err(_) => {
+                    warn!("Skipping imports for file outside project root: {:?}", file_path);
+                    continue;
+                }
+            };
 
             let file_dir = Path::new(&file_relative)
                 .parent()
@@ -158,11 +163,14 @@ impl GraphBuilder {
                 Ok(content) => match analyzer.extract_symbols(&content) {
                     Ok(symbols) => {
                         for symbol in symbols {
-                            let relative_path = file_path
-                                .strip_prefix(&root_path)
-                                .unwrap_or(file_path)
-                                .to_string_lossy()
-                                .to_string();
+                            // Validate file is within project bounds
+                            let relative_path = match file_path.strip_prefix(&root_path) {
+                                Ok(path) => path.to_string_lossy().to_string(),
+                                Err(_) => {
+                                    warn!("Skipping symbols from file outside project root: {:?}", file_path);
+                                    continue;
+                                }
+                            };
 
                             let node_id = format!("symbol_{}_{}", symbol.name, nodes.len());
                             let node_type = match symbol.kind {
@@ -234,12 +242,14 @@ impl GraphBuilder {
             .flatten()
         {
             if entry.path().is_dir() {
-                let relative_path = entry
-                    .path()
-                    .strip_prefix(&root_path)
-                    .unwrap_or(entry.path())
-                    .to_string_lossy()
-                    .to_string();
+                // Validate directory is within project bounds
+                let relative_path = match entry.path().strip_prefix(&root_path) {
+                    Ok(path) => path.to_string_lossy().to_string(),
+                    Err(_) => {
+                        warn!("Skipping directory outside project root: {:?}", entry.path());
+                        continue;
+                    }
+                };
 
                 if relative_path.is_empty() {
                     continue;
