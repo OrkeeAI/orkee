@@ -86,7 +86,7 @@ Archive & Apply (spec archive)
 - Project context detection
 - Archive workflow
 
-### Phase 4: Export/Import (Days 10-12)
+### Phase 4: Export/Import (Days 10-12) ✅ COMPLETED
 - File materialization
 - Sandbox support
 - Version control integration
@@ -1150,16 +1150,16 @@ WHERE change_id IS NULL;
 - [ ] Test archive workflow (manual testing recommended before production use)
 - [ ] Test CLI commands manually (manual testing recommended before production use)
 
-### Phase 4: Export/Import Support (Days 10-12)
-- [ ] Implement full `materialize_specs` method
-- [ ] Implement `materialize_changes` method
-- [ ] Add archived change materialization
-- [ ] Create import parser for .md files
-- [ ] Handle import conflicts
-- [ ] Add sandbox initialization support
-- [ ] Test round-trip (DB → Files → DB)
-- [ ] Test sandbox materialization
-- [ ] Document export/import process
+### Phase 4: Export/Import Support (Days 10-12) ✅ COMPLETED
+- [x] Implement full `materialize_specs` method
+- [x] Implement `materialize_changes` method
+- [x] Add archived change materialization
+- [x] Create import parser for .md files
+- [x] Handle import conflicts
+- [x] Add sandbox initialization support
+- [x] Test round-trip (DB → Files → DB)
+- [x] Test sandbox materialization
+- [x] Document export/import process
 
 ### Phase 5: Frontend Updates (Days 13-15)
 - [ ] Update PRD analysis types in TypeScript
