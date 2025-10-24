@@ -8,30 +8,84 @@ export class ManualTaskProvider extends BaseTaskProvider {
   public readonly name = 'Manual Tasks';
   public readonly type = TaskProviderType.Manual;
   private apiBaseUrl: string;
-  private projectId?: string;
+  private apiToken?: string;
+  private projectIdCache: Map<string, string> = new Map();
 
-  constructor(options?: { apiBaseUrl?: string }) {
+  constructor(options?: { apiBaseUrl?: string; apiToken?: string }) {
     super();
     this.apiBaseUrl = options?.apiBaseUrl || 'http://localhost:4001';
+    this.apiToken = options?.apiToken;
   }
 
   protected async doInitialize(): Promise<void> {
     // Verify API connection
-    const response = await fetch(`${this.apiBaseUrl}/api/health`);
+    const response = await this.authenticatedFetch(`${this.apiBaseUrl}/api/health`);
     if (!response.ok) {
-      throw new Error('Failed to connect to Orkee API');
+      throw new Error(`Failed to connect to Orkee API (status: ${response.status})`);
     }
+  }
+
+  /**
+   * Handle error responses with cache invalidation and error message extraction
+   */
+  private async handleErrorResponse(
+    response: Response,
+    projectPath: string,
+    operation: string
+  ): Promise<never> {
+    // Clear cache on auth/not-found errors
+    if (response.status === 404 || response.status === 401) {
+      console.debug(`[ManualTaskProvider] Evicting cache for path: ${projectPath} (status: ${response.status})`);
+      this.projectIdCache.delete(projectPath);
+    }
+
+    // Try to parse error message from JSON, fallback to status text
+    let errorMessage = `${operation} (status: ${response.status})`;
+    try {
+      const data = await response.json();
+      if (data.error) {
+        errorMessage = data.error;
+      }
+    } catch {
+      // Non-JSON response, use status text
+      errorMessage = `${errorMessage}: ${response.statusText}`;
+    }
+
+    throw new Error(errorMessage);
+  }
+
+  /**
+   * Make an authenticated fetch request with API token if available
+   */
+  private async authenticatedFetch(url: string, options: RequestInit = {}): Promise<Response> {
+    const headers: Record<string, string> = {
+      ...(options.headers as Record<string, string> || {}),
+    };
+
+    // Only add Content-Type for requests with a body
+    if (options.body && !headers['Content-Type']) {
+      headers['Content-Type'] = 'application/json';
+    }
+
+    if (this.apiToken) {
+      headers['X-API-Token'] = this.apiToken;
+    }
+
+    return fetch(url, {
+      ...options,
+      headers,
+    });
   }
 
   async getTasks(projectPath: string): Promise<Task[]> {
     const projectId = await this.getProjectIdByPath(projectPath);
-    const response = await fetch(`${this.apiBaseUrl}/api/projects/${projectId}/tasks`);
-    const data = await response.json();
+    const response = await this.authenticatedFetch(`${this.apiBaseUrl}/api/projects/${projectId}/tasks`);
 
-    if (!data.success) {
-      throw new Error(data.error || 'Failed to fetch tasks');
+    if (!response.ok) {
+      await this.handleErrorResponse(response, projectPath, 'Failed to fetch tasks');
     }
 
+    const data = await response.json();
     // API returns paginated response: { success, data: { data: [...], pagination: {...} } }
     const tasks = data.data?.data || data.data || [];
     return this.transformTasks(tasks);
@@ -41,17 +95,16 @@ export class ManualTaskProvider extends BaseTaskProvider {
     this.validateTask(task);
 
     const projectId = await this.getProjectIdByPath(projectPath);
-    const response = await fetch(`${this.apiBaseUrl}/api/projects/${projectId}/tasks`, {
+    const response = await this.authenticatedFetch(`${this.apiBaseUrl}/api/projects/${projectId}/tasks`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(this.serializeTask(task)),
     });
 
-    const data = await response.json();
-    if (!data.success) {
-      throw new Error(data.error || 'Failed to create task');
+    if (!response.ok) {
+      await this.handleErrorResponse(response, projectPath, 'Failed to create task');
     }
 
+    const data = await response.json();
     const createdTask = this.transformTask(data.data);
 
     this.emitTaskEvent({
@@ -65,17 +118,16 @@ export class ManualTaskProvider extends BaseTaskProvider {
 
   async updateTask(projectPath: string, taskId: string, updates: Partial<Task>): Promise<Task> {
     const projectId = await this.getProjectIdByPath(projectPath);
-    const response = await fetch(`${this.apiBaseUrl}/api/projects/${projectId}/tasks/${taskId}`, {
+    const response = await this.authenticatedFetch(`${this.apiBaseUrl}/api/projects/${projectId}/tasks/${taskId}`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(this.serializeTask(updates)),
     });
 
-    const data = await response.json();
-    if (!data.success) {
-      throw new Error(data.error || 'Failed to update task');
+    if (!response.ok) {
+      await this.handleErrorResponse(response, projectPath, 'Failed to update task');
     }
 
+    const data = await response.json();
     const updatedTask = this.transformTask(data.data);
 
     this.emitTaskEvent({
@@ -90,14 +142,15 @@ export class ManualTaskProvider extends BaseTaskProvider {
 
   async deleteTask(projectPath: string, taskId: string): Promise<void> {
     const projectId = await this.getProjectIdByPath(projectPath);
-    const response = await fetch(`${this.apiBaseUrl}/api/projects/${projectId}/tasks/${taskId}`, {
+    const response = await this.authenticatedFetch(`${this.apiBaseUrl}/api/projects/${projectId}/tasks/${taskId}`, {
       method: 'DELETE',
     });
 
-    const data = await response.json();
-    if (!data.success) {
-      throw new Error(data.error || 'Failed to delete task');
+    if (!response.ok) {
+      await this.handleErrorResponse(response, projectPath, 'Failed to delete task');
     }
+
+    const data = await response.json();
 
     this.emitTaskEvent({
       type: 'deleted',
@@ -121,23 +174,37 @@ export class ManualTaskProvider extends BaseTaskProvider {
   }
 
   private async getProjectIdByPath(projectPath: string): Promise<string> {
-    if (this.projectId) {
-      return this.projectId;
+    // Check cache for this specific path
+    const cachedId = this.projectIdCache.get(projectPath);
+    if (cachedId) {
+      return cachedId;
     }
 
-    const response = await fetch(`${this.apiBaseUrl}/api/projects/by-path`, {
+    const response = await this.authenticatedFetch(`${this.apiBaseUrl}/api/projects/by-path`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ projectRoot: projectPath }),
     });
 
-    const data = await response.json();
-    if (!data.success) {
-      throw new Error('Project not found');
+    if (!response.ok) {
+      // Try to parse error message from JSON, fallback to status text
+      let errorMessage = `Project not found (status: ${response.status})`;
+      try {
+        const data = await response.json();
+        if (data.error) {
+          errorMessage = data.error;
+        }
+      } catch {
+        errorMessage = `${errorMessage}: ${response.statusText}`;
+      }
+
+      throw new Error(errorMessage);
     }
 
-    this.projectId = data.data.id;
-    return this.projectId;
+    const data = await response.json();
+    const projectId = data.data.id;
+    // Cache the ID for this specific path
+    this.projectIdCache.set(projectPath, projectId);
+    return projectId;
   }
 
   private transformTask(data: any): Task {

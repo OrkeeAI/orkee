@@ -9,6 +9,7 @@ interface UseTasksOptions {
   providerType: TaskProviderType;
   enabled?: boolean;
   apiBaseUrl?: string;
+  apiToken?: string;
 }
 
 export function useTasks({
@@ -17,6 +18,7 @@ export function useTasks({
   providerType,
   enabled = true,
   apiBaseUrl,
+  apiToken,
 }: UseTasksOptions) {
   const queryClient = useQueryClient();
   const [provider, setProvider] = useState<TaskProvider | null>(null);
@@ -27,7 +29,10 @@ export function useTasks({
     const config: TaskProviderConfig = {
       type: providerType,
       projectPath,
-      options: apiBaseUrl ? { apiBaseUrl } : undefined,
+      options: {
+        ...(apiBaseUrl && { apiBaseUrl }),
+        ...(apiToken && { apiToken }),
+      },
     };
     
     const taskProvider = TaskProviderFactory.create(config);
@@ -38,7 +43,7 @@ export function useTasks({
     return () => {
       // Cleanup if needed
     };
-  }, [providerType, projectPath, enabled, apiBaseUrl]);
+  }, [providerType, projectPath, enabled, apiBaseUrl, apiToken]);
 
   const { data: tasks = [], isLoading, error } = useQuery({
     queryKey: ['tasks', projectId, providerType],

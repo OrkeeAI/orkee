@@ -23,6 +23,7 @@ import { DirectorySelector } from '@/components/DirectorySelector';
 import { Check } from 'lucide-react';
 import { useUpdateProject } from '@/hooks/useProjects';
 import { Project, ProjectUpdateInput, ProjectStatus, Priority, TaskSource } from '@/services/projects';
+import { apiRequest } from '@/services/api';
 
 interface ProjectEditDialogProps {
   project: Project | null;
@@ -46,21 +47,18 @@ export function ProjectEditDialog({ project, open, onOpenChange, onProjectUpdate
     
     setCheckingTaskmaster(true);
     try {
-      const response = await fetch('/api/projects/check-taskmaster', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ projectRoot }),
-      });
-      
-      if (response.ok) {
-        const result = await response.json();
-        if (result.success) {
-          setHasTaskmaster(result.data.hasTaskmaster);
-          // Don't auto-change task source when editing existing projects
-          // The user's current selection should be preserved
+      const result = await apiRequest<{ hasTaskmaster: boolean; taskSource: string }>(
+        '/api/projects/check-taskmaster',
+        {
+          method: 'POST',
+          body: JSON.stringify({ projectRoot }),
         }
+      );
+      
+      if (result.success && result.data) {
+        setHasTaskmaster(result.data.hasTaskmaster);
+        // Don't auto-change task source when editing existing projects
+        // The user's current selection should be preserved
       }
     } catch (error) {
       console.error('Failed to check taskmaster folder:', error);

@@ -51,6 +51,13 @@ pub async fn api_token_middleware(
     next: Next,
 ) -> Result<Response, AppError> {
     let path = request.uri().path();
+    let method = request.method();
+
+    // Skip authentication for OPTIONS requests (CORS preflight)
+    if method == axum::http::Method::OPTIONS {
+        debug!(path = %path, "OPTIONS request, skipping token validation for CORS preflight");
+        return Ok(next.run(request).await);
+    }
 
     // Skip authentication for whitelisted paths
     if !requires_authentication(path) {
@@ -149,7 +156,7 @@ mod tests {
 
     fn create_test_app(db: DbState) -> Router {
         Router::new()
-            .route("/api/test", get(test_handler))
+            .route("/api/test", get(test_handler).options(test_handler))
             .route("/api/health", get(test_handler))
             .route("/api/preview/events", get(test_handler))
             .layer(middleware::from_fn_with_state(
@@ -266,6 +273,23 @@ mod tests {
             updated_token.last_used_at.is_some(),
             "last_used_at should be set after use"
         );
+    }
+
+    #[tokio::test]
+    async fn test_options_request_bypasses_auth() {
+        let db = setup_test_db().await;
+        let app = create_test_app(db);
+
+        // OPTIONS request should bypass authentication (CORS preflight)
+        let request = Request::builder()
+            .method("OPTIONS")
+            .uri("/api/test")
+            .body(Body::empty())
+            .unwrap();
+
+        let response = app.oneshot(request).await.unwrap();
+        // Should succeed without authentication token
+        assert_eq!(response.status(), StatusCode::OK);
     }
 
     #[tokio::test]
