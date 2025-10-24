@@ -151,6 +151,7 @@ mod tests {
         Router::new()
             .route("/api/test", get(test_handler))
             .route("/api/health", get(test_handler))
+            .route("/api/preview/events", get(test_handler))
             .layer(middleware::from_fn_with_state(
                 db.clone(),
                 api_token_middleware,
@@ -165,6 +166,20 @@ mod tests {
 
         let request = Request::builder()
             .uri("/api/health")
+            .body(Body::empty())
+            .unwrap();
+
+        let response = app.oneshot(request).await.unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn test_sse_events_endpoint_whitelisted() {
+        let db = setup_test_db().await;
+        let app = create_test_app(db);
+
+        let request = Request::builder()
+            .uri("/api/preview/events")
             .body(Body::empty())
             .unwrap();
 
