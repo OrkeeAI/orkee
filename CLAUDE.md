@@ -58,7 +58,7 @@ Orkee is an AI agent orchestration platform consisting of a Rust CLI server and 
 
 #### Real-Time Updates
 - **SSE Endpoint**: `/api/preview/events` for real-time server state updates
-- **Broadcast Channel**: Capacity of 100 events per subscriber (configurable via `SSE_CHANNEL_CAPACITY` constant)
+- **Broadcast Channel**: Capacity of 200 events per subscriber (configurable via `ORKEE_EVENT_CHANNEL_SIZE` environment variable, range: 10-10000)
 - **Automatic Fallback**: Falls back to 5-second polling if SSE fails after 3 retry attempts (2-second delays)
 - **Connection Modes**:
   - `sse` (live): Active SSE connection with real-time updates
