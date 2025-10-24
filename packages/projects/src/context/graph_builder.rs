@@ -76,26 +76,39 @@ impl GraphBuilder {
         }
 
         // Analyze dependencies and create edges
-        // For now, we'll use a simple import detection
         for (idx, file_path) in files.iter().enumerate() {
             let imports = self.extract_imports(file_path)?;
             let source_id = format!("file_{}", idx);
 
-            for import_path in imports {
-                // Try to resolve the import to a file in our project
-                if let Some(target_id) = file_id_map.get(&import_path) {
-                    let edge_id = format!("edge_{}_{}", source_id, target_id);
-                    edges.push(GraphEdge {
-                        id: edge_id,
-                        source: source_id.clone(),
-                        target: target_id.clone(),
-                        edge_type: EdgeType::Import,
-                        weight: Some(1.0),
-                    });
+            // Get the directory of the current file (relative to project root)
+            let file_relative = file_path
+                .strip_prefix(&root_path)
+                .unwrap_or(file_path)
+                .to_string_lossy()
+                .to_string();
 
-                    // Also add to dependency graph
-                    self.dependency_graph
-                        .add_edge(source_id.clone(), target_id.clone());
+            let file_dir = Path::new(&file_relative)
+                .parent()
+                .and_then(|p| p.to_str())
+                .unwrap_or("");
+
+            for import_path in imports {
+                // Resolve the import path relative to the current file's directory
+                if let Some(resolved_path) = self.resolve_import_path(&import_path, file_dir, &file_id_map) {
+                    if let Some(target_id) = file_id_map.get(&resolved_path) {
+                        let edge_id = format!("edge_{}_{}", source_id, target_id);
+                        edges.push(GraphEdge {
+                            id: edge_id,
+                            source: source_id.clone(),
+                            target: target_id.clone(),
+                            edge_type: EdgeType::Import,
+                            weight: Some(1.0),
+                        });
+
+                        // Also add to dependency graph
+                        self.dependency_graph
+                            .add_edge(source_id.clone(), target_id.clone());
+                    }
                 }
             }
         }
@@ -337,6 +350,70 @@ impl GraphBuilder {
         }
 
         Ok(imports)
+    }
+
+    /// Resolve a relative import path to a project-relative path
+    fn resolve_import_path(
+        &self,
+        import_path: &str,
+        file_dir: &str,
+        file_id_map: &HashMap<String, String>,
+    ) -> Option<String> {
+        // Join the file directory with the import path
+        let joined = if file_dir.is_empty() {
+            PathBuf::from(import_path)
+        } else {
+            PathBuf::from(file_dir).join(import_path)
+        };
+
+        // Normalize the path (resolve .. and .)
+        let normalized = self.normalize_path(&joined);
+
+        // Try the path as-is first
+        if file_id_map.contains_key(&normalized) {
+            return Some(normalized);
+        }
+
+        // If not found, try adding common extensions
+        let extensions = [".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs"];
+        for ext in &extensions {
+            let with_ext = format!("{}{}", normalized, ext);
+            if file_id_map.contains_key(&with_ext) {
+                return Some(with_ext);
+            }
+        }
+
+        // Try as index file
+        for ext in &extensions {
+            let index_path = format!("{}/index{}", normalized, ext);
+            if file_id_map.contains_key(&index_path) {
+                return Some(index_path);
+            }
+        }
+
+        None
+    }
+
+    /// Normalize a path by resolving . and .. components
+    fn normalize_path(&self, path: &Path) -> String {
+        let mut components = Vec::new();
+
+        for component in path.components() {
+            match component {
+                std::path::Component::Normal(c) => {
+                    components.push(c.to_string_lossy().to_string());
+                }
+                std::path::Component::ParentDir => {
+                    components.pop();
+                }
+                std::path::Component::CurDir => {
+                    // Skip current directory
+                }
+                _ => {}
+            }
+        }
+
+        components.join("/")
     }
 
     /// Estimate token count for a file

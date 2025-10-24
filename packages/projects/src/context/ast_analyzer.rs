@@ -154,17 +154,13 @@ impl AstAnalyzer {
             "class_declaration" | "class" => SymbolKind::Class,
             "interface_declaration" => SymbolKind::Interface,
             "variable_declarator" => SymbolKind::Variable,
-            "import_statement" => SymbolKind::Import,
-            "export_statement" => SymbolKind::Export,
+            // Skip import/export statements - they're not meaningful symbols
             _ => return None,
         };
 
-        let name = if let Some(name_node) = node.child_by_field_name("name") {
-            source[name_node.byte_range()].to_string()
-        } else {
-            // For unnamed functions or expressions
-            format!("<anonymous {}>", node.kind())
-        };
+        // Skip unnamed symbols - they clutter the graph
+        let name_node = node.child_by_field_name("name")?;
+        let name = source[name_node.byte_range()].to_string();
 
         Some(Symbol {
             name,
