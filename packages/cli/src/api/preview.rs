@@ -52,7 +52,10 @@ impl SseConnectionTracker {
 
     /// Try to acquire a connection slot for the given IP
     /// Returns Ok(guard) if successful, Err if limit exceeded
-    pub fn try_acquire(&self, ip: IpAddr) -> Result<SseConnectionGuard, SseConnectionLimitExceeded> {
+    pub fn try_acquire(
+        &self,
+        ip: IpAddr,
+    ) -> Result<SseConnectionGuard, SseConnectionLimitExceeded> {
         let mut connections = self.connections.lock().unwrap();
         let count = connections.entry(ip).or_insert(0);
 
