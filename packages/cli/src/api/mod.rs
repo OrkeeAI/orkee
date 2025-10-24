@@ -133,6 +133,7 @@ pub async fn create_router_with_options(
     let preview_state = PreviewState {
         preview_manager: preview_manager.clone(),
         project_manager: project_manager.clone(),
+        sse_tracker: preview::SseConnectionTracker::new(),
     };
 
     // Create preview router with its own state

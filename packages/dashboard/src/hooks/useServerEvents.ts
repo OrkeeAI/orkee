@@ -14,6 +14,56 @@ interface ServerEvent {
   error?: string;
 }
 
+/**
+ * Sanitize server error messages to prevent information leakage
+ * Removes file paths, stack traces, and other sensitive details
+ */
+function sanitizeErrorMessage(rawError: string): string {
+  // Keep the raw error in console for debugging
+  console.error('[SSE] Raw server error:', rawError);
+
+  // Remove file paths (absolute and relative)
+  // Patterns: /path/to/file, C:\path\to\file, ./relative/path, ~/home/path
+  let sanitized = rawError.replace(/(?:[A-Za-z]:)?(?:\/|\\)[\w/\\\-._]+/g, '[path]');
+
+  // Remove stack traces (lines starting with "at " or containing file:line:col)
+  sanitized = sanitized.split('\n')[0]; // Take only first line
+
+  // Remove common internal error prefixes
+  sanitized = sanitized.replace(/^Error:\s*/i, '');
+  sanitized = sanitized.replace(/^Failed to\s+/i, '');
+
+  // Map common technical errors to user-friendly messages
+  const errorMappings: Record<string, string> = {
+    'ENOENT': 'File or directory not found',
+    'EACCES': 'Permission denied',
+    'EADDRINUSE': 'Port already in use',
+    'ECONNREFUSED': 'Connection refused',
+    'ENOTFOUND': 'Resource not found',
+    'ETIMEDOUT': 'Connection timed out',
+    'EPERM': 'Operation not permitted',
+  };
+
+  // Check for known error codes
+  for (const [code, message] of Object.entries(errorMappings)) {
+    if (sanitized.includes(code)) {
+      return message;
+    }
+  }
+
+  // Limit length to prevent verbose error messages
+  if (sanitized.length > 100) {
+    sanitized = sanitized.substring(0, 100) + '...';
+  }
+
+  // If error is now empty or too generic, provide a default message
+  if (!sanitized.trim() || sanitized.length < 5) {
+    return 'An error occurred while starting the server';
+  }
+
+  return sanitized.trim();
+}
+
 // SSE configuration constants with environment variable overrides
 const MAX_RETRIES = (() => {
   const val = parseInt(import.meta.env.VITE_SSE_MAX_RETRIES, 10);
@@ -130,11 +180,12 @@ export function useServerEvents() {
                 }
                 break;
               case 'server_error':
-                console.error('[SSE] Server error:', serverEvent.error);
                 if (serverEvent.project_id && serverEvent.error) {
+                  // Sanitize error message before displaying to users
+                  const sanitizedError = sanitizeErrorMessage(serverEvent.error);
                   setServerErrors((prev) => {
                     const next = new Map(prev);
-                    next.set(serverEvent.project_id!, serverEvent.error!);
+                    next.set(serverEvent.project_id!, sanitizedError);
                     return next;
                   });
                 }

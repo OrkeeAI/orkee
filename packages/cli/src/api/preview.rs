@@ -1,5 +1,5 @@
 use axum::{
-    extract::{Path, Query, State},
+    extract::{ConnectInfo, Path, Query, State},
     http::StatusCode,
     response::{
         sse::{Event, KeepAlive, Sse},
@@ -17,15 +17,107 @@ use orkee_preview::{
 };
 use orkee_projects::manager::ProjectsManager;
 use serde::Deserialize;
+use std::collections::HashMap;
 use std::convert::Infallible;
-use std::sync::Arc;
-use tracing::{error, info};
+use std::net::{IpAddr, SocketAddr};
+use std::sync::{Arc, Mutex};
+use tracing::{error, info, warn};
+
+/// Maximum concurrent SSE connections per IP address
+/// This prevents a single client from exhausting server resources by opening unlimited connections
+const MAX_SSE_CONNECTIONS_PER_IP: usize = 3;
+
+/// Error returned when SSE connection limit is exceeded
+#[derive(Debug)]
+pub struct SseConnectionLimitExceeded;
+
+/// Tracks concurrent SSE connections per IP address
+#[derive(Clone)]
+pub struct SseConnectionTracker {
+    connections: Arc<Mutex<HashMap<IpAddr, usize>>>,
+}
+
+impl Default for SseConnectionTracker {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl SseConnectionTracker {
+    pub fn new() -> Self {
+        Self {
+            connections: Arc::new(Mutex::new(HashMap::new())),
+        }
+    }
+
+    /// Try to acquire a connection slot for the given IP
+    /// Returns Ok(guard) if successful, Err if limit exceeded
+    pub fn try_acquire(&self, ip: IpAddr) -> Result<SseConnectionGuard, SseConnectionLimitExceeded> {
+        let mut connections = self.connections.lock().unwrap();
+        let count = connections.entry(ip).or_insert(0);
+
+        if *count >= MAX_SSE_CONNECTIONS_PER_IP {
+            warn!(
+                ip = %ip,
+                current = %count,
+                max = MAX_SSE_CONNECTIONS_PER_IP,
+                audit = true,
+                "SSE connection limit exceeded"
+            );
+            return Err(SseConnectionLimitExceeded);
+        }
+
+        *count += 1;
+        info!(
+            ip = %ip,
+            count = %count,
+            max = MAX_SSE_CONNECTIONS_PER_IP,
+            "SSE connection acquired"
+        );
+
+        Ok(SseConnectionGuard {
+            ip,
+            tracker: self.clone(),
+        })
+    }
+
+    /// Release a connection slot for the given IP
+    fn release(&self, ip: IpAddr) {
+        let mut connections = self.connections.lock().unwrap();
+        if let Some(count) = connections.get_mut(&ip) {
+            *count = count.saturating_sub(1);
+            info!(
+                ip = %ip,
+                remaining = %count,
+                "SSE connection released"
+            );
+
+            // Clean up entry if count reaches zero
+            if *count == 0 {
+                connections.remove(&ip);
+            }
+        }
+    }
+}
+
+/// RAII guard that automatically releases an SSE connection slot when dropped
+pub struct SseConnectionGuard {
+    ip: IpAddr,
+    tracker: SseConnectionTracker,
+}
+
+impl Drop for SseConnectionGuard {
+    fn drop(&mut self) {
+        self.tracker.release(self.ip);
+    }
+}
 
 /// Shared state for preview endpoints
 #[derive(Clone)]
 pub struct PreviewState {
     pub preview_manager: Arc<PreviewManager>,
     pub project_manager: Arc<ProjectsManager>,
+    pub sse_tracker: SseConnectionTracker,
 }
 
 /// Start a development server for a project
@@ -458,9 +550,21 @@ pub async fn health_check() -> Json<ApiResponse<String>> {
 
 /// SSE endpoint for real-time server events
 pub async fn server_events(
+    ConnectInfo(addr): ConnectInfo<SocketAddr>,
     State(state): State<PreviewState>,
-) -> Sse<impl Stream<Item = Result<Event, Infallible>>> {
-    info!("Client connected to server events stream");
+) -> Result<Sse<impl Stream<Item = Result<Event, Infallible>>>, StatusCode> {
+    let ip = addr.ip();
+
+    // Try to acquire a connection slot - this limits concurrent connections per IP
+    let _guard = match state.sse_tracker.try_acquire(ip) {
+        Ok(guard) => guard,
+        Err(_) => {
+            // Too many concurrent connections from this IP
+            return Err(StatusCode::TOO_MANY_REQUESTS);
+        }
+    };
+
+    info!(ip = %ip, "Client connected to server events stream");
 
     let rx = state.preview_manager.subscribe();
 
@@ -478,15 +582,16 @@ pub async fn server_events(
     // Clone preview_manager for use in the stream closure
     let preview_manager = state.preview_manager.clone();
 
-    // Create the stream - pass initial_event and preview_manager into the closure state
+    // Create the stream - pass initial_event, preview_manager, and guard into the closure state
+    // The guard will be held for the lifetime of the stream, ensuring proper cleanup
     let stream = stream::unfold(
-        (rx, Some(initial_event), preview_manager),
-        |(mut rx, initial_opt, preview_manager)| async move {
+        (rx, Some(initial_event), preview_manager, _guard),
+        |(mut rx, initial_opt, preview_manager, guard)| async move {
             if let Some(initial_event) = initial_opt {
                 // Send initial state as first event
                 if let Ok(data) = serde_json::to_string(&initial_event) {
                     let event = Event::default().data(data);
-                    return Some((Ok(event), (rx, None, preview_manager)));
+                    return Some((Ok(event), (rx, None, preview_manager, guard)));
                 }
             }
 
@@ -495,7 +600,7 @@ pub async fn server_events(
                 Ok(server_event) => {
                     if let Ok(data) = serde_json::to_string(&server_event) {
                         let event = Event::default().data(data);
-                        Some((Ok(event), (rx, None, preview_manager)))
+                        Some((Ok(event), (rx, None, preview_manager, guard)))
                     } else {
                         // JSON serialization failed, skip this event
                         None
@@ -521,20 +626,20 @@ pub async fn server_events(
 
                     if let Ok(data) = serde_json::to_string(&sync_event) {
                         let event = Event::default().data(data);
-                        Some((Ok(event), (rx, None, preview_manager)))
+                        Some((Ok(event), (rx, None, preview_manager, guard)))
                     } else {
                         None
                     }
                 }
                 Err(_) => {
-                    // Channel closed
+                    // Channel closed - guard will be dropped here, releasing the connection slot
                     None
                 }
             }
         },
     );
 
-    Sse::new(stream).keep_alive(KeepAlive::default())
+    Ok(Sse::new(stream).keep_alive(KeepAlive::default()))
 }
 
 #[cfg(test)]
