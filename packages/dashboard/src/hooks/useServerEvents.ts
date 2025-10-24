@@ -155,7 +155,11 @@ export function useServerEvents() {
                 break;
               case 'server_started':
                 if (serverEvent.project_id) {
-                  setActiveServers((prev) => new Set([...prev, serverEvent.project_id!]));
+                  setActiveServers((prev) => {
+                    const next = new Set(prev);
+                    next.add(serverEvent.project_id!);
+                    return next;
+                  });
                   // Clear any previous errors for this server
                   setServerErrors((prev) => {
                     const next = new Map(prev);

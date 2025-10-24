@@ -115,6 +115,26 @@ impl Drop for SseConnectionGuard {
     }
 }
 
+/// Wrapper that guarantees guard cleanup even if stream is dropped without being consumed
+struct GuardedSseStream<S> {
+    stream: std::pin::Pin<Box<S>>,
+    _guard: SseConnectionGuard,
+}
+
+impl<S, T, E> Stream for GuardedSseStream<S>
+where
+    S: Stream<Item = Result<T, E>>,
+{
+    type Item = Result<T, E>;
+
+    fn poll_next(
+        mut self: std::pin::Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<Option<Self::Item>> {
+        self.stream.as_mut().poll_next(cx)
+    }
+}
+
 /// Shared state for preview endpoints
 #[derive(Clone)]
 pub struct PreviewState {
@@ -585,16 +605,15 @@ pub async fn server_events(
     // Clone preview_manager for use in the stream closure
     let preview_manager = state.preview_manager.clone();
 
-    // Create the stream - pass initial_event, preview_manager, and guard into the closure state
-    // The guard will be held for the lifetime of the stream, ensuring proper cleanup
-    let stream = stream::unfold(
-        (rx, Some(initial_event), preview_manager, _guard),
-        |(mut rx, initial_opt, preview_manager, guard)| async move {
+    // Create the event stream without the guard in unfold state
+    let event_stream = stream::unfold(
+        (rx, Some(initial_event), preview_manager),
+        |(mut rx, initial_opt, preview_manager)| async move {
             if let Some(initial_event) = initial_opt {
                 // Send initial state as first event
                 if let Ok(data) = serde_json::to_string(&initial_event) {
                     let event = Event::default().data(data);
-                    return Some((Ok(event), (rx, None, preview_manager, guard)));
+                    return Some((Ok(event), (rx, None, preview_manager)));
                 }
             }
 
@@ -603,7 +622,7 @@ pub async fn server_events(
                 Ok(server_event) => {
                     if let Ok(data) = serde_json::to_string(&server_event) {
                         let event = Event::default().data(data);
-                        Some((Ok(event), (rx, None, preview_manager, guard)))
+                        Some((Ok(event), (rx, None, preview_manager)))
                     } else {
                         // JSON serialization failed, skip this event
                         None
@@ -629,20 +648,26 @@ pub async fn server_events(
 
                     if let Ok(data) = serde_json::to_string(&sync_event) {
                         let event = Event::default().data(data);
-                        Some((Ok(event), (rx, None, preview_manager, guard)))
+                        Some((Ok(event), (rx, None, preview_manager)))
                     } else {
                         None
                     }
                 }
                 Err(_) => {
-                    // Channel closed - guard will be dropped here, releasing the connection slot
+                    // Channel closed
                     None
                 }
             }
         },
     );
 
-    Ok(Sse::new(stream).keep_alive(KeepAlive::default()))
+    // Wrap stream with guard to guarantee cleanup even on abrupt disconnection
+    let guarded_stream = GuardedSseStream {
+        stream: Box::pin(event_stream),
+        _guard,
+    };
+
+    Ok(Sse::new(guarded_stream).keep_alive(KeepAlive::default()))
 }
 
 #[cfg(test)]
