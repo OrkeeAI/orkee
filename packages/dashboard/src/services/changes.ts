@@ -5,7 +5,7 @@ import type { PaginationParams, PaginatedResponse } from '@/types/pagination';
 import { buildPaginationQuery } from '@/types/pagination';
 import type { ValidationError } from './prds';
 
-export type ChangeStatus = 'proposal' | 'in_review' | 'approved' | 'in_progress' | 'archived';
+export type ChangeStatus = 'draft' | 'review' | 'approved' | 'implementing' | 'completed' | 'archived';
 export type DeltaType = 'added' | 'modified' | 'removed' | 'renamed';
 
 export interface SpecChange {
@@ -23,6 +23,8 @@ export interface SpecChange {
   createdBy: string;
   createdAt: string;
   updatedAt: string;
+  approvedBy?: string;
+  approvedAt?: string;
   archivedAt?: string;
 }
 
@@ -181,6 +183,39 @@ export class ChangesService {
     }
 
     return response.data.data || [];
+  }
+
+  async updateChangeStatus(
+    projectId: string,
+    changeId: string,
+    status: ChangeStatus,
+    metadata?: {
+      approvedBy?: string;
+      notes?: string;
+    }
+  ): Promise<ChangeWithDeltas> {
+    const { apiRequest } = await import('./api');
+    const result = await apiRequest<ApiResponse<ChangeWithDeltas>>(
+      `/api/projects/${projectId}/changes/${changeId}/status`,
+      {
+        method: 'PUT',
+        body: JSON.stringify({ status, ...metadata }),
+      }
+    );
+
+    if (!result.success || !result.data) {
+      throw new Error(result.error || 'Failed to update change status');
+    }
+
+    if (!result.data.success) {
+      throw new Error(result.data.error || 'Failed to update change status');
+    }
+
+    if (!result.data.data) {
+      throw new Error('No change data returned');
+    }
+
+    return result.data.data;
   }
 }
 

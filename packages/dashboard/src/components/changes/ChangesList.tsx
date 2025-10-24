@@ -50,19 +50,20 @@ export function ChangesList({ projectId, onSelectChange }: ChangesListProps) {
   };
 
   const getStatusBadge = (status: ChangeStatus) => {
-    const variants: Record<ChangeStatus, { variant: 'default' | 'secondary' | 'outline' | 'destructive'; icon: React.ReactNode }> = {
-      proposal: { variant: 'outline', icon: <Clock className="h-3 w-3 mr-1" /> },
-      in_review: { variant: 'secondary', icon: <FileEdit className="h-3 w-3 mr-1" /> },
-      approved: { variant: 'default', icon: <CheckCircle2 className="h-3 w-3 mr-1" /> },
-      in_progress: { variant: 'secondary', icon: <Clock className="h-3 w-3 mr-1" /> },
-      archived: { variant: 'outline', icon: <Archive className="h-3 w-3 mr-1" /> },
+    const variants: Record<ChangeStatus, { variant: 'default' | 'secondary' | 'outline' | 'destructive'; icon: React.ReactNode; label: string }> = {
+      draft: { variant: 'outline', icon: <Clock className="h-3 w-3 mr-1" />, label: 'Draft' },
+      review: { variant: 'secondary', icon: <FileEdit className="h-3 w-3 mr-1" />, label: 'In Review' },
+      approved: { variant: 'default', icon: <CheckCircle2 className="h-3 w-3 mr-1" />, label: 'Approved' },
+      implementing: { variant: 'secondary', icon: <Clock className="h-3 w-3 mr-1" />, label: 'Implementing' },
+      completed: { variant: 'default', icon: <CheckCircle2 className="h-3 w-3 mr-1" />, label: 'Completed' },
+      archived: { variant: 'outline', icon: <Archive className="h-3 w-3 mr-1" />, label: 'Archived' },
     };
 
-    const { variant, icon } = variants[status] || variants.proposal;
+    const { variant, icon, label } = variants[status] || variants.draft;
     return (
       <Badge variant={variant} className="flex items-center gap-1">
         {icon}
-        {status.replace('_', ' ')}
+        {label}
       </Badge>
     );
   };

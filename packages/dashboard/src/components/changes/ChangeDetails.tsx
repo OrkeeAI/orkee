@@ -1,6 +1,7 @@
 // ABOUTME: OpenSpec change details view displaying proposal, tasks, design, and deltas
 // ABOUTME: Shows validation errors and provides actions for validation and archiving
-import { FileEdit, CheckCircle2, XCircle, AlertTriangle, Package } from 'lucide-react';
+import { useState } from 'react';
+import { FileEdit, CheckCircle2, XCircle, AlertTriangle, Package, Play, RotateCcw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -10,8 +11,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeSanitize from 'rehype-sanitize';
-import { useChange, useValidateChange, useArchiveChange } from '@/hooks/useChanges';
-import type { DeltaType } from '@/services/changes';
+import { useChange, useValidateChange, useArchiveChange, useUpdateChangeStatus } from '@/hooks/useChanges';
+import type { DeltaType, ChangeStatus } from '@/services/changes';
+import { ApprovalDialog } from './ApprovalDialog';
+import { ApprovalHistory } from './ApprovalHistory';
 
 interface ChangeDetailsProps {
   projectId: string;
@@ -22,6 +25,8 @@ export function ChangeDetails({ projectId, changeId }: ChangeDetailsProps) {
   const { data: change, isLoading, error } = useChange(projectId, changeId);
   const validateMutation = useValidateChange(projectId);
   const archiveMutation = useArchiveChange(projectId);
+  const updateStatusMutation = useUpdateChangeStatus(projectId);
+  const [showApprovalDialog, setShowApprovalDialog] = useState(false);
 
   const handleValidate = () => {
     validateMutation.mutate({ changeId, strict: true });
@@ -31,6 +36,55 @@ export function ChangeDetails({ projectId, changeId }: ChangeDetailsProps) {
     if (confirm('Archive this change and apply deltas to specifications? This action cannot be undone.')) {
       archiveMutation.mutate({ changeId, applySpecs: true });
     }
+  };
+
+  const handleStatusTransition = (status: ChangeStatus, confirmMessage?: string) => {
+    if (confirmMessage) {
+      if (!confirm(confirmMessage)) return;
+    }
+    updateStatusMutation.mutate({ changeId, status });
+  };
+
+  const handleApprove = (notes?: string) => {
+    updateStatusMutation.mutate(
+      {
+        changeId,
+        status: 'approved',
+        metadata: {
+          approvedBy: change?.createdBy,
+          notes,
+        },
+      },
+      {
+        onSuccess: () => {
+          setShowApprovalDialog(false);
+        },
+      }
+    );
+  };
+
+  const getStatusBadgeVariant = (status: ChangeStatus): 'default' | 'secondary' | 'outline' | 'destructive' => {
+    const variants: Record<ChangeStatus, 'default' | 'secondary' | 'outline' | 'destructive'> = {
+      draft: 'outline',
+      review: 'secondary',
+      approved: 'default',
+      implementing: 'secondary',
+      completed: 'default',
+      archived: 'outline',
+    };
+    return variants[status] || 'outline';
+  };
+
+  const getStatusLabel = (status: ChangeStatus): string => {
+    const labels: Record<ChangeStatus, string> = {
+      draft: 'Draft',
+      review: 'In Review',
+      approved: 'Approved',
+      implementing: 'Implementing',
+      completed: 'Completed',
+      archived: 'Archived',
+    };
+    return labels[status] || status;
   };
 
   const getDeltaTypeBadge = (deltaType: DeltaType) => {
@@ -102,8 +156,8 @@ export function ChangeDetails({ projectId, changeId }: ChangeDetailsProps) {
               </CardDescription>
             </div>
             <div className="flex flex-col gap-2">
-              <Badge variant={change.status === 'archived' ? 'outline' : 'default'}>
-                {change.status.replace('_', ' ')}
+              <Badge variant={getStatusBadgeVariant(change.status)}>
+                {getStatusLabel(change.status)}
               </Badge>
               {change.validationStatus === 'valid' && (
                 <Badge variant="default" className="flex items-center gap-1">
@@ -115,6 +169,11 @@ export function ChangeDetails({ projectId, changeId }: ChangeDetailsProps) {
                 <Badge variant="destructive" className="flex items-center gap-1">
                   <XCircle className="h-3 w-3" />
                   Invalid
+                </Badge>
+              )}
+              {change.approvedBy && change.approvedAt && (
+                <Badge variant="outline" className="text-xs">
+                  Approved by {change.approvedBy}
                 </Badge>
               )}
             </div>
@@ -141,8 +200,9 @@ export function ChangeDetails({ projectId, changeId }: ChangeDetailsProps) {
         )}
 
         <CardContent>
-          <div className="flex items-center gap-2">
-            {change.status !== 'archived' && (
+          <div className="flex items-center gap-2 flex-wrap">
+            {/* Draft Status Actions */}
+            {change.status === 'draft' && (
               <>
                 <Button
                   variant="outline"
@@ -154,26 +214,122 @@ export function ChangeDetails({ projectId, changeId }: ChangeDetailsProps) {
                 {change.validationStatus === 'valid' && (
                   <Button
                     variant="default"
-                    onClick={handleArchive}
-                    disabled={archiveMutation.isPending}
+                    onClick={() =>
+                      handleStatusTransition('review', 'Submit this change for review?')
+                    }
+                    disabled={updateStatusMutation.isPending}
                   >
-                    {archiveMutation.isPending ? 'Archiving...' : 'Archive & Apply'}
+                    Submit for Review
                   </Button>
                 )}
               </>
+            )}
+
+            {/* Review Status Actions */}
+            {change.status === 'review' && (
+              <>
+                <Button
+                  variant="outline"
+                  onClick={handleValidate}
+                  disabled={validateMutation.isPending}
+                >
+                  {validateMutation.isPending ? 'Validating...' : 'Validate'}
+                </Button>
+                {change.validationStatus === 'valid' && (
+                  <Button
+                    variant="default"
+                    onClick={() => setShowApprovalDialog(true)}
+                    disabled={updateStatusMutation.isPending}
+                  >
+                    Approve Change
+                  </Button>
+                )}
+                <Button
+                  variant="outline"
+                  onClick={() =>
+                    handleStatusTransition('draft', 'Request changes and return to draft?')
+                  }
+                  disabled={updateStatusMutation.isPending}
+                >
+                  <RotateCcw className="h-4 w-4 mr-2" />
+                  Request Changes
+                </Button>
+              </>
+            )}
+
+            {/* Approved Status Actions */}
+            {change.status === 'approved' && (
+              <>
+                <Button
+                  variant="default"
+                  onClick={() =>
+                    handleStatusTransition('implementing', 'Begin implementing this change?')
+                  }
+                  disabled={updateStatusMutation.isPending}
+                >
+                  <Play className="h-4 w-4 mr-2" />
+                  Start Implementation
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() =>
+                    handleStatusTransition('review', 'Revoke approval and return to review?')
+                  }
+                  disabled={updateStatusMutation.isPending}
+                >
+                  Revoke Approval
+                </Button>
+              </>
+            )}
+
+            {/* Implementing Status Actions */}
+            {change.status === 'implementing' && (
+              <>
+                <Button
+                  variant="default"
+                  onClick={() =>
+                    handleStatusTransition('completed', 'Mark implementation as complete?')
+                  }
+                  disabled={updateStatusMutation.isPending}
+                >
+                  <CheckCircle2 className="h-4 w-4 mr-2" />
+                  Mark Complete
+                </Button>
+              </>
+            )}
+
+            {/* Completed Status Actions */}
+            {change.status === 'completed' && (
+              <>
+                <Button
+                  variant="default"
+                  onClick={handleArchive}
+                  disabled={archiveMutation.isPending}
+                >
+                  {archiveMutation.isPending ? 'Archiving...' : 'Archive & Apply'}
+                </Button>
+              </>
+            )}
+
+            {/* Archived Status - No Actions */}
+            {change.status === 'archived' && (
+              <p className="text-sm text-muted-foreground">
+                This change has been archived and applied to specifications.
+              </p>
             )}
           </div>
         </CardContent>
       </Card>
 
       <Tabs defaultValue="proposal" className="w-full">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="proposal">Proposal</TabsTrigger>
           <TabsTrigger value="tasks">Tasks</TabsTrigger>
           <TabsTrigger value="design">Design</TabsTrigger>
           <TabsTrigger value="deltas">
             Deltas ({change.deltas?.length || 0})
           </TabsTrigger>
+          <TabsTrigger value="history">History</TabsTrigger>
         </TabsList>
 
         <TabsContent value="proposal">
@@ -268,7 +424,22 @@ export function ChangeDetails({ projectId, changeId }: ChangeDetailsProps) {
             )}
           </div>
         </TabsContent>
+
+        <TabsContent value="history">
+          <ApprovalHistory change={change} />
+        </TabsContent>
       </Tabs>
+
+      {/* Approval Dialog */}
+      {change && (
+        <ApprovalDialog
+          open={showApprovalDialog}
+          onOpenChange={setShowApprovalDialog}
+          change={change}
+          onApprove={handleApprove}
+          isApproving={updateStatusMutation.isPending}
+        />
+      )}
     </div>
   );
 }

@@ -170,3 +170,65 @@ export function useDeltas(projectId: string, changeId: string) {
     staleTime: 5 * 60 * 1000,
   });
 }
+
+export function useUpdateChangeStatus(projectId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      changeId,
+      status,
+      metadata,
+    }: {
+      changeId: string;
+      status: ChangeStatus;
+      metadata?: { approvedBy?: string; notes?: string };
+    }) => changesService.updateChangeStatus(projectId, changeId, status, metadata),
+    onMutate: async ({ changeId, status, metadata }) => {
+      await queryClient.cancelQueries({ queryKey: queryKeys.changeDetail(projectId, changeId) });
+      await queryClient.cancelQueries({ queryKey: queryKeys.changesList(projectId) });
+
+      const previousChange = queryClient.getQueryData<ChangeWithDeltas>(
+        queryKeys.changeDetail(projectId, changeId)
+      );
+      const previousChanges = queryClient.getQueryData<ChangeListItem[]>(
+        queryKeys.changesList(projectId)
+      );
+
+      if (previousChange) {
+        const updatedChange: ChangeWithDeltas = {
+          ...previousChange,
+          status,
+          approvedBy: metadata?.approvedBy || previousChange.approvedBy,
+          approvedAt: status === 'approved' ? new Date().toISOString() : previousChange.approvedAt,
+        };
+        queryClient.setQueryData(queryKeys.changeDetail(projectId, changeId), updatedChange);
+      }
+
+      if (previousChanges) {
+        queryClient.setQueryData<ChangeListItem[]>(
+          queryKeys.changesList(projectId),
+          (old = []) =>
+            old.map(c => (c.id === changeId ? { ...c, status } : c))
+        );
+      }
+
+      return { previousChange, previousChanges };
+    },
+    onError: (_err, { changeId }, context) => {
+      if (context?.previousChange) {
+        queryClient.setQueryData(
+          queryKeys.changeDetail(projectId, changeId),
+          context.previousChange
+        );
+      }
+      if (context?.previousChanges) {
+        queryClient.setQueryData(queryKeys.changesList(projectId), context.previousChanges);
+      }
+    },
+    onSuccess: (_result, { changeId }) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.changeDetail(projectId, changeId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.changesList(projectId) });
+    },
+  });
+}
