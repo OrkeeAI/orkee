@@ -1,10 +1,11 @@
 use crate::api;
 use crate::api::preview::SseConnectionTracker;
 use axum::body::Body;
+use axum::extract::connect_info::ConnectInfo;
 use axum::http::Request;
 use axum::http::{Method, StatusCode};
 use serial_test::serial;
-use std::net::IpAddr;
+use std::net::{IpAddr, SocketAddr};
 use std::str::FromStr;
 use tower::ServiceExt;
 
@@ -275,6 +276,51 @@ async fn test_discover_servers_endpoint() {
         response.status(),
         StatusCode::OK,
         "Discover servers endpoint should return OK"
+    );
+}
+
+/// Test SSE endpoint requires authentication via query parameter
+#[tokio::test]
+async fn test_sse_endpoint_requires_auth_token() {
+    let app = api::create_router().await;
+
+    // Create a test socket address for ConnectInfo
+    let test_addr: SocketAddr = "127.0.0.1:12345".parse().unwrap();
+
+    // Test 1: No token provided - should fail with 401
+    let mut request = Request::builder()
+        .method(Method::GET)
+        .uri("/api/preview/events")
+        .header("accept", "text/event-stream")
+        .body(Body::empty())
+        .unwrap();
+
+    // Add ConnectInfo extension that the handler expects
+    request.extensions_mut().insert(ConnectInfo(test_addr));
+
+    let response = app.clone().oneshot(request).await.unwrap();
+    assert_eq!(
+        response.status(),
+        StatusCode::UNAUTHORIZED,
+        "SSE endpoint without token should return 401 Unauthorized"
+    );
+
+    // Test 2: Invalid token provided - should fail with 401
+    let mut request = Request::builder()
+        .method(Method::GET)
+        .uri("/api/preview/events?token=invalid-token-12345")
+        .header("accept", "text/event-stream")
+        .body(Body::empty())
+        .unwrap();
+
+    // Add ConnectInfo extension that the handler expects
+    request.extensions_mut().insert(ConnectInfo(test_addr));
+
+    let response = app.oneshot(request).await.unwrap();
+    assert_eq!(
+        response.status(),
+        StatusCode::UNAUTHORIZED,
+        "SSE endpoint with invalid token should return 401 Unauthorized"
     );
 }
 

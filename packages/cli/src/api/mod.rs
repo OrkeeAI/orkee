@@ -134,6 +134,7 @@ pub async fn create_router_with_options(
         preview_manager: preview_manager.clone(),
         project_manager: project_manager.clone(),
         sse_tracker: preview::SseConnectionTracker::new(),
+        db_state: db_state.clone(),
     };
 
     // Create preview router with its own state

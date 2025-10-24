@@ -20,7 +20,7 @@ const WHITELISTED_PATHS: &[&str] = &[
     "/api/health",
     "/api/status",
     "/api/csrf-token",
-    "/api/preview/events", // SSE endpoint - EventSource doesn't support custom headers
+    // NOTE: /api/preview/events is NOT whitelisted - it handles authentication via query parameter
 ];
 
 /// Extension key for storing authentication status in request
