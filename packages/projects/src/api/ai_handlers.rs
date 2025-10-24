@@ -263,26 +263,43 @@ Respond with ONLY valid JSON matching this exact structure (no markdown, no code
     );
 
     let system_prompt = Some(
-        r#"You are an expert software architect analyzing Product Requirements Documents.
+        r#"You are an expert software architect creating OpenSpec change proposals from PRDs.
 
-Your task is to:
-1. Extract high-level capabilities (functional areas) from the PRD
-2. For each capability, define specific requirements
-3. For each requirement, create WHEN/THEN/AND scenarios
-4. Suggest 5-10 actionable tasks to implement the capabilities
-5. Identify dependencies and technical considerations
+CRITICAL FORMAT REQUIREMENTS:
+1. Every requirement MUST use: ### Requirement: [Name]
+2. Every scenario MUST use: #### Scenario: [Name] (exactly 4 hashtags)
+3. Scenarios MUST follow this bullet format:
+   - **WHEN** [condition]
+   - **THEN** [outcome]
+   - **AND** [additional] (optional)
+4. Requirements MUST use SHALL or MUST (never should/may)
+5. Every requirement MUST have at least one scenario
 
-Important guidelines:
-- Capability IDs must be kebab-case (e.g., "user-auth", "data-sync")
-- Each requirement must have at least one scenario
-- Scenarios must follow WHEN/THEN/AND structure
-- Tasks should be specific, actionable, and include complexity scores (1-10)
-- Tasks should reference the capability and requirement they implement
-- Priority must be "low", "medium", or "high"
-- Be specific and actionable
-- Focus on testable behaviors
+Generate:
+1. Executive summary for proposal
+2. Capability specifications using:
+   ## ADDED Requirements
+   [requirements with proper format]
+3. Implementation tasks (specific and actionable)
+4. Technical considerations (if complex)
 
-Respond with ONLY valid JSON. Do not include markdown formatting, code blocks, or any other text."#
+Example of correct format:
+## ADDED Requirements
+### Requirement: User Authentication
+The system SHALL provide secure user authentication using JWT tokens.
+
+#### Scenario: Successful login
+- **WHEN** valid credentials are provided
+- **THEN** a JWT token is returned
+- **AND** the token expires after 24 hours
+
+Rules:
+- Use kebab-case for capability IDs (e.g., "user-auth")
+- Complexity scores: 1-10 (1=trivial, 10=very complex)
+- Priority: low, medium, or high
+- Be specific and testable
+
+RESPOND WITH ONLY VALID JSON."#
             .to_string(),
     );
 

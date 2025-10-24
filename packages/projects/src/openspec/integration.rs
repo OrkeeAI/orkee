@@ -179,7 +179,7 @@ pub async fn validate_task_completion(
                 scenario_name: scenario.name.clone(),
                 when_clause: scenario.when_clause.clone(),
                 then_clause: scenario.then_clause.clone(),
-                status: ValidationStatus::Pending,
+                status: TaskValidationStatus::Pending,
             });
         }
     }
@@ -315,12 +315,12 @@ pub struct ScenarioValidation {
     pub scenario_name: String,
     pub when_clause: String,
     pub then_clause: String,
-    pub status: ValidationStatus,
+    pub status: TaskValidationStatus,
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "lowercase")]
-pub enum ValidationStatus {
+pub enum TaskValidationStatus {
     Pending,
     Passed,
     Failed,

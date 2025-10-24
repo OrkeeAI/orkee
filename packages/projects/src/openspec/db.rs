@@ -243,8 +243,8 @@ pub async fn create_capability(
         r#"
         INSERT INTO spec_capabilities
         (id, project_id, prd_id, name, purpose_markdown, spec_markdown, design_markdown,
-         requirement_count, version, status, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, 0, 1, 'active', ?, ?)
+         requirement_count, version, status, change_id, is_openspec_compliant, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, 0, 1, 'active', ?, ?, ?, ?)
         RETURNING *
         "#,
     )
@@ -255,6 +255,8 @@ pub async fn create_capability(
     .bind(purpose_markdown)
     .bind(spec_markdown)
     .bind(design_markdown)
+    .bind::<Option<String>>(None) // change_id
+    .bind(false) // is_openspec_compliant (default to false for now)
     .bind(now)
     .bind(now)
     .fetch_one(pool)
@@ -922,8 +924,9 @@ pub async fn create_spec_change(
         r#"
         INSERT INTO spec_changes
         (id, project_id, prd_id, proposal_markdown, tasks_markdown, design_markdown,
-         status, created_by, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, 'draft', ?, ?, ?)
+         status, verb_prefix, change_number, validation_status, validation_errors,
+         created_by, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, 'draft', ?, ?, 'pending', ?, ?, ?, ?)
         RETURNING *
         "#,
     )
@@ -933,6 +936,9 @@ pub async fn create_spec_change(
     .bind(proposal_markdown)
     .bind(tasks_markdown)
     .bind(design_markdown)
+    .bind::<Option<String>>(None) // verb_prefix
+    .bind::<Option<i32>>(None) // change_number
+    .bind::<Option<String>>(None) // validation_errors
     .bind(created_by)
     .bind(now)
     .bind(now)
