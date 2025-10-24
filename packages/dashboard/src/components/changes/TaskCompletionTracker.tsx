@@ -1,7 +1,6 @@
 // ABOUTME: Task completion tracker for OpenSpec changes
 // ABOUTME: Displays task list with progress tracking and interactive completion checkboxes
 
-import { useState } from 'react';
 import { CheckCircle2, Circle, RefreshCw, ListTodo, AlertCircle } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';

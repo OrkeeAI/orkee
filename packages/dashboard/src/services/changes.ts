@@ -2,7 +2,6 @@
 // ABOUTME: Handles change proposals, validation, and archiving for spec-driven development
 import { apiClient } from './api';
 import type { PaginationParams, PaginatedResponse } from '@/types/pagination';
-import { buildPaginationQuery } from '@/types/pagination';
 import type { ValidationError } from './prds';
 
 export type ChangeStatus = 'draft' | 'review' | 'approved' | 'implementing' | 'completed' | 'archived';
@@ -108,7 +107,6 @@ export class ChangesService {
     const params = new URLSearchParams();
     if (status) params.set('status', status);
     if (pagination) {
-      const paginationQuery = buildPaginationQuery(pagination);
       params.set('page', String(pagination.page || 1));
       params.set('limit', String(pagination.limit || 20));
     }

@@ -13,9 +13,9 @@ export function useCurrentUser() {
     queryKey: queryKeys.currentUser,
     queryFn: () => usersService.getCurrentUser(),
     staleTime: 2 * 60 * 1000, // 2 minutes
-    retry: (failureCount, error: any) => {
+    retry: (failureCount, error: unknown) => {
       // Don't retry if user doesn't exist
-      if (error?.message?.includes('not found')) {
+      if (error && typeof error === 'object' && 'message' in error && typeof error.message === 'string' && error.message.includes('not found')) {
         return false;
       }
       return failureCount < 2;
