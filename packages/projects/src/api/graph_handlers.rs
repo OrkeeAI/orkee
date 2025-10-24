@@ -48,10 +48,7 @@ pub struct ValidatedGraphQuery {
 impl GraphQuery {
     /// Validate and normalize query parameters
     pub fn validate(self) -> ValidatedGraphQuery {
-        let max_depth = self
-            .max_depth
-            .unwrap_or(DEFAULT_DEPTH)
-            .min(MAX_DEPTH);
+        let max_depth = self.max_depth.unwrap_or(DEFAULT_DEPTH).min(MAX_DEPTH);
 
         let filter = self.filter.and_then(|f| {
             if f.len() <= MAX_FILTER_LENGTH {
