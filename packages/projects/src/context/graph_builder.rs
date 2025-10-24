@@ -437,20 +437,33 @@ impl GraphBuilder {
     /// Normalize a path by resolving . and .. components
     fn normalize_path(&self, path: &Path) -> String {
         let mut components = Vec::new();
+        let mut depth: i32 = 0;
 
         for component in path.components() {
             match component {
                 std::path::Component::Normal(c) => {
                     components.push(c.to_string_lossy().to_string());
+                    depth += 1;
                 }
                 std::path::Component::ParentDir => {
-                    components.pop();
+                    if !components.is_empty() {
+                        components.pop();
+                        depth -= 1;
+                    } else {
+                        // Attempted to escape root - track it
+                        depth -= 1;
+                    }
                 }
                 std::path::Component::CurDir => {
                     // Skip current directory
                 }
                 _ => {}
             }
+        }
+
+        // If depth went negative, the path tried to escape root
+        if depth < 0 {
+            return String::new();
         }
 
         components.join("/")
@@ -673,5 +686,33 @@ mod tests {
             duration.as_secs_f64(),
             cycles.len()
         );
+    }
+
+    #[test]
+    fn test_normalize_path_prevents_underflow() {
+        let builder = GraphBuilder::new();
+
+        // Test excessive parent directory traversal
+        let excessive_parent = PathBuf::from("../../../../../../../etc/passwd");
+        let normalized = builder.normalize_path(&excessive_parent);
+
+        // Should not result in a negative depth (empty path is acceptable)
+        // The key is that it shouldn't panic or produce invalid results
+        assert_eq!(normalized, "", "Excessive parent dirs should result in empty path, not underflow");
+
+        // Test normal path with some parent dirs
+        let normal_path = PathBuf::from("src/../lib/utils.ts");
+        let normalized = builder.normalize_path(&normal_path);
+        assert_eq!(normalized, "lib/utils.ts");
+
+        // Test path that tries to escape but has some components first
+        let escape_attempt = PathBuf::from("src/components/../../../../../../etc/passwd");
+        let normalized = builder.normalize_path(&escape_attempt);
+        assert_eq!(normalized, "", "Should not escape beyond root");
+
+        // Test valid relative path
+        let valid_path = PathBuf::from("src/components/Button.tsx");
+        let normalized = builder.normalize_path(&valid_path);
+        assert_eq!(normalized, "src/components/Button.tsx");
     }
 }
