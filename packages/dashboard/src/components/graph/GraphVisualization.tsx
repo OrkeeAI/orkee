@@ -283,8 +283,10 @@ export function GraphVisualization({
         console.debug('[GraphVisualization] Layout error (instance may be unmounting):', error);
       }
     }
+  }, [layoutConfig, cyRef]);
 
-    // Cleanup on unmount
+  // Cleanup only on unmount
+  useEffect(() => {
     return () => {
       if (cyRef.current) {
         try {
@@ -296,7 +298,7 @@ export function GraphVisualization({
         cyRef.current = null;
       }
     };
-  }, [layoutConfig, cyRef]);
+  }, [cyRef]);
 
   if (isLoading) {
     return (

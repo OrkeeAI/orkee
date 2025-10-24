@@ -16,7 +16,12 @@ use crate::error::AppError;
 pub const API_TOKEN_HEADER: &str = "X-API-Token";
 
 /// Paths that don't require authentication
-const WHITELISTED_PATHS: &[&str] = &["/api/health", "/api/status", "/api/csrf-token"];
+const WHITELISTED_PATHS: &[&str] = &[
+    "/api/health",
+    "/api/status",
+    "/api/csrf-token",
+    "/api/preview/events", // SSE endpoint - EventSource doesn't support custom headers
+];
 
 /// Extension key for storing authentication status in request
 pub const AUTHENTICATED_EXTENSION: &str = "api_token_authenticated";
@@ -43,7 +48,10 @@ pub async fn api_token_middleware(
     }
 
     // Skip authentication in development mode
-    if std::env::var("ORKEE_DEV_MODE").is_ok() {
+    if std::env::var("ORKEE_DEV_MODE")
+        .map(|v| v.to_lowercase() == "true")
+        .unwrap_or(false)
+    {
         debug!(path = %path, "Development mode active, skipping token validation");
         return Ok(next.run(request).await);
     }
