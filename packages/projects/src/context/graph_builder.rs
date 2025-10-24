@@ -475,11 +475,9 @@ impl GraphBuilder {
                 std::path::Component::ParentDir => {
                     if !components.is_empty() {
                         components.pop();
-                        depth -= 1;
-                    } else {
-                        // Attempted to escape root - track it
-                        depth -= 1;
                     }
+                    // Attempted to escape root - track it
+                    depth -= 1;
                 }
                 std::path::Component::CurDir => {
                     // Skip current directory
@@ -1135,5 +1133,40 @@ mod tests {
                 "All files (including symlinks) must be within project root"
             );
         }
+    }
+
+    #[test]
+    fn test_normalize_path_handles_excessive_parent_dirs() {
+        let builder = GraphBuilder::new();
+
+        // Normal path with parent directory
+        let path = Path::new("src/../lib/utils.ts");
+        let normalized = builder.normalize_path(path);
+        assert_eq!(normalized, "lib/utils.ts");
+
+        // Path that attempts to escape root (should return empty string)
+        let path = Path::new("../../../../../../etc/passwd");
+        let normalized = builder.normalize_path(path);
+        assert_eq!(normalized, "");
+
+        // Extreme path traversal attempt - tests the integer underflow fix
+        let mut components = vec![];
+        for _ in 0..1000 {
+            components.push("..");
+        }
+        let extreme_path = components.join("/");
+        let path = Path::new(&extreme_path);
+        let normalized = builder.normalize_path(path);
+        assert_eq!(normalized, "");
+
+        // Valid path with some parent directories
+        let path = Path::new("src/components/../utils/helper.ts");
+        let normalized = builder.normalize_path(path);
+        assert_eq!(normalized, "src/utils/helper.ts");
+
+        // Path with current directory markers
+        let path = Path::new("./src/./components/./Button.tsx");
+        let normalized = builder.normalize_path(path);
+        assert_eq!(normalized, "src/components/Button.tsx");
     }
 }
