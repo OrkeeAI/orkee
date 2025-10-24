@@ -21,7 +21,8 @@ import {
   ListTodo,
   FileText,
   DollarSign,
-  Layers
+  Layers,
+  Network
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -37,6 +38,7 @@ import { TasksTab } from '@/components/TasksTab';
 import { SpecsTab } from '@/components/SpecsTab';
 import { CostDashboard } from '@/components/CostDashboard';
 import { ContextTab } from '@/components/ContextTab';
+import { GraphTab } from '@/components/graph/GraphTab';
 import { useProject } from '@/hooks/useProjects';
 import { useCommitHistory } from '@/services/git';
 
@@ -202,6 +204,10 @@ export function ProjectDetail() {
             <Layers className="h-4 w-4" />
             Context
           </TabsTrigger>
+          <TabsTrigger value="graph" className="flex items-center gap-2">
+            <Network className="h-4 w-4" />
+            Graph
+          </TabsTrigger>
           <TabsTrigger value="ai-usage" className="flex items-center gap-2">
             <DollarSign className="h-4 w-4" />
             AI Usage
@@ -234,6 +240,10 @@ export function ProjectDetail() {
 
         <TabsContent value="context" className="space-y-4">
           <ContextTab projectId={project.id} projectPath={project.projectRoot} />
+        </TabsContent>
+
+        <TabsContent value="graph" className="space-y-4">
+          <GraphTab projectId={project.id} projectPath={project.projectRoot} />
         </TabsContent>
 
         <TabsContent value="ai-usage" className="space-y-4">
