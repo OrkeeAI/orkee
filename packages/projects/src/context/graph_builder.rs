@@ -143,6 +143,9 @@ impl GraphBuilder {
         }
 
         let mut nodes = Vec::new();
+        // TODO(Phase 2): Add symbol relationships (class → method, function → dependencies, etc.)
+        // Current implementation creates isolated symbol nodes without edges.
+        // Future work: Parse AST to extract symbol references and create edges.
         let edges = Vec::new();
         let files = self.find_source_files(&root_path)?;
 
@@ -365,6 +368,12 @@ impl GraphBuilder {
     }
 
     /// Resolve a relative import path to a project-relative path
+    ///
+    /// # Limitations
+    /// - Does not support path aliases (@/, ~/)
+    /// - Does not parse tsconfig.json/jsconfig.json for custom path mappings
+    /// - May fail on monorepo-style imports with workspace references
+    /// - Only handles relative imports (./*, ../*)
     fn resolve_import_path(
         &self,
         import_path: &str,

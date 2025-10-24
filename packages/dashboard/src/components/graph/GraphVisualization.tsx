@@ -275,7 +275,7 @@ export function GraphVisualization({
 
       // Check if the instance is still valid (not destroyed)
       try {
-        if (cy.elements && cy.layout) {
+        if (!cy.destroyed() && cy.elements && cy.layout) {
           cy.layout(layoutConfig).run();
         }
       } catch (error) {
