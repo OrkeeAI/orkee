@@ -4,6 +4,9 @@
 import { useState, useEffect } from 'react';
 import { getApiBaseUrl } from '@/services/api';
 
+// Enable debug logging only in development
+const DEBUG = import.meta.env.DEV;
+
 interface ServerEvent {
   type: 'server_started' | 'server_stopped' | 'server_error' | 'initial_state';
   project_id?: string;
@@ -141,7 +144,7 @@ export function useServerEvents() {
         eventSource = new EventSource(`${baseUrl}/api/preview/events`);
 
         eventSource.onopen = () => {
-          console.log('[SSE] Connection established');
+          if (DEBUG) console.log('[SSE] Connection established');
           setConnectionMode('sse');
           retryCount = 0;
         };
@@ -149,7 +152,7 @@ export function useServerEvents() {
         eventSource.onmessage = (event) => {
           try {
             const serverEvent: ServerEvent = JSON.parse(event.data);
-            console.log('[SSE] Received event:', serverEvent);
+            if (DEBUG) console.log('[SSE] Received event:', serverEvent);
 
             switch (serverEvent.type) {
               case 'initial_state':
@@ -217,7 +220,7 @@ export function useServerEvents() {
           retryCount += 1;
 
           if (retryCount < MAX_RETRIES) {
-            console.log(`[SSE] Retrying connection (${retryCount}/${MAX_RETRIES})...`);
+            if (DEBUG) console.log(`[SSE] Retrying connection (${retryCount}/${MAX_RETRIES})...`);
             setConnectionMode('connecting');
 
             // Clear any existing retry timeout to prevent duplicates
@@ -228,7 +231,7 @@ export function useServerEvents() {
               connectSSE();
             }, RETRY_DELAY);
           } else {
-            console.log('[SSE] Max retries reached, falling back to polling');
+            if (DEBUG) console.log('[SSE] Max retries reached, falling back to polling');
             startPolling();
           }
         };
@@ -239,7 +242,7 @@ export function useServerEvents() {
         retryCount += 1;
 
         if (retryCount < MAX_RETRIES) {
-          console.log(`[SSE] Retrying after creation failure (${retryCount}/${MAX_RETRIES})...`);
+          if (DEBUG) console.log(`[SSE] Retrying after creation failure (${retryCount}/${MAX_RETRIES})...`);
           setConnectionMode('connecting');
 
           // Clear any existing retry timeout to prevent duplicates
@@ -250,7 +253,7 @@ export function useServerEvents() {
             connectSSE();
           }, RETRY_DELAY);
         } else {
-          console.log('[SSE] Max retries reached after creation failures, falling back to polling');
+          if (DEBUG) console.log('[SSE] Max retries reached after creation failures, falling back to polling');
           startPolling();
         }
       }

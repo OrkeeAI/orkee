@@ -23,9 +23,9 @@ use std::net::{IpAddr, SocketAddr};
 use std::sync::{Arc, Mutex};
 use tracing::{error, info, warn};
 
-/// Maximum concurrent SSE connections per IP address
+/// Default maximum concurrent SSE connections per IP address
 /// This prevents a single client from exhausting server resources by opening unlimited connections
-const MAX_SSE_CONNECTIONS_PER_IP: usize = 3;
+const DEFAULT_MAX_SSE_CONNECTIONS_PER_IP: usize = 3;
 
 /// Error returned when SSE connection limit is exceeded
 #[derive(Debug)]
@@ -35,6 +35,7 @@ pub struct SseConnectionLimitExceeded;
 #[derive(Clone)]
 pub struct SseConnectionTracker {
     connections: Arc<Mutex<HashMap<IpAddr, usize>>>,
+    max_connections_per_ip: usize,
 }
 
 impl Default for SseConnectionTracker {
@@ -45,8 +46,16 @@ impl Default for SseConnectionTracker {
 
 impl SseConnectionTracker {
     pub fn new() -> Self {
+        // Read from environment variable with validation
+        let max_connections_per_ip = std::env::var("ORKEE_SSE_MAX_CONNECTIONS_PER_IP")
+            .ok()
+            .and_then(|v| v.parse::<usize>().ok())
+            .filter(|&v| v > 0 && v <= 100)
+            .unwrap_or(DEFAULT_MAX_SSE_CONNECTIONS_PER_IP);
+
         Self {
             connections: Arc::new(Mutex::new(HashMap::new())),
+            max_connections_per_ip,
         }
     }
 
@@ -59,11 +68,11 @@ impl SseConnectionTracker {
         let mut connections = self.connections.lock().unwrap();
         let count = connections.entry(ip).or_insert(0);
 
-        if *count >= MAX_SSE_CONNECTIONS_PER_IP {
+        if *count >= self.max_connections_per_ip {
             warn!(
                 ip = %ip,
                 current = %count,
-                max = MAX_SSE_CONNECTIONS_PER_IP,
+                max = self.max_connections_per_ip,
                 audit = true,
                 "SSE connection limit exceeded"
             );
@@ -74,7 +83,7 @@ impl SseConnectionTracker {
         info!(
             ip = %ip,
             count = %count,
-            max = MAX_SSE_CONNECTIONS_PER_IP,
+            max = self.max_connections_per_ip,
             "SSE connection acquired"
         );
 
@@ -605,7 +614,8 @@ pub async fn server_events(
     // Clone preview_manager for use in the stream closure
     let preview_manager = state.preview_manager.clone();
 
-    // Create the event stream without the guard in unfold state
+    // Create the event stream; guard is stored outside unfold state to ensure cleanup
+    // The guard must be in GuardedSseStream wrapper so Drop is called when stream drops
     let event_stream = stream::unfold(
         (rx, Some(initial_event), preview_manager),
         |(mut rx, initial_opt, preview_manager)| async move {
