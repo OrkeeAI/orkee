@@ -54,14 +54,14 @@ pub async fn show_change(change_id: &str) -> DbResult<(SpecChange, Vec<SpecDelta
     Ok((change, deltas))
 }
 
-/// Result of validation
-pub struct ValidationResult {
+/// Result of validation for CLI output
+pub struct CliValidationResult {
     pub is_valid: bool,
     pub errors: Vec<String>,
 }
 
 /// Validate a change
-pub async fn validate_change_cli(change_id: &str, strict: bool) -> DbResult<ValidationResult> {
+pub async fn validate_change_cli(change_id: &str, strict: bool) -> DbResult<CliValidationResult> {
     let pool = get_pool().await?;
 
     let deltas = get_deltas_by_change(&pool, change_id).await?;
@@ -74,7 +74,7 @@ pub async fn validate_change_cli(change_id: &str, strict: bool) -> DbResult<Vali
         all_errors.extend(errors.into_iter().map(|e| e.message));
     }
 
-    Ok(ValidationResult {
+    Ok(CliValidationResult {
         is_valid: all_errors.is_empty(),
         errors: all_errors,
     })

@@ -222,9 +222,7 @@ pub fn calculate_overall_complexity(analysis: &PRDAnalysisData) -> String {
         "Very High".to_string()
     } else if total_scenarios > 10 {
         "High".to_string()
-    } else if total_scenarios > 5 {
-        "Medium".to_string()
-    } else if total_requirements > 3 {
+    } else if total_scenarios > 5 || total_requirements > 3 {
         "Medium".to_string()
     } else {
         "Low".to_string()
@@ -271,7 +269,7 @@ pub async fn create_change_from_analysis(
     // Update change with verb prefix and change number
     let change_number = change_id
         .split('-')
-        .last()
+        .next_back()
         .and_then(|s| s.parse::<i32>().ok())
         .unwrap_or(1);
 

@@ -5,7 +5,7 @@ use inquire::Confirm;
 use orkee_projects::openspec::{
     archive_change_cli, export_specs, import_specs, list_changes, show_change, validate_change_cli,
 };
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use super::utils::detect_project_from_cwd;
 
@@ -349,7 +349,7 @@ async fn archive_cmd(
     Ok(())
 }
 
-async fn export_cmd(project_id: &str, path: &PathBuf) -> Result<(), Box<dyn std::error::Error>> {
+async fn export_cmd(project_id: &str, path: &Path) -> Result<(), Box<dyn std::error::Error>> {
     println!(
         "{} Exporting OpenSpec structure for project {}...",
         "📦".cyan(),
@@ -365,7 +365,7 @@ async fn export_cmd(project_id: &str, path: &PathBuf) -> Result<(), Box<dyn std:
 
 async fn import_cmd(
     project_id: &str,
-    path: &PathBuf,
+    path: &Path,
     force: bool,
 ) -> Result<(), Box<dyn std::error::Error>> {
     println!(
