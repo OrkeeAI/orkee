@@ -1,11 +1,11 @@
 // ABOUTME: PRD management view displaying list of PRDs with metadata and content
 // ABOUTME: Integrates with PRDUploadDialog for creating/analyzing PRDs
 import { useState } from 'react';
-import { FileText, Upload, Sparkles, Trash2, Calendar, User, Layers } from 'lucide-react';
+import { FileText, Upload, Sparkles, Trash2, Calendar, User, Layers, ExternalLink, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Separator } from '@/components/ui/separator';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -15,7 +15,7 @@ import { usePRDs, useDeletePRD, useTriggerPRDAnalysis } from '@/hooks/usePRDs';
 import { useSpecs } from '@/hooks/useSpecs';
 import { PRDUploadDialog } from '@/components/PRDUploadDialog';
 import { ModelSelectionDialog } from '@/components/ModelSelectionDialog';
-import type { PRD } from '@/services/prds';
+import type { PRD, PRDAnalysisResult } from '@/services/prds';
 
 interface PRDViewProps {
   projectId: string;
@@ -27,6 +27,7 @@ export function PRDView({ projectId, onViewSpecs }: PRDViewProps) {
   const [showUploadDialog, setShowUploadDialog] = useState(false);
   const [showModelSelection, setShowModelSelection] = useState(false);
   const [prdToAnalyze, setPrdToAnalyze] = useState<string | null>(null);
+  const [analysisResult, setAnalysisResult] = useState<PRDAnalysisResult | null>(null);
 
   const { data: prds, isLoading, error } = usePRDs(projectId);
   const { data: allSpecs } = useSpecs(projectId);
@@ -56,7 +57,14 @@ export function PRDView({ projectId, onViewSpecs }: PRDViewProps) {
   const handleAnalyze = (provider: string, model: string) => {
     if (prdToAnalyze) {
       console.log(`Analyzing PRD ${prdToAnalyze} with ${provider}/${model}`);
-      analyzePRDMutation.mutate({ prdId: prdToAnalyze, provider, model });
+      analyzePRDMutation.mutate(
+        { prdId: prdToAnalyze, provider, model },
+        {
+          onSuccess: (result) => {
+            setAnalysisResult(result);
+          },
+        }
+      );
     }
   };
 
@@ -258,6 +266,53 @@ export function PRDView({ projectId, onViewSpecs }: PRDViewProps) {
                   </div>
                 </div>
               </CardHeader>
+
+              {/* Display change information if available */}
+              {analysisResult?.changeId && selectedPRD && (
+                <CardContent className="pt-4 pb-0">
+                  <Alert>
+                    <FileText className="h-4 w-4" />
+                    <AlertTitle>Change Proposal Created</AlertTitle>
+                    <AlertDescription className="flex items-center justify-between">
+                      <span>
+                        Change proposal created: <code className="text-xs">{analysisResult.changeId}</code>
+                      </span>
+                      <Button
+                        variant="link"
+                        size="sm"
+                        className="h-auto p-0"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          window.location.href = `#/projects/${projectId}/changes/${analysisResult.changeId}`;
+                        }}
+                      >
+                        View Change <ExternalLink className="ml-1 h-3 w-3" />
+                      </Button>
+                    </AlertDescription>
+                  </Alert>
+                </CardContent>
+              )}
+
+              {/* Display validation errors */}
+              {analysisResult?.validationStatus === 'invalid' && analysisResult.validationErrors && (
+                <CardContent className="pt-4 pb-0">
+                  <Alert variant="destructive">
+                    <AlertTriangle className="h-4 w-4" />
+                    <AlertTitle>Validation Errors</AlertTitle>
+                    <AlertDescription>
+                      <ul className="list-disc list-inside mt-2">
+                        {analysisResult.validationErrors.map((error, i) => (
+                          <li key={i}>
+                            {error.line && <span className="font-mono text-xs">Line {error.line}: </span>}
+                            {error.message}
+                          </li>
+                        ))}
+                      </ul>
+                    </AlertDescription>
+                  </Alert>
+                </CardContent>
+              )}
+
               <Separator />
               <CardContent className="pt-6">
                 <div className="prose prose-sm dark:prose-invert max-w-none">

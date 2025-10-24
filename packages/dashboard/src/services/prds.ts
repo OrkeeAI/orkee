@@ -64,11 +64,20 @@ export interface TaskSuggestion {
   estimatedHours?: number;
 }
 
+export interface ValidationError {
+  line?: number;
+  errorType: string;
+  message: string;
+}
+
 export interface PRDAnalysisResult {
   summary: string;
   capabilities: SpecCapability[];
   suggestedTasks: TaskSuggestion[];
   dependencies?: string[];
+  changeId?: string;
+  validationStatus?: 'valid' | 'invalid' | 'pending';
+  validationErrors?: ValidationError[];
 }
 
 interface ApiResponse<T> {
