@@ -47,7 +47,8 @@ export interface GraphResponse {
   error?: string;
 }
 
-export type GraphType = 'dependencies' | 'symbols' | 'modules' | 'spec-mapping';
+export const GRAPH_TYPES = ['dependencies', 'symbols', 'modules', 'spec-mapping'] as const;
+export type GraphType = typeof GRAPH_TYPES[number];
 
 export interface GraphQueryOptions {
   max_depth?: number;
