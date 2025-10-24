@@ -291,11 +291,18 @@ export function GraphVisualization({
       if (cyRef.current) {
         try {
           cyRef.current.destroy();
+          cyRef.current = null;
         } catch (error) {
-          // Silently ignore if already destroyed
-          console.debug('[GraphVisualization] Cleanup error (instance already destroyed):', error);
+          const errorMessage = error instanceof Error ? error.message : String(error);
+          if (errorMessage.includes('already destroyed')) {
+            // Expected error for already destroyed instance
+            console.debug('[GraphVisualization] Cleanup error (instance already destroyed):', error);
+            cyRef.current = null;
+          } else {
+            // Unexpected error - log and don't null the ref
+            console.error('[GraphVisualization] Unexpected cleanup error:', error);
+          }
         }
-        cyRef.current = null;
       }
     };
   }, [cyRef]);
