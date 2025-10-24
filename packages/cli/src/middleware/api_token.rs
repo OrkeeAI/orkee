@@ -33,6 +33,15 @@ fn requires_authentication(path: &str) -> bool {
         .any(|&whitelisted| path.starts_with(whitelisted))
 }
 
+/// Check if dev mode is enabled based on environment variable value
+///
+/// Returns true only if the value (case-insensitive) equals "true"
+fn is_dev_mode_enabled(env_value: Option<String>) -> bool {
+    env_value
+        .map(|v| v.to_lowercase() == "true")
+        .unwrap_or(false)
+}
+
 /// API token validation middleware
 pub async fn api_token_middleware(
     State(db): State<DbState>,
@@ -48,10 +57,7 @@ pub async fn api_token_middleware(
     }
 
     // Skip authentication in development mode
-    if std::env::var("ORKEE_DEV_MODE")
-        .map(|v| v.to_lowercase() == "true")
-        .unwrap_or(false)
-    {
+    if is_dev_mode_enabled(std::env::var("ORKEE_DEV_MODE").ok()) {
         debug!(path = %path, "Development mode active, skipping token validation");
         return Ok(next.run(request).await);
     }
@@ -253,5 +259,38 @@ mod tests {
         assert!(requires_authentication("/api/projects"));
         assert!(requires_authentication("/api/test"));
         assert!(requires_authentication("/api/settings"));
+    }
+
+    #[test]
+    fn test_is_dev_mode_enabled_with_true() {
+        // Test that "true" (case-insensitive) enables dev mode
+        assert!(is_dev_mode_enabled(Some("true".to_string())));
+        assert!(is_dev_mode_enabled(Some("TRUE".to_string())));
+        assert!(is_dev_mode_enabled(Some("True".to_string())));
+        assert!(is_dev_mode_enabled(Some("TrUe".to_string())));
+    }
+
+    #[test]
+    fn test_is_dev_mode_enabled_with_false() {
+        // Test that "false" does NOT enable dev mode
+        assert!(!is_dev_mode_enabled(Some("false".to_string())));
+        assert!(!is_dev_mode_enabled(Some("FALSE".to_string())));
+        assert!(!is_dev_mode_enabled(Some("False".to_string())));
+    }
+
+    #[test]
+    fn test_is_dev_mode_enabled_with_invalid_values() {
+        // Test that any non-"true" value does NOT enable dev mode
+        assert!(!is_dev_mode_enabled(Some("yes".to_string())));
+        assert!(!is_dev_mode_enabled(Some("1".to_string())));
+        assert!(!is_dev_mode_enabled(Some("enabled".to_string())));
+        assert!(!is_dev_mode_enabled(Some("on".to_string())));
+        assert!(!is_dev_mode_enabled(Some("".to_string())));
+    }
+
+    #[test]
+    fn test_is_dev_mode_enabled_with_none() {
+        // Test that None (env var not set) does NOT enable dev mode
+        assert!(!is_dev_mode_enabled(None));
     }
 }
