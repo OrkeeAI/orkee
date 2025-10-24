@@ -374,6 +374,11 @@ impl GraphBuilder {
     }
 
     /// Extract import statements from a file using AST parsing
+    ///
+    /// # Limitations
+    /// - Only relative imports (./, ../) are included
+    /// - Path aliases (@/, ~/) are not supported
+    /// - tsconfig.json paths are not resolved
     fn extract_imports(&self, file_path: &Path) -> Result<Vec<String>, String> {
         let content =
             fs::read_to_string(file_path).map_err(|e| format!("Failed to read file: {}", e))?;
@@ -386,11 +391,41 @@ impl GraphBuilder {
             .extract_imports(&content)
             .map_err(|e| format!("Failed to extract imports: {}", e))?;
 
+        // Track non-relative imports for warning
+        let mut non_relative_imports = Vec::new();
+
         // Filter to only include relative imports (project-local dependencies)
         let relative_imports: Vec<String> = all_imports
             .into_iter()
-            .filter(|import_path| import_path.starts_with("./") || import_path.starts_with("../"))
+            .filter(|import_path| {
+                if import_path.starts_with("./") || import_path.starts_with("../") {
+                    true
+                } else {
+                    non_relative_imports.push(import_path.clone());
+                    false
+                }
+            })
             .collect();
+
+        // Warn about non-relative imports that were skipped
+        if !non_relative_imports.is_empty() {
+            let file_relative = file_path.to_string_lossy();
+            if non_relative_imports.len() <= 3 {
+                warn!(
+                    "Skipped {} non-relative import(s) in {}: {} (path aliases and node_modules not supported)",
+                    non_relative_imports.len(),
+                    file_relative,
+                    non_relative_imports.join(", ")
+                );
+            } else {
+                warn!(
+                    "Skipped {} non-relative imports in {} (path aliases and node_modules not supported). Examples: {}",
+                    non_relative_imports.len(),
+                    file_relative,
+                    non_relative_imports.iter().take(3).cloned().collect::<Vec<_>>().join(", ")
+                );
+            }
+        }
 
         Ok(relative_imports)
     }
