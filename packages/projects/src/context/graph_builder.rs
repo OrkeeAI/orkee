@@ -513,7 +513,14 @@ impl GraphBuilder {
         edges: &mut Vec<GraphEdge>,
         parent_symbol_id: Option<&str>,
     ) {
-        process_symbols_recursive_impl(symbols, file_path, parent_node_id, nodes, edges, parent_symbol_id);
+        process_symbols_recursive_impl(
+            symbols,
+            file_path,
+            parent_node_id,
+            nodes,
+            edges,
+            parent_symbol_id,
+        );
     }
 }
 
