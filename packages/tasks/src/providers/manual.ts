@@ -9,7 +9,7 @@ export class ManualTaskProvider extends BaseTaskProvider {
   public readonly type = TaskProviderType.Manual;
   private apiBaseUrl: string;
   private apiToken?: string;
-  private projectId?: string;
+  private projectIdCache: Map<string, string> = new Map();
 
   constructor(options?: { apiBaseUrl?: string; apiToken?: string }) {
     super();
@@ -50,6 +50,10 @@ export class ManualTaskProvider extends BaseTaskProvider {
     const data = await response.json();
 
     if (!data.success) {
+      // Clear cache on error in case project was deleted
+      if (response.status === 404 || response.status === 401) {
+        this.projectIdCache.delete(projectPath);
+      }
       throw new Error(data.error || `Failed to fetch tasks (status: ${response.status})`);
     }
 
@@ -70,6 +74,10 @@ export class ManualTaskProvider extends BaseTaskProvider {
 
     const data = await response.json();
     if (!data.success) {
+      // Clear cache on error in case project was deleted
+      if (response.status === 404 || response.status === 401) {
+        this.projectIdCache.delete(projectPath);
+      }
       throw new Error(data.error || `Failed to create task (status: ${response.status})`);
     }
 
@@ -94,6 +102,10 @@ export class ManualTaskProvider extends BaseTaskProvider {
 
     const data = await response.json();
     if (!data.success) {
+      // Clear cache on error in case project was deleted
+      if (response.status === 404 || response.status === 401) {
+        this.projectIdCache.delete(projectPath);
+      }
       throw new Error(data.error || `Failed to update task (status: ${response.status})`);
     }
 
@@ -117,6 +129,10 @@ export class ManualTaskProvider extends BaseTaskProvider {
 
     const data = await response.json();
     if (!data.success) {
+      // Clear cache on error in case project was deleted
+      if (response.status === 404 || response.status === 401) {
+        this.projectIdCache.delete(projectPath);
+      }
       throw new Error(data.error || `Failed to delete task (status: ${response.status})`);
     }
 
@@ -142,8 +158,10 @@ export class ManualTaskProvider extends BaseTaskProvider {
   }
 
   private async getProjectIdByPath(projectPath: string): Promise<string> {
-    if (this.projectId) {
-      return this.projectId;
+    // Check cache for this specific path
+    const cachedId = this.projectIdCache.get(projectPath);
+    if (cachedId) {
+      return cachedId;
     }
 
     const response = await this.authenticatedFetch(`${this.apiBaseUrl}/api/projects/by-path`, {
@@ -157,8 +175,10 @@ export class ManualTaskProvider extends BaseTaskProvider {
       throw new Error(`Project not found (status: ${response.status})`);
     }
 
-    this.projectId = data.data.id;
-    return this.projectId;
+    const projectId = data.data.id;
+    // Cache the ID for this specific path
+    this.projectIdCache.set(projectPath, projectId);
+    return projectId;
   }
 
   private transformTask(data: any): Task {
