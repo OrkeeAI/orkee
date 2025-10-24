@@ -77,6 +77,7 @@ impl GraphQuery {
     }
 
     /// Validate filter parameter (for testing)
+    #[cfg(test)]
     fn validate_filter(&self) -> Result<(), String> {
         if let Some(filter) = &self.filter {
             if filter.len() > MAX_FILTER_LENGTH {
@@ -90,6 +91,7 @@ impl GraphQuery {
     }
 
     /// Validate layout parameter (for testing)
+    #[cfg(test)]
     fn validate_layout(&self) -> Result<String, String> {
         if let Some(layout) = &self.layout {
             if !ALLOWED_LAYOUTS.contains(&layout.as_str()) {

@@ -228,42 +228,41 @@ impl GraphBuilder {
             .max_depth(5)
             .into_iter()
             .filter_entry(|e| !self.is_ignored_dir(e.path()))
+            .flatten()
         {
-            if let Ok(entry) = entry {
-                if entry.path().is_dir() {
-                    let relative_path = entry
-                        .path()
-                        .strip_prefix(&root_path)
-                        .unwrap_or(entry.path())
-                        .to_string_lossy()
-                        .to_string();
+            if entry.path().is_dir() {
+                let relative_path = entry
+                    .path()
+                    .strip_prefix(&root_path)
+                    .unwrap_or(entry.path())
+                    .to_string_lossy()
+                    .to_string();
 
-                    if relative_path.is_empty() {
-                        continue;
-                    }
-
-                    let node_id = format!("module_{}", nodes.len());
-                    dir_map.insert(relative_path.clone(), node_id.clone());
-
-                    nodes.push(GraphNode {
-                        id: node_id,
-                        label: entry
-                            .path()
-                            .file_name()
-                            .unwrap_or_default()
-                            .to_string_lossy()
-                            .to_string(),
-                        node_type: NodeType::Module,
-                        metadata: NodeMetadata {
-                            path: Some(relative_path),
-                            line_start: None,
-                            line_end: None,
-                            token_count: None,
-                            complexity: None,
-                            spec_id: None,
-                        },
-                    });
+                if relative_path.is_empty() {
+                    continue;
                 }
+
+                let node_id = format!("module_{}", nodes.len());
+                dir_map.insert(relative_path.clone(), node_id.clone());
+
+                nodes.push(GraphNode {
+                    id: node_id,
+                    label: entry
+                        .path()
+                        .file_name()
+                        .unwrap_or_default()
+                        .to_string_lossy()
+                        .to_string(),
+                    node_type: NodeType::Module,
+                    metadata: NodeMetadata {
+                        path: Some(relative_path),
+                        line_start: None,
+                        line_end: None,
+                        token_count: None,
+                        complexity: None,
+                        spec_id: None,
+                    },
+                });
             }
         }
 
@@ -308,13 +307,12 @@ impl GraphBuilder {
             .max_depth(10)
             .into_iter()
             .filter_entry(|e| !self.is_ignored_dir(e.path()))
+            .flatten()
         {
-            if let Ok(entry) = entry {
-                if entry.path().is_file() {
-                    if let Some(ext) = entry.path().extension() {
-                        if matches!(ext.to_string_lossy().as_ref(), "ts" | "tsx" | "js" | "jsx") {
-                            files.push(entry.path().to_path_buf());
-                        }
+            if entry.path().is_file() {
+                if let Some(ext) = entry.path().extension() {
+                    if matches!(ext.to_string_lossy().as_ref(), "ts" | "tsx" | "js" | "jsx") {
+                        files.push(entry.path().to_path_buf());
                     }
                 }
             }
