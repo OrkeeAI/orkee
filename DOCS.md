@@ -571,7 +571,7 @@ Configure Server-Sent Events (SSE) for real-time server status updates:
 
 | Variable | Default | Range/Notes | Description |
 |----------|---------|-------------|-------------|
-| `ORKEE_EVENT_CHANNEL_SIZE` | `100` | 10-10000 | Broadcast channel capacity for SSE events. Increase for CI/CD environments with bulk server operations. |
+| `ORKEE_EVENT_CHANNEL_SIZE` | `200` | 10-10000 | Broadcast channel capacity for SSE events. Increase for CI/CD environments with bulk server operations. |
 | `VITE_SSE_MAX_RETRIES` | `3` | - | Maximum SSE connection retry attempts before falling back to polling |
 | `VITE_SSE_RETRY_DELAY` | `2000` | milliseconds | Delay between SSE retry attempts |
 | `VITE_SSE_POLLING_INTERVAL` | `5000` | milliseconds | Polling interval when SSE connection fails |

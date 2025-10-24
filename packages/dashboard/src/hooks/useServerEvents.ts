@@ -67,14 +67,17 @@ function sanitizeErrorMessage(rawError: string): string {
 // SSE configuration constants with environment variable overrides
 const MAX_RETRIES = (() => {
   const val = parseInt(import.meta.env.VITE_SSE_MAX_RETRIES, 10);
-  return !isNaN(val) && val > 0 ? val : 3;
+  // Allow 0 for no retries, fall back to 3 for invalid values
+  return !isNaN(val) && val >= 0 ? val : 3;
 })();
 const RETRY_DELAY = (() => {
   const val = parseInt(import.meta.env.VITE_SSE_RETRY_DELAY, 10);
+  // Must be positive, fall back to 2000ms for invalid values
   return !isNaN(val) && val > 0 ? val : 2000;
 })();
 const POLLING_INTERVAL = (() => {
   const val = parseInt(import.meta.env.VITE_SSE_POLLING_INTERVAL, 10);
+  // Must be positive, fall back to 5000ms for invalid values
   return !isNaN(val) && val > 0 ? val : 5000;
 })();
 
@@ -96,6 +99,7 @@ export function useServerEvents() {
   useEffect(() => {
     let eventSource: EventSource | null = null;
     let pollingInterval: NodeJS.Timeout | null = null;
+    let retryTimeout: NodeJS.Timeout | null = null;
     let retryCount = 0;
     let isCleanedUp = false;
 
@@ -201,44 +205,52 @@ export function useServerEvents() {
         };
 
         eventSource.onerror = (error) => {
+          if (isCleanedUp) return;
+
           console.error('[SSE] Connection error:', error);
 
-          // Check if connection is permanently closed vs. temporarily interrupted
-          // EventSource.CONNECTING (0): Connection being established
-          // EventSource.OPEN (1): Connection open and receiving events
-          // EventSource.CLOSED (2): Connection closed (permanent failure)
-          if (eventSource?.readyState === EventSource.CLOSED) {
-            // Permanent failure - close and retry with backoff
-            console.log('[SSE] Connection permanently closed, will retry');
-            eventSource?.close();
-            eventSource = null;
+          // Always close the EventSource to prevent browser auto-reconnect
+          // This ensures we have full control over reconnection logic
+          eventSource?.close();
+          eventSource = null;
 
-            retryCount += 1;
+          retryCount += 1;
 
-            if (retryCount < MAX_RETRIES) {
-              console.log(`[SSE] Retrying connection (${retryCount}/${MAX_RETRIES})...`);
-              setConnectionMode('connecting');
-              setTimeout(connectSSE, RETRY_DELAY);
-            } else {
-              console.log('[SSE] Max retries reached, falling back to polling');
-              startPolling();
-            }
+          if (retryCount < MAX_RETRIES) {
+            console.log(`[SSE] Retrying connection (${retryCount}/${MAX_RETRIES})...`);
+            setConnectionMode('connecting');
+
+            // Clear any existing retry timeout to prevent duplicates
+            if (retryTimeout) clearTimeout(retryTimeout);
+
+            retryTimeout = setTimeout(() => {
+              retryTimeout = null;
+              connectSSE();
+            }, RETRY_DELAY);
           } else {
-            // Temporary interruption - EventSource will auto-reconnect
-            // Reset retry count to give browser's auto-reconnect a fresh chance
-            console.log('[SSE] Temporary interruption, waiting for auto-reconnect');
-            if (eventSource?.readyState === EventSource.CONNECTING) {
-              retryCount = 0;
-            }
+            console.log('[SSE] Max retries reached, falling back to polling');
+            startPolling();
           }
         };
       } catch (error) {
+        if (isCleanedUp) return;
+
         console.error('[SSE] Failed to create EventSource:', error);
         retryCount += 1;
 
         if (retryCount < MAX_RETRIES) {
-          setTimeout(connectSSE, RETRY_DELAY);
+          console.log(`[SSE] Retrying after creation failure (${retryCount}/${MAX_RETRIES})...`);
+          setConnectionMode('connecting');
+
+          // Clear any existing retry timeout to prevent duplicates
+          if (retryTimeout) clearTimeout(retryTimeout);
+
+          retryTimeout = setTimeout(() => {
+            retryTimeout = null;
+            connectSSE();
+          }, RETRY_DELAY);
         } else {
+          console.log('[SSE] Max retries reached after creation failures, falling back to polling');
           startPolling();
         }
       }
@@ -253,6 +265,9 @@ export function useServerEvents() {
       eventSource?.close();
       if (pollingInterval) {
         clearInterval(pollingInterval);
+      }
+      if (retryTimeout) {
+        clearTimeout(retryTimeout);
       }
     };
   }, []); // Empty deps - only run once on mount

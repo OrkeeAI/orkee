@@ -611,21 +611,59 @@ pub async fn server_events(
         |(mut rx, initial_opt, preview_manager)| async move {
             if let Some(initial_event) = initial_opt {
                 // Send initial state as first event
-                if let Ok(data) = serde_json::to_string(&initial_event) {
-                    let event = Event::default().data(data);
-                    return Some((Ok(event), (rx, None, preview_manager)));
+                match serde_json::to_string(&initial_event) {
+                    Ok(data) => {
+                        let event = Event::default().data(data);
+                        return Some((Ok(event), (rx, None, preview_manager)));
+                    }
+                    Err(e) => {
+                        error!("Failed to serialize initial SSE event: {} - sending empty initial state", e);
+                        // Send empty initial state as fallback
+                        let fallback = ServerEvent::InitialState {
+                            active_servers: vec![],
+                        };
+                        if let Ok(data) = serde_json::to_string(&fallback) {
+                            let event = Event::default().data(data);
+                            return Some((Ok(event), (rx, None, preview_manager)));
+                        }
+                        // If even fallback fails, continue to regular event loop
+                    }
                 }
             }
 
             // Wait for and send subsequent events
             match rx.recv().await {
                 Ok(server_event) => {
-                    if let Ok(data) = serde_json::to_string(&server_event) {
-                        let event = Event::default().data(data);
-                        Some((Ok(event), (rx, None, preview_manager)))
-                    } else {
-                        // JSON serialization failed, skip this event
-                        None
+                    match serde_json::to_string(&server_event) {
+                        Ok(data) => {
+                            let event = Event::default().data(data);
+                            Some((Ok(event), (rx, None, preview_manager)))
+                        }
+                        Err(e) => {
+                            // Log error but continue streaming - send sync event as recovery
+                            error!("Failed to serialize SSE event: {} - sending sync event", e);
+
+                            let sync_event = ServerEvent::InitialState {
+                                active_servers: preview_manager
+                                    .list_servers()
+                                    .await
+                                    .iter()
+                                    .map(|s| s.project_id.clone())
+                                    .collect(),
+                            };
+
+                            match serde_json::to_string(&sync_event) {
+                                Ok(data) => {
+                                    let event = Event::default().data(data);
+                                    Some((Ok(event), (rx, None, preview_manager)))
+                                }
+                                Err(e) => {
+                                    error!("Failed to serialize sync event: {} - skipping to next event", e);
+                                    // Continue stream by waiting for next event recursively
+                                    Some((Ok(Event::default().comment("serialization error")), (rx, None, preview_manager)))
+                                }
+                            }
+                        }
                     }
                 }
                 Err(tokio::sync::broadcast::error::RecvError::Lagged(n)) => {
