@@ -34,7 +34,8 @@ impl GraphBuilder {
     ) -> Result<CodeGraph, String> {
         let root_path = PathBuf::from(project_path);
         if !root_path.exists() {
-            return Err(format!("Project path does not exist: {}", project_path));
+            warn!("Project path does not exist: {}", project_path);
+            return Err("Project path does not exist".to_string());
         }
 
         let mut nodes = Vec::new();
@@ -157,7 +158,8 @@ impl GraphBuilder {
     ) -> Result<CodeGraph, String> {
         let root_path = PathBuf::from(project_path);
         if !root_path.exists() {
-            return Err(format!("Project path does not exist: {}", project_path));
+            warn!("Project path does not exist: {}", project_path);
+            return Err("Project path does not exist".to_string());
         }
 
         let mut nodes = Vec::new();
@@ -243,7 +245,8 @@ impl GraphBuilder {
     ) -> Result<CodeGraph, String> {
         let root_path = PathBuf::from(project_path);
         if !root_path.exists() {
-            return Err(format!("Project path does not exist: {}", project_path));
+            warn!("Project path does not exist: {}", project_path);
+            return Err("Project path does not exist".to_string());
         }
 
         let mut nodes = Vec::new();
