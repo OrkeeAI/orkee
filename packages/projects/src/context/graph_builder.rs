@@ -163,54 +163,61 @@ impl GraphBuilder {
         }
 
         let mut nodes = Vec::new();
-        // TODO(Phase 2): Add symbol relationships (class → method, function → dependencies, etc.)
-        // Current implementation creates isolated symbol nodes without edges.
-        // Future work: Parse AST to extract symbol references and create edges.
-        let edges = Vec::new();
+        let mut edges = Vec::new();
+        let mut file_node_map: HashMap<String, String> = HashMap::new();
         let files = self.find_source_files(&root_path)?;
 
         // Analyze each file for symbols
         let mut analyzer = AstAnalyzer::new_typescript()
             .map_err(|e| format!("Failed to create AST analyzer: {}", e))?;
 
-        for file_path in files.iter() {
+        for (file_idx, file_path) in files.iter().enumerate() {
+            // Validate file is within project bounds
+            let relative_path = match file_path.strip_prefix(&root_path) {
+                Ok(path) => path.to_string_lossy().to_string(),
+                Err(_) => {
+                    warn!(
+                        "Skipping file outside project root: {:?}",
+                        file_path
+                    );
+                    continue;
+                }
+            };
+
+            // Create file node
+            let file_node_id = format!("file_{}", file_idx);
+            file_node_map.insert(relative_path.clone(), file_node_id.clone());
+
+            nodes.push(GraphNode {
+                id: file_node_id.clone(),
+                label: Path::new(&relative_path)
+                    .file_name()
+                    .unwrap_or_default()
+                    .to_string_lossy()
+                    .to_string(),
+                node_type: NodeType::File,
+                metadata: NodeMetadata {
+                    path: Some(relative_path.clone()),
+                    line_start: None,
+                    line_end: None,
+                    token_count: self.estimate_token_count(file_path),
+                    complexity: None,
+                    spec_id: None,
+                },
+            });
+
+            // Extract and process symbols from file
             match fs::read_to_string(file_path) {
                 Ok(content) => match analyzer.extract_symbols(&content) {
                     Ok(symbols) => {
-                        for symbol in symbols {
-                            // Validate file is within project bounds
-                            let relative_path = match file_path.strip_prefix(&root_path) {
-                                Ok(path) => path.to_string_lossy().to_string(),
-                                Err(_) => {
-                                    warn!(
-                                        "Skipping symbols from file outside project root: {:?}",
-                                        file_path
-                                    );
-                                    continue;
-                                }
-                            };
-
-                            let node_id = format!("symbol_{}_{}", symbol.name, nodes.len());
-                            let node_type = match symbol.kind {
-                                crate::context::SymbolKind::Function => NodeType::Function,
-                                crate::context::SymbolKind::Class => NodeType::Class,
-                                _ => NodeType::Module,
-                            };
-
-                            nodes.push(GraphNode {
-                                id: node_id,
-                                label: symbol.name.clone(),
-                                node_type,
-                                metadata: NodeMetadata {
-                                    path: Some(relative_path),
-                                    line_start: Some(symbol.line_start),
-                                    line_end: Some(symbol.line_end),
-                                    token_count: None,
-                                    complexity: None,
-                                    spec_id: None,
-                                },
-                            });
-                        }
+                        self.process_symbols_recursive(
+                            &symbols,
+                            &relative_path,
+                            &file_node_id,
+                            &mut nodes,
+                            &mut edges,
+                            None,
+                        );
                     }
                     Err(e) => {
                         warn!("Failed to extract symbols from {:?}: {}", file_path, e);
@@ -497,6 +504,73 @@ impl GraphBuilder {
         fs::read_to_string(file_path)
             .ok()
             .map(|content| content.len() / 4)
+    }
+
+    /// Recursively process symbols and create nodes/edges
+    fn process_symbols_recursive(
+        &self,
+        symbols: &[crate::context::Symbol],
+        file_path: &str,
+        parent_node_id: &str,
+        nodes: &mut Vec<GraphNode>,
+        edges: &mut Vec<GraphEdge>,
+        parent_symbol_id: Option<&str>,
+    ) {
+        for symbol in symbols {
+            // Create unique symbol ID
+            let symbol_node_id = format!("symbol_{}_{}_{}", symbol.name, symbol.line_start, nodes.len());
+
+            // Determine node type
+            let node_type = match symbol.kind {
+                crate::context::SymbolKind::Function => NodeType::Function,
+                crate::context::SymbolKind::Class => NodeType::Class,
+                crate::context::SymbolKind::Interface => NodeType::Class, // Treat interfaces as classes in graph
+                crate::context::SymbolKind::Method => NodeType::Function, // Treat methods as functions in graph
+                _ => NodeType::Module,
+            };
+
+            // Create symbol node
+            nodes.push(GraphNode {
+                id: symbol_node_id.clone(),
+                label: symbol.name.clone(),
+                node_type,
+                metadata: NodeMetadata {
+                    path: Some(file_path.to_string()),
+                    line_start: Some(symbol.line_start),
+                    line_end: Some(symbol.line_end),
+                    token_count: None,
+                    complexity: None,
+                    spec_id: None,
+                },
+            });
+
+            // Create edge from parent (file or parent symbol) to this symbol
+            let edge_source = if let Some(parent_id) = parent_symbol_id {
+                parent_id.to_string()
+            } else {
+                parent_node_id.to_string()
+            };
+
+            edges.push(GraphEdge {
+                id: format!("edge_{}_{}", edge_source, symbol_node_id),
+                source: edge_source,
+                target: symbol_node_id.clone(),
+                edge_type: EdgeType::Contains,
+                weight: None,
+            });
+
+            // Recursively process child symbols (e.g., methods in a class)
+            if !symbol.children.is_empty() {
+                self.process_symbols_recursive(
+                    &symbol.children,
+                    file_path,
+                    parent_node_id,
+                    nodes,
+                    edges,
+                    Some(&symbol_node_id),
+                );
+            }
+        }
     }
 }
 
