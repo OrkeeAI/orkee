@@ -25,7 +25,7 @@ axum = "0.7"
 tower = { version = "0.4", features = ["util"] }
 tracing = "0.1"
 thiserror = "2.0"
-tokio = { version = "1.0", features = ["fs"] }
+tokio = { version = "1.0", features = ["fs", "time", "rt"] }
 git2 = "0.18"
 
 # Utilities

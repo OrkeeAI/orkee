@@ -10,6 +10,7 @@ use chrono::Utc;
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
+use tracing::warn;
 use walkdir::WalkDir;
 
 /// Builds various types of code graphs for visualization
@@ -150,36 +151,46 @@ impl GraphBuilder {
             .map_err(|e| format!("Failed to create AST analyzer: {}", e))?;
 
         for file_path in files.iter() {
-            if let Ok(content) = fs::read_to_string(file_path) {
-                if let Ok(symbols) = analyzer.extract_symbols(&content) {
-                    for symbol in symbols {
-                        let relative_path = file_path
-                            .strip_prefix(&root_path)
-                            .unwrap_or(file_path)
-                            .to_string_lossy()
-                            .to_string();
+            match fs::read_to_string(file_path) {
+                Ok(content) => {
+                    match analyzer.extract_symbols(&content) {
+                        Ok(symbols) => {
+                            for symbol in symbols {
+                                let relative_path = file_path
+                                    .strip_prefix(&root_path)
+                                    .unwrap_or(file_path)
+                                    .to_string_lossy()
+                                    .to_string();
 
-                        let node_id = format!("symbol_{}_{}", symbol.name, nodes.len());
-                        let node_type = match symbol.kind {
-                            crate::context::SymbolKind::Function => NodeType::Function,
-                            crate::context::SymbolKind::Class => NodeType::Class,
-                            _ => NodeType::Module,
-                        };
+                                let node_id = format!("symbol_{}_{}", symbol.name, nodes.len());
+                                let node_type = match symbol.kind {
+                                    crate::context::SymbolKind::Function => NodeType::Function,
+                                    crate::context::SymbolKind::Class => NodeType::Class,
+                                    _ => NodeType::Module,
+                                };
 
-                        nodes.push(GraphNode {
-                            id: node_id,
-                            label: symbol.name.clone(),
-                            node_type,
-                            metadata: NodeMetadata {
-                                path: Some(relative_path),
-                                line_start: Some(symbol.line_start),
-                                line_end: Some(symbol.line_end),
-                                token_count: None,
-                                complexity: None,
-                                spec_id: None,
-                            },
-                        });
+                                nodes.push(GraphNode {
+                                    id: node_id,
+                                    label: symbol.name.clone(),
+                                    node_type,
+                                    metadata: NodeMetadata {
+                                        path: Some(relative_path),
+                                        line_start: Some(symbol.line_start),
+                                        line_end: Some(symbol.line_end),
+                                        token_count: None,
+                                        complexity: None,
+                                        spec_id: None,
+                                    },
+                                });
+                            }
+                        }
+                        Err(e) => {
+                            warn!("Failed to extract symbols from {:?}: {}", file_path, e);
+                        }
                     }
+                }
+                Err(e) => {
+                    warn!("Failed to read file {:?}: {}", file_path, e);
                 }
             }
         }
