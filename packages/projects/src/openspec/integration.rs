@@ -358,10 +358,12 @@ mod tests {
             .await
             .unwrap();
 
-        sqlx::query(include_str!("../../migrations/20250127000000_openspec_alignment.sql"))
-            .execute(&pool)
-            .await
-            .unwrap();
+        sqlx::query(include_str!(
+            "../../migrations/20250127000000_openspec_alignment.sql"
+        ))
+        .execute(&pool)
+        .await
+        .unwrap();
 
         pool
     }

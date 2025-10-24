@@ -1,9 +1,9 @@
 // ABOUTME: CLI utility functions for project context detection
 // ABOUTME: Helps automatically detect project from current working directory
 
+use sqlx::SqlitePool;
 use std::env;
 use std::path::Path;
-use sqlx::SqlitePool;
 
 /// Maximum number of parent directories to search for project markers
 const MAX_PARENT_SEARCH_DEPTH: usize = 10;
@@ -21,7 +21,13 @@ pub async fn detect_project_from_cwd() -> Option<String> {
     let current_dir = env::current_dir().ok()?;
 
     // Try to find project markers
-    let markers = vec![".git", "package.json", "Cargo.toml", "pyproject.toml", "go.mod"];
+    let markers = vec![
+        ".git",
+        "package.json",
+        "Cargo.toml",
+        "pyproject.toml",
+        "go.mod",
+    ];
 
     let mut search_dir = current_dir.clone();
     for _ in 0..MAX_PARENT_SEARCH_DEPTH {
@@ -51,13 +57,12 @@ async fn find_project_by_path(path: &Path) -> Option<String> {
     let pool = get_database_pool().await.ok()?;
 
     // Query for project with matching project_root
-    let result: Option<(String,)> = sqlx::query_as(
-        "SELECT id FROM projects WHERE project_root = ? LIMIT 1"
-    )
-    .bind(&path_str)
-    .fetch_optional(&pool)
-    .await
-    .ok()?;
+    let result: Option<(String,)> =
+        sqlx::query_as("SELECT id FROM projects WHERE project_root = ? LIMIT 1")
+            .bind(&path_str)
+            .fetch_optional(&pool)
+            .await
+            .ok()?;
 
     result.map(|(id,)| id)
 }

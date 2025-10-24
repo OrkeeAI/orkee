@@ -201,7 +201,10 @@ pub async fn update_task(
     Path((_project_id, _change_id, task_id)): Path<(String, String, String)>,
     Json(request): Json<UpdateTaskRequest>,
 ) -> impl IntoResponse {
-    info!("Updating task: {} (completed: {})", task_id, request.is_completed);
+    info!(
+        "Updating task: {} (completed: {})",
+        task_id, request.is_completed
+    );
 
     let result = openspec_db::update_change_task(
         &db.pool,

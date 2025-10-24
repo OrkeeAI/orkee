@@ -1,9 +1,9 @@
 // ABOUTME: Helper functions for building OpenSpec changes from PRD analysis
 // ABOUTME: Generates change IDs, builds markdown content, and determines change metadata
 
-use crate::api::ai_handlers::{PRDAnalysisData, SpecCapability, TaskSuggestion};
 use super::db::{create_spec_change, create_spec_delta, DbError};
 use super::types::{DeltaType, SpecChange};
+use crate::api::ai_handlers::{PRDAnalysisData, SpecCapability, TaskSuggestion};
 use sqlx::{Pool, Sqlite};
 
 /// Generate a unique change ID for a project
@@ -36,13 +36,19 @@ pub fn determine_verb_from_analysis(analysis: &PRDAnalysisData) -> String {
     // Check in order of precedence (more specific to less specific)
     if summary_lower.contains("update") || summary_lower.contains("modify") {
         "update".to_string()
-    } else if summary_lower.contains("fix") || summary_lower.contains("bug") || summary_lower.contains("issue") {
+    } else if summary_lower.contains("fix")
+        || summary_lower.contains("bug")
+        || summary_lower.contains("issue")
+    {
         "fix".to_string()
     } else if summary_lower.contains("remove") || summary_lower.contains("delete") {
         "remove".to_string()
     } else if summary_lower.contains("refactor") || summary_lower.contains("improve") {
         "refactor".to_string()
-    } else if summary_lower.contains("add") || summary_lower.contains("new") || summary_lower.contains("create") {
+    } else if summary_lower.contains("add")
+        || summary_lower.contains("new")
+        || summary_lower.contains("create")
+    {
         "add".to_string()
     } else {
         // Default to "add" for new features
@@ -57,21 +63,33 @@ pub fn build_proposal_markdown(analysis: &PRDAnalysisData) -> String {
     markdown.push_str("\n\n## What Changes\n");
 
     for capability in &analysis.capabilities {
-        markdown.push_str(&format!("- **{}**: {}\n", capability.name, capability.purpose));
+        markdown.push_str(&format!(
+            "- **{}**: {}\n",
+            capability.name, capability.purpose
+        ));
     }
 
     markdown.push_str("\n## Impact\n");
-    markdown.push_str(&format!("- Affected specs: {}\n",
-        analysis.capabilities.iter()
+    markdown.push_str(&format!(
+        "- Affected specs: {}\n",
+        analysis
+            .capabilities
+            .iter()
             .map(|c| c.name.as_str())
             .collect::<Vec<_>>()
-            .join(", ")));
+            .join(", ")
+    ));
 
-    let total_complexity: u32 = analysis.capabilities.iter()
+    let total_complexity: u32 = analysis
+        .capabilities
+        .iter()
         .flat_map(|c| &c.requirements)
         .count() as u32;
-    markdown.push_str(&format!("- Complexity: {} requirements across {} capabilities\n",
-        total_complexity, analysis.capabilities.len()));
+    markdown.push_str(&format!(
+        "- Complexity: {} requirements across {} capabilities\n",
+        total_complexity,
+        analysis.capabilities.len()
+    ));
 
     if let Some(deps) = &analysis.dependencies {
         markdown.push_str(&format!("- Dependencies: {}\n", deps.join(", ")));
@@ -87,8 +105,13 @@ pub fn build_tasks_markdown(tasks: &[TaskSuggestion]) -> String {
     let mut markdown = String::from("## Implementation Tasks\n\n");
 
     for (i, task) in tasks.iter().enumerate() {
-        markdown.push_str(&format!("{}. **{}** (Priority: {}, Complexity: {})\n",
-            i + 1, task.title, task.priority, task.complexity));
+        markdown.push_str(&format!(
+            "{}. **{}** (Priority: {}, Complexity: {})\n",
+            i + 1,
+            task.title,
+            task.priority,
+            task.complexity
+        ));
         markdown.push_str(&format!("   {}\n", task.description));
         if let Some(hours) = task.estimated_hours {
             markdown.push_str(&format!("   Estimated: {} hours\n", hours));
@@ -142,7 +165,9 @@ pub fn needs_design_doc(analysis: &PRDAnalysisData) -> bool {
     }
 
     // Check total requirement count
-    let total_requirements: usize = analysis.capabilities.iter()
+    let total_requirements: usize = analysis
+        .capabilities
+        .iter()
         .map(|c| c.requirements.len())
         .sum();
 
@@ -180,11 +205,15 @@ pub fn build_capability_delta_markdown(capability: &SpecCapability) -> String {
 
 /// Calculate overall complexity from analysis
 pub fn calculate_overall_complexity(analysis: &PRDAnalysisData) -> String {
-    let total_requirements: usize = analysis.capabilities.iter()
+    let total_requirements: usize = analysis
+        .capabilities
+        .iter()
         .map(|c| c.requirements.len())
         .sum();
 
-    let total_scenarios: usize = analysis.capabilities.iter()
+    let total_scenarios: usize = analysis
+        .capabilities
+        .iter()
         .flat_map(|c| &c.requirements)
         .map(|r| r.scenarios.len())
         .sum();
@@ -240,7 +269,9 @@ pub async fn create_change_from_analysis(
     .await?;
 
     // Update change with verb prefix and change number
-    let change_number = change_id.split('-').last()
+    let change_number = change_id
+        .split('-')
+        .last()
         .and_then(|s| s.parse::<i32>().ok())
         .unwrap_or(1);
 
@@ -356,26 +387,24 @@ mod tests {
             id: "test".to_string(),
             name: "Test".to_string(),
             purpose: "Test purpose".to_string(),
-            requirements: vec![
-                SpecRequirement {
-                    name: "Req1".to_string(),
-                    content: "Content".to_string(),
-                    scenarios: vec![
-                        SpecScenario {
-                            name: "S1".to_string(),
-                            when: "when".to_string(),
-                            then: "then".to_string(),
-                            and: None,
-                        },
-                        SpecScenario {
-                            name: "S2".to_string(),
-                            when: "when".to_string(),
-                            then: "then".to_string(),
-                            and: None,
-                        },
-                    ],
-                },
-            ],
+            requirements: vec![SpecRequirement {
+                name: "Req1".to_string(),
+                content: "Content".to_string(),
+                scenarios: vec![
+                    SpecScenario {
+                        name: "S1".to_string(),
+                        when: "when".to_string(),
+                        then: "then".to_string(),
+                        and: None,
+                    },
+                    SpecScenario {
+                        name: "S2".to_string(),
+                        when: "when".to_string(),
+                        then: "then".to_string(),
+                        and: None,
+                    },
+                ],
+            }],
         };
 
         let analysis = PRDAnalysisData {

@@ -314,9 +314,6 @@ The old authentication system is being removed.
 "#;
 
         let errors = validator.validate_delta_markdown(markdown);
-        assert!(
-            errors.is_empty(),
-            "REMOVED delta operation should be valid"
-        );
+        assert!(errors.is_empty(), "REMOVED delta operation should be valid");
     }
 }

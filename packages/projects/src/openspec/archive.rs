@@ -2,8 +2,8 @@
 // ABOUTME: Validates and applies deltas to create or update capabilities
 
 use super::db::{
-    create_capability, create_requirement, create_scenario, get_capability,
-    get_deltas_by_change, get_spec_change, DbError,
+    create_capability, create_requirement, create_scenario, get_capability, get_deltas_by_change,
+    get_spec_change, DbError,
 };
 use super::markdown_validator::OpenSpecMarkdownValidator;
 use super::parser::{parse_spec_markdown, ParseError};
@@ -155,13 +155,11 @@ async fn apply_delta(
 
             // Update requirement count
             let req_count = parsed.requirements.len() as i32;
-            sqlx::query(
-                "UPDATE spec_capabilities SET requirement_count = ? WHERE id = ?",
-            )
-            .bind(req_count)
-            .bind(&capability.id)
-            .execute(pool)
-            .await?;
+            sqlx::query("UPDATE spec_capabilities SET requirement_count = ? WHERE id = ?")
+                .bind(req_count)
+                .bind(&capability.id)
+                .execute(pool)
+                .await?;
         }
 
         DeltaType::Modified => {
@@ -223,13 +221,11 @@ async fn apply_delta(
 
                 // Update requirement count
                 let req_count = parsed.requirements.len() as i32;
-                sqlx::query(
-                    "UPDATE spec_capabilities SET requirement_count = ? WHERE id = ?",
-                )
-                .bind(req_count)
-                .bind(cap_id)
-                .execute(pool)
-                .await?;
+                sqlx::query("UPDATE spec_capabilities SET requirement_count = ? WHERE id = ?")
+                    .bind(req_count)
+                    .bind(cap_id)
+                    .execute(pool)
+                    .await?;
             } else {
                 return Err(ArchiveError::InvalidDelta(format!(
                     "Modified delta for '{}' missing capability_id",
@@ -303,7 +299,9 @@ fn parse_capability_from_delta(delta_markdown: &str) -> ArchiveResult<ParsedCapa
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::openspec::db::{create_prd, create_spec_change, create_spec_delta, update_spec_change_status};
+    use crate::openspec::db::{
+        create_prd, create_spec_change, create_spec_delta, update_spec_change_status,
+    };
     use crate::openspec::types::{PRDSource, PRDStatus};
 
     async fn setup_test_db() -> Pool<Sqlite> {
@@ -368,9 +366,15 @@ The system SHALL provide secure user authentication using JWT tokens.
 
         let parsed = parse_capability_from_delta(delta_markdown).unwrap();
         assert_eq!(parsed.requirements.len(), 1);
-        assert_eq!(parsed.requirements[0].name, "Requirement: User Authentication");
+        assert_eq!(
+            parsed.requirements[0].name,
+            "Requirement: User Authentication"
+        );
         assert_eq!(parsed.requirements[0].scenarios.len(), 1);
-        assert_eq!(parsed.requirements[0].scenarios[0].name, "Scenario: Successful login");
+        assert_eq!(
+            parsed.requirements[0].scenarios[0].name,
+            "Scenario: Successful login"
+        );
     }
 
     #[tokio::test]

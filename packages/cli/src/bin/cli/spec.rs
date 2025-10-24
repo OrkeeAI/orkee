@@ -143,7 +143,11 @@ pub async fn handle_spec_command(cmd: SpecCommand) -> Result<(), Box<dyn std::er
             export_cmd(&project_id, &path).await
         }
 
-        SpecCommand::Import { project, path, force } => {
+        SpecCommand::Import {
+            project,
+            path,
+            force,
+        } => {
             let project_id = resolve_project_id(Some(project)).await?;
             import_cmd(&project_id, &path, force).await
         }
@@ -239,7 +243,15 @@ async fn show_change_cmd(
                 delta.delta_type
             );
             if deltas_only {
-                println!("    {}", delta.delta_markdown.lines().take(5).collect::<Vec<_>>().join("\n    "));
+                println!(
+                    "    {}",
+                    delta
+                        .delta_markdown
+                        .lines()
+                        .take(5)
+                        .collect::<Vec<_>>()
+                        .join("\n    ")
+                );
                 if delta.delta_markdown.lines().count() > 5 {
                     println!("    {}", "...".dimmed());
                 }
@@ -279,7 +291,12 @@ async fn validate_cmd(
             if result.is_valid {
                 println!("{} {}", "✓".green(), change.id);
             } else {
-                println!("{} {} - {} errors", "✗".red(), change.id, result.errors.len());
+                println!(
+                    "{} {} - {} errors",
+                    "✗".red(),
+                    change.id,
+                    result.errors.len()
+                );
                 all_valid = false;
             }
         }
@@ -304,12 +321,9 @@ async fn archive_cmd(
             "without applying deltas"
         };
 
-        let confirmed = Confirm::new(&format!(
-            "Archive change {} {}?",
-            change_id, apply_msg
-        ))
-        .with_default(false)
-        .prompt()?;
+        let confirmed = Confirm::new(&format!("Archive change {} {}?", change_id, apply_msg))
+            .with_default(false)
+            .prompt()?;
 
         if !confirmed {
             println!("{}", "Archive cancelled".yellow());
@@ -344,11 +358,7 @@ async fn export_cmd(project_id: &str, path: &PathBuf) -> Result<(), Box<dyn std:
 
     export_specs(project_id, path).await?;
 
-    println!(
-        "{} Exported to {}",
-        "✓".green(),
-        path.display()
-    );
+    println!("{} Exported to {}", "✓".green(), path.display());
 
     Ok(())
 }
@@ -386,10 +396,7 @@ async fn import_cmd(
     println!("  {} requirements imported", report.requirements_imported);
     println!("  {} changes imported", report.changes_imported);
     println!();
-    println!(
-        "{} Import completed successfully",
-        "✓".green()
-    );
+    println!("{} Import completed successfully", "✓".green());
 
     Ok(())
 }

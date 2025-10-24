@@ -6,12 +6,12 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ParsedTask {
-    pub number: String,          // e.g., "1.1", "2.3", "1"
-    pub text: String,            // Task description
-    pub is_completed: bool,      // Checkbox state: [ ] = false, [x] = true
-    pub display_order: usize,    // Order in the document
+    pub number: String,                // e.g., "1.1", "2.3", "1"
+    pub text: String,                  // Task description
+    pub is_completed: bool,            // Checkbox state: [ ] = false, [x] = true
+    pub display_order: usize,          // Order in the document
     pub parent_number: Option<String>, // Parent task number (e.g., "1" for "1.1")
-    pub level: usize,            // Nesting level (0 = top-level)
+    pub level: usize,                  // Nesting level (0 = top-level)
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -42,16 +42,19 @@ pub fn parse_tasks_from_markdown(markdown: &str) -> TaskParseResult<Vec<ParsedTa
 
     // Regex pattern to match task lines
     // Captures: (indent)(checkbox)(number)(description)
-    let task_pattern = Regex::new(
-        r"^(\s*)- \[([ xX])\]\s*(?:(\d+(?:\.\d+)*)\s+)?(.+)$"
-    ).map_err(|e| TaskParseError::InvalidFormat(format!("Regex compilation failed: {}", e)))?;
+    let task_pattern = Regex::new(r"^(\s*)- \[([ xX])\]\s*(?:(\d+(?:\.\d+)*)\s+)?(.+)$")
+        .map_err(|e| TaskParseError::InvalidFormat(format!("Regex compilation failed: {}", e)))?;
 
     for line in markdown.lines() {
         if let Some(captures) = task_pattern.captures(line) {
             let indent = captures.get(1).map_or("", |m| m.as_str());
             let checkbox = captures.get(2).map_or(" ", |m| m.as_str());
             let number = captures.get(3).map(|m| m.as_str().to_string());
-            let text = captures.get(4).map_or("", |m| m.as_str()).trim().to_string();
+            let text = captures
+                .get(4)
+                .map_or("", |m| m.as_str())
+                .trim()
+                .to_string();
 
             if text.is_empty() {
                 return Err(TaskParseError::EmptyDescription);
@@ -126,9 +129,8 @@ pub fn update_task_in_markdown(
     is_completed: bool,
 ) -> TaskParseResult<String> {
     let mut result = Vec::new();
-    let task_pattern = Regex::new(
-        r"^(\s*- )\[([ xX])\](\s*\d+(?:\.\d+)*\s+.+)$"
-    ).map_err(|e| TaskParseError::InvalidFormat(format!("Regex compilation failed: {}", e)))?;
+    let task_pattern = Regex::new(r"^(\s*- )\[([ xX])\](\s*\d+(?:\.\d+)*\s+.+)$")
+        .map_err(|e| TaskParseError::InvalidFormat(format!("Regex compilation failed: {}", e)))?;
 
     let mut found = false;
 

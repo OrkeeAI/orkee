@@ -1,17 +1,17 @@
 // ABOUTME: OpenSpec materialization service for exporting database contents to filesystem
 // ABOUTME: Supports creating OpenSpec directory structure and materializing specs, changes, and project metadata
 
-use std::path::Path;
-use sqlx::{Pool, Sqlite};
-use tokio::fs;
-use sha2::{Sha256, Digest};
 use chrono::Utc;
+use sha2::{Digest, Sha256};
+use sqlx::{Pool, Sqlite};
+use std::path::Path;
+use tokio::fs;
 
 use crate::openspec::db as openspec_db;
-use crate::openspec::types::{SpecCapability, ChangeStatus, ValidationStatus};
 use crate::openspec::db::DbError;
 use crate::openspec::parser::{parse_spec_markdown, ParseError};
 use crate::openspec::sync::MergeStrategy;
+use crate::openspec::types::{ChangeStatus, SpecCapability, ValidationStatus};
 
 /// Errors that can occur during materialization
 #[derive(Debug, thiserror::Error)]
@@ -83,7 +83,8 @@ impl OpenSpecMaterializer {
         fs::create_dir_all(openspec_path.join("archive")).await?;
 
         // Create project.md from project metadata
-        self.materialize_project_md(project_id, &openspec_path).await?;
+        self.materialize_project_md(project_id, &openspec_path)
+            .await?;
 
         // Create AGENTS.md stub
         self.create_agents_stub(&openspec_path).await?;
@@ -92,10 +93,12 @@ impl OpenSpecMaterializer {
         self.materialize_specs(project_id, &openspec_path).await?;
 
         // Materialize active changes
-        self.materialize_changes(project_id, &openspec_path, false).await?;
+        self.materialize_changes(project_id, &openspec_path, false)
+            .await?;
 
         // Materialize archived changes
-        self.materialize_changes(project_id, &openspec_path, true).await?;
+        self.materialize_changes(project_id, &openspec_path, true)
+            .await?;
 
         // Track materialization
         self.track_materialization(project_id, base_path).await?;
@@ -110,13 +113,12 @@ impl OpenSpecMaterializer {
         openspec_path: &Path,
     ) -> MaterializerResult<()> {
         // Query project name and description directly from the pool
-        let (name, description): (String, Option<String>) = sqlx::query_as(
-            "SELECT name, description FROM projects WHERE id = ?"
-        )
-        .bind(project_id)
-        .fetch_optional(&self.pool)
-        .await?
-        .ok_or_else(|| MaterializerError::ProjectNotFound(project_id.to_string()))?;
+        let (name, description): (String, Option<String>) =
+            sqlx::query_as("SELECT name, description FROM projects WHERE id = ?")
+                .bind(project_id)
+                .fetch_optional(&self.pool)
+                .await?
+                .ok_or_else(|| MaterializerError::ProjectNotFound(project_id.to_string()))?;
 
         let content = format!(
             r#"# {} Context
@@ -163,7 +165,8 @@ This project uses OpenSpec for spec-driven development.
         let capabilities = openspec_db::get_capabilities_by_project(&self.pool, project_id).await?;
 
         for capability in capabilities {
-            self.materialize_capability(&capability, openspec_path).await?;
+            self.materialize_capability(&capability, openspec_path)
+                .await?;
         }
 
         Ok(())
@@ -295,7 +298,9 @@ This project uses OpenSpec for spec-driven development.
         // Import active changes
         let changes_path = openspec_path.join("changes");
         if changes_path.exists() {
-            let change_report = self.import_changes(project_id, &changes_path, false).await?;
+            let change_report = self
+                .import_changes(project_id, &changes_path, false)
+                .await?;
             report.changes_imported += change_report;
         }
 
@@ -319,7 +324,8 @@ This project uses OpenSpec for spec-driven development.
         let mut report = ImportReport::default();
 
         // Get existing capabilities
-        let existing_capabilities = openspec_db::get_capabilities_by_project(&self.pool, project_id).await?;
+        let existing_capabilities =
+            openspec_db::get_capabilities_by_project(&self.pool, project_id).await?;
 
         // Read all spec directories
         let mut entries = fs::read_dir(specs_path).await?;
@@ -351,7 +357,9 @@ This project uses OpenSpec for spec-driven development.
             let parsed = parse_spec_markdown(&spec_content)?;
 
             // Check if capability already exists
-            let existing = existing_capabilities.iter().find(|c| c.name == capability_name);
+            let existing = existing_capabilities
+                .iter()
+                .find(|c| c.name == capability_name);
 
             match (existing, strategy) {
                 (Some(_existing_cap), MergeStrategy::PreferLocal) => {
@@ -407,7 +415,8 @@ This project uses OpenSpec for spec-driven development.
 
                             report.requirements_imported += 1;
 
-                            for (scenario_idx, scenario) in requirement.scenarios.iter().enumerate() {
+                            for (scenario_idx, scenario) in requirement.scenarios.iter().enumerate()
+                            {
                                 openspec_db::create_scenario(
                                     &self.pool,
                                     &req.id,
@@ -532,7 +541,8 @@ This project uses OpenSpec for spec-driven development.
         fs::create_dir_all(openspec_path.join("archive")).await?;
 
         // Create project.md
-        self.materialize_project_md(project_id, &openspec_path).await?;
+        self.materialize_project_md(project_id, &openspec_path)
+            .await?;
 
         // Create AGENTS.md
         self.create_agents_stub(&openspec_path).await?;
@@ -541,7 +551,8 @@ This project uses OpenSpec for spec-driven development.
         self.materialize_specs(project_id, &openspec_path).await?;
 
         // Materialize active changes only (not archived)
-        self.materialize_changes(project_id, &openspec_path, false).await?;
+        self.materialize_changes(project_id, &openspec_path, false)
+            .await?;
 
         // Don't track materialization for sandboxes
 
@@ -812,7 +823,9 @@ Test description.
         assert!(sandbox_path.join("openspec").exists());
         assert!(sandbox_path.join("openspec/project.md").exists());
         assert!(sandbox_path.join("openspec/AGENTS.md").exists());
-        assert!(sandbox_path.join("openspec/specs/sandbox-test/spec.md").exists());
+        assert!(sandbox_path
+            .join("openspec/specs/sandbox-test/spec.md")
+            .exists());
 
         // Clean up sandbox
         OpenSpecMaterializer::cleanup_sandbox(sandbox_path)

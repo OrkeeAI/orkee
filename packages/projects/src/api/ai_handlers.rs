@@ -178,9 +178,16 @@ pub async fn analyze_prd(
     info!("AI PRD analysis requested for PRD: {}", request.prd_id);
 
     // Get API key from database (with environment variable fallback)
-    let api_key = match db.user_storage.get_api_key(&current_user.id, "anthropic").await {
+    let api_key = match db
+        .user_storage
+        .get_api_key(&current_user.id, "anthropic")
+        .await
+    {
         Ok(Some(key)) => {
-            info!("Using Anthropic API key from database (starts with: {})", &key.chars().take(15).collect::<String>());
+            info!(
+                "Using Anthropic API key from database (starts with: {})",
+                &key.chars().take(15).collect::<String>()
+            );
             key
         }
         Ok(None) => {
@@ -205,13 +212,20 @@ pub async fn analyze_prd(
             error!("Failed to fetch API key from database: {}", e);
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ApiResponse::<()>::error(format!("Failed to retrieve API key: {}", e)))
-            ).into_response();
+                Json(ApiResponse::<()>::error(format!(
+                    "Failed to retrieve API key: {}",
+                    e
+                ))),
+            )
+                .into_response();
         }
     };
 
     // Initialize AI service with the API key and selected model
-    info!("Using model: {} from provider: {}", request.model, request.provider);
+    info!(
+        "Using model: {} from provider: {}",
+        request.model, request.provider
+    );
     let ai_service = AIService::with_api_key_and_model(api_key, request.model.clone());
 
     // Build the prompt matching TypeScript implementation
@@ -325,13 +339,17 @@ RESPOND WITH ONLY VALID JSON."#
                     error!("Failed to fetch PRD {}: {}", request.prd_id, e);
                     return (
                         StatusCode::NOT_FOUND,
-                        ResponseJson(ApiResponse::<()>::error(format!("PRD not found: {}", e)))
-                    ).into_response();
+                        ResponseJson(ApiResponse::<()>::error(format!("PRD not found: {}", e))),
+                    )
+                        .into_response();
                 }
             };
 
             let project_id = &prd.project_id;
-            info!("Creating OpenSpec change proposal for project: {}", project_id);
+            info!(
+                "Creating OpenSpec change proposal for project: {}",
+                project_id
+            );
 
             // Create change proposal from analysis using OpenSpec workflow
             let change = match crate::openspec::create_change_from_analysis(
@@ -340,17 +358,26 @@ RESPOND WITH ONLY VALID JSON."#
                 &request.prd_id,
                 &ai_response.data,
                 &current_user.id,
-            ).await {
+            )
+            .await
+            {
                 Ok(change) => {
-                    info!("Created change proposal: {} (status: {:?})", change.id, change.status);
+                    info!(
+                        "Created change proposal: {} (status: {:?})",
+                        change.id, change.status
+                    );
                     change
                 }
                 Err(e) => {
                     error!("Failed to create change proposal: {}", e);
                     return (
                         StatusCode::INTERNAL_SERVER_ERROR,
-                        ResponseJson(ApiResponse::<()>::error(format!("Failed to create change proposal: {}", e)))
-                    ).into_response();
+                        ResponseJson(ApiResponse::<()>::error(format!(
+                            "Failed to create change proposal: {}",
+                            e
+                        ))),
+                    )
+                        .into_response();
                 }
             };
 
@@ -370,7 +397,10 @@ RESPOND WITH ONLY VALID JSON."#
             for delta in &deltas {
                 let errors = validator.validate_delta_markdown(&delta.delta_markdown);
                 if !errors.is_empty() {
-                    error!("Validation errors in delta for {}: {:?}", delta.capability_name, errors);
+                    error!(
+                        "Validation errors in delta for {}: {:?}",
+                        delta.capability_name, errors
+                    );
                     validation_errors.extend(errors);
                 }
             }
@@ -383,7 +413,7 @@ RESPOND WITH ONLY VALID JSON."#
             };
 
             if let Err(e) = sqlx::query(
-                "UPDATE spec_changes SET validation_status = ?, validation_errors = ? WHERE id = ?"
+                "UPDATE spec_changes SET validation_status = ?, validation_errors = ? WHERE id = ?",
             )
             .bind(validation_status)
             .bind(if validation_errors.is_empty() {
@@ -393,13 +423,18 @@ RESPOND WITH ONLY VALID JSON."#
             })
             .bind(&change.id)
             .execute(&db.pool)
-            .await {
+            .await
+            {
                 error!("Failed to update change validation status: {}", e);
             }
 
             // Save suggested tasks to database
-            info!("Creating {} suggested tasks", ai_response.data.suggested_tasks.len());
-            for (task_index, task_suggestion) in ai_response.data.suggested_tasks.iter().enumerate() {
+            info!(
+                "Creating {} suggested tasks",
+                ai_response.data.suggested_tasks.len()
+            );
+            for (task_index, task_suggestion) in ai_response.data.suggested_tasks.iter().enumerate()
+            {
                 // Convert priority string to TaskPriority enum
                 let priority = match task_suggestion.priority.to_lowercase().as_str() {
                     "high" => TaskPriority::High,
@@ -429,11 +464,11 @@ RESPOND WITH ONLY VALID JSON."#
                     category: Some(task_suggestion.capability_id.clone()),
                 };
 
-                match db.task_storage.create_task(
-                    project_id,
-                    &current_user.id,
-                    task_input
-                ).await {
+                match db
+                    .task_storage
+                    .create_task(project_id, &current_user.id, task_input)
+                    .await
+                {
                     Ok(task) => {
                         info!("Created task: {} ({})", task_suggestion.title, task.id);
                     }

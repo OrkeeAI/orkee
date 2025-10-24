@@ -2,15 +2,13 @@
 // ABOUTME: Provides convenient functions that handle database connection internally
 
 use super::archive::{archive_change, ArchiveResult};
-use super::db::{
-    get_deltas_by_change, get_spec_change, get_spec_changes_by_project, DbResult,
-};
+use super::db::{get_deltas_by_change, get_spec_change, get_spec_changes_by_project, DbResult};
 use super::markdown_validator::OpenSpecMarkdownValidator;
-use super::materializer::{OpenSpecMaterializer, ImportReport};
+use super::materializer::{ImportReport, OpenSpecMaterializer};
 use super::sync::MergeStrategy;
 use super::types::{SpecChange, SpecDelta};
 use crate::constants::orkee_dir;
-use sqlx::{Pool, Sqlite, sqlite::SqlitePoolOptions};
+use sqlx::{sqlite::SqlitePoolOptions, Pool, Sqlite};
 use std::path::Path;
 
 /// Get the database pool
@@ -22,7 +20,9 @@ async fn get_pool() -> DbResult<Pool<Sqlite>> {
         .max_connections(5)
         .connect(&database_url)
         .await
-        .map_err(|e| super::db::DbError::InvalidInput(format!("Failed to connect to database: {}", e)))?;
+        .map_err(|e| {
+            super::db::DbError::InvalidInput(format!("Failed to connect to database: {}", e))
+        })?;
 
     Ok(pool)
 }
@@ -36,7 +36,7 @@ pub async fn list_changes(project_id: Option<&str>) -> DbResult<Vec<SpecChange>>
     } else {
         // Get all changes across all projects
         let changes: Vec<SpecChange> = sqlx::query_as(
-            "SELECT * FROM spec_changes WHERE deleted_at IS NULL ORDER BY created_at DESC"
+            "SELECT * FROM spec_changes WHERE deleted_at IS NULL ORDER BY created_at DESC",
         )
         .fetch_all(&pool)
         .await?;

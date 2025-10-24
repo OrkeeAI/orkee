@@ -99,9 +99,8 @@ impl AIService {
             info!("ANTHROPIC_API_KEY not set - AI service will use database-stored keys");
         }
 
-        let model = env::var("ANTHROPIC_MODEL")
-            .unwrap_or_else(|_| DEFAULT_MODEL.to_string());
-        
+        let model = env::var("ANTHROPIC_MODEL").unwrap_or_else(|_| DEFAULT_MODEL.to_string());
+
         if model != DEFAULT_MODEL {
             info!("Using custom Anthropic model: {}", model);
         }
@@ -115,9 +114,8 @@ impl AIService {
 
     /// Creates a new AI service instance with a specific API key
     pub fn with_api_key(api_key: String) -> Self {
-        let model = env::var("ANTHROPIC_MODEL")
-            .unwrap_or_else(|_| DEFAULT_MODEL.to_string());
-        
+        let model = env::var("ANTHROPIC_MODEL").unwrap_or_else(|_| DEFAULT_MODEL.to_string());
+
         Self {
             client: Client::new(),
             api_key: Some(api_key),
