@@ -183,7 +183,8 @@ async fn test_sse_endpoint_rate_limiting() {
     // Should either succeed (200) or fail with initialization error (500)
     // but not return 404
     assert!(
-        response.status() == StatusCode::OK || response.status() == StatusCode::INTERNAL_SERVER_ERROR,
+        response.status() == StatusCode::OK
+            || response.status() == StatusCode::INTERNAL_SERVER_ERROR,
         "SSE endpoint should exist and be accessible, got {}",
         response.status()
     );
