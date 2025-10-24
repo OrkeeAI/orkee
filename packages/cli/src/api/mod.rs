@@ -279,6 +279,10 @@ pub async fn create_router_with_options(
             "/api/projects",
             orkee_projects::create_specs_router().with_state(db_state.clone()),
         )
+        .nest(
+            "/api/projects",
+            orkee_projects::create_graph_router().with_state(db_state.clone()),
+        )
         .nest("/api/git", git_router)
         .nest("/api/preview", preview_router)
         .nest("/api/cloud", cloud_router)

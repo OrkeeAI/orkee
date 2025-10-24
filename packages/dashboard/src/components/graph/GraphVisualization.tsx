@@ -272,8 +272,30 @@ export function GraphVisualization({
   useEffect(() => {
     if (cyRef.current) {
       const cy = cyRef.current;
-      cy.layout(layoutConfig).run();
+
+      // Check if the instance is still valid (not destroyed)
+      try {
+        if (cy.elements && cy.layout) {
+          cy.layout(layoutConfig).run();
+        }
+      } catch (error) {
+        // Silently ignore errors from destroyed instances
+        console.debug('[GraphVisualization] Layout error (instance may be unmounting):', error);
+      }
     }
+
+    // Cleanup on unmount
+    return () => {
+      if (cyRef.current) {
+        try {
+          cyRef.current.destroy();
+        } catch (error) {
+          // Silently ignore if already destroyed
+          console.debug('[GraphVisualization] Cleanup error (instance already destroyed):', error);
+        }
+        cyRef.current = null;
+      }
+    };
   }, [layoutConfig, cyRef]);
 
   if (isLoading) {
@@ -322,6 +344,7 @@ export function GraphVisualization({
     <Card className="flex-1">
       <CardContent className="p-0 h-[600px]">
         <CytoscapeComponent
+          key={`cytoscape-${graphType}`}
           elements={elements}
           style={{ width: '100%', height: '100%' }}
           stylesheet={stylesheet}

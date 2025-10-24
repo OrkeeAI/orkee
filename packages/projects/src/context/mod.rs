@@ -7,6 +7,7 @@ pub mod graph_types;
 pub mod history_service;
 pub mod incremental_parser;
 pub mod language_support;
+pub mod mock_graph_data;
 pub mod openspec_bridge;
 pub mod spec_context;
 pub mod types;

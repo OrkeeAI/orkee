@@ -63,16 +63,26 @@ export const graphService = {
     projectId: string,
     options?: GraphQueryOptions
   ): Promise<CodeGraph> {
-    const response = await api.get<GraphResponse>(
-      `/projects/${projectId}/graph/dependencies`,
-      options ? { params: options } : undefined
-    );
-
-    if (!response.success || !response.data) {
-      throw new Error(response.error || 'Failed to fetch dependency graph');
+    let endpoint = `/api/projects/${projectId}/graph/dependencies`;
+    if (options) {
+      const params = new URLSearchParams();
+      if (options.max_depth) params.append('max_depth', options.max_depth.toString());
+      if (options.filter) params.append('filter', options.filter);
+      if (options.layout) params.append('layout', options.layout);
+      const queryString = params.toString();
+      if (queryString) endpoint += `?${queryString}`;
     }
 
-    return response.data;
+    console.log('[Graph Service] Calling endpoint:', endpoint);
+    const response = await api.get<GraphResponse>(endpoint);
+    console.log('[Graph Service] Response:', response);
+
+    if (!response.data?.success || !response.data?.data) {
+      console.error('[Graph Service] Error response:', response);
+      throw new Error(response.data?.error || response.error || 'Failed to fetch dependency graph');
+    }
+
+    return response.data.data;
   },
 
   /**
@@ -82,16 +92,26 @@ export const graphService = {
     projectId: string,
     options?: GraphQueryOptions
   ): Promise<CodeGraph> {
-    const response = await api.get<GraphResponse>(
-      `/projects/${projectId}/graph/symbols`,
-      options ? { params: options } : undefined
-    );
-
-    if (!response.success || !response.data) {
-      throw new Error(response.error || 'Failed to fetch symbol graph');
+    let endpoint = `/api/projects/${projectId}/graph/symbols`;
+    if (options) {
+      const params = new URLSearchParams();
+      if (options.max_depth) params.append('max_depth', options.max_depth.toString());
+      if (options.filter) params.append('filter', options.filter);
+      if (options.layout) params.append('layout', options.layout);
+      const queryString = params.toString();
+      if (queryString) endpoint += `?${queryString}`;
     }
 
-    return response.data;
+    console.log('[Graph Service] Calling endpoint:', endpoint);
+    const response = await api.get<GraphResponse>(endpoint);
+    console.log('[Graph Service] Response:', response);
+
+    if (!response.data?.success || !response.data?.data) {
+      console.error('[Graph Service] Error response:', response);
+      throw new Error(response.data?.error || response.error || 'Failed to fetch symbol graph');
+    }
+
+    return response.data.data;
   },
 
   /**
@@ -101,16 +121,26 @@ export const graphService = {
     projectId: string,
     options?: GraphQueryOptions
   ): Promise<CodeGraph> {
-    const response = await api.get<GraphResponse>(
-      `/projects/${projectId}/graph/modules`,
-      options ? { params: options } : undefined
-    );
-
-    if (!response.success || !response.data) {
-      throw new Error(response.error || 'Failed to fetch module graph');
+    let endpoint = `/api/projects/${projectId}/graph/modules`;
+    if (options) {
+      const params = new URLSearchParams();
+      if (options.max_depth) params.append('max_depth', options.max_depth.toString());
+      if (options.filter) params.append('filter', options.filter);
+      if (options.layout) params.append('layout', options.layout);
+      const queryString = params.toString();
+      if (queryString) endpoint += `?${queryString}`;
     }
 
-    return response.data;
+    console.log('[Graph Service] Calling endpoint:', endpoint);
+    const response = await api.get<GraphResponse>(endpoint);
+    console.log('[Graph Service] Response:', response);
+
+    if (!response.data?.success || !response.data?.data) {
+      console.error('[Graph Service] Error response:', response);
+      throw new Error(response.data?.error || response.error || 'Failed to fetch module graph');
+    }
+
+    return response.data.data;
   },
 
   /**
@@ -120,16 +150,26 @@ export const graphService = {
     projectId: string,
     options?: GraphQueryOptions
   ): Promise<CodeGraph> {
-    const response = await api.get<GraphResponse>(
-      `/projects/${projectId}/graph/spec-mapping`,
-      options ? { params: options } : undefined
-    );
-
-    if (!response.success || !response.data) {
-      throw new Error(response.error || 'Failed to fetch spec-mapping graph');
+    let endpoint = `/api/projects/${projectId}/graph/spec-mapping`;
+    if (options) {
+      const params = new URLSearchParams();
+      if (options.max_depth) params.append('max_depth', options.max_depth.toString());
+      if (options.filter) params.append('filter', options.filter);
+      if (options.layout) params.append('layout', options.layout);
+      const queryString = params.toString();
+      if (queryString) endpoint += `?${queryString}`;
     }
 
-    return response.data;
+    console.log('[Graph Service] Calling endpoint:', endpoint);
+    const response = await api.get<GraphResponse>(endpoint);
+    console.log('[Graph Service] Response:', response);
+
+    if (!response.data?.success || !response.data?.data) {
+      console.error('[Graph Service] Error response:', response);
+      throw new Error(response.data?.error || response.error || 'Failed to fetch spec-mapping graph');
+    }
+
+    return response.data.data;
   },
 
   /**
@@ -140,15 +180,25 @@ export const graphService = {
     graphType: GraphType,
     options?: GraphQueryOptions
   ): Promise<CodeGraph> {
-    const response = await api.get<GraphResponse>(
-      `/projects/${projectId}/graph/${graphType}`,
-      options ? { params: options } : undefined
-    );
-
-    if (!response.success || !response.data) {
-      throw new Error(response.error || `Failed to fetch ${graphType} graph`);
+    let endpoint = `/api/projects/${projectId}/graph/${graphType}`;
+    if (options) {
+      const params = new URLSearchParams();
+      if (options.max_depth) params.append('max_depth', options.max_depth.toString());
+      if (options.filter) params.append('filter', options.filter);
+      if (options.layout) params.append('layout', options.layout);
+      const queryString = params.toString();
+      if (queryString) endpoint += `?${queryString}`;
     }
 
-    return response.data;
+    console.log('[Graph Service] Calling endpoint:', endpoint);
+    const response = await api.get<GraphResponse>(endpoint);
+    console.log('[Graph Service] Response:', response);
+
+    if (!response.data?.success || !response.data?.data) {
+      console.error('[Graph Service] Error response:', response);
+      throw new Error(response.data?.error || response.error || `Failed to fetch ${graphType} graph`);
+    }
+
+    return response.data.data;
   },
 };
