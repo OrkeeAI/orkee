@@ -89,14 +89,18 @@ Orkee is an AI agent orchestration platform consisting of a Rust CLI server and 
 - **API Client**: Generic fetch wrapper with health check polling
 - **Tauri Configuration** (`packages/dashboard/src-tauri/tauri.conf.json`):
   - `macOSPrivateApi: true` - Enables private macOS APIs for controlling application activation policy (Dock icon behavior, Cmd+Tab visibility). Currently set to `Regular` policy (shows in Dock and Cmd+Tab). **Fallback behavior**: If this flag is disabled or the API call fails, the app defaults to macOS standard behavior (Regular policy) and continues to function normally. See `packages/dashboard/src-tauri/src/lib.rs:435-450` for implementation details.
-  - `beforeDevCommand: "node dev-wrapper.js"` - Uses cross-platform wrapper script for Vite dev server process management
+  - `beforeDevCommand: "node ../dev-wrapper.js"` - Uses cross-platform wrapper script for Vite dev server process management
+    - **Path Resolution Design**: Relative path `../dev-wrapper.js` assumes Tauri runs `beforeDevCommand` from `src-tauri/` directory
+    - This is Tauri's documented behavior and matches other config paths (e.g., `frontendDist: "../dist"`)
+    - The wrapper itself uses `cwd: __dirname` to ensure spawned processes run from correct directory regardless of invocation path
 - **Dev Server Process Management** (`packages/dashboard/dev-wrapper.js`):
   - Cross-platform Node.js wrapper that prevents orphaned Vite processes when Tauri is killed
   - Uses `tree-kill` library for reliable process tree termination on Windows, macOS, and Linux
   - Graceful shutdown: Tries SIGTERM first, falls back to SIGKILL if process hangs
-  - 5-second timeout for hanging processes before forcing shutdown
+  - 5-second timeout for hanging processes before forcing shutdown (timeout keeps process alive to guarantee execution)
   - Preserves Vite's exit codes through cleanup process
   - Handles process cleanup on SIGINT/SIGTERM signals (Ctrl+C)
+  - **Working Directory**: Uses `cwd: __dirname` in spawn() to ensure `bun run dev` executes from `packages/dashboard/` where `package.json` is located
 
 ### TUI Details
 - **Framework**: Ratatui with crossterm backend
