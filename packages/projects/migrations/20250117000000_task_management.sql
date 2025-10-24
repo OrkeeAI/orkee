@@ -54,11 +54,12 @@ CREATE TABLE IF NOT EXISTS agents (
 );
 
 -- Seed AI agents
+-- Updated January 2025 with Claude 4 models
 INSERT OR IGNORE INTO agents (id, name, type, provider, model, display_name, description, cost_per_1k_input_tokens, cost_per_1k_output_tokens, max_context_tokens, supports_tools, supports_vision, supports_web_search, created_at, updated_at)
 VALUES
-    ('claude-code', 'claude-code', 'ai', 'anthropic', 'claude-3-5-sonnet-20241022', 'Claude Code', 'Optimized for software development with MCP tools', 0.003, 0.015, 200000, 1, 1, 1, datetime('now', 'utc'), datetime('now', 'utc')),
-    ('claude-sonnet', 'claude-sonnet', 'ai', 'anthropic', 'claude-3-5-sonnet-20241022', 'Claude Sonnet 3.5', 'Balanced performance and intelligence', 0.003, 0.015, 200000, 1, 1, 0, datetime('now', 'utc'), datetime('now', 'utc')),
-    ('claude-opus', 'claude-opus', 'ai', 'anthropic', 'claude-3-opus-20240229', 'Claude Opus 3', 'Most capable Claude model', 0.015, 0.075, 200000, 1, 1, 0, datetime('now', 'utc'), datetime('now', 'utc')),
+    ('claude-sonnet-4', 'claude-sonnet-4', 'ai', 'anthropic', 'claude-sonnet-4-20250514', 'Claude Sonnet 4', 'Best coding model in the world, strongest for building complex agents', 0.003, 0.015, 200000, 1, 1, 1, datetime('now', 'utc'), datetime('now', 'utc')),
+    ('claude-opus-4', 'claude-opus-4', 'ai', 'anthropic', 'claude-opus-4-20250514', 'Claude Opus 4', 'Most intelligent model, hybrid reasoning for complex tasks', 0.015, 0.075, 200000, 1, 1, 1, datetime('now', 'utc'), datetime('now', 'utc')),
+    ('claude-haiku-3-5', 'claude-haiku-3-5', 'ai', 'anthropic', 'claude-3-5-haiku-20241022', 'Claude 3.5 Haiku', 'Fast and efficient, near-frontier performance at low cost', 0.001, 0.005, 200000, 1, 1, 0, datetime('now', 'utc'), datetime('now', 'utc')),
     ('gpt-4o', 'gpt-4o', 'ai', 'openai', 'gpt-4o', 'GPT-4o', 'Multimodal GPT-4 optimized for speed', 0.0025, 0.01, 128000, 1, 1, 0, datetime('now', 'utc'), datetime('now', 'utc')),
     ('gpt-4-turbo', 'gpt-4-turbo', 'ai', 'openai', 'gpt-4-turbo-preview', 'GPT-4 Turbo', 'Latest GPT-4 with improved performance', 0.01, 0.03, 128000, 1, 1, 0, datetime('now', 'utc'), datetime('now', 'utc')),
     ('gemini-pro', 'gemini-pro', 'ai', 'google', 'gemini-1.5-pro-latest', 'Gemini 1.5 Pro', 'Google''s most capable multimodal AI', 0.00125, 0.005, 2000000, 1, 1, 1, datetime('now', 'utc'), datetime('now', 'utc')),
@@ -81,15 +82,15 @@ CREATE TABLE IF NOT EXISTS user_agents (
 -- Seed default user's active agents
 INSERT OR IGNORE INTO user_agents (id, user_id, agent_id, is_active, created_at, updated_at)
 VALUES
-    ('ua-1', 'default-user', 'claude-code', 1, datetime('now', 'utc'), datetime('now', 'utc')),
-    ('ua-2', 'default-user', 'claude-sonnet', 1, datetime('now', 'utc'), datetime('now', 'utc')),
+    ('ua-1', 'default-user', 'claude-sonnet-4', 1, datetime('now', 'utc'), datetime('now', 'utc')),
+    ('ua-2', 'default-user', 'claude-haiku-3-5', 1, datetime('now', 'utc'), datetime('now', 'utc')),
     ('ua-3', 'default-user', 'gpt-4o', 1, datetime('now', 'utc'), datetime('now', 'utc')),
     ('ua-4', 'default-user', 'gemini-pro', 1, datetime('now', 'utc'), datetime('now', 'utc')),
     ('ua-5', 'default-user', 'gemini-flash', 1, datetime('now', 'utc'), datetime('now', 'utc')),
     ('ua-6', 'default-user', 'grok-2', 1, datetime('now', 'utc'), datetime('now', 'utc'));
 
--- Update default user to use Claude Code as default agent
-UPDATE users SET default_agent_id = 'claude-code' WHERE id = 'default-user';
+-- Update default user to use Claude Sonnet 4 as default agent
+UPDATE users SET default_agent_id = 'claude-sonnet-4' WHERE id = 'default-user';
 
 -- Tags table for organizing tasks
 CREATE TABLE IF NOT EXISTS tags (

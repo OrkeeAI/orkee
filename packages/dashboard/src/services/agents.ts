@@ -39,11 +39,8 @@ export class AgentsService {
       throw new Error(response.error || 'Failed to fetch agents');
     }
 
-    if (!response.data.success) {
-      throw new Error(response.data.error || 'Failed to fetch agents');
-    }
-
-    return response.data.data!;
+    // response.data is the PaginatedResponse, which doesn't have a success field
+    return response.data;
   }
 
   async getAgent(agentId: string): Promise<Agent> {
@@ -55,11 +52,8 @@ export class AgentsService {
       throw new Error(response.error || 'Failed to fetch agent');
     }
 
-    if (!response.data.success) {
-      throw new Error(response.data.error || 'Failed to fetch agent');
-    }
-
-    return response.data.data!;
+    // For single items, response.data is the Agent directly
+    return response.data;
   }
 
   async listUserAgents(
@@ -75,11 +69,8 @@ export class AgentsService {
       throw new Error(response.error || 'Failed to fetch user agents');
     }
 
-    if (!response.data.success) {
-      throw new Error(response.data.error || 'Failed to fetch user agents');
-    }
-
-    return response.data.data!;
+    // response.data is the PaginatedResponse
+    return response.data;
   }
 
   async getUserAgent(userId: string, agentId: string): Promise<UserAgent> {
@@ -91,11 +82,8 @@ export class AgentsService {
       throw new Error(response.error || 'Failed to fetch user agent');
     }
 
-    if (!response.data.success) {
-      throw new Error(response.data.error || 'Failed to fetch user agent');
-    }
-
-    return response.data.data!;
+    // For single items, response.data is the UserAgent directly
+    return response.data;
   }
 
   async activateAgent(userId: string, agentId: string): Promise<void> {

@@ -211,8 +211,9 @@ export function useTriggerPRDAnalysis(projectId: string) {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (prdId: string) => prdsService.analyzePRD(projectId, prdId),
-    onSuccess: (analysisResult, prdId) => {
+    mutationFn: ({ prdId, provider, model }: { prdId: string; provider: string; model: string }) => 
+      prdsService.analyzePRD(projectId, prdId, provider, model),
+    onSuccess: (analysisResult, { prdId }) => {
       queryClient.setQueryData(
         queryKeys.prdAnalysis(projectId, prdId),
         analysisResult

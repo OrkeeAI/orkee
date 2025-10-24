@@ -9,6 +9,7 @@ mod cli;
 use cli::cloud::CloudCommands;
 use cli::projects::ProjectsCommands;
 use cli::security::SecurityCommands;
+use cli::spec::SpecCommand;
 use orkee_cli::dashboard::downloader::ensure_dashboard;
 use orkee_cli::dashboard::DashboardMode;
 use orkee_preview::is_process_running_validated;
@@ -78,6 +79,9 @@ enum Commands {
     /// Manage API key encryption security
     #[command(subcommand)]
     Security(SecurityCommands),
+    /// Manage OpenSpec changes and specifications
+    #[command(subcommand)]
+    Spec(SpecCommand),
 }
 
 #[cfg(not(feature = "cloud"))]
@@ -121,6 +125,9 @@ enum Commands {
     /// Manage API key encryption security
     #[command(subcommand)]
     Security(SecurityCommands),
+    /// Manage OpenSpec changes and specifications
+    #[command(subcommand)]
+    Spec(SpecCommand),
 }
 
 #[derive(clap::ValueEnum, Clone, Debug)]
@@ -226,6 +233,7 @@ async fn handle_command(command: Commands) -> Result<(), Box<dyn std::error::Err
             security_cmd.execute().await;
             Ok(())
         }
+        Commands::Spec(spec_cmd) => cli::spec::handle_spec_command(spec_cmd).await,
     }
 }
 

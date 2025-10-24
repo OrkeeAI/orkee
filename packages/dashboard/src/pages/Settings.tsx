@@ -572,16 +572,17 @@ function ApiKeysSettings() {
 
     try {
       // Build update payload with only non-empty values
+      // IMPORTANT: Backend expects camelCase field names!
       const updates: Record<string, string | boolean> = {};
 
-      if (openaiKey.trim()) updates.openai_api_key = openaiKey.trim();
-      if (anthropicKey.trim()) updates.anthropic_api_key = anthropicKey.trim();
-      if (googleKey.trim()) updates.google_api_key = googleKey.trim();
-      if (xaiKey.trim()) updates.xai_api_key = xaiKey.trim();
+      if (openaiKey.trim()) updates.openaiApiKey = openaiKey.trim();
+      if (anthropicKey.trim()) updates.anthropicApiKey = anthropicKey.trim();
+      if (googleKey.trim()) updates.googleApiKey = googleKey.trim();
+      if (xaiKey.trim()) updates.xaiApiKey = xaiKey.trim();
 
-      updates.ai_gateway_enabled = gatewayEnabled;
-      if (gatewayUrl.trim()) updates.ai_gateway_url = gatewayUrl.trim();
-      if (gatewayKey.trim()) updates.ai_gateway_key = gatewayKey.trim();
+      updates.aiGatewayEnabled = gatewayEnabled;
+      if (gatewayUrl.trim()) updates.aiGatewayUrl = gatewayUrl.trim();
+      if (gatewayKey.trim()) updates.aiGatewayKey = gatewayKey.trim();
 
       const updatedUser = await usersService.updateCredentials(updates);
       setUser(updatedUser);

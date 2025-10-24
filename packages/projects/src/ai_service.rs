@@ -8,7 +8,7 @@ use thiserror::Error;
 use tracing::{error, info};
 
 const ANTHROPIC_API_URL: &str = "https://api.anthropic.com/v1/messages";
-const DEFAULT_MODEL: &str = "claude-3-5-sonnet-20241022";
+const DEFAULT_MODEL: &str = "claude-sonnet-4-20250514"; // Claude Sonnet 4 (May 2025)
 const DEFAULT_MAX_TOKENS: u32 = 8000;
 const DEFAULT_TEMPERATURE: f32 = 0.7;
 
@@ -86,29 +86,55 @@ pub struct AIResponse<T> {
 pub struct AIService {
     client: Client,
     api_key: Option<String>,
+    model: String,
 }
 
 impl AIService {
     /// Creates a new AI service instance
     /// API key is fetched from ANTHROPIC_API_KEY environment variable
+    /// Model can be overridden with ANTHROPIC_MODEL environment variable
     pub fn new() -> Self {
         let api_key = env::var("ANTHROPIC_API_KEY").ok();
         if api_key.is_none() {
             info!("ANTHROPIC_API_KEY not set - AI service will use database-stored keys");
         }
 
+        let model = env::var("ANTHROPIC_MODEL").unwrap_or_else(|_| DEFAULT_MODEL.to_string());
+
+        if model != DEFAULT_MODEL {
+            info!("Using custom Anthropic model: {}", model);
+        }
+
         Self {
             client: Client::new(),
             api_key,
+            model,
         }
     }
 
     /// Creates a new AI service instance with a specific API key
     pub fn with_api_key(api_key: String) -> Self {
+        let model = env::var("ANTHROPIC_MODEL").unwrap_or_else(|_| DEFAULT_MODEL.to_string());
+
         Self {
             client: Client::new(),
             api_key: Some(api_key),
+            model,
         }
+    }
+
+    /// Creates a new AI service instance with a specific API key and model
+    pub fn with_api_key_and_model(api_key: String, model: String) -> Self {
+        Self {
+            client: Client::new(),
+            api_key: Some(api_key),
+            model,
+        }
+    }
+
+    /// Get the model being used by this service
+    pub fn model(&self) -> &str {
+        &self.model
     }
 
     /// Makes a structured generation call to Claude
@@ -121,7 +147,7 @@ impl AIService {
         let api_key = self.api_key.as_ref().ok_or(AIServiceError::NoApiKey)?;
 
         let request = AnthropicRequest {
-            model: DEFAULT_MODEL.to_string(),
+            model: self.model.clone(),
             max_tokens: DEFAULT_MAX_TOKENS,
             temperature: DEFAULT_TEMPERATURE,
             messages: vec![Message {

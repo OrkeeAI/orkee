@@ -1,7 +1,7 @@
 // ABOUTME: Specifications view displaying list of capabilities with expandable details
 // ABOUTME: Integrates with SpecBuilderWizard and SpecDetailsView for management
-import { useState } from 'react';
-import { FileText, Plus, CheckCircle2, AlertCircle, Layers } from 'lucide-react';
+import { useState, useMemo } from 'react';
+import { FileText, Plus, CheckCircle2, AlertCircle, Layers, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -13,13 +13,22 @@ import type { SpecCapability } from '@/services/specs';
 
 interface SpecificationsViewProps {
   projectId: string;
+  filterPrdId?: string | null;
+  onClearFilter?: () => void;
 }
 
-export function SpecificationsView({ projectId }: SpecificationsViewProps) {
+export function SpecificationsView({ projectId, filterPrdId, onClearFilter }: SpecificationsViewProps) {
   const [selectedSpec, setSelectedSpec] = useState<SpecCapability | null>(null);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
 
-  const { data: specs, isLoading, error } = useSpecs(projectId);
+  const { data: allSpecs, isLoading, error } = useSpecs(projectId);
+
+  // Filter specs by PRD if filterPrdId is provided
+  const specs = useMemo(() => {
+    if (!allSpecs) return [];
+    if (!filterPrdId) return allSpecs;
+    return allSpecs.filter(spec => spec.prdId === filterPrdId);
+  }, [allSpecs, filterPrdId]);
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -90,12 +99,26 @@ export function SpecificationsView({ projectId }: SpecificationsViewProps) {
 
   return (
     <div className="space-y-4">
+      {/* Filter Banner */}
+      {filterPrdId && onClearFilter && (
+        <Alert>
+          <Layers className="h-4 w-4" />
+          <AlertDescription className="flex items-center justify-between">
+            <span>Showing specs from selected PRD ({specs.length} {specs.length === 1 ? 'spec' : 'specs'})</span>
+            <Button variant="ghost" size="sm" onClick={onClearFilter}>
+              <X className="h-4 w-4 mr-1" />
+              Clear Filter
+            </Button>
+          </AlertDescription>
+        </Alert>
+      )}
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h3 className="text-lg font-semibold">Specifications</h3>
           <p className="text-sm text-muted-foreground">
-            {specs.length} {specs.length === 1 ? 'specification' : 'specifications'} defined
+            {specs.length} {specs.length === 1 ? 'specification' : 'specifications'} {filterPrdId ? 'from this PRD' : 'defined'}
           </p>
         </div>
         <Button onClick={() => setShowCreateDialog(true)} size="sm">

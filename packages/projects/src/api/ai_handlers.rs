@@ -7,12 +7,16 @@ use axum::{
     response::{IntoResponse, Json as ResponseJson},
 };
 use serde::{Deserialize, Serialize};
+use std::env;
 use tracing::{error, info};
 
+use super::auth::CurrentUser;
 use super::response::ApiResponse;
 use crate::ai_service::{AIService, AIServiceError};
 use crate::ai_usage_logs::AiUsageLog;
 use crate::db::DbState;
+use crate::openspec::db as openspec_db;
+use crate::tasks::{TaskCreateInput, TaskPriority};
 
 // ============================================================================
 // Shared Types
@@ -130,6 +134,8 @@ pub struct AnalyzePRDRequest {
     pub prd_id: String,
     #[serde(rename = "contentMarkdown")]
     pub content_markdown: String,
+    pub provider: String,
+    pub model: String,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -166,12 +172,61 @@ pub struct TokenUsage {
 /// Analyze PRD with AI and extract capabilities
 pub async fn analyze_prd(
     State(db): State<DbState>,
+    current_user: CurrentUser,
     Json(request): Json<AnalyzePRDRequest>,
 ) -> impl IntoResponse {
     info!("AI PRD analysis requested for PRD: {}", request.prd_id);
 
-    // Initialize AI service
-    let ai_service = AIService::new();
+    // Get API key from database (with environment variable fallback)
+    let api_key = match db
+        .user_storage
+        .get_api_key(&current_user.id, "anthropic")
+        .await
+    {
+        Ok(Some(key)) => {
+            info!(
+                "Using Anthropic API key from database (starts with: {})",
+                &key.chars().take(15).collect::<String>()
+            );
+            key
+        }
+        Ok(None) => {
+            // Fallback to environment variable
+            match env::var("ANTHROPIC_API_KEY") {
+                Ok(key) => {
+                    info!("Using Anthropic API key from environment variable");
+                    key
+                }
+                Err(_) => {
+                    error!("No Anthropic API key found in database or environment");
+                    return (
+                        StatusCode::BAD_REQUEST,
+                        Json(ApiResponse::<()>::error(
+                            "Anthropic API key not configured. Please set it in Settings → Security or via ANTHROPIC_API_KEY environment variable.".to_string()
+                        ))
+                    ).into_response();
+                }
+            }
+        }
+        Err(e) => {
+            error!("Failed to fetch API key from database: {}", e);
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ApiResponse::<()>::error(format!(
+                    "Failed to retrieve API key: {}",
+                    e
+                ))),
+            )
+                .into_response();
+        }
+    };
+
+    // Initialize AI service with the API key and selected model
+    info!(
+        "Using model: {} from provider: {}",
+        request.model, request.provider
+    );
+    let ai_service = AIService::with_api_key_and_model(api_key, request.model.clone());
 
     // Build the prompt matching TypeScript implementation
     let user_prompt = format!(
@@ -222,28 +277,48 @@ Respond with ONLY valid JSON matching this exact structure (no markdown, no code
     );
 
     let system_prompt = Some(
-        r#"You are an expert software architect analyzing Product Requirements Documents.
+        r#"You are an expert software architect creating OpenSpec change proposals from PRDs.
 
-Your task is to:
-1. Extract high-level capabilities (functional areas) from the PRD
-2. For each capability, define specific requirements
-3. For each requirement, create WHEN/THEN/AND scenarios
-4. Suggest 5-10 actionable tasks to implement the capabilities
-5. Identify dependencies and technical considerations
+CRITICAL FORMAT REQUIREMENTS:
+1. Every requirement MUST use: ### Requirement: [Name]
+2. Every scenario MUST use: #### Scenario: [Name] (exactly 4 hashtags)
+3. Scenarios MUST follow this bullet format:
+   - **WHEN** [condition]
+   - **THEN** [outcome]
+   - **AND** [additional] (optional)
+4. Requirements MUST use SHALL or MUST (never should/may)
+5. Every requirement MUST have at least one scenario
 
-Important guidelines:
-- Capability IDs must be kebab-case (e.g., "user-auth", "data-sync")
-- Each requirement must have at least one scenario
-- Scenarios must follow WHEN/THEN/AND structure
-- Tasks should be specific, actionable, and include complexity scores (1-10)
-- Tasks should reference the capability and requirement they implement
-- Priority must be "low", "medium", or "high"
-- Be specific and actionable
-- Focus on testable behaviors
+Generate:
+1. Executive summary for proposal
+2. Capability specifications using:
+   ## ADDED Requirements
+   [requirements with proper format]
+3. Implementation tasks (specific and actionable)
+4. Technical considerations (if complex)
 
-Respond with ONLY valid JSON. Do not include markdown formatting, code blocks, or any other text."#
+Example of correct format:
+## ADDED Requirements
+### Requirement: User Authentication
+The system SHALL provide secure user authentication using JWT tokens.
+
+#### Scenario: Successful login
+- **WHEN** valid credentials are provided
+- **THEN** a JWT token is returned
+- **AND** the token expires after 24 hours
+
+Rules:
+- Use kebab-case for capability IDs (e.g., "user-auth")
+- Complexity scores: 1-10 (1=trivial, 10=very complex)
+- Priority: low, medium, or high
+- Be specific and testable
+
+RESPOND WITH ONLY VALID JSON."#
             .to_string(),
     );
+
+    // Get the model being used for logging
+    let model_name = ai_service.model().to_string();
 
     // Make AI call
     match ai_service
@@ -257,14 +332,160 @@ Respond with ONLY valid JSON. Do not include markdown formatting, code blocks, o
                 total: ai_response.usage.total_tokens(),
             };
 
+            // Get the PRD to obtain project_id
+            let prd = match openspec_db::get_prd(&db.pool, &request.prd_id).await {
+                Ok(prd) => prd,
+                Err(e) => {
+                    error!("Failed to fetch PRD {}: {}", request.prd_id, e);
+                    return (
+                        StatusCode::NOT_FOUND,
+                        ResponseJson(ApiResponse::<()>::error(format!("PRD not found: {}", e))),
+                    )
+                        .into_response();
+                }
+            };
+
+            let project_id = &prd.project_id;
+            info!(
+                "Creating OpenSpec change proposal for project: {}",
+                project_id
+            );
+
+            // Create change proposal from analysis using OpenSpec workflow
+            let change = match crate::openspec::create_change_from_analysis(
+                &db.pool,
+                project_id,
+                &request.prd_id,
+                &ai_response.data,
+                &current_user.id,
+            )
+            .await
+            {
+                Ok(change) => {
+                    info!(
+                        "Created change proposal: {} (status: {:?})",
+                        change.id, change.status
+                    );
+                    change
+                }
+                Err(e) => {
+                    error!("Failed to create change proposal: {}", e);
+                    return (
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        ResponseJson(ApiResponse::<()>::error(format!(
+                            "Failed to create change proposal: {}",
+                            e
+                        ))),
+                    )
+                        .into_response();
+                }
+            };
+
+            // Validate the created change deltas
+            use crate::openspec::OpenSpecMarkdownValidator;
+            let validator = OpenSpecMarkdownValidator::new(false); // Use relaxed mode for now
+
+            let deltas = match openspec_db::get_deltas_by_change(&db.pool, &change.id).await {
+                Ok(deltas) => deltas,
+                Err(e) => {
+                    error!("Failed to fetch deltas for validation: {}", e);
+                    vec![] // Continue without validation if fetch fails
+                }
+            };
+
+            let mut validation_errors = Vec::new();
+            for delta in &deltas {
+                let errors = validator.validate_delta_markdown(&delta.delta_markdown);
+                if !errors.is_empty() {
+                    error!(
+                        "Validation errors in delta for {}: {:?}",
+                        delta.capability_name, errors
+                    );
+                    validation_errors.extend(errors);
+                }
+            }
+
+            // Update change validation status
+            let validation_status = if validation_errors.is_empty() {
+                "valid"
+            } else {
+                "invalid"
+            };
+
+            if let Err(e) = sqlx::query(
+                "UPDATE spec_changes SET validation_status = ?, validation_errors = ? WHERE id = ?",
+            )
+            .bind(validation_status)
+            .bind(if validation_errors.is_empty() {
+                None
+            } else {
+                Some(serde_json::to_string(&validation_errors).unwrap_or_default())
+            })
+            .bind(&change.id)
+            .execute(&db.pool)
+            .await
+            {
+                error!("Failed to update change validation status: {}", e);
+            }
+
+            // Save suggested tasks to database
+            info!(
+                "Creating {} suggested tasks",
+                ai_response.data.suggested_tasks.len()
+            );
+            for (task_index, task_suggestion) in ai_response.data.suggested_tasks.iter().enumerate()
+            {
+                // Convert priority string to TaskPriority enum
+                let priority = match task_suggestion.priority.to_lowercase().as_str() {
+                    "high" => TaskPriority::High,
+                    "low" => TaskPriority::Low,
+                    _ => TaskPriority::Medium,
+                };
+
+                let task_input = TaskCreateInput {
+                    title: task_suggestion.title.clone(),
+                    description: Some(task_suggestion.description.clone()),
+                    status: None, // Will default to Pending
+                    priority: Some(priority),
+                    assigned_agent_id: None,
+                    parent_id: None,
+                    position: Some(task_index as i32),
+                    dependencies: None,
+                    due_date: None,
+                    estimated_hours: task_suggestion.estimated_hours.map(|h| h as f64),
+                    complexity_score: Some(task_suggestion.complexity as i32),
+                    details: None,
+                    test_strategy: None,
+                    acceptance_criteria: None,
+                    prompt: None,
+                    context: None,
+                    tag_id: None,
+                    tags: None,
+                    category: Some(task_suggestion.capability_id.clone()),
+                };
+
+                match db
+                    .task_storage
+                    .create_task(project_id, &current_user.id, task_input)
+                    .await
+                {
+                    Ok(task) => {
+                        info!("Created task: {} ({})", task_suggestion.title, task.id);
+                    }
+                    Err(e) => {
+                        error!("Failed to create task {}: {}", task_suggestion.title, e);
+                    }
+                }
+            }
+
             // Log AI usage to database
             let usage_log = AiUsageLog {
                 id: nanoid::nanoid!(10),
-                project_id: request.prd_id.clone(), // Use PRD ID as project ID for now
+                project_id: project_id.to_string(),
                 request_id: None,
                 operation: "analyzePRD".to_string(),
                 provider: "anthropic".to_string(),
-                model: "claude-3-5-sonnet-20241022".to_string(),
+                model: model_name,
                 input_tokens: Some(ai_response.usage.input_tokens as i64),
                 output_tokens: Some(ai_response.usage.output_tokens as i64),
                 total_tokens: Some(ai_response.usage.total_tokens() as i64),
@@ -282,6 +503,8 @@ Respond with ONLY valid JSON. Do not include markdown formatting, code blocks, o
                 error!("Failed to log AI usage: {}", e);
                 // Continue anyway - logging failure shouldn't block the response
             }
+
+            info!("Successfully saved PRD analysis to database");
 
             let response = AnalyzePRDResponse {
                 prd_id: request.prd_id,
