@@ -1,19 +1,35 @@
 // ABOUTME: Main Graph tab component for code visualization
 // ABOUTME: Provides tabbed interface for dependency, symbol, module, and spec-mapping graphs
 
-import { useState } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { useState, useRef } from 'react';
+import cytoscape from 'cytoscape';
+import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Network, GitBranch, Layers, FileCode, Info } from 'lucide-react';
+import { Network, GitBranch, Layers, FileCode } from 'lucide-react';
+import { GraphVisualization } from './GraphVisualization';
+import { GraphControls } from './GraphControls';
+import { GraphSidebar } from './GraphSidebar';
+import { useProjectGraph } from '@/hooks/useGraph';
+import type { GraphFilters } from './DependencyGraph';
+import type { GraphType } from '@/services/graph';
 
 interface GraphTabProps {
   projectId: string;
   projectPath: string;
 }
 
-export function GraphTab({ projectId, projectPath }: GraphTabProps) {
-  const [selectedTab, setSelectedTab] = useState('dependencies');
+export function GraphTab({ projectId }: GraphTabProps) {
+  const [selectedTab, setSelectedTab] = useState<GraphType>('dependencies');
+  const [selectedNode, setSelectedNode] = useState<string | null>(null);
+  const [layout, setLayout] = useState<string>('hierarchical');
+  const [filters, setFilters] = useState<GraphFilters>({});
+  const cytoscapeRef = useRef<cytoscape.Core | null>(null);
+
+  // Fetch current graph data for sidebar
+  const { data: currentGraphData } = useProjectGraph(projectId, selectedTab, {
+    max_depth: filters.max_depth,
+    filter: filters.filter,
+  });
 
   return (
     <div className="flex flex-col gap-4">
@@ -30,130 +46,100 @@ export function GraphTab({ projectId, projectPath }: GraphTabProps) {
         </CardHeader>
       </Card>
 
-      {/* Graph Tabs */}
-      <Tabs value={selectedTab} onValueChange={setSelectedTab} className="flex-1">
-        <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="dependencies" className="flex items-center gap-2">
-            <GitBranch className="h-4 w-4" />
-            Dependencies
-          </TabsTrigger>
-          <TabsTrigger value="symbols" className="flex items-center gap-2">
-            <FileCode className="h-4 w-4" />
-            Symbols
-          </TabsTrigger>
-          <TabsTrigger value="modules" className="flex items-center gap-2">
-            <Layers className="h-4 w-4" />
-            Modules
-          </TabsTrigger>
-          <TabsTrigger value="spec-mapping" className="flex items-center gap-2">
-            <Network className="h-4 w-4" />
-            Spec Mapping
-          </TabsTrigger>
-        </TabsList>
+      {/* Controls */}
+      <GraphControls
+        layout={layout}
+        onLayoutChange={setLayout}
+        filters={filters}
+        onFiltersChange={setFilters}
+        cytoscapeRef={cytoscapeRef}
+      />
 
-        <TabsContent value="dependencies" className="mt-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>File Dependencies</CardTitle>
-              <CardDescription>
-                Visualize how files import and depend on each other
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Alert>
-                <Info className="h-4 w-4" />
-                <AlertDescription>
-                  Dependency graph visualization coming soon. This will show import/export relationships between files.
-                </AlertDescription>
-              </Alert>
-              <div className="mt-4 rounded-lg border border-dashed border-muted-foreground/25 p-12 text-center">
-                <GitBranch className="mx-auto h-12 w-12 text-muted-foreground/50 mb-4" />
-                <p className="text-sm text-muted-foreground">
-                  Project: {projectPath}
-                </p>
-                <p className="text-sm text-muted-foreground mt-1">
-                  Graph visualization will appear here
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
+      {/* Graph Tabs with Sidebar */}
+      <div className="flex gap-4">
+        <div className="flex-1">
+          <Tabs
+            value={selectedTab}
+            onValueChange={(value) => {
+              setSelectedTab(value as GraphType);
+              setSelectedNode(null); // Clear selection when switching tabs
+            }}
+            className="flex-1"
+          >
+            <TabsList className="grid w-full grid-cols-4">
+              <TabsTrigger value="dependencies" className="flex items-center gap-2">
+                <GitBranch className="h-4 w-4" />
+                Dependencies
+              </TabsTrigger>
+              <TabsTrigger value="symbols" className="flex items-center gap-2">
+                <FileCode className="h-4 w-4" />
+                Symbols
+              </TabsTrigger>
+              <TabsTrigger value="modules" className="flex items-center gap-2">
+                <Layers className="h-4 w-4" />
+                Modules
+              </TabsTrigger>
+              <TabsTrigger value="spec-mapping" className="flex items-center gap-2">
+                <Network className="h-4 w-4" />
+                Spec Mapping
+              </TabsTrigger>
+            </TabsList>
 
-        <TabsContent value="symbols" className="mt-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Symbol Graph</CardTitle>
-              <CardDescription>
-                Explore functions, classes, and other code symbols
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Alert>
-                <Info className="h-4 w-4" />
-                <AlertDescription>
-                  Symbol graph visualization coming soon. This will show relationships between functions, classes, and other code symbols.
-                </AlertDescription>
-              </Alert>
-              <div className="mt-4 rounded-lg border border-dashed border-muted-foreground/25 p-12 text-center">
-                <FileCode className="mx-auto h-12 w-12 text-muted-foreground/50 mb-4" />
-                <p className="text-sm text-muted-foreground">
-                  Symbol graph for project ID: {projectId}
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
+            <TabsContent value="dependencies" className="mt-4">
+              <GraphVisualization
+                projectId={projectId}
+                graphType="dependencies"
+                layout={layout}
+                filters={filters}
+                onNodeSelect={setSelectedNode}
+                cytoscapeRef={cytoscapeRef}
+              />
+            </TabsContent>
 
-        <TabsContent value="modules" className="mt-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Module Architecture</CardTitle>
-              <CardDescription>
-                View your project's directory and module structure
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Alert>
-                <Info className="h-4 w-4" />
-                <AlertDescription>
-                  Module graph visualization coming soon. This will show your directory hierarchy and module organization.
-                </AlertDescription>
-              </Alert>
-              <div className="mt-4 rounded-lg border border-dashed border-muted-foreground/25 p-12 text-center">
-                <Layers className="mx-auto h-12 w-12 text-muted-foreground/50 mb-4" />
-                <p className="text-sm text-muted-foreground">
-                  Module hierarchy visualization will appear here
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
+            <TabsContent value="symbols" className="mt-4">
+              <GraphVisualization
+                projectId={projectId}
+                graphType="symbols"
+                layout={layout}
+                filters={filters}
+                onNodeSelect={setSelectedNode}
+                cytoscapeRef={cytoscapeRef}
+              />
+            </TabsContent>
 
-        <TabsContent value="spec-mapping" className="mt-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Spec Mapping</CardTitle>
-              <CardDescription>
-                Map specifications to code implementation
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Alert>
-                <Info className="h-4 w-4" />
-                <AlertDescription>
-                  Spec mapping graph coming soon. This will show how specifications relate to your code implementation.
-                </AlertDescription>
-              </Alert>
-              <div className="mt-4 rounded-lg border border-dashed border-muted-foreground/25 p-12 text-center">
-                <Network className="mx-auto h-12 w-12 text-muted-foreground/50 mb-4" />
-                <p className="text-sm text-muted-foreground">
-                  Spec-to-code mapping visualization will appear here
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+            <TabsContent value="modules" className="mt-4">
+              <GraphVisualization
+                projectId={projectId}
+                graphType="modules"
+                layout={layout}
+                filters={filters}
+                onNodeSelect={setSelectedNode}
+                cytoscapeRef={cytoscapeRef}
+              />
+            </TabsContent>
+
+            <TabsContent value="spec-mapping" className="mt-4">
+              <GraphVisualization
+                projectId={projectId}
+                graphType="spec-mapping"
+                layout={layout}
+                filters={filters}
+                onNodeSelect={setSelectedNode}
+                cytoscapeRef={cytoscapeRef}
+              />
+            </TabsContent>
+          </Tabs>
+        </div>
+
+        {/* Sidebar */}
+        {selectedNode && (
+          <GraphSidebar
+            nodeId={selectedNode}
+            graphData={currentGraphData}
+            onClose={() => setSelectedNode(null)}
+          />
+        )}
+      </div>
     </div>
   );
 }
