@@ -13,6 +13,9 @@ use std::path::{Path, PathBuf};
 use tracing::warn;
 use walkdir::WalkDir;
 
+/// Supported JavaScript/TypeScript file extensions for module resolution
+const SUPPORTED_EXTENSIONS: &[&str] = &[".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs"];
+
 /// Builds various types of code graphs for visualization
 pub struct GraphBuilder {
     dependency_graph: DependencyGraph,
@@ -477,8 +480,7 @@ impl GraphBuilder {
         }
 
         // If not found, try adding common extensions
-        let extensions = [".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs"];
-        for ext in &extensions {
+        for ext in SUPPORTED_EXTENSIONS {
             let with_ext = format!("{}{}", normalized, ext);
             if file_id_map.contains_key(&with_ext) {
                 return Some(with_ext);
@@ -486,7 +488,7 @@ impl GraphBuilder {
         }
 
         // Try as index file
-        for ext in &extensions {
+        for ext in SUPPORTED_EXTENSIONS {
             let index_path = format!("{}/index{}", normalized, ext);
             if file_id_map.contains_key(&index_path) {
                 return Some(index_path);
