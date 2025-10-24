@@ -12,7 +12,6 @@ use crate::openspec::types::{SpecCapability, ChangeStatus, ValidationStatus};
 use crate::openspec::db::DbError;
 use crate::openspec::parser::{parse_spec_markdown, ParseError};
 use crate::openspec::sync::MergeStrategy;
-use crate::storage::generate_project_id;
 
 /// Errors that can occur during materialization
 #[derive(Debug, thiserror::Error)]
@@ -576,6 +575,7 @@ pub struct ImportReport {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::storage::generate_project_id;
     use tempfile::TempDir;
 
     #[tokio::test]

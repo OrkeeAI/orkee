@@ -3,7 +3,7 @@
 
 use super::db::{
     create_capability, create_requirement, create_scenario, get_capability,
-    get_deltas_by_change, get_spec_change, update_spec_change_status, create_spec_delta, DbError,
+    get_deltas_by_change, get_spec_change, DbError,
 };
 use super::markdown_validator::OpenSpecMarkdownValidator;
 use super::parser::{parse_spec_markdown, ParseError};
@@ -303,7 +303,7 @@ fn parse_capability_from_delta(delta_markdown: &str) -> ArchiveResult<ParsedCapa
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::openspec::db::{create_prd, create_spec_change};
+    use crate::openspec::db::{create_prd, create_spec_change, create_spec_delta, update_spec_change_status};
     use crate::openspec::types::{PRDSource, PRDStatus};
 
     async fn setup_test_db() -> Pool<Sqlite> {
@@ -336,7 +336,7 @@ mod tests {
 
         // Create test project
         sqlx::query(
-            "INSERT INTO projects (id, name, path, description, created_at, updated_at)
+            "INSERT INTO projects (id, name, project_root, description, created_at, updated_at)
              VALUES ('test-project', 'Test Project', '/tmp/test', 'Test', datetime('now'), datetime('now'))",
         )
         .execute(&pool)
@@ -354,16 +354,16 @@ mod tests {
 The system SHALL provide secure user authentication using JWT tokens.
 
 #### Scenario: Successful login
-- **WHEN** valid credentials are provided
-- **THEN** a JWT token is returned
-- **AND** the token expires after 24 hours
+**WHEN** valid credentials are provided
+**THEN** a JWT token is returned
+**AND** the token expires after 24 hours
 "#;
 
         let parsed = parse_capability_from_delta(delta_markdown).unwrap();
         assert_eq!(parsed.requirements.len(), 1);
-        assert_eq!(parsed.requirements[0].name, "User Authentication");
+        assert_eq!(parsed.requirements[0].name, "Requirement: User Authentication");
         assert_eq!(parsed.requirements[0].scenarios.len(), 1);
-        assert_eq!(parsed.requirements[0].scenarios[0].name, "Successful login");
+        assert_eq!(parsed.requirements[0].scenarios[0].name, "Scenario: Successful login");
     }
 
     #[tokio::test]

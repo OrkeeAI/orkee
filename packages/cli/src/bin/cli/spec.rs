@@ -7,6 +7,8 @@ use orkee_projects::openspec::{
 };
 use std::path::PathBuf;
 
+use super::utils::detect_project_from_cwd;
+
 #[derive(Subcommand)]
 pub enum SpecCommand {
     /// List active changes or specifications
@@ -89,10 +91,26 @@ pub enum SpecCommand {
     },
 }
 
+/// Resolve project ID from option or auto-detect from current directory
+async fn resolve_project_id(project: Option<String>) -> Result<String, Box<dyn std::error::Error>> {
+    if let Some(id) = project {
+        Ok(id)
+    } else {
+        detect_project_from_cwd()
+            .await
+            .ok_or_else(|| "Could not auto-detect project. Please specify --project <ID>".into())
+    }
+}
+
 pub async fn handle_spec_command(cmd: SpecCommand) -> Result<(), Box<dyn std::error::Error>> {
     match cmd {
         SpecCommand::List { project, json } => {
-            list_changes_cmd(project.as_deref(), json).await
+            let project_id = if project.is_some() {
+                project
+            } else {
+                detect_project_from_cwd().await
+            };
+            list_changes_cmd(project_id.as_deref(), json).await
         }
 
         SpecCommand::Show {
@@ -105,7 +123,14 @@ pub async fn handle_spec_command(cmd: SpecCommand) -> Result<(), Box<dyn std::er
             change_id,
             strict,
             project,
-        } => validate_cmd(change_id.as_deref(), strict, project.as_deref()).await,
+        } => {
+            let project_id = if project.is_some() {
+                project
+            } else {
+                detect_project_from_cwd().await
+            };
+            validate_cmd(change_id.as_deref(), strict, project_id.as_deref()).await
+        }
 
         SpecCommand::Archive {
             change_id,
@@ -113,9 +138,15 @@ pub async fn handle_spec_command(cmd: SpecCommand) -> Result<(), Box<dyn std::er
             skip_specs,
         } => archive_cmd(&change_id, yes, !skip_specs).await,
 
-        SpecCommand::Export { project, path } => export_cmd(&project, &path).await,
+        SpecCommand::Export { project, path } => {
+            let project_id = resolve_project_id(Some(project)).await?;
+            export_cmd(&project_id, &path).await
+        }
 
-        SpecCommand::Import { project, path, force } => import_cmd(&project, &path, force).await,
+        SpecCommand::Import { project, path, force } => {
+            let project_id = resolve_project_id(Some(project)).await?;
+            import_cmd(&project_id, &path, force).await
+        }
     }
 }
 
