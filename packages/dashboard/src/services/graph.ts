@@ -74,12 +74,9 @@ export const graphService = {
       if (queryString) endpoint += `?${queryString}`;
     }
 
-    console.log('[Graph Service] Calling endpoint:', endpoint);
     const response = await api.get<GraphResponse>(endpoint);
-    console.log('[Graph Service] Response:', response);
 
     if (!response.data?.success || !response.data?.data) {
-      console.error('[Graph Service] Error response:', response);
       throw new Error(response.data?.error || response.error || 'Failed to fetch dependency graph');
     }
 
@@ -103,12 +100,9 @@ export const graphService = {
       if (queryString) endpoint += `?${queryString}`;
     }
 
-    console.log('[Graph Service] Calling endpoint:', endpoint);
     const response = await api.get<GraphResponse>(endpoint);
-    console.log('[Graph Service] Response:', response);
 
     if (!response.data?.success || !response.data?.data) {
-      console.error('[Graph Service] Error response:', response);
       throw new Error(response.data?.error || response.error || 'Failed to fetch symbol graph');
     }
 
@@ -132,12 +126,9 @@ export const graphService = {
       if (queryString) endpoint += `?${queryString}`;
     }
 
-    console.log('[Graph Service] Calling endpoint:', endpoint);
     const response = await api.get<GraphResponse>(endpoint);
-    console.log('[Graph Service] Response:', response);
 
     if (!response.data?.success || !response.data?.data) {
-      console.error('[Graph Service] Error response:', response);
       throw new Error(response.data?.error || response.error || 'Failed to fetch module graph');
     }
 
@@ -161,12 +152,9 @@ export const graphService = {
       if (queryString) endpoint += `?${queryString}`;
     }
 
-    console.log('[Graph Service] Calling endpoint:', endpoint);
     const response = await api.get<GraphResponse>(endpoint);
-    console.log('[Graph Service] Response:', response);
 
     if (!response.data?.success || !response.data?.data) {
-      console.error('[Graph Service] Error response:', response);
       throw new Error(response.data?.error || response.error || 'Failed to fetch spec-mapping graph');
     }
 
@@ -191,12 +179,9 @@ export const graphService = {
       if (queryString) endpoint += `?${queryString}`;
     }
 
-    console.log('[Graph Service] Calling endpoint:', endpoint);
     const response = await api.get<GraphResponse>(endpoint);
-    console.log('[Graph Service] Response:', response);
 
     if (!response.data?.success || !response.data?.data) {
-      console.error('[Graph Service] Error response:', response);
       throw new Error(response.data?.error || response.error || `Failed to fetch ${graphType} graph`);
     }
 
