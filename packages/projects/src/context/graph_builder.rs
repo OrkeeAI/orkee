@@ -356,34 +356,26 @@ impl GraphBuilder {
         }
     }
 
-    /// Extract import statements from a file (simplified)
+    /// Extract import statements from a file using AST parsing
     fn extract_imports(&self, file_path: &Path) -> Result<Vec<String>, String> {
         let content =
             fs::read_to_string(file_path).map_err(|e| format!("Failed to read file: {}", e))?;
 
-        let mut imports = Vec::new();
+        // Use AST analyzer for robust import extraction
+        let mut analyzer = AstAnalyzer::new_typescript()
+            .map_err(|e| format!("Failed to create AST analyzer: {}", e))?;
 
-        // Simple regex-based import extraction (can be improved with AST)
-        for line in content.lines() {
-            let trimmed = line.trim();
-            if trimmed.starts_with("import ") || trimmed.starts_with("from ") {
-                // Extract the path from import/from statements
-                if let Some(start) = trimmed.find('"').or_else(|| trimmed.find('\'')) {
-                    if let Some(end) = trimmed[start + 1..]
-                        .find('"')
-                        .or_else(|| trimmed[start + 1..].find('\''))
-                    {
-                        let import_path = &trimmed[start + 1..start + 1 + end];
-                        // Only include relative imports
-                        if import_path.starts_with("./") || import_path.starts_with("../") {
-                            imports.push(import_path.to_string());
-                        }
-                    }
-                }
-            }
-        }
+        let all_imports = analyzer
+            .extract_imports(&content)
+            .map_err(|e| format!("Failed to extract imports: {}", e))?;
 
-        Ok(imports)
+        // Filter to only include relative imports (project-local dependencies)
+        let relative_imports: Vec<String> = all_imports
+            .into_iter()
+            .filter(|import_path| import_path.starts_with("./") || import_path.starts_with("../"))
+            .collect();
+
+        Ok(relative_imports)
     }
 
     /// Resolve a relative import path to a project-relative path
@@ -714,5 +706,81 @@ mod tests {
         let valid_path = PathBuf::from("src/components/Button.tsx");
         let normalized = builder.normalize_path(&valid_path);
         assert_eq!(normalized, "src/components/Button.tsx");
+    }
+
+    #[test]
+    fn test_extract_imports_handles_multiline() {
+        let temp_dir = TempDir::new().unwrap();
+        let file_path = temp_dir.path().join("multiline.ts");
+
+        let content = r#"
+            import {
+                foo,
+                bar,
+                baz
+            } from './utils';
+
+            import type {
+                TypeA,
+                TypeB
+            } from '../types';
+        "#;
+
+        fs::write(&file_path, content).unwrap();
+
+        let builder = GraphBuilder::new();
+        let imports = builder.extract_imports(&file_path).unwrap();
+
+        assert!(imports.contains(&"./utils".to_string()), "Should detect multi-line import");
+        assert!(imports.contains(&"../types".to_string()), "Should detect multi-line type import");
+    }
+
+    #[test]
+    fn test_extract_imports_ignores_comments() {
+        let temp_dir = TempDir::new().unwrap();
+        let file_path = temp_dir.path().join("comments.ts");
+
+        let content = r#"
+            // import { fake } from './commented';
+            /* import { fake2 } from './block-commented'; */
+            import { real } from './real';
+
+            /**
+             * import { fake3 } from './doc-commented';
+             */
+        "#;
+
+        fs::write(&file_path, content).unwrap();
+
+        let builder = GraphBuilder::new();
+        let imports = builder.extract_imports(&file_path).unwrap();
+
+        assert_eq!(imports.len(), 1, "Should only find one real import");
+        assert!(imports.contains(&"./real".to_string()));
+        assert!(!imports.iter().any(|i| i.contains("commented")), "Should not detect commented imports");
+    }
+
+    #[test]
+    fn test_extract_imports_handles_reexports() {
+        let temp_dir = TempDir::new().unwrap();
+        let file_path = temp_dir.path().join("reexports.ts");
+
+        let content = r#"
+            export { foo } from './foo';
+            export * from './bar';
+            export { default as baz } from './baz';
+            import { qux } from './qux';
+        "#;
+
+        fs::write(&file_path, content).unwrap();
+
+        let builder = GraphBuilder::new();
+        let imports = builder.extract_imports(&file_path).unwrap();
+
+        // Re-exports are dependencies too - the file needs these modules
+        assert!(imports.contains(&"./foo".to_string()), "Should detect export...from");
+        assert!(imports.contains(&"./bar".to_string()), "Should detect export *");
+        assert!(imports.contains(&"./baz".to_string()), "Should detect export default as");
+        assert!(imports.contains(&"./qux".to_string()), "Should detect regular import");
     }
 }

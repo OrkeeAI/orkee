@@ -245,7 +245,17 @@ impl AstAnalyzer {
     fn collect_imports(&self, node: &Node, source: &str, imports: &mut Vec<String>) {
         match self.language_name.as_str() {
             "typescript" | "javascript" => {
+                // Handle regular import statements
                 if node.kind() == "import_statement" {
+                    if let Some(source_node) = node.child_by_field_name("source") {
+                        let import_path = source[source_node.byte_range()].to_string();
+                        // Remove quotes
+                        let cleaned = import_path.trim_matches('"').trim_matches('\'');
+                        imports.push(cleaned.to_string());
+                    }
+                }
+                // Handle export...from statements (re-exports are dependencies too)
+                else if node.kind() == "export_statement" {
                     if let Some(source_node) = node.child_by_field_name("source") {
                         let import_path = source[source_node.byte_range()].to_string();
                         // Remove quotes
