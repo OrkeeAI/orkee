@@ -58,26 +58,33 @@ function cleanup(exitCode = viteExitCode) {
   if (viteProcess && viteProcess.pid) {
     console.log('Cleaning up dev server...');
 
+    // Force kill after 5 seconds if process is still hanging
+    const killTimeout = setTimeout(() => {
+      console.warn('Cleanup timeout (5s), forcing shutdown...');
+      treeKill(viteProcess.pid, 'SIGKILL', (err) => {
+        if (err && err.code !== 'ESRCH') {
+          console.error('Force kill failed:', err);
+        }
+        process.exit(exitCode);
+      });
+    }, 5000);  // Keep process alive to ensure timeout fires if SIGTERM hangs
+
     // Try graceful shutdown with SIGTERM
     treeKill(viteProcess.pid, 'SIGTERM', (err) => {
+      clearTimeout(killTimeout);  // Clear timeout on success or immediate failure
       if (err && err.code !== 'ESRCH') {  // ESRCH = process doesn't exist
         // If graceful shutdown fails, force kill
         console.warn('Graceful shutdown failed, forcing kill...');
-        treeKill(viteProcess.pid, 'SIGKILL', () => {
+        treeKill(viteProcess.pid, 'SIGKILL', (err) => {
+          if (err && err.code !== 'ESRCH') {
+            console.error('Force kill failed:', err);
+          }
           process.exit(exitCode);
         });
       } else {
         process.exit(exitCode);
       }
     });
-
-    // Force kill after 5 seconds if process is still hanging
-    setTimeout(() => {
-      console.warn('Cleanup timeout (5s), forcing shutdown...');
-      treeKill(viteProcess.pid, 'SIGKILL', () => {
-        process.exit(exitCode);
-      });
-    }, 5000);  // Keep process alive to ensure timeout fires if SIGTERM hangs
   } else {
     process.exit(exitCode);
   }
@@ -93,7 +100,7 @@ process.on('exit', () => {
 
 // Start Vite dev server
 const isWindows = process.platform === 'win32';
-const shell = isWindows ? true : false;
+const shell = isWindows;
 const command = isWindows ? 'bun.exe' : 'bun';
 
 viteProcess = spawn(command, ['run', 'dev'], {
