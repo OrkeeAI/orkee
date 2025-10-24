@@ -30,9 +30,13 @@ export class ManualTaskProvider extends BaseTaskProvider {
    */
   private async authenticatedFetch(url: string, options: RequestInit = {}): Promise<Response> {
     const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-      ...options.headers as Record<string, string>,
+      ...(options.headers as Record<string, string> || {}),
     };
+
+    // Only add Content-Type for requests with a body
+    if (options.body && !headers['Content-Type']) {
+      headers['Content-Type'] = 'application/json';
+    }
 
     if (this.apiToken) {
       headers['X-API-Token'] = this.apiToken;
@@ -47,16 +51,29 @@ export class ManualTaskProvider extends BaseTaskProvider {
   async getTasks(projectPath: string): Promise<Task[]> {
     const projectId = await this.getProjectIdByPath(projectPath);
     const response = await this.authenticatedFetch(`${this.apiBaseUrl}/api/projects/${projectId}/tasks`);
-    const data = await response.json();
 
-    if (!data.success) {
-      // Clear cache on error in case project was deleted
+    if (!response.ok) {
+      // Clear cache on auth/not-found errors
       if (response.status === 404 || response.status === 401) {
         this.projectIdCache.delete(projectPath);
       }
-      throw new Error(data.error || `Failed to fetch tasks (status: ${response.status})`);
+
+      // Try to parse error message from JSON, fallback to status text
+      let errorMessage = `Failed to fetch tasks (status: ${response.status})`;
+      try {
+        const data = await response.json();
+        if (data.error) {
+          errorMessage = data.error;
+        }
+      } catch {
+        // Non-JSON response, use status text
+        errorMessage = `${errorMessage}: ${response.statusText}`;
+      }
+
+      throw new Error(errorMessage);
     }
 
+    const data = await response.json();
     // API returns paginated response: { success, data: { data: [...], pagination: {...} } }
     const tasks = data.data?.data || data.data || [];
     return this.transformTasks(tasks);
@@ -68,19 +85,30 @@ export class ManualTaskProvider extends BaseTaskProvider {
     const projectId = await this.getProjectIdByPath(projectPath);
     const response = await this.authenticatedFetch(`${this.apiBaseUrl}/api/projects/${projectId}/tasks`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(this.serializeTask(task)),
     });
 
-    const data = await response.json();
-    if (!data.success) {
-      // Clear cache on error in case project was deleted
+    if (!response.ok) {
+      // Clear cache on auth/not-found errors
       if (response.status === 404 || response.status === 401) {
         this.projectIdCache.delete(projectPath);
       }
-      throw new Error(data.error || `Failed to create task (status: ${response.status})`);
+
+      // Try to parse error message from JSON, fallback to status text
+      let errorMessage = `Failed to create task (status: ${response.status})`;
+      try {
+        const data = await response.json();
+        if (data.error) {
+          errorMessage = data.error;
+        }
+      } catch {
+        errorMessage = `${errorMessage}: ${response.statusText}`;
+      }
+
+      throw new Error(errorMessage);
     }
 
+    const data = await response.json();
     const createdTask = this.transformTask(data.data);
 
     this.emitTaskEvent({
@@ -96,19 +124,30 @@ export class ManualTaskProvider extends BaseTaskProvider {
     const projectId = await this.getProjectIdByPath(projectPath);
     const response = await this.authenticatedFetch(`${this.apiBaseUrl}/api/projects/${projectId}/tasks/${taskId}`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(this.serializeTask(updates)),
     });
 
-    const data = await response.json();
-    if (!data.success) {
-      // Clear cache on error in case project was deleted
+    if (!response.ok) {
+      // Clear cache on auth/not-found errors
       if (response.status === 404 || response.status === 401) {
         this.projectIdCache.delete(projectPath);
       }
-      throw new Error(data.error || `Failed to update task (status: ${response.status})`);
+
+      // Try to parse error message from JSON, fallback to status text
+      let errorMessage = `Failed to update task (status: ${response.status})`;
+      try {
+        const data = await response.json();
+        if (data.error) {
+          errorMessage = data.error;
+        }
+      } catch {
+        errorMessage = `${errorMessage}: ${response.statusText}`;
+      }
+
+      throw new Error(errorMessage);
     }
 
+    const data = await response.json();
     const updatedTask = this.transformTask(data.data);
 
     this.emitTaskEvent({
@@ -127,14 +166,27 @@ export class ManualTaskProvider extends BaseTaskProvider {
       method: 'DELETE',
     });
 
-    const data = await response.json();
-    if (!data.success) {
-      // Clear cache on error in case project was deleted
+    if (!response.ok) {
+      // Clear cache on auth/not-found errors
       if (response.status === 404 || response.status === 401) {
         this.projectIdCache.delete(projectPath);
       }
-      throw new Error(data.error || `Failed to delete task (status: ${response.status})`);
+
+      // Try to parse error message from JSON, fallback to status text
+      let errorMessage = `Failed to delete task (status: ${response.status})`;
+      try {
+        const data = await response.json();
+        if (data.error) {
+          errorMessage = data.error;
+        }
+      } catch {
+        errorMessage = `${errorMessage}: ${response.statusText}`;
+      }
+
+      throw new Error(errorMessage);
     }
+
+    const data = await response.json();
 
     this.emitTaskEvent({
       type: 'deleted',
@@ -166,15 +218,25 @@ export class ManualTaskProvider extends BaseTaskProvider {
 
     const response = await this.authenticatedFetch(`${this.apiBaseUrl}/api/projects/by-path`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ projectRoot: projectPath }),
     });
 
-    const data = await response.json();
-    if (!data.success) {
-      throw new Error(`Project not found (status: ${response.status})`);
+    if (!response.ok) {
+      // Try to parse error message from JSON, fallback to status text
+      let errorMessage = `Project not found (status: ${response.status})`;
+      try {
+        const data = await response.json();
+        if (data.error) {
+          errorMessage = data.error;
+        }
+      } catch {
+        errorMessage = `${errorMessage}: ${response.statusText}`;
+      }
+
+      throw new Error(errorMessage);
     }
 
+    const data = await response.json();
     const projectId = data.data.id;
     // Cache the ID for this specific path
     this.projectIdCache.set(projectPath, projectId);
