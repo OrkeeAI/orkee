@@ -17,7 +17,15 @@ use crate::{
 };
 
 // Timeout configuration
-const GRAPH_GENERATION_TIMEOUT_SECS: u64 = 30;
+const DEFAULT_GRAPH_GENERATION_TIMEOUT_SECS: u64 = 30;
+
+/// Get graph generation timeout from environment or use default
+fn get_graph_timeout() -> u64 {
+    std::env::var("ORKEE_GRAPH_TIMEOUT_SECS")
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(DEFAULT_GRAPH_GENERATION_TIMEOUT_SECS)
+}
 
 /// Response format for graph API
 #[derive(Debug, Serialize)]
@@ -74,9 +82,10 @@ pub async fn get_dependency_graph(
     // Generate real graph using GraphBuilder with timeout protection
     let project_root = project.project_root.clone();
     let project_id_clone = project_id.clone();
+    let timeout_secs = get_graph_timeout();
 
     let result = timeout(
-        Duration::from_secs(GRAPH_GENERATION_TIMEOUT_SECS),
+        Duration::from_secs(timeout_secs),
         tokio::task::spawn_blocking(move || {
             let mut builder = GraphBuilder::new();
             builder.build_dependency_graph(&project_root, &project_id_clone)
@@ -101,8 +110,8 @@ pub async fn get_dependency_graph(
             e
         ))),
         Err(_) => Json(GraphResponse::error(format!(
-            "Graph generation timed out after {} seconds",
-            GRAPH_GENERATION_TIMEOUT_SECS
+            "Graph generation timed out after {} seconds. Large projects may need more time. Try: (1) excluding node_modules with .gitignore, (2) using path filters, or (3) increasing timeout with ORKEE_GRAPH_TIMEOUT_SECS environment variable.",
+            timeout_secs
         ))),
     }
 }
@@ -134,9 +143,10 @@ pub async fn get_symbol_graph(
     // Generate real graph using GraphBuilder with timeout protection
     let project_root = project.project_root.clone();
     let project_id_clone = project_id.clone();
+    let timeout_secs = get_graph_timeout();
 
     let result = timeout(
-        Duration::from_secs(GRAPH_GENERATION_TIMEOUT_SECS),
+        Duration::from_secs(timeout_secs),
         tokio::task::spawn_blocking(move || {
             let mut builder = GraphBuilder::new();
             builder.build_symbol_graph(&project_root, &project_id_clone)
@@ -161,8 +171,8 @@ pub async fn get_symbol_graph(
             e
         ))),
         Err(_) => Json(GraphResponse::error(format!(
-            "Graph generation timed out after {} seconds",
-            GRAPH_GENERATION_TIMEOUT_SECS
+            "Graph generation timed out after {} seconds. Large projects may need more time. Try: (1) excluding node_modules with .gitignore, (2) using path filters, or (3) increasing timeout with ORKEE_GRAPH_TIMEOUT_SECS environment variable.",
+            timeout_secs
         ))),
     }
 }
@@ -194,9 +204,10 @@ pub async fn get_module_graph(
     // Generate real graph using GraphBuilder with timeout protection
     let project_root = project.project_root.clone();
     let project_id_clone = project_id.clone();
+    let timeout_secs = get_graph_timeout();
 
     let result = timeout(
-        Duration::from_secs(GRAPH_GENERATION_TIMEOUT_SECS),
+        Duration::from_secs(timeout_secs),
         tokio::task::spawn_blocking(move || {
             let builder = GraphBuilder::new();
             builder.build_module_graph(&project_root, &project_id_clone)
@@ -221,8 +232,8 @@ pub async fn get_module_graph(
             e
         ))),
         Err(_) => Json(GraphResponse::error(format!(
-            "Graph generation timed out after {} seconds",
-            GRAPH_GENERATION_TIMEOUT_SECS
+            "Graph generation timed out after {} seconds. Large projects may need more time. Try: (1) excluding node_modules with .gitignore, (2) using path filters, or (3) increasing timeout with ORKEE_GRAPH_TIMEOUT_SECS environment variable.",
+            timeout_secs
         ))),
     }
 }
