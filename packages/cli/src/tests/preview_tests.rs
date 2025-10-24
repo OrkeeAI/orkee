@@ -3,6 +3,7 @@ use crate::api::preview::SseConnectionTracker;
 use axum::body::Body;
 use axum::http::Request;
 use axum::http::{Method, StatusCode};
+use serial_test::serial;
 use std::net::IpAddr;
 use std::str::FromStr;
 use tower::ServiceExt;
@@ -91,6 +92,7 @@ fn test_sse_connection_guard_cleanup() {
 
 /// Test that SSE connection tracker respects environment variable configuration
 #[test]
+#[serial]
 fn test_sse_connection_tracker_env_var_config() {
     // Set custom limit via environment variable
     std::env::set_var("ORKEE_SSE_MAX_CONNECTIONS_PER_IP", "5");
@@ -120,6 +122,7 @@ fn test_sse_connection_tracker_env_var_config() {
 
 /// Test that invalid environment variable values fall back to default
 #[test]
+#[serial]
 fn test_sse_connection_tracker_invalid_env_var() {
     // Set invalid value (0 is not allowed)
     std::env::set_var("ORKEE_SSE_MAX_CONNECTIONS_PER_IP", "0");
@@ -143,6 +146,7 @@ fn test_sse_connection_tracker_invalid_env_var() {
 
 /// Test that SSE connection tracker validates range (max 100)
 #[test]
+#[serial]
 fn test_sse_connection_tracker_max_validation() {
     // Set value above maximum (100)
     std::env::set_var("ORKEE_SSE_MAX_CONNECTIONS_PER_IP", "150");
