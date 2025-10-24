@@ -6,6 +6,47 @@ import { render, waitFor } from '@testing-library/react';
 import { GraphVisualization } from './GraphVisualization';
 import type { CodeGraph } from '@/types/graph';
 
+const mockGraph: CodeGraph = {
+  nodes: [
+    {
+      id: 'node1',
+      label: 'Node 1',
+      node_type: 'file',
+      metadata: {},
+    },
+    {
+      id: 'node2',
+      label: 'Node 2',
+      node_type: 'function',
+      metadata: {},
+    },
+  ],
+  edges: [
+    {
+      id: 'edge1',
+      source: 'node1',
+      target: 'node2',
+      edge_type: 'import',
+      weight: 1,
+    },
+  ],
+  metadata: {
+    total_nodes: 2,
+    total_edges: 1,
+    project_id: 'test-project',
+    generated_at: new Date().toISOString(),
+  },
+};
+
+// Mock the graph hooks
+vi.mock('@/hooks/useGraph', () => ({
+  useProjectGraph: vi.fn(() => ({
+    data: mockGraph,
+    isLoading: false,
+    error: null,
+  })),
+}));
+
 // Mock Cytoscape
 vi.mock('react-cytoscapejs', () => ({
   default: vi.fn(({ cy, elements, layout }) => {
@@ -28,38 +69,6 @@ vi.mock('react-cytoscapejs', () => ({
 }));
 
 describe('GraphVisualization', () => {
-  const mockGraph: CodeGraph = {
-    nodes: [
-      {
-        id: 'node1',
-        label: 'Node 1',
-        node_type: 'file',
-        metadata: {},
-      },
-      {
-        id: 'node2',
-        label: 'Node 2',
-        node_type: 'function',
-        metadata: {},
-      },
-    ],
-    edges: [
-      {
-        id: 'edge1',
-        source: 'node1',
-        target: 'node2',
-        edge_type: 'import',
-        weight: 1,
-      },
-    ],
-    metadata: {
-      total_nodes: 2,
-      total_edges: 1,
-      project_id: 'test-project',
-      generated_at: new Date().toISOString(),
-    },
-  };
-
   beforeEach(() => {
     vi.clearAllMocks();
   });
@@ -68,8 +77,10 @@ describe('GraphVisualization', () => {
     const onNodeSelect = vi.fn();
     const { rerender } = render(
       <GraphVisualization
-        graph={mockGraph}
+        projectId="test-project"
+        graphType="dependencies"
         layout="hierarchical"
+        filters={{}}
         onNodeSelect={onNodeSelect}
       />
     );
@@ -80,8 +91,10 @@ describe('GraphVisualization', () => {
     for (const layout of layouts) {
       rerender(
         <GraphVisualization
-          graph={mockGraph}
+          projectId="test-project"
+          graphType="dependencies"
           layout={layout}
+          filters={{}}
           onNodeSelect={onNodeSelect}
         />
       );
@@ -98,46 +111,27 @@ describe('GraphVisualization', () => {
 
   it('should clean up Cytoscape instance on unmount', async () => {
     const onNodeSelect = vi.fn();
-    const destroySpy = vi.fn();
 
-    // We'll capture the cy instance from the render
-    let capturedCy: any = null;
-
-    const MockCytoscapeWrapper = () => {
-      return (
-        <GraphVisualization
-          graph={mockGraph}
-          layout="hierarchical"
-          onNodeSelect={onNodeSelect}
-        />
-      );
-    };
-
-    const { unmount } = render(<MockCytoscapeWrapper />);
+    const { unmount } = render(
+      <GraphVisualization
+        projectId="test-project"
+        graphType="dependencies"
+        layout="hierarchical"
+        filters={{}}
+        onNodeSelect={onNodeSelect}
+      />
+    );
 
     // Wait for component to render
     await waitFor(() => {
       expect(document.querySelector('[data-testid="cytoscape-mock"]')).toBeInTheDocument();
     });
 
-    // Mock the destroy function on the captured cy instance
-    const CytoscapeComponent = await import('react-cytoscapejs');
-    const lastCallArgs = (CytoscapeComponent.default as any).mock.lastCall;
-
-    if (lastCallArgs && lastCallArgs[0].cy) {
-      capturedCy = {};
-      lastCallArgs[0].cy(capturedCy);
-      capturedCy.destroy = destroySpy;
-      capturedCy.destroyed = vi.fn(() => false);
-    }
-
-    // Unmount the component
+    // Unmount the component - should not throw errors
     unmount();
 
-    // The destroy function should have been called during cleanup
-    // Note: This might not work perfectly with the mock, but it tests the intent
+    // Verify the component was unmounted successfully
     await waitFor(() => {
-      // Verify the component was unmounted
       expect(document.querySelector('[data-testid="cytoscape-mock"]')).not.toBeInTheDocument();
     });
   });
@@ -169,8 +163,10 @@ describe('GraphVisualization', () => {
 
     const { rerender } = render(
       <GraphVisualization
-        graph={mockGraph}
+        projectId="test-project"
+        graphType="dependencies"
         layout="hierarchical"
+        filters={{}}
         onNodeSelect={onNodeSelect}
       />
     );
@@ -178,8 +174,10 @@ describe('GraphVisualization', () => {
     // Change layout while instance is destroyed
     rerender(
       <GraphVisualization
-        graph={mockGraph}
+        projectId="test-project"
+        graphType="dependencies"
         layout="force"
+        filters={{}}
         onNodeSelect={onNodeSelect}
       />
     );
@@ -197,8 +195,10 @@ describe('GraphVisualization', () => {
     const onNodeSelect = vi.fn();
     const { rerender } = render(
       <GraphVisualization
-        graph={mockGraph}
+        projectId="test-project"
+        graphType="dependencies"
         layout="hierarchical"
+        filters={{}}
         onNodeSelect={onNodeSelect}
       />
     );
@@ -206,9 +206,10 @@ describe('GraphVisualization', () => {
     // Apply search filter
     rerender(
       <GraphVisualization
-        graph={mockGraph}
+        projectId="test-project"
+        graphType="dependencies"
         layout="hierarchical"
-        searchTerm="Node 1"
+        filters={{ search: 'Node 1' }}
         onNodeSelect={onNodeSelect}
       />
     );
@@ -232,10 +233,20 @@ describe('GraphVisualization', () => {
       },
     };
 
+    // Import and mock the hook to return empty graph
+    const { useProjectGraph } = await import('@/hooks/useGraph');
+    vi.mocked(useProjectGraph).mockReturnValue({
+      data: emptyGraph,
+      isLoading: false,
+      error: null,
+    });
+
     const { container } = render(
       <GraphVisualization
-        graph={emptyGraph}
+        projectId="test-project"
+        graphType="dependencies"
         layout="hierarchical"
+        filters={{}}
         onNodeSelect={onNodeSelect}
       />
     );
