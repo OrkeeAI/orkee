@@ -41,7 +41,7 @@ function cleanup(exitCode = viteExitCode) {
       treeKill(viteProcess.pid, 'SIGKILL', () => {
         process.exit(exitCode);
       });
-    }, 5000).unref();  // Don't keep process alive just for this timeout
+    }, 5000);  // Keep process alive to ensure timeout fires if SIGTERM hangs
   } else {
     process.exit(exitCode);
   }
