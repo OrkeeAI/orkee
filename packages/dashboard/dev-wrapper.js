@@ -3,7 +3,12 @@
 // ABOUTME: when Tauri is killed (works on macOS, Linux, and Windows)
 
 import { spawn } from 'child_process';
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
 import treeKill from 'tree-kill';
+
+// Get the directory containing this script
+const __dirname = dirname(fileURLToPath(import.meta.url));
 
 let viteProcess = null;
 let isCleaningUp = false;
@@ -59,6 +64,7 @@ viteProcess = spawn(command, ['run', 'dev'], {
   stdio: 'inherit',
   shell,
   detached: !isWindows, // Process group on Unix
+  cwd: __dirname, // Run from the directory containing this script (packages/dashboard)
 });
 
 viteProcess.on('error', (err) => {
