@@ -513,65 +513,77 @@ impl GraphBuilder {
         edges: &mut Vec<GraphEdge>,
         parent_symbol_id: Option<&str>,
     ) {
-        for symbol in symbols {
-            // Create unique symbol ID
-            let symbol_node_id = format!(
-                "symbol_{}_{}_{}",
-                symbol.name,
-                symbol.line_start,
-                nodes.len()
+        process_symbols_recursive_impl(symbols, file_path, parent_node_id, nodes, edges, parent_symbol_id);
+    }
+}
+
+/// Helper function for recursive symbol processing
+fn process_symbols_recursive_impl(
+    symbols: &[crate::context::Symbol],
+    file_path: &str,
+    parent_node_id: &str,
+    nodes: &mut Vec<GraphNode>,
+    edges: &mut Vec<GraphEdge>,
+    parent_symbol_id: Option<&str>,
+) {
+    for symbol in symbols {
+        // Create unique symbol ID
+        let symbol_node_id = format!(
+            "symbol_{}_{}_{}",
+            symbol.name,
+            symbol.line_start,
+            nodes.len()
+        );
+
+        // Determine node type
+        let node_type = match symbol.kind {
+            crate::context::SymbolKind::Function => NodeType::Function,
+            crate::context::SymbolKind::Class => NodeType::Class,
+            crate::context::SymbolKind::Interface => NodeType::Class, // Treat interfaces as classes in graph
+            crate::context::SymbolKind::Method => NodeType::Function, // Treat methods as functions in graph
+            _ => NodeType::Module,
+        };
+
+        // Create symbol node
+        nodes.push(GraphNode {
+            id: symbol_node_id.clone(),
+            label: symbol.name.clone(),
+            node_type,
+            metadata: NodeMetadata {
+                path: Some(file_path.to_string()),
+                line_start: Some(symbol.line_start),
+                line_end: Some(symbol.line_end),
+                token_count: None,
+                complexity: None,
+                spec_id: None,
+            },
+        });
+
+        // Create edge from parent (file or parent symbol) to this symbol
+        let edge_source = if let Some(parent_id) = parent_symbol_id {
+            parent_id.to_string()
+        } else {
+            parent_node_id.to_string()
+        };
+
+        edges.push(GraphEdge {
+            id: format!("edge_{}_{}", edge_source, symbol_node_id),
+            source: edge_source,
+            target: symbol_node_id.clone(),
+            edge_type: EdgeType::Contains,
+            weight: None,
+        });
+
+        // Recursively process child symbols (e.g., methods in a class)
+        if !symbol.children.is_empty() {
+            process_symbols_recursive_impl(
+                &symbol.children,
+                file_path,
+                parent_node_id,
+                nodes,
+                edges,
+                Some(&symbol_node_id),
             );
-
-            // Determine node type
-            let node_type = match symbol.kind {
-                crate::context::SymbolKind::Function => NodeType::Function,
-                crate::context::SymbolKind::Class => NodeType::Class,
-                crate::context::SymbolKind::Interface => NodeType::Class, // Treat interfaces as classes in graph
-                crate::context::SymbolKind::Method => NodeType::Function, // Treat methods as functions in graph
-                _ => NodeType::Module,
-            };
-
-            // Create symbol node
-            nodes.push(GraphNode {
-                id: symbol_node_id.clone(),
-                label: symbol.name.clone(),
-                node_type,
-                metadata: NodeMetadata {
-                    path: Some(file_path.to_string()),
-                    line_start: Some(symbol.line_start),
-                    line_end: Some(symbol.line_end),
-                    token_count: None,
-                    complexity: None,
-                    spec_id: None,
-                },
-            });
-
-            // Create edge from parent (file or parent symbol) to this symbol
-            let edge_source = if let Some(parent_id) = parent_symbol_id {
-                parent_id.to_string()
-            } else {
-                parent_node_id.to_string()
-            };
-
-            edges.push(GraphEdge {
-                id: format!("edge_{}_{}", edge_source, symbol_node_id),
-                source: edge_source,
-                target: symbol_node_id.clone(),
-                edge_type: EdgeType::Contains,
-                weight: None,
-            });
-
-            // Recursively process child symbols (e.g., methods in a class)
-            if !symbol.children.is_empty() {
-                self.process_symbols_recursive(
-                    &symbol.children,
-                    file_path,
-                    parent_node_id,
-                    nodes,
-                    edges,
-                    Some(&symbol_node_id),
-                );
-            }
         }
     }
 }
