@@ -2,7 +2,6 @@ use crate::registry::{ServerRegistryEntry, GLOBAL_REGISTRY};
 use crate::types::*;
 use chrono::Utc;
 use orkee_config::constants;
-#[cfg(unix)]
 use orkee_config::env::parse_env_or_default_with_validation;
 use serde_json;
 use std::collections::hash_map::DefaultHasher;
@@ -16,9 +15,19 @@ use tokio::fs;
 use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::Child;
 use tokio::process::Command;
-use tokio::sync::RwLock;
+use tokio::sync::{broadcast, RwLock};
 use tracing::{debug, error, info, warn};
 use uuid::Uuid;
+
+/// SSE event broadcast channel capacity.
+///
+/// This determines how many events can be buffered per subscriber before the
+/// subscriber is marked as lagged. A value of 200 provides a good balance for
+/// most use cases including moderate CI/CD workloads with bulk operations.
+///
+/// For heavy CI/CD environments with rapid bulk deployments, consider increasing
+/// via ORKEE_EVENT_CHANNEL_SIZE (e.g., 500-1000) to prevent client lag events.
+const SSE_CHANNEL_CAPACITY: usize = 200;
 
 /// Result of spawning a development server process with associated metadata.
 ///
@@ -43,6 +52,7 @@ pub struct SpawnResult {
 pub struct PreviewManager {
     active_servers: Arc<RwLock<HashMap<String, ServerInfo>>>,
     server_logs: Arc<RwLock<HashMap<String, VecDeque<DevServerLog>>>>,
+    event_tx: broadcast::Sender<ServerEvent>,
 }
 
 /// Information about a running development server.
@@ -151,10 +161,24 @@ impl PreviewManager {
     ///
     /// Returns a new `PreviewManager` instance with empty server and log collections.
     pub fn new() -> Self {
+        // Make channel capacity configurable via environment variable
+        let capacity = parse_env_or_default_with_validation(
+            "ORKEE_EVENT_CHANNEL_SIZE",
+            SSE_CHANNEL_CAPACITY,
+            |v| (10..=10000).contains(&v),
+        );
+
+        let (event_tx, _rx) = broadcast::channel(capacity);
         Self {
             active_servers: Arc::new(RwLock::new(HashMap::new())),
             server_logs: Arc::new(RwLock::new(HashMap::new())),
+            event_tx,
         }
+    }
+
+    /// Subscribe to server events for real-time updates
+    pub fn subscribe(&self) -> broadcast::Receiver<ServerEvent> {
+        self.event_tx.subscribe()
     }
 
     /// Create a new manager and recover existing servers from lock files.
@@ -650,6 +674,16 @@ impl PreviewManager {
                     );
                 }
 
+                // Emit ServerStarted event AFTER all state updates
+                // Ordering: (1) in-memory state updated, (2) disk persistence attempted, (3) event emitted
+                // This ensures subscribers receive events only after state is fully consistent
+                let _ = self.event_tx.send(ServerEvent::ServerStarted {
+                    project_id: project_id.clone(),
+                    pid: pid.unwrap_or(0),
+                    port,
+                    framework: updated_info.framework_name.clone(),
+                });
+
                 info!(
                     "Successfully started server for project: {} on port {}",
                     project_id, port
@@ -658,6 +692,12 @@ impl PreviewManager {
             }
             Err(e) => {
                 error!("Failed to start server for project {}: {}", project_id, e);
+
+                // Emit ServerError event
+                let _ = self.event_tx.send(ServerEvent::ServerError {
+                    project_id: project_id.clone(),
+                    error: e.to_string(),
+                });
 
                 // Don't store failed server attempts in active_servers to avoid port allocation leaks.
                 // The port was never actually bound, so storing the error entry would mislead
@@ -852,6 +892,11 @@ impl PreviewManager {
                         project_id_owned, e
                     );
                 }
+
+                // Emit ServerStopped event
+                let _ = manager.event_tx.send(ServerEvent::ServerStopped {
+                    project_id: project_id_owned.clone(),
+                });
 
                 info!(
                     "Successfully stopped server for project: {}",

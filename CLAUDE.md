@@ -56,6 +56,16 @@ Orkee is an AI agent orchestration platform consisting of a Rust CLI server and 
 - Dashboard polls health endpoints every 20 seconds
 - API responses follow format: `{success: boolean, data: any, error: string | null}`
 
+#### Real-Time Updates
+- **SSE Endpoint**: `/api/preview/events` for real-time server state updates
+- **Broadcast Channel**: Capacity of 200 events per subscriber (configurable via `ORKEE_EVENT_CHANNEL_SIZE` environment variable, range: 10-10000)
+- **Automatic Fallback**: Falls back to 5-second polling if SSE fails after 3 retry attempts (2-second delays)
+- **Connection Modes**:
+  - `sse` (live): Active SSE connection with real-time updates
+  - `polling` (fallback): HTTP polling every 5 seconds when SSE unavailable
+  - `connecting` (initial/retry): Establishing or retrying SSE connection
+- **Lag Handling**: When clients lag behind, sends sync event with current state instead of disconnecting
+
 ### CLI Server Details
 - **API Port**: 4001 (configurable via `--api-port` flag or `ORKEE_API_PORT` env var)
 - **UI Port**: 5173 (configurable via `--ui-port` flag or `ORKEE_UI_PORT` env var)

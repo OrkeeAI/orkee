@@ -192,3 +192,174 @@ describe('Projects - Accessibility Requirements', () => {
     expect(shouldBeDisabled).toBe(true);
   });
 });
+
+describe('Projects - Loading State Management', () => {
+  describe('State Change Detection', () => {
+    it('should detect when server starts (inactive -> active)', () => {
+      const prevActive = new Set<string>();
+      const currentActive = new Set<string>(['project-1']);
+      const projectId = 'project-1';
+
+      const wasActive = prevActive.has(projectId);
+      const isActive = currentActive.has(projectId);
+      const stateChanged = wasActive !== isActive;
+
+      expect(stateChanged).toBe(true);
+    });
+
+    it('should detect when server stops (active -> inactive)', () => {
+      const prevActive = new Set<string>(['project-1']);
+      const currentActive = new Set<string>();
+      const projectId = 'project-1';
+
+      const wasActive = prevActive.has(projectId);
+      const isActive = currentActive.has(projectId);
+      const stateChanged = wasActive !== isActive;
+
+      expect(stateChanged).toBe(true);
+    });
+
+    it('should not detect change when server remains active', () => {
+      const prevActive = new Set<string>(['project-1']);
+      const currentActive = new Set<string>(['project-1']);
+      const projectId = 'project-1';
+
+      const wasActive = prevActive.has(projectId);
+      const isActive = currentActive.has(projectId);
+      const stateChanged = wasActive !== isActive;
+
+      expect(stateChanged).toBe(false);
+    });
+
+    it('should not detect change when server remains inactive', () => {
+      const prevActive = new Set<string>();
+      const currentActive = new Set<string>();
+      const projectId = 'project-1';
+
+      const wasActive = prevActive.has(projectId);
+      const isActive = currentActive.has(projectId);
+      const stateChanged = wasActive !== isActive;
+
+      expect(stateChanged).toBe(false);
+    });
+  });
+
+  describe('Timeout Management', () => {
+    it('should track timeout in ref immediately after setting', () => {
+      const timeoutsRef = new Map<string, NodeJS.Timeout>();
+      const projectId = 'project-1';
+
+      const timeout = setTimeout(() => {}, 5000);
+      timeoutsRef.set(projectId, timeout);
+
+      expect(timeoutsRef.has(projectId)).toBe(true);
+      expect(timeoutsRef.get(projectId)).toBe(timeout);
+
+      clearTimeout(timeout);
+    });
+
+    it('should clean up timeout on error', () => {
+      const timeoutsRef = new Map<string, NodeJS.Timeout>();
+      const projectId = 'project-1';
+
+      const timeout = setTimeout(() => {}, 5000);
+      timeoutsRef.set(projectId, timeout);
+
+      // Simulate error cleanup
+      const storedTimeout = timeoutsRef.get(projectId);
+      if (storedTimeout) {
+        clearTimeout(storedTimeout);
+        timeoutsRef.delete(projectId);
+      }
+
+      expect(timeoutsRef.has(projectId)).toBe(false);
+    });
+
+    it('should clean up timeout on state change', () => {
+      const timeoutsRef = new Map<string, NodeJS.Timeout>();
+      const projectId = 'project-1';
+
+      const timeout = setTimeout(() => {}, 5000);
+      timeoutsRef.set(projectId, timeout);
+
+      // Simulate state change cleanup
+      const storedTimeout = timeoutsRef.get(projectId);
+      if (storedTimeout) {
+        clearTimeout(storedTimeout);
+        timeoutsRef.delete(projectId);
+      }
+
+      expect(timeoutsRef.has(projectId)).toBe(false);
+    });
+
+    it('should handle multiple concurrent timeouts', () => {
+      const timeoutsRef = new Map<string, NodeJS.Timeout>();
+
+      const timeout1 = setTimeout(() => {}, 5000);
+      const timeout2 = setTimeout(() => {}, 5000);
+      const timeout3 = setTimeout(() => {}, 5000);
+
+      timeoutsRef.set('project-1', timeout1);
+      timeoutsRef.set('project-2', timeout2);
+      timeoutsRef.set('project-3', timeout3);
+
+      expect(timeoutsRef.size).toBe(3);
+
+      // Clean up
+      timeoutsRef.forEach(timeout => clearTimeout(timeout));
+      timeoutsRef.clear();
+    });
+  });
+
+  describe('Loading State Updates', () => {
+    it('should maintain loading state until state change', () => {
+      const loadingServers = new Set<string>(['project-1']);
+      const prevActive = new Set<string>();
+      const currentActive = new Set<string>(); // Server hasn't started yet
+
+      const projectId = 'project-1';
+      const wasActive = prevActive.has(projectId);
+      const isActive = currentActive.has(projectId);
+      const shouldClearLoading = wasActive !== isActive;
+
+      expect(shouldClearLoading).toBe(false);
+      expect(loadingServers.has(projectId)).toBe(true);
+    });
+
+    it('should clear loading state when server starts', () => {
+      const loadingServers = new Set<string>(['project-1']);
+      const prevActive = new Set<string>();
+      const currentActive = new Set<string>(['project-1']); // Server started
+
+      const projectId = 'project-1';
+      const wasActive = prevActive.has(projectId);
+      const isActive = currentActive.has(projectId);
+      const shouldClearLoading = wasActive !== isActive;
+
+      if (shouldClearLoading) {
+        loadingServers.delete(projectId);
+      }
+
+      expect(shouldClearLoading).toBe(true);
+      expect(loadingServers.has(projectId)).toBe(false);
+    });
+
+    it('should clear loading state when server stops', () => {
+      const loadingServers = new Set<string>(['project-1']);
+      const prevActive = new Set<string>(['project-1']);
+      const currentActive = new Set<string>(); // Server stopped
+
+      const projectId = 'project-1';
+      const wasActive = prevActive.has(projectId);
+      const isActive = currentActive.has(projectId);
+      const shouldClearLoading = wasActive !== isActive;
+
+      if (shouldClearLoading) {
+        loadingServers.delete(projectId);
+      }
+
+      expect(shouldClearLoading).toBe(true);
+      expect(loadingServers.has(projectId)).toBe(false);
+    });
+  });
+});

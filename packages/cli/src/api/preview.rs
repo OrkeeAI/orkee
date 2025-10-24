@@ -1,26 +1,172 @@
 use axum::{
-    extract::{Path, Query, State},
+    extract::{ConnectInfo, Path, Query, State},
     http::StatusCode,
-    response::Json,
+    response::{
+        sse::{Event, KeepAlive, Sse},
+        Json,
+    },
 };
 use chrono::{DateTime, Utc};
+use futures::stream::{self, Stream};
 use orkee_preview::{
     types::{
-        ApiResponse, ServerLogsResponse, ServerStatusInfo, ServerStatusResponse, ServersResponse,
-        StartServerRequest, StartServerResponse,
+        ApiResponse, ServerEvent, ServerLogsResponse, ServerStatusInfo, ServerStatusResponse,
+        ServersResponse, StartServerRequest, StartServerResponse,
     },
     PreviewManager, ServerInfo,
 };
 use orkee_projects::manager::ProjectsManager;
 use serde::Deserialize;
-use std::sync::Arc;
-use tracing::{error, info};
+use std::collections::HashMap;
+use std::convert::Infallible;
+use std::net::{IpAddr, SocketAddr};
+use std::sync::{Arc, Mutex};
+use tracing::{error, info, warn};
+
+/// Default maximum concurrent SSE connections per IP address
+/// This prevents a single client from exhausting server resources by opening unlimited connections
+const DEFAULT_MAX_SSE_CONNECTIONS_PER_IP: usize = 3;
+
+/// Maximum size for individual SSE events (64KB)
+/// Events exceeding this size will be replaced with a summary event to prevent
+/// excessive memory usage and network bandwidth consumption
+const MAX_SSE_EVENT_SIZE: usize = 64 * 1024;
+
+/// Error returned when SSE connection limit is exceeded
+#[derive(Debug)]
+pub struct SseConnectionLimitExceeded;
+
+/// Tracks concurrent SSE connections per IP address
+#[derive(Clone)]
+pub struct SseConnectionTracker {
+    connections: Arc<Mutex<HashMap<IpAddr, usize>>>,
+    max_connections_per_ip: usize,
+}
+
+impl Default for SseConnectionTracker {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl SseConnectionTracker {
+    pub fn new() -> Self {
+        // Read from environment variable with validation
+        let max_connections_per_ip = std::env::var("ORKEE_SSE_MAX_CONNECTIONS_PER_IP")
+            .ok()
+            .and_then(|v| v.parse::<usize>().ok())
+            .filter(|&v| v > 0 && v <= 100)
+            .unwrap_or(DEFAULT_MAX_SSE_CONNECTIONS_PER_IP);
+
+        Self {
+            connections: Arc::new(Mutex::new(HashMap::new())),
+            max_connections_per_ip,
+        }
+    }
+
+    /// Try to acquire a connection slot for the given IP
+    /// Returns Ok(guard) if successful, Err if limit exceeded
+    pub fn try_acquire(
+        &self,
+        ip: IpAddr,
+    ) -> Result<SseConnectionGuard, SseConnectionLimitExceeded> {
+        let mut connections = self.connections.lock().unwrap_or_else(|poisoned| {
+            warn!(
+                audit = true,
+                "SSE connection tracker mutex poisoned, recovering - this indicates a panic occurred while holding the lock"
+            );
+            poisoned.into_inner()
+        });
+        let count = connections.entry(ip).or_insert(0);
+
+        if *count >= self.max_connections_per_ip {
+            warn!(
+                ip = %ip,
+                current = %count,
+                max = self.max_connections_per_ip,
+                audit = true,
+                "SSE connection limit exceeded"
+            );
+            return Err(SseConnectionLimitExceeded);
+        }
+
+        *count += 1;
+        info!(
+            ip = %ip,
+            count = %count,
+            max = self.max_connections_per_ip,
+            "SSE connection acquired"
+        );
+
+        Ok(SseConnectionGuard {
+            ip,
+            tracker: self.clone(),
+        })
+    }
+
+    /// Release a connection slot for the given IP
+    fn release(&self, ip: IpAddr) {
+        let mut connections = self.connections.lock().unwrap_or_else(|poisoned| {
+            warn!(
+                audit = true,
+                "SSE connection tracker mutex poisoned, recovering - this indicates a panic occurred while holding the lock"
+            );
+            poisoned.into_inner()
+        });
+        if let Some(count) = connections.get_mut(&ip) {
+            *count = count.saturating_sub(1);
+            info!(
+                ip = %ip,
+                remaining = %count,
+                "SSE connection released"
+            );
+
+            // Clean up entry if count reaches zero
+            if *count == 0 {
+                connections.remove(&ip);
+            }
+        }
+    }
+}
+
+/// RAII guard that automatically releases an SSE connection slot when dropped
+pub struct SseConnectionGuard {
+    ip: IpAddr,
+    tracker: SseConnectionTracker,
+}
+
+impl Drop for SseConnectionGuard {
+    fn drop(&mut self) {
+        self.tracker.release(self.ip);
+    }
+}
+
+/// Wrapper that guarantees guard cleanup even if stream is dropped without being consumed
+struct GuardedSseStream<S> {
+    stream: std::pin::Pin<Box<S>>,
+    _guard: SseConnectionGuard,
+}
+
+impl<S, T, E> Stream for GuardedSseStream<S>
+where
+    S: Stream<Item = Result<T, E>>,
+{
+    type Item = Result<T, E>;
+
+    fn poll_next(
+        mut self: std::pin::Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<Option<Self::Item>> {
+        self.stream.as_mut().poll_next(cx)
+    }
+}
 
 /// Shared state for preview endpoints
 #[derive(Clone)]
 pub struct PreviewState {
     pub preview_manager: Arc<PreviewManager>,
     pub project_manager: Arc<ProjectsManager>,
+    pub sse_tracker: SseConnectionTracker,
 }
 
 /// Start a development server for a project
@@ -449,6 +595,188 @@ pub async fn health_check() -> Json<ApiResponse<String>> {
     Json(ApiResponse::success(
         "Preview service is healthy".to_string(),
     ))
+}
+
+/// SSE endpoint for real-time server events
+pub async fn server_events(
+    ConnectInfo(addr): ConnectInfo<SocketAddr>,
+    State(state): State<PreviewState>,
+) -> Result<Sse<impl Stream<Item = Result<Event, Infallible>>>, StatusCode> {
+    let ip = addr.ip();
+
+    // Try to acquire a connection slot - this limits concurrent connections per IP
+    let _guard = match state.sse_tracker.try_acquire(ip) {
+        Ok(guard) => guard,
+        Err(_) => {
+            // Too many concurrent connections from this IP
+            return Err(StatusCode::TOO_MANY_REQUESTS);
+        }
+    };
+
+    info!(ip = %ip, "Client connected to server events stream");
+
+    let rx = state.preview_manager.subscribe();
+
+    // Get initial state of active servers
+    let active_servers = state.preview_manager.list_servers().await;
+    let active_server_ids: Vec<String> = active_servers
+        .iter()
+        .map(|s| s.project_id.clone())
+        .collect();
+
+    let initial_event = ServerEvent::InitialState {
+        active_servers: active_server_ids,
+    };
+
+    // Clone preview_manager for use in the stream closure
+    let preview_manager = state.preview_manager.clone();
+
+    // Create the event stream; guard is stored outside unfold state to ensure cleanup
+    // The guard must be in GuardedSseStream wrapper so Drop is called when stream drops
+    let event_stream = stream::unfold(
+        (rx, Some(initial_event), preview_manager),
+        |(mut rx, initial_opt, preview_manager)| async move {
+            if let Some(initial_event) = initial_opt {
+                // Send initial state as first event
+                match serde_json::to_string(&initial_event) {
+                    Ok(data) => {
+                        // Check event size to prevent excessive memory/bandwidth usage
+                        if data.len() > MAX_SSE_EVENT_SIZE {
+                            warn!(
+                                audit = true,
+                                size = data.len(),
+                                max = MAX_SSE_EVENT_SIZE,
+                                "SSE initial event exceeds size limit, sending empty state"
+                            );
+                            // Send empty initial state as fallback
+                            let fallback = ServerEvent::InitialState {
+                                active_servers: vec![],
+                            };
+                            if let Ok(fallback_data) = serde_json::to_string(&fallback) {
+                                let event = Event::default().data(fallback_data);
+                                return Some((Ok(event), (rx, None, preview_manager)));
+                            }
+                        } else {
+                            let event = Event::default().data(data);
+                            return Some((Ok(event), (rx, None, preview_manager)));
+                        }
+                    }
+                    Err(e) => {
+                        error!("Failed to serialize initial SSE event: {} - sending empty initial state", e);
+                        // Send empty initial state as fallback
+                        let fallback = ServerEvent::InitialState {
+                            active_servers: vec![],
+                        };
+                        if let Ok(data) = serde_json::to_string(&fallback) {
+                            let event = Event::default().data(data);
+                            return Some((Ok(event), (rx, None, preview_manager)));
+                        }
+                        // If even fallback fails, continue to regular event loop
+                    }
+                }
+            }
+
+            // Wait for and send subsequent events
+            match rx.recv().await {
+                Ok(server_event) => {
+                    match serde_json::to_string(&server_event) {
+                        Ok(data) => {
+                            // Check event size to prevent excessive memory/bandwidth usage
+                            if data.len() > MAX_SSE_EVENT_SIZE {
+                                warn!(
+                                    audit = true,
+                                    event_type = ?server_event,
+                                    size = data.len(),
+                                    max = MAX_SSE_EVENT_SIZE,
+                                    "SSE event exceeds size limit, sending summary instead"
+                                );
+                                // Send a lightweight summary event instead
+                                let summary = ServerEvent::InitialState {
+                                    active_servers: preview_manager
+                                        .list_servers()
+                                        .await
+                                        .iter()
+                                        .map(|s| s.project_id.clone())
+                                        .collect(),
+                                };
+                                if let Ok(summary_data) = serde_json::to_string(&summary) {
+                                    let event = Event::default().data(summary_data);
+                                    return Some((Ok(event), (rx, None, preview_manager)));
+                                }
+                            }
+                            let event = Event::default().data(data);
+                            Some((Ok(event), (rx, None, preview_manager)))
+                        }
+                        Err(e) => {
+                            // Log error but continue streaming - send sync event as recovery
+                            error!("Failed to serialize SSE event: {} - sending sync event", e);
+
+                            let sync_event = ServerEvent::InitialState {
+                                active_servers: preview_manager
+                                    .list_servers()
+                                    .await
+                                    .iter()
+                                    .map(|s| s.project_id.clone())
+                                    .collect(),
+                            };
+
+                            match serde_json::to_string(&sync_event) {
+                                Ok(data) => {
+                                    let event = Event::default().data(data);
+                                    Some((Ok(event), (rx, None, preview_manager)))
+                                }
+                                Err(e) => {
+                                    error!("Failed to serialize sync event: {} - skipping to next event", e);
+                                    // Continue stream by waiting for next event recursively
+                                    Some((
+                                        Ok(Event::default().comment("serialization error")),
+                                        (rx, None, preview_manager),
+                                    ))
+                                }
+                            }
+                        }
+                    }
+                }
+                Err(tokio::sync::broadcast::error::RecvError::Lagged(n)) => {
+                    // Client lagged behind - send current state to help recovery
+                    tracing::warn!(
+                        "SSE client lagged, missed {} events - sending sync event",
+                        n
+                    );
+
+                    // Refetch current state
+                    let active_servers = preview_manager.list_servers().await;
+                    let active_server_ids: Vec<String> = active_servers
+                        .iter()
+                        .map(|s| s.project_id.clone())
+                        .collect();
+
+                    let sync_event = ServerEvent::InitialState {
+                        active_servers: active_server_ids,
+                    };
+
+                    if let Ok(data) = serde_json::to_string(&sync_event) {
+                        let event = Event::default().data(data);
+                        Some((Ok(event), (rx, None, preview_manager)))
+                    } else {
+                        None
+                    }
+                }
+                Err(_) => {
+                    // Channel closed
+                    None
+                }
+            }
+        },
+    );
+
+    // Wrap stream with guard to guarantee cleanup even on abrupt disconnection
+    let guarded_stream = GuardedSseStream {
+        stream: Box::pin(event_stream),
+        _guard,
+    };
+
+    Ok(Sse::new(guarded_stream).keep_alive(KeepAlive::default()))
 }
 
 #[cfg(test)]

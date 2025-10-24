@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, memo } from 'react';
+import { useState, useMemo, memo, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -32,6 +32,7 @@ import { ProjectDeleteDialog } from '@/components/ProjectDeleteDialog';
 import { GlobalSyncStatus } from '@/components/cloud/GlobalSyncStatus';
 import { ProjectSyncBadge } from '@/components/cloud/ProjectSyncBadge';
 import { useProjects, useUpdateProject, useSearchProjects } from '@/hooks/useProjects';
+import { useServerEvents } from '@/hooks/useServerEvents';
 import { Project } from '@/services/projects';
 import { previewService } from '@/services/preview';
 
@@ -248,8 +249,63 @@ SortableRow.displayName = 'SortableRow';
 
 export function Projects() {
   const navigate = useNavigate();
-  const [activeServers, setActiveServers] = useState<Set<string>>(new Set());
   const [loadingServers, setLoadingServers] = useState<Set<string>>(new Set());
+  const loadingTimeoutsRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
+
+  // Server events via SSE
+  const { activeServers, connectionMode, serverErrors } = useServerEvents();
+
+  // Track which errors have been shown to prevent toast spam
+  const shownErrorsRef = useRef<Set<string>>(new Set());
+
+  // Display server errors as toast notifications
+  useEffect(() => {
+    serverErrors.forEach((error, projectId) => {
+      const errorKey = `${projectId}:${error}`;
+      if (!shownErrorsRef.current.has(errorKey)) {
+        toast.error('Server error', {
+          description: `${projectId}: ${error}`,
+        });
+        shownErrorsRef.current.add(errorKey);
+      }
+    });
+  }, [serverErrors]);
+
+  // Track previous activeServers to detect state changes
+  const prevActiveServersRef = useRef(new Set<string>());
+
+  // Clear loading state when SSE updates activeServers
+  useEffect(() => {
+    const prevActive = prevActiveServersRef.current;
+
+    // Iterate over timeouts ref instead of loadingServers state to avoid stale closures
+    loadingTimeoutsRef.current.forEach((timeout, projectId) => {
+      const wasActive = prevActive.has(projectId);
+      const isActive = activeServers.has(projectId);
+
+      // Clear loading if state changed (server started or stopped)
+      if (wasActive !== isActive) {
+        clearTimeout(timeout);
+        loadingTimeoutsRef.current.delete(projectId);
+
+        setLoadingServers(prev => {
+          const next = new Set(prev);
+          next.delete(projectId);
+          return next;
+        });
+      }
+    });
+
+    // Update ref for next comparison
+    prevActiveServersRef.current = new Set(activeServers);
+
+    // Cleanup all timeouts on unmount
+    const timeouts = loadingTimeoutsRef.current;
+    return () => {
+      timeouts.forEach(timeout => clearTimeout(timeout));
+      timeouts.clear();
+    };
+  }, [activeServers]); // Only depend on activeServers, use ref for loading state to avoid circular dependency
 
   // Dialog states
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
@@ -257,7 +313,7 @@ export function Projects() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [aiTestDialogOpen, setAITestDialogOpen] = useState(false);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
-  
+
   // Filter and view states
   const [searchTerm, setSearchTerm] = useState('');
   const [sortBy, setSortBy] = useState<SortType>('rank');
@@ -267,7 +323,7 @@ export function Projects() {
   // React Query hooks
   const { data: allProjects = [], isLoading, error, isError } = useProjects();
   const { data: searchResults = [], isLoading: isSearching } = useSearchProjects(
-    searchTerm, 
+    searchTerm,
     searchTerm.length >= 2
   );
   const updateProjectMutation = useUpdateProject();
@@ -283,16 +339,6 @@ export function Projects() {
   // Use search results if searching, otherwise use all projects
   const projects = searchTerm.length >= 2 ? searchResults : allProjects;
   const loading = isLoading || (searchTerm.length >= 2 && isSearching);
-
-  const loadActiveServers = async () => {
-    try {
-      const activeServerIds = await previewService.getActiveServers();
-      setActiveServers(new Set(activeServerIds));
-    } catch (err) {
-      console.error('Failed to load active servers:', err);
-      setActiveServers(new Set());
-    }
-  };
 
   // Calculate project counts by status
   const projectCounts = useMemo(() => {
@@ -334,15 +380,6 @@ export function Projects() {
 
     return filtered;
   }, [projects, sortBy, statusFilter]);
-
-  useEffect(() => {
-    loadActiveServers();
-    
-    // Set up periodic refresh for active servers every 20 seconds
-    const interval = setInterval(loadActiveServers, 20000);
-    
-    return () => clearInterval(interval);
-  }, []);
 
   const handleViewProject = (project: Project) => {
     navigate(`/projects/${project.id}`);
@@ -424,29 +461,33 @@ export function Projects() {
       next.add(projectId);
       return next;
     });
-    setActiveServers(prev => {
-      const next = new Set(prev);
-      next.add(projectId);
-      return next;
-    });
 
-    try {
-      await previewService.startServer(projectId);
-      await loadActiveServers();
-    } catch (err) {
-      setActiveServers(prev => {
-        const next = new Set(prev);
-        next.delete(projectId);
-        return next;
-      });
-      toast.error('Failed to start dev server', {
-        description: err instanceof Error ? err.message : 'An unexpected error occurred',
-      });
-    } finally {
+    // Set safety timeout BEFORE API call to catch all edge cases
+    const timeout = setTimeout(() => {
       setLoadingServers(prev => {
         const next = new Set(prev);
         next.delete(projectId);
         return next;
+      });
+      loadingTimeoutsRef.current.delete(projectId);
+    }, 5000);
+    loadingTimeoutsRef.current.set(projectId, timeout);
+
+    try {
+      await previewService.startServer(projectId);
+      // SSE will update activeServers automatically
+    } catch (err) {
+      // Clear timeout and loading immediately on error
+      clearTimeout(timeout);
+      loadingTimeoutsRef.current.delete(projectId);
+      setLoadingServers(prev => {
+        const next = new Set(prev);
+        next.delete(projectId);
+        return next;
+      });
+
+      toast.error('Failed to start dev server', {
+        description: err instanceof Error ? err.message : 'An unexpected error occurred',
       });
     }
   };
@@ -459,29 +500,33 @@ export function Projects() {
       next.add(projectId);
       return next;
     });
-    setActiveServers(prev => {
-      const next = new Set(prev);
-      next.delete(projectId);
-      return next;
-    });
 
-    try {
-      await previewService.stopServer(projectId);
-      await loadActiveServers();
-    } catch (err) {
-      setActiveServers(prev => {
-        const next = new Set(prev);
-        next.add(projectId);
-        return next;
-      });
-      toast.error('Failed to stop dev server', {
-        description: err instanceof Error ? err.message : 'An unexpected error occurred',
-      });
-    } finally {
+    // Set safety timeout BEFORE API call to catch all edge cases
+    const timeout = setTimeout(() => {
       setLoadingServers(prev => {
         const next = new Set(prev);
         next.delete(projectId);
         return next;
+      });
+      loadingTimeoutsRef.current.delete(projectId);
+    }, 5000);
+    loadingTimeoutsRef.current.set(projectId, timeout);
+
+    try {
+      await previewService.stopServer(projectId);
+      // SSE will update activeServers automatically
+    } catch (err) {
+      // Clear timeout and loading immediately on error
+      clearTimeout(timeout);
+      loadingTimeoutsRef.current.delete(projectId);
+      setLoadingServers(prev => {
+        const next = new Set(prev);
+        next.delete(projectId);
+        return next;
+      });
+
+      toast.error('Failed to stop dev server', {
+        description: err instanceof Error ? err.message : 'An unexpected error occurred',
       });
     }
   };
@@ -509,7 +554,24 @@ export function Projects() {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Projects</h1>
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Projects</h1>
+            {connectionMode === 'sse' && (
+              <Badge variant="outline" className="text-xs border-green-500/30 bg-green-500/10 text-green-700 dark:text-green-400">
+                Live
+              </Badge>
+            )}
+            {connectionMode === 'polling' && (
+              <Badge variant="outline" className="text-xs border-yellow-500/30 bg-yellow-500/10 text-yellow-700 dark:text-yellow-400">
+                Polling
+              </Badge>
+            )}
+            {connectionMode === 'connecting' && (
+              <Badge variant="outline" className="text-xs border-muted-foreground/30 bg-muted/10">
+                Connecting...
+              </Badge>
+            )}
+          </div>
           <p className="text-sm sm:text-base text-muted-foreground">
             Manage your development projects and their configurations.
           </p>
