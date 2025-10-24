@@ -66,7 +66,10 @@ impl SseConnectionTracker {
         ip: IpAddr,
     ) -> Result<SseConnectionGuard, SseConnectionLimitExceeded> {
         let mut connections = self.connections.lock().unwrap_or_else(|poisoned| {
-            warn!("SSE connection tracker mutex poisoned, recovering");
+            warn!(
+                audit = true,
+                "SSE connection tracker mutex poisoned, recovering - this indicates a panic occurred while holding the lock"
+            );
             poisoned.into_inner()
         });
         let count = connections.entry(ip).or_insert(0);
@@ -99,7 +102,10 @@ impl SseConnectionTracker {
     /// Release a connection slot for the given IP
     fn release(&self, ip: IpAddr) {
         let mut connections = self.connections.lock().unwrap_or_else(|poisoned| {
-            warn!("SSE connection tracker mutex poisoned, recovering");
+            warn!(
+                audit = true,
+                "SSE connection tracker mutex poisoned, recovering - this indicates a panic occurred while holding the lock"
+            );
             poisoned.into_inner()
         });
         if let Some(count) = connections.get_mut(&ip) {
