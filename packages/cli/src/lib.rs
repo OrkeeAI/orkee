@@ -361,18 +361,29 @@ async fn create_application_router(
         .allow_credentials(false) // Explicitly disable credentials for local use
         .max_age(Duration::from_secs(3600));
 
-    // Create the router with all middleware layers (in order: outermost to innermost)
+    // Create the router with all middleware layers
+    // IMPORTANT: In Axum, layers are applied in REVERSE order (last added = first executed)
+    // Execution order: CORS → Security → Tracing → Rate Limit → Auth → CSRF → Handlers
     let (mut app_builder, db_state) = api::create_router_with_options(dashboard_path, None).await;
 
     // Create CSRF layer for CSRF protection
     let csrf_layer = middleware::CsrfLayer::new();
     info!("CSRF protection enabled");
 
-    // Add CORS layer
-    app_builder = app_builder.layer(cors);
+    // Add CSRF protection middleware (runs just before handlers)
+    app_builder = app_builder.layer(axum::middleware::from_fn(middleware::csrf::csrf_middleware));
+    info!("CSRF middleware enabled for password management endpoints");
 
-    // Add tracing layer for request logging
-    app_builder = app_builder.layer(TraceLayer::new_for_http());
+    // Add CSRF layer as extension (available to all handlers and middleware)
+    // Extensions must be added AFTER the middleware that uses them
+    app_builder = app_builder.layer(axum::Extension(csrf_layer));
+
+    // Add API token authentication middleware
+    app_builder = app_builder.layer(axum::middleware::from_fn_with_state(
+        db_state.clone(),
+        middleware::api_token_middleware,
+    ));
+    info!("API token authentication middleware enabled");
 
     // Add rate limiting if enabled
     if config.rate_limit.enabled {
@@ -385,20 +396,8 @@ async fn create_application_router(
         ));
     }
 
-    // Add API token authentication middleware (before CSRF, after rate limiting)
-    app_builder = app_builder.layer(axum::middleware::from_fn_with_state(
-        db_state.clone(),
-        middleware::api_token_middleware,
-    ));
-    info!("API token authentication middleware enabled");
-
-    // Add CSRF protection middleware
-    app_builder = app_builder.layer(axum::middleware::from_fn(middleware::csrf::csrf_middleware));
-    info!("CSRF middleware enabled for password management endpoints");
-
-    // Add CSRF layer as extension (available to all handlers)
-    // IMPORTANT: This must be added AFTER the middleware that uses it, because layers are applied in reverse order
-    app_builder = app_builder.layer(axum::Extension(csrf_layer));
+    // Add tracing layer for request logging
+    app_builder = app_builder.layer(TraceLayer::new_for_http());
 
     // Add security headers if enabled
     if config.security_headers_enabled {
@@ -410,6 +409,9 @@ async fn create_application_router(
         app_builder = app_builder.layer(security_layer);
         info!("Security headers enabled (HSTS: {})", config.enable_hsts);
     }
+
+    // Add CORS layer (outermost - runs first to handle OPTIONS preflight)
+    app_builder = app_builder.layer(cors);
 
     // Add panic handler (outermost layer)
     let app = app_builder.layer(middleware::create_panic_handler());

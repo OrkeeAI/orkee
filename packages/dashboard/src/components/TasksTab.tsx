@@ -4,6 +4,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Loader2, AlertCircle } from 'lucide-react';
 import { getApiBaseUrl } from '@/services/api';
+import { getApiToken } from '@/lib/platform';
 
 interface TasksTabProps {
   projectId: string;
@@ -13,10 +14,17 @@ interface TasksTabProps {
 
 export function TasksTab({ projectId, projectPath, taskSource }: TasksTabProps) {
   const [apiBaseUrl, setApiBaseUrl] = useState<string | null>(null);
+  const [apiToken, setApiToken] = useState<string | null>(null);
 
-  // Get the dynamic API base URL (handles both Tauri and web modes)
+  // Get the dynamic API base URL and token (handles both Tauri and web modes)
   useEffect(() => {
-    getApiBaseUrl().then(setApiBaseUrl);
+    Promise.all([
+      getApiBaseUrl(),
+      getApiToken()
+    ]).then(([url, token]) => {
+      setApiBaseUrl(url);
+      setApiToken(token);
+    });
   }, []);
 
   const {
@@ -31,7 +39,8 @@ export function TasksTab({ projectId, projectPath, taskSource }: TasksTabProps) 
     projectPath,
     providerType: taskSource as 'taskmaster' | 'manual',
     enabled: apiBaseUrl !== null,
-    apiBaseUrl: apiBaseUrl || 'http://localhost:4001'
+    apiBaseUrl: apiBaseUrl || 'http://localhost:4001',
+    apiToken: apiToken || undefined
   });
 
   if (isLoading) {

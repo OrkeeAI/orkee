@@ -8,24 +8,44 @@ export class ManualTaskProvider extends BaseTaskProvider {
   public readonly name = 'Manual Tasks';
   public readonly type = TaskProviderType.Manual;
   private apiBaseUrl: string;
+  private apiToken?: string;
   private projectId?: string;
 
-  constructor(options?: { apiBaseUrl?: string }) {
+  constructor(options?: { apiBaseUrl?: string; apiToken?: string }) {
     super();
     this.apiBaseUrl = options?.apiBaseUrl || 'http://localhost:4001';
+    this.apiToken = options?.apiToken;
   }
 
   protected async doInitialize(): Promise<void> {
     // Verify API connection
-    const response = await fetch(`${this.apiBaseUrl}/api/health`);
+    const response = await this.authenticatedFetch(`${this.apiBaseUrl}/api/health`);
     if (!response.ok) {
       throw new Error('Failed to connect to Orkee API');
     }
   }
 
+  /**
+   * Make an authenticated fetch request with API token if available
+   */
+  private async authenticatedFetch(url: string, options: RequestInit = {}): Promise<Response> {
+    const headers: Record<string, string> = {
+      ...options.headers as Record<string, string>,
+    };
+
+    if (this.apiToken) {
+      headers['X-API-Token'] = this.apiToken;
+    }
+
+    return fetch(url, {
+      ...options,
+      headers,
+    });
+  }
+
   async getTasks(projectPath: string): Promise<Task[]> {
     const projectId = await this.getProjectIdByPath(projectPath);
-    const response = await fetch(`${this.apiBaseUrl}/api/projects/${projectId}/tasks`);
+    const response = await this.authenticatedFetch(`${this.apiBaseUrl}/api/projects/${projectId}/tasks`);
     const data = await response.json();
 
     if (!data.success) {
@@ -41,7 +61,7 @@ export class ManualTaskProvider extends BaseTaskProvider {
     this.validateTask(task);
 
     const projectId = await this.getProjectIdByPath(projectPath);
-    const response = await fetch(`${this.apiBaseUrl}/api/projects/${projectId}/tasks`, {
+    const response = await this.authenticatedFetch(`${this.apiBaseUrl}/api/projects/${projectId}/tasks`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(this.serializeTask(task)),
@@ -65,7 +85,7 @@ export class ManualTaskProvider extends BaseTaskProvider {
 
   async updateTask(projectPath: string, taskId: string, updates: Partial<Task>): Promise<Task> {
     const projectId = await this.getProjectIdByPath(projectPath);
-    const response = await fetch(`${this.apiBaseUrl}/api/projects/${projectId}/tasks/${taskId}`, {
+    const response = await this.authenticatedFetch(`${this.apiBaseUrl}/api/projects/${projectId}/tasks/${taskId}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(this.serializeTask(updates)),
@@ -90,7 +110,7 @@ export class ManualTaskProvider extends BaseTaskProvider {
 
   async deleteTask(projectPath: string, taskId: string): Promise<void> {
     const projectId = await this.getProjectIdByPath(projectPath);
-    const response = await fetch(`${this.apiBaseUrl}/api/projects/${projectId}/tasks/${taskId}`, {
+    const response = await this.authenticatedFetch(`${this.apiBaseUrl}/api/projects/${projectId}/tasks/${taskId}`, {
       method: 'DELETE',
     });
 
@@ -125,7 +145,7 @@ export class ManualTaskProvider extends BaseTaskProvider {
       return this.projectId;
     }
 
-    const response = await fetch(`${this.apiBaseUrl}/api/projects/by-path`, {
+    const response = await this.authenticatedFetch(`${this.apiBaseUrl}/api/projects/by-path`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ projectRoot: projectPath }),

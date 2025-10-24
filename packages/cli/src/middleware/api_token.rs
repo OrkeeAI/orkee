@@ -51,6 +51,13 @@ pub async fn api_token_middleware(
     next: Next,
 ) -> Result<Response, AppError> {
     let path = request.uri().path();
+    let method = request.method();
+
+    // Skip authentication for OPTIONS requests (CORS preflight)
+    if method == axum::http::Method::OPTIONS {
+        debug!(path = %path, "OPTIONS request, skipping token validation for CORS preflight");
+        return Ok(next.run(request).await);
+    }
 
     // Skip authentication for whitelisted paths
     if !requires_authentication(path) {
