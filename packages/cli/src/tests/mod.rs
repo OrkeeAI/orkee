@@ -12,3 +12,6 @@ mod downloader_tests;
 
 #[cfg(test)]
 mod telemetry_tests;
+
+#[cfg(test)]
+mod preview_tests;
