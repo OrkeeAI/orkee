@@ -57,6 +57,7 @@ export class UsersService {
       throw new Error('No user data returned');
     }
 
+    // response.data.data is the MaskedUser
     return response.data.data;
   }
 
@@ -74,15 +75,8 @@ export class UsersService {
       throw new Error(result.error || 'Failed to update credentials');
     }
 
-    if (!result.data.success) {
-      throw new Error(result.data.error || 'Failed to update credentials');
-    }
-
-    if (!result.data.data) {
-      throw new Error('No user data returned');
-    }
-
-    return result.data.data;
+    // result.data is the MaskedUser directly
+    return result.data;
   }
 }
 

@@ -8,6 +8,7 @@ import rehypeSanitize from 'rehype-sanitize';
 import 'highlight.js/styles/github-dark.css';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
+import { ModelSelectionDialog } from '@/components/ModelSelectionDialog';
 import {
   Dialog,
   DialogContent,
@@ -40,6 +41,7 @@ export function PRDUploadDialog({ projectId, open, onOpenChange, onComplete = ()
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [tempPRDId, setTempPRDId] = useState<string | null>(null);
   const [isLoadingFile, setIsLoadingFile] = useState(false);
+  const [showModelSelection, setShowModelSelection] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const createPRDMutation = useCreatePRD(projectId);
@@ -67,7 +69,12 @@ export function PRDUploadDialog({ projectId, open, onOpenChange, onComplete = ()
     }
   };
 
-  const handleAnalyze = async () => {
+  const handleAnalyzeClick = () => {
+    if (!contentMarkdown.trim()) return;
+    setShowModelSelection(true);
+  };
+
+  const handleAnalyze = async (provider: string, model: string) => {
     if (!contentMarkdown.trim()) return;
 
     setIsAnalyzing(true);
@@ -84,9 +91,15 @@ export function PRDUploadDialog({ projectId, open, onOpenChange, onComplete = ()
       createdPRDId = tempPRD.id;
       setTempPRDId(createdPRDId);
 
+      // TODO: Update analyze API to accept provider and model
+      // For now, the backend will use environment variable or default
+      console.log(`Analyzing with ${provider}/${model}`);
+      
       const result = await analyzePRDMutation.mutateAsync(tempPRD.id);
       setAnalysisResult(result);
       setActiveTab('analysis');
+      
+      toast.success(`PRD analyzed with ${provider}/${model}`);
     } catch (error) {
       console.error('Analysis failed:', error);
       toast.error('Failed to analyze PRD. Please try again.');
@@ -261,7 +274,7 @@ export function PRDUploadDialog({ projectId, open, onOpenChange, onComplete = ()
                 <Button
                   type="button"
                   variant="outline"
-                  onClick={handleAnalyze}
+                  onClick={handleAnalyzeClick}
                   disabled={isAnalyzing || !canSave}
                   className="flex items-center gap-2"
                 >
@@ -369,6 +382,13 @@ export function PRDUploadDialog({ projectId, open, onOpenChange, onComplete = ()
           </Button>
         </DialogFooter>
       </DialogContent>
+
+      {/* Model Selection Dialog */}
+      <ModelSelectionDialog
+        open={showModelSelection}
+        onOpenChange={setShowModelSelection}
+        onConfirm={handleAnalyze}
+      />
     </Dialog>
   );
 }

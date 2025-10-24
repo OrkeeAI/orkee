@@ -7,8 +7,10 @@ use axum::{
     response::{IntoResponse, Json as ResponseJson},
 };
 use serde::{Deserialize, Serialize};
+use std::env;
 use tracing::{error, info};
 
+use super::auth::CurrentUser;
 use super::response::ApiResponse;
 use crate::ai_service::{AIService, AIServiceError};
 use crate::ai_usage_logs::AiUsageLog;
@@ -130,6 +132,8 @@ pub struct AnalyzePRDRequest {
     pub prd_id: String,
     #[serde(rename = "contentMarkdown")]
     pub content_markdown: String,
+    pub provider: String,
+    pub model: String,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -166,12 +170,47 @@ pub struct TokenUsage {
 /// Analyze PRD with AI and extract capabilities
 pub async fn analyze_prd(
     State(db): State<DbState>,
+    current_user: CurrentUser,
     Json(request): Json<AnalyzePRDRequest>,
 ) -> impl IntoResponse {
     info!("AI PRD analysis requested for PRD: {}", request.prd_id);
 
-    // Initialize AI service
-    let ai_service = AIService::new();
+    // Get API key from database (with environment variable fallback)
+    let api_key = match db.user_storage.get_api_key(&current_user.id, "anthropic").await {
+        Ok(Some(key)) => {
+            info!("Using Anthropic API key from database (starts with: {})", &key.chars().take(15).collect::<String>());
+            key
+        }
+        Ok(None) => {
+            // Fallback to environment variable
+            match env::var("ANTHROPIC_API_KEY") {
+                Ok(key) => {
+                    info!("Using Anthropic API key from environment variable");
+                    key
+                }
+                Err(_) => {
+                    error!("No Anthropic API key found in database or environment");
+                    return (
+                        StatusCode::BAD_REQUEST,
+                        Json(ApiResponse::<()>::error(
+                            "Anthropic API key not configured. Please set it in Settings → Security or via ANTHROPIC_API_KEY environment variable.".to_string()
+                        ))
+                    ).into_response();
+                }
+            }
+        }
+        Err(e) => {
+            error!("Failed to fetch API key from database: {}", e);
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ApiResponse::<()>::error(format!("Failed to retrieve API key: {}", e)))
+            ).into_response();
+        }
+    };
+
+    // Initialize AI service with the API key and selected model
+    info!("Using model: {} from provider: {}", request.model, request.provider);
+    let ai_service = AIService::with_api_key_and_model(api_key, request.model.clone());
 
     // Build the prompt matching TypeScript implementation
     let user_prompt = format!(
@@ -245,6 +284,9 @@ Respond with ONLY valid JSON. Do not include markdown formatting, code blocks, o
             .to_string(),
     );
 
+    // Get the model being used for logging
+    let model_name = ai_service.model().to_string();
+
     // Make AI call
     match ai_service
         .generate_structured::<PRDAnalysisData>(user_prompt, system_prompt)
@@ -264,7 +306,7 @@ Respond with ONLY valid JSON. Do not include markdown formatting, code blocks, o
                 request_id: None,
                 operation: "analyzePRD".to_string(),
                 provider: "anthropic".to_string(),
-                model: "claude-3-5-sonnet-20241022".to_string(),
+                model: model_name,
                 input_tokens: Some(ai_response.usage.input_tokens as i64),
                 output_tokens: Some(ai_response.usage.output_tokens as i64),
                 total_tokens: Some(ai_response.usage.total_tokens() as i64),

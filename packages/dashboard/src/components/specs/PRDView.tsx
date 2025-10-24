@@ -13,6 +13,7 @@ import rehypeHighlight from 'rehype-highlight';
 import rehypeSanitize from 'rehype-sanitize';
 import { usePRDs, useDeletePRD, useTriggerPRDAnalysis } from '@/hooks/usePRDs';
 import { PRDUploadDialog } from '@/components/PRDUploadDialog';
+import { ModelSelectionDialog } from '@/components/ModelSelectionDialog';
 import type { PRD } from '@/services/prds';
 
 interface PRDViewProps {
@@ -22,6 +23,8 @@ interface PRDViewProps {
 export function PRDView({ projectId }: PRDViewProps) {
   const [selectedPRD, setSelectedPRD] = useState<PRD | null>(null);
   const [showUploadDialog, setShowUploadDialog] = useState(false);
+  const [showModelSelection, setShowModelSelection] = useState(false);
+  const [prdToAnalyze, setPrdToAnalyze] = useState<string | null>(null);
 
   const { data: prds, isLoading, error } = usePRDs(projectId);
   const deletePRDMutation = useDeletePRD(projectId);
@@ -36,8 +39,16 @@ export function PRDView({ projectId }: PRDViewProps) {
     }
   };
 
-  const handleAnalyze = (prdId: string) => {
-    analyzePRDMutation.mutate(prdId);
+  const handleAnalyzeClick = (prdId: string) => {
+    setPrdToAnalyze(prdId);
+    setShowModelSelection(true);
+  };
+
+  const handleAnalyze = (provider: string, model: string) => {
+    if (prdToAnalyze) {
+      console.log(`Analyzing PRD ${prdToAnalyze} with ${provider}/${model}`);
+      analyzePRDMutation.mutate({ prdId: prdToAnalyze, provider, model });
+    }
   };
 
   const formatDate = (dateString: string) => {
@@ -197,7 +208,7 @@ export function PRDView({ projectId }: PRDViewProps) {
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => handleAnalyze(selectedPRD.id)}
+                      onClick={() => handleAnalyzeClick(selectedPRD.id)}
                       disabled={analyzePRDMutation.isPending}
                     >
                       {analyzePRDMutation.isPending ? (
@@ -260,6 +271,12 @@ export function PRDView({ projectId }: PRDViewProps) {
             setSelectedPRD(newPRD);
           }
         }}
+      />
+
+      <ModelSelectionDialog
+        open={showModelSelection}
+        onOpenChange={setShowModelSelection}
+        onConfirm={handleAnalyze}
       />
     </div>
   );

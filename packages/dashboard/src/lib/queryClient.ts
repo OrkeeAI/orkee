@@ -41,6 +41,8 @@ export const queryKeys = {
   directories: ['directories'] as const,
   health: ['health'] as const,
   prds: ['prds'] as const,
+  agents: ['agents'] as const,
+  currentUser: ['current-user'] as const,
 
   // Project-specific keys
   projectsList: () => [...queryKeys.projects, 'list'] as const,

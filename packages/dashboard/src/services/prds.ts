@@ -179,42 +179,45 @@ export class PRDsService {
     return true;
   }
 
-  async analyzePRD(projectId: string, prdId: string): Promise<PRDAnalysisResult> {
+  async analyzePRD(projectId: string, prdId: string, provider: string, model: string): Promise<PRDAnalysisResult> {
     // Fetch the PRD content first
     const prd = await this.getPRD(projectId, prdId);
     if (!prd) {
       throw new Error(`PRD with ID ${prdId} not found`);
     }
 
-    // Use real AI service to analyze the PRD
-    const { aiSpecService } = await import('@/lib/ai/services');
-    const aiResult = await aiSpecService.analyzePRD(prd.contentMarkdown);
+    // Call backend AI analyze endpoint directly
+    const { apiRequest } = await import('./api');
+    const result = await apiRequest<ApiResponse<{
+      prdId: string;
+      analysis: PRDAnalysisResult;
+      tokenUsage: {
+        input: number;
+        output: number;
+        total: number;
+      };
+    }>>(
+      `/api/ai/analyze-prd`,
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          prdId: prdId,
+          contentMarkdown: prd.contentMarkdown,
+          provider: provider,
+          model: model,
+        }),
+      }
+    );
 
-    // Transform AI schema format to PRD service format
-    // AI schema uses: {when, then, and}
-    // PRD service expects: {whenClause, thenClause, andClauses}
-    const capabilities: SpecCapability[] = aiResult.data.capabilities.map((cap) => ({
-      id: cap.id,
-      name: cap.name,
-      purpose: cap.purpose,
-      requirements: cap.requirements.map((req) => ({
-        name: req.name,
-        content: req.content,
-        scenarios: req.scenarios.map((scenario) => ({
-          name: scenario.name,
-          whenClause: scenario.when,
-          thenClause: scenario.then,
-          andClauses: scenario.and || [],
-        })),
-      })),
-    }));
+    if (!result.success || !result.data) {
+      throw new Error(result.error || 'Failed to analyze PRD');
+    }
 
-    return {
-      summary: aiResult.data.summary,
-      capabilities,
-      suggestedTasks: aiResult.data.suggestedTasks,
-      dependencies: aiResult.data.dependencies,
-    };
+    if (!result.data.analysis) {
+      throw new Error('No analysis data returned');
+    }
+
+    return result.data.analysis;
   }
 
   async syncSpecsToPRD(projectId: string, prdId: string): Promise<PRD> {
