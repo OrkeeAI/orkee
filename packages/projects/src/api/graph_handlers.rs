@@ -3,8 +3,7 @@
 
 use axum::{
     extract::{Path, Query, State},
-    http::StatusCode,
-    response::{IntoResponse, Json},
+    response::Json,
 };
 use serde::{Deserialize, Serialize};
 use tracing::{error, info};
@@ -58,7 +57,7 @@ pub async fn get_dependency_graph(
     Path(project_id): Path<String>,
     Query(_params): Query<GraphQuery>,
     State(db): State<DbState>,
-) -> Result<Json<GraphResponse>, impl IntoResponse> {
+) -> Json<GraphResponse> {
     info!("Generating dependency graph for project: {}", project_id);
 
     // Get project from database
@@ -71,16 +70,14 @@ pub async fn get_dependency_graph(
     {
         Ok(Some(project)) => project,
         Ok(None) => {
-            return Ok(Json(GraphResponse::error(format!(
+            return Json(GraphResponse::error(format!(
                 "Project not found: {}",
                 project_id
-            ))));
+            )));
         }
         Err(e) => {
             error!("Database error: {}", e);
-            return Ok(Json(GraphResponse::error(
-                "Database error".to_string()
-            )));
+            return Json(GraphResponse::error("Database error".to_string()));
         }
     };
 
@@ -92,14 +89,14 @@ pub async fn get_dependency_graph(
                 "Generated dependency graph with {} nodes and {} edges",
                 graph.metadata.total_nodes, graph.metadata.total_edges
             );
-            Ok(Json(GraphResponse::success(graph)))
+            Json(GraphResponse::success(graph))
         }
         Err(e) => {
             error!("Failed to build dependency graph: {}", e);
-            Ok(Json(GraphResponse::error(format!(
+            Json(GraphResponse::error(format!(
                 "Failed to build dependency graph: {}",
                 e
-            ))))
+            )))
         }
     }
 }
@@ -109,7 +106,7 @@ pub async fn get_symbol_graph(
     Path(project_id): Path<String>,
     Query(_params): Query<GraphQuery>,
     State(db): State<DbState>,
-) -> Result<Json<GraphResponse>, impl IntoResponse> {
+) -> Json<GraphResponse> {
     info!("Generating symbol graph for project: {}", project_id);
 
     // Get project from database
@@ -122,16 +119,14 @@ pub async fn get_symbol_graph(
     {
         Ok(Some(project)) => project,
         Ok(None) => {
-            return Ok(Json(GraphResponse::error(format!(
+            return Json(GraphResponse::error(format!(
                 "Project not found: {}",
                 project_id
-            ))));
+            )));
         }
         Err(e) => {
             error!("Database error: {}", e);
-            return Ok(Json(GraphResponse::error(
-                "Database error".to_string()
-            )));
+            return Json(GraphResponse::error("Database error".to_string()));
         }
     };
 
@@ -143,14 +138,14 @@ pub async fn get_symbol_graph(
                 "Generated symbol graph with {} nodes and {} edges",
                 graph.metadata.total_nodes, graph.metadata.total_edges
             );
-            Ok(Json(GraphResponse::success(graph)))
+            Json(GraphResponse::success(graph))
         }
         Err(e) => {
             error!("Failed to build symbol graph: {}", e);
-            Ok(Json(GraphResponse::error(format!(
+            Json(GraphResponse::error(format!(
                 "Failed to build symbol graph: {}",
                 e
-            ))))
+            )))
         }
     }
 }
@@ -160,7 +155,7 @@ pub async fn get_module_graph(
     Path(project_id): Path<String>,
     Query(_params): Query<GraphQuery>,
     State(db): State<DbState>,
-) -> Result<Json<GraphResponse>, impl IntoResponse> {
+) -> Json<GraphResponse> {
     info!("Generating module graph for project: {}", project_id);
 
     // Get project from database
@@ -173,16 +168,14 @@ pub async fn get_module_graph(
     {
         Ok(Some(project)) => project,
         Ok(None) => {
-            return Ok(Json(GraphResponse::error(format!(
+            return Json(GraphResponse::error(format!(
                 "Project not found: {}",
                 project_id
-            ))));
+            )));
         }
         Err(e) => {
             error!("Database error: {}", e);
-            return Ok(Json(GraphResponse::error(
-                "Database error".to_string()
-            )));
+            return Json(GraphResponse::error("Database error".to_string()));
         }
     };
 
@@ -194,14 +187,14 @@ pub async fn get_module_graph(
                 "Generated module graph with {} nodes and {} edges",
                 graph.metadata.total_nodes, graph.metadata.total_edges
             );
-            Ok(Json(GraphResponse::success(graph)))
+            Json(GraphResponse::success(graph))
         }
         Err(e) => {
             error!("Failed to build module graph: {}", e);
-            Ok(Json(GraphResponse::error(format!(
+            Json(GraphResponse::error(format!(
                 "Failed to build module graph: {}",
                 e
-            ))))
+            )))
         }
     }
 }
@@ -211,16 +204,16 @@ pub async fn get_spec_mapping_graph(
     Path(project_id): Path<String>,
     Query(_params): Query<GraphQuery>,
     State(_db): State<DbState>,
-) -> Result<Json<GraphResponse>, impl IntoResponse> {
+) -> Json<GraphResponse> {
     info!(
         "Generating spec-mapping graph for project: {}",
         project_id
     );
 
     // Placeholder: This will be implemented when OpenSpec integration is ready
-    Ok(Json(GraphResponse::error(
+    Json(GraphResponse::error(
         "Spec-mapping graph not yet implemented".to_string(),
-    )))
+    ))
 }
 
 #[cfg(test)]

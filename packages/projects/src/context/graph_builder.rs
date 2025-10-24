@@ -127,7 +127,7 @@ impl GraphBuilder {
         }
 
         let mut nodes = Vec::new();
-        let mut edges = Vec::new();
+        let edges = Vec::new();
         let files = self.find_source_files(&root_path)?;
 
         // Analyze each file for symbols
