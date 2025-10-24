@@ -1131,9 +1131,9 @@ WHERE change_id IS NULL;
 - [x] Create `openspec/materializer.rs` module
 - [x] Create `materialize_to_path` method
 - [x] Add materialization tracking
-- [ ] Create `sync_from_path` method (deferred to Phase 4)
-- [ ] Write unit tests for materializer (deferred to Phase 6)
-- [ ] Test file generation from database (deferred to Phase 6)
+- [x] Create `sync_from_path` method (implemented in Phase 4)
+- [x] Write unit tests for materializer (3/3 passing: creation, roundtrip, sandbox)
+- [x] Test file generation from database (export/import tests passing)
 
 ### Phase 2: Change Management (Days 4-6) ✅ COMPLETED
 - [x] Add `create_change_from_analysis` function
