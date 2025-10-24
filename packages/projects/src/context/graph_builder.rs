@@ -176,10 +176,7 @@ impl GraphBuilder {
             let relative_path = match file_path.strip_prefix(&root_path) {
                 Ok(path) => path.to_string_lossy().to_string(),
                 Err(_) => {
-                    warn!(
-                        "Skipping file outside project root: {:?}",
-                        file_path
-                    );
+                    warn!("Skipping file outside project root: {:?}", file_path);
                     continue;
                 }
             };
@@ -518,7 +515,12 @@ impl GraphBuilder {
     ) {
         for symbol in symbols {
             // Create unique symbol ID
-            let symbol_node_id = format!("symbol_{}_{}_{}", symbol.name, symbol.line_start, nodes.len());
+            let symbol_node_id = format!(
+                "symbol_{}_{}_{}",
+                symbol.name,
+                symbol.line_start,
+                nodes.len()
+            );
 
             // Determine node type
             let node_type = match symbol.kind {
@@ -933,7 +935,11 @@ mod tests {
 
         // Test another variant
         let malicious_import2 = "../../../../../../../../../../tmp/evil.ts";
-        let result2 = builder.resolve_import_path(malicious_import2, "src/deep/nested/components", &file_id_map);
+        let result2 = builder.resolve_import_path(
+            malicious_import2,
+            "src/deep/nested/components",
+            &file_id_map,
+        );
 
         assert!(
             result2.is_none(),
@@ -948,7 +954,10 @@ mod tests {
 
         // Add some legitimate files
         file_id_map.insert("src/utils.ts".to_string(), "file_0".to_string());
-        file_id_map.insert("src/components/Button.tsx".to_string(), "file_1".to_string());
+        file_id_map.insert(
+            "src/components/Button.tsx".to_string(),
+            "file_1".to_string(),
+        );
 
         // Test import that doesn't exist
         let nonexistent = "./nonexistent";
@@ -964,7 +973,10 @@ mod tests {
         // Note: This should be filtered out earlier by extract_imports, but test defensive behavior
         let external = "react";
         let result3 = builder.resolve_import_path(external, "src", &file_id_map);
-        assert!(result3.is_none(), "Should return None for non-relative import");
+        assert!(
+            result3.is_none(),
+            "Should return None for non-relative import"
+        );
     }
 
     #[test]
