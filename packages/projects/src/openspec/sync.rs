@@ -406,6 +406,8 @@ mod tests {
             requirement_count,
             version: 1,
             status: CapabilityStatus::Active,
+            change_id: None,
+            is_openspec_compliant: false,
             deleted_at: None,
             created_at: Utc::now(),
             updated_at: Utc::now(),

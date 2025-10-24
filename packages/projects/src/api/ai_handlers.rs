@@ -331,90 +331,70 @@ RESPOND WITH ONLY VALID JSON."#
             };
 
             let project_id = &prd.project_id;
-            info!("Saving analysis results for project: {}", project_id);
+            info!("Creating OpenSpec change proposal for project: {}", project_id);
 
-            // Save capabilities, requirements, and scenarios to database
-            for capability in &ai_response.data.capabilities {
-                // Build spec markdown from capability data
-                let mut spec_markdown = format!("# {}\n\n## Purpose\n{}\n\n## Requirements\n\n", 
-                    capability.name, capability.purpose);
-                
-                for req in &capability.requirements {
-                    spec_markdown.push_str(&format!("### {}\n{}\n\n", req.name, req.content));
-                    for scenario in &req.scenarios {
-                        spec_markdown.push_str(&format!("**{}**\nWHEN {}\nTHEN {}\n", 
-                            scenario.name, scenario.when, scenario.then));
-                        if let Some(and_clauses) = &scenario.and {
-                            for and_clause in and_clauses {
-                                spec_markdown.push_str(&format!("AND {}\n", and_clause));
-                            }
-                        }
-                        spec_markdown.push('\n');
-                    }
+            // Create change proposal from analysis using OpenSpec workflow
+            let change = match crate::openspec::create_change_from_analysis(
+                &db.pool,
+                project_id,
+                &request.prd_id,
+                &ai_response.data,
+                &current_user.id,
+            ).await {
+                Ok(change) => {
+                    info!("Created change proposal: {} (status: {:?})", change.id, change.status);
+                    change
                 }
-
-                // Create capability
-                let capability_result = openspec_db::create_capability(
-                    &db.pool,
-                    project_id,
-                    Some(&request.prd_id),
-                    &capability.name,
-                    Some(&capability.purpose),
-                    &spec_markdown,
-                    None, // No design markdown yet
-                ).await;
-
-                let cap_db = match capability_result {
-                    Ok(cap) => {
-                        info!("Created capability: {} ({})", capability.name, cap.id);
-                        cap
-                    }
-                    Err(e) => {
-                        error!("Failed to create capability {}: {}", capability.name, e);
-                        continue; // Skip this capability but continue with others
-                    }
-                };
-
-                // Save requirements for this capability
-                for (req_position, requirement) in capability.requirements.iter().enumerate() {
-                    let req_result = openspec_db::create_requirement(
-                        &db.pool,
-                        &cap_db.id,
-                        &requirement.name,
-                        &requirement.content,
-                        req_position as i32,
-                    ).await;
-
-                    let req_db = match req_result {
-                        Ok(req) => {
-                            info!("Created requirement: {} ({})", requirement.name, req.id);
-                            req
-                        }
-                        Err(e) => {
-                            error!("Failed to create requirement {}: {}", requirement.name, e);
-                            continue;
-                        }
-                    };
-
-                    // Save scenarios for this requirement
-                    for (scenario_position, scenario) in requirement.scenarios.iter().enumerate() {
-                        let and_clauses = scenario.and.clone();
-                        
-                        if let Err(e) = openspec_db::create_scenario(
-                            &db.pool,
-                            &req_db.id,
-                            &scenario.name,
-                            &scenario.when,
-                            &scenario.then,
-                            and_clauses,
-                            scenario_position as i32,
-                        ).await {
-                            error!("Failed to create scenario {}: {}", scenario.name, e);
-                        } else {
-                            info!("Created scenario: {}", scenario.name);
-                        }
-                    }
+                Err(e) => {
+                    error!("Failed to create change proposal: {}", e);
+                    return (
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        ResponseJson(ApiResponse::<()>::error(format!("Failed to create change proposal: {}", e)))
+                    ).into_response();
                 }
+            };
+
+            // Validate the created change deltas
+            use crate::openspec::OpenSpecMarkdownValidator;
+            let validator = OpenSpecMarkdownValidator::new(false); // Use relaxed mode for now
+
+            let deltas = match openspec_db::get_deltas_by_change(&db.pool, &change.id).await {
+                Ok(deltas) => deltas,
+                Err(e) => {
+                    error!("Failed to fetch deltas for validation: {}", e);
+                    vec![] // Continue without validation if fetch fails
+                }
+            };
+
+            let mut validation_errors = Vec::new();
+            for delta in &deltas {
+                let errors = validator.validate_delta_markdown(&delta.delta_markdown);
+                if !errors.is_empty() {
+                    error!("Validation errors in delta for {}: {:?}", delta.capability_name, errors);
+                    validation_errors.extend(errors);
+                }
+            }
+
+            // Update change validation status
+            let validation_status = if validation_errors.is_empty() {
+                "valid"
+            } else {
+                "invalid"
+            };
+
+            if let Err(e) = sqlx::query(
+                "UPDATE spec_changes SET validation_status = ?, validation_errors = ? WHERE id = ?"
+            )
+            .bind(validation_status)
+            .bind(if validation_errors.is_empty() {
+                None
+            } else {
+                Some(serde_json::to_string(&validation_errors).unwrap_or_default())
+            })
+            .bind(&change.id)
+            .execute(&db.pool)
+            .await {
+                error!("Failed to update change validation status: {}", e);
             }
 
             // Save suggested tasks to database
