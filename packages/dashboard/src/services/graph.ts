@@ -5,19 +5,61 @@ import { ApiClient } from './api';
 
 const api = new ApiClient();
 
-export interface GraphNode {
+interface BaseGraphNode {
   id: string;
   label: string;
-  node_type: 'file' | 'function' | 'class' | 'module' | 'spec' | 'requirement';
+}
+
+interface FileNode extends BaseGraphNode {
+  node_type: 'file';
   metadata: {
-    path?: string;
+    path: string;
     line_start?: number;
     line_end?: number;
     token_count?: number;
-    complexity?: number;
-    spec_id?: string;
   };
 }
+
+interface FunctionNode extends BaseGraphNode {
+  node_type: 'function';
+  metadata: {
+    path: string;
+    line_start: number;
+    line_end: number;
+    complexity?: number;
+  };
+}
+
+interface ClassNode extends BaseGraphNode {
+  node_type: 'class';
+  metadata: {
+    path: string;
+    line_start: number;
+    line_end: number;
+    complexity?: number;
+  };
+}
+
+interface ModuleNode extends BaseGraphNode {
+  node_type: 'module';
+  metadata: {
+    path: string;
+  };
+}
+
+interface SpecNode extends BaseGraphNode {
+  node_type: 'spec';
+  metadata: {
+    spec_id: string;
+  };
+}
+
+interface RequirementNode extends BaseGraphNode {
+  node_type: 'requirement';
+  metadata: Record<string, never>;
+}
+
+export type GraphNode = FileNode | FunctionNode | ClassNode | ModuleNode | SpecNode | RequirementNode;
 
 export interface GraphEdge {
   id: string;

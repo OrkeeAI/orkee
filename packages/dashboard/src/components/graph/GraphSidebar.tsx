@@ -93,14 +93,14 @@ export function GraphSidebar({
         <Separator />
 
         {/* Metadata */}
-        {nodeDetails.metadata.path && (
+        {'path' in nodeDetails.metadata && nodeDetails.metadata.path && (
           <div>
             <p className="text-sm font-medium text-muted-foreground mb-1">Path</p>
             <p className="text-sm font-mono break-all">{nodeDetails.metadata.path}</p>
           </div>
         )}
 
-        {(nodeDetails.metadata.line_start || nodeDetails.metadata.line_end) && (
+        {'line_start' in nodeDetails.metadata && (nodeDetails.metadata.line_start || nodeDetails.metadata.line_end) && (
           <div>
             <p className="text-sm font-medium text-muted-foreground mb-1">Lines</p>
             <p className="text-sm">
@@ -111,7 +111,7 @@ export function GraphSidebar({
           </div>
         )}
 
-        {nodeDetails.metadata.token_count != null && (
+        {'token_count' in nodeDetails.metadata && nodeDetails.metadata.token_count != null && (
           <div>
             <p className="text-sm font-medium text-muted-foreground mb-1">
               Token Count
@@ -120,7 +120,7 @@ export function GraphSidebar({
           </div>
         )}
 
-        {nodeDetails.metadata.complexity != null && (
+        {'complexity' in nodeDetails.metadata && nodeDetails.metadata.complexity != null && (
           <div>
             <p className="text-sm font-medium text-muted-foreground mb-1">
               Complexity
@@ -195,7 +195,7 @@ export function GraphSidebar({
         {/* Actions */}
         <div className="space-y-2">
           <p className="text-sm font-medium text-muted-foreground mb-2">Actions</p>
-          {nodeDetails.metadata.path && (
+          {'path' in nodeDetails.metadata && nodeDetails.metadata.path && (
             <Button variant="outline" size="sm" className="w-full justify-start">
               <FileText className="h-4 w-4 mr-2" />
               Open File
