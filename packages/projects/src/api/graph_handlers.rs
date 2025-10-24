@@ -9,8 +9,9 @@ use serde::{Deserialize, Serialize};
 use tracing::info;
 
 use crate::{
-    context::{graph_types::CodeGraph, mock_graph_data},
+    context::{graph_builder::GraphBuilder, graph_types::CodeGraph},
     db::DbState,
+    manager::get_project as manager_get_project,
 };
 
 /// Query parameters for graph requests
@@ -58,17 +59,40 @@ pub async fn get_dependency_graph(
     Query(_params): Query<GraphQuery>,
     State(_db): State<DbState>,
 ) -> Json<GraphResponse> {
-    info!("[MOCK] Generating dependency graph for project: {}", project_id);
+    info!("Generating dependency graph for project: {}", project_id);
 
-    // TODO: Replace with real graph generation
-    // For now, return mock data for frontend testing
-    let graph = mock_graph_data::generate_mock_dependency_graph(&project_id);
+    // Fetch project from database
+    let project = match manager_get_project(&project_id).await {
+        Ok(Some(project)) => project,
+        Ok(None) => {
+            return Json(GraphResponse::error(format!(
+                "Project not found: {}",
+                project_id
+            )))
+        }
+        Err(e) => {
+            return Json(GraphResponse::error(format!(
+                "Failed to fetch project: {}",
+                e
+            )))
+        }
+    };
 
-    info!(
-        "[MOCK] Generated dependency graph with {} nodes and {} edges",
-        graph.metadata.total_nodes, graph.metadata.total_edges
-    );
-    Json(GraphResponse::success(graph))
+    // Generate real graph using GraphBuilder
+    let mut builder = GraphBuilder::new();
+    match builder.build_dependency_graph(&project.project_root, &project_id) {
+        Ok(graph) => {
+            info!(
+                "Generated dependency graph with {} nodes and {} edges",
+                graph.metadata.total_nodes, graph.metadata.total_edges
+            );
+            Json(GraphResponse::success(graph))
+        }
+        Err(e) => Json(GraphResponse::error(format!(
+            "Failed to generate dependency graph: {}",
+            e
+        ))),
+    }
 }
 
 /// Get symbol graph for a project
@@ -77,17 +101,40 @@ pub async fn get_symbol_graph(
     Query(_params): Query<GraphQuery>,
     State(_db): State<DbState>,
 ) -> Json<GraphResponse> {
-    info!("[MOCK] Generating symbol graph for project: {}", project_id);
+    info!("Generating symbol graph for project: {}", project_id);
 
-    // TODO: Replace with real graph generation
-    // For now, return mock data for frontend testing
-    let graph = mock_graph_data::generate_mock_symbol_graph(&project_id);
+    // Fetch project from database
+    let project = match manager_get_project(&project_id).await {
+        Ok(Some(project)) => project,
+        Ok(None) => {
+            return Json(GraphResponse::error(format!(
+                "Project not found: {}",
+                project_id
+            )))
+        }
+        Err(e) => {
+            return Json(GraphResponse::error(format!(
+                "Failed to fetch project: {}",
+                e
+            )))
+        }
+    };
 
-    info!(
-        "[MOCK] Generated symbol graph with {} nodes and {} edges",
-        graph.metadata.total_nodes, graph.metadata.total_edges
-    );
-    Json(GraphResponse::success(graph))
+    // Generate real graph using GraphBuilder
+    let mut builder = GraphBuilder::new();
+    match builder.build_symbol_graph(&project.project_root, &project_id) {
+        Ok(graph) => {
+            info!(
+                "Generated symbol graph with {} nodes and {} edges",
+                graph.metadata.total_nodes, graph.metadata.total_edges
+            );
+            Json(GraphResponse::success(graph))
+        }
+        Err(e) => Json(GraphResponse::error(format!(
+            "Failed to generate symbol graph: {}",
+            e
+        ))),
+    }
 }
 
 /// Get module graph for a project
@@ -96,17 +143,40 @@ pub async fn get_module_graph(
     Query(_params): Query<GraphQuery>,
     State(_db): State<DbState>,
 ) -> Json<GraphResponse> {
-    info!("[MOCK] Generating module graph for project: {}", project_id);
+    info!("Generating module graph for project: {}", project_id);
 
-    // TODO: Replace with real graph generation
-    // For now, return mock data for frontend testing
-    let graph = mock_graph_data::generate_mock_module_graph(&project_id);
+    // Fetch project from database
+    let project = match manager_get_project(&project_id).await {
+        Ok(Some(project)) => project,
+        Ok(None) => {
+            return Json(GraphResponse::error(format!(
+                "Project not found: {}",
+                project_id
+            )))
+        }
+        Err(e) => {
+            return Json(GraphResponse::error(format!(
+                "Failed to fetch project: {}",
+                e
+            )))
+        }
+    };
 
-    info!(
-        "[MOCK] Generated module graph with {} nodes and {} edges",
-        graph.metadata.total_nodes, graph.metadata.total_edges
-    );
-    Json(GraphResponse::success(graph))
+    // Generate real graph using GraphBuilder
+    let builder = GraphBuilder::new();
+    match builder.build_module_graph(&project.project_root, &project_id) {
+        Ok(graph) => {
+            info!(
+                "Generated module graph with {} nodes and {} edges",
+                graph.metadata.total_nodes, graph.metadata.total_edges
+            );
+            Json(GraphResponse::success(graph))
+        }
+        Err(e) => Json(GraphResponse::error(format!(
+            "Failed to generate module graph: {}",
+            e
+        ))),
+    }
 }
 
 /// Get spec-mapping graph for a project (placeholder for future implementation)
