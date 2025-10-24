@@ -20,6 +20,10 @@ export interface SpecChange {
   changeNumber?: number;
   validationStatus?: 'pending' | 'valid' | 'invalid';
   validationErrors?: ValidationError[];
+  tasksCompletionPercentage?: number;
+  tasksParsedAt?: string;
+  tasksTotalCount?: number;
+  tasksCompletedCount?: number;
   createdBy: string;
   createdAt: string;
   updatedAt: string;
@@ -66,6 +70,27 @@ export interface ArchiveResult {
   success: boolean;
   appliedDeltas: number;
   createdCapabilities: string[];
+}
+
+export interface ChangeTask {
+  id: string;
+  changeId: string;
+  taskNumber: string;
+  taskText: string;
+  isCompleted: boolean;
+  completedBy?: string;
+  completedAt?: string;
+  displayOrder: number;
+  parentNumber?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface TaskStats {
+  total: number;
+  completed: number;
+  pending: number;
+  percentage: number;
 }
 
 interface ApiResponse<T> {
@@ -216,6 +241,111 @@ export class ChangesService {
     }
 
     return result.data.data;
+  }
+
+  async getChangeTasks(projectId: string, changeId: string): Promise<ChangeTask[]> {
+    const response = await apiClient.get<ApiResponse<ChangeTask[]>>(
+      `/api/projects/${projectId}/changes/${changeId}/tasks`
+    );
+
+    if (response.error || !response.data?.success) {
+      throw new Error(response.data?.error || response.error || 'Failed to fetch tasks');
+    }
+
+    return response.data.data || [];
+  }
+
+  async updateTask(
+    projectId: string,
+    changeId: string,
+    taskId: string,
+    isCompleted: boolean,
+    completedBy?: string
+  ): Promise<ChangeTask> {
+    const { apiRequest } = await import('./api');
+    const result = await apiRequest<ApiResponse<ChangeTask>>(
+      `/api/projects/${projectId}/changes/${changeId}/tasks/${taskId}`,
+      {
+        method: 'PUT',
+        body: JSON.stringify({ isCompleted, completedBy }),
+      }
+    );
+
+    if (!result.success || !result.data) {
+      throw new Error(result.error || 'Failed to update task');
+    }
+
+    if (!result.data.success) {
+      throw new Error(result.data.error || 'Failed to update task');
+    }
+
+    if (!result.data.data) {
+      throw new Error('No task data returned');
+    }
+
+    return result.data.data;
+  }
+
+  async bulkUpdateTasks(
+    projectId: string,
+    changeId: string,
+    tasks: Array<{ taskId: string; isCompleted: boolean; completedBy?: string }>
+  ): Promise<ChangeTask[]> {
+    const { apiRequest } = await import('./api');
+    const result = await apiRequest<ApiResponse<ChangeTask[]>>(
+      `/api/projects/${projectId}/changes/${changeId}/tasks/bulk`,
+      {
+        method: 'PUT',
+        body: JSON.stringify({ tasks }),
+      }
+    );
+
+    if (!result.success || !result.data) {
+      throw new Error(result.error || 'Failed to bulk update tasks');
+    }
+
+    if (!result.data.success) {
+      throw new Error(result.data.error || 'Failed to bulk update tasks');
+    }
+
+    if (!result.data.data) {
+      throw new Error('No task data returned');
+    }
+
+    return result.data.data;
+  }
+
+  async parseChangeTasks(projectId: string, changeId: string): Promise<ChangeTask[]> {
+    const { apiRequest } = await import('./api');
+    const result = await apiRequest<ApiResponse<ChangeTask[]>>(
+      `/api/projects/${projectId}/changes/${changeId}/tasks/parse`,
+      {
+        method: 'POST',
+      }
+    );
+
+    if (!result.success || !result.data) {
+      throw new Error(result.error || 'Failed to parse tasks');
+    }
+
+    if (!result.data.success) {
+      throw new Error(result.data.error || 'Failed to parse tasks');
+    }
+
+    if (!result.data.data) {
+      throw new Error('No task data returned');
+    }
+
+    return result.data.data;
+  }
+
+  calculateTaskStats(tasks: ChangeTask[]): TaskStats {
+    const total = tasks.length;
+    const completed = tasks.filter((t) => t.isCompleted).length;
+    const pending = total - completed;
+    const percentage = total > 0 ? Math.round((completed / total) * 100) : 0;
+
+    return { total, completed, pending, percentage };
   }
 }
 

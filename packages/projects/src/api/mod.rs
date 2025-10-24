@@ -196,6 +196,23 @@ pub fn create_changes_router() -> Router<DbState> {
             "/:project_id/changes/:change_id/deltas",
             post(change_handlers::create_delta),
         )
+        // Task completion tracking routes
+        .route(
+            "/:project_id/changes/:change_id/tasks",
+            get(change_handlers::get_change_tasks),
+        )
+        .route(
+            "/:project_id/changes/:change_id/tasks/parse",
+            post(change_handlers::parse_change_tasks),
+        )
+        .route(
+            "/:project_id/changes/:change_id/tasks/bulk",
+            put(change_handlers::bulk_update_tasks),
+        )
+        .route(
+            "/:project_id/changes/:change_id/tasks/:task_id",
+            put(change_handlers::update_task),
+        )
 }
 
 /// Creates the task-spec integration API router

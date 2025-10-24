@@ -10,6 +10,7 @@ pub mod markdown_validator;
 pub mod materializer;
 pub mod parser;
 pub mod sync;
+pub mod task_parser;
 pub mod types;
 pub mod validator;
 
@@ -22,5 +23,6 @@ pub use markdown_validator::*;
 pub use materializer::*;
 pub use parser::*;
 pub use sync::*;
+pub use task_parser::*;
 pub use types::*;
 pub use validator::*;

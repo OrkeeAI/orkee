@@ -1165,6 +1165,149 @@ pub async fn get_deltas_by_change_paginated(
     Ok((deltas, count))
 }
 
+// ============================================================================
+// SpecChangeTask Operations
+// ============================================================================
+
+/// Parse and store tasks from a change's tasks_markdown
+pub async fn parse_and_store_change_tasks(
+    pool: &Pool<Sqlite>,
+    change_id: &str,
+) -> DbResult<Vec<SpecChangeTask>> {
+    // Get the change
+    let change = get_spec_change(pool, change_id).await?;
+
+    // Parse tasks from markdown
+    let parsed_tasks = super::task_parser::parse_tasks_from_markdown(&change.tasks_markdown)
+        .map_err(|e| DbError::InvalidInput(format!("Failed to parse tasks: {}", e)))?;
+
+    // Delete existing tasks for this change
+    sqlx::query("DELETE FROM spec_change_tasks WHERE change_id = ?")
+        .bind(change_id)
+        .execute(pool)
+        .await?;
+
+    // Insert new tasks
+    let mut tasks = Vec::new();
+    let now = Utc::now();
+
+    for parsed_task in parsed_tasks {
+        let id = crate::storage::generate_project_id();
+
+        let task = sqlx::query_as::<_, SpecChangeTask>(
+            r#"
+            INSERT INTO spec_change_tasks (
+                id, change_id, task_number, task_text, is_completed,
+                completed_by, completed_at, display_order, parent_number,
+                created_at, updated_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            RETURNING *
+            "#,
+        )
+        .bind(&id)
+        .bind(change_id)
+        .bind(&parsed_task.number)
+        .bind(&parsed_task.text)
+        .bind(parsed_task.is_completed)
+        .bind(Option::<String>::None) // completed_by (will be set on update)
+        .bind(Option::<chrono::DateTime<Utc>>::None) // completed_at
+        .bind(parsed_task.display_order as i32)
+        .bind(parsed_task.parent_number.as_deref())
+        .bind(now)
+        .bind(now)
+        .fetch_one(pool)
+        .await?;
+
+        tasks.push(task);
+    }
+
+    // Update tasks_parsed_at timestamp
+    sqlx::query("UPDATE spec_changes SET tasks_parsed_at = ? WHERE id = ?")
+        .bind(now)
+        .bind(change_id)
+        .execute(pool)
+        .await?;
+
+    Ok(tasks)
+}
+
+/// Get all tasks for a change
+pub async fn get_change_tasks(
+    pool: &Pool<Sqlite>,
+    change_id: &str,
+) -> DbResult<Vec<SpecChangeTask>> {
+    let tasks = sqlx::query_as::<_, SpecChangeTask>(
+        "SELECT * FROM spec_change_tasks WHERE change_id = ? ORDER BY display_order",
+    )
+    .bind(change_id)
+    .fetch_all(pool)
+    .await?;
+
+    // If no tasks exist, try to parse them from the change's tasks_markdown
+    if tasks.is_empty() {
+        return parse_and_store_change_tasks(pool, change_id).await;
+    }
+
+    Ok(tasks)
+}
+
+/// Update a task's completion status
+pub async fn update_change_task(
+    pool: &Pool<Sqlite>,
+    task_id: &str,
+    is_completed: bool,
+    completed_by: Option<&str>,
+) -> DbResult<SpecChangeTask> {
+    let now = Utc::now();
+
+    let task = sqlx::query_as::<_, SpecChangeTask>(
+        r#"
+        UPDATE spec_change_tasks
+        SET
+            is_completed = ?,
+            completed_by = ?,
+            completed_at = CASE WHEN ? THEN ? ELSE NULL END,
+            updated_at = ?
+        WHERE id = ?
+        RETURNING *
+        "#,
+    )
+    .bind(is_completed)
+    .bind(completed_by)
+    .bind(is_completed)
+    .bind(if is_completed { Some(now) } else { None })
+    .bind(now)
+    .bind(task_id)
+    .fetch_optional(pool)
+    .await?
+    .ok_or_else(|| DbError::NotFound(format!("Task not found: {}", task_id)))?;
+
+    Ok(task)
+}
+
+/// Bulk update tasks
+pub async fn bulk_update_change_tasks(
+    pool: &Pool<Sqlite>,
+    tasks: Vec<crate::api::change_handlers::TaskUpdate>,
+) -> DbResult<Vec<SpecChangeTask>> {
+    let mut updated_tasks = Vec::new();
+
+    for task_update in tasks {
+        let task = update_change_task(
+            pool,
+            &task_update.task_id,
+            task_update.is_completed,
+            task_update.completed_by.as_deref(),
+        )
+        .await?;
+
+        updated_tasks.push(task);
+    }
+
+    Ok(updated_tasks)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -174,3 +174,81 @@ pub async fn create_delta(
 
     created_or_internal_error(result, "Failed to create delta")
 }
+
+/// Get all tasks for a change (parsed from tasks_markdown)
+pub async fn get_change_tasks(
+    State(db): State<DbState>,
+    Path((_project_id, change_id)): Path<(String, String)>,
+) -> impl IntoResponse {
+    info!("Getting tasks for change: {}", change_id);
+
+    let result = openspec_db::get_change_tasks(&db.pool, &change_id).await;
+    ok_or_internal_error(result, "Failed to get change tasks")
+}
+
+/// Request body for updating a task
+#[derive(Deserialize)]
+pub struct UpdateTaskRequest {
+    #[serde(rename = "isCompleted")]
+    pub is_completed: bool,
+    #[serde(rename = "completedBy")]
+    pub completed_by: Option<String>,
+}
+
+/// Update a task's completion status
+pub async fn update_task(
+    State(db): State<DbState>,
+    Path((_project_id, _change_id, task_id)): Path<(String, String, String)>,
+    Json(request): Json<UpdateTaskRequest>,
+) -> impl IntoResponse {
+    info!("Updating task: {} (completed: {})", task_id, request.is_completed);
+
+    let result = openspec_db::update_change_task(
+        &db.pool,
+        &task_id,
+        request.is_completed,
+        request.completed_by.as_deref(),
+    )
+    .await;
+
+    ok_or_internal_error(result, "Failed to update task")
+}
+
+/// Parse tasks from a change's tasks_markdown and store them
+pub async fn parse_change_tasks(
+    State(db): State<DbState>,
+    Path((_project_id, change_id)): Path<(String, String)>,
+) -> impl IntoResponse {
+    info!("Parsing tasks for change: {}", change_id);
+
+    let result = openspec_db::parse_and_store_change_tasks(&db.pool, &change_id).await;
+    ok_or_internal_error(result, "Failed to parse change tasks")
+}
+
+/// Request body for bulk task updates
+#[derive(Deserialize)]
+pub struct BulkUpdateTasksRequest {
+    pub tasks: Vec<TaskUpdate>,
+}
+
+#[derive(Deserialize)]
+pub struct TaskUpdate {
+    #[serde(rename = "taskId")]
+    pub task_id: String,
+    #[serde(rename = "isCompleted")]
+    pub is_completed: bool,
+    #[serde(rename = "completedBy")]
+    pub completed_by: Option<String>,
+}
+
+/// Update multiple tasks at once
+pub async fn bulk_update_tasks(
+    State(db): State<DbState>,
+    Path((_project_id, _change_id)): Path<(String, String)>,
+    Json(request): Json<BulkUpdateTasksRequest>,
+) -> impl IntoResponse {
+    info!("Bulk updating {} tasks", request.tasks.len());
+
+    let result = openspec_db::bulk_update_change_tasks(&db.pool, request.tasks).await;
+    ok_or_internal_error(result, "Failed to bulk update tasks")
+}

@@ -128,6 +128,10 @@ pub struct SpecChange {
     pub change_number: Option<i32>,
     pub validation_status: ValidationStatus,
     pub validation_errors: Option<String>,
+    pub tasks_completion_percentage: Option<i32>,
+    pub tasks_parsed_at: Option<DateTime<Utc>>,
+    pub tasks_total_count: Option<i32>,
+    pub tasks_completed_count: Option<i32>,
     pub created_by: String,
     pub approved_by: Option<String>,
     pub approved_at: Option<DateTime<Utc>>,
@@ -157,6 +161,22 @@ pub struct SpecDelta {
     pub delta_markdown: String,
     pub position: i32,
     pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+#[serde(rename_all = "camelCase")]
+pub struct SpecChangeTask {
+    pub id: String,
+    pub change_id: String,
+    pub task_number: String,
+    pub task_text: String,
+    pub is_completed: bool,
+    pub completed_by: Option<String>,
+    pub completed_at: Option<DateTime<Utc>>,
+    pub display_order: i32,
+    pub parent_number: Option<String>,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
 }
 
 // Parsed structures from markdown
