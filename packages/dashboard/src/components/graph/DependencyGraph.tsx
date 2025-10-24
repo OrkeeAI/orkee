@@ -247,9 +247,29 @@ export function DependencyGraph({
   useEffect(() => {
     if (cyRef.current) {
       const cy = cyRef.current;
-      cy.layout(layoutConfig).run();
+      try {
+        if (!cy.destroyed() && cy.elements && cy.layout) {
+          cy.layout(layoutConfig).run();
+        }
+      } catch (error) {
+        console.debug('[DependencyGraph] Layout error (instance may be unmounting):', error);
+      }
     }
   }, [layoutConfig]);
+
+  // Cleanup Cytoscape instance on unmount
+  useEffect(() => {
+    return () => {
+      if (cyRef.current) {
+        try {
+          cyRef.current.destroy();
+        } catch (error) {
+          console.debug('[DependencyGraph] Cleanup error (instance already destroyed):', error);
+        }
+        cyRef.current = null;
+      }
+    };
+  }, []);
 
   if (isLoading) {
     return (

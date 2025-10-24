@@ -88,7 +88,10 @@ impl GraphBuilder {
             let file_relative = match file_path.strip_prefix(&root_path) {
                 Ok(path) => path.to_string_lossy().to_string(),
                 Err(_) => {
-                    warn!("Skipping imports for file outside project root: {:?}", file_path);
+                    warn!(
+                        "Skipping imports for file outside project root: {:?}",
+                        file_path
+                    );
                     continue;
                 }
             };
@@ -167,7 +170,10 @@ impl GraphBuilder {
                             let relative_path = match file_path.strip_prefix(&root_path) {
                                 Ok(path) => path.to_string_lossy().to_string(),
                                 Err(_) => {
-                                    warn!("Skipping symbols from file outside project root: {:?}", file_path);
+                                    warn!(
+                                        "Skipping symbols from file outside project root: {:?}",
+                                        file_path
+                                    );
                                     continue;
                                 }
                             };
@@ -246,7 +252,10 @@ impl GraphBuilder {
                 let relative_path = match entry.path().strip_prefix(&root_path) {
                     Ok(path) => path.to_string_lossy().to_string(),
                     Err(_) => {
-                        warn!("Skipping directory outside project root: {:?}", entry.path());
+                        warn!(
+                            "Skipping directory outside project root: {:?}",
+                            entry.path()
+                        );
                         continue;
                     }
                 };
@@ -522,5 +531,147 @@ mod tests {
         assert!(imports.contains(&"./utils".to_string()));
         assert!(imports.contains(&"../types".to_string()));
         assert!(!imports.iter().any(|i| i.contains("react")));
+    }
+
+    #[test]
+    fn test_dependency_graph_large_project() {
+        let temp_dir = TempDir::new().unwrap();
+        let root = temp_dir.path();
+
+        // Create 1000+ files to simulate a large project
+        let src_dir = root.join("src");
+        fs::create_dir_all(&src_dir).unwrap();
+
+        for i in 0..1200 {
+            let file_name = format!("module{}.ts", i);
+            let file_path = src_dir.join(&file_name);
+
+            // Create files with some import dependencies
+            let next_module = if i < 1199 {
+                format!("./module{}", i + 1)
+            } else {
+                "./module0".to_string()
+            };
+
+            let content = format!(
+                "import {{ func }} from '{}';\nexport const value{} = func();",
+                next_module, i
+            );
+
+            fs::write(&file_path, content).unwrap();
+        }
+
+        let mut builder = GraphBuilder::new();
+        let start = std::time::Instant::now();
+        let result = builder.build_dependency_graph(root.to_str().unwrap(), "large-project");
+        let duration = start.elapsed();
+
+        assert!(result.is_ok(), "Graph generation should succeed");
+        let graph = result.unwrap();
+
+        // Verify the graph was built correctly
+        assert!(
+            graph.metadata.total_nodes >= 1200,
+            "Should have at least 1200 nodes"
+        );
+        assert!(
+            graph.metadata.total_edges >= 1199,
+            "Should have at least 1199 edges"
+        );
+
+        // Verify performance: should complete well under the 30-second timeout
+        assert!(
+            duration.as_secs() < 30,
+            "Graph generation took {} seconds, should be under 30s",
+            duration.as_secs()
+        );
+
+        println!(
+            "Large project test completed in {:.2}s with {} nodes and {} edges",
+            duration.as_secs_f64(),
+            graph.metadata.total_nodes,
+            graph.metadata.total_edges
+        );
+    }
+
+    #[test]
+    fn test_graph_with_circular_dependencies() {
+        let temp_dir = TempDir::new().unwrap();
+        let root = temp_dir.path();
+
+        // Create files with circular dependencies
+        // a.ts -> b.ts -> c.ts -> a.ts (cycle)
+        fs::write(
+            root.join("a.ts"),
+            "import { b } from './b';\nexport const a = 'a' + b;",
+        )
+        .unwrap();
+
+        fs::write(
+            root.join("b.ts"),
+            "import { c } from './c';\nexport const b = 'b' + c;",
+        )
+        .unwrap();
+
+        fs::write(
+            root.join("c.ts"),
+            "import { a } from './a';\nexport const c = 'c' + a;",
+        )
+        .unwrap();
+
+        // Add more complex cycles
+        // d.ts -> e.ts -> f.ts -> d.ts (another cycle)
+        // with additional cross-dependencies
+        fs::write(
+            root.join("d.ts"),
+            "import { e } from './e';\nimport { a } from './a';\nexport const d = e + a;",
+        )
+        .unwrap();
+
+        fs::write(
+            root.join("e.ts"),
+            "import { f } from './f';\nexport const e = 'e' + f;",
+        )
+        .unwrap();
+
+        fs::write(
+            root.join("f.ts"),
+            "import { d } from './d';\nexport const f = 'f' + d;",
+        )
+        .unwrap();
+
+        let mut builder = GraphBuilder::new();
+        let start = std::time::Instant::now();
+        let result = builder.build_dependency_graph(root.to_str().unwrap(), "circular-project");
+        let duration = start.elapsed();
+
+        assert!(result.is_ok(), "Graph generation should not hang or fail");
+        let graph = result.unwrap();
+
+        // Verify we detected all files
+        assert_eq!(graph.metadata.total_nodes, 6, "Should have 6 nodes");
+
+        // Verify we built edges without infinite loops
+        assert!(graph.metadata.total_edges >= 6, "Should have dependencies");
+
+        // Verify performance: should complete quickly (no infinite loops)
+        assert!(
+            duration.as_millis() < 5000,
+            "Graph generation took {} ms, should complete in under 5s",
+            duration.as_millis()
+        );
+
+        // Verify cycle detection works
+        let cycles = builder.dependency_graph.detect_cycles();
+        assert!(
+            !cycles.is_empty(),
+            "Should detect at least one circular dependency"
+        );
+
+        println!(
+            "Circular dependency test completed in {:.2}s with {} cycles detected",
+            duration.as_secs_f64(),
+            cycles.len()
+        );
     }
 }
