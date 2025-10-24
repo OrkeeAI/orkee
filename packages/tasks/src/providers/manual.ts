@@ -26,6 +26,35 @@ export class ManualTaskProvider extends BaseTaskProvider {
   }
 
   /**
+   * Handle error responses with cache invalidation and error message extraction
+   */
+  private async handleErrorResponse(
+    response: Response,
+    projectPath: string,
+    operation: string
+  ): Promise<never> {
+    // Clear cache on auth/not-found errors
+    if (response.status === 404 || response.status === 401) {
+      console.debug(`[ManualTaskProvider] Evicting cache for path: ${projectPath} (status: ${response.status})`);
+      this.projectIdCache.delete(projectPath);
+    }
+
+    // Try to parse error message from JSON, fallback to status text
+    let errorMessage = `${operation} (status: ${response.status})`;
+    try {
+      const data = await response.json();
+      if (data.error) {
+        errorMessage = data.error;
+      }
+    } catch {
+      // Non-JSON response, use status text
+      errorMessage = `${errorMessage}: ${response.statusText}`;
+    }
+
+    throw new Error(errorMessage);
+  }
+
+  /**
    * Make an authenticated fetch request with API token if available
    */
   private async authenticatedFetch(url: string, options: RequestInit = {}): Promise<Response> {
@@ -53,24 +82,7 @@ export class ManualTaskProvider extends BaseTaskProvider {
     const response = await this.authenticatedFetch(`${this.apiBaseUrl}/api/projects/${projectId}/tasks`);
 
     if (!response.ok) {
-      // Clear cache on auth/not-found errors
-      if (response.status === 404 || response.status === 401) {
-        this.projectIdCache.delete(projectPath);
-      }
-
-      // Try to parse error message from JSON, fallback to status text
-      let errorMessage = `Failed to fetch tasks (status: ${response.status})`;
-      try {
-        const data = await response.json();
-        if (data.error) {
-          errorMessage = data.error;
-        }
-      } catch {
-        // Non-JSON response, use status text
-        errorMessage = `${errorMessage}: ${response.statusText}`;
-      }
-
-      throw new Error(errorMessage);
+      await this.handleErrorResponse(response, projectPath, 'Failed to fetch tasks');
     }
 
     const data = await response.json();
@@ -89,23 +101,7 @@ export class ManualTaskProvider extends BaseTaskProvider {
     });
 
     if (!response.ok) {
-      // Clear cache on auth/not-found errors
-      if (response.status === 404 || response.status === 401) {
-        this.projectIdCache.delete(projectPath);
-      }
-
-      // Try to parse error message from JSON, fallback to status text
-      let errorMessage = `Failed to create task (status: ${response.status})`;
-      try {
-        const data = await response.json();
-        if (data.error) {
-          errorMessage = data.error;
-        }
-      } catch {
-        errorMessage = `${errorMessage}: ${response.statusText}`;
-      }
-
-      throw new Error(errorMessage);
+      await this.handleErrorResponse(response, projectPath, 'Failed to create task');
     }
 
     const data = await response.json();
@@ -128,23 +124,7 @@ export class ManualTaskProvider extends BaseTaskProvider {
     });
 
     if (!response.ok) {
-      // Clear cache on auth/not-found errors
-      if (response.status === 404 || response.status === 401) {
-        this.projectIdCache.delete(projectPath);
-      }
-
-      // Try to parse error message from JSON, fallback to status text
-      let errorMessage = `Failed to update task (status: ${response.status})`;
-      try {
-        const data = await response.json();
-        if (data.error) {
-          errorMessage = data.error;
-        }
-      } catch {
-        errorMessage = `${errorMessage}: ${response.statusText}`;
-      }
-
-      throw new Error(errorMessage);
+      await this.handleErrorResponse(response, projectPath, 'Failed to update task');
     }
 
     const data = await response.json();
@@ -167,23 +147,7 @@ export class ManualTaskProvider extends BaseTaskProvider {
     });
 
     if (!response.ok) {
-      // Clear cache on auth/not-found errors
-      if (response.status === 404 || response.status === 401) {
-        this.projectIdCache.delete(projectPath);
-      }
-
-      // Try to parse error message from JSON, fallback to status text
-      let errorMessage = `Failed to delete task (status: ${response.status})`;
-      try {
-        const data = await response.json();
-        if (data.error) {
-          errorMessage = data.error;
-        }
-      } catch {
-        errorMessage = `${errorMessage}: ${response.statusText}`;
-      }
-
-      throw new Error(errorMessage);
+      await this.handleErrorResponse(response, projectPath, 'Failed to delete task');
     }
 
     const data = await response.json();
