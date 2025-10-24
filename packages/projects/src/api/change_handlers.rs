@@ -93,6 +93,7 @@ pub struct UpdateChangeStatusRequest {
     pub status: ChangeStatus,
     #[serde(rename = "approvedBy")]
     pub approved_by: Option<String>,
+    pub notes: Option<String>,
 }
 
 /// Update change status
