@@ -112,6 +112,13 @@ export function PRDView({ projectId }: PRDViewProps) {
           projectId={projectId}
           open={showUploadDialog}
           onOpenChange={setShowUploadDialog}
+          onComplete={(prdId) => {
+            // Select the newly created PRD
+            const newPRD = prds?.find(p => p.id === prdId);
+            if (newPRD) {
+              setSelectedPRD(newPRD);
+            }
+          }}
         />
       </div>
     );
@@ -246,6 +253,13 @@ export function PRDView({ projectId }: PRDViewProps) {
         projectId={projectId}
         open={showUploadDialog}
         onOpenChange={setShowUploadDialog}
+        onComplete={(prdId) => {
+          // Select the newly created PRD after save
+          const newPRD = prds?.find(p => p.id === prdId);
+          if (newPRD) {
+            setSelectedPRD(newPRD);
+          }
+        }}
       />
     </div>
   );

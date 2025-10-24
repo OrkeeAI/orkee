@@ -29,10 +29,10 @@ interface PRDUploadDialogProps {
   projectId: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onComplete: (prdId: string) => void;
+  onComplete?: (prdId: string) => void;
 }
 
-export function PRDUploadDialog({ projectId, open, onOpenChange, onComplete }: PRDUploadDialogProps) {
+export function PRDUploadDialog({ projectId, open, onOpenChange, onComplete = () => {} }: PRDUploadDialogProps) {
   const [title, setTitle] = useState('');
   const [contentMarkdown, setContentMarkdown] = useState('');
   const [activeTab, setActiveTab] = useState('upload');

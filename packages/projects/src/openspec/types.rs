@@ -23,6 +23,7 @@ pub enum PRDSource {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+#[serde(rename_all = "camelCase")]
 pub struct PRD {
     pub id: String,
     pub project_id: String,
@@ -47,6 +48,7 @@ pub enum CapabilityStatus {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+#[serde(rename_all = "camelCase")]
 pub struct SpecCapability {
     pub id: String,
     pub project_id: String,
@@ -64,6 +66,7 @@ pub struct SpecCapability {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+#[serde(rename_all = "camelCase")]
 pub struct SpecRequirement {
     pub id: String,
     pub capability_id: String,
@@ -75,6 +78,7 @@ pub struct SpecRequirement {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+#[serde(rename_all = "camelCase")]
 pub struct SpecScenario {
     pub id: String,
     pub requirement_id: String,
@@ -100,6 +104,7 @@ pub enum ChangeStatus {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+#[serde(rename_all = "camelCase")]
 pub struct SpecChange {
     pub id: String,
     pub project_id: String,
@@ -127,6 +132,7 @@ pub enum DeltaType {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+#[serde(rename_all = "camelCase")]
 pub struct SpecDelta {
     pub id: String,
     pub change_id: String,
