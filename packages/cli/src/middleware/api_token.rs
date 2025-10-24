@@ -15,8 +15,15 @@ use crate::error::AppError;
 /// Header name for API token
 pub const API_TOKEN_HEADER: &str = "X-API-Token";
 
-/// Paths that don't require authentication
-const WHITELISTED_PATHS: &[&str] = &["/api/health", "/api/status", "/api/csrf-token"];
+/// Paths that don't require authentication via header
+/// Note: /api/preview/events performs its own token validation via query parameter
+/// because the EventSource API does not support custom headers
+const WHITELISTED_PATHS: &[&str] = &[
+    "/api/health",
+    "/api/status",
+    "/api/csrf-token",
+    "/api/preview/events",
+];
 
 /// Extension key for storing authentication status in request
 pub const AUTHENTICATED_EXTENSION: &str = "api_token_authenticated";
@@ -26,6 +33,15 @@ fn requires_authentication(path: &str) -> bool {
     !WHITELISTED_PATHS
         .iter()
         .any(|&whitelisted| path.starts_with(whitelisted))
+}
+
+/// Check if dev mode is enabled based on environment variable value
+///
+/// Returns true only if the value (case-insensitive) equals "true"
+fn is_dev_mode_enabled(env_value: Option<String>) -> bool {
+    env_value
+        .map(|v| v.to_lowercase() == "true")
+        .unwrap_or(false)
 }
 
 /// API token validation middleware
@@ -43,12 +59,8 @@ pub async fn api_token_middleware(
     }
 
     // Skip authentication in development mode
-    if std::env::var("ORKEE_DEV_MODE")
-        .ok()
-        .and_then(|v| v.parse::<bool>().ok())
-        .unwrap_or(false)
-    {
-        debug!(path = %path, "Development mode active, skipping token validation");
+    if is_dev_mode_enabled(std::env::var("ORKEE_DEV_MODE").ok()) {
+        warn!(path = %path, "⚠️  DEVELOPMENT MODE ACTIVE - Token validation bypassed for security testing");
         return Ok(next.run(request).await);
     }
 
@@ -139,6 +151,7 @@ mod tests {
         Router::new()
             .route("/api/test", get(test_handler))
             .route("/api/health", get(test_handler))
+            .route("/api/preview/events", get(test_handler))
             .layer(middleware::from_fn_with_state(
                 db.clone(),
                 api_token_middleware,
@@ -153,6 +166,20 @@ mod tests {
 
         let request = Request::builder()
             .uri("/api/health")
+            .body(Body::empty())
+            .unwrap();
+
+        let response = app.oneshot(request).await.unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn test_sse_events_endpoint_whitelisted() {
+        let db = setup_test_db().await;
+        let app = create_test_app(db);
+
+        let request = Request::builder()
+            .uri("/api/preview/events")
             .body(Body::empty())
             .unwrap();
 
@@ -246,8 +273,42 @@ mod tests {
         assert!(!requires_authentication("/api/health"));
         assert!(!requires_authentication("/api/status"));
         assert!(!requires_authentication("/api/csrf-token"));
+        assert!(!requires_authentication("/api/preview/events"));
         assert!(requires_authentication("/api/projects"));
         assert!(requires_authentication("/api/test"));
         assert!(requires_authentication("/api/settings"));
+    }
+
+    #[test]
+    fn test_is_dev_mode_enabled_with_true() {
+        // Test that "true" (case-insensitive) enables dev mode
+        assert!(is_dev_mode_enabled(Some("true".to_string())));
+        assert!(is_dev_mode_enabled(Some("TRUE".to_string())));
+        assert!(is_dev_mode_enabled(Some("True".to_string())));
+        assert!(is_dev_mode_enabled(Some("TrUe".to_string())));
+    }
+
+    #[test]
+    fn test_is_dev_mode_enabled_with_false() {
+        // Test that "false" does NOT enable dev mode
+        assert!(!is_dev_mode_enabled(Some("false".to_string())));
+        assert!(!is_dev_mode_enabled(Some("FALSE".to_string())));
+        assert!(!is_dev_mode_enabled(Some("False".to_string())));
+    }
+
+    #[test]
+    fn test_is_dev_mode_enabled_with_invalid_values() {
+        // Test that any non-"true" value does NOT enable dev mode
+        assert!(!is_dev_mode_enabled(Some("yes".to_string())));
+        assert!(!is_dev_mode_enabled(Some("1".to_string())));
+        assert!(!is_dev_mode_enabled(Some("enabled".to_string())));
+        assert!(!is_dev_mode_enabled(Some("on".to_string())));
+        assert!(!is_dev_mode_enabled(Some("".to_string())));
+    }
+
+    #[test]
+    fn test_is_dev_mode_enabled_with_none() {
+        // Test that None (env var not set) does NOT enable dev mode
+        assert!(!is_dev_mode_enabled(None));
     }
 }

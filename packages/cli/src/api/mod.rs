@@ -134,6 +134,7 @@ pub async fn create_router_with_options(
         preview_manager: preview_manager.clone(),
         project_manager: project_manager.clone(),
         sse_tracker: preview::SseConnectionTracker::new(),
+        db_state: db_state.clone(),
     };
 
     // Create preview router with its own state
@@ -278,6 +279,10 @@ pub async fn create_router_with_options(
         .nest(
             "/api/projects",
             orkee_projects::create_specs_router().with_state(db_state.clone()),
+        )
+        .nest(
+            "/api/projects",
+            orkee_projects::create_graph_router().with_state(db_state.clone()),
         )
         .nest("/api/git", git_router)
         .nest("/api/preview", preview_router)

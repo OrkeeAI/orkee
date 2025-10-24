@@ -24,6 +24,7 @@ pub enum ManagerError {
 use std::sync::Mutex;
 
 /// Global storage manager instance wrapped in Mutex to allow resetting in tests
+#[allow(dead_code)]
 static STORAGE_MANAGER: Mutex<Option<Arc<StorageManager>>> = Mutex::new(None);
 
 #[cfg(any(test, feature = "test-utils"))]

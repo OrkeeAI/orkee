@@ -167,6 +167,7 @@ pub struct PreviewState {
     pub preview_manager: Arc<PreviewManager>,
     pub project_manager: Arc<ProjectsManager>,
     pub sse_tracker: SseConnectionTracker,
+    pub db_state: orkee_projects::DbState,
 }
 
 /// Start a development server for a project
@@ -354,6 +355,12 @@ pub async fn get_server_status(
 pub struct LogsQuery {
     since: Option<DateTime<Utc>>,
     limit: Option<usize>,
+}
+
+/// Query parameters for SSE authentication
+#[derive(Debug, Deserialize)]
+pub struct SseAuthQuery {
+    token: Option<String>,
 }
 
 /// Get server logs
@@ -600,9 +607,54 @@ pub async fn health_check() -> Json<ApiResponse<String>> {
 /// SSE endpoint for real-time server events
 pub async fn server_events(
     ConnectInfo(addr): ConnectInfo<SocketAddr>,
+    Query(query): Query<SseAuthQuery>,
     State(state): State<PreviewState>,
 ) -> Result<Sse<impl Stream<Item = Result<Event, Infallible>>>, StatusCode> {
     let ip = addr.ip();
+
+    // Skip authentication in development mode
+    let dev_mode = std::env::var("ORKEE_DEV_MODE")
+        .map(|v| v.to_lowercase() == "true")
+        .unwrap_or(false);
+
+    if !dev_mode {
+        // Extract token from query parameter
+        let token = match query.token {
+            Some(t) => t,
+            None => {
+                warn!(ip = %ip, audit = true, "SSE connection attempt without token");
+                return Err(StatusCode::UNAUTHORIZED);
+            }
+        };
+
+        // Verify token using the same logic as the API token middleware
+        let token_info = state
+            .db_state
+            .token_storage
+            .verify_token(&token)
+            .await
+            .map_err(|e| {
+                warn!(ip = %ip, error = %e, audit = true, "SSE token verification failed");
+                StatusCode::UNAUTHORIZED
+            })?;
+
+        if token_info.is_none() {
+            warn!(ip = %ip, audit = true, "SSE connection attempt with invalid token");
+            return Err(StatusCode::UNAUTHORIZED);
+        }
+
+        // Update last used timestamp
+        let token_hash = orkee_projects::api_tokens::TokenStorage::hash_token(&token);
+        if let Err(e) = state
+            .db_state
+            .token_storage
+            .update_last_used(&token_hash)
+            .await
+        {
+            // Log error but don't fail the request
+            warn!(ip = %ip, error = %e, "Failed to update SSE token last_used timestamp");
+        }
+    }
 
     // Try to acquire a connection slot - this limits concurrent connections per IP
     let _guard = match state.sse_tracker.try_acquire(ip) {

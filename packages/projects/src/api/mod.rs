@@ -13,6 +13,7 @@ pub mod auth;
 pub mod change_handlers;
 pub mod context_handlers;
 pub mod executions_handlers;
+pub mod graph_handlers;
 pub mod handlers;
 pub mod prd_handlers;
 pub mod response;
@@ -328,5 +329,26 @@ pub fn create_context_router() -> Router<DbState> {
         .route(
             "/:project_id/context/restore",
             post(context_handlers::restore_context_snapshot),
+        )
+}
+
+/// Creates the graph API router for code visualization
+pub fn create_graph_router() -> Router<DbState> {
+    Router::new()
+        .route(
+            "/:project_id/graph/dependencies",
+            get(graph_handlers::get_dependency_graph),
+        )
+        .route(
+            "/:project_id/graph/symbols",
+            get(graph_handlers::get_symbol_graph),
+        )
+        .route(
+            "/:project_id/graph/modules",
+            get(graph_handlers::get_module_graph),
+        )
+        .route(
+            "/:project_id/graph/spec-mapping",
+            get(graph_handlers::get_spec_mapping_graph),
         )
 }

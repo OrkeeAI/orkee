@@ -148,23 +148,41 @@ impl AstAnalyzer {
 
     /// Extract symbol from TypeScript/JavaScript node
     fn extract_ts_js_symbol(&self, node: &Node, source: &str) -> Option<Symbol> {
-        let kind = match node.kind() {
+        let node_kind = node.kind();
+        let kind = match node_kind {
             "function_declaration" | "function" => SymbolKind::Function,
             "method_definition" => SymbolKind::Method,
             "class_declaration" | "class" => SymbolKind::Class,
             "interface_declaration" => SymbolKind::Interface,
+            "enum_declaration" => SymbolKind::Enum,
+            "type_alias_declaration" => SymbolKind::Interface, // Type aliases are interface-like
             "variable_declarator" => SymbolKind::Variable,
-            "import_statement" => SymbolKind::Import,
-            "export_statement" => SymbolKind::Export,
-            _ => return None,
+            "lexical_declaration" => {
+                // Handle const/let declarations - extract first declarator
+                let declarator = node.child_by_field_name("declarator")?;
+                let name_node = declarator.child_by_field_name("name")?;
+                let name = source[name_node.byte_range()].to_string();
+                return Some(Symbol {
+                    name,
+                    kind: SymbolKind::Variable,
+                    line_start: node.start_position().row + 1,
+                    line_end: node.end_position().row + 1,
+                    children: Vec::new(),
+                    doc_comment: None,
+                });
+            }
+            // Skip import/export statements - they're not meaningful symbols
+            "import_statement" | "export_statement" => return None,
+            _ => {
+                // Log unknown node types for debugging
+                tracing::debug!("Unknown TypeScript node type: {}", node_kind);
+                return None;
+            }
         };
 
-        let name = if let Some(name_node) = node.child_by_field_name("name") {
-            source[name_node.byte_range()].to_string()
-        } else {
-            // For unnamed functions or expressions
-            format!("<anonymous {}>", node.kind())
-        };
+        // Skip unnamed symbols - they clutter the graph
+        let name_node = node.child_by_field_name("name")?;
+        let name = source[name_node.byte_range()].to_string();
 
         Some(Symbol {
             name,
@@ -249,7 +267,8 @@ impl AstAnalyzer {
     fn collect_imports(&self, node: &Node, source: &str, imports: &mut Vec<String>) {
         match self.language_name.as_str() {
             "typescript" | "javascript" => {
-                if node.kind() == "import_statement" {
+                // Handle import statements and export...from statements (re-exports are dependencies too)
+                if node.kind() == "import_statement" || node.kind() == "export_statement" {
                     if let Some(source_node) = node.child_by_field_name("source") {
                         let import_path = source[source_node.byte_range()].to_string();
                         // Remove quotes

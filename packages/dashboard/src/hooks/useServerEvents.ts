@@ -3,6 +3,7 @@
 
 import { useState, useEffect } from 'react';
 import { getApiBaseUrl } from '@/services/api';
+import { getApiToken } from '@/lib/platform';
 
 // Enable debug logging only in development
 const DEBUG = import.meta.env.DEV;
@@ -141,7 +142,15 @@ export function useServerEvents() {
       if (isCleanedUp) return;
       try {
         const baseUrl = await getApiBaseUrl();
-        eventSource = new EventSource(`${baseUrl}/api/preview/events`);
+        const apiToken = await getApiToken();
+
+        // Include API token as query parameter for authentication
+        // EventSource API doesn't support custom headers, so we use query params
+        const url = apiToken
+          ? `${baseUrl}/api/preview/events?token=${encodeURIComponent(apiToken)}`
+          : `${baseUrl}/api/preview/events`;
+
+        eventSource = new EventSource(url);
 
         eventSource.onopen = () => {
           if (DEBUG) console.log('[SSE] Connection established');
