@@ -3,7 +3,7 @@
 
 use super::db::{
     create_capability, create_requirement, create_scenario, get_capability,
-    get_deltas_by_change, get_spec_change, DbError,
+    get_deltas_by_change, get_spec_change, update_spec_change_status, create_spec_delta, DbError,
 };
 use super::markdown_validator::OpenSpecMarkdownValidator;
 use super::parser::{parse_spec_markdown, ParseError};

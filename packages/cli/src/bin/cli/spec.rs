@@ -3,7 +3,7 @@ use colored::*;
 use comfy_table::{modifiers::UTF8_ROUND_CORNERS, presets::UTF8_FULL, ContentArrangement, Table};
 use inquire::Confirm;
 use orkee_projects::openspec::{
-    archive_change_cli, export_specs, list_changes, show_change, validate_change_cli,
+    archive_change_cli, export_specs, import_specs, list_changes, show_change, validate_change_cli,
 };
 use std::path::PathBuf;
 
@@ -72,6 +72,21 @@ pub enum SpecCommand {
         #[arg(long, default_value = "./")]
         path: PathBuf,
     },
+
+    /// Import specs from filesystem
+    Import {
+        /// Project ID (required for import)
+        #[arg(long)]
+        project: String,
+
+        /// Path to import from
+        #[arg(long, default_value = "./")]
+        path: PathBuf,
+
+        /// Overwrite existing data (use PreferRemote strategy)
+        #[arg(long)]
+        force: bool,
+    },
 }
 
 pub async fn handle_spec_command(cmd: SpecCommand) -> Result<(), Box<dyn std::error::Error>> {
@@ -99,6 +114,8 @@ pub async fn handle_spec_command(cmd: SpecCommand) -> Result<(), Box<dyn std::er
         } => archive_cmd(&change_id, yes, !skip_specs).await,
 
         SpecCommand::Export { project, path } => export_cmd(&project, &path).await,
+
+        SpecCommand::Import { project, path, force } => import_cmd(&project, &path, force).await,
     }
 }
 
@@ -300,6 +317,47 @@ async fn export_cmd(project_id: &str, path: &PathBuf) -> Result<(), Box<dyn std:
         "{} Exported to {}",
         "✓".green(),
         path.display()
+    );
+
+    Ok(())
+}
+
+async fn import_cmd(
+    project_id: &str,
+    path: &PathBuf,
+    force: bool,
+) -> Result<(), Box<dyn std::error::Error>> {
+    println!(
+        "{} Importing OpenSpec structure for project {} from {}...",
+        "📥".cyan(),
+        project_id,
+        path.display()
+    );
+
+    if force {
+        println!(
+            "{} Force mode enabled - existing data will be overwritten",
+            "⚠️".yellow()
+        );
+    } else {
+        println!(
+            "{} Existing data will be preserved (use --force to overwrite)",
+            "ℹ️".blue()
+        );
+    }
+
+    let report = import_specs(project_id, path, force).await?;
+
+    println!();
+    println!("{}", "Import Summary:".green().bold());
+    println!("  {} capabilities imported", report.capabilities_imported);
+    println!("  {} capabilities skipped", report.capabilities_skipped);
+    println!("  {} requirements imported", report.requirements_imported);
+    println!("  {} changes imported", report.changes_imported);
+    println!();
+    println!(
+        "{} Import completed successfully",
+        "✓".green()
     );
 
     Ok(())

@@ -6,7 +6,8 @@ use super::db::{
     get_deltas_by_change, get_spec_change, get_spec_changes_by_project, DbResult,
 };
 use super::markdown_validator::OpenSpecMarkdownValidator;
-use super::materializer::OpenSpecMaterializer;
+use super::materializer::{OpenSpecMaterializer, ImportReport};
+use super::sync::MergeStrategy;
 use super::types::{SpecChange, SpecDelta};
 use crate::constants::orkee_dir;
 use sqlx::{Pool, Sqlite, sqlite::SqlitePoolOptions};
@@ -92,6 +93,29 @@ pub async fn export_specs(project_id: &str, path: &Path) -> Result<(), String> {
     let materializer = OpenSpecMaterializer::new(pool);
     materializer
         .materialize_to_path(project_id, path)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+/// Import OpenSpec structure from filesystem
+pub async fn import_specs(
+    project_id: &str,
+    path: &Path,
+    force: bool,
+) -> Result<ImportReport, String> {
+    let pool = get_pool().await.map_err(|e| e.to_string())?;
+
+    let materializer = OpenSpecMaterializer::new(pool);
+
+    // Use PreferRemote strategy if force is true, otherwise PreferLocal
+    let strategy = if force {
+        MergeStrategy::PreferRemote
+    } else {
+        MergeStrategy::PreferLocal
+    };
+
+    materializer
+        .import_from_path(project_id, path, strategy)
         .await
         .map_err(|e| e.to_string())
 }
