@@ -15,12 +15,14 @@ use crate::error::AppError;
 /// Header name for API token
 pub const API_TOKEN_HEADER: &str = "X-API-Token";
 
-/// Paths that don't require authentication
+/// Paths that don't require authentication via header
+/// Note: /api/preview/events performs its own token validation via query parameter
+/// because the EventSource API does not support custom headers
 const WHITELISTED_PATHS: &[&str] = &[
     "/api/health",
     "/api/status",
     "/api/csrf-token",
-    // NOTE: /api/preview/events is NOT whitelisted - it handles authentication via query parameter
+    "/api/preview/events",
 ];
 
 /// Extension key for storing authentication status in request
@@ -256,6 +258,7 @@ mod tests {
         assert!(!requires_authentication("/api/health"));
         assert!(!requires_authentication("/api/status"));
         assert!(!requires_authentication("/api/csrf-token"));
+        assert!(!requires_authentication("/api/preview/events"));
         assert!(requires_authentication("/api/projects"));
         assert!(requires_authentication("/api/test"));
         assert!(requires_authentication("/api/settings"));
