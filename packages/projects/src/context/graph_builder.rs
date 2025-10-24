@@ -690,7 +690,10 @@ mod tests {
 
         // Should not result in a negative depth (empty path is acceptable)
         // The key is that it shouldn't panic or produce invalid results
-        assert_eq!(normalized, "", "Excessive parent dirs should result in empty path, not underflow");
+        assert_eq!(
+            normalized, "",
+            "Excessive parent dirs should result in empty path, not underflow"
+        );
 
         // Test normal path with some parent dirs
         let normal_path = PathBuf::from("src/../lib/utils.ts");
@@ -731,8 +734,14 @@ mod tests {
         let builder = GraphBuilder::new();
         let imports = builder.extract_imports(&file_path).unwrap();
 
-        assert!(imports.contains(&"./utils".to_string()), "Should detect multi-line import");
-        assert!(imports.contains(&"../types".to_string()), "Should detect multi-line type import");
+        assert!(
+            imports.contains(&"./utils".to_string()),
+            "Should detect multi-line import"
+        );
+        assert!(
+            imports.contains(&"../types".to_string()),
+            "Should detect multi-line type import"
+        );
     }
 
     #[test]
@@ -757,7 +766,10 @@ mod tests {
 
         assert_eq!(imports.len(), 1, "Should only find one real import");
         assert!(imports.contains(&"./real".to_string()));
-        assert!(!imports.iter().any(|i| i.contains("commented")), "Should not detect commented imports");
+        assert!(
+            !imports.iter().any(|i| i.contains("commented")),
+            "Should not detect commented imports"
+        );
     }
 
     #[test]
@@ -778,9 +790,21 @@ mod tests {
         let imports = builder.extract_imports(&file_path).unwrap();
 
         // Re-exports are dependencies too - the file needs these modules
-        assert!(imports.contains(&"./foo".to_string()), "Should detect export...from");
-        assert!(imports.contains(&"./bar".to_string()), "Should detect export *");
-        assert!(imports.contains(&"./baz".to_string()), "Should detect export default as");
-        assert!(imports.contains(&"./qux".to_string()), "Should detect regular import");
+        assert!(
+            imports.contains(&"./foo".to_string()),
+            "Should detect export...from"
+        );
+        assert!(
+            imports.contains(&"./bar".to_string()),
+            "Should detect export *"
+        );
+        assert!(
+            imports.contains(&"./baz".to_string()),
+            "Should detect export default as"
+        );
+        assert!(
+            imports.contains(&"./qux".to_string()),
+            "Should detect regular import"
+        );
     }
 }
