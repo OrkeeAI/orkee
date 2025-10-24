@@ -334,6 +334,13 @@ mod tests {
         .await
         .unwrap();
 
+        sqlx::query(include_str!(
+            "../../migrations/20250128000000_task_completion_tracking.sql"
+        ))
+        .execute(&pool)
+        .await
+        .unwrap();
+
         // Create test project
         sqlx::query(
             "INSERT INTO projects (id, name, project_root, description, created_at, updated_at)
