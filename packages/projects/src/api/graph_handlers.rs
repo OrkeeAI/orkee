@@ -185,10 +185,7 @@ pub async fn get_spec_mapping_graph(
     Query(_params): Query<GraphQuery>,
     State(_db): State<DbState>,
 ) -> Json<GraphResponse> {
-    info!(
-        "Generating spec-mapping graph for project: {}",
-        project_id
-    );
+    info!("Generating spec-mapping graph for project: {}", project_id);
 
     // Placeholder: This will be implemented when OpenSpec integration is ready
     Json(GraphResponse::error(

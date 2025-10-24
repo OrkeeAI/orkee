@@ -94,7 +94,9 @@ impl GraphBuilder {
 
             for import_path in imports {
                 // Resolve the import path relative to the current file's directory
-                if let Some(resolved_path) = self.resolve_import_path(&import_path, file_dir, &file_id_map) {
+                if let Some(resolved_path) =
+                    self.resolve_import_path(&import_path, file_dir, &file_id_map)
+                {
                     if let Some(target_id) = file_id_map.get(&resolved_path) {
                         let edge_id = format!("edge_{}_{}", source_id, target_id);
                         edges.push(GraphEdge {
@@ -338,7 +340,10 @@ impl GraphBuilder {
             if trimmed.starts_with("import ") || trimmed.starts_with("from ") {
                 // Extract the path from import/from statements
                 if let Some(start) = trimmed.find('"').or_else(|| trimmed.find('\'')) {
-                    if let Some(end) = trimmed[start + 1..].find('"').or_else(|| trimmed[start + 1..].find('\'')) {
+                    if let Some(end) = trimmed[start + 1..]
+                        .find('"')
+                        .or_else(|| trimmed[start + 1..].find('\''))
+                    {
                         let import_path = &trimmed[start + 1..start + 1 + end];
                         // Only include relative imports
                         if import_path.starts_with("./") || import_path.starts_with("../") {
