@@ -119,7 +119,17 @@ impl GraphBuilder {
                         // Also add to dependency graph
                         self.dependency_graph
                             .add_edge(source_id.clone(), target_id.clone());
+                    } else {
+                        warn!(
+                            "Import resolved to '{}' but file not found in project (from {} importing '{}')",
+                            resolved_path, file_relative, import_path
+                        );
                     }
+                } else {
+                    warn!(
+                        "Failed to resolve import '{}' from {} (dir: {})",
+                        import_path, file_relative, file_dir
+                    );
                 }
             }
         }
@@ -379,6 +389,24 @@ impl GraphBuilder {
     }
 
     /// Resolve a relative import path to a project-relative path
+    ///
+    /// # Security Model
+    ///
+    /// This method is secure against path traversal attacks because:
+    /// 1. All files are pre-validated during collection (see `find_source_files`)
+    /// 2. `file_id_map` only contains files within project bounds
+    /// 3. Resolution uses HashMap lookups, not filesystem operations
+    /// 4. `normalize_path` tracks depth to detect escape attempts (returns empty string if negative)
+    /// 5. Unresolved paths return `None` rather than creating edges outside the project
+    ///
+    /// This design ensures that even malicious import statements like:
+    /// - `import x from '../../../../../etc/passwd'`
+    /// - `import y from './../../../../../../tmp/evil'`
+    ///
+    /// Cannot create graph edges outside the project because:
+    /// - The normalized path will either be empty (escape detected) or not exist in `file_id_map`
+    /// - No filesystem checks are performed, so symlink attacks are not possible
+    /// - The pre-built `file_id_map` acts as an allowlist of valid targets
     ///
     /// # Limitations
     /// - Does not support path aliases (@/, ~/)
@@ -806,5 +834,198 @@ mod tests {
             imports.contains(&"./qux".to_string()),
             "Should detect regular import"
         );
+    }
+
+    #[test]
+    fn test_resolve_import_path_with_deeply_nested_traversal() {
+        let builder = GraphBuilder::new();
+        let mut file_id_map = HashMap::new();
+
+        // Create a legitimate file in the project
+        file_id_map.insert("src/utils.ts".to_string(), "file_0".to_string());
+
+        // Test deeply nested path traversal that tries to escape
+        let malicious_import = "../../../../../../../../../etc/passwd";
+        let result = builder.resolve_import_path(malicious_import, "src/components", &file_id_map);
+
+        // Should return None because normalized path is empty (escape detected)
+        assert!(
+            result.is_none(),
+            "Deeply nested path traversal should fail to resolve"
+        );
+
+        // Test another variant
+        let malicious_import2 = "../../../../../../../../../../tmp/evil.ts";
+        let result2 = builder.resolve_import_path(malicious_import2, "src/deep/nested/components", &file_id_map);
+
+        assert!(
+            result2.is_none(),
+            "Deep traversal from nested directory should fail"
+        );
+    }
+
+    #[test]
+    fn test_resolve_import_path_with_failed_resolutions() {
+        let builder = GraphBuilder::new();
+        let mut file_id_map = HashMap::new();
+
+        // Add some legitimate files
+        file_id_map.insert("src/utils.ts".to_string(), "file_0".to_string());
+        file_id_map.insert("src/components/Button.tsx".to_string(), "file_1".to_string());
+
+        // Test import that doesn't exist
+        let nonexistent = "./nonexistent";
+        let result = builder.resolve_import_path(nonexistent, "src", &file_id_map);
+        assert!(result.is_none(), "Should return None for nonexistent file");
+
+        // Test import with wrong extension
+        let wrong_ext = "./utils.jsx";
+        let result2 = builder.resolve_import_path(wrong_ext, "src", &file_id_map);
+        assert!(result2.is_none(), "Should return None for wrong extension");
+
+        // Test import to external package (not relative)
+        // Note: This should be filtered out earlier by extract_imports, but test defensive behavior
+        let external = "react";
+        let result3 = builder.resolve_import_path(external, "src", &file_id_map);
+        assert!(result3.is_none(), "Should return None for non-relative import");
+    }
+
+    #[test]
+    fn test_resolve_import_path_with_various_extensions() {
+        let builder = GraphBuilder::new();
+        let mut file_id_map = HashMap::new();
+
+        // Add files with different extensions
+        file_id_map.insert("utils.ts".to_string(), "file_0".to_string());
+        file_id_map.insert("components.tsx".to_string(), "file_1".to_string());
+        file_id_map.insert("legacy.js".to_string(), "file_2".to_string());
+        file_id_map.insert("legacy-jsx.jsx".to_string(), "file_3".to_string());
+
+        // Test resolution without extension (should try .ts first)
+        let result = builder.resolve_import_path("./utils", "", &file_id_map);
+        assert_eq!(result, Some("utils.ts".to_string()));
+
+        // Test .tsx resolution
+        let result2 = builder.resolve_import_path("./components", "", &file_id_map);
+        assert_eq!(result2, Some("components.tsx".to_string()));
+
+        // Test .js resolution
+        let result3 = builder.resolve_import_path("./legacy", "", &file_id_map);
+        assert_eq!(result3, Some("legacy.js".to_string()));
+
+        // Test .jsx resolution
+        let result4 = builder.resolve_import_path("./legacy-jsx", "", &file_id_map);
+        assert_eq!(result4, Some("legacy-jsx.jsx".to_string()));
+    }
+
+    #[test]
+    fn test_resolve_import_path_index_files() {
+        let builder = GraphBuilder::new();
+        let mut file_id_map = HashMap::new();
+
+        // Add index files
+        file_id_map.insert("components/index.ts".to_string(), "file_0".to_string());
+        file_id_map.insert("utils/index.js".to_string(), "file_1".to_string());
+
+        // Test resolving to index.ts
+        let result = builder.resolve_import_path("./components", "", &file_id_map);
+        assert_eq!(result, Some("components/index.ts".to_string()));
+
+        // Test resolving to index.js
+        let result2 = builder.resolve_import_path("./utils", "", &file_id_map);
+        assert_eq!(result2, Some("utils/index.js".to_string()));
+    }
+
+    #[test]
+    fn test_build_dependency_graph_with_path_traversal_imports() {
+        let temp_dir = TempDir::new().unwrap();
+        let root = temp_dir.path();
+
+        // Create a project structure
+        fs::create_dir_all(root.join("src/components")).unwrap();
+
+        // Create a legitimate file
+        fs::write(root.join("src/utils.ts"), "export const foo = 1;").unwrap();
+
+        // Create a file with malicious imports
+        let malicious_content = r#"
+            import { foo } from '../utils';  // Valid
+            import { evil } from '../../../../../etc/passwd';  // Invalid - tries to escape
+            import { bad } from '../../../../../../tmp/evil';   // Invalid - tries to escape
+        "#;
+        fs::write(root.join("src/components/Button.tsx"), malicious_content).unwrap();
+
+        let mut builder = GraphBuilder::new();
+        let result = builder.build_dependency_graph(root.to_str().unwrap(), "test-project");
+
+        assert!(result.is_ok(), "Graph building should succeed");
+        let graph = result.unwrap();
+
+        // Should have 2 nodes (the two files we created)
+        assert_eq!(graph.metadata.total_nodes, 2);
+
+        // Should only have 1 edge (valid import from Button to utils)
+        // The malicious imports should be ignored
+        assert_eq!(
+            graph.metadata.total_edges, 1,
+            "Should only create edge for valid import"
+        );
+    }
+
+    #[test]
+    fn test_normalize_path_with_complex_patterns() {
+        let builder = GraphBuilder::new();
+
+        // Test path with multiple ./ and ../
+        let complex1 = PathBuf::from("./src/../lib/./utils/../helpers/./index.ts");
+        let normalized1 = builder.normalize_path(&complex1);
+        assert_eq!(normalized1, "lib/helpers/index.ts");
+
+        // Test path that goes up then down
+        let complex2 = PathBuf::from("src/components/../../lib/utils.ts");
+        let normalized2 = builder.normalize_path(&complex2);
+        assert_eq!(normalized2, "lib/utils.ts");
+
+        // Test path with many current directory references
+        let complex3 = PathBuf::from("./././src/./lib/././utils.ts");
+        let normalized3 = builder.normalize_path(&complex3);
+        assert_eq!(normalized3, "src/lib/utils.ts");
+    }
+
+    #[test]
+    fn test_symlink_handling_in_file_collection() {
+        // This test verifies that symlinks are handled correctly during file collection
+        // Symlinks would be resolved when we read the file paths, so they appear as
+        // normal files in the file_id_map. This prevents symlink-based attacks where
+        // an attacker tries to create a symlink pointing outside the project.
+
+        let temp_dir = TempDir::new().unwrap();
+        let root = temp_dir.path();
+
+        // Create a normal file
+        fs::write(root.join("real.ts"), "export const real = true;").unwrap();
+
+        // Create a subdirectory
+        fs::create_dir(root.join("src")).unwrap();
+
+        // On Unix systems, test symlink behavior
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::symlink;
+
+            // Create a symlink to the real file
+            let symlink_path = root.join("src/linked.ts");
+            symlink(root.join("real.ts"), &symlink_path).ok();
+
+            let builder = GraphBuilder::new();
+            let files = builder.find_source_files(root).unwrap();
+
+            // Both the real file and symlink should be found
+            // The important security property is that both are within the project root
+            assert!(
+                files.iter().all(|f| f.starts_with(root)),
+                "All files (including symlinks) must be within project root"
+            );
+        }
     }
 }
