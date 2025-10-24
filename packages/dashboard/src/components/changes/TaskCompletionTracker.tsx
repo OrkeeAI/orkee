@@ -25,15 +25,13 @@ export function TaskCompletionTracker({
   status,
   currentUser,
 }: TaskCompletionTrackerProps) {
-  const { tasks, stats, isLoading, error, refetch } = useChangeTasks({
+  const { tasks, stats, isLoading, error } = useChangeTasks({
     projectId,
     changeId,
   });
 
   const updateTaskMutation = useUpdateTask({ projectId, changeId });
   const parseTasksMutation = useParseChangeTasks({ projectId, changeId });
-
-  const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set());
 
   // Determine if tasks can be edited based on change status
   const canEdit = status === 'implementing';
@@ -56,18 +54,6 @@ export function TaskCompletionTracker({
     groups[key].push(task);
     return groups;
   }, {} as Record<string, typeof tasks>);
-
-  const toggleSection = (key: string) => {
-    setExpandedSections((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) {
-        next.delete(key);
-      } else {
-        next.add(key);
-      }
-      return next;
-    });
-  };
 
   if (isLoading) {
     return (

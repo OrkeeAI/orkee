@@ -12,8 +12,6 @@ interface UseChangeTasksOptions {
 }
 
 export function useChangeTasks({ projectId, changeId, enabled = true }: UseChangeTasksOptions) {
-  const queryClient = useQueryClient();
-
   const query = useQuery({
     queryKey: ['changeTasks', projectId, changeId],
     queryFn: () => changesService.getChangeTasks(projectId, changeId),
