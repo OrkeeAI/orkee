@@ -660,7 +660,10 @@ pub async fn server_events(
                                 Err(e) => {
                                     error!("Failed to serialize sync event: {} - skipping to next event", e);
                                     // Continue stream by waiting for next event recursively
-                                    Some((Ok(Event::default().comment("serialization error")), (rx, None, preview_manager)))
+                                    Some((
+                                        Ok(Event::default().comment("serialization error")),
+                                        (rx, None, preview_manager),
+                                    ))
                                 }
                             }
                         }
