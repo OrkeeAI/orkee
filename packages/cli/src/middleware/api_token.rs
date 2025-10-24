@@ -60,7 +60,7 @@ pub async fn api_token_middleware(
 
     // Skip authentication in development mode
     if is_dev_mode_enabled(std::env::var("ORKEE_DEV_MODE").ok()) {
-        debug!(path = %path, "Development mode active, skipping token validation");
+        warn!(path = %path, "⚠️  DEVELOPMENT MODE ACTIVE - Token validation bypassed for security testing");
         return Ok(next.run(request).await);
     }
 
