@@ -15,6 +15,8 @@ use super::response::ApiResponse;
 use crate::ai_service::{AIService, AIServiceError};
 use crate::ai_usage_logs::AiUsageLog;
 use crate::db::DbState;
+use crate::openspec::db as openspec_db;
+use crate::tasks::{TaskCreateInput, TaskPriority};
 
 // ============================================================================
 // Shared Types
@@ -299,10 +301,155 @@ Respond with ONLY valid JSON. Do not include markdown formatting, code blocks, o
                 total: ai_response.usage.total_tokens(),
             };
 
+            // Get the PRD to obtain project_id
+            let prd = match openspec_db::get_prd(&db.pool, &request.prd_id).await {
+                Ok(prd) => prd,
+                Err(e) => {
+                    error!("Failed to fetch PRD {}: {}", request.prd_id, e);
+                    return (
+                        StatusCode::NOT_FOUND,
+                        ResponseJson(ApiResponse::<()>::error(format!("PRD not found: {}", e)))
+                    ).into_response();
+                }
+            };
+
+            let project_id = &prd.project_id;
+            info!("Saving analysis results for project: {}", project_id);
+
+            // Save capabilities, requirements, and scenarios to database
+            for capability in &ai_response.data.capabilities {
+                // Build spec markdown from capability data
+                let mut spec_markdown = format!("# {}\n\n## Purpose\n{}\n\n## Requirements\n\n", 
+                    capability.name, capability.purpose);
+                
+                for req in &capability.requirements {
+                    spec_markdown.push_str(&format!("### {}\n{}\n\n", req.name, req.content));
+                    for scenario in &req.scenarios {
+                        spec_markdown.push_str(&format!("**{}**\nWHEN {}\nTHEN {}\n", 
+                            scenario.name, scenario.when, scenario.then));
+                        if let Some(and_clauses) = &scenario.and {
+                            for and_clause in and_clauses {
+                                spec_markdown.push_str(&format!("AND {}\n", and_clause));
+                            }
+                        }
+                        spec_markdown.push('\n');
+                    }
+                }
+
+                // Create capability
+                let capability_result = openspec_db::create_capability(
+                    &db.pool,
+                    project_id,
+                    Some(&request.prd_id),
+                    &capability.name,
+                    Some(&capability.purpose),
+                    &spec_markdown,
+                    None, // No design markdown yet
+                ).await;
+
+                let cap_db = match capability_result {
+                    Ok(cap) => {
+                        info!("Created capability: {} ({})", capability.name, cap.id);
+                        cap
+                    }
+                    Err(e) => {
+                        error!("Failed to create capability {}: {}", capability.name, e);
+                        continue; // Skip this capability but continue with others
+                    }
+                };
+
+                // Save requirements for this capability
+                for (req_position, requirement) in capability.requirements.iter().enumerate() {
+                    let req_result = openspec_db::create_requirement(
+                        &db.pool,
+                        &cap_db.id,
+                        &requirement.name,
+                        &requirement.content,
+                        req_position as i32,
+                    ).await;
+
+                    let req_db = match req_result {
+                        Ok(req) => {
+                            info!("Created requirement: {} ({})", requirement.name, req.id);
+                            req
+                        }
+                        Err(e) => {
+                            error!("Failed to create requirement {}: {}", requirement.name, e);
+                            continue;
+                        }
+                    };
+
+                    // Save scenarios for this requirement
+                    for (scenario_position, scenario) in requirement.scenarios.iter().enumerate() {
+                        let and_clauses = scenario.and.clone();
+                        
+                        if let Err(e) = openspec_db::create_scenario(
+                            &db.pool,
+                            &req_db.id,
+                            &scenario.name,
+                            &scenario.when,
+                            &scenario.then,
+                            and_clauses,
+                            scenario_position as i32,
+                        ).await {
+                            error!("Failed to create scenario {}: {}", scenario.name, e);
+                        } else {
+                            info!("Created scenario: {}", scenario.name);
+                        }
+                    }
+                }
+            }
+
+            // Save suggested tasks to database
+            info!("Creating {} suggested tasks", ai_response.data.suggested_tasks.len());
+            for (task_index, task_suggestion) in ai_response.data.suggested_tasks.iter().enumerate() {
+                // Convert priority string to TaskPriority enum
+                let priority = match task_suggestion.priority.to_lowercase().as_str() {
+                    "high" => TaskPriority::High,
+                    "low" => TaskPriority::Low,
+                    _ => TaskPriority::Medium,
+                };
+
+                let task_input = TaskCreateInput {
+                    title: task_suggestion.title.clone(),
+                    description: Some(task_suggestion.description.clone()),
+                    status: None, // Will default to Pending
+                    priority: Some(priority),
+                    assigned_agent_id: None,
+                    parent_id: None,
+                    position: Some(task_index as i32),
+                    dependencies: None,
+                    due_date: None,
+                    estimated_hours: task_suggestion.estimated_hours.map(|h| h as f64),
+                    complexity_score: Some(task_suggestion.complexity as i32),
+                    details: None,
+                    test_strategy: None,
+                    acceptance_criteria: None,
+                    prompt: None,
+                    context: None,
+                    tag_id: None,
+                    tags: None,
+                    category: Some(task_suggestion.capability_id.clone()),
+                };
+
+                match db.task_storage.create_task(
+                    project_id,
+                    &current_user.id,
+                    task_input
+                ).await {
+                    Ok(task) => {
+                        info!("Created task: {} ({})", task_suggestion.title, task.id);
+                    }
+                    Err(e) => {
+                        error!("Failed to create task {}: {}", task_suggestion.title, e);
+                    }
+                }
+            }
+
             // Log AI usage to database
             let usage_log = AiUsageLog {
                 id: nanoid::nanoid!(10),
-                project_id: request.prd_id.clone(), // Use PRD ID as project ID for now
+                project_id: project_id.to_string(),
                 request_id: None,
                 operation: "analyzePRD".to_string(),
                 provider: "anthropic".to_string(),
@@ -324,6 +471,8 @@ Respond with ONLY valid JSON. Do not include markdown formatting, code blocks, o
                 error!("Failed to log AI usage: {}", e);
                 // Continue anyway - logging failure shouldn't block the response
             }
+
+            info!("Successfully saved PRD analysis to database");
 
             let response = AnalyzePRDResponse {
                 prd_id: request.prd_id,

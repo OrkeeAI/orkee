@@ -105,7 +105,7 @@ export function SpecDetailsView({ projectId, specId, onEdit }: SpecDetailsViewPr
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {requirements.reduce((sum, req) => sum + req.scenarios.length, 0)}
+              {requirements.reduce((sum, req) => sum + (req.scenarios?.length || 0), 0)}
             </div>
             <p className="text-xs text-muted-foreground">Test scenarios across all requirements</p>
           </CardContent>
@@ -180,7 +180,7 @@ export function SpecDetailsView({ projectId, specId, onEdit }: SpecDetailsViewPr
                     <div className="space-y-1">
                       <CardTitle className="text-lg">{req.name}</CardTitle>
                       <CardDescription>
-                        {req.scenarios.length} scenario{req.scenarios.length !== 1 ? 's' : ''}
+                        {req.scenarios?.length || 0} scenario{(req.scenarios?.length || 0) !== 1 ? 's' : ''}
                       </CardDescription>
                     </div>
                     <Badge variant="secondary">#{index + 1}</Badge>
@@ -193,7 +193,7 @@ export function SpecDetailsView({ projectId, specId, onEdit }: SpecDetailsViewPr
                     </ReactMarkdown>
                   </div>
 
-                  {req.scenarios.length > 0 && (
+                  {req.scenarios && req.scenarios.length > 0 && (
                     <>
                       <Separator />
                       <div className="space-y-3">

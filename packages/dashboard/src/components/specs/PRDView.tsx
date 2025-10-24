@@ -1,7 +1,7 @@
 // ABOUTME: PRD management view displaying list of PRDs with metadata and content
 // ABOUTME: Integrates with PRDUploadDialog for creating/analyzing PRDs
 import { useState } from 'react';
-import { FileText, Upload, Sparkles, Trash2, Calendar, User } from 'lucide-react';
+import { FileText, Upload, Sparkles, Trash2, Calendar, User, Layers } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -12,23 +12,32 @@ import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
 import rehypeSanitize from 'rehype-sanitize';
 import { usePRDs, useDeletePRD, useTriggerPRDAnalysis } from '@/hooks/usePRDs';
+import { useSpecs } from '@/hooks/useSpecs';
 import { PRDUploadDialog } from '@/components/PRDUploadDialog';
 import { ModelSelectionDialog } from '@/components/ModelSelectionDialog';
 import type { PRD } from '@/services/prds';
 
 interface PRDViewProps {
   projectId: string;
+  onViewSpecs?: (prdId: string) => void;
 }
 
-export function PRDView({ projectId }: PRDViewProps) {
+export function PRDView({ projectId, onViewSpecs }: PRDViewProps) {
   const [selectedPRD, setSelectedPRD] = useState<PRD | null>(null);
   const [showUploadDialog, setShowUploadDialog] = useState(false);
   const [showModelSelection, setShowModelSelection] = useState(false);
   const [prdToAnalyze, setPrdToAnalyze] = useState<string | null>(null);
 
   const { data: prds, isLoading, error } = usePRDs(projectId);
+  const { data: allSpecs } = useSpecs(projectId);
   const deletePRDMutation = useDeletePRD(projectId);
   const analyzePRDMutation = useTriggerPRDAnalysis(projectId);
+
+  // Count specs for each PRD
+  const getSpecCountForPRD = (prdId: string) => {
+    if (!allSpecs) return 0;
+    return allSpecs.filter(spec => spec.prdId === prdId).length;
+  };
 
   const handleDelete = (prdId: string) => {
     if (confirm('Are you sure you want to delete this PRD? This action cannot be undone.')) {
@@ -186,6 +195,10 @@ export function PRDView({ projectId }: PRDViewProps) {
                       <span>{prd.createdBy}</span>
                     </div>
                   )}
+                  <div className="flex items-center gap-1 pt-1">
+                    <Layers className="h-3 w-3" />
+                    <span>{getSpecCountForPRD(prd.id)} {getSpecCountForPRD(prd.id) === 1 ? 'spec' : 'specs'}</span>
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -205,6 +218,16 @@ export function PRDView({ projectId }: PRDViewProps) {
                     </CardDescription>
                   </div>
                   <div className="flex gap-2">
+                    {getSpecCountForPRD(selectedPRD.id) > 0 && onViewSpecs && (
+                      <Button
+                        variant="default"
+                        size="sm"
+                        onClick={() => onViewSpecs(selectedPRD.id)}
+                      >
+                        <Layers className="mr-2 h-4 w-4" />
+                        View Specs ({getSpecCountForPRD(selectedPRD.id)})
+                      </Button>
+                    )}
                     <Button
                       variant="outline"
                       size="sm"
