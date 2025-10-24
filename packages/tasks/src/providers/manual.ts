@@ -21,7 +21,7 @@ export class ManualTaskProvider extends BaseTaskProvider {
     // Verify API connection
     const response = await this.authenticatedFetch(`${this.apiBaseUrl}/api/health`);
     if (!response.ok) {
-      throw new Error('Failed to connect to Orkee API');
+      throw new Error(`Failed to connect to Orkee API (status: ${response.status})`);
     }
   }
 
@@ -30,6 +30,7 @@ export class ManualTaskProvider extends BaseTaskProvider {
    */
   private async authenticatedFetch(url: string, options: RequestInit = {}): Promise<Response> {
     const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
       ...options.headers as Record<string, string>,
     };
 
@@ -49,7 +50,7 @@ export class ManualTaskProvider extends BaseTaskProvider {
     const data = await response.json();
 
     if (!data.success) {
-      throw new Error(data.error || 'Failed to fetch tasks');
+      throw new Error(data.error || `Failed to fetch tasks (status: ${response.status})`);
     }
 
     // API returns paginated response: { success, data: { data: [...], pagination: {...} } }
@@ -69,7 +70,7 @@ export class ManualTaskProvider extends BaseTaskProvider {
 
     const data = await response.json();
     if (!data.success) {
-      throw new Error(data.error || 'Failed to create task');
+      throw new Error(data.error || `Failed to create task (status: ${response.status})`);
     }
 
     const createdTask = this.transformTask(data.data);
@@ -93,7 +94,7 @@ export class ManualTaskProvider extends BaseTaskProvider {
 
     const data = await response.json();
     if (!data.success) {
-      throw new Error(data.error || 'Failed to update task');
+      throw new Error(data.error || `Failed to update task (status: ${response.status})`);
     }
 
     const updatedTask = this.transformTask(data.data);
@@ -116,7 +117,7 @@ export class ManualTaskProvider extends BaseTaskProvider {
 
     const data = await response.json();
     if (!data.success) {
-      throw new Error(data.error || 'Failed to delete task');
+      throw new Error(data.error || `Failed to delete task (status: ${response.status})`);
     }
 
     this.emitTaskEvent({
@@ -153,7 +154,7 @@ export class ManualTaskProvider extends BaseTaskProvider {
 
     const data = await response.json();
     if (!data.success) {
-      throw new Error('Project not found');
+      throw new Error(`Project not found (status: ${response.status})`);
     }
 
     this.projectId = data.data.id;

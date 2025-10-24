@@ -39,8 +39,8 @@ export function TasksTab({ projectId, projectPath, taskSource }: TasksTabProps) 
     projectPath,
     providerType: taskSource as 'taskmaster' | 'manual',
     enabled: apiBaseUrl !== null,
-    apiBaseUrl: apiBaseUrl || 'http://localhost:4001',
-    apiToken: apiToken || undefined
+    apiBaseUrl: apiBaseUrl ?? 'http://localhost:4001',
+    apiToken: apiToken ?? undefined
   });
 
   if (isLoading) {
