@@ -11,7 +11,7 @@ PRAGMA foreign_keys = ON;
 -- Projects table - main entity
 CREATE TABLE projects (
     -- Core fields
-    id TEXT PRIMARY KEY NOT NULL,
+    id TEXT PRIMARY KEY,
     name TEXT NOT NULL UNIQUE,
     project_root TEXT NOT NULL UNIQUE,
     description TEXT,
@@ -692,8 +692,8 @@ CREATE TABLE context_configurations (
     exclude_patterns TEXT NOT NULL DEFAULT '[]',
     max_tokens INTEGER NOT NULL DEFAULT 100000,
     spec_capability_id TEXT REFERENCES spec_capabilities(id) ON DELETE SET NULL,
-    created_at TEXT NOT NULL DEFAULT (datetime('now')),
-    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    created_at TEXT NOT NULL DEFAULT (datetime('now', 'utc')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now', 'utc'))
 );
 
 CREATE INDEX idx_context_configs_project ON context_configurations(project_id);
@@ -707,7 +707,7 @@ CREATE TABLE context_snapshots (
     file_count INTEGER NOT NULL DEFAULT 0,
     total_tokens INTEGER NOT NULL DEFAULT 0,
     metadata TEXT NOT NULL DEFAULT '{}',
-    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    created_at TEXT NOT NULL DEFAULT (datetime('now', 'utc'))
 );
 
 CREATE INDEX idx_context_snapshots_project ON context_snapshots(project_id);
@@ -719,7 +719,7 @@ CREATE TABLE context_usage_patterns (
     project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
     file_path TEXT NOT NULL,
     inclusion_count INTEGER NOT NULL DEFAULT 0,
-    last_used TEXT NOT NULL DEFAULT (datetime('now')),
+    last_used TEXT NOT NULL DEFAULT (datetime('now', 'utc')),
     UNIQUE(project_id, file_path) ON CONFLICT REPLACE
 );
 
@@ -737,7 +737,7 @@ CREATE TABLE ast_spec_mappings (
     requirement_id TEXT REFERENCES spec_requirements(id),
     confidence REAL DEFAULT 0.0,
     verified INTEGER DEFAULT 0,
-    created_at TEXT DEFAULT (datetime('now')),
+    created_at TEXT DEFAULT (datetime('now', 'utc')),
     FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
 );
 
@@ -753,7 +753,7 @@ CREATE TABLE context_templates (
     include_patterns TEXT DEFAULT '[]',
     exclude_patterns TEXT DEFAULT '[]',
     ast_filters TEXT,
-    created_at TEXT DEFAULT (datetime('now'))
+    created_at TEXT DEFAULT (datetime('now', 'utc'))
 );
 
 -- AI Usage Tracking
@@ -800,8 +800,8 @@ CREATE TABLE encryption_settings (
     encryption_mode TEXT NOT NULL DEFAULT 'machine' CHECK (encryption_mode IN ('machine', 'password')),
     password_salt BLOB,
     password_hash BLOB,
-    created_at TEXT NOT NULL DEFAULT (datetime('now')),
-    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    created_at TEXT NOT NULL DEFAULT (datetime('now', 'utc')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now', 'utc'))
 );
 
 CREATE INDEX idx_encryption_settings_mode ON encryption_settings(encryption_mode);
@@ -821,7 +821,7 @@ ON password_attempts(locked_until) WHERE locked_until IS NOT NULL;
 
 -- API Tokens
 CREATE TABLE api_tokens (
-    id TEXT PRIMARY KEY NOT NULL,
+    id TEXT PRIMARY KEY,
     token_hash TEXT NOT NULL,
     name TEXT NOT NULL,
     created_at TEXT NOT NULL DEFAULT (datetime('now', 'utc')),
@@ -838,14 +838,14 @@ CREATE INDEX idx_api_tokens_hash ON api_tokens(token_hash);
 
 -- Storage Metadata
 CREATE TABLE storage_metadata (
-    key TEXT PRIMARY KEY NOT NULL,
+    key TEXT PRIMARY KEY,
     value TEXT NOT NULL,
     updated_at TEXT NOT NULL DEFAULT (datetime('now', 'utc'))
 );
 
 -- System Settings
 CREATE TABLE system_settings (
-    key TEXT PRIMARY KEY NOT NULL,
+    key TEXT PRIMARY KEY,
     value TEXT NOT NULL,
     category TEXT NOT NULL,
     description TEXT,
@@ -873,15 +873,15 @@ CREATE TABLE telemetry_settings (
     non_anonymous_metrics BOOLEAN NOT NULL DEFAULT FALSE,
     machine_id TEXT,
     user_id TEXT,
-    created_at TEXT NOT NULL DEFAULT (datetime('now')),
-    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    created_at TEXT NOT NULL DEFAULT (datetime('now', 'utc')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now', 'utc'))
 );
 
 CREATE TRIGGER update_telemetry_settings_timestamp
 AFTER UPDATE ON telemetry_settings
 BEGIN
     UPDATE telemetry_settings
-    SET updated_at = datetime('now')
+    SET updated_at = datetime('now', 'utc')
     WHERE id = NEW.id;
 END;
 
@@ -893,7 +893,7 @@ CREATE TABLE telemetry_events (
     event_data TEXT,
     anonymous BOOLEAN NOT NULL DEFAULT TRUE,
     session_id TEXT,
-    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    created_at TEXT NOT NULL DEFAULT (datetime('now', 'utc')),
     sent_at TEXT,
     retry_count INTEGER DEFAULT 0
 );
@@ -915,7 +915,7 @@ CREATE TABLE telemetry_stats (
     performance_events INTEGER DEFAULT 0,
     events_sent INTEGER DEFAULT 0,
     events_pending INTEGER DEFAULT 0,
-    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    created_at TEXT NOT NULL DEFAULT (datetime('now', 'utc')),
     UNIQUE(stat_date)
 );
 
@@ -925,7 +925,7 @@ CREATE TABLE telemetry_stats (
 
 -- Sync Snapshots
 CREATE TABLE sync_snapshots (
-    id TEXT PRIMARY KEY NOT NULL,
+    id TEXT PRIMARY KEY,
     created_at TEXT NOT NULL DEFAULT (datetime('now', 'utc')),
     compressed_data BLOB NOT NULL,
     checksum TEXT NOT NULL,
@@ -939,7 +939,7 @@ CREATE INDEX idx_sync_snapshots_status ON sync_snapshots(sync_status);
 
 -- Sync State
 CREATE TABLE sync_state (
-    id TEXT PRIMARY KEY NOT NULL,
+    id TEXT PRIMARY KEY,
     user_id TEXT,
     device_id TEXT,
     last_sync_at TEXT,
