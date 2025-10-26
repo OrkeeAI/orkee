@@ -980,8 +980,9 @@ CREATE INDEX idx_sync_state_last_sync ON sync_state(last_sync_at);
 -- ============================================================================
 
 -- Storage metadata
+-- Note: Schema version is managed by SQLx via _sqlx_migrations table
+-- Do not add schema_version here - it creates two sources of truth
 INSERT INTO storage_metadata (key, value) VALUES
-    ('schema_version', '1'),
     ('created_at', datetime('now', 'utc')),
     ('storage_type', 'sqlite');
 
