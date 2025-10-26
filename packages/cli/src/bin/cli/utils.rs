@@ -91,4 +91,3 @@ async fn get_database_pool() -> Result<SqlitePool, Box<dyn std::error::Error>> {
 
     Ok(pool)
 }
-
