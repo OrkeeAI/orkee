@@ -475,7 +475,7 @@ async fn test_project_fts_trigger_on_insert() {
 
     sqlx::query(
         "INSERT INTO projects (id, name, project_root, description, created_at, updated_at)
-         VALUES (?, ?, ?, ?, datetime('now', 'utc'), datetime('now', 'utc'))"
+         VALUES (?, ?, ?, ?, datetime('now', 'utc'), datetime('now', 'utc'))",
     )
     .bind(project_id)
     .bind(project_name)
@@ -486,23 +486,23 @@ async fn test_project_fts_trigger_on_insert() {
     .unwrap();
 
     // Verify FTS entry was created by trigger
-    let fts_count: i64 = sqlx::query_scalar(
-        "SELECT COUNT(*) FROM projects_fts WHERE id = ?"
-    )
-    .bind(project_id)
-    .fetch_one(&pool)
-    .await
-    .unwrap();
+    let fts_count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM projects_fts WHERE id = ?")
+        .bind(project_id)
+        .fetch_one(&pool)
+        .await
+        .unwrap();
 
-    assert_eq!(fts_count, 1, "FTS trigger should create entry on project insert");
+    assert_eq!(
+        fts_count, 1,
+        "FTS trigger should create entry on project insert"
+    );
 
     // Verify FTS search works
-    let search_results: Vec<String> = sqlx::query_scalar(
-        "SELECT id FROM projects_fts WHERE projects_fts MATCH 'search'"
-    )
-    .fetch_all(&pool)
-    .await
-    .unwrap();
+    let search_results: Vec<String> =
+        sqlx::query_scalar("SELECT id FROM projects_fts WHERE projects_fts MATCH 'search'")
+            .fetch_all(&pool)
+            .await
+            .unwrap();
 
     assert!(
         search_results.contains(&project_id.to_string()),
@@ -551,7 +551,10 @@ async fn test_project_fts_trigger_on_delete() {
         .await
         .unwrap();
 
-    assert_eq!(after_count, 0, "FTS trigger should delete entry on project delete");
+    assert_eq!(
+        after_count, 0,
+        "FTS trigger should delete entry on project delete"
+    );
 }
 
 #[tokio::test]
@@ -573,7 +576,7 @@ async fn test_user_delete_cascades_to_user_agents() {
     let user_agent_id = "test-ua-1";
     sqlx::query(
         "INSERT INTO user_agents (id, user_id, agent_id, created_at, updated_at)
-         VALUES (?, ?, 'claude-code', datetime('now', 'utc'), datetime('now', 'utc'))"
+         VALUES (?, ?, 'claude-code', datetime('now', 'utc'), datetime('now', 'utc'))",
     )
     .bind(user_agent_id)
     .bind(user_id)
@@ -582,12 +585,16 @@ async fn test_user_delete_cascades_to_user_agents() {
     .unwrap();
 
     // Verify user_agent exists
-    let before_count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM user_agents WHERE user_id = ?")
-        .bind(user_id)
-        .fetch_one(&pool)
-        .await
-        .unwrap();
-    assert_eq!(before_count, 1, "user_agents entry should exist before user delete");
+    let before_count: i64 =
+        sqlx::query_scalar("SELECT COUNT(*) FROM user_agents WHERE user_id = ?")
+            .bind(user_id)
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+    assert_eq!(
+        before_count, 1,
+        "user_agents entry should exist before user delete"
+    );
 
     // Delete the user
     sqlx::query("DELETE FROM users WHERE id = ?")
@@ -684,7 +691,8 @@ async fn test_invalid_project_status_rejected() {
     // Verify error message mentions constraint
     let error_msg = result.unwrap_err().to_string();
     assert!(
-        error_msg.to_lowercase().contains("check") || error_msg.to_lowercase().contains("constraint"),
+        error_msg.to_lowercase().contains("check")
+            || error_msg.to_lowercase().contains("constraint"),
         "Error should mention CHECK constraint violation"
     );
 }
@@ -708,7 +716,8 @@ async fn test_invalid_project_priority_rejected() {
 
     let error_msg = result.unwrap_err().to_string();
     assert!(
-        error_msg.to_lowercase().contains("check") || error_msg.to_lowercase().contains("constraint"),
+        error_msg.to_lowercase().contains("check")
+            || error_msg.to_lowercase().contains("constraint"),
         "Error should mention CHECK constraint violation"
     );
 }
@@ -751,7 +760,7 @@ async fn test_empty_id_rejected_by_check_constraint() {
     // Try to insert project with empty ID
     let result = sqlx::query(
         "INSERT INTO projects (id, name, project_root, created_at, updated_at)
-         VALUES ('', 'Empty ID', '/tmp/empty', datetime('now', 'utc'), datetime('now', 'utc'))"
+         VALUES ('', 'Empty ID', '/tmp/empty', datetime('now', 'utc'), datetime('now', 'utc'))",
     )
     .execute(&pool)
     .await;
