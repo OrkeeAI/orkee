@@ -41,8 +41,8 @@ async fn test_list_changes() {
             &ctx.base_url,
             &format!("/{}/changes", project_id),
             &json!({
-                "proposalMarkdown": format!("# Proposal {}", i),
-                "tasksMarkdown": format!("# Tasks {}", i),
+                "proposalMarkdown": format!("# Proposal {}\n\nThis is proposal content for change {}", i, i),
+                "tasksMarkdown": format!("# Tasks {}\n\n- Task 1\n- Task 2", i),
                 "createdBy": "test-user"
             }),
         )
@@ -104,8 +104,8 @@ async fn test_update_change_status() {
         &ctx.base_url,
         &format!("/{}/changes", project_id),
         &json!({
-            "proposalMarkdown": "# Proposal",
-            "tasksMarkdown": "# Tasks",
+            "proposalMarkdown": "# Proposal\n\nThis is the proposal content",
+            "tasksMarkdown": "# Tasks\n\n- Task 1\n- Task 2",
             "createdBy": "test-user"
         }),
     )
@@ -150,8 +150,8 @@ async fn test_get_change_deltas() {
         &ctx.base_url,
         &format!("/{}/changes", project_id),
         &json!({
-            "proposalMarkdown": "# Proposal",
-            "tasksMarkdown": "# Tasks",
+            "proposalMarkdown": "# Proposal\n\nThis is the proposal content",
+            "tasksMarkdown": "# Tasks\n\n- Task 1\n- Task 2",
             "createdBy": "test-user"
         }),
     )
@@ -184,8 +184,8 @@ async fn test_create_delta() {
         &ctx.base_url,
         &format!("/{}/changes", project_id),
         &json!({
-            "proposalMarkdown": "# Proposal",
-            "tasksMarkdown": "# Tasks",
+            "proposalMarkdown": "# Proposal\n\nThis is the proposal content",
+            "tasksMarkdown": "# Tasks\n\n- Task 1\n- Task 2",
             "createdBy": "test-user"
         }),
     )
@@ -201,7 +201,7 @@ async fn test_create_delta() {
         &json!({
             "capabilityName": "New Capability",
             "deltaType": "added",
-            "deltaMarkdown": "# New capability markdown",
+            "deltaMarkdown": "# New capability\n\nThis is the capability content.",
             "position": 0
         }),
     )
@@ -224,8 +224,8 @@ async fn test_list_changes_with_pagination() {
             &ctx.base_url,
             &format!("/{}/changes", project_id),
             &json!({
-                "proposalMarkdown": format!("# Proposal {}", i),
-                "tasksMarkdown": format!("# Tasks {}", i),
+                "proposalMarkdown": format!("# Proposal {}\n\nThis is proposal content for change {}", i, i),
+                "tasksMarkdown": format!("# Tasks {}\n\n- Task 1\n- Task 2", i),
                 "createdBy": "test-user"
             }),
         )
@@ -241,4 +241,100 @@ async fn test_list_changes_with_pagination() {
     assert_eq!(body["success"], true);
     assert_eq!(body["data"]["data"].as_array().unwrap().len(), 2);
     assert_eq!(body["data"]["pagination"]["totalItems"], 5);
+}
+
+#[tokio::test]
+async fn test_concurrent_change_creation_no_duplicates() {
+    use orkee_projects::api::ai_handlers::PRDAnalysisData;
+    use orkee_projects::openspec::change_builder::create_change_from_analysis;
+    use std::collections::HashSet;
+
+    let ctx = setup_test_server().await;
+    let project_id = create_test_project(&ctx.pool, "Test Project", "/test/path").await;
+
+    // Create a PRD first
+    let prd_response = post_json(
+        &ctx.base_url,
+        &format!("/{}/prds", project_id),
+        &json!({
+            "title": "Test PRD",
+            "contentMarkdown": "# Test PRD\n\nThis is a test PRD",
+            "createdBy": "test-user"
+        }),
+    )
+    .await;
+
+    let prd_body: serde_json::Value = prd_response.json().await.unwrap();
+    let prd_id = prd_body["data"]["id"].as_str().unwrap().to_string();
+
+    // Create 5 concurrent changes with the same verb
+    // (SQLite has limited concurrency, so we test with a smaller number)
+    let mut handles = vec![];
+    for i in 0..5 {
+        let pool = ctx.pool.clone();
+        let project_id = project_id.clone();
+        let prd_id = prd_id.clone();
+
+        let handle = tokio::spawn(async move {
+            // Add small jitter to reduce likelihood of exact simultaneous execution
+            if i > 0 {
+                tokio::time::sleep(tokio::time::Duration::from_millis(i as u64 * 2)).await;
+            }
+
+            // Create analysis data inside each task to avoid clone issues
+            let analysis = PRDAnalysisData {
+                summary: "Add new authentication feature".to_string(),
+                capabilities: vec![],
+                suggested_tasks: vec![],
+                dependencies: None,
+                technical_considerations: None,
+            };
+
+            create_change_from_analysis(&pool, &project_id, &prd_id, &analysis, "test-user").await
+        });
+
+        handles.push(handle);
+    }
+
+    // Wait for all to complete
+    let mut changes = vec![];
+    for handle in handles {
+        match handle.await {
+            Ok(Ok(change)) => changes.push(change),
+            Ok(Err(e)) => panic!("Change creation failed: {:?}", e),
+            Err(e) => panic!("Task panicked: {:?}", e),
+        }
+    }
+
+    assert_eq!(changes.len(), 5, "All 5 changes should be created");
+
+    // Verify all change numbers are unique
+    let change_numbers: HashSet<_> = changes.iter().filter_map(|c| c.change_number).collect();
+
+    assert_eq!(
+        change_numbers.len(),
+        5,
+        "All 5 change numbers should be unique"
+    );
+
+    // Verify all change numbers are in the range [1, 5]
+    for num in change_numbers.iter() {
+        assert!(
+            *num >= 1 && *num <= 5,
+            "Change number should be between 1 and 5"
+        );
+    }
+
+    // Verify all have the same verb prefix
+    let verb_prefixes: HashSet<_> = changes
+        .iter()
+        .filter_map(|c| c.verb_prefix.as_ref())
+        .collect();
+
+    assert_eq!(
+        verb_prefixes.len(),
+        1,
+        "All changes should have the same verb prefix"
+    );
+    assert!(verb_prefixes.contains(&"add".to_string()));
 }

@@ -23,6 +23,7 @@ pub mod tags_handlers;
 pub mod task_spec_handlers;
 pub mod tasks_handlers;
 pub mod users_handlers;
+pub mod validation;
 
 /// Creates the projects API router
 pub fn create_projects_router() -> Router {
@@ -195,6 +196,23 @@ pub fn create_changes_router() -> Router<DbState> {
         .route(
             "/:project_id/changes/:change_id/deltas",
             post(change_handlers::create_delta),
+        )
+        // Task completion tracking routes
+        .route(
+            "/:project_id/changes/:change_id/tasks",
+            get(change_handlers::get_change_tasks),
+        )
+        .route(
+            "/:project_id/changes/:change_id/tasks/parse",
+            post(change_handlers::parse_change_tasks),
+        )
+        .route(
+            "/:project_id/changes/:change_id/tasks/bulk",
+            put(change_handlers::bulk_update_tasks),
+        )
+        .route(
+            "/:project_id/changes/:change_id/tasks/:task_id",
+            put(change_handlers::update_task),
         )
 }
 

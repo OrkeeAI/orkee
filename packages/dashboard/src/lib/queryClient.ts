@@ -41,6 +41,8 @@ export const queryKeys = {
   directories: ['directories'] as const,
   health: ['health'] as const,
   prds: ['prds'] as const,
+  agents: ['agents'] as const,
+  currentUser: ['current-user'] as const,
 
   // Project-specific keys
   projectsList: () => [...queryKeys.projects, 'list'] as const,
@@ -62,6 +64,11 @@ export const queryKeys = {
   specsList: (projectId: string) => [...queryKeys.specs, 'list', projectId] as const,
   specDetail: (projectId: string, specId: string) => [...queryKeys.specs, 'detail', projectId, specId] as const,
   specRequirements: (projectId: string, specId: string) => [...queryKeys.specs, 'requirements', projectId, specId] as const,
+
+  // Change keys
+  changes: ['changes'] as const,
+  changesList: (projectId: string) => [...queryKeys.changes, 'list', projectId] as const,
+  changeDetail: (projectId: string, changeId: string) => [...queryKeys.changes, 'detail', projectId, changeId] as const,
 
   // AI Usage keys
   aiUsage: ['ai-usage'] as const,
@@ -102,6 +109,16 @@ export const invalidateSpec = (projectId: string, specId: string) => {
   queryClient.invalidateQueries({ queryKey: queryKeys.specDetail(projectId, specId) })
   queryClient.invalidateQueries({ queryKey: queryKeys.specsList(projectId) })
   queryClient.invalidateQueries({ queryKey: queryKeys.specRequirements(projectId, specId) })
+}
+
+// Change invalidation helpers
+export const invalidateChangeQueries = (projectId: string) => {
+  queryClient.invalidateQueries({ queryKey: queryKeys.changesList(projectId) })
+}
+
+export const invalidateChange = (projectId: string, changeId: string) => {
+  queryClient.invalidateQueries({ queryKey: queryKeys.changeDetail(projectId, changeId) })
+  queryClient.invalidateQueries({ queryKey: queryKeys.changesList(projectId) })
 }
 
 // Prefetch utilities

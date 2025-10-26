@@ -53,8 +53,8 @@ async fn test_create_capability_minimal() {
     let body: serde_json::Value = response.json().await.unwrap();
     assert_eq!(body["success"], true);
     assert_eq!(body["data"]["name"], "Minimal Capability");
-    assert!(body["data"]["purpose_markdown"].is_null());
-    assert!(body["data"]["design_markdown"].is_null());
+    assert!(body["data"]["purposeMarkdown"].is_null());
+    assert!(body["data"]["designMarkdown"].is_null());
 }
 
 #[tokio::test]
@@ -208,8 +208,8 @@ async fn test_update_capability() {
     )
     .await;
     let get_body: serde_json::Value = get_response.json().await.unwrap();
-    assert_eq!(get_body["data"]["spec_markdown"], "# Updated Spec");
-    assert_eq!(get_body["data"]["purpose_markdown"], "New purpose");
+    assert_eq!(get_body["data"]["specMarkdown"], "# Updated Spec");
+    assert_eq!(get_body["data"]["purposeMarkdown"], "New purpose");
     assert_eq!(get_body["data"]["status"], "deprecated");
 }
 
@@ -253,8 +253,8 @@ async fn test_update_capability_partial() {
     .await;
     let get_body: serde_json::Value = get_response.json().await.unwrap();
     assert_eq!(get_body["data"]["status"], "archived");
-    assert_eq!(get_body["data"]["spec_markdown"], "# Original Spec");
-    assert_eq!(get_body["data"]["purpose_markdown"], "Original purpose");
+    assert_eq!(get_body["data"]["specMarkdown"], "# Original Spec");
+    assert_eq!(get_body["data"]["purposeMarkdown"], "Original purpose");
 }
 
 #[tokio::test]
