@@ -1411,11 +1411,11 @@ mod tests {
     async fn setup_test_db() -> Pool<Sqlite> {
         let pool = Pool::<Sqlite>::connect(":memory:").await.unwrap();
 
-        // Run migrations in order
-        sqlx::query(include_str!("../../migrations/001_initial_schema.sql"))
-            .execute(&pool)
+        // Run migrations
+        sqlx::migrate!("./migrations")
+            .run(&pool)
             .await
-            .unwrap();
+            .expect("Failed to run migrations");
 
         pool
     }
