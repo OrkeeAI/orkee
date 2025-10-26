@@ -634,6 +634,74 @@ OpenSpec provides end-to-end workflows from Product Requirements Documents (PRDs
 - **AI-powered**: Vercel AI SDK integration for PRD analysis and task generation
 - **Bidirectional sync**: Tasks ↔ Specs ↔ PRDs with automatic updates
 - **WHEN/THEN scenarios**: Testable requirements with validation
+- **Change Management**: Proposal-based workflow for spec modifications
+
+### Dashboard Workflow
+
+The OpenSpec dashboard provides a 5-tab interface for managing the complete spec-driven development lifecycle:
+
+#### Tab Overview
+
+```mermaid
+graph LR
+    A[PRDs] --> B[Changes]
+    B --> C[Specs]
+    C --> D[Archive]
+    D --> E[Coverage]
+
+    style A fill:#e1f5ff
+    style B fill:#fff9c4
+    style C fill:#c8e6c9
+    style D fill:#e0e0e0
+    style E fill:#f8bbd0
+```
+
+| Tab | Purpose | Key Features |
+|-----|---------|--------------|
+| **PRDs** | Product Requirements Documents | Upload, analyze, link to changes |
+| **Changes** | Active change proposals | Create, review, approve proposals |
+| **Specs** | Approved specifications | View capabilities, requirements, scenarios |
+| **Archive** | Completed changes | Historical view of implemented changes |
+| **Coverage** | Spec coverage metrics | Task-to-spec linking, orphan detection |
+
+#### Complete OpenSpec Workflow
+
+```mermaid
+flowchart TD
+    Start([Upload PRD]) --> PRD[PRDs Tab]
+    PRD --> Analyze[AI Analyzes Document]
+    Analyze --> Extract[Extract Capabilities]
+
+    Extract --> Change{Need Changes?}
+    Change -->|Yes| CreateChange[Create Change Proposal]
+    Change -->|No| Specs[Specs Tab - Approved Specs]
+
+    CreateChange --> Changes[Changes Tab]
+    Changes --> Draft[Draft Status]
+    Draft --> Review[Review Status]
+    Review --> Approve{Approved?}
+    Approve -->|No| Rejected[Rejected]
+    Approve -->|Yes| Implementing[Implementing Status]
+
+    Implementing --> Tasks[Generate/Link Tasks]
+    Tasks --> Complete[Completed Status]
+    Complete --> Archive[Archive Tab]
+
+    Archive --> Apply{Apply Specs?}
+    Apply -->|Yes| Specs
+    Apply -->|No| ArchiveOnly[Archived Only]
+
+    Specs --> Coverage[Coverage Tab]
+    Coverage --> Orphans{Orphan Tasks?}
+    Orphans -->|Yes| CreateChange
+    Orphans -->|No| End([Complete])
+
+    style PRD fill:#e1f5ff
+    style Changes fill:#fff9c4
+    style Specs fill:#c8e6c9
+    style Archive fill:#e0e0e0
+    style Coverage fill:#f8bbd0
+```
 
 ### Database Schema
 
@@ -706,16 +774,22 @@ OpenSpec adds 28 REST endpoints across 5 categories:
 | POST | `/api/projects/:id/specs/validate` | Validate spec format |
 | GET | `/api/projects/:id/specs/:spec_id/requirements` | Get requirements |
 
-#### Change Management (`/api/:project_id/changes`)
+#### Change Management (`/api/projects/:project_id/changes`)
 
 | Method | Endpoint | Purpose |
 |--------|----------|---------|
-| GET | `/api/:project_id/changes` | List all changes |
-| GET | `/api/:project_id/changes/:change_id` | Get specific change |
-| POST | `/api/:project_id/changes` | Create new change |
-| PUT | `/api/:project_id/changes/:change_id/status` | Update status |
-| GET | `/api/:project_id/changes/:change_id/deltas` | Get deltas |
-| POST | `/api/:project_id/changes/:change_id/deltas` | Create delta |
+| GET | `/api/projects/:project_id/changes` | List all changes (with pagination) |
+| GET | `/api/projects/:project_id/changes/:change_id` | Get specific change with deltas |
+| POST | `/api/projects/:project_id/changes` | Create new change proposal |
+| PUT | `/api/projects/:project_id/changes/:change_id/status` | Update change status |
+| GET | `/api/projects/:project_id/changes/:change_id/validate` | Validate change format |
+| POST | `/api/projects/:project_id/changes/:change_id/archive` | Archive completed change |
+| GET | `/api/projects/:project_id/changes/:change_id/deltas` | Get change deltas |
+| POST | `/api/projects/:project_id/changes/:change_id/deltas` | Create delta for change |
+| GET | `/api/projects/:project_id/changes/:change_id/tasks` | Get change tasks |
+| POST | `/api/projects/:project_id/changes/:change_id/tasks/parse` | Parse tasks from markdown |
+| PUT | `/api/projects/:project_id/changes/:change_id/tasks/bulk` | Bulk update tasks |
+| PUT | `/api/projects/:project_id/changes/:change_id/tasks/:task_id` | Update single task |
 
 #### Task-Spec Integration (`/api/tasks`)
 
@@ -737,19 +811,45 @@ OpenSpec adds 28 REST endpoints across 5 categories:
 
 ### Frontend Components
 
-OpenSpec provides 11 React components accessible through the dashboard:
+OpenSpec provides a comprehensive dashboard interface with the following views:
 
-1. **PRDUploadDialog** - Upload and analyze PRDs (3-tab interface)
-2. **SpecBuilderWizard** - Create specs with 4-step wizard
-3. **TaskSpecLinker** - Link tasks to requirements
-4. **SyncDashboard** - View orphan tasks and sync status
-5. **TaskSpecIndicator** - Show spec status on tasks
-6. **SpecDetailsView** - View spec details with scenarios
-7. **ChangeProposalForm** - Create change proposals
-8. **ValidationResultsPanel** - View validation results
-9. **SpecDiffViewer** - Compare spec versions
-10. **ScenarioTestRunner** - Test tasks against scenarios
-11. **CostDashboard** - Monitor AI usage and costs
+#### Main Tabs (SpecsTab Component)
+
+1. **PRDView** (`/specs/prds`) - Product Requirements Document management
+   - Upload and analyze PRDs
+   - Link PRDs to changes
+   - View PRD details and capabilities
+
+2. **ChangesView** (`/specs/changes`) - Active change proposal management
+   - List all active changes (Draft, Review, Approved, Implementing, Completed)
+   - View change details with deltas
+   - Track task completion
+   - Change status updates
+   - Uses `ChangesList` and `ChangeDetails` components
+
+3. **SpecificationsView** (`/specs/specs`) - Approved specification viewer
+   - Browse all approved capabilities
+   - View requirements and scenarios
+   - Filter by PRD
+   - Search and organization
+
+4. **ArchiveView** (`/specs/archive`) - Historical change records
+   - View archived/completed changes
+   - Historical implementation tracking
+   - Uses `ChangesList` (filtered) and `ChangeDetails` components
+
+5. **CoverageView** (`/specs/coverage`) - Spec coverage metrics
+   - Task-to-spec linking analysis
+   - Orphan task detection
+   - Coverage statistics
+
+#### Supporting Components
+
+- **ChangesList** - Reusable list component for changes (supports filtering)
+- **ChangeDetails** - Detailed change view with deltas, tasks, and status
+- **ValidationResultsPanel** - OpenSpec format validation results
+- **TaskCompletionTracker** - Track implementation progress
+- **DeltaViewer** - Display capability modifications
 
 ### File Locations
 
@@ -760,7 +860,120 @@ OpenSpec data is stored in the existing SQLite database:
 | `~/.orkee/orkee.db` | SQLite database with OpenSpec tables |
 | `~/.orkee/.env` | AI API keys (ANTHROPIC_API_KEY, etc.) |
 
-### Workflows
+### Change Management Workflow
+
+The Changes tab provides a comprehensive proposal-based workflow for managing specification modifications:
+
+#### Change Status Lifecycle
+
+```mermaid
+stateDiagram-v2
+    [*] --> Draft: Create Proposal
+    Draft --> Review: Submit for Review
+    Review --> Draft: Request Changes
+    Review --> Approved: Approve
+    Review --> Rejected: Reject
+    Approved --> Implementing: Start Work
+    Implementing --> Completed: Finish Work
+    Completed --> Archived: Archive
+    Archived --> [*]
+
+    note right of Draft
+        Initial proposal state
+        Can edit freely
+    end note
+
+    note right of Review
+        Awaiting approval
+        Can validate format
+    end note
+
+    note right of Approved
+        Ready for implementation
+        Generate tasks
+    end note
+
+    note right of Implementing
+        Work in progress
+        Track task completion
+    end note
+
+    note right of Completed
+        All tasks done
+        Ready to archive
+    end note
+
+    note right of Archived
+        Historical record
+        Optionally apply specs
+    end note
+```
+
+#### Delta Operations
+
+Changes consist of deltas that describe modifications to capabilities:
+
+```mermaid
+graph TD
+    Change[Change Proposal] --> HasDeltas{Has Deltas}
+    HasDeltas --> Added[ADDED<br/>New Capability]
+    HasDeltas --> Modified[MODIFIED<br/>Update Existing]
+    HasDeltas --> Removed[REMOVED<br/>Delete Capability]
+    HasDeltas --> Renamed[RENAMED<br/>Change Name]
+
+    Added --> Spec[Apply to Specs]
+    Modified --> Spec
+    Removed --> Spec
+    Renamed --> Spec
+
+    style Added fill:#c8e6c9
+    style Modified fill:#fff9c4
+    style Removed fill:#ffcdd2
+    style Renamed fill:#e1bee7
+```
+
+| Delta Type | Purpose | Example |
+|------------|---------|---------|
+| **ADDED** | Create new capability | "Add user authentication system" |
+| **MODIFIED** | Update existing capability | "Enhance search with filters" |
+| **REMOVED** | Delete deprecated capability | "Remove legacy API v1" |
+| **RENAMED** | Change capability name | "Rename 'Orders' to 'Transactions'" |
+
+#### Validation and Archiving
+
+Before archiving, changes can be validated against OpenSpec format:
+
+```mermaid
+flowchart LR
+    Change[Change] --> Validate{Validate Format}
+    Validate -->|Valid| Archive{Archive?}
+    Validate -->|Invalid| Errors[Show Errors]
+    Errors --> Fix[Fix Issues]
+    Fix --> Validate
+
+    Archive -->|Yes Apply| ApplySpecs[Apply to Specs]
+    Archive -->|No Apply| ArchiveOnly[Archive Only]
+
+    ApplySpecs --> Specs[(Specs DB)]
+    ArchiveOnly --> Archive[(Archive DB)]
+
+    style Validate fill:#fff9c4
+    style Archive fill:#e1bee7
+    style Specs fill:#c8e6c9
+    style Archive fill:#e0e0e0
+```
+
+**Validation Features:**
+- OpenSpec markdown format compliance
+- Delta structure validation
+- Task markdown parsing
+- Strict mode for production readiness
+
+**Archive Options:**
+- **Apply Specs**: Create/update capabilities from deltas
+- **Archive Only**: Store historical record without applying changes
+
+### Classic Workflows
 
 #### PRD → Spec → Task Flow
 
