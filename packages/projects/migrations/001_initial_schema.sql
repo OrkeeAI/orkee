@@ -914,7 +914,7 @@ ON password_attempts(locked_until) WHERE locked_until IS NOT NULL;
 -- API Tokens
 CREATE TABLE api_tokens (
     id TEXT PRIMARY KEY CHECK(length(id) >= 8),
-    token_hash TEXT NOT NULL,
+    token_hash TEXT NOT NULL,  -- SHA-256 hash of token (see api_tokens/storage.rs)
     name TEXT NOT NULL,
     created_at TEXT NOT NULL DEFAULT (datetime('now', 'utc')),
     last_used_at TEXT,
