@@ -239,7 +239,8 @@ async fn test_critical_indexes_created() {
         "idx_tasks_user_status",
         "idx_spec_changes_project",
         "idx_spec_changes_created_at",
-        "idx_spec_capabilities_project",
+        // idx_spec_capabilities_project removed - redundant with idx_spec_capabilities_project_status
+        "idx_spec_capabilities_project_status",
         "idx_prds_project",
         "idx_ai_usage_logs_project",
     ];

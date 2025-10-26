@@ -149,19 +149,30 @@ JOIN projects_fts fts ON p.rowid = fts.rowid;
 -- ============================================================================
 
 -- Users table
+-- API KEY ENCRYPTION (SECURITY-CRITICAL):
+-- All API key fields MUST contain encrypted data, never plaintext
+-- Encryption: ChaCha20-Poly1305 AEAD with base64 encoding
+-- Format: base64(nonce || ciphertext || tag) - minimum 38 characters
+-- Empty keys: Stored as empty string or NULL
+-- Implementation: packages/projects/src/security/encryption.rs
+-- Management: Use `orkee security` commands to configure encryption mode
 CREATE TABLE users (
     id TEXT PRIMARY KEY,
     email TEXT NOT NULL UNIQUE,
     name TEXT NOT NULL,
     default_agent_id TEXT REFERENCES agents(id) ON DELETE SET NULL,
     theme TEXT DEFAULT 'system',
-    openai_api_key TEXT,
-    anthropic_api_key TEXT,
-    google_api_key TEXT,
-    xai_api_key TEXT,
+
+    -- API keys stored as encrypted base64 strings
+    -- CHECK constraint enforces minimum encrypted length or empty/null
+    openai_api_key TEXT CHECK (openai_api_key IS NULL OR openai_api_key = '' OR length(openai_api_key) >= 38),
+    anthropic_api_key TEXT CHECK (anthropic_api_key IS NULL OR anthropic_api_key = '' OR length(anthropic_api_key) >= 38),
+    google_api_key TEXT CHECK (google_api_key IS NULL OR google_api_key = '' OR length(google_api_key) >= 38),
+    xai_api_key TEXT CHECK (xai_api_key IS NULL OR xai_api_key = '' OR length(xai_api_key) >= 38),
+
     ai_gateway_enabled BOOLEAN DEFAULT FALSE,
     ai_gateway_url TEXT,
-    ai_gateway_key TEXT,
+    ai_gateway_key TEXT CHECK (ai_gateway_key IS NULL OR ai_gateway_key = '' OR length(ai_gateway_key) >= 38),
     avatar_url TEXT,
     preferences TEXT,
     last_login_at TEXT,
