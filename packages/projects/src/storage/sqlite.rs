@@ -221,12 +221,11 @@ impl SqliteStorage {
         let mut total_cleaned = 0;
 
         // 1. Clean up orphaned user_agents records (agent_id is NOT NULL)
-        let orphaned_user_agents: Vec<(String, String)> = sqlx::query_as(
-            "SELECT id, agent_id FROM user_agents WHERE agent_id IS NOT NULL"
-        )
-        .fetch_all(&self.pool)
-        .await
-        .map_err(StorageError::Sqlx)?;
+        let orphaned_user_agents: Vec<(String, String)> =
+            sqlx::query_as("SELECT id, agent_id FROM user_agents WHERE agent_id IS NOT NULL")
+                .fetch_all(&self.pool)
+                .await
+                .map_err(StorageError::Sqlx)?;
 
         let mut deleted_user_agents = 0;
         for (id, agent_id) in orphaned_user_agents {
@@ -247,7 +246,7 @@ impl SqliteStorage {
 
         // 2. Clean up orphaned preferred_model_id in user_agents
         let orphaned_models: Vec<(String, String)> = sqlx::query_as(
-            "SELECT id, preferred_model_id FROM user_agents WHERE preferred_model_id IS NOT NULL"
+            "SELECT id, preferred_model_id FROM user_agents WHERE preferred_model_id IS NOT NULL",
         )
         .fetch_all(&self.pool)
         .await
@@ -272,7 +271,7 @@ impl SqliteStorage {
 
         // 3. Clean up orphaned default_agent_id in users table
         let orphaned_default_agents: Vec<(String, String)> = sqlx::query_as(
-            "SELECT id, default_agent_id FROM users WHERE default_agent_id IS NOT NULL"
+            "SELECT id, default_agent_id FROM users WHERE default_agent_id IS NOT NULL",
         )
         .fetch_all(&self.pool)
         .await
@@ -297,7 +296,7 @@ impl SqliteStorage {
 
         // 4. Clean up orphaned assigned_agent_id in tasks table
         let orphaned_task_agents: Vec<(String, String)> = sqlx::query_as(
-            "SELECT id, assigned_agent_id FROM tasks WHERE assigned_agent_id IS NOT NULL"
+            "SELECT id, assigned_agent_id FROM tasks WHERE assigned_agent_id IS NOT NULL",
         )
         .fetch_all(&self.pool)
         .await
@@ -322,7 +321,7 @@ impl SqliteStorage {
 
         // 5. Clean up orphaned reviewed_by_agent_id in tasks table
         let orphaned_reviewer_agents: Vec<(String, String)> = sqlx::query_as(
-            "SELECT id, reviewed_by_agent_id FROM tasks WHERE reviewed_by_agent_id IS NOT NULL"
+            "SELECT id, reviewed_by_agent_id FROM tasks WHERE reviewed_by_agent_id IS NOT NULL",
         )
         .fetch_all(&self.pool)
         .await
@@ -346,12 +345,11 @@ impl SqliteStorage {
         total_cleaned += cleared_reviewer_agents;
 
         // 6. Clean up orphaned agent_id in agent_executions table
-        let orphaned_execution_agents: Vec<(String, String)> = sqlx::query_as(
-            "SELECT id, agent_id FROM agent_executions WHERE agent_id IS NOT NULL"
-        )
-        .fetch_all(&self.pool)
-        .await
-        .map_err(StorageError::Sqlx)?;
+        let orphaned_execution_agents: Vec<(String, String)> =
+            sqlx::query_as("SELECT id, agent_id FROM agent_executions WHERE agent_id IS NOT NULL")
+                .fetch_all(&self.pool)
+                .await
+                .map_err(StorageError::Sqlx)?;
 
         let mut cleared_execution_agents = 0;
         for (exec_id, agent_id) in orphaned_execution_agents {
@@ -371,12 +369,11 @@ impl SqliteStorage {
         total_cleaned += cleared_execution_agents;
 
         // 7. Clean up orphaned model in agent_executions table
-        let orphaned_execution_models: Vec<(String, String)> = sqlx::query_as(
-            "SELECT id, model FROM agent_executions WHERE model IS NOT NULL"
-        )
-        .fetch_all(&self.pool)
-        .await
-        .map_err(StorageError::Sqlx)?;
+        let orphaned_execution_models: Vec<(String, String)> =
+            sqlx::query_as("SELECT id, model FROM agent_executions WHERE model IS NOT NULL")
+                .fetch_all(&self.pool)
+                .await
+                .map_err(StorageError::Sqlx)?;
 
         let mut cleared_execution_models = 0;
         for (exec_id, model_id) in orphaned_execution_models {
@@ -396,12 +393,11 @@ impl SqliteStorage {
         total_cleaned += cleared_execution_models;
 
         // 8. Check ai_usage_logs for orphaned models (log only, don't modify historical data)
-        let orphaned_usage_models: Vec<String> = sqlx::query_scalar(
-            "SELECT DISTINCT model FROM ai_usage_logs WHERE model IS NOT NULL"
-        )
-        .fetch_all(&self.pool)
-        .await
-        .map_err(StorageError::Sqlx)?;
+        let orphaned_usage_models: Vec<String> =
+            sqlx::query_scalar("SELECT DISTINCT model FROM ai_usage_logs WHERE model IS NOT NULL")
+                .fetch_all(&self.pool)
+                .await
+                .map_err(StorageError::Sqlx)?;
 
         let mut orphaned_usage_count = 0;
         for model_id in orphaned_usage_models {

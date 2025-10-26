@@ -871,18 +871,25 @@ async fn test_orphaned_user_agents_deleted_on_startup() {
     .unwrap();
 
     // Verify record exists
-    let count_before: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM user_agents WHERE id = 'orphan-ua'")
-        .fetch_one(&pool)
-        .await
-        .unwrap();
-    assert_eq!(count_before, 1, "Orphaned user_agents record should exist before validation");
+    let count_before: i64 =
+        sqlx::query_scalar("SELECT COUNT(*) FROM user_agents WHERE id = 'orphan-ua'")
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+    assert_eq!(
+        count_before, 1,
+        "Orphaned user_agents record should exist before validation"
+    );
 
     // Create storage with validation (which runs in initialize())
     // Note: We can't easily test this with in-memory DB since SqliteStorage::new creates new connection
     // Instead, we'll test the validation logic would detect this by checking agent exists
     use orkee_projects::models::REGISTRY;
     let agent_exists = REGISTRY.agent_exists("non-existent-agent");
-    assert!(!agent_exists, "Non-existent agent should not be in registry");
+    assert!(
+        !agent_exists,
+        "Non-existent agent should not be in registry"
+    );
 
     // In production, initialize() would delete this record
     // We simulate that here for testing:
@@ -891,11 +898,15 @@ async fn test_orphaned_user_agents_deleted_on_startup() {
         .await
         .unwrap();
 
-    let count_after: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM user_agents WHERE id = 'orphan-ua'")
-        .fetch_one(&pool)
-        .await
-        .unwrap();
-    assert_eq!(count_after, 0, "Orphaned user_agents record should be deleted");
+    let count_after: i64 =
+        sqlx::query_scalar("SELECT COUNT(*) FROM user_agents WHERE id = 'orphan-ua'")
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+    assert_eq!(
+        count_after, 0,
+        "Orphaned user_agents record should be deleted"
+    );
 }
 
 #[tokio::test]
@@ -920,13 +931,16 @@ async fn test_orphaned_preferred_model_cleared_on_startup() {
     .unwrap();
 
     // Verify orphaned model_id exists
-    let model_id: Option<String> = sqlx::query_scalar(
-        "SELECT preferred_model_id FROM user_agents WHERE id = 'test-ua1'"
-    )
-    .fetch_one(&pool)
-    .await
-    .unwrap();
-    assert_eq!(model_id.as_deref(), Some("deleted-model-v1"), "Orphaned model_id should exist before validation");
+    let model_id: Option<String> =
+        sqlx::query_scalar("SELECT preferred_model_id FROM user_agents WHERE id = 'test-ua1'")
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+    assert_eq!(
+        model_id.as_deref(),
+        Some("deleted-model-v1"),
+        "Orphaned model_id should exist before validation"
+    );
 
     // Simulate validation clearing the orphaned model
     use orkee_projects::models::REGISTRY;
@@ -939,13 +953,15 @@ async fn test_orphaned_preferred_model_cleared_on_startup() {
         .await
         .unwrap();
 
-    let model_id_after: Option<String> = sqlx::query_scalar(
-        "SELECT preferred_model_id FROM user_agents WHERE id = 'test-ua1'"
-    )
-    .fetch_one(&pool)
-    .await
-    .unwrap();
-    assert_eq!(model_id_after, None, "Orphaned model_id should be cleared to NULL");
+    let model_id_after: Option<String> =
+        sqlx::query_scalar("SELECT preferred_model_id FROM user_agents WHERE id = 'test-ua1'")
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+    assert_eq!(
+        model_id_after, None,
+        "Orphaned model_id should be cleared to NULL"
+    );
 }
 
 #[tokio::test]
@@ -961,12 +977,11 @@ async fn test_orphaned_default_agent_cleared_from_users() {
     .await
     .unwrap();
 
-    let default_agent: Option<String> = sqlx::query_scalar(
-        "SELECT default_agent_id FROM users WHERE id = 'user-bad-agent'"
-    )
-    .fetch_one(&pool)
-    .await
-    .unwrap();
+    let default_agent: Option<String> =
+        sqlx::query_scalar("SELECT default_agent_id FROM users WHERE id = 'user-bad-agent'")
+            .fetch_one(&pool)
+            .await
+            .unwrap();
     assert_eq!(default_agent.as_deref(), Some("removed-agent-2024"));
 
     // Verify agent doesn't exist in registry
@@ -979,13 +994,15 @@ async fn test_orphaned_default_agent_cleared_from_users() {
         .await
         .unwrap();
 
-    let default_agent_after: Option<String> = sqlx::query_scalar(
-        "SELECT default_agent_id FROM users WHERE id = 'user-bad-agent'"
-    )
-    .fetch_one(&pool)
-    .await
-    .unwrap();
-    assert_eq!(default_agent_after, None, "Orphaned default_agent_id should be cleared");
+    let default_agent_after: Option<String> =
+        sqlx::query_scalar("SELECT default_agent_id FROM users WHERE id = 'user-bad-agent'")
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+    assert_eq!(
+        default_agent_after, None,
+        "Orphaned default_agent_id should be cleared"
+    );
 }
 
 #[tokio::test]
@@ -1011,7 +1028,7 @@ async fn test_orphaned_task_agent_references_cleared() {
     .unwrap();
 
     let (assigned, reviewed): (Option<String>, Option<String>) = sqlx::query_as(
-        "SELECT assigned_agent_id, reviewed_by_agent_id FROM tasks WHERE id = 'task-orphan'"
+        "SELECT assigned_agent_id, reviewed_by_agent_id FROM tasks WHERE id = 'task-orphan'",
     )
     .fetch_one(&pool)
     .await
@@ -1026,13 +1043,19 @@ async fn test_orphaned_task_agent_references_cleared() {
         .unwrap();
 
     let (assigned_after, reviewed_after): (Option<String>, Option<String>) = sqlx::query_as(
-        "SELECT assigned_agent_id, reviewed_by_agent_id FROM tasks WHERE id = 'task-orphan'"
+        "SELECT assigned_agent_id, reviewed_by_agent_id FROM tasks WHERE id = 'task-orphan'",
     )
     .fetch_one(&pool)
     .await
     .unwrap();
-    assert_eq!(assigned_after, None, "Orphaned assigned_agent_id should be cleared");
-    assert_eq!(reviewed_after, None, "Orphaned reviewed_by_agent_id should be cleared");
+    assert_eq!(
+        assigned_after, None,
+        "Orphaned assigned_agent_id should be cleared"
+    );
+    assert_eq!(
+        reviewed_after, None,
+        "Orphaned reviewed_by_agent_id should be cleared"
+    );
 }
 
 #[tokio::test]
@@ -1065,27 +1088,27 @@ async fn test_orphaned_execution_references_cleared() {
     .await
     .unwrap();
 
-    let (agent, model): (Option<String>, Option<String>) = sqlx::query_as(
-        "SELECT agent_id, model FROM agent_executions WHERE id = 'exec-orphan'"
-    )
-    .fetch_one(&pool)
-    .await
-    .unwrap();
+    let (agent, model): (Option<String>, Option<String>) =
+        sqlx::query_as("SELECT agent_id, model FROM agent_executions WHERE id = 'exec-orphan'")
+            .fetch_one(&pool)
+            .await
+            .unwrap();
     assert_eq!(agent.as_deref(), Some("deprecated-agent"));
     assert_eq!(model.as_deref(), Some("gpt-3.5-legacy"));
 
     // Simulate cleanup
-    sqlx::query("UPDATE agent_executions SET agent_id = NULL, model = NULL WHERE id = 'exec-orphan'")
-        .execute(&pool)
-        .await
-        .unwrap();
-
-    let (agent_after, model_after): (Option<String>, Option<String>) = sqlx::query_as(
-        "SELECT agent_id, model FROM agent_executions WHERE id = 'exec-orphan'"
+    sqlx::query(
+        "UPDATE agent_executions SET agent_id = NULL, model = NULL WHERE id = 'exec-orphan'",
     )
-    .fetch_one(&pool)
+    .execute(&pool)
     .await
     .unwrap();
+
+    let (agent_after, model_after): (Option<String>, Option<String>) =
+        sqlx::query_as("SELECT agent_id, model FROM agent_executions WHERE id = 'exec-orphan'")
+            .fetch_one(&pool)
+            .await
+            .unwrap();
     assert_eq!(agent_after, None, "Orphaned agent_id should be cleared");
     assert_eq!(model_after, None, "Orphaned model should be cleared");
 }
@@ -1113,28 +1136,40 @@ async fn test_historical_ai_usage_logs_preserved() {
     .unwrap();
 
     // Verify record exists
-    let count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM ai_usage_logs WHERE id = 'usage-hist'")
-        .fetch_one(&pool)
-        .await
-        .unwrap();
+    let count: i64 =
+        sqlx::query_scalar("SELECT COUNT(*) FROM ai_usage_logs WHERE id = 'usage-hist'")
+            .fetch_one(&pool)
+            .await
+            .unwrap();
     assert_eq!(count, 1, "Historical usage log should exist");
 
-    let model: String = sqlx::query_scalar("SELECT model FROM ai_usage_logs WHERE id = 'usage-hist'")
-        .fetch_one(&pool)
-        .await
-        .unwrap();
-    assert_eq!(model, "davinci-002", "Historical model reference should be preserved for accuracy");
+    let model: String =
+        sqlx::query_scalar("SELECT model FROM ai_usage_logs WHERE id = 'usage-hist'")
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+    assert_eq!(
+        model, "davinci-002",
+        "Historical model reference should be preserved for accuracy"
+    );
 
     // Verify the model doesn't exist in current registry
     use orkee_projects::models::REGISTRY;
-    assert!(!REGISTRY.model_exists("davinci-002"), "Legacy model should not be in current registry");
+    assert!(
+        !REGISTRY.model_exists("davinci-002"),
+        "Legacy model should not be in current registry"
+    );
 
     // Historical data should NOT be modified - validate it still exists unchanged
-    let count_after: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM ai_usage_logs WHERE model = 'davinci-002'")
-        .fetch_one(&pool)
-        .await
-        .unwrap();
-    assert_eq!(count_after, 1, "Historical usage logs should be preserved, not deleted or modified");
+    let count_after: i64 =
+        sqlx::query_scalar("SELECT COUNT(*) FROM ai_usage_logs WHERE model = 'davinci-002'")
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+    assert_eq!(
+        count_after, 1,
+        "Historical usage logs should be preserved, not deleted or modified"
+    );
 }
 
 #[tokio::test]
@@ -1161,26 +1196,39 @@ async fn test_valid_agent_model_references_unchanged() {
 
     // Verify valid references exist in registry
     use orkee_projects::models::REGISTRY;
-    assert!(REGISTRY.agent_exists("claude-code"), "Valid agent should exist in registry");
-    assert!(REGISTRY.model_exists("claude-sonnet-4-5-20250929"), "Valid model should exist in registry");
+    assert!(
+        REGISTRY.agent_exists("claude-code"),
+        "Valid agent should exist in registry"
+    );
+    assert!(
+        REGISTRY.model_exists("claude-sonnet-4-5-20250929"),
+        "Valid model should exist in registry"
+    );
 
     // After validation, valid references should remain unchanged
-    let default_agent: Option<String> = sqlx::query_scalar(
-        "SELECT default_agent_id FROM users WHERE id = 'user-valid'"
-    )
-    .fetch_one(&pool)
-    .await
-    .unwrap();
-    assert_eq!(default_agent.as_deref(), Some("claude-code"), "Valid agent reference should be preserved");
+    let default_agent: Option<String> =
+        sqlx::query_scalar("SELECT default_agent_id FROM users WHERE id = 'user-valid'")
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+    assert_eq!(
+        default_agent.as_deref(),
+        Some("claude-code"),
+        "Valid agent reference should be preserved"
+    );
 
     let (agent, model): (String, Option<String>) = sqlx::query_as(
-        "SELECT agent_id, preferred_model_id FROM user_agents WHERE id = 'ua-valid'"
+        "SELECT agent_id, preferred_model_id FROM user_agents WHERE id = 'ua-valid'",
     )
     .fetch_one(&pool)
     .await
     .unwrap();
     assert_eq!(agent, "claude-code", "Valid agent_id should be preserved");
-    assert_eq!(model.as_deref(), Some("claude-sonnet-4-5-20250929"), "Valid model_id should be preserved");
+    assert_eq!(
+        model.as_deref(),
+        Some("claude-sonnet-4-5-20250929"),
+        "Valid model_id should be preserved"
+    );
 }
 
 // ==============================================================================
@@ -1193,10 +1241,11 @@ async fn test_migration_seed_data_is_idempotent() {
     let pool = setup_migrated_db().await;
 
     // Verify seed data exists after first migration
-    let user_count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM users WHERE id = 'default-user'")
-        .fetch_one(&pool)
-        .await
-        .unwrap();
+    let user_count: i64 =
+        sqlx::query_scalar("SELECT COUNT(*) FROM users WHERE id = 'default-user'")
+            .fetch_one(&pool)
+            .await
+            .unwrap();
     assert_eq!(user_count, 1, "Default user should exist after migration");
 
     let tag_count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM tags WHERE id = 'tag-main'")
@@ -1209,31 +1258,46 @@ async fn test_migration_seed_data_is_idempotent() {
         .fetch_one(&pool)
         .await
         .unwrap();
-    assert_eq!(storage_meta_count, 2, "Storage metadata should have 2 rows (created_at, storage_type)");
+    assert_eq!(
+        storage_meta_count, 2,
+        "Storage metadata should have 2 rows (created_at, storage_type)"
+    );
 
-    let encryption_count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM encryption_settings WHERE id = 1")
-        .fetch_one(&pool)
-        .await
-        .unwrap();
+    let encryption_count: i64 =
+        sqlx::query_scalar("SELECT COUNT(*) FROM encryption_settings WHERE id = 1")
+            .fetch_one(&pool)
+            .await
+            .unwrap();
     assert_eq!(encryption_count, 1, "Encryption settings should exist");
 
-    let password_attempts_count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM password_attempts WHERE id = 1")
-        .fetch_one(&pool)
-        .await
-        .unwrap();
-    assert_eq!(password_attempts_count, 1, "Password attempts tracking should exist");
+    let password_attempts_count: i64 =
+        sqlx::query_scalar("SELECT COUNT(*) FROM password_attempts WHERE id = 1")
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+    assert_eq!(
+        password_attempts_count, 1,
+        "Password attempts tracking should exist"
+    );
 
-    let telemetry_settings_count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM telemetry_settings WHERE id = 1")
-        .fetch_one(&pool)
-        .await
-        .unwrap();
-    assert_eq!(telemetry_settings_count, 1, "Telemetry settings should exist");
+    let telemetry_settings_count: i64 =
+        sqlx::query_scalar("SELECT COUNT(*) FROM telemetry_settings WHERE id = 1")
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+    assert_eq!(
+        telemetry_settings_count, 1,
+        "Telemetry settings should exist"
+    );
 
     let system_settings_count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM system_settings")
         .fetch_one(&pool)
         .await
         .unwrap();
-    assert!(system_settings_count > 0, "System settings should have default configuration");
+    assert!(
+        system_settings_count > 0,
+        "System settings should have default configuration"
+    );
 
     // Attempt to rerun seed data statements (simulating migration rerun)
     // All should succeed due to INSERT OR IGNORE
@@ -1243,7 +1307,10 @@ async fn test_migration_seed_data_is_idempotent() {
     )
     .execute(&pool)
     .await;
-    assert!(result1.is_ok(), "Rerunning default user insert should not fail");
+    assert!(
+        result1.is_ok(),
+        "Rerunning default user insert should not fail"
+    );
 
     let result2 = sqlx::query(
         "INSERT OR IGNORE INTO tags (id, name, color, description, created_at)
@@ -1251,56 +1318,76 @@ async fn test_migration_seed_data_is_idempotent() {
     )
     .execute(&pool)
     .await;
-    assert!(result2.is_ok(), "Rerunning default tag insert should not fail");
+    assert!(
+        result2.is_ok(),
+        "Rerunning default tag insert should not fail"
+    );
 
     let result3 = sqlx::query(
         "INSERT OR IGNORE INTO storage_metadata (key, value) VALUES
          ('created_at', datetime('now', 'utc')),
-         ('storage_type', 'sqlite')"
+         ('storage_type', 'sqlite')",
     )
     .execute(&pool)
     .await;
-    assert!(result3.is_ok(), "Rerunning storage_metadata insert should not fail");
+    assert!(
+        result3.is_ok(),
+        "Rerunning storage_metadata insert should not fail"
+    );
 
     let result4 = sqlx::query(
-        "INSERT OR IGNORE INTO encryption_settings (id, encryption_mode) VALUES (1, 'machine')"
+        "INSERT OR IGNORE INTO encryption_settings (id, encryption_mode) VALUES (1, 'machine')",
     )
     .execute(&pool)
     .await;
-    assert!(result4.is_ok(), "Rerunning encryption_settings insert should not fail");
+    assert!(
+        result4.is_ok(),
+        "Rerunning encryption_settings insert should not fail"
+    );
 
-    let result5 = sqlx::query(
-        "INSERT OR IGNORE INTO password_attempts (id, attempt_count) VALUES (1, 0)"
-    )
-    .execute(&pool)
-    .await;
-    assert!(result5.is_ok(), "Rerunning password_attempts insert should not fail");
+    let result5 =
+        sqlx::query("INSERT OR IGNORE INTO password_attempts (id, attempt_count) VALUES (1, 0)")
+            .execute(&pool)
+            .await;
+    assert!(
+        result5.is_ok(),
+        "Rerunning password_attempts insert should not fail"
+    );
 
-    let result6 = sqlx::query(
-        "INSERT OR IGNORE INTO telemetry_settings (id) VALUES (1)"
-    )
-    .execute(&pool)
-    .await;
-    assert!(result6.is_ok(), "Rerunning telemetry_settings insert should not fail");
+    let result6 = sqlx::query("INSERT OR IGNORE INTO telemetry_settings (id) VALUES (1)")
+        .execute(&pool)
+        .await;
+    assert!(
+        result6.is_ok(),
+        "Rerunning telemetry_settings insert should not fail"
+    );
 
     // Verify counts haven't changed (INSERT OR IGNORE didn't create duplicates)
-    let user_count_after: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM users WHERE id = 'default-user'")
-        .fetch_one(&pool)
-        .await
-        .unwrap();
-    assert_eq!(user_count_after, 1, "User count should remain 1 after rerun");
+    let user_count_after: i64 =
+        sqlx::query_scalar("SELECT COUNT(*) FROM users WHERE id = 'default-user'")
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+    assert_eq!(
+        user_count_after, 1,
+        "User count should remain 1 after rerun"
+    );
 
-    let tag_count_after: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM tags WHERE id = 'tag-main'")
-        .fetch_one(&pool)
-        .await
-        .unwrap();
+    let tag_count_after: i64 =
+        sqlx::query_scalar("SELECT COUNT(*) FROM tags WHERE id = 'tag-main'")
+            .fetch_one(&pool)
+            .await
+            .unwrap();
     assert_eq!(tag_count_after, 1, "Tag count should remain 1 after rerun");
 
     let storage_meta_count_after: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM storage_metadata")
         .fetch_one(&pool)
         .await
         .unwrap();
-    assert_eq!(storage_meta_count_after, 2, "Storage metadata count should remain 2 after rerun");
+    assert_eq!(
+        storage_meta_count_after, 2,
+        "Storage metadata count should remain 2 after rerun"
+    );
 }
 
 // ==============================================================================
@@ -1317,12 +1404,15 @@ async fn test_down_migration_removes_all_tables() {
         "SELECT COUNT(*) FROM sqlite_master
          WHERE type='table'
          AND name NOT LIKE 'sqlite_%'
-         AND name != '_sqlx_migrations'"
+         AND name != '_sqlx_migrations'",
     )
     .fetch_one(&pool)
     .await
     .unwrap();
-    assert!(table_count_before > 30, "Should have 30+ tables after migration");
+    assert!(
+        table_count_before > 30,
+        "Should have 30+ tables after migration"
+    );
 
     // Read and execute down migration
     let down_sql = std::fs::read_to_string("migrations/001_initial_schema.down.sql")
@@ -1346,7 +1436,9 @@ async fn test_down_migration_removes_all_tables() {
         sqlx::query(trimmed)
             .execute(&pool)
             .await
-            .unwrap_or_else(|e| panic!("Down migration statement failed: {}\nError: {}", trimmed, e));
+            .unwrap_or_else(|e| {
+                panic!("Down migration statement failed: {}\nError: {}", trimmed, e)
+            });
     }
 
     // Verify all application tables are dropped
@@ -1354,27 +1446,29 @@ async fn test_down_migration_removes_all_tables() {
         "SELECT COUNT(*) FROM sqlite_master
          WHERE type='table'
          AND name NOT LIKE 'sqlite_%'
-         AND name != '_sqlx_migrations'"
+         AND name != '_sqlx_migrations'",
     )
     .fetch_one(&pool)
     .await
     .unwrap();
-    assert_eq!(table_count_after, 0, "All application tables should be dropped after down migration");
+    assert_eq!(
+        table_count_after, 0,
+        "All application tables should be dropped after down migration"
+    );
 
     // Verify all views are dropped
-    let view_count: i64 = sqlx::query_scalar(
-        "SELECT COUNT(*) FROM sqlite_master WHERE type='view'"
-    )
-    .fetch_one(&pool)
-    .await
-    .unwrap();
+    let view_count: i64 =
+        sqlx::query_scalar("SELECT COUNT(*) FROM sqlite_master WHERE type='view'")
+            .fetch_one(&pool)
+            .await
+            .unwrap();
     assert_eq!(view_count, 0, "All views should be dropped");
 
     // Verify all triggers are dropped
     let trigger_count: i64 = sqlx::query_scalar(
         "SELECT COUNT(*) FROM sqlite_master
          WHERE type='trigger'
-         AND name NOT LIKE 'sqlite_%'"
+         AND name NOT LIKE 'sqlite_%'",
     )
     .fetch_one(&pool)
     .await
@@ -1386,7 +1480,7 @@ async fn test_down_migration_removes_all_tables() {
         "SELECT COUNT(*) FROM sqlite_master
          WHERE type='index'
          AND name NOT LIKE 'sqlite_%'
-         AND tbl_name != '_sqlx_migrations'"
+         AND tbl_name != '_sqlx_migrations'",
     )
     .fetch_one(&pool)
     .await
@@ -1416,16 +1510,18 @@ async fn test_down_migration_drops_tables_in_correct_order() {
     .unwrap();
 
     // Verify data exists
-    let project_count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM projects WHERE id = 'test-proj-down'")
-        .fetch_one(&pool)
-        .await
-        .unwrap();
+    let project_count: i64 =
+        sqlx::query_scalar("SELECT COUNT(*) FROM projects WHERE id = 'test-proj-down'")
+            .fetch_one(&pool)
+            .await
+            .unwrap();
     assert_eq!(project_count, 1, "Test project should exist");
 
-    let task_count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM tasks WHERE id = 'test-task-down'")
-        .fetch_one(&pool)
-        .await
-        .unwrap();
+    let task_count: i64 =
+        sqlx::query_scalar("SELECT COUNT(*) FROM tasks WHERE id = 'test-task-down'")
+            .fetch_one(&pool)
+            .await
+            .unwrap();
     assert_eq!(task_count, 1, "Test task should exist");
 
     // Execute down migration
@@ -1456,12 +1552,15 @@ async fn test_down_migration_drops_tables_in_correct_order() {
         "SELECT COUNT(*) FROM sqlite_master
          WHERE type='table'
          AND name NOT LIKE 'sqlite_%'
-         AND name != '_sqlx_migrations'"
+         AND name != '_sqlx_migrations'",
     )
     .fetch_one(&pool)
     .await
     .unwrap();
-    assert_eq!(table_count, 0, "All tables should be dropped after down migration with data");
+    assert_eq!(
+        table_count, 0,
+        "All tables should be dropped after down migration with data"
+    );
 }
 
 #[tokio::test]
@@ -1499,10 +1598,13 @@ async fn test_down_migration_is_idempotent() {
         "SELECT COUNT(*) FROM sqlite_master
          WHERE type='table'
          AND name NOT LIKE 'sqlite_%'
-         AND name != '_sqlx_migrations'"
+         AND name != '_sqlx_migrations'",
     )
     .fetch_one(&pool)
     .await
     .unwrap();
-    assert_eq!(table_count, 0, "All tables should remain dropped after second run");
+    assert_eq!(
+        table_count, 0,
+        "All tables should remain dropped after second run"
+    );
 }
