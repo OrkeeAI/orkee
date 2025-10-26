@@ -11,7 +11,7 @@ use security::api_tokens::TokenStorage;
 use crate::executions::ExecutionStorage;
 use crate::settings::SettingsStorage;
 use storage::StorageError;
-use crate::tags::TagStorage;
+use tags::TagStorage;
 use crate::tasks::TaskStorage;
 use security::users::UserStorage;
 

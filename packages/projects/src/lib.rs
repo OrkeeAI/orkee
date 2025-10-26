@@ -14,7 +14,6 @@ pub mod manager;
 pub mod models;
 pub mod pagination;
 pub mod settings;
-pub mod tags;
 pub mod tasks;
 
 #[cfg(test)]
@@ -80,6 +79,9 @@ pub use db::DbState;
 
 // Re-export pagination types
 pub use pagination::{PaginatedResponse, PaginationMeta, PaginationParams};
+
+// Re-export tags types
+pub use tags::{Tag, TagCreateInput, TagStorage, TagUpdateInput};
 
 // Re-export security types (API tokens, encryption, users)
 pub use security::{

@@ -1,0 +1,30 @@
+[package]
+name = "tags"
+version.workspace = true
+edition.workspace = true
+description = "Tag management system for organizing tasks"
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+# Core dependencies
+orkee_core = { path = "../core" }
+storage = { path = "../storage" }
+
+# Database
+sqlx = { version = "0.8", features = ["runtime-tokio-rustls", "sqlite"] }
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+chrono = { version = "0.4", features = ["serde"] }
+
+# ID generation
+nanoid = "0.4"
+
+# Logging
+tracing = "0.1"
+
+[dev-dependencies]
+tokio = { version = "1.0", features = ["macros", "rt-multi-thread"] }
+tempfile = "3.0"

@@ -13,7 +13,7 @@ use tracing::info;
 use super::response::{created_or_internal_error, ok_or_internal_error};
 use crate::db::DbState;
 use crate::pagination::{PaginatedResponse, PaginationParams};
-use crate::tags::{TagCreateInput, TagUpdateInput};
+use tags::{TagCreateInput, TagUpdateInput};
 
 #[derive(Deserialize)]
 pub struct ListTagsQuery {
