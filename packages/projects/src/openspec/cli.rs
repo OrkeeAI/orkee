@@ -7,7 +7,7 @@ use super::markdown_validator::OpenSpecMarkdownValidator;
 use super::materializer::{ImportReport, OpenSpecMaterializer};
 use super::sync::MergeStrategy;
 use super::types::{SpecChange, SpecDelta};
-use crate::constants::orkee_dir;
+use orkee_core::constants::orkee_dir;
 use sqlx::{sqlite::SqlitePoolOptions, Pool, Sqlite};
 use std::path::Path;
 

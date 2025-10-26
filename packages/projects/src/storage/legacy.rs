@@ -1,5 +1,5 @@
-use crate::constants::{orkee_dir, projects_file};
-use crate::types::ProjectsConfig;
+use orkee_core::constants::{orkee_dir, projects_file};
+use orkee_core::types::ProjectsConfig;
 use std::path::Path;
 use tokio::fs;
 use tracing::{debug, error, warn};

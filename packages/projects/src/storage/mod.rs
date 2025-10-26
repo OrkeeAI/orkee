@@ -1,4 +1,4 @@
-use crate::types::{
+use orkee_core::types::{
     Priority, Project, ProjectCreateInput, ProjectStatus, ProjectUpdateInput, TaskSource,
 };
 use async_trait::async_trait;
@@ -67,7 +67,7 @@ impl Default for StorageConfig {
     fn default() -> Self {
         Self {
             provider: StorageProvider::Sqlite {
-                path: crate::constants::orkee_dir().join("orkee.db"),
+                path: orkee_core::orkee_dir().join("orkee.db"),
             },
             enable_wal: true,
             enable_fts: true,

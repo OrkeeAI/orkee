@@ -1,5 +1,8 @@
-use orkee_core::path_exists;
-use orkee_core::types::{ProjectCreateInput, ProjectUpdateInput};
+// ABOUTME: Validation functions for project data
+// ABOUTME: Input validation, path safety checks, script validation
+
+use crate::types::{ProjectCreateInput, ProjectUpdateInput};
+use crate::utils::path_exists;
 
 // Validation limits
 const MAX_NAME_LENGTH: usize = 100;
@@ -386,8 +389,8 @@ pub fn truncate(text: &str, max_length: usize) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use orkee_core::generate_project_id;
-    use orkee_core::types::ProjectStatus;
+    use crate::types::ProjectStatus;
+    use crate::utils::generate_project_id;
 
     #[tokio::test]
     async fn test_validate_project_data_valid() {

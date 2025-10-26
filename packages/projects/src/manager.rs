@@ -1,7 +1,7 @@
 use crate::git_utils::get_git_repository_info;
 use crate::storage::{factory::StorageManager, StorageError};
-use crate::types::{Project, ProjectCreateInput, ProjectStatus, ProjectUpdateInput};
-use crate::validator::{validate_project_data, validate_project_update, ValidationError};
+use orkee_core::types::{Project, ProjectCreateInput, ProjectStatus, ProjectUpdateInput};
+use orkee_core::{validate_project_data, validate_project_update, ValidationError};
 use std::sync::Arc;
 use thiserror::Error;
 use tracing::{debug, info, warn};
@@ -545,7 +545,7 @@ pub async fn import_database(data: Vec<u8>) -> ManagerResult<crate::storage::Imp
 mod tests {
     use super::*;
     use crate::storage::{StorageConfig, StorageProvider};
-    use crate::types::ProjectStatus;
+    use orkee_core::types::ProjectStatus;
     use std::path::PathBuf;
 
     /// Create a test storage manager (not using the global singleton)

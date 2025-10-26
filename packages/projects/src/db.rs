@@ -64,7 +64,7 @@ impl DbState {
         database_path: Option<std::path::PathBuf>,
     ) -> Result<Self, StorageError> {
         let database_path =
-            database_path.unwrap_or_else(|| crate::constants::orkee_dir().join("orkee.db"));
+            database_path.unwrap_or_else(|| orkee_core::orkee_dir().join("orkee.db"));
 
         // Ensure parent directory exists
         if let Some(parent) = database_path.parent() {

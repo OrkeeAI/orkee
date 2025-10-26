@@ -97,7 +97,7 @@ pub async fn create_prd(
     // Validate content size
     validate_content_size(content_markdown, "PRD content")?;
 
-    let id = crate::storage::generate_project_id();
+    let id = orkee_core::generate_project_id();
     let now = Utc::now();
 
     let prd = sqlx::query_as::<_, PRD>(
@@ -280,7 +280,7 @@ pub async fn create_capability(
         validate_content_size(design, "Capability design")?;
     }
 
-    let id = crate::storage::generate_project_id();
+    let id = orkee_core::generate_project_id();
     let now = Utc::now();
 
     let capability = sqlx::query_as::<_, SpecCapability>(
@@ -739,7 +739,7 @@ pub async fn create_requirement(
     content_markdown: &str,
     position: i32,
 ) -> DbResult<SpecRequirement> {
-    let id = crate::storage::generate_project_id();
+    let id = orkee_core::generate_project_id();
     let now = Utc::now();
 
     let requirement = sqlx::query_as::<_, SpecRequirement>(
@@ -898,7 +898,7 @@ pub async fn create_scenario(
     and_clauses: Option<Vec<String>>,
     position: i32,
 ) -> DbResult<SpecScenario> {
-    let id = crate::storage::generate_project_id();
+    let id = orkee_core::generate_project_id();
     let now = Utc::now();
 
     let scenario = sqlx::query_as::<_, SpecScenario>(
@@ -1000,7 +1000,7 @@ where
         validate_content_size(design, "Change design")?;
     }
 
-    let id = crate::storage::generate_project_id();
+    let id = orkee_core::generate_project_id();
     let now = Utc::now();
 
     let change = sqlx::query_as::<_, SpecChange>(
@@ -1189,7 +1189,7 @@ pub async fn create_spec_delta<'a, E>(
 where
     E: Executor<'a, Database = Sqlite>,
 {
-    let id = crate::storage::generate_project_id();
+    let id = orkee_core::generate_project_id();
     let now = Utc::now();
 
     let delta = sqlx::query_as::<_, SpecDelta>(
@@ -1284,7 +1284,7 @@ pub async fn parse_and_store_change_tasks(
     let now = Utc::now();
 
     for parsed_task in parsed_tasks {
-        let id = crate::storage::generate_project_id();
+        let id = orkee_core::generate_project_id();
 
         // Safely convert display_order from usize to i32
         let display_order_i32: i32 = parsed_task.display_order.try_into().map_err(|_| {
@@ -1589,7 +1589,7 @@ mod tests {
         create_test_project(&pool, "test-project").await;
 
         // Create a change by inserting directly to avoid schema issues
-        let change_id = crate::storage::generate_project_id();
+        let change_id = orkee_core::generate_project_id();
         let now = Utc::now();
         sqlx::query(
             r#"
@@ -1643,7 +1643,7 @@ mod tests {
         create_test_project(&pool, "test-project").await;
 
         // Create a change with a task that has an extremely large display_order
-        let change_id = crate::storage::generate_project_id();
+        let change_id = orkee_core::generate_project_id();
         let now = Utc::now();
 
         // Create a tasks_markdown with many tasks to potentially overflow i32

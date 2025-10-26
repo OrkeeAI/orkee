@@ -278,7 +278,7 @@ async fn create_task(
     _spec_driven: bool,
     _from_prd_id: Option<&str>,
 ) -> IntegrationResult<String> {
-    let task_id = crate::storage::generate_project_id();
+    let task_id = orkee_core::generate_project_id();
 
     sqlx::query(
         r#"

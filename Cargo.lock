@@ -2594,6 +2594,7 @@ dependencies = [
  "nanoid",
  "num_cpus",
  "orkee-cloud",
+ "orkee_core",
  "rand 0.8.5",
  "regex",
  "reqwest 0.12.24",
@@ -2638,6 +2639,23 @@ dependencies = [
  "unicode-segmentation",
  "unicode-width 0.1.14",
  "uuid",
+]
+
+[[package]]
+name = "orkee_core"
+version = "0.0.9"
+dependencies = [
+ "chrono",
+ "dirs",
+ "flate2",
+ "rand 0.8.5",
+ "regex",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror 2.0.17",
+ "tokio",
+ "tokio-test",
 ]
 
 [[package]]

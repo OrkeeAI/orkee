@@ -8,7 +8,6 @@ pub mod ai_service;
 pub mod ai_usage_logs;
 pub mod api;
 pub mod api_tokens;
-pub mod constants;
 pub mod context;
 pub mod db;
 pub mod executions;
@@ -23,15 +22,13 @@ pub mod settings;
 pub mod storage;
 pub mod tags;
 pub mod tasks;
-pub mod types;
 pub mod users;
-pub mod validator;
 
 #[cfg(test)]
 pub mod test_utils;
 
-// Re-export main types
-pub use types::{
+// Re-export main types from core
+pub use orkee_core::{
     GitRepositoryInfo, ManualSubtask, ManualTask, Priority, Project, ProjectCreateInput,
     ProjectStatus, ProjectUpdateInput, ProjectsConfig, TaskSource, TaskStatus,
 };
@@ -65,17 +62,17 @@ pub use storage::{
     StorageResult,
 };
 
-// Re-export validator functions
-pub use validator::{truncate, validate_project_data, validate_project_update, ValidationError};
+// Re-export validator functions from core
+pub use orkee_core::{truncate, validate_project_data, validate_project_update, ValidationError};
 
-// Re-export storage utility functions
-pub use storage::generate_project_id;
+// Re-export utility functions from core
+pub use orkee_core::generate_project_id;
 
 // Re-export formatter functions
 pub use formatter::{format_project_details, format_projects_table};
 
-// Re-export constants
-pub use constants::{orkee_dir, projects_file, PROJECTS_VERSION};
+// Re-export constants from core
+pub use orkee_core::{orkee_dir, projects_file, PROJECTS_VERSION};
 
 // Re-export API routers
 pub use api::{

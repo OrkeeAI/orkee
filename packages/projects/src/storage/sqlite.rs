@@ -10,7 +10,7 @@ use super::{
     ImportConflict, ImportResult, PasswordLockoutStatus, ProjectFilter, ProjectStorage,
     StorageCapabilities, StorageConfig, StorageError, StorageInfo, StorageProvider, StorageResult,
 };
-use crate::types::{
+use orkee_core::types::{
     Priority, Project, ProjectCreateInput, ProjectStatus, ProjectUpdateInput, TaskSource,
 };
 
@@ -1241,7 +1241,7 @@ impl ProjectStorage for SqliteStorage {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::types::ProjectStatus;
+    use orkee_core::types::ProjectStatus;
 
     async fn create_test_storage() -> SqliteStorage {
         use std::path::PathBuf;

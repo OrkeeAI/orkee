@@ -196,7 +196,7 @@ async fn apply_delta(
 
                 // Create new requirements and scenarios (inline to use transaction)
                 for (req_idx, req) in parsed.requirements.iter().enumerate() {
-                    let req_id = crate::storage::generate_project_id();
+                    let req_id = orkee_core::generate_project_id();
                     let now = Utc::now();
 
                     // Insert requirement
@@ -216,7 +216,7 @@ async fn apply_delta(
 
                     // Insert scenarios for this requirement
                     for (scenario_idx, scenario) in req.scenarios.iter().enumerate() {
-                        let scenario_id = crate::storage::generate_project_id();
+                        let scenario_id = orkee_core::generate_project_id();
                         let and_json = if scenario.and.is_empty() {
                             None
                         } else {

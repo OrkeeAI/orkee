@@ -244,7 +244,7 @@ This project uses OpenSpec for spec-driven development.
         hasher.update(format!("{}-{}", project_id, Utc::now().timestamp()).as_bytes());
         let hash = format!("{:x}", hasher.finalize());
 
-        let id = crate::storage::generate_project_id();
+        let id = orkee_core::generate_project_id();
         let now = Utc::now();
 
         sqlx::query(
@@ -586,7 +586,7 @@ pub struct ImportReport {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::storage::generate_project_id;
+    use orkee_core::generate_project_id;
     use tempfile::TempDir;
 
     #[tokio::test]

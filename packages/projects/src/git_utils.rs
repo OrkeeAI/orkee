@@ -1,4 +1,4 @@
-use crate::types::GitRepositoryInfo;
+use orkee_core::types::GitRepositoryInfo;
 use git2::Repository;
 use tracing::debug;
 

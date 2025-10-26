@@ -150,14 +150,14 @@ impl StorageManager {
         let active_count = projects
             .iter()
             .filter(|p| {
-                p.status == crate::types::ProjectStatus::Planning
-                    || p.status == crate::types::ProjectStatus::Launched
+                p.status == orkee_core::ProjectStatus::Planning
+                    || p.status == orkee_core::ProjectStatus::Launched
             })
             .count();
 
         let archived_count = projects
             .iter()
-            .filter(|p| p.status == crate::types::ProjectStatus::Archived)
+            .filter(|p| p.status == orkee_core::ProjectStatus::Archived)
             .count();
 
         Ok(StorageStats {
@@ -190,7 +190,7 @@ pub trait ProjectStorageExt: ProjectStorage {
     /// Create a project and return its ID
     async fn create_project_id(
         &self,
-        input: crate::types::ProjectCreateInput,
+        input: orkee_core::ProjectCreateInput,
     ) -> StorageResult<String> {
         let project = self.create_project(input).await?;
         Ok(project.id)
@@ -212,15 +212,15 @@ pub trait ProjectStorageExt: ProjectStorage {
     }
 
     /// Get active projects only (Pre-Launch and Launched)
-    async fn list_active_projects(&self) -> StorageResult<Vec<crate::types::Project>> {
+    async fn list_active_projects(&self) -> StorageResult<Vec<orkee_core::Project>> {
         let filter = super::ProjectFilter {
-            status: Some(crate::types::ProjectStatus::Planning),
+            status: Some(orkee_core::ProjectStatus::Planning),
             ..Default::default()
         };
         let mut projects = self.list_projects_with_filter(filter).await?;
 
         let filter2 = super::ProjectFilter {
-            status: Some(crate::types::ProjectStatus::Launched),
+            status: Some(orkee_core::ProjectStatus::Launched),
             ..Default::default()
         };
         let launched = self.list_projects_with_filter(filter2).await?;
@@ -230,7 +230,7 @@ pub trait ProjectStorageExt: ProjectStorage {
     }
 
     /// Count projects by status
-    async fn count_by_status(&self, status: crate::types::ProjectStatus) -> StorageResult<usize> {
+    async fn count_by_status(&self, status: orkee_core::ProjectStatus) -> StorageResult<usize> {
         let filter = super::ProjectFilter {
             status: Some(status),
             ..Default::default()
@@ -246,7 +246,7 @@ impl<T: ProjectStorage + ?Sized> ProjectStorageExt for T {}
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::types::{ProjectCreateInput, ProjectStatus};
+    use orkee_core::types::{ProjectCreateInput, ProjectStatus};
     use tempfile::tempdir;
 
     #[tokio::test]

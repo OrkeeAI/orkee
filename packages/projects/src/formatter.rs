@@ -1,5 +1,5 @@
-use crate::types::Project;
-use crate::validator::truncate;
+use orkee_core::types::Project;
+use orkee_core::truncate;
 
 /// Formats projects into a table string
 pub fn format_projects_table(projects: &[Project], current_project: Option<&Project>) -> String {
@@ -162,7 +162,7 @@ pub fn format_project_details(project: &Project) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::types::{Priority, ProjectStatus};
+    use orkee_core::types::{Priority, ProjectStatus};
     use chrono::Utc;
 
     fn create_test_project(id: &str, name: &str, project_root: &str) -> Project {
