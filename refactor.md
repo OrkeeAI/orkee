@@ -134,26 +134,44 @@ Extract functionality into focused packages while maintaining backward compatibi
     - `config/models.json` - Model definitions
     - `config/agents.json` - Agent definitions
 
-- [x] **`agents`** - Agent management and execution tracking (~1,012 lines)
-  - User agent configurations (user_agents/ - 214 lines)
-  - Execution tracking (executions/ - 798 lines)
-  - PR review tracking
+- [x] **`agents`** - User agent configuration (~214 lines)
+  - User agent preferences and settings
+  - Agent-specific configurations
   - **Status**: ✅ COMPLETED
   - **Tests**: 0/0 passing (no unit tests yet, integration tests in projects TBD)
   - **Actual effort**: 1 hour (better than estimated!)
   - **Dependencies**: orkee_core, storage, models
-  - **Database tables**: user_agents, agent_executions, pr_reviews
+  - **Database tables**: user_agents
   - **Key files**:
-    - `user_agents/storage.rs` (176 lines) - User agent CRUD
-    - `user_agents/types.rs` (30 lines) - UserAgent type
-    - `executions/storage.rs` (616 lines) - Execution CRUD
-    - `executions/types.rs` (174 lines) - AgentExecution, PrReview types
+    - `storage.rs` (176 lines) - User agent CRUD
+    - `types.rs` (30 lines) - UserAgent type
   - **Testing**:
     - No unit tests yet
     - Uses models::REGISTRY for validation (no DB foreign keys)
   - **Notes**:
     - Renamed AgentStorage → UserAgentStorage for clarity
-    - Execution tracking includes PR reviews and code changes
+    - Flattened directory structure (removed user_agents subdirectory)
+    - Executions extracted to separate package for better separation of concerns
+
+- [x] **`executions`** - Agent execution and PR review tracking (~798 lines)
+  - Execution lifecycle tracking
+  - PR review management
+  - Code change metrics
+  - **Status**: ✅ COMPLETED
+  - **Tests**: 0/0 passing (no unit tests yet, integration tests in projects TBD)
+  - **Actual effort**: 30 minutes (extraction from agents package)
+  - **Dependencies**: orkee_core, storage, models
+  - **Database tables**: agent_executions, pr_reviews
+  - **Key files**:
+    - `storage.rs` (616 lines) - Execution CRUD operations
+    - `types.rs` (174 lines) - AgentExecution, PrReview types
+  - **Testing**:
+    - No unit tests yet
+    - Uses nanoid for ID generation
+  - **Notes**:
+    - Separated from agents package for cleaner separation of concerns
+    - Config (agents) vs. runtime observability (executions)
+    - Zero coupling between agents and executions packages
 
 - [x] **`ai`** - AI service and usage tracking (~809 lines)
   - AI service integration (service.rs - 282 lines)
@@ -486,17 +504,18 @@ mod tests {
 9. ✅ **settings** - Depends on orkee_core, storage (COMPLETED)
 10. ✅ **tasks** - Depends on orkee_core, storage, openspec (COMPLETED)
 11. ✅ **agents** - Depends on orkee_core, storage, models (COMPLETED)
-12. ✅ **ai** - Depends on orkee_core, storage (COMPLETED)
-13. **context** - Depends on orkee_core, storage
+12. ✅ **executions** - Depends on orkee_core, storage, models (COMPLETED)
+13. ✅ **ai** - Depends on orkee_core, storage (COMPLETED)
+14. **context** - Depends on orkee_core, storage
 
 **Phase 4: Integration Layer** (Depends on everything - extract LAST)
-14. **api** - Depends on all other packages
+15. **api** - Depends on all other packages
 
 ## Current Progress
 
 - ✅ Phase 1: Foundation (orkee_core) - COMPLETED
 - ✅ Phase 2: Storage & Simple Utilities (storage ✅, security ✅, formatter ✅, git_utils ✅, models ✅) - COMPLETED
-- ⏳ Phase 3: Domain Packages (openspec ✅, tags ✅, settings ✅, tasks ✅, agents ✅, ai ✅, context) - IN PROGRESS (6/7 completed)
+- ⏳ Phase 3: Domain Packages (openspec ✅, tags ✅, settings ✅, tasks ✅, agents ✅, executions ✅, ai ✅, context) - IN PROGRESS (7/8 completed - 87.5%)
 - ⏸️ Phase 4: Integration Layer (api) - PENDING
 
 ### Next Steps
@@ -515,9 +534,9 @@ mod tests {
 ## Time Estimate
 
 - **Total estimated time**: 15-20 hours
-- **Already completed**: 16 hours (orkee_core: 2 hours, openspec: 4 hours, storage: 3 hours, security: 2 hours, formatter: 0.25 hours, git_utils: 0.25 hours, tags: 0.5 hours, settings: 0.75 hours, tasks: 1.5 hours, models: 0.5 hours, agents: 1 hour, ai: 0.25 hours)
+- **Already completed**: 16.5 hours (orkee_core: 2 hours, openspec: 4 hours, storage: 3 hours, security: 2 hours, formatter: 0.25 hours, git_utils: 0.25 hours, tags: 0.5 hours, settings: 0.75 hours, tasks: 1.5 hours, models: 0.5 hours, agents: 1 hour, executions: 0.5 hours, ai: 0.25 hours)
 - **Phase 2 fully complete**: All foundation and utilities extracted (including models)
-- **Phase 3 progress**: 6/7 packages completed (openspec, tags, settings, tasks, agents, ai) - 86% complete!
+- **Phase 3 progress**: 7/8 packages completed (openspec, tags, settings, tasks, agents, executions, ai) - 87.5% complete!
 - **Remaining**: 0.5-4 hours (Phase 3: context + Phase 4 API integration)
 
 This refactoring can be done incrementally, with each package extraction being independently valuable.

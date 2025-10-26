@@ -41,6 +41,9 @@ models = { path = "../models" }
 # Agents package
 agents = { path = "../agents" }
 
+# Executions package
+executions = { path = "../executions" }
+
 # AI package
 ai = { path = "../ai" }
 

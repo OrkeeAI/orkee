@@ -14,7 +14,6 @@ version = "0.0.9"
 dependencies = [
  "chrono",
  "models",
- "nanoid",
  "orkee_core",
  "serde",
  "serde_json",
@@ -990,6 +989,23 @@ dependencies = [
  "concurrent-queue",
  "parking",
  "pin-project-lite",
+]
+
+[[package]]
+name = "executions"
+version = "0.0.9"
+dependencies = [
+ "chrono",
+ "models",
+ "nanoid",
+ "orkee_core",
+ "serde",
+ "serde_json",
+ "sqlx",
+ "storage",
+ "tempfile",
+ "thiserror 2.0.17",
+ "tracing",
 ]
 
 [[package]]
@@ -2662,6 +2678,7 @@ dependencies = [
  "base64 0.22.1",
  "chrono",
  "dirs",
+ "executions",
  "flate2",
  "formatter",
  "git2",
