@@ -2,11 +2,11 @@
 // ABOUTME: Token generation, hashing, verification, and database operations
 
 use crate::api_tokens::types::{ApiToken, TokenGeneration};
-use storage::StorageError;
 use base64::Engine;
 use rand::Rng;
 use sha2::{Digest, Sha256};
 use sqlx::{Row, SqlitePool};
+use storage::StorageError;
 use uuid::Uuid;
 
 pub struct TokenStorage {

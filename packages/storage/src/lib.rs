@@ -160,18 +160,10 @@ pub trait ProjectStorage: Send + Sync {
     async fn import_snapshot(&self, data: &[u8]) -> StorageResult<ImportResult>;
 
     // Encryption settings operations
-    async fn get_encryption_mode(
-        &self,
-    ) -> StorageResult<Option<EncryptionMode>>;
+    async fn get_encryption_mode(&self) -> StorageResult<Option<EncryptionMode>>;
     async fn get_encryption_settings(
         &self,
-    ) -> StorageResult<
-        Option<(
-            EncryptionMode,
-            Option<Vec<u8>>,
-            Option<Vec<u8>>,
-        )>,
-    >;
+    ) -> StorageResult<Option<(EncryptionMode, Option<Vec<u8>>, Option<Vec<u8>>)>>;
     async fn set_encryption_mode(
         &self,
         mode: EncryptionMode,

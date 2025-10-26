@@ -315,5 +315,8 @@ async fn test_partial_update() {
 
     assert_eq!(updated.name, "Original"); // Unchanged
     assert_eq!(updated.color, Some("#0000ff".to_string())); // Changed
-    assert_eq!(updated.description, Some("Original description".to_string())); // Unchanged
+    assert_eq!(
+        updated.description,
+        Some("Original description".to_string())
+    ); // Unchanged
 }

@@ -5,7 +5,7 @@ pub mod service;
 pub mod usage_logs;
 
 // Re-export service types
-pub use service::{AIService, AIServiceError, AIServiceResult, AIResponse, Usage};
+pub use service::{AIResponse, AIService, AIServiceError, AIServiceResult, Usage};
 
 // Re-export usage log types
 pub use usage_logs::{

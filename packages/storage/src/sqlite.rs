@@ -8,8 +8,8 @@ use tracing::{debug, info, warn};
 use super::{
     compress_data, decompress_data, generate_project_id, ConflictType, DatabaseSnapshot,
     EncryptionMode, ImportConflict, ImportResult, PasswordLockoutStatus, ProjectFilter,
-    ProjectStorage, StorageCapabilities, StorageConfig, StorageError, StorageInfo,
-    StorageProvider, StorageResult,
+    ProjectStorage, StorageCapabilities, StorageConfig, StorageError, StorageInfo, StorageProvider,
+    StorageResult,
 };
 use orkee_core::types::{
     Priority, Project, ProjectCreateInput, ProjectStatus, ProjectUpdateInput, TaskSource,
@@ -1032,9 +1032,7 @@ impl ProjectStorage for SqliteStorage {
         })
     }
 
-    async fn get_encryption_mode(
-        &self,
-    ) -> StorageResult<Option<EncryptionMode>> {
+    async fn get_encryption_mode(&self) -> StorageResult<Option<EncryptionMode>> {
         let row: Option<(String,)> =
             sqlx::query_as("SELECT encryption_mode FROM encryption_settings WHERE id = 1")
                 .fetch_optional(&self.pool)
@@ -1053,13 +1051,7 @@ impl ProjectStorage for SqliteStorage {
 
     async fn get_encryption_settings(
         &self,
-    ) -> StorageResult<
-        Option<(
-            EncryptionMode,
-            Option<Vec<u8>>,
-            Option<Vec<u8>>,
-        )>,
-    > {
+    ) -> StorageResult<Option<(EncryptionMode, Option<Vec<u8>>, Option<Vec<u8>>)>> {
         let row: Option<(String, Option<Vec<u8>>, Option<Vec<u8>>)> = sqlx::query_as(
             "SELECT encryption_mode, password_salt, password_hash FROM encryption_settings WHERE id = 1"
         )

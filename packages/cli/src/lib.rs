@@ -108,8 +108,7 @@ async fn initialize_api_token() {
                     {
                         Ok(token_gen) => {
                             // Token file path
-                            let token_file =
-                                orkee_projects::orkee_dir().join("api-token");
+                            let token_file = orkee_projects::orkee_dir().join("api-token");
 
                             // Check if file already exists (shouldn't happen, but be safe)
                             if token_file.exists() {

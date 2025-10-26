@@ -5,9 +5,9 @@
 mod tests {
     use crate::storage::SettingsStorage;
     use crate::types::{BulkSettingUpdate, SettingUpdate, SettingUpdateItem};
-    use storage::StorageError;
     use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
     use std::str::FromStr;
+    use storage::StorageError;
 
     async fn setup_test_db() -> SettingsStorage {
         // Create in-memory database
@@ -22,7 +22,10 @@ mod tests {
             .unwrap();
 
         // Run migrations
-        sqlx::migrate!("../storage/migrations").run(&pool).await.unwrap();
+        sqlx::migrate!("../storage/migrations")
+            .run(&pool)
+            .await
+            .unwrap();
 
         SettingsStorage::new(pool)
     }

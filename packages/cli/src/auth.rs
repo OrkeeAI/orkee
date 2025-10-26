@@ -2,7 +2,6 @@
 // ABOUTME: Provides user identification for request handlers
 
 use axum::{
-    async_trait,
     extract::FromRequestParts,
     http::{request::Parts, StatusCode},
 };
@@ -32,7 +31,6 @@ impl CurrentUser {
     }
 }
 
-#[async_trait]
 impl<S> FromRequestParts<S> for CurrentUser
 where
     S: Send + Sync,

@@ -245,7 +245,7 @@ async fn test_list_changes_with_pagination() {
 
 #[tokio::test]
 async fn test_concurrent_change_creation_no_duplicates() {
-    use orkee_projects::api::ai_handlers::PRDAnalysisData;
+    use api::ai_handlers::PRDAnalysisData;
     use orkee_projects::openspec::change_builder::create_change_from_analysis;
     use std::collections::HashSet;
 

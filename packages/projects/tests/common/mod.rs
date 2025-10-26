@@ -1,14 +1,12 @@
 // ABOUTME: Common test utilities for integration tests
 // ABOUTME: Provides test server setup, database helpers, and HTTP client utilities
 
-use axum::Router;
-use orkee_projects::{
-    api::{
-        create_ai_router, create_ai_usage_router, create_changes_router, create_prds_router,
-        create_specs_router, create_task_spec_router,
-    },
-    db::DbState,
+use api::{
+    create_ai_router, create_ai_usage_router, create_changes_router, create_prds_router,
+    create_specs_router, create_task_spec_router,
 };
+use axum::Router;
+use orkee_projects::DbState;
 use sqlx::SqlitePool;
 use tempfile::TempDir;
 use tokio::sync::Mutex;

@@ -2,8 +2,8 @@
 // ABOUTME: Database CRUD for runtime configuration
 
 use crate::types::{BulkSettingUpdate, SettingUpdate, SystemSetting};
-use storage::StorageError;
 use sqlx::{Row, SqlitePool};
+use storage::StorageError;
 
 pub struct SettingsStorage {
     pool: SqlitePool,
@@ -75,11 +75,7 @@ impl SettingsStorage {
         }
 
         // Validate the new value
-        crate::validation::validate_setting_value(
-            key,
-            &update.value,
-            &setting.data_type,
-        )?;
+        crate::validation::validate_setting_value(key, &update.value, &setting.data_type)?;
 
         sqlx::query(
             "UPDATE system_settings

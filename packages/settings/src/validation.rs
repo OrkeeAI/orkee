@@ -1,8 +1,8 @@
 // ABOUTME: Input validation for system settings
 // ABOUTME: Type-specific validation rules with security checks
 
-use storage::StorageError;
 use std::path::PathBuf;
+use storage::StorageError;
 use thiserror::Error;
 
 #[derive(Debug, Error)]

@@ -70,6 +70,9 @@ thiserror = "2.0"
 tokio = { version = "1.0", features = ["fs", "time", "rt"] }
 git2 = "0.18"
 
+# Test utilities (only when test-utils feature is enabled)
+tempfile = { version = "3.0", optional = true }
+
 # Utilities
 uuid = { version = "1.0", features = ["v4", "serde"] }
 regex = "1.10"
@@ -110,9 +113,10 @@ url = "2.5"
 [features]
 default = ["cloud"]
 cloud = ["orkee-cloud"]
-test-utils = []
+test-utils = ["tempfile"]
 
 [dev-dependencies]
+api = { path = "../api" }
 tempfile = "3.0"
 tokio-test = "0.4"
 mockall = "0.13"  # For trait mocking

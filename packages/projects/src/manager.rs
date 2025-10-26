@@ -1,8 +1,8 @@
 use git_utils::get_git_repository_info;
-use storage::{factory::StorageManager, StorageError};
 use orkee_core::types::{Project, ProjectCreateInput, ProjectStatus, ProjectUpdateInput};
 use orkee_core::{validate_project_data, validate_project_update, ValidationError};
 use std::sync::Arc;
+use storage::{factory::StorageManager, StorageError};
 use thiserror::Error;
 use tracing::{debug, info, warn};
 
@@ -544,9 +544,9 @@ pub async fn import_database(data: Vec<u8>) -> ManagerResult<storage::ImportResu
 #[cfg(test)]
 mod tests {
     use super::*;
-    use storage::{StorageConfig, StorageProvider};
     use orkee_core::types::ProjectStatus;
     use std::path::PathBuf;
+    use storage::{StorageConfig, StorageProvider};
 
     /// Create a test storage manager (not using the global singleton)
     async fn create_test_storage_manager() -> ManagerResult<Arc<StorageManager>> {

@@ -14,6 +14,7 @@ members = [
     "packages/executions",
     "packages/ai",
     "packages/context",
+    "packages/api",
     "packages/cli",
     "packages/config",
     "packages/projects",
