@@ -2645,6 +2645,7 @@ dependencies = [
  "storage",
  "subtle",
  "tags",
+ "tasks",
  "tempfile",
  "thiserror 2.0.17",
  "tokio",
@@ -4305,6 +4306,23 @@ dependencies = [
  "filetime",
  "libc",
  "xattr",
+]
+
+[[package]]
+name = "tasks"
+version = "0.0.9"
+dependencies = [
+ "chrono",
+ "nanoid",
+ "openspec",
+ "orkee_core",
+ "serde",
+ "serde_json",
+ "sqlx",
+ "storage",
+ "tempfile",
+ "tokio",
+ "tracing",
 ]
 
 [[package]]

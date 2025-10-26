@@ -16,7 +16,7 @@ use crate::ai_service::{AIService, AIServiceError};
 use crate::ai_usage_logs::AiUsageLog;
 use crate::db::DbState;
 use openspec::db as openspec_db;
-use crate::tasks::{TaskCreateInput, TaskPriority};
+use tasks::{TaskCreateInput, TaskPriority};
 
 // ============================================================================
 // Shared Types (Re-exported from openspec for backward compatibility)

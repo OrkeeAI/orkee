@@ -14,7 +14,7 @@ use super::auth::CurrentUser;
 use super::response::{created_or_internal_error, ok_or_internal_error};
 use crate::db::DbState;
 use crate::pagination::{PaginatedResponse, PaginationParams};
-use crate::tasks::{TaskCreateInput, TaskPriority, TaskStatus, TaskUpdateInput};
+use tasks::{TaskCreateInput, TaskPriority, TaskStatus, TaskUpdateInput};
 
 /// Helper function to parse ISO 8601 date string
 fn parse_due_date(date_str: &str) -> Option<DateTime<Utc>> {

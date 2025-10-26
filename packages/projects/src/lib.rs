@@ -13,7 +13,6 @@ pub mod executions;
 pub mod manager;
 pub mod models;
 pub mod pagination;
-pub mod tasks;
 
 #[cfg(test)]
 pub mod test_utils;
@@ -21,7 +20,7 @@ pub mod test_utils;
 // Re-export main types from core
 pub use orkee_core::{
     GitRepositoryInfo, ManualSubtask, ManualTask, Priority, Project, ProjectCreateInput,
-    ProjectStatus, ProjectUpdateInput, ProjectsConfig, TaskSource, TaskStatus,
+    ProjectStatus, ProjectUpdateInput, ProjectsConfig, TaskSource,
 };
 
 // Re-export manager functions
@@ -109,3 +108,8 @@ pub use storage;
 
 // Re-export security module for backward compatibility
 pub use security;
+
+// Re-export tasks types and storage
+pub use tasks::{
+    Task, TaskCreateInput, TaskPriority, TaskStatus, TaskStorage, TaskUpdateInput,
+};

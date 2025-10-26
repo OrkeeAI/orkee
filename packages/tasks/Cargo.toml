@@ -1,0 +1,23 @@
+[package]
+name = "tasks"
+version.workspace = true
+edition.workspace = true
+description = "Task management with agent assignment and spec integration"
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+orkee_core = { path = "../core" }
+storage = { path = "../storage" }
+openspec = { path = "../openspec" }
+chrono = { version = "0.4", features = ["serde"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+sqlx = { version = "0.8", features = ["sqlite", "runtime-tokio-rustls", "chrono"] }
+nanoid = "0.4"
+tracing = "0.1"
+
+[dev-dependencies]
+tokio = { version = "1.0", features = ["macros", "rt-multi-thread"] }
+tempfile = "3.0"

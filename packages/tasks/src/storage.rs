@@ -6,7 +6,6 @@ use sqlx::{Row, SqlitePool};
 use tracing::debug;
 
 use super::types::{Task, TaskCreateInput, TaskPriority, TaskStatus, TaskUpdateInput};
-use crate::models::REGISTRY;
 use storage::StorageError;
 
 pub struct TaskStorage {
@@ -51,16 +50,8 @@ impl TaskStorage {
         // Build query with optional pagination
         let mut query_str = String::from(
             r#"
-            SELECT
-                t.*,
-                a.id as agent_id,
-                a.name as agent_name,
-                a.type as agent_type,
-                a.provider as agent_provider,
-                a.display_name as agent_display_name,
-                a.description as agent_description
+            SELECT t.*
             FROM tasks t
-            LEFT JOIN agents a ON t.assigned_agent_id = a.id
             WHERE t.project_id = ?
             AND t.parent_id IS NULL
             ORDER BY t.position, t.created_at
@@ -98,16 +89,8 @@ impl TaskStorage {
 
         let row = sqlx::query(
             r#"
-            SELECT
-                t.*,
-                a.id as agent_id,
-                a.name as agent_name,
-                a.type as agent_type,
-                a.provider as agent_provider,
-                a.display_name as agent_display_name,
-                a.description as agent_description
+            SELECT t.*
             FROM tasks t
-            LEFT JOIN agents a ON t.assigned_agent_id = a.id
             WHERE t.id = ?
             "#,
         )
@@ -136,13 +119,6 @@ impl TaskStorage {
         let priority = input.priority.unwrap_or(TaskPriority::Medium);
 
         debug!("Creating task: {} for project: {}", task_id, project_id);
-
-        // Validate agent exists in registry if provided (replaces DB foreign key constraint)
-        if let Some(agent_id) = &input.assigned_agent_id {
-            if !crate::models::REGISTRY.agent_exists(agent_id) {
-                return Err(StorageError::InvalidAgent(agent_id.to_string()));
-            }
-        }
 
         sqlx::query(
             r#"
@@ -209,13 +185,6 @@ impl TaskStorage {
         input: TaskUpdateInput,
     ) -> Result<Task, StorageError> {
         debug!("Updating task: {}", task_id);
-
-        // Validate agent exists in registry if provided (replaces DB foreign key constraint)
-        if let Some(agent_id) = &input.assigned_agent_id {
-            if !crate::models::REGISTRY.agent_exists(agent_id) {
-                return Err(StorageError::InvalidAgent(agent_id.to_string()));
-            }
-        }
 
         // Build dynamic UPDATE query based on provided fields
         let mut query = String::from("UPDATE tasks SET updated_at = ?");
@@ -368,16 +337,8 @@ impl TaskStorage {
 
         let rows = sqlx::query(
             r#"
-            SELECT
-                t.*,
-                a.id as agent_id,
-                a.name as agent_name,
-                a.type as agent_type,
-                a.provider as agent_provider,
-                a.display_name as agent_display_name,
-                a.description as agent_description
+            SELECT t.*
             FROM tasks t
-            LEFT JOIN agents a ON t.assigned_agent_id = a.id
             WHERE t.parent_id = ?
             ORDER BY t.position, t.created_at
             "#,
@@ -401,14 +362,6 @@ impl TaskStorage {
         let task_id: String = row.try_get("id")?;
         let subtasks = None; // Will be populated by the caller if needed
 
-        // Load agent from JSON registry if present
-        let assigned_agent =
-            if let Ok(Some(agent_id)) = row.try_get::<Option<String>, _>("assigned_agent_id") {
-                REGISTRY.get_agent(&agent_id).cloned()
-            } else {
-                None
-            };
-
         Ok(Task {
             id: task_id,
             project_id: row.try_get("project_id")?,
@@ -418,7 +371,6 @@ impl TaskStorage {
             priority: row.try_get("priority")?,
             created_by_user_id: row.try_get("created_by_user_id")?,
             assigned_agent_id: row.try_get("assigned_agent_id")?,
-            assigned_agent,
             reviewed_by_agent_id: row.try_get("reviewed_by_agent_id")?,
             parent_id: row.try_get("parent_id")?,
             position: row.try_get("position")?,

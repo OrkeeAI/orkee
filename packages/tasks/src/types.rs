@@ -4,8 +4,6 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-use crate::models::Agent;
-
 #[derive(Debug, Clone, Serialize, Deserialize, sqlx::Type)]
 #[sqlx(type_name = "TEXT", rename_all = "kebab-case")]
 #[serde(rename_all = "kebab-case")]
@@ -41,7 +39,6 @@ pub struct Task {
     // User and agent attribution
     pub created_by_user_id: String,
     pub assigned_agent_id: Option<String>,
-    pub assigned_agent: Option<Agent>,
     pub reviewed_by_agent_id: Option<String>,
 
     // Hierarchy

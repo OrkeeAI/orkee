@@ -12,7 +12,7 @@ use crate::executions::ExecutionStorage;
 use settings::SettingsStorage;
 use storage::StorageError;
 use tags::TagStorage;
-use crate::tasks::TaskStorage;
+use tasks::TaskStorage;
 use security::users::UserStorage;
 
 /// Shared database state for API handlers
