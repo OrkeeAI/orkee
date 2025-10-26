@@ -221,7 +221,7 @@ impl SqliteStorage {
     async fn validate_agent_model_references(&self) -> StorageResult<()> {
         // TODO: Move this validation to projects package where models::REGISTRY is available
         debug!("Agent/model reference validation temporarily disabled");
-        return Ok(());
+        Ok(())
 
         /* DISABLED - needs models::REGISTRY from projects package
         use crate::models::REGISTRY;

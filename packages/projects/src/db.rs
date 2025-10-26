@@ -119,7 +119,7 @@ impl DbState {
         user_id: &str,
         old_encryption: &security::encryption::ApiKeyEncryption,
         new_encryption: &security::encryption::ApiKeyEncryption,
-        mode: security::encryption::encryption::EncryptionMode,
+        mode: security::encryption::EncryptionMode,
         new_salt: &[u8],
         new_hash: &[u8],
     ) -> Result<(), StorageError> {
