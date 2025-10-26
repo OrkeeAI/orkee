@@ -3,7 +3,7 @@
 
 use crate::context::ast_analyzer::Symbol;
 use crate::context::spec_context::SpecContextBuilder;
-use crate::openspec::types::{SpecCapability, SpecRequirement, SpecScenario, PRD};
+use openspec::types::{SpecCapability, SpecRequirement, SpecScenario, PRD};
 use sqlx::SqlitePool;
 use std::collections::HashMap;
 use tracing::info;

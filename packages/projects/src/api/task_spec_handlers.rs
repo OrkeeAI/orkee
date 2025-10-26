@@ -11,7 +11,7 @@ use tracing::info;
 
 use super::response::{created_or_internal_error, ok_or_internal_error};
 use crate::db::DbState;
-use crate::openspec::integration;
+use openspec::integration;
 use crate::pagination::{PaginatedResponse, PaginationParams};
 
 /// Link a task to a spec requirement

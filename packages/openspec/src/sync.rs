@@ -392,7 +392,7 @@ impl Default for SyncEngine {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::openspec::types::{CapabilityStatus, ParsedRequirement, ParsedScenario};
+    use crate::types::{CapabilityStatus, ParsedRequirement, ParsedScenario};
 
     fn create_test_capability(name: &str, requirement_count: i32) -> SpecCapability {
         SpecCapability {

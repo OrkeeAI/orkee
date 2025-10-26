@@ -1,9 +1,9 @@
 // ABOUTME: Helper functions for building OpenSpec changes from PRD analysis
 // ABOUTME: Generates change IDs, builds markdown content, and determines change metadata
 
+use super::ai_types::{PRDAnalysisData, SpecCapability, TaskSuggestion};
 use super::db::{create_spec_change_with_verb, create_spec_delta, DbError};
 use super::types::{DeltaType, SpecChange};
-use crate::api::ai_handlers::{PRDAnalysisData, SpecCapability, TaskSuggestion};
 use sqlx::{Pool, Sqlite};
 
 /// Generate a unique change ID for a project
@@ -424,7 +424,7 @@ mod tests {
 
     #[test]
     fn test_calculate_overall_complexity() {
-        use crate::api::ai_handlers::{SpecRequirement, SpecScenario};
+        use crate::ai_types::{SpecRequirement, SpecScenario};
 
         let capability = SpecCapability {
             id: "test".to_string(),

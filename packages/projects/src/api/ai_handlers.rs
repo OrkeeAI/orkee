@@ -15,50 +15,17 @@ use super::response::ApiResponse;
 use crate::ai_service::{AIService, AIServiceError};
 use crate::ai_usage_logs::AiUsageLog;
 use crate::db::DbState;
-use crate::openspec::db as openspec_db;
+use openspec::db as openspec_db;
 use crate::tasks::{TaskCreateInput, TaskPriority};
 
 // ============================================================================
-// Shared Types
+// Shared Types (Re-exported from openspec for backward compatibility)
 // ============================================================================
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct SpecScenario {
-    pub name: String,
-    pub when: String,
-    pub then: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub and: Option<Vec<String>>,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct SpecRequirement {
-    pub name: String,
-    pub content: String,
-    pub scenarios: Vec<SpecScenario>,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct SpecCapability {
-    pub id: String,
-    pub name: String,
-    pub purpose: String,
-    pub requirements: Vec<SpecRequirement>,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct TaskSuggestion {
-    pub title: String,
-    pub description: String,
-    #[serde(rename = "capabilityId")]
-    pub capability_id: String,
-    #[serde(rename = "requirementName")]
-    pub requirement_name: String,
-    pub complexity: u8,
-    #[serde(rename = "estimatedHours", skip_serializing_if = "Option::is_none")]
-    pub estimated_hours: Option<f32>,
-    pub priority: String,
-}
+// Re-export AI analysis types from openspec module
+pub use openspec::ai_types::{
+    PRDAnalysisData, SpecCapability, SpecRequirement, SpecScenario, TaskSuggestion,
+};
 
 // ============================================================================
 // Spec Generation
@@ -136,21 +103,6 @@ pub struct AnalyzePRDRequest {
     pub content_markdown: String,
     pub provider: String,
     pub model: String,
-}
-
-#[derive(Serialize, Deserialize)]
-pub struct PRDAnalysisData {
-    pub summary: String,
-    pub capabilities: Vec<SpecCapability>,
-    #[serde(rename = "suggestedTasks")]
-    pub suggested_tasks: Vec<TaskSuggestion>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub dependencies: Option<Vec<String>>,
-    #[serde(
-        rename = "technicalConsiderations",
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub technical_considerations: Option<Vec<String>>,
 }
 
 #[derive(Serialize)]
@@ -352,7 +304,7 @@ RESPOND WITH ONLY VALID JSON."#
             );
 
             // Create change proposal from analysis using OpenSpec workflow
-            let change = match crate::openspec::create_change_from_analysis(
+            let change = match openspec::create_change_from_analysis(
                 &db.pool,
                 project_id,
                 &request.prd_id,
@@ -382,7 +334,7 @@ RESPOND WITH ONLY VALID JSON."#
             };
 
             // Validate the created change deltas
-            use crate::openspec::OpenSpecMarkdownValidator;
+            use openspec::OpenSpecMarkdownValidator;
             let validator = OpenSpecMarkdownValidator::new(false); // Use relaxed mode for now
 
             let deltas = match openspec_db::get_deltas_by_change(&db.pool, &change.id).await {

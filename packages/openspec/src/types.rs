@@ -218,3 +218,14 @@ pub struct SpecMaterialization {
     pub materialized_at: DateTime<Utc>,
     pub sha256_hash: String,
 }
+
+/// Task update input for bulk operations
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TaskUpdate {
+    #[serde(rename = "taskId")]
+    pub task_id: String,
+    #[serde(rename = "isCompleted")]
+    pub is_completed: bool,
+    #[serde(rename = "completedBy")]
+    pub completed_by: Option<String>,
+}

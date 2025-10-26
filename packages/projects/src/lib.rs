@@ -15,7 +15,6 @@ pub mod formatter;
 pub mod git_utils;
 pub mod manager;
 pub mod models;
-pub mod openspec;
 pub mod pagination;
 pub mod security;
 pub mod settings;
@@ -96,3 +95,6 @@ pub use models::{
     Agent, AgentConfig, AgentModelRef, Model, ModelCapabilities, ModelPricing, ModelRegistry,
     REGISTRY,
 };
+
+// Re-export openspec module for backward compatibility
+pub use openspec;

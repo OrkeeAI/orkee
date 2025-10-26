@@ -1,7 +1,7 @@
 // ABOUTME: Input validation utilities for API request handlers
 // ABOUTME: Provides field-specific validation, sanitization, and security checks
 
-use crate::openspec::db::DbError;
+use openspec::db::DbError;
 
 /// Maximum size limits for different markdown content types (in bytes)
 pub const MAX_PROPOSAL_MARKDOWN_SIZE: usize = 100 * 1024; // 100KB

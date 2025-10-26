@@ -1385,7 +1385,7 @@ pub async fn update_change_task(
 /// Bulk update tasks
 pub async fn bulk_update_change_tasks(
     pool: &Pool<Sqlite>,
-    tasks: Vec<crate::api::change_handlers::TaskUpdate>,
+    tasks: Vec<super::types::TaskUpdate>,
 ) -> DbResult<Vec<SpecChangeTask>> {
     let mut updated_tasks = Vec::new();
 

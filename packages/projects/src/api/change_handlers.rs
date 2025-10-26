@@ -14,8 +14,8 @@ use super::response::{
 };
 use super::validation;
 use crate::db::DbState;
-use crate::openspec::db as openspec_db;
-use crate::openspec::types::{ChangeStatus, DeltaType};
+use openspec::db as openspec_db;
+use openspec::types::{ChangeStatus, DeltaType, TaskUpdate};
 use crate::pagination::{PaginatedResponse, PaginationParams};
 
 /// List all changes for a project
@@ -289,17 +289,7 @@ pub async fn parse_change_tasks(
 /// Request body for bulk task updates
 #[derive(Deserialize)]
 pub struct BulkUpdateTasksRequest {
-    pub tasks: Vec<TaskUpdate>,
-}
-
-#[derive(Deserialize)]
-pub struct TaskUpdate {
-    #[serde(rename = "taskId")]
-    pub task_id: String,
-    #[serde(rename = "isCompleted")]
-    pub is_completed: bool,
-    #[serde(rename = "completedBy")]
-    pub completed_by: Option<String>,
+    pub tasks: Vec<openspec::TaskUpdate>,
 }
 
 /// Update multiple tasks at once

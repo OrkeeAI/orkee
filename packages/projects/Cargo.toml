@@ -11,6 +11,9 @@ repository.workspace = true
 # Core package
 orkee_core = { path = "../core" }
 
+# OpenSpec package
+openspec = { path = "../openspec" }
+
 # Database
 sqlx = { version = "0.8.1", default-features = false, features = ["runtime-tokio-rustls", "sqlite", "uuid", "chrono", "migrate", "macros", "json"] }
 

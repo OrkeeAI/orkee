@@ -109,7 +109,7 @@ async fn initialize_api_token() {
                         Ok(token_gen) => {
                             // Token file path
                             let token_file =
-                                orkee_projects::constants::orkee_dir().join("api-token");
+                                orkee_projects::orkee_dir().join("api-token");
 
                             // Check if file already exists (shouldn't happen, but be safe)
                             if token_file.exists() {
@@ -165,7 +165,7 @@ async fn initialize_api_token() {
                 }
                 Ok(_) => {
                     // Tokens exist - check if token file exists
-                    let token_file = orkee_projects::constants::orkee_dir().join("api-token");
+                    let token_file = orkee_projects::orkee_dir().join("api-token");
                     if !token_file.exists() {
                         info!("API tokens exist in database but token file is missing");
                         println!("\n{} API token file not found", "⚠️".yellow());

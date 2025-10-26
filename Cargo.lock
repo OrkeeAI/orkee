@@ -2361,6 +2361,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "openspec"
+version = "0.0.9"
+dependencies = [
+ "chrono",
+ "orkee_core",
+ "regex",
+ "serde",
+ "serde_json",
+ "sha2",
+ "sqlx",
+ "tempfile",
+ "thiserror 2.0.17",
+ "tokio",
+ "tokio-test",
+]
+
+[[package]]
 name = "openssl"
 version = "0.10.74"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2593,6 +2610,7 @@ dependencies = [
  "mockall 0.13.1",
  "nanoid",
  "num_cpus",
+ "openspec",
  "orkee-cloud",
  "orkee_core",
  "rand 0.8.5",

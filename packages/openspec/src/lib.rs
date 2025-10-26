@@ -1,6 +1,9 @@
 // ABOUTME: OpenSpec module for spec-driven development
 // ABOUTME: Provides parsing, validation, and synchronization of PRDs, specs, and tasks
 
+// AI types module (for AI analysis, not glob re-exported to avoid naming conflicts with types)
+pub mod ai_types;
+
 pub mod archive;
 pub mod change_builder;
 pub mod cli;
@@ -13,6 +16,9 @@ pub mod sync;
 pub mod task_parser;
 pub mod types;
 pub mod validator;
+
+// Re-export specific AI types that don't conflict
+pub use ai_types::{PRDAnalysisData, TaskSuggestion};
 
 pub use archive::*;
 pub use change_builder::*;

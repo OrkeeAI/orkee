@@ -14,10 +14,10 @@ use super::response::{
     created_or_internal_error, ok_or_internal_error, ok_or_not_found, ApiResponse,
 };
 use crate::db::DbState;
-use crate::openspec::db as openspec_db;
-use crate::openspec::parser;
-use crate::openspec::types::CapabilityStatus;
-use crate::openspec::validator;
+use openspec::db as openspec_db;
+use openspec::parser;
+use openspec::types::CapabilityStatus;
+use openspec::validator;
 use crate::pagination::{PaginatedResponse, PaginationParams};
 
 /// List all capabilities for a project

@@ -7,11 +7,11 @@ use sqlx::{Pool, Sqlite};
 use std::path::Path;
 use tokio::fs;
 
-use crate::openspec::db as openspec_db;
-use crate::openspec::db::DbError;
-use crate::openspec::parser::{parse_spec_markdown, ParseError};
-use crate::openspec::sync::MergeStrategy;
-use crate::openspec::types::{ChangeStatus, SpecCapability, ValidationStatus};
+use crate::db as openspec_db;
+use crate::db::DbError;
+use crate::parser::{parse_spec_markdown, ParseError};
+use crate::sync::MergeStrategy;
+use crate::types::{ChangeStatus, SpecCapability, ValidationStatus};
 
 /// Errors that can occur during materialization
 #[derive(Debug, thiserror::Error)]
@@ -208,7 +208,7 @@ This project uses OpenSpec for spec-driven development.
         };
 
         for change in changes {
-            let is_archived = change.status == crate::openspec::types::ChangeStatus::Archived;
+            let is_archived = change.status == crate::types::ChangeStatus::Archived;
             if is_archived != archived {
                 continue;
             }

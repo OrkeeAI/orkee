@@ -11,8 +11,8 @@ use tracing::info;
 
 use super::response::{created_or_internal_error, ok_or_internal_error, ok_or_not_found};
 use crate::db::DbState;
-use crate::openspec::db as openspec_db;
-use crate::openspec::types::{PRDSource, PRDStatus};
+use openspec::db as openspec_db;
+use openspec::types::{PRDSource, PRDStatus};
 use crate::pagination::{PaginatedResponse, PaginationParams};
 
 /// List all PRDs for a project

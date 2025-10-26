@@ -1,5 +1,5 @@
 use crate::context::ast_analyzer::{AstAnalyzer, Symbol};
-use crate::openspec::types::{SpecCapability, SpecRequirement, SpecScenario};
+use openspec::types::{SpecCapability, SpecRequirement, SpecScenario};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::Path;
@@ -261,7 +261,7 @@ mod tests {
             design_markdown: None,
             requirement_count: 0,
             version: 1,
-            status: crate::openspec::types::CapabilityStatus::Active,
+            status: openspec::types::CapabilityStatus::Active,
             change_id: None,
             is_openspec_compliant: false,
             deleted_at: None,

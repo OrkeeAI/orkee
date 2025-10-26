@@ -25,7 +25,7 @@ Extract functionality into focused packages while maintaining backward compatibi
 
 ### Phase 2: High Priority Extractions
 
-- [ ] **`openspec`** - OpenSpec specification system (~7,140 lines)
+- [x] **`openspec`** - OpenSpec specification system (~7,140 lines)
   - PRD management (parser, validator, types)
   - Spec parsing and validation (markdown validator)
   - Task parsing from specs (task_parser)
@@ -34,8 +34,10 @@ Extract functionality into focused packages while maintaining backward compatibi
   - Change builder
   - Sync functionality
   - Database operations (db.rs - 1,732 lines)
-  - **Estimated effort**: 3-4 hours
-  - **Dependencies**: orkee_core, storage (for database operations)
+  - **Status**: ✅ COMPLETED
+  - **Tests**: 88/88 passing
+  - **Actual effort**: 3-4 hours (as estimated)
+  - **Dependencies**: orkee_core (works directly with sqlx::Pool, no storage dependency needed)
   - **Key files**:
     - `openspec/db.rs` (1,732 lines) - Main database operations
     - `openspec/materializer.rs` (852 lines) - Spec generation
@@ -419,7 +421,7 @@ mod tests {
 ## Current Progress
 
 - ✅ Phase 1: Foundation (orkee_core) - COMPLETED
-- ⏳ Phase 2: High Priority (openspec, ai, security) - NEXT
+- ⏳ Phase 2: High Priority (openspec ✅, ai, security) - IN PROGRESS
 - ⏸️ Phase 3: Medium Priority - PENDING
 - ⏸️ Phase 4: Lower Priority - PENDING
 
@@ -433,7 +435,7 @@ mod tests {
 ## Time Estimate
 
 - **Total estimated time**: 15-20 hours
-- **Already completed**: 2 hours (orkee_core)
-- **Remaining**: 13-18 hours
+- **Already completed**: 6 hours (orkee_core: 2 hours, openspec: 4 hours)
+- **Remaining**: 9-14 hours
 
 This refactoring can be done incrementally, with each package extraction being independently valuable.

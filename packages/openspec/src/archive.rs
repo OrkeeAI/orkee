@@ -323,10 +323,10 @@ fn parse_capability_from_delta(delta_markdown: &str) -> ArchiveResult<ParsedCapa
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::openspec::db::{
+    use crate::db::{
         create_prd, create_spec_change, create_spec_delta, update_spec_change_status,
     };
-    use crate::openspec::types::{PRDSource, PRDStatus};
+    use crate::types::{PRDSource, PRDStatus};
 
     async fn setup_test_db() -> Pool<Sqlite> {
         let pool = Pool::<Sqlite>::connect(":memory:").await.unwrap();
