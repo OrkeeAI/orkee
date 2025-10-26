@@ -739,7 +739,8 @@ CREATE INDEX idx_task_spec_links_scenario ON task_spec_links(scenario_id);
 CREATE TRIGGER task_spec_links_updated_at AFTER UPDATE ON task_spec_links
 FOR EACH ROW WHEN NEW.updated_at = OLD.updated_at
 BEGIN
-    UPDATE task_spec_links SET updated_at = datetime('now', 'utc') WHERE id = NEW.id;
+    UPDATE task_spec_links SET updated_at = datetime('now', 'utc')
+    WHERE task_id = NEW.task_id AND requirement_id = NEW.requirement_id;
 END;
 
 -- PRD-Spec Sync History
@@ -1060,6 +1061,10 @@ INSERT INTO storage_metadata (key, value) VALUES
 -- Default user (required for FK dependency)
 INSERT OR IGNORE INTO users (id, email, name, created_at, updated_at)
 VALUES ('default-user', 'user@localhost', 'Default User', datetime('now', 'utc'), datetime('now', 'utc'));
+
+-- Default tag (required for task FK dependency)
+INSERT OR IGNORE INTO tags (id, name, color, description, created_at)
+VALUES ('tag-main', 'main', '#3b82f6', 'Default main tag for tasks', datetime('now', 'utc'));
 
 -- Note: Agents and models are now loaded from config/agents.json and config/models.json
 -- No seed data needed here. See src/models/mod.rs for ModelRegistry
