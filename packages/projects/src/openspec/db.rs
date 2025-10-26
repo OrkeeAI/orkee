@@ -978,6 +978,7 @@ pub async fn create_spec_change(
 }
 
 /// Create a spec change with optional verb prefix and change number
+#[allow(clippy::too_many_arguments)]
 pub async fn create_spec_change_with_verb<'a, E>(
     executor: E,
     project_id: &str,

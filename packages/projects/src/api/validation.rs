@@ -144,12 +144,12 @@ fn validate_markdown_field(
     }
 
     // Check maximum size (using byte count to prevent DoS)
-    if trimmed.as_bytes().len() > max_size {
+    if trimmed.len() > max_size {
         return Err(DbError::InvalidInput(format!(
             "{} exceeds maximum size of {} bytes (got {} bytes). Consider splitting into multiple sections.",
             field_name,
             max_size,
-            trimmed.as_bytes().len()
+            trimmed.len()
         )));
     }
 
