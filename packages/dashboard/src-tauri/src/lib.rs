@@ -633,6 +633,7 @@ pub fn run() {
             // Spawn the CLI server with dashboard command and log its output
             let child = match sidecar_command
                 .args(args)
+                .env("ORKEE_DEV_MODE", std::env::var("ORKEE_DEV_MODE").unwrap_or_default())
                 .spawn()
             {
                 Ok((rx, child)) => {

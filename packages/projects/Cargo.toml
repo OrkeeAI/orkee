@@ -8,6 +8,48 @@ license.workspace = true
 repository.workspace = true
 
 [dependencies]
+# Core package
+orkee_core = { path = "../core" }
+
+# Storage package
+storage = { path = "../storage" }
+
+# Security package
+security = { path = "../security" }
+
+# OpenSpec package
+openspec = { path = "../openspec" }
+
+# Formatter package
+formatter = { path = "../formatter" }
+
+# Git utilities package
+git_utils = { path = "../git_utils" }
+
+# Tags package
+tags = { path = "../tags" }
+
+# Settings package
+settings = { path = "../settings" }
+
+# Tasks package
+tasks = { path = "../tasks" }
+
+# Models package
+models = { path = "../models" }
+
+# Agents package
+agents = { path = "../agents" }
+
+# Executions package
+executions = { path = "../executions" }
+
+# AI package
+ai = { path = "../ai" }
+
+# Context package
+context = { path = "../context" }
+
 # Database
 sqlx = { version = "0.8.1", default-features = false, features = ["runtime-tokio-rustls", "sqlite", "uuid", "chrono", "migrate", "macros", "json"] }
 
@@ -21,12 +63,15 @@ chrono = { version = "0.4", features = ["serde"] }
 dirs = "5.0"
 rand = "0.8"
 hex = "0.4"
-axum = "0.7"
+axum = "0.8"
 tower = { version = "0.4", features = ["util"] }
 tracing = "0.1"
 thiserror = "2.0"
 tokio = { version = "1.0", features = ["fs", "time", "rt"] }
 git2 = "0.18"
+
+# Test utilities (only when test-utils feature is enabled)
+tempfile = { version = "3.0", optional = true }
 
 # Utilities
 uuid = { version = "1.0", features = ["v4", "serde"] }
@@ -68,9 +113,10 @@ url = "2.5"
 [features]
 default = ["cloud"]
 cloud = ["orkee-cloud"]
-test-utils = []
+test-utils = ["tempfile"]
 
 [dev-dependencies]
+api = { path = "../api" }
 tempfile = "3.0"
 tokio-test = "0.4"
 mockall = "0.13"  # For trait mocking

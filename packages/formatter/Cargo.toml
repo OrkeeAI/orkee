@@ -1,0 +1,14 @@
+[package]
+name = "formatter"
+version.workspace = true
+edition.workspace = true
+description = "Output formatting for Orkee projects"
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+orkee_core = { path = "../core" }
+
+[dev-dependencies]
+chrono = { version = "0.4", features = ["serde"] }

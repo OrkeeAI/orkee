@@ -1,0 +1,60 @@
+[package]
+name = "api"
+version.workspace = true
+edition.workspace = true
+description = "HTTP API layer and routing for Orkee"
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+# Projects package (for DbState and manager functions)
+orkee-projects = { path = "../projects" }
+
+# Core packages
+orkee_core = { path = "../core" }
+storage = { path = "../storage" }
+security = { path = "../security" }
+openspec = { path = "../openspec" }
+context = { path = "../context" }
+tasks = { path = "../tasks" }
+tags = { path = "../tags" }
+settings = { path = "../settings" }
+agents = { path = "../agents" }
+executions = { path = "../executions" }
+ai = { path = "../ai" }
+models = { path = "../models" }
+
+# Database
+sqlx = { version = "0.8", features = ["runtime-tokio", "sqlite", "macros"] }
+
+# Web framework
+axum = "0.8"
+tower = "0.5"
+tower-http = "0.6"
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# Async runtime
+tokio = { version = "1.0", features = ["full"] }
+
+# Tracing
+tracing = "0.1"
+
+# DateTime handling
+chrono = { version = "0.4", features = ["serde"] }
+
+# HTTP client
+reqwest = { version = "0.12", features = ["json", "stream"] }
+url = "2.5"
+
+# ID generation
+nanoid = "0.4"
+uuid = { version = "1.0", features = ["v4", "serde"] }
+
+[dev-dependencies]
+orkee-projects = { path = "../projects", features = ["test-utils"] }
+tokio-test = "0.4"
+http-body-util = "0.1"

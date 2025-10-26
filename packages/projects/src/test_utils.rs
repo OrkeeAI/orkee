@@ -1,6 +1,6 @@
 //! Test utilities for ensuring thread-safe test execution
 
-#[cfg(test)]
+#[cfg(any(test, feature = "test-utils"))]
 pub mod test_helpers {
     use std::env;
     use tempfile::TempDir;

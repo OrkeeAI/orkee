@@ -104,7 +104,7 @@ pub async fn api_token_middleware(
 
     // Update last used timestamp
     // Note: update_last_used expects a token_hash, not the plaintext token
-    let token_hash = orkee_projects::api_tokens::TokenStorage::hash_token(token);
+    let token_hash = orkee_projects::TokenStorage::hash_token(token);
     if let Err(e) = db.token_storage.update_last_used(&token_hash).await {
         // Log error but don't fail the request
         warn!(error = %e, "Failed to update token last_used timestamp");
@@ -137,7 +137,7 @@ mod tests {
             .expect("Failed to create in-memory database");
 
         // Run migrations
-        sqlx::migrate!("../projects/migrations")
+        sqlx::migrate!("../storage/migrations")
             .run(&pool)
             .await
             .expect("Failed to run migrations");

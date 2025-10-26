@@ -1,0 +1,47 @@
+[package]
+name = "storage"
+version.workspace = true
+edition.workspace = true
+description = "Data layer and persistence for Orkee"
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+# Core package
+orkee_core = { path = "../core" }
+
+# Database
+sqlx = { version = "0.8.1", default-features = false, features = ["runtime-tokio-rustls", "sqlite", "uuid", "chrono", "migrate", "macros", "json"] }
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# Date/Time
+chrono = { version = "0.4", features = ["serde"] }
+
+# Async
+async-trait = "0.1"
+tokio = { version = "1.0", features = ["fs", "macros", "rt"] }
+
+# Compression
+flate2 = "1.0"
+
+# Error handling
+thiserror = "2.0"
+
+# Utilities
+tracing = "0.1"
+rand = "0.8"
+
+# Cloud functionality (optional)
+orkee-cloud = { path = "../cloud", optional = true }
+
+[features]
+default = []
+cloud = ["orkee-cloud"]
+
+[dev-dependencies]
+tempfile = "3.0"
+tokio-test = "0.4"

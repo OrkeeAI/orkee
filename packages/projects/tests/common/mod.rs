@@ -1,14 +1,11 @@
 // ABOUTME: Common test utilities for integration tests
 // ABOUTME: Provides test server setup, database helpers, and HTTP client utilities
 
-use axum::Router;
-use orkee_projects::{
-    api::{
-        create_ai_router, create_ai_usage_router, create_changes_router, create_prds_router,
-        create_specs_router, create_task_spec_router,
-    },
-    db::DbState,
+use api::{
+    create_ai_router, create_ai_usage_router, create_changes_router, create_prds_router,
+    create_specs_router, create_task_spec_router,
 };
+use orkee_projects::DbState;
 use sqlx::SqlitePool;
 use tempfile::TempDir;
 use tokio::sync::Mutex;
@@ -52,7 +49,7 @@ pub async fn setup_test_server() -> TestContext {
         .unwrap();
 
     // Run migrations
-    sqlx::migrate!("./migrations")
+    sqlx::migrate!("../storage/migrations")
         .run(&pool)
         .await
         .expect("Failed to run migrations");
@@ -60,8 +57,8 @@ pub async fn setup_test_server() -> TestContext {
     // Create DbState for API handlers
     let db_state = DbState::new(pool.clone()).expect("Failed to create DbState");
 
-    let app = Router::new()
-        .merge(create_prds_router())
+    // Use the same pattern as the main CLI: start with one router, merge others
+    let app = create_prds_router()
         .merge(create_specs_router())
         .merge(create_changes_router())
         .merge(create_task_spec_router())
@@ -76,7 +73,9 @@ pub async fn setup_test_server() -> TestContext {
 
     // Spawn server
     tokio::spawn(async move {
-        axum::serve(listener, app).await.unwrap();
+        axum::serve(listener, app.into_make_service())
+            .await
+            .unwrap();
     });
 
     // Give server time to start

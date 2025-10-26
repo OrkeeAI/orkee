@@ -108,8 +108,7 @@ async fn initialize_api_token() {
                     {
                         Ok(token_gen) => {
                             // Token file path
-                            let token_file =
-                                orkee_projects::constants::orkee_dir().join("api-token");
+                            let token_file = orkee_projects::orkee_dir().join("api-token");
 
                             // Check if file already exists (shouldn't happen, but be safe)
                             if token_file.exists() {
@@ -165,7 +164,7 @@ async fn initialize_api_token() {
                 }
                 Ok(_) => {
                     // Tokens exist - check if token file exists
-                    let token_file = orkee_projects::constants::orkee_dir().join("api-token");
+                    let token_file = orkee_projects::orkee_dir().join("api-token");
                     if !token_file.exists() {
                         info!("API tokens exist in database but token file is missing");
                         println!("\n{} API token file not found", "⚠️".yellow());
@@ -187,7 +186,7 @@ async fn initialize_api_token() {
 async fn check_api_key_migration() {
     match orkee_projects::DbState::init().await {
         Ok(db_state) => {
-            match orkee_projects::users::UserStorage::new(db_state.pool.clone()) {
+            match orkee_projects::UserStorage::new(db_state.pool.clone()) {
                 Ok(user_storage) => {
                     match user_storage.check_env_key_migration("default-user").await {
                         Ok(keys_to_migrate) if !keys_to_migrate.is_empty() => {

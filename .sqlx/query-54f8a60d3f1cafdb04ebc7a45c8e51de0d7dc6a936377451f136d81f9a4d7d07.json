@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "\n            INSERT OR REPLACE INTO telemetry_settings (\n                id,\n                first_run,\n                onboarding_completed,\n                error_reporting,\n                usage_metrics,\n                non_anonymous_metrics,\n                machine_id,\n                user_id,\n                updated_at\n            ) VALUES (1, ?, ?, ?, ?, ?, ?, ?, datetime('now'))\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 7
+    },
+    "nullable": []
+  },
+  "hash": "54f8a60d3f1cafdb04ebc7a45c8e51de0d7dc6a936377451f136d81f9a4d7d07"
+}

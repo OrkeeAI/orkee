@@ -345,7 +345,7 @@ impl TelemetryManager {
             .await?;
 
         // Run migrations to set up schema
-        sqlx::migrate!("../projects/migrations").run(&pool).await?;
+        sqlx::migrate!("../storage/migrations").run(&pool).await?;
 
         Self::new(pool).await
     }

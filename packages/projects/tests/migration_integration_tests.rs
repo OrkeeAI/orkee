@@ -3,12 +3,16 @@
 
 use sqlx::{Pool, Row, Sqlite};
 
+/// Type alias for SQLite PRAGMA foreign_key_list results
+/// Represents: (id, seq, table, from, to, on_update, on_delete, match)
+type ForeignKeyRow = (i64, i64, String, String, String, String, String, String);
+
 /// Helper to create a fresh in-memory database with migrations applied
 async fn setup_migrated_db() -> Pool<Sqlite> {
     let pool = Pool::<Sqlite>::connect(":memory:").await.unwrap();
 
     // Run migrations
-    sqlx::migrate!("./migrations")
+    sqlx::migrate!("../storage/migrations")
         .run(&pool)
         .await
         .expect("Migration should succeed");
@@ -41,7 +45,7 @@ async fn test_all_core_tables_created() {
     .unwrap();
 
     // Core tables that must exist
-    // Note: agents table removed - now loaded from config/agents.json
+    // Note: agents table removed - now loaded from packages/agents/config/agents.json
     let required_tables = vec![
         "_sqlx_migrations",
         "agent_executions",
@@ -133,9 +137,9 @@ async fn test_seed_data_default_user_created() {
 
 #[tokio::test]
 async fn test_agents_loaded_from_json() {
-    // Agents are now loaded from config/agents.json via ModelRegistry
+    // Agents are now loaded from packages/agents/config/agents.json via ModelRegistry
     // This test verifies the registry can be initialized and contains expected agents
-    use orkee_projects::models::REGISTRY;
+    use models::REGISTRY;
 
     let agent = REGISTRY.get_agent("claude-code");
     assert!(agent.is_some(), "Should find claude-code agent");
@@ -247,11 +251,10 @@ async fn test_tasks_foreign_keys_configured() {
 
     // Get foreign key definitions for tasks table
     // PRAGMA foreign_key_list returns: id, seq, table, from, to, on_update, on_delete, match
-    let fk_rows: Vec<(i64, i64, String, String, String, String, String, String)> =
-        sqlx::query_as("PRAGMA foreign_key_list(tasks)")
-            .fetch_all(&pool)
-            .await
-            .unwrap();
+    let fk_rows: Vec<ForeignKeyRow> = sqlx::query_as("PRAGMA foreign_key_list(tasks)")
+        .fetch_all(&pool)
+        .await
+        .unwrap();
 
     // Verify critical foreign keys exist
     let fk_tables: Vec<String> = fk_rows
@@ -267,7 +270,7 @@ async fn test_tasks_foreign_keys_configured() {
         fk_tables.contains(&"users".to_string()),
         "tasks should have FK to users (created_by_user_id)"
     );
-    // Note: FK to agents removed - agent_id fields now reference config/agents.json (no FK enforcement)
+    // Note: FK to agents removed - agent_id fields now reference packages/agents/config/agents.json (no FK enforcement)
     assert!(
         fk_tables.contains(&"spec_changes".to_string()),
         "tasks should have FK to spec_changes"
@@ -301,11 +304,10 @@ async fn test_spec_changes_foreign_keys_configured() {
 
     // Get foreign key definitions for spec_changes table
     // PRAGMA foreign_key_list returns: id, seq, table, from, to, on_update, on_delete, match
-    let fk_rows: Vec<(i64, i64, String, String, String, String, String, String)> =
-        sqlx::query_as("PRAGMA foreign_key_list(spec_changes)")
-            .fetch_all(&pool)
-            .await
-            .unwrap();
+    let fk_rows: Vec<ForeignKeyRow> = sqlx::query_as("PRAGMA foreign_key_list(spec_changes)")
+        .fetch_all(&pool)
+        .await
+        .unwrap();
 
     // Verify foreign keys
     let fk_tables: Vec<String> = fk_rows
@@ -884,7 +886,7 @@ async fn test_orphaned_user_agents_deleted_on_startup() {
     // Create storage with validation (which runs in initialize())
     // Note: We can't easily test this with in-memory DB since SqliteStorage::new creates new connection
     // Instead, we'll test the validation logic would detect this by checking agent exists
-    use orkee_projects::models::REGISTRY;
+    use models::REGISTRY;
     let agent_exists = REGISTRY.agent_exists("non-existent-agent");
     assert!(
         !agent_exists,
@@ -943,7 +945,7 @@ async fn test_orphaned_preferred_model_cleared_on_startup() {
     );
 
     // Simulate validation clearing the orphaned model
-    use orkee_projects::models::REGISTRY;
+    use models::REGISTRY;
     let model_exists = REGISTRY.model_exists("deleted-model-v1");
     assert!(!model_exists, "Deleted model should not be in registry");
 
@@ -985,7 +987,7 @@ async fn test_orphaned_default_agent_cleared_from_users() {
     assert_eq!(default_agent.as_deref(), Some("removed-agent-2024"));
 
     // Verify agent doesn't exist in registry
-    use orkee_projects::models::REGISTRY;
+    use models::REGISTRY;
     assert!(!REGISTRY.agent_exists("removed-agent-2024"));
 
     // Simulate cleanup
@@ -1154,7 +1156,7 @@ async fn test_historical_ai_usage_logs_preserved() {
     );
 
     // Verify the model doesn't exist in current registry
-    use orkee_projects::models::REGISTRY;
+    use models::REGISTRY;
     assert!(
         !REGISTRY.model_exists("davinci-002"),
         "Legacy model should not be in current registry"
@@ -1195,7 +1197,7 @@ async fn test_valid_agent_model_references_unchanged() {
     .unwrap();
 
     // Verify valid references exist in registry
-    use orkee_projects::models::REGISTRY;
+    use models::REGISTRY;
     assert!(
         REGISTRY.agent_exists("claude-code"),
         "Valid agent should exist in registry"
@@ -1415,7 +1417,7 @@ async fn test_down_migration_removes_all_tables() {
     );
 
     // Read and execute down migration
-    let down_sql = std::fs::read_to_string("migrations/001_initial_schema.down.sql")
+    let down_sql = std::fs::read_to_string("../storage/migrations/001_initial_schema.down.sql")
         .expect("Should read down migration file");
 
     // Execute down migration (SQLx doesn't support this natively, so we do it manually)
@@ -1525,7 +1527,7 @@ async fn test_down_migration_drops_tables_in_correct_order() {
     assert_eq!(task_count, 1, "Test task should exist");
 
     // Execute down migration
-    let down_sql = std::fs::read_to_string("migrations/001_initial_schema.down.sql")
+    let down_sql = std::fs::read_to_string("../storage/migrations/001_initial_schema.down.sql")
         .expect("Should read down migration file");
 
     for statement in down_sql.split(';') {
@@ -1568,7 +1570,7 @@ async fn test_down_migration_is_idempotent() {
     let pool = setup_migrated_db().await;
 
     // Read down migration
-    let down_sql = std::fs::read_to_string("migrations/001_initial_schema.down.sql")
+    let down_sql = std::fs::read_to_string("../storage/migrations/001_initial_schema.down.sql")
         .expect("Should read down migration file");
 
     // Execute down migration twice

@@ -245,7 +245,7 @@ The CLI server provides a REST API for project management:
 
 #### Orphaned Reference Validation
 
-**Problem**: Agent and model data is stored in JSON config files (`config/agents.json`, `config/models.json`) but referenced by TEXT IDs in the database. When an agent/model is removed from config, database records become orphaned.
+**Problem**: Agent and model data is stored in JSON config files (`packages/agents/config/agents.json`, `packages/models/config/models.json`) but referenced by TEXT IDs in the database. When an agent/model is removed from config, database records become orphaned.
 
 **Solution**: Automatic startup validation (runs during `SqliteStorage::initialize()`):
 

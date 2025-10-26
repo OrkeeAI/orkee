@@ -42,7 +42,7 @@ async fn get_database_pool() -> Result<SqlitePool, Box<dyn std::error::Error>> {
         .await?;
 
     // Run migrations from the projects package to ensure telemetry tables exist
-    sqlx::migrate!("../projects/migrations").run(&pool).await?;
+    sqlx::migrate!("../storage/migrations").run(&pool).await?;
 
     Ok(pool)
 }

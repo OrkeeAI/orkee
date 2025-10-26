@@ -5,22 +5,22 @@ use sqlx::{sqlite::SqlitePoolOptions, SqlitePool};
 use std::sync::Arc;
 use tracing::{debug, info};
 
-use crate::agents::AgentStorage;
-use crate::ai_usage_logs::AiUsageLogStorage;
-use crate::api_tokens::TokenStorage;
-use crate::executions::ExecutionStorage;
-use crate::settings::SettingsStorage;
-use crate::storage::StorageError;
-use crate::tags::TagStorage;
-use crate::tasks::TaskStorage;
-use crate::users::UserStorage;
+use agents::UserAgentStorage;
+use ai::AiUsageLogStorage;
+use executions::ExecutionStorage;
+use security::api_tokens::TokenStorage;
+use security::users::UserStorage;
+use settings::SettingsStorage;
+use storage::StorageError;
+use tags::TagStorage;
+use tasks::TaskStorage;
 
 /// Shared database state for API handlers
 #[derive(Clone)]
 pub struct DbState {
     pub pool: SqlitePool,
     pub task_storage: Arc<TaskStorage>,
-    pub agent_storage: Arc<AgentStorage>,
+    pub agent_storage: Arc<UserAgentStorage>,
     pub user_storage: Arc<UserStorage>,
     pub tag_storage: Arc<TagStorage>,
     pub execution_storage: Arc<ExecutionStorage>,
@@ -33,7 +33,7 @@ impl DbState {
     /// Create new database state from a SQLite pool
     pub fn new(pool: SqlitePool) -> Result<Self, StorageError> {
         let task_storage = Arc::new(TaskStorage::new(pool.clone()));
-        let agent_storage = Arc::new(AgentStorage::new(pool.clone()));
+        let agent_storage = Arc::new(UserAgentStorage::new(pool.clone()));
         let user_storage = Arc::new(UserStorage::new(pool.clone())?);
         let tag_storage = Arc::new(TagStorage::new(pool.clone()));
         let execution_storage = Arc::new(ExecutionStorage::new(pool.clone()));
@@ -64,7 +64,7 @@ impl DbState {
         database_path: Option<std::path::PathBuf>,
     ) -> Result<Self, StorageError> {
         let database_path =
-            database_path.unwrap_or_else(|| crate::constants::orkee_dir().join("orkee.db"));
+            database_path.unwrap_or_else(|| orkee_core::orkee_dir().join("orkee.db"));
 
         // Ensure parent directory exists
         if let Some(parent) = database_path.parent() {
@@ -102,7 +102,7 @@ impl DbState {
         info!("Database connection established");
 
         // Run migrations
-        sqlx::migrate!("./migrations")
+        sqlx::migrate!("../storage/migrations")
             .run(&pool)
             .await
             .map_err(StorageError::Migration)?;
@@ -117,9 +117,9 @@ impl DbState {
     pub async fn change_encryption_password_atomic(
         &self,
         user_id: &str,
-        old_encryption: &crate::security::ApiKeyEncryption,
-        new_encryption: &crate::security::ApiKeyEncryption,
-        mode: crate::security::encryption::EncryptionMode,
+        old_encryption: &security::encryption::ApiKeyEncryption,
+        new_encryption: &security::encryption::ApiKeyEncryption,
+        mode: security::encryption::EncryptionMode,
         new_salt: &[u8],
         new_hash: &[u8],
     ) -> Result<(), StorageError> {
@@ -145,7 +145,7 @@ impl DbState {
             match encrypted_key {
                 Some(value)
                     if !value.is_empty()
-                        && crate::security::ApiKeyEncryption::is_encrypted(&value) =>
+                        && security::encryption::ApiKeyEncryption::is_encrypted(&value) =>
                 {
                     // Decrypt with old encryption
                     let plaintext = old_encryption.decrypt(&value).map_err(|e| {

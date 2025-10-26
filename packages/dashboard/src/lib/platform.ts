@@ -143,8 +143,15 @@ export async function getApiToken(): Promise<string | null> {
     }
   }
 
-  // Web mode: no token needed (assumes development environment)
-  console.log('[Platform] Web mode - no API token needed');
+  // Web mode: Check for token in environment variable first
+  const envToken = import.meta.env.VITE_ORKEE_API_TOKEN;
+  if (envToken) {
+    console.log('[Platform] Web mode - using token from VITE_ORKEE_API_TOKEN');
+    return envToken;
+  }
+
+  // Fall back to no token (development mode with ORKEE_DEV_MODE=true on server)
+  console.log('[Platform] Web mode - no API token (dev mode assumed)');
   return null;
 }
 

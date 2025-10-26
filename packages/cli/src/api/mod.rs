@@ -42,7 +42,7 @@ pub async fn create_router_with_options(
             let pool = sqlx::SqlitePool::connect(":memory:")
                 .await
                 .expect("Failed to create in-memory database for error fallback");
-            sqlx::migrate!("../projects/migrations")
+            sqlx::migrate!("../storage/migrations")
                 .run(&pool)
                 .await
                 .expect("Failed to run migrations for error fallback");
@@ -57,7 +57,7 @@ pub async fn create_router_with_options(
                     "/api/browse-directories",
                     post(directories::browse_directories),
                 )
-                .nest("/api/projects", orkee_projects::create_projects_router());
+                .nest("/api/projects", api::create_projects_router());
             return (router, minimal_db);
         }
     };
@@ -71,7 +71,7 @@ pub async fn create_router_with_options(
             let pool = sqlx::SqlitePool::connect(":memory:")
                 .await
                 .expect("Failed to create in-memory database for error fallback");
-            sqlx::migrate!("../projects/migrations")
+            sqlx::migrate!("../storage/migrations")
                 .run(&pool)
                 .await
                 .expect("Failed to run migrations for error fallback");
@@ -86,7 +86,7 @@ pub async fn create_router_with_options(
                     "/api/browse-directories",
                     post(directories::browse_directories),
                 )
-                .nest("/api/projects", orkee_projects::create_projects_router());
+                .nest("/api/projects", api::create_projects_router());
             return (router, minimal_db);
         }
     };
@@ -109,7 +109,7 @@ pub async fn create_router_with_options(
             let pool = sqlx::SqlitePool::connect(":memory:")
                 .await
                 .expect("Failed to create in-memory database for error fallback");
-            sqlx::migrate!("../projects/migrations")
+            sqlx::migrate!("../storage/migrations")
                 .run(&pool)
                 .await
                 .expect("Failed to run migrations for error fallback");
@@ -124,7 +124,7 @@ pub async fn create_router_with_options(
                     "/api/browse-directories",
                     post(directories::browse_directories),
                 )
-                .nest("/api/projects", orkee_projects::create_projects_router());
+                .nest("/api/projects", api::create_projects_router());
             return (router, minimal_db);
         }
     };
@@ -144,40 +144,40 @@ pub async fn create_router_with_options(
         .route("/servers", get(preview::list_active_servers))
         .route("/servers/discover", get(preview::discover_servers))
         .route("/servers/stop-all", post(preview::stop_all_servers))
-        .route("/servers/:project_id/start", post(preview::start_server))
-        .route("/servers/:project_id/stop", post(preview::stop_server))
+        .route("/servers/{project_id}/start", post(preview::start_server))
+        .route("/servers/{project_id}/stop", post(preview::stop_server))
         .route(
-            "/servers/:project_id/status",
+            "/servers/{project_id}/status",
             get(preview::get_server_status),
         )
-        .route("/servers/:project_id/logs", get(preview::get_server_logs))
+        .route("/servers/{project_id}/logs", get(preview::get_server_logs))
         .route(
-            "/servers/:project_id/logs/clear",
+            "/servers/{project_id}/logs/clear",
             post(preview::clear_server_logs),
         )
         .route(
-            "/servers/:project_id/activity",
+            "/servers/{project_id}/activity",
             post(preview::update_server_activity),
         )
         .route(
-            "/servers/external/:server_id/restart",
+            "/servers/external/{server_id}/restart",
             post(preview::restart_external_server),
         )
         .route(
-            "/servers/external/:server_id/stop",
+            "/servers/external/{server_id}/stop",
             post(preview::stop_external_server),
         )
         .with_state(preview_state);
 
     // Create git router
     let git_router = Router::new()
-        .route("/:project_id/commits", get(git::get_commit_history))
+        .route("/{project_id}/commits", get(git::get_commit_history))
         .route(
-            "/:project_id/commits/:commit_id",
+            "/{project_id}/commits/{commit_id}",
             get(git::get_commit_details),
         )
         .route(
-            "/:project_id/diff/:commit_id/*file_path",
+            "/{project_id}/diff/{commit_id}/{*file_path}",
             get(git::get_file_diff),
         )
         .layer(axum::Extension(project_manager.clone()));
@@ -195,12 +195,12 @@ pub async fn create_router_with_options(
         .route("/auth/logout", post(cloud::logout))
         .route("/sync/status", get(cloud::get_global_sync_status))
         .route(
-            "/projects/:project_id/status",
+            "/projects/{project_id}/status",
             get(cloud::get_project_sync_status),
         )
         .route("/projects", get(cloud::list_cloud_projects))
         .route("/projects/sync-all", post(cloud::sync_all_projects))
-        .route("/projects/:project_id/sync", post(cloud::sync_project))
+        .route("/projects/{project_id}/sync", post(cloud::sync_project))
         .route("/usage", get(cloud::get_usage_stats))
         .layer(axum::Extension(cloud::CloudState::new()));
 
@@ -238,11 +238,11 @@ pub async fn create_router_with_options(
     let settings_router = Router::new()
         .route("/", get(settings_handlers::get_settings))
         .route(
-            "/category/:category",
+            "/category/{category}",
             get(settings_handlers::get_settings_by_category),
         )
         .route(
-            "/key/:key",
+            "/key/{key}",
             axum::routing::put(settings_handlers::update_setting),
         )
         .route(
@@ -265,24 +265,24 @@ pub async fn create_router_with_options(
         )
         .nest(
             "/api",
-            orkee_projects::create_ai_proxy_router().with_state(db_state.clone()),
+            api::create_ai_proxy_router().with_state(db_state.clone()),
         )
-        .nest("/api/projects", orkee_projects::create_projects_router())
+        .nest("/api/projects", api::create_projects_router())
         .nest(
-            "/api/projects/:project_id/tasks",
-            orkee_projects::create_tasks_router().with_state(db_state.clone()),
-        )
-        .nest(
-            "/api/projects",
-            orkee_projects::create_prds_router().with_state(db_state.clone()),
+            "/api/projects/{project_id}/tasks",
+            api::create_tasks_router().with_state(db_state.clone()),
         )
         .nest(
             "/api/projects",
-            orkee_projects::create_specs_router().with_state(db_state.clone()),
+            api::create_prds_router().with_state(db_state.clone()),
         )
         .nest(
             "/api/projects",
-            orkee_projects::create_graph_router().with_state(db_state.clone()),
+            api::create_specs_router().with_state(db_state.clone()),
+        )
+        .nest(
+            "/api/projects",
+            api::create_graph_router().with_state(db_state.clone()),
         )
         .nest("/api/git", git_router)
         .nest("/api/preview", preview_router)
@@ -292,51 +292,48 @@ pub async fn create_router_with_options(
         .nest("/api/settings", settings_router)
         .nest(
             "/api/agents",
-            orkee_projects::create_agents_router().with_state(db_state.clone()),
+            api::create_agents_router().with_state(db_state.clone()),
         )
         .nest(
             "/api/users",
-            orkee_projects::create_users_router().with_state(db_state.clone()),
+            api::create_users_router().with_state(db_state.clone()),
         )
         .nest(
             "/api",
-            orkee_projects::create_security_router().with_state(db_state.clone()),
+            api::create_security_router().with_state(db_state.clone()),
         )
         .nest(
             "/api/tags",
-            orkee_projects::create_tags_router().with_state(db_state.clone()),
+            api::create_tags_router().with_state(db_state.clone()),
         )
         .nest(
             "/api/executions",
-            orkee_projects::create_executions_router().with_state(db_state.clone()),
+            api::create_executions_router().with_state(db_state.clone()),
         )
         .nest(
             "/api",
-            orkee_projects::create_prds_router().with_state(db_state.clone()),
+            api::create_prds_router().with_state(db_state.clone()),
         )
         .nest(
             "/api",
-            orkee_projects::create_specs_router().with_state(db_state.clone()),
+            api::create_specs_router().with_state(db_state.clone()),
         )
         .nest(
             "/api",
-            orkee_projects::create_changes_router().with_state(db_state.clone()),
+            api::create_changes_router().with_state(db_state.clone()),
         )
         .nest(
             "/api",
-            orkee_projects::create_task_spec_router().with_state(db_state.clone()),
+            api::create_task_spec_router().with_state(db_state.clone()),
         )
-        .nest(
-            "/api",
-            orkee_projects::create_ai_router().with_state(db_state.clone()),
-        )
+        .nest("/api", api::create_ai_router().with_state(db_state.clone()))
         .nest(
             "/api/ai-usage",
-            orkee_projects::create_ai_usage_router().with_state(db_state.clone()),
+            api::create_ai_usage_router().with_state(db_state.clone()),
         )
         .nest(
             "/api/projects",
-            orkee_projects::create_context_router().with_state(db_state.clone()),
+            api::create_context_router().with_state(db_state.clone()),
         )
         .layer(axum::Extension(path_validator));
 

@@ -415,14 +415,12 @@ pub async fn handle_cloud_command(command: CloudCommands) -> anyhow::Result<()> 
                     match cloud_client.restore_project(&project_id).await {
                         Ok(project_data) => {
                             // Convert back to project
-                            match serde_json::from_value::<orkee_projects::types::Project>(
-                                project_data,
-                            ) {
+                            match serde_json::from_value::<orkee_projects::Project>(project_data) {
                                 Ok(project) => {
                                     let project_manager = ProjectsManager::new().await?;
                                     let project_name = project.name.clone();
                                     // Convert Project to ProjectCreateInput
-                                    let project_input = orkee_projects::types::ProjectCreateInput {
+                                    let project_input = orkee_projects::ProjectCreateInput {
                                         name: project.name,
                                         project_root: project.project_root,
                                         setup_script: project.setup_script,

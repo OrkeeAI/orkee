@@ -1,0 +1,35 @@
+[package]
+name = "orkee_core"
+version.workspace = true
+edition.workspace = true
+description = "Core types and utilities for Orkee"
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# Date/Time
+chrono = { version = "0.4", features = ["serde"] }
+
+# Async runtime
+tokio = { version = "1.0", features = ["fs"] }
+
+# Utilities
+dirs = "5.0"
+rand = "0.8"
+regex = "1.10"
+
+# Error handling
+thiserror = "2.0"
+
+# Compression
+flate2 = "1.0"
+
+[dev-dependencies]
+tempfile = "3.0"
+tokio = { version = "1.0", features = ["macros"] }
+tokio-test = "0.4"

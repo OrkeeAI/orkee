@@ -1,0 +1,45 @@
+[package]
+name = "security"
+version.workspace = true
+edition.workspace = true
+description = "Security, authentication, and encryption for Orkee"
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+# Core packages
+orkee_core = { path = "../core" }
+storage = { path = "../storage" }
+
+# Database
+sqlx = { version = "0.8.1", default-features = false, features = ["runtime-tokio-rustls", "sqlite", "uuid", "chrono"] }
+
+# Async
+async-trait = "0.1"
+tokio = { version = "1.0", features = ["fs", "time", "rt"] }
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+chrono = { version = "0.4", features = ["serde"] }
+
+# Encryption and hashing
+ring = "0.17"
+argon2 = "0.5"
+base64 = "0.22"
+machine-uid = "0.5"
+hostname = "0.4"
+subtle = "2.5"
+
+# Utilities
+thiserror = "2.0"
+hex = "0.4"
+rand = "0.8"
+uuid = { version = "1.0", features = ["v4", "serde"] }
+tracing = "0.1"
+sha2 = "0.10"
+
+[dev-dependencies]
+tempfile = "3.0"
+tokio-test = "0.4"
