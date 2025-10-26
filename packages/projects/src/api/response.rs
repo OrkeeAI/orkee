@@ -7,7 +7,7 @@ use axum::{
 };
 use serde::Serialize;
 
-use crate::storage::StorageError;
+use storage::StorageError;
 
 /// Standard API response wrapper
 #[derive(Serialize)]
@@ -35,11 +35,20 @@ impl<T> ApiResponse<T> {
     }
 }
 
+/// Newtype wrapper for StorageError to implement IntoResponse (avoids orphan rule violation)
+pub struct StorageErrorResponse(pub StorageError);
+
+impl From<StorageError> for StorageErrorResponse {
+    fn from(err: StorageError) -> Self {
+        StorageErrorResponse(err)
+    }
+}
+
 /// Convert storage errors to HTTP responses
-impl IntoResponse for StorageError {
+impl IntoResponse for StorageErrorResponse {
     fn into_response(self) -> axum::response::Response {
-        let (status, message) = match &self {
-            StorageError::NotFound => (StatusCode::NOT_FOUND, self.to_string()),
+        let (status, message) = match &self.0 {
+            StorageError::NotFound => (StatusCode::NOT_FOUND, self.0.to_string()),
             StorageError::Database(_) | StorageError::Sqlx(_) => (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 "Database error".to_string(),

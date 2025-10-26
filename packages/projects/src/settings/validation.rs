@@ -1,7 +1,7 @@
 // ABOUTME: Input validation for system settings
 // ABOUTME: Type-specific validation rules with security checks
 
-use crate::storage::StorageError;
+use storage::StorageError;
 use std::path::PathBuf;
 use thiserror::Error;
 

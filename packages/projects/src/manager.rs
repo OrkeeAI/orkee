@@ -1,5 +1,5 @@
 use crate::git_utils::get_git_repository_info;
-use crate::storage::{factory::StorageManager, StorageError};
+use storage::{factory::StorageManager, StorageError};
 use orkee_core::types::{Project, ProjectCreateInput, ProjectStatus, ProjectUpdateInput};
 use orkee_core::{validate_project_data, validate_project_update, ValidationError};
 use std::sync::Arc;
@@ -82,7 +82,7 @@ pub async fn initialize_storage() -> ManagerResult<()> {
 
 /// Initialize the global storage manager with a custom database path
 pub async fn initialize_storage_with_path(db_path: std::path::PathBuf) -> ManagerResult<()> {
-    use crate::storage::{StorageConfig, StorageProvider};
+    use storage::{StorageConfig, StorageProvider};
 
     let config = StorageConfig {
         provider: StorageProvider::Sqlite { path: db_path },
@@ -405,7 +405,7 @@ impl ProjectsManager {
     /// List projects with filters
     pub async fn list_projects_with_filter(
         &self,
-        filter: crate::storage::ProjectFilter,
+        filter: storage::ProjectFilter,
     ) -> ManagerResult<Vec<Project>> {
         let storage = self.storage_manager.storage();
         let mut projects = storage.list_projects_with_filter(filter).await?;
@@ -415,13 +415,13 @@ impl ProjectsManager {
 
     /// Get active projects only (Pre-Launch and Launched)
     pub async fn list_active_projects(&self) -> ManagerResult<Vec<Project>> {
-        let filter = crate::storage::ProjectFilter {
+        let filter = storage::ProjectFilter {
             status: Some(ProjectStatus::Planning),
             ..Default::default()
         };
         let mut projects = self.list_projects_with_filter(filter).await?;
 
-        let filter2 = crate::storage::ProjectFilter {
+        let filter2 = storage::ProjectFilter {
             status: Some(ProjectStatus::Launched),
             ..Default::default()
         };
@@ -432,7 +432,7 @@ impl ProjectsManager {
     }
 
     /// Get storage statistics
-    pub async fn get_storage_stats(&self) -> ManagerResult<crate::storage::factory::StorageStats> {
+    pub async fn get_storage_stats(&self) -> ManagerResult<storage::factory::StorageStats> {
         self.storage_manager
             .get_stats()
             .await
@@ -524,7 +524,7 @@ pub async fn export_database() -> ManagerResult<Vec<u8>> {
 }
 
 /// Import database from a compressed snapshot
-pub async fn import_database(data: Vec<u8>) -> ManagerResult<crate::storage::ImportResult> {
+pub async fn import_database(data: Vec<u8>) -> ManagerResult<storage::ImportResult> {
     let storage_manager = get_storage_manager().await?;
     let storage = storage_manager.storage();
 
@@ -544,7 +544,7 @@ pub async fn import_database(data: Vec<u8>) -> ManagerResult<crate::storage::Imp
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::storage::{StorageConfig, StorageProvider};
+    use storage::{StorageConfig, StorageProvider};
     use orkee_core::types::ProjectStatus;
     use std::path::PathBuf;
 

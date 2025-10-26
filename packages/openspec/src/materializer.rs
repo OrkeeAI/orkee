@@ -603,7 +603,7 @@ mod tests {
         let pool = Pool::<Sqlite>::connect(":memory:").await.unwrap();
 
         // Run migrations
-        sqlx::migrate!("./migrations")
+        sqlx::migrate!("../storage/migrations")
             .run(&pool)
             .await
             .expect("Failed to run migrations");
@@ -719,7 +719,7 @@ Test description.
         let pool = Pool::<Sqlite>::connect(":memory:").await.unwrap();
 
         // Run migrations
-        sqlx::migrate!("./migrations")
+        sqlx::migrate!("../storage/migrations")
             .run(&pool)
             .await
             .expect("Failed to run migrations");
@@ -790,7 +790,7 @@ Test description.
         let pool = Pool::<Sqlite>::connect(":memory:").await.unwrap();
 
         // Run migrations
-        sqlx::migrate!("./migrations")
+        sqlx::migrate!("../storage/migrations")
             .run(&pool)
             .await
             .expect("Failed to run migrations");

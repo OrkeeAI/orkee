@@ -8,7 +8,7 @@ use tracing::debug;
 use super::types::{
     AiUsageLog, AiUsageQuery, AiUsageStats, ModelStats, OperationStats, ProviderStats,
 };
-use crate::storage::StorageError;
+use storage::StorageError;
 
 pub struct AiUsageLogStorage {
     pool: SqlitePool,

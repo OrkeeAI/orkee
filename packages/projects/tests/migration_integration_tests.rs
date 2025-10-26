@@ -8,7 +8,7 @@ async fn setup_migrated_db() -> Pool<Sqlite> {
     let pool = Pool::<Sqlite>::connect(":memory:").await.unwrap();
 
     // Run migrations
-    sqlx::migrate!("./migrations")
+    sqlx::migrate!("../storage/migrations")
         .run(&pool)
         .await
         .expect("Migration should succeed");
@@ -1415,7 +1415,7 @@ async fn test_down_migration_removes_all_tables() {
     );
 
     // Read and execute down migration
-    let down_sql = std::fs::read_to_string("migrations/001_initial_schema.down.sql")
+    let down_sql = std::fs::read_to_string("../storage/migrations/001_initial_schema.down.sql")
         .expect("Should read down migration file");
 
     // Execute down migration (SQLx doesn't support this natively, so we do it manually)
@@ -1525,7 +1525,7 @@ async fn test_down_migration_drops_tables_in_correct_order() {
     assert_eq!(task_count, 1, "Test task should exist");
 
     // Execute down migration
-    let down_sql = std::fs::read_to_string("migrations/001_initial_schema.down.sql")
+    let down_sql = std::fs::read_to_string("../storage/migrations/001_initial_schema.down.sql")
         .expect("Should read down migration file");
 
     for statement in down_sql.split(';') {
@@ -1568,7 +1568,7 @@ async fn test_down_migration_is_idempotent() {
     let pool = setup_migrated_db().await;
 
     // Read down migration
-    let down_sql = std::fs::read_to_string("migrations/001_initial_schema.down.sql")
+    let down_sql = std::fs::read_to_string("../storage/migrations/001_initial_schema.down.sql")
         .expect("Should read down migration file");
 
     // Execute down migration twice

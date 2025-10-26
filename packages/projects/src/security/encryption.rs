@@ -26,42 +26,13 @@ use ring::{
     rand::{SecureRandom, SystemRandom},
 };
 use std::sync::Arc;
+pub use storage::EncryptionMode;
 
 /// Application salt for key derivation (constant, not secret)
 const APP_SALT: &[u8] = b"orkee-api-key-encryption-v1-20250120";
 
 /// Nonce size for ChaCha20-Poly1305
 const NONCE_SIZE: usize = 12;
-
-/// Encryption mode
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum EncryptionMode {
-    /// Machine-based encryption (transport encryption only)
-    Machine,
-    /// Password-based encryption (at-rest encryption)
-    Password,
-}
-
-impl std::fmt::Display for EncryptionMode {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            EncryptionMode::Machine => write!(f, "machine"),
-            EncryptionMode::Password => write!(f, "password"),
-        }
-    }
-}
-
-impl std::str::FromStr for EncryptionMode {
-    type Err = EncryptionError;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s.to_lowercase().as_str() {
-            "machine" => Ok(EncryptionMode::Machine),
-            "password" => Ok(EncryptionMode::Password),
-            _ => Err(EncryptionError::InvalidMode(s.to_string())),
-        }
-    }
-}
 
 #[derive(Debug, thiserror::Error)]
 pub enum EncryptionError {

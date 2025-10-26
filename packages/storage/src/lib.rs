@@ -12,6 +12,9 @@ pub mod factory;
 pub mod legacy;
 pub mod sqlite;
 
+#[cfg(test)]
+pub mod test_utils;
+
 /// Storage errors
 #[derive(Error, Debug)]
 pub enum StorageError {
@@ -52,6 +55,37 @@ pub enum StorageError {
 }
 
 pub type StorageResult<T> = Result<T, StorageError>;
+
+/// Encryption mode for API key storage
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum EncryptionMode {
+    /// Machine-based encryption (transport encryption only)
+    Machine,
+    /// Password-based encryption (at-rest encryption)
+    Password,
+}
+
+impl std::fmt::Display for EncryptionMode {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            EncryptionMode::Machine => write!(f, "machine"),
+            EncryptionMode::Password => write!(f, "password"),
+        }
+    }
+}
+
+impl std::str::FromStr for EncryptionMode {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_lowercase().as_str() {
+            "machine" => Ok(EncryptionMode::Machine),
+            "password" => Ok(EncryptionMode::Password),
+            _ => Err(format!("Invalid encryption mode: {}", s)),
+        }
+    }
+}
 
 /// Storage configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -128,19 +162,19 @@ pub trait ProjectStorage: Send + Sync {
     // Encryption settings operations
     async fn get_encryption_mode(
         &self,
-    ) -> StorageResult<Option<crate::security::encryption::EncryptionMode>>;
+    ) -> StorageResult<Option<EncryptionMode>>;
     async fn get_encryption_settings(
         &self,
     ) -> StorageResult<
         Option<(
-            crate::security::encryption::EncryptionMode,
+            EncryptionMode,
             Option<Vec<u8>>,
             Option<Vec<u8>>,
         )>,
     >;
     async fn set_encryption_mode(
         &self,
-        mode: crate::security::encryption::EncryptionMode,
+        mode: EncryptionMode,
         salt: Option<&[u8]>,
         hash: Option<&[u8]>,
     ) -> StorageResult<()>;

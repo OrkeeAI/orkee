@@ -7,7 +7,7 @@ use tracing::debug;
 
 use super::types::{Task, TaskCreateInput, TaskPriority, TaskStatus, TaskUpdateInput};
 use crate::models::REGISTRY;
-use crate::storage::StorageError;
+use storage::StorageError;
 
 pub struct TaskStorage {
     pool: SqlitePool,

@@ -137,7 +137,7 @@ mod tests {
             .expect("Failed to create in-memory database");
 
         // Run migrations
-        sqlx::migrate!("../projects/migrations")
+        sqlx::migrate!("../storage/migrations")
             .run(&pool)
             .await
             .expect("Failed to run migrations");

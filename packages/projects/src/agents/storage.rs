@@ -6,7 +6,7 @@ use tracing::debug;
 
 use super::types::UserAgent;
 use crate::models::REGISTRY;
-use crate::storage::StorageError;
+use storage::StorageError;
 
 pub struct AgentStorage {
     pool: SqlitePool,

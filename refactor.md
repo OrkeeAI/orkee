@@ -23,7 +23,61 @@ Extract functionality into focused packages while maintaining backward compatibi
   - **Tests**: 8/8 passing
   - **Projects tests**: 291/291 passing with core dependency
 
-### Phase 2: High Priority Extractions
+### Phase 2: Storage & Simple Utilities (No Cross-Dependencies)
+
+- [ ] **`storage`** - Data layer and persistence
+  - SQLite implementation (storage/sqlite.rs - 1,393 lines)
+  - Migration system
+  - Storage traits and factory (storage/factory.rs)
+  - Sync engine for cloud (storage/sync/)
+  - Legacy JSON storage (storage/legacy.rs)
+  - Transaction management
+  - **Estimated effort**: 3 hours
+  - **Dependencies**: orkee_core
+  - **Priority**: ⚠️ CRITICAL - Many other packages depend on storage
+  - **Key files**:
+    - `storage/sqlite.rs` (1,393 lines) - SQLite implementation
+    - `storage/factory.rs` - Storage factory pattern
+    - `storage/sync/engine.rs` (615 lines) - Sync engine
+    - `storage/legacy.rs` - Backward compatibility
+    - `storage/mod.rs` - Main storage module
+
+- [ ] **`security`** - Security and authentication (812+ lines)
+  - Encryption service (security/encryption.rs - 812 lines)
+  - API token management (api_tokens/)
+  - User authentication (users/)
+  - Password management
+  - Permission system
+  - **Estimated effort**: 2 hours
+  - **Dependencies**: orkee_core
+  - **Key files**:
+    - `security/encryption.rs` (812 lines) - Main encryption logic
+    - `api_tokens/` - Token management
+    - `users/` - User management
+    - `api/security_handlers.rs` (1,244 lines) - HTTP handlers
+  - **Testing considerations**:
+    - Extensive encryption tests (20+ test cases)
+    - Key rotation tests
+    - Token validation tests
+
+- [ ] **`formatter`** - Output formatting
+  - Project formatting (formatter.rs)
+  - Table formatting
+  - Detail views
+  - **Estimated effort**: 30 minutes
+  - **Dependencies**: orkee_core
+  - **Key files**:
+    - `formatter.rs` - Main formatting logic
+
+- [ ] **`git_utils`** - Git integration
+  - Git repository info extraction
+  - Git operations
+  - **Estimated effort**: 30 minutes
+  - **Dependencies**: orkee_core
+  - **Key files**:
+    - `git_utils.rs` - Git utility functions
+
+### Phase 3: Domain Packages (Depend on Storage)
 
 - [x] **`openspec`** - OpenSpec specification system (~7,140 lines)
   - PRD management (parser, validator, types)
@@ -75,56 +129,6 @@ Extract functionality into focused packages while maintaining backward compatibi
     - `ai_usage_logs/` - Usage tracking
     - `executions/` - Execution tracking
 
-- [ ] **`security`** - Security and authentication (812+ lines)
-  - Encryption service (security/encryption.rs - 812 lines)
-  - API token management (api_tokens/)
-  - User authentication (users/)
-  - Password management
-  - Permission system
-  - **Estimated effort**: 2 hours
-  - **Dependencies**: orkee_core
-  - **Key files**:
-    - `security/encryption.rs` (812 lines) - Main encryption logic
-    - `api_tokens/` - Token management
-    - `users/` - User management
-    - `api/security_handlers.rs` (1,244 lines) - HTTP handlers
-  - **Testing considerations**:
-    - Extensive encryption tests (20+ test cases)
-    - Key rotation tests
-    - Token validation tests
-
-### Phase 3: Medium Priority Extractions
-
-- [ ] **`storage`** - Data layer and persistence
-  - SQLite implementation (storage/sqlite.rs - 1,393 lines)
-  - Migration system
-  - Storage traits and factory (storage/factory.rs)
-  - Sync engine for cloud (storage/sync/)
-  - Legacy JSON storage (storage/legacy.rs)
-  - Transaction management
-  - **Estimated effort**: 3 hours
-  - **Dependencies**: orkee_core
-  - **Key files**:
-    - `storage/sqlite.rs` (1,393 lines) - SQLite implementation
-    - `storage/factory.rs` - Storage factory pattern
-    - `storage/sync/engine.rs` (615 lines) - Sync engine
-    - `storage/legacy.rs` - Backward compatibility
-    - `storage/mod.rs` - Main storage module
-  - **Note**: This is foundational and should be extracted early to reduce dependencies
-
-- [ ] **`tasks`** - Task management system
-  - Task CRUD operations (tasks/)
-  - Task execution tracking
-  - Task status management
-  - Manual task creation
-  - Task-spec integration
-  - **Estimated effort**: 1-2 hours
-  - **Dependencies**: orkee_core, storage, openspec (for spec-derived tasks)
-  - **Key files**:
-    - `tasks/` directory
-    - `api/tasks_handlers.rs` - HTTP handlers
-    - `api/task_spec_router.rs` - Spec integration
-
 - [ ] **`context`** - Code analysis and context management
   - AST analysis (context/ast_analyzer.rs)
   - Dependency graph building (context/graph_builder.rs - 1,209 lines)
@@ -144,40 +148,6 @@ Extract functionality into focused packages while maintaining backward compatibi
     - `api/context_handlers.rs` (799 lines) - HTTP handlers
     - `api/graph_handlers.rs` - Graph API endpoints
 
-### Phase 4: Lower Priority Extractions
-
-- [ ] **`api`** - HTTP layer and routing
-  - All HTTP handlers (api/)
-  - Request/response types
-  - Routing configuration
-  - Middleware
-  - **Estimated effort**: 1-2 hours (mostly moving files)
-  - **Dependencies**: All other packages (this is the integration layer)
-  - **Key files**:
-    - `api/handlers.rs` (1,113 lines) - Main project handlers
-    - `api/ai_handlers.rs` (1,302 lines) - AI endpoints
-    - `api/security_handlers.rs` (1,244 lines) - Security endpoints
-    - `api/context_handlers.rs` (799 lines) - Context endpoints
-    - Other handler files
-  - **Note**: Should be extracted last as it depends on all other packages
-
-- [ ] **`formatter`** - Output formatting
-  - Project formatting (formatter.rs)
-  - Table formatting
-  - Detail views
-  - **Estimated effort**: 30 minutes
-  - **Dependencies**: orkee_core
-  - **Key files**:
-    - `formatter.rs` - Main formatting logic
-
-- [ ] **`git_utils`** - Git integration
-  - Git repository info extraction
-  - Git operations
-  - **Estimated effort**: 30 minutes
-  - **Dependencies**: orkee_core
-  - **Key files**:
-    - `git_utils.rs` - Git utility functions
-
 - [ ] **`tags`** - Tagging system
   - Tag management
   - Tag storage
@@ -196,6 +166,36 @@ Extract functionality into focused packages while maintaining backward compatibi
     - `settings/` directory
     - `settings/validation.rs` - Settings validation
     - `settings/storage.rs` - Settings persistence
+
+- [ ] **`tasks`** - Task management system
+  - Task CRUD operations (tasks/)
+  - Task execution tracking
+  - Task status management
+  - Manual task creation
+  - Task-spec integration
+  - **Estimated effort**: 1-2 hours
+  - **Dependencies**: orkee_core, storage, openspec (for spec-derived tasks)
+  - **Key files**:
+    - `tasks/` directory
+    - `api/tasks_handlers.rs` - HTTP handlers
+    - `api/task_spec_router.rs` - Spec integration
+
+### Phase 4: Integration Layer (Depends on Everything)
+
+- [ ] **`api`** - HTTP layer and routing
+  - All HTTP handlers (api/)
+  - Request/response types
+  - Routing configuration
+  - Middleware
+  - **Estimated effort**: 1-2 hours (mostly moving files)
+  - **Dependencies**: All other packages (this is the integration layer)
+  - **Priority**: Extract LAST - depends on all other packages
+  - **Key files**:
+    - `api/handlers.rs` (1,113 lines) - Main project handlers
+    - `api/ai_handlers.rs` (1,302 lines) - AI endpoints
+    - `api/security_handlers.rs` (1,244 lines) - Security endpoints
+    - `api/context_handlers.rs` (799 lines) - Context endpoints
+    - Other handler files
 
 ## Detailed Migration Steps for Each Package
 
@@ -408,22 +408,40 @@ mod tests {
 
 ## Dependency Order (Extract in this order)
 
-1. ✅ **orkee_core** - No dependencies (COMPLETED)
-2. **storage** - Depends on orkee_core
+**Phase 1: Foundation** (✅ COMPLETED)
+1. ✅ **orkee_core** - No dependencies
+
+**Phase 2: Storage & Simple Utilities** (No cross-dependencies - can be done in parallel)
+2. **storage** - Depends on orkee_core (⚠️ CRITICAL - blocks many other packages)
 3. **security** - Depends on orkee_core
-4. **openspec** - Depends on orkee_core, storage
-5. **ai** - Depends on orkee_core, storage
-6. **tasks** - Depends on orkee_core, storage, openspec
-7. **context** - Depends on orkee_core, storage
-8. **formatter**, **git_utils**, **tags**, **settings** - Minimal dependencies
-9. **api** - Depends on all other packages (extract last)
+4. **formatter** - Depends on orkee_core
+5. **git_utils** - Depends on orkee_core
+
+**Phase 3: Domain Packages** (Depend on storage - must wait for Phase 2)
+6. ✅ **openspec** - Depends on orkee_core (COMPLETED - works directly with sqlx::Pool)
+7. **ai** - Depends on orkee_core, storage
+8. **context** - Depends on orkee_core, storage
+9. **tags** - Depends on orkee_core, storage
+10. **settings** - Depends on orkee_core, storage
+11. **tasks** - Depends on orkee_core, storage, openspec (must be after openspec)
+
+**Phase 4: Integration Layer** (Depends on everything - extract LAST)
+12. **api** - Depends on all other packages
 
 ## Current Progress
 
 - ✅ Phase 1: Foundation (orkee_core) - COMPLETED
-- ⏳ Phase 2: High Priority (openspec ✅, ai, security) - IN PROGRESS
-- ⏸️ Phase 3: Medium Priority - PENDING
-- ⏸️ Phase 4: Lower Priority - PENDING
+- ⏸️ Phase 2: Storage & Simple Utilities (storage, security, formatter, git_utils) - PENDING
+- ⏳ Phase 3: Domain Packages (openspec ✅, ai, context, tags, settings, tasks) - IN PROGRESS
+- ⏸️ Phase 4: Integration Layer (api) - PENDING
+
+### Next Steps
+
+**Immediate Priority**: Extract Phase 2 packages (can be done in parallel):
+1. **storage** (3 hours) - ⚠️ CRITICAL: Unblocks ai, context, tags, settings, tasks
+2. **security** (2 hours) - Independent, can be done alongside storage
+3. **formatter** (30 min) - Independent, quick win
+4. **git_utils** (30 min) - Independent, quick win
 
 ## Notes
 

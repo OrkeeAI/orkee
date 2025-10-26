@@ -20,7 +20,7 @@ async fn setup_test_db() -> (SqlitePool, TempDir) {
     let pool = SqlitePool::connect(&database_url).await.unwrap();
 
     // Run migrations
-    sqlx::migrate!("../projects/migrations")
+    sqlx::migrate!("../storage/migrations")
         .run(&pool)
         .await
         .unwrap();

@@ -7,7 +7,7 @@ use tracing::debug;
 
 use super::types::{User, UserUpdateInput};
 use crate::security::ApiKeyEncryption;
-use crate::storage::StorageError;
+use storage::StorageError;
 
 pub struct UserStorage {
     pool: SqlitePool,

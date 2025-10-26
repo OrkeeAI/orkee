@@ -5,7 +5,7 @@
 mod tests {
     use crate::settings::storage::SettingsStorage;
     use crate::settings::types::{BulkSettingUpdate, SettingUpdate, SettingUpdateItem};
-    use crate::storage::StorageError;
+    use storage::StorageError;
     use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
     use std::str::FromStr;
 
@@ -22,7 +22,7 @@ mod tests {
             .unwrap();
 
         // Run migrations
-        sqlx::migrate!("./migrations").run(&pool).await.unwrap();
+        sqlx::migrate!("../storage/migrations").run(&pool).await.unwrap();
 
         SettingsStorage::new(pool)
     }

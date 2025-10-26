@@ -2,7 +2,7 @@
 // ABOUTME: Token generation, hashing, verification, and database operations
 
 use crate::api_tokens::types::{ApiToken, TokenGeneration};
-use crate::storage::StorageError;
+use storage::StorageError;
 use base64::Engine;
 use rand::Rng;
 use sha2::{Digest, Sha256};

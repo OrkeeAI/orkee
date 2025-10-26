@@ -9,7 +9,7 @@ use super::auth::CurrentUser;
 use super::response::{ok_or_internal_error, ApiResponse};
 use crate::db::DbState;
 use crate::security::ApiKeyEncryption;
-use crate::storage::StorageError;
+use storage::StorageError;
 
 // Password validation constants
 const MIN_PASSWORD_LENGTH: usize = 8;

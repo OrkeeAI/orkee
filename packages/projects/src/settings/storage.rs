@@ -2,7 +2,7 @@
 // ABOUTME: Database CRUD for runtime configuration
 
 use crate::settings::types::{BulkSettingUpdate, SettingUpdate, SystemSetting};
-use crate::storage::StorageError;
+use storage::StorageError;
 use sqlx::{Row, SqlitePool};
 
 pub struct SettingsStorage {

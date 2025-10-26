@@ -9,7 +9,7 @@ use super::types::{
     AgentExecution, AgentExecutionCreateInput, AgentExecutionUpdateInput, ExecutionStatus,
     PrReview, PrReviewCreateInput, PrReviewUpdateInput,
 };
-use crate::storage::StorageError;
+use storage::StorageError;
 
 pub struct ExecutionStorage {
     pool: SqlitePool,

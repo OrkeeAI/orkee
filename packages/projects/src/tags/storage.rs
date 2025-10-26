@@ -6,7 +6,7 @@ use sqlx::{Row, SqlitePool};
 use tracing::debug;
 
 use super::types::{Tag, TagCreateInput, TagUpdateInput};
-use crate::storage::StorageError;
+use storage::StorageError;
 
 pub struct TagStorage {
     pool: SqlitePool,

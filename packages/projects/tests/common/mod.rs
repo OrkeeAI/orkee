@@ -52,7 +52,7 @@ pub async fn setup_test_server() -> TestContext {
         .unwrap();
 
     // Run migrations
-    sqlx::migrate!("./migrations")
+    sqlx::migrate!("../storage/migrations")
         .run(&pool)
         .await
         .expect("Failed to run migrations");

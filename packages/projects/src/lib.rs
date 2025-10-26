@@ -18,7 +18,6 @@ pub mod models;
 pub mod pagination;
 pub mod security;
 pub mod settings;
-pub mod storage;
 pub mod tags;
 pub mod tasks;
 pub mod users;
@@ -98,3 +97,6 @@ pub use models::{
 
 // Re-export openspec module for backward compatibility
 pub use openspec;
+
+// Re-export storage module for backward compatibility
+pub use storage;

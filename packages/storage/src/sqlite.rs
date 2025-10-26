@@ -7,8 +7,9 @@ use tracing::{debug, info, warn};
 
 use super::{
     compress_data, decompress_data, generate_project_id, ConflictType, DatabaseSnapshot,
-    ImportConflict, ImportResult, PasswordLockoutStatus, ProjectFilter, ProjectStorage,
-    StorageCapabilities, StorageConfig, StorageError, StorageInfo, StorageProvider, StorageResult,
+    EncryptionMode, ImportConflict, ImportResult, PasswordLockoutStatus, ProjectFilter,
+    ProjectStorage, StorageCapabilities, StorageConfig, StorageError, StorageInfo,
+    StorageProvider, StorageResult,
 };
 use orkee_core::types::{
     Priority, Project, ProjectCreateInput, ProjectStatus, ProjectUpdateInput, TaskSource,
@@ -214,7 +215,15 @@ impl SqliteStorage {
     /// Validate all agent and model references in the database against config files
     /// This runs on startup to detect and handle orphaned references when agents/models
     /// are removed from config/agents.json or config/models.json
+    ///
+    /// NOTE: Validation temporarily disabled - this logic should move to projects package
+    /// since it depends on application-level models registry, not storage layer
     async fn validate_agent_model_references(&self) -> StorageResult<()> {
+        // TODO: Move this validation to projects package where models::REGISTRY is available
+        debug!("Agent/model reference validation temporarily disabled");
+        return Ok(());
+
+        /* DISABLED - needs models::REGISTRY from projects package
         use crate::models::REGISTRY;
 
         debug!("Validating agent and model references against config files");
@@ -428,6 +437,7 @@ impl SqliteStorage {
         }
 
         Ok(())
+        */
     }
 }
 
@@ -1024,7 +1034,7 @@ impl ProjectStorage for SqliteStorage {
 
     async fn get_encryption_mode(
         &self,
-    ) -> StorageResult<Option<crate::security::encryption::EncryptionMode>> {
+    ) -> StorageResult<Option<EncryptionMode>> {
         let row: Option<(String,)> =
             sqlx::query_as("SELECT encryption_mode FROM encryption_settings WHERE id = 1")
                 .fetch_optional(&self.pool)
@@ -1045,7 +1055,7 @@ impl ProjectStorage for SqliteStorage {
         &self,
     ) -> StorageResult<
         Option<(
-            crate::security::encryption::EncryptionMode,
+            EncryptionMode,
             Option<Vec<u8>>,
             Option<Vec<u8>>,
         )>,
@@ -1069,7 +1079,7 @@ impl ProjectStorage for SqliteStorage {
 
     async fn set_encryption_mode(
         &self,
-        mode: crate::security::encryption::EncryptionMode,
+        mode: EncryptionMode,
         salt: Option<&[u8]>,
         hash: Option<&[u8]>,
     ) -> StorageResult<()> {

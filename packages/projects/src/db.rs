@@ -10,7 +10,7 @@ use crate::ai_usage_logs::AiUsageLogStorage;
 use crate::api_tokens::TokenStorage;
 use crate::executions::ExecutionStorage;
 use crate::settings::SettingsStorage;
-use crate::storage::StorageError;
+use storage::StorageError;
 use crate::tags::TagStorage;
 use crate::tasks::TaskStorage;
 use crate::users::UserStorage;
@@ -102,7 +102,7 @@ impl DbState {
         info!("Database connection established");
 
         // Run migrations
-        sqlx::migrate!("./migrations")
+        sqlx::migrate!("../storage/migrations")
             .run(&pool)
             .await
             .map_err(StorageError::Migration)?;

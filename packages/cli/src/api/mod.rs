@@ -42,7 +42,7 @@ pub async fn create_router_with_options(
             let pool = sqlx::SqlitePool::connect(":memory:")
                 .await
                 .expect("Failed to create in-memory database for error fallback");
-            sqlx::migrate!("../projects/migrations")
+            sqlx::migrate!("../storage/migrations")
                 .run(&pool)
                 .await
                 .expect("Failed to run migrations for error fallback");
@@ -71,7 +71,7 @@ pub async fn create_router_with_options(
             let pool = sqlx::SqlitePool::connect(":memory:")
                 .await
                 .expect("Failed to create in-memory database for error fallback");
-            sqlx::migrate!("../projects/migrations")
+            sqlx::migrate!("../storage/migrations")
                 .run(&pool)
                 .await
                 .expect("Failed to run migrations for error fallback");
@@ -109,7 +109,7 @@ pub async fn create_router_with_options(
             let pool = sqlx::SqlitePool::connect(":memory:")
                 .await
                 .expect("Failed to create in-memory database for error fallback");
-            sqlx::migrate!("../projects/migrations")
+            sqlx::migrate!("../storage/migrations")
                 .run(&pool)
                 .await
                 .expect("Failed to run migrations for error fallback");
