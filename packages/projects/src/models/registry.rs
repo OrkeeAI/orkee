@@ -482,4 +482,93 @@ mod tests {
         assert_eq!(lite_model.name, "Gemini 2.5 Flash-Lite");
         assert_eq!(lite_model.provider, "google");
     }
+
+    #[test]
+    fn test_grok_cli_agent() {
+        let registry = ModelRegistry::new().unwrap();
+
+        // Verify Grok CLI agent exists
+        assert!(
+            registry.agent_exists("grok-cli"),
+            "Grok CLI agent should exist"
+        );
+
+        // Verify Grok CLI agent details
+        let agent = registry.get_agent("grok-cli");
+        assert!(agent.is_some(), "Should find Grok CLI agent");
+        let agent = agent.unwrap();
+        assert_eq!(agent.name, "Grok CLI");
+        assert_eq!(agent.id, "grok-cli");
+
+        // Verify Grok CLI supports Grok 4 models
+        assert!(
+            registry.validate_agent_model("grok-cli", "grok-4-fast"),
+            "grok-cli should support grok-4-fast"
+        );
+        assert!(
+            registry.validate_agent_model("grok-cli", "grok-4-latest"),
+            "grok-cli should support grok-4-latest"
+        );
+        assert!(
+            registry.validate_agent_model("grok-cli", "grok-3-latest"),
+            "grok-cli should support grok-3-latest"
+        );
+
+        // Verify Grok CLI default model is Grok 4 Fast
+        let default_model = registry.get_agent_default_model("grok-cli");
+        assert!(default_model.is_some(), "Should have default model");
+        assert_eq!(
+            default_model.unwrap().id,
+            "grok-4-fast",
+            "Default should be Grok 4 Fast"
+        );
+
+        // Verify Grok CLI does not support OpenAI or Anthropic models
+        assert!(
+            !registry.validate_agent_model("grok-cli", "gpt-5"),
+            "grok-cli should not support GPT-5"
+        );
+        assert!(
+            !registry.validate_agent_model("grok-cli", "claude-sonnet-4-5-20250929"),
+            "grok-cli should not support Claude models"
+        );
+    }
+
+    #[test]
+    fn test_grok4_models() {
+        let registry = ModelRegistry::new().unwrap();
+
+        // Verify Grok 4 exists
+        assert!(
+            registry.model_exists("grok-4-latest"),
+            "Grok 4 should exist"
+        );
+        let model = registry.get_model("grok-4-latest");
+        assert!(model.is_some(), "Should find Grok 4");
+        let model = model.unwrap();
+        assert_eq!(model.name, "Grok 4");
+        assert_eq!(model.provider, "xai");
+
+        // Verify Grok 4 Fast exists
+        assert!(
+            registry.model_exists("grok-4-fast"),
+            "Grok 4 Fast should exist"
+        );
+        let fast_model = registry.get_model("grok-4-fast");
+        assert!(fast_model.is_some(), "Should find Grok 4 Fast");
+        let fast_model = fast_model.unwrap();
+        assert_eq!(fast_model.name, "Grok 4 Fast");
+        assert_eq!(fast_model.provider, "xai");
+
+        // Verify Grok 3 exists
+        assert!(
+            registry.model_exists("grok-3-latest"),
+            "Grok 3 should exist"
+        );
+        let grok3_model = registry.get_model("grok-3-latest");
+        assert!(grok3_model.is_some(), "Should find Grok 3");
+        let grok3_model = grok3_model.unwrap();
+        assert_eq!(grok3_model.name, "Grok 3");
+        assert_eq!(grok3_model.provider, "xai");
+    }
 }

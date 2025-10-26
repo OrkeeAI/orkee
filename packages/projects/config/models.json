@@ -167,37 +167,63 @@
       "is_available": true
     },
     {
-      "id": "grok-2-latest",
+      "id": "grok-4-latest",
       "provider": "xai",
-      "name": "Grok 2",
-      "model_identifier": "grok-2-latest",
-      "description": "xAI's flagship conversational AI",
-      "max_context_tokens": 131072,
+      "name": "Grok 4",
+      "model_identifier": "grok-4-latest",
+      "description": "xAI's most advanced model with deep reasoning capabilities",
+      "max_context_tokens": 256000,
+      "max_output_tokens": 128000,
+      "knowledge_cutoff": "2024-11",
       "capabilities": {
         "tools": true,
-        "vision": false,
+        "vision": true,
+        "extended_thinking": true,
         "web_search": true
       },
       "pricing": {
-        "input_per_million_tokens": 2.0,
-        "output_per_million_tokens": 10.0
+        "input_per_million_tokens": 3.0,
+        "output_per_million_tokens": 15.0
       },
       "is_available": true
     },
     {
-      "id": "grok-beta",
+      "id": "grok-4-fast",
       "provider": "xai",
-      "name": "Grok Beta",
-      "model_identifier": "grok-beta",
-      "description": "Experimental Grok model",
-      "max_context_tokens": 131072,
+      "name": "Grok 4 Fast",
+      "model_identifier": "grok-4-fast",
+      "description": "High-performance variant with 2M context and 40% fewer thinking tokens",
+      "max_context_tokens": 2000000,
+      "max_output_tokens": 128000,
+      "knowledge_cutoff": "2024-11",
       "capabilities": {
         "tools": true,
-        "vision": false,
+        "vision": true,
+        "extended_thinking": true,
         "web_search": true
       },
       "pricing": {
-        "input_per_million_tokens": 5.0,
+        "input_per_million_tokens": 0.20,
+        "output_per_million_tokens": 0.50
+      },
+      "is_available": true
+    },
+    {
+      "id": "grok-3-latest",
+      "provider": "xai",
+      "name": "Grok 3",
+      "model_identifier": "grok-3-latest",
+      "description": "Previous generation flagship model",
+      "max_context_tokens": 131072,
+      "max_output_tokens": 65536,
+      "knowledge_cutoff": "2024-11",
+      "capabilities": {
+        "tools": true,
+        "vision": true,
+        "web_search": true
+      },
+      "pricing": {
+        "input_per_million_tokens": 3.0,
         "output_per_million_tokens": 15.0
       },
       "is_available": true
