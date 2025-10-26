@@ -1,8 +1,9 @@
 // ABOUTME: HTTP request handlers for agent operations
-// ABOUTME: Handles agent listing and user-agent management
+// ABOUTME: Handles agent listing (from JSON) and user-agent management (from DB)
 
 use axum::{
     extract::{Path, Query, State},
+    http::StatusCode,
     response::IntoResponse,
     Json,
 };
@@ -11,33 +12,46 @@ use tracing::info;
 
 use super::response::ok_or_internal_error;
 use crate::db::DbState;
+use crate::models::REGISTRY;
 use crate::pagination::{PaginatedResponse, PaginationParams};
 
-/// List all available agents
-pub async fn list_agents(
-    State(db): State<DbState>,
-    Query(pagination): Query<PaginationParams>,
-) -> impl IntoResponse {
-    info!("Listing all agents (page: {})", pagination.page());
+/// List all available agents from JSON configuration
+pub async fn list_agents(Query(pagination): Query<PaginationParams>) -> impl IntoResponse {
+    info!("Listing all agents from JSON registry");
 
-    let result = db
-        .agent_storage
-        .list_agents_paginated(Some(pagination.limit()), Some(pagination.offset()))
-        .await
-        .map(|(agents, total)| PaginatedResponse::new(agents, &pagination, total));
+    let mut agents = REGISTRY.list_agents();
 
-    ok_or_internal_error(result, "Failed to list agents")
+    // Sort agents by name for consistent ordering
+    agents.sort_by(|a, b| a.name.cmp(&b.name));
+
+    let total = agents.len() as i64;
+    let offset = pagination.offset() as usize;
+    let limit = pagination.limit() as usize;
+
+    // Apply pagination
+    let paginated_agents: Vec<_> = agents
+        .into_iter()
+        .skip(offset)
+        .take(limit)
+        .cloned()
+        .collect();
+
+    let response = PaginatedResponse::new(paginated_agents, &pagination, total);
+    (StatusCode::OK, Json(response))
 }
 
-/// Get a single agent by ID
-pub async fn get_agent(
-    State(db): State<DbState>,
-    Path(agent_id): Path<String>,
-) -> impl IntoResponse {
-    info!("Getting agent: {}", agent_id);
+/// Get a single agent by ID from JSON configuration
+pub async fn get_agent(Path(agent_id): Path<String>) -> impl IntoResponse {
+    info!("Getting agent: {} from JSON registry", agent_id);
 
-    let result = db.agent_storage.get_agent(&agent_id).await;
-    ok_or_internal_error(result, "Failed to get agent")
+    match REGISTRY.get_agent(&agent_id) {
+        Some(agent) => (StatusCode::OK, Json(agent.clone())).into_response(),
+        None => (
+            StatusCode::NOT_FOUND,
+            Json(serde_json::json!({"error": "Agent not found"})),
+        )
+            .into_response(),
+    }
 }
 
 /// List user's agent configurations

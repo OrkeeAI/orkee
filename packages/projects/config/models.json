@@ -1,0 +1,167 @@
+{
+  "version": "2025-01-26",
+  "models": [
+    {
+      "id": "claude-sonnet-4-20250514",
+      "provider": "anthropic",
+      "name": "Claude Sonnet 4",
+      "model_identifier": "claude-sonnet-4-20250514",
+      "description": "Best coding model in the world",
+      "max_context_tokens": 200000,
+      "capabilities": {
+        "tools": true,
+        "vision": true,
+        "web_search": true
+      },
+      "pricing": {
+        "input_per_1k_tokens": 0.003,
+        "output_per_1k_tokens": 0.015
+      },
+      "is_available": true
+    },
+    {
+      "id": "claude-opus-4-20250514",
+      "provider": "anthropic",
+      "name": "Claude Opus 4",
+      "model_identifier": "claude-opus-4-20250514",
+      "description": "Most intelligent model, hybrid reasoning for complex tasks",
+      "max_context_tokens": 200000,
+      "capabilities": {
+        "tools": true,
+        "vision": true,
+        "web_search": true
+      },
+      "pricing": {
+        "input_per_1k_tokens": 0.015,
+        "output_per_1k_tokens": 0.075
+      },
+      "is_available": true
+    },
+    {
+      "id": "claude-3-5-haiku-20241022",
+      "provider": "anthropic",
+      "name": "Claude 3.5 Haiku",
+      "model_identifier": "claude-3-5-haiku-20241022",
+      "description": "Fast and efficient, near-frontier performance at low cost",
+      "max_context_tokens": 200000,
+      "capabilities": {
+        "tools": true,
+        "vision": true,
+        "web_search": false
+      },
+      "pricing": {
+        "input_per_1k_tokens": 0.001,
+        "output_per_1k_tokens": 0.005
+      },
+      "is_available": true
+    },
+    {
+      "id": "gpt-4o",
+      "provider": "openai",
+      "name": "GPT-4o",
+      "model_identifier": "gpt-4o",
+      "description": "Multimodal GPT-4 optimized for speed",
+      "max_context_tokens": 128000,
+      "capabilities": {
+        "tools": true,
+        "vision": true,
+        "web_search": false
+      },
+      "pricing": {
+        "input_per_1k_tokens": 0.0025,
+        "output_per_1k_tokens": 0.01
+      },
+      "is_available": true
+    },
+    {
+      "id": "gpt-4-turbo-preview",
+      "provider": "openai",
+      "name": "GPT-4 Turbo",
+      "model_identifier": "gpt-4-turbo-preview",
+      "description": "Latest GPT-4 with improved performance",
+      "max_context_tokens": 128000,
+      "capabilities": {
+        "tools": true,
+        "vision": true,
+        "web_search": false
+      },
+      "pricing": {
+        "input_per_1k_tokens": 0.01,
+        "output_per_1k_tokens": 0.03
+      },
+      "is_available": true
+    },
+    {
+      "id": "gemini-1.5-pro-latest",
+      "provider": "google",
+      "name": "Gemini 1.5 Pro",
+      "model_identifier": "gemini-1.5-pro-latest",
+      "description": "Google's most capable multimodal AI",
+      "max_context_tokens": 2000000,
+      "capabilities": {
+        "tools": true,
+        "vision": true,
+        "web_search": true
+      },
+      "pricing": {
+        "input_per_1k_tokens": 0.00125,
+        "output_per_1k_tokens": 0.005
+      },
+      "is_available": true
+    },
+    {
+      "id": "gemini-1.5-flash-latest",
+      "provider": "google",
+      "name": "Gemini 1.5 Flash",
+      "model_identifier": "gemini-1.5-flash-latest",
+      "description": "Fast and efficient for high-volume tasks",
+      "max_context_tokens": 1000000,
+      "capabilities": {
+        "tools": true,
+        "vision": true,
+        "web_search": true
+      },
+      "pricing": {
+        "input_per_1k_tokens": 0.000075,
+        "output_per_1k_tokens": 0.0003
+      },
+      "is_available": true
+    },
+    {
+      "id": "grok-2-latest",
+      "provider": "xai",
+      "name": "Grok 2",
+      "model_identifier": "grok-2-latest",
+      "description": "xAI's flagship conversational AI",
+      "max_context_tokens": 131072,
+      "capabilities": {
+        "tools": true,
+        "vision": false,
+        "web_search": true
+      },
+      "pricing": {
+        "input_per_1k_tokens": 0.002,
+        "output_per_1k_tokens": 0.01
+      },
+      "is_available": true
+    },
+    {
+      "id": "grok-beta",
+      "provider": "xai",
+      "name": "Grok Beta",
+      "model_identifier": "grok-beta",
+      "description": "Experimental Grok model",
+      "max_context_tokens": 131072,
+      "capabilities": {
+        "tools": true,
+        "vision": false,
+        "web_search": true
+      },
+      "pricing": {
+        "input_per_1k_tokens": 0.005,
+        "output_per_1k_tokens": 0.015
+      },
+      "is_available": true
+    }
+  ]
+}

@@ -5,6 +5,7 @@
 
 pub mod agents;
 pub mod ai_service;
+pub mod models;
 pub mod ai_usage_logs;
 pub mod api;
 pub mod api_tokens;
@@ -92,3 +93,9 @@ pub use pagination::{PaginatedResponse, PaginationMeta, PaginationParams};
 
 // Re-export API token types
 pub use api_tokens::{ApiToken, TokenGeneration, TokenStorage};
+
+// Re-export models and agents registry
+pub use models::{
+    Agent, AgentConfig, AgentModelRef, Model, ModelCapabilities, ModelPricing, ModelRegistry,
+    REGISTRY,
+};

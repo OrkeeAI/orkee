@@ -156,7 +156,7 @@ CREATE TABLE users (
     id TEXT PRIMARY KEY,
     email TEXT NOT NULL UNIQUE,
     name TEXT NOT NULL,
-    default_agent_id TEXT REFERENCES agents(id) ON DELETE SET NULL,
+    default_agent_id TEXT,  -- References config/agents.json agent.id (no FK enforcement)
     theme TEXT DEFAULT 'system',
 
     -- API keys stored as encrypted base64 strings
@@ -183,48 +183,34 @@ BEGIN
 END;
 
 -- Agents table
-CREATE TABLE agents (
-    id TEXT PRIMARY KEY,
-    name TEXT NOT NULL UNIQUE,
-    type TEXT NOT NULL,
-    provider TEXT NOT NULL,
-    model TEXT,
-    display_name TEXT NOT NULL,
-    avatar_url TEXT,
-    description TEXT,
-    capabilities TEXT,
-    languages TEXT,
-    frameworks TEXT,
-    max_context_tokens INTEGER,
-    supports_tools BOOLEAN NOT NULL DEFAULT FALSE,
-    supports_vision BOOLEAN NOT NULL DEFAULT FALSE,
-    supports_web_search BOOLEAN NOT NULL DEFAULT FALSE,
-    api_endpoint TEXT,
-    temperature REAL,
-    max_tokens INTEGER,
-    system_prompt TEXT,
-    cost_per_1k_input_tokens REAL,
-    cost_per_1k_output_tokens REAL,
-    is_available BOOLEAN NOT NULL DEFAULT TRUE,
-    requires_api_key BOOLEAN NOT NULL DEFAULT TRUE,
-    metadata TEXT,
-    created_at TEXT NOT NULL,
-    updated_at TEXT NOT NULL
-);
-
-CREATE TRIGGER agents_updated_at AFTER UPDATE ON agents
-FOR EACH ROW WHEN NEW.updated_at = OLD.updated_at
-BEGIN
-    UPDATE agents SET updated_at = datetime('now', 'utc') WHERE id = NEW.id;
-END;
+-- Agents table removed: Now loaded from config/agents.json
+-- Models are defined in config/models.json
+-- See src/models/mod.rs for ModelRegistry (in-memory registry)
 
 -- User-Agent association table
+-- Stores which agents a user has enabled and their preferences
 CREATE TABLE user_agents (
     id TEXT PRIMARY KEY,
     user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    agent_id TEXT NOT NULL REFERENCES agents(id) ON DELETE CASCADE,
+    agent_id TEXT NOT NULL,  -- References config/agents.json agent.id (no FK enforcement)
+    preferred_model_id TEXT,  -- References config/models.json model.id (no FK enforcement)
     is_active INTEGER NOT NULL DEFAULT 1,
-    custom_settings TEXT,
+
+    -- User customization
+    custom_name TEXT,
+    custom_system_prompt TEXT,
+    custom_temperature REAL,
+    custom_max_tokens INTEGER,
+
+    -- Usage stats
+    tasks_assigned INTEGER DEFAULT 0,
+    tasks_completed INTEGER DEFAULT 0,
+    total_tokens_used INTEGER DEFAULT 0,
+    total_cost_cents INTEGER DEFAULT 0,
+    last_used_at TEXT,
+
+    -- Metadata
+    custom_settings TEXT,  -- JSON for additional preferences
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL,
     UNIQUE(user_id, agent_id)
@@ -541,8 +527,8 @@ CREATE TABLE tasks (
     status TEXT NOT NULL DEFAULT 'pending',
     priority TEXT NOT NULL DEFAULT 'medium',
     created_by_user_id TEXT NOT NULL DEFAULT 'default-user' REFERENCES users(id) ON DELETE RESTRICT,
-    assigned_agent_id TEXT REFERENCES agents(id) ON DELETE SET NULL,
-    reviewed_by_agent_id TEXT REFERENCES agents(id) ON DELETE SET NULL,
+    assigned_agent_id TEXT,  -- References config/agents.json agent.id (no FK enforcement)
+    reviewed_by_agent_id TEXT,  -- References config/agents.json agent.id (no FK enforcement)
     parent_id TEXT REFERENCES tasks(id) ON DELETE CASCADE,
     tag_id TEXT REFERENCES tags(id) ON DELETE SET NULL,
     position INTEGER NOT NULL DEFAULT 0,
@@ -628,8 +614,8 @@ END;
 CREATE TABLE agent_executions (
     id TEXT PRIMARY KEY,
     task_id TEXT NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
-    agent_id TEXT REFERENCES agents(id) ON DELETE SET NULL,
-    model TEXT,
+    agent_id TEXT,  -- References config/agents.json agent.id (no FK enforcement)
+    model TEXT,  -- References config/models.json model.id (no FK enforcement)
     started_at TEXT NOT NULL,
     completed_at TEXT,
     status TEXT NOT NULL DEFAULT 'running',
@@ -705,7 +691,7 @@ END;
 CREATE TABLE pr_reviews (
     id TEXT PRIMARY KEY,
     execution_id TEXT NOT NULL REFERENCES agent_executions(id) ON DELETE CASCADE,
-    reviewer_id TEXT REFERENCES agents(id) ON DELETE SET NULL,
+    reviewer_id TEXT,  -- References config/agents.json agent.id (no FK enforcement)
     reviewer_type TEXT NOT NULL DEFAULT 'ai',
     review_status TEXT NOT NULL,
     review_body TEXT,
@@ -1071,39 +1057,12 @@ INSERT INTO storage_metadata (key, value) VALUES
     ('created_at', datetime('now', 'utc')),
     ('storage_type', 'sqlite');
 
--- Default user
+-- Default user (required for FK dependency)
 INSERT OR IGNORE INTO users (id, email, name, created_at, updated_at)
 VALUES ('default-user', 'user@localhost', 'Default User', datetime('now', 'utc'), datetime('now', 'utc'));
 
--- AI agents (default configurations for supported models)
-INSERT OR IGNORE INTO agents (id, name, type, provider, model, display_name, description, cost_per_1k_input_tokens, cost_per_1k_output_tokens, max_context_tokens, supports_tools, supports_vision, supports_web_search, created_at, updated_at)
-VALUES
-    ('claude-sonnet-4', 'claude-sonnet-4', 'ai', 'anthropic', 'claude-sonnet-4-20250514', 'Claude Sonnet 4', 'Best coding model in the world, strongest for building complex agents', 0.003, 0.015, 200000, 1, 1, 1, datetime('now', 'utc'), datetime('now', 'utc')),
-    ('claude-opus-4', 'claude-opus-4', 'ai', 'anthropic', 'claude-opus-4-20250514', 'Claude Opus 4', 'Most intelligent model, hybrid reasoning for complex tasks', 0.015, 0.075, 200000, 1, 1, 1, datetime('now', 'utc'), datetime('now', 'utc')),
-    ('claude-haiku-3-5', 'claude-haiku-3-5', 'ai', 'anthropic', 'claude-3-5-haiku-20241022', 'Claude 3.5 Haiku', 'Fast and efficient, near-frontier performance at low cost', 0.001, 0.005, 200000, 1, 1, 0, datetime('now', 'utc'), datetime('now', 'utc')),
-    ('gpt-4o', 'gpt-4o', 'ai', 'openai', 'gpt-4o', 'GPT-4o', 'Multimodal GPT-4 optimized for speed', 0.0025, 0.01, 128000, 1, 1, 0, datetime('now', 'utc'), datetime('now', 'utc')),
-    ('gpt-4-turbo', 'gpt-4-turbo', 'ai', 'openai', 'gpt-4-turbo-preview', 'GPT-4 Turbo', 'Latest GPT-4 with improved performance', 0.01, 0.03, 128000, 1, 1, 0, datetime('now', 'utc'), datetime('now', 'utc')),
-    ('gemini-pro', 'gemini-pro', 'ai', 'google', 'gemini-1.5-pro-latest', 'Gemini 1.5 Pro', 'Google''s most capable multimodal AI', 0.00125, 0.005, 2000000, 1, 1, 1, datetime('now', 'utc'), datetime('now', 'utc')),
-    ('gemini-flash', 'gemini-flash', 'ai', 'google', 'gemini-1.5-flash-latest', 'Gemini 1.5 Flash', 'Fast and efficient for high-volume tasks', 0.000075, 0.0003, 1000000, 1, 1, 1, datetime('now', 'utc'), datetime('now', 'utc')),
-    ('grok-2', 'grok-2', 'ai', 'xai', 'grok-2-latest', 'Grok 2', 'xAI''s flagship conversational AI', 0.002, 0.01, 131072, 1, 0, 1, datetime('now', 'utc'), datetime('now', 'utc')),
-    ('grok-beta', 'grok-beta', 'ai', 'xai', 'grok-beta', 'Grok Beta', 'Experimental Grok model', 0.005, 0.015, 131072, 1, 0, 1, datetime('now', 'utc'), datetime('now', 'utc'));
-
--- Default user's active agents
-INSERT OR IGNORE INTO user_agents (id, user_id, agent_id, is_active, created_at, updated_at)
-VALUES
-    ('ua-1', 'default-user', 'claude-sonnet-4', 1, datetime('now', 'utc'), datetime('now', 'utc')),
-    ('ua-2', 'default-user', 'claude-haiku-3-5', 1, datetime('now', 'utc'), datetime('now', 'utc')),
-    ('ua-3', 'default-user', 'gpt-4o', 1, datetime('now', 'utc'), datetime('now', 'utc')),
-    ('ua-4', 'default-user', 'gemini-pro', 1, datetime('now', 'utc'), datetime('now', 'utc')),
-    ('ua-5', 'default-user', 'gemini-flash', 1, datetime('now', 'utc'), datetime('now', 'utc')),
-    ('ua-6', 'default-user', 'grok-2', 1, datetime('now', 'utc'), datetime('now', 'utc'));
-
--- Update default user's default agent
-UPDATE users SET default_agent_id = 'claude-sonnet-4' WHERE id = 'default-user';
-
--- Default tag
-INSERT OR IGNORE INTO tags (id, name, color, description, created_at)
-VALUES ('tag-main', 'main', '#3b82f6', 'Default tag for general tasks', datetime('now', 'utc'));
+-- Note: Agents and models are now loaded from config/agents.json and config/models.json
+-- No seed data needed here. See src/models/mod.rs for ModelRegistry
 
 -- Encryption settings (machine-based encryption by default)
 INSERT OR IGNORE INTO encryption_settings (id, encryption_mode)

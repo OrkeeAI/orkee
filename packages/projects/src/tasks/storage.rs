@@ -6,6 +6,7 @@ use sqlx::{Row, SqlitePool};
 use tracing::debug;
 
 use super::types::{Task, TaskCreateInput, TaskPriority, TaskStatus, TaskUpdateInput};
+use crate::models::REGISTRY;
 use crate::storage::StorageError;
 
 pub struct TaskStorage {
@@ -386,37 +387,10 @@ impl TaskStorage {
         let task_id: String = row.try_get("id")?;
         let subtasks = None; // Will be populated by the caller if needed
 
-        // Parse agent if present
+        // Load agent from JSON registry if present
         let assigned_agent =
-            if let Ok(Some(agent_id)) = row.try_get::<Option<String>, _>("agent_id") {
-                Some(crate::agents::Agent {
-                    id: agent_id,
-                    name: row.try_get("agent_name")?,
-                    agent_type: row.try_get("agent_type")?,
-                    provider: row.try_get("agent_provider")?,
-                    model: None,
-                    display_name: row.try_get("agent_display_name")?,
-                    avatar_url: None,
-                    description: row.try_get("agent_description")?,
-                    capabilities: None,
-                    languages: None,
-                    frameworks: None,
-                    max_context_tokens: None,
-                    supports_tools: false,
-                    supports_vision: false,
-                    supports_web_search: false,
-                    api_endpoint: None,
-                    temperature: None,
-                    max_tokens: None,
-                    system_prompt: None,
-                    cost_per_1k_input_tokens: None,
-                    cost_per_1k_output_tokens: None,
-                    is_available: true,
-                    requires_api_key: true,
-                    metadata: None,
-                    created_at: Utc::now(),
-                    updated_at: Utc::now(),
-                })
+            if let Ok(Some(agent_id)) = row.try_get::<Option<String>, _>("assigned_agent_id") {
+                REGISTRY.get_agent(&agent_id).cloned()
             } else {
                 None
             };

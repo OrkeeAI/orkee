@@ -41,10 +41,10 @@ async fn test_all_core_tables_created() {
     .unwrap();
 
     // Core tables that must exist
+    // Note: agents table removed - now loaded from config/agents.json
     let required_tables = vec![
         "_sqlx_migrations",
         "agent_executions",
-        "agents",
         "ai_usage_logs",
         "api_tokens",
         "ast_spec_mappings",
@@ -132,38 +132,25 @@ async fn test_seed_data_default_user_created() {
 }
 
 #[tokio::test]
-async fn test_seed_data_agents_created() {
-    let pool = setup_migrated_db().await;
+async fn test_agents_loaded_from_json() {
+    // Agents are now loaded from config/agents.json via ModelRegistry
+    // This test verifies the registry can be initialized and contains expected agents
+    use orkee_projects::models::REGISTRY;
 
-    let agent_count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM agents")
-        .fetch_one(&pool)
-        .await
-        .unwrap();
+    let agent = REGISTRY.get_agent("claude-code");
+    assert!(agent.is_some(), "Should find claude-code agent");
+    assert_eq!(agent.unwrap().name, "Claude Code");
 
-    assert_eq!(agent_count, 9, "Should have exactly 9 default agents");
+    let agent = REGISTRY.get_agent("aider");
+    assert!(agent.is_some(), "Should find aider agent");
+    assert_eq!(agent.unwrap().name, "Aider");
 
-    // Verify all expected agents exist
-    let expected_agents = vec![
-        "claude-haiku-3-5",
-        "claude-opus-4",
-        "claude-sonnet-4",
-        "gemini-flash",
-        "gemini-pro",
-        "gpt-4-turbo",
-        "gpt-4o",
-        "grok-2",
-        "grok-beta",
-    ];
-
-    for agent_id in expected_agents {
-        let exists: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM agents WHERE id = ?)")
-            .bind(agent_id)
-            .fetch_one(&pool)
-            .await
-            .unwrap();
-
-        assert!(exists, "Agent '{}' should exist", agent_id);
-    }
+    // Verify we have at least 2 agents
+    let agents = REGISTRY.list_agents();
+    assert!(
+        agents.len() >= 2,
+        "Should have at least 2 agents from JSON config"
+    );
 }
 
 #[tokio::test]
@@ -280,10 +267,7 @@ async fn test_tasks_foreign_keys_configured() {
         fk_tables.contains(&"users".to_string()),
         "tasks should have FK to users (created_by_user_id)"
     );
-    assert!(
-        fk_tables.contains(&"agents".to_string()),
-        "tasks should have FK to agents"
-    );
+    // Note: FK to agents removed - agent_id fields now reference config/agents.json (no FK enforcement)
     assert!(
         fk_tables.contains(&"spec_changes".to_string()),
         "tasks should have FK to spec_changes"
