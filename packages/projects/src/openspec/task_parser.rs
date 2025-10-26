@@ -39,13 +39,25 @@ pub type TaskParseResult<T> = Result<T, TaskParseError>;
 pub fn parse_tasks_from_markdown(markdown: &str) -> TaskParseResult<Vec<ParsedTask>> {
     let mut tasks = Vec::new();
     let mut display_order = 0;
+    let mut malformed_lines = Vec::new();
 
     // Regex pattern to match task lines
     // Captures: (indent)(checkbox)(number)(description)
     let task_pattern = Regex::new(r"^(\s*)- \[([ xX])\]\s*(?:(\d+(?:\.\d+)*)\s+)?(.+)$")
         .map_err(|e| TaskParseError::InvalidFormat(format!("Regex compilation failed: {}", e)))?;
 
+    // Pattern to detect lines that look like they're trying to be tasks but are malformed
+    let potential_task_pattern = Regex::new(r"^(\s*)-\s*\[")
+        .map_err(|e| TaskParseError::InvalidFormat(format!("Regex compilation failed: {}", e)))?;
+
     for line in markdown.lines() {
+        let trimmed = line.trim();
+
+        // Skip empty lines and non-task lines (like headers)
+        if trimmed.is_empty() || trimmed.starts_with('#') {
+            continue;
+        }
+
         if let Some(captures) = task_pattern.captures(line) {
             let indent = captures.get(1).map_or("", |m| m.as_str());
             let checkbox = captures.get(2).map_or(" ", |m| m.as_str());
@@ -86,7 +98,29 @@ pub fn parse_tasks_from_markdown(markdown: &str) -> TaskParseResult<Vec<ParsedTa
             });
 
             display_order += 1;
+        } else if potential_task_pattern.is_match(line) {
+            // This line looks like it's trying to be a task but is malformed
+            malformed_lines.push(line.to_string());
         }
+    }
+
+    // If we found malformed task lines, return an error with guidance
+    if !malformed_lines.is_empty() {
+        let examples = malformed_lines
+            .iter()
+            .take(3)
+            .cloned()
+            .collect::<Vec<_>>()
+            .join("\n");
+        return Err(TaskParseError::InvalidFormat(format!(
+            "Found {} malformed task line(s). Tasks must follow the format:\n\
+             - [ ] Task description\n\
+             - [x] Completed task\n\
+             - [ ] 1.1 Numbered task\n\n\
+             Malformed lines:\n{}",
+            malformed_lines.len(),
+            examples
+        )));
     }
 
     Ok(tasks)
@@ -327,5 +361,39 @@ mod tests {
         assert_eq!(extract_parent_number("1.2.3"), Some("1.2".to_string()));
         assert_eq!(extract_parent_number("1.2"), Some("1".to_string()));
         assert_eq!(extract_parent_number("1"), None);
+    }
+
+    #[test]
+    fn test_malformed_task_error_with_guidance() {
+        // Missing space after dash
+        let markdown = r#"
+-[ ] Task 1
+-[x] Task 2
+"#;
+
+        let result = parse_tasks_from_markdown(markdown);
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        let err_msg = format!("{}", err);
+        assert!(err_msg.contains("malformed task line"));
+        assert!(err_msg.contains("Tasks must follow the format"));
+        assert!(err_msg.contains("- [ ] Task description"));
+    }
+
+    #[test]
+    fn test_empty_markdown_returns_empty_vec() {
+        let markdown = "";
+        let tasks = parse_tasks_from_markdown(markdown).unwrap();
+        assert_eq!(tasks.len(), 0);
+    }
+
+    #[test]
+    fn test_markdown_with_only_headers_returns_empty_vec() {
+        let markdown = r#"
+## Tasks
+### Subtasks
+"#;
+        let tasks = parse_tasks_from_markdown(markdown).unwrap();
+        assert_eq!(tasks.len(), 0);
     }
 }

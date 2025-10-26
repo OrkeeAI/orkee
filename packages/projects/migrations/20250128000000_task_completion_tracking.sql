@@ -43,7 +43,7 @@ BEGIN
             WHERE change_id = NEW.change_id
         ),
         tasks_completion_percentage = (
-            SELECT CAST((COUNT(CASE WHEN is_completed THEN 1 END) * 100.0) / NULLIF(COUNT(*), 0) AS INTEGER)
+            SELECT CAST(ROUND((COUNT(CASE WHEN is_completed THEN 1 END) * 100.0) / NULLIF(COUNT(*), 0)) AS INTEGER)
             FROM spec_change_tasks
             WHERE change_id = NEW.change_id
         ),
@@ -62,7 +62,7 @@ BEGIN
             WHERE change_id = NEW.change_id
         ),
         tasks_completion_percentage = (
-            SELECT CAST((COUNT(CASE WHEN is_completed THEN 1 END) * 100.0) / NULLIF(COUNT(*), 0) AS INTEGER)
+            SELECT CAST(ROUND((COUNT(CASE WHEN is_completed THEN 1 END) * 100.0) / NULLIF(COUNT(*), 0)) AS INTEGER)
             FROM spec_change_tasks
             WHERE change_id = NEW.change_id
         ),
@@ -85,7 +85,7 @@ BEGIN
             WHERE change_id = OLD.change_id AND is_completed = TRUE
         ),
         tasks_completion_percentage = (
-            SELECT CAST((COUNT(CASE WHEN is_completed THEN 1 END) * 100.0) / NULLIF(COUNT(*), 0) AS INTEGER)
+            SELECT CAST(ROUND((COUNT(CASE WHEN is_completed THEN 1 END) * 100.0) / NULLIF(COUNT(*), 0)) AS INTEGER)
             FROM spec_change_tasks
             WHERE change_id = OLD.change_id
         ),

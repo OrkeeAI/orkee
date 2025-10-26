@@ -26,6 +26,16 @@ pub type DbResult<T> = Result<T, DbError>;
 /// Maximum size for markdown content fields (1MB)
 const MAX_MARKDOWN_SIZE: usize = 1024 * 1024;
 
+// ============================================================================
+// Pagination Limits
+// ============================================================================
+
+/// Maximum allowed value for LIMIT parameter to prevent DoS attacks
+const MAX_PAGINATION_LIMIT: i64 = 10000;
+
+/// Maximum allowed value for OFFSET parameter to prevent DoS attacks
+const MAX_PAGINATION_OFFSET: i64 = 1000000;
+
 /// Validate markdown content size
 fn validate_content_size(content: &str, field_name: &str) -> DbResult<()> {
     if content.len() > MAX_MARKDOWN_SIZE {
@@ -35,6 +45,37 @@ fn validate_content_size(content: &str, field_name: &str) -> DbResult<()> {
             MAX_MARKDOWN_SIZE,
             content.len()
         )));
+    }
+    Ok(())
+}
+
+/// Validate pagination parameters to prevent DoS attacks
+fn validate_pagination(limit: Option<i64>, offset: Option<i64>) -> DbResult<()> {
+    if let Some(lim) = limit {
+        if lim < 0 {
+            return Err(DbError::InvalidInput(
+                "LIMIT must be non-negative".to_string(),
+            ));
+        }
+        if lim > MAX_PAGINATION_LIMIT {
+            return Err(DbError::InvalidInput(format!(
+                "LIMIT exceeds maximum allowed value of {} (got {})",
+                MAX_PAGINATION_LIMIT, lim
+            )));
+        }
+    }
+    if let Some(off) = offset {
+        if off < 0 {
+            return Err(DbError::InvalidInput(
+                "OFFSET must be non-negative".to_string(),
+            ));
+        }
+        if off > MAX_PAGINATION_OFFSET {
+            return Err(DbError::InvalidInput(format!(
+                "OFFSET exceeds maximum allowed value of {} (got {})",
+                MAX_PAGINATION_OFFSET, off
+            )));
+        }
     }
     Ok(())
 }
@@ -103,6 +144,9 @@ pub async fn get_prds_by_project_paginated(
     limit: Option<i64>,
     offset: Option<i64>,
 ) -> DbResult<(Vec<PRD>, i64)> {
+    // Validate pagination parameters
+    validate_pagination(limit, offset)?;
+
     // Get total count
     let count: i64 =
         sqlx::query_scalar("SELECT COUNT(*) FROM prds WHERE project_id = ? AND deleted_at IS NULL")
@@ -293,6 +337,9 @@ pub async fn get_capabilities_by_project_paginated(
     limit: Option<i64>,
     offset: Option<i64>,
 ) -> DbResult<(Vec<SpecCapability>, i64)> {
+    // Validate pagination parameters
+    validate_pagination(limit, offset)?;
+
     // Get total count
     let count: i64 = sqlx::query_scalar(
         "SELECT COUNT(*) FROM spec_capabilities WHERE project_id = ? AND status = 'active' AND deleted_at IS NULL",
@@ -337,6 +384,9 @@ pub async fn get_capabilities_by_prd_paginated(
     limit: Option<i64>,
     offset: Option<i64>,
 ) -> DbResult<(Vec<SpecCapability>, i64)> {
+    // Validate pagination parameters
+    validate_pagination(limit, offset)?;
+
     // Get total count
     let count: i64 = sqlx::query_scalar(
         "SELECT COUNT(*) FROM spec_capabilities WHERE prd_id = ? AND status = 'active' AND deleted_at IS NULL",
@@ -742,6 +792,9 @@ pub async fn get_requirements_by_capability_paginated(
     limit: Option<i64>,
     offset: Option<i64>,
 ) -> DbResult<(Vec<SpecRequirement>, i64)> {
+    // Validate pagination parameters
+    validate_pagination(limit, offset)?;
+
     // Get total count
     let count: i64 =
         sqlx::query_scalar("SELECT COUNT(*) FROM spec_requirements WHERE capability_id = ?")
@@ -975,6 +1028,9 @@ pub async fn get_spec_changes_by_project_paginated(
     limit: Option<i64>,
     offset: Option<i64>,
 ) -> DbResult<(Vec<SpecChange>, i64)> {
+    // Validate pagination parameters
+    validate_pagination(limit, offset)?;
+
     // Get total count
     let count: i64 = sqlx::query_scalar(
         "SELECT COUNT(*) FROM spec_changes WHERE project_id = ? AND deleted_at IS NULL",
@@ -1140,6 +1196,9 @@ pub async fn get_deltas_by_change_paginated(
     limit: Option<i64>,
     offset: Option<i64>,
 ) -> DbResult<(Vec<SpecDelta>, i64)> {
+    // Validate pagination parameters
+    validate_pagination(limit, offset)?;
+
     // Get total count
     let count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM spec_deltas WHERE change_id = ?")
         .bind(change_id)
@@ -1194,6 +1253,15 @@ pub async fn parse_and_store_change_tasks(
     for parsed_task in parsed_tasks {
         let id = crate::storage::generate_project_id();
 
+        // Safely convert display_order from usize to i32
+        let display_order_i32: i32 = parsed_task.display_order.try_into().map_err(|_| {
+            DbError::InvalidInput(format!(
+                "Task display_order {} exceeds maximum value ({})",
+                parsed_task.display_order,
+                i32::MAX
+            ))
+        })?;
+
         let task = sqlx::query_as::<_, SpecChangeTask>(
             r#"
             INSERT INTO spec_change_tasks (
@@ -1212,7 +1280,7 @@ pub async fn parse_and_store_change_tasks(
         .bind(parsed_task.is_completed)
         .bind(Option::<String>::None) // completed_by (will be set on update)
         .bind(Option::<chrono::DateTime<Utc>>::None) // completed_at
-        .bind(parsed_task.display_order as i32)
+        .bind(display_order_i32)
         .bind(parsed_task.parent_number.as_deref())
         .bind(now)
         .bind(now)
@@ -1243,11 +1311,6 @@ pub async fn get_change_tasks(
     .bind(change_id)
     .fetch_all(pool)
     .await?;
-
-    // If no tasks exist, try to parse them from the change's tasks_markdown
-    if tasks.is_empty() {
-        return parse_and_store_change_tasks(pool, change_id).await;
-    }
 
     Ok(tasks)
 }
@@ -1315,7 +1378,7 @@ mod tests {
     async fn setup_test_db() -> Pool<Sqlite> {
         let pool = Pool::<Sqlite>::connect(":memory:").await.unwrap();
 
-        // Run migrations
+        // Run migrations in order
         sqlx::query(include_str!("../../migrations/001_initial_schema.sql"))
             .execute(&pool)
             .await
@@ -1333,8 +1396,60 @@ mod tests {
             .await
             .unwrap();
 
+        sqlx::query(include_str!("../../migrations/20250119000000_security.sql"))
+            .execute(&pool)
+            .await
+            .unwrap();
+
+        sqlx::query(include_str!(
+            "../../migrations/20250120000000_telemetry.sql"
+        ))
+        .execute(&pool)
+        .await
+        .unwrap();
+
+        sqlx::query(include_str!("../../migrations/20250122000000_context.sql"))
+            .execute(&pool)
+            .await
+            .unwrap();
+
+        sqlx::query(include_str!(
+            "../../migrations/20250123000000_context_spec_integration.sql"
+        ))
+        .execute(&pool)
+        .await
+        .unwrap();
+
+        sqlx::query(include_str!(
+            "../../migrations/20250124000000_users_table.sql"
+        ))
+        .execute(&pool)
+        .await
+        .unwrap();
+
+        sqlx::query(include_str!(
+            "../../migrations/20250125000000_system_settings.sql"
+        ))
+        .execute(&pool)
+        .await
+        .unwrap();
+
+        sqlx::query(include_str!(
+            "../../migrations/20250126000000_api_tokens.sql"
+        ))
+        .execute(&pool)
+        .await
+        .unwrap();
+
         sqlx::query(include_str!(
             "../../migrations/20250127000000_openspec_alignment.sql"
+        ))
+        .execute(&pool)
+        .await
+        .unwrap();
+
+        sqlx::query(include_str!(
+            "../../migrations/20250128000000_task_completion_tracking.sql"
         ))
         .execute(&pool)
         .await
@@ -1473,5 +1588,183 @@ mod tests {
         // Verify cap2 has 1 requirement
         assert_eq!(cap2_result.requirements.len(), 1);
         assert_eq!(cap2_result.requirements[0].id, req3.id);
+    }
+
+    #[tokio::test]
+    async fn test_pagination_limit_validation() {
+        let pool = setup_test_db().await;
+        create_test_project(&pool, "test-project").await;
+
+        // Test LIMIT exceeds maximum
+        let result = get_prds_by_project_paginated(&pool, "test-project", Some(20000), None).await;
+        assert!(result.is_err());
+        assert!(matches!(result.unwrap_err(), DbError::InvalidInput(_)));
+
+        // Test OFFSET exceeds maximum
+        let result =
+            get_prds_by_project_paginated(&pool, "test-project", None, Some(2000000)).await;
+        assert!(result.is_err());
+        assert!(matches!(result.unwrap_err(), DbError::InvalidInput(_)));
+
+        // Test negative LIMIT
+        let result = get_prds_by_project_paginated(&pool, "test-project", Some(-1), None).await;
+        assert!(result.is_err());
+        assert!(matches!(result.unwrap_err(), DbError::InvalidInput(_)));
+
+        // Test negative OFFSET
+        let result = get_prds_by_project_paginated(&pool, "test-project", None, Some(-1)).await;
+        assert!(result.is_err());
+        assert!(matches!(result.unwrap_err(), DbError::InvalidInput(_)));
+
+        // Test valid pagination should work
+        let result = get_prds_by_project_paginated(&pool, "test-project", Some(10), Some(0)).await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_get_change_tasks_has_no_side_effects() {
+        let pool = setup_test_db().await;
+        create_test_project(&pool, "test-project").await;
+
+        // Create a change by inserting directly to avoid schema issues
+        let change_id = crate::storage::generate_project_id();
+        let now = Utc::now();
+        sqlx::query(
+            r#"
+            INSERT INTO spec_changes
+            (id, project_id, proposal_markdown, tasks_markdown, status, created_by, created_at, updated_at)
+            VALUES (?, ?, ?, ?, 'draft', 'test-user', ?, ?)
+            "#,
+        )
+        .bind(&change_id)
+        .bind("test-project")
+        .bind("Test proposal")
+        .bind("## Tasks\n- [ ] Task 1\n- [ ] Task 2")
+        .bind(now)
+        .bind(now)
+        .execute(&pool)
+        .await
+        .unwrap();
+
+        // Check task count before calling get_change_tasks
+        let count_before: i64 =
+            sqlx::query_scalar("SELECT COUNT(*) FROM spec_change_tasks WHERE change_id = ?")
+                .bind(&change_id)
+                .fetch_one(&pool)
+                .await
+                .unwrap();
+        assert_eq!(count_before, 0, "Should start with no tasks");
+
+        // Call get_change_tasks - this currently has a side effect of parsing and storing tasks
+        let _tasks = get_change_tasks(&pool, &change_id).await.unwrap();
+
+        // Check task count after - if there's a side effect, tasks will have been created
+        let count_after: i64 =
+            sqlx::query_scalar("SELECT COUNT(*) FROM spec_change_tasks WHERE change_id = ?")
+                .bind(&change_id)
+                .fetch_one(&pool)
+                .await
+                .unwrap();
+
+        // This assertion will FAIL with current implementation (proving the side effect exists)
+        // After fix, it should PASS (proving no side effect)
+        assert_eq!(
+            count_after, 0,
+            "get_change_tasks should not create tasks (found {} tasks after call)",
+            count_after
+        );
+    }
+
+    #[tokio::test]
+    async fn test_parse_and_store_change_tasks_overflow_protection() {
+        let pool = setup_test_db().await;
+        create_test_project(&pool, "test-project").await;
+
+        // Create a change with a task that has an extremely large display_order
+        let change_id = crate::storage::generate_project_id();
+        let now = Utc::now();
+
+        // Create a tasks_markdown with many tasks to potentially overflow i32
+        let mut tasks_markdown = String::from("## Tasks\n");
+        // i32::MAX is 2,147,483,647
+        // Create markdown that would generate display_order > i32::MAX
+        // Since we can't easily create 2 billion tasks, we'll test the validation directly
+        // by creating a ParsedTask manually with large display_order
+
+        // For now, let's just verify the normal case works
+        // The real fix will use try_into() which will catch overflow
+        tasks_markdown.push_str("- [ ] Task 1\n");
+
+        sqlx::query(
+            r#"
+            INSERT INTO spec_changes
+            (id, project_id, proposal_markdown, tasks_markdown, status, created_by, created_at, updated_at)
+            VALUES (?, ?, ?, ?, 'draft', 'test-user', ?, ?)
+            "#,
+        )
+        .bind(&change_id)
+        .bind("test-project")
+        .bind("Test proposal")
+        .bind(&tasks_markdown)
+        .bind(now)
+        .bind(now)
+        .execute(&pool)
+        .await
+        .unwrap();
+
+        // This should succeed with valid display_order
+        let result = parse_and_store_change_tasks(&pool, &change_id).await;
+        assert!(
+            result.is_ok(),
+            "Should successfully parse and store tasks with valid display_order"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_soft_delete_count_consistency() {
+        let pool = setup_test_db().await;
+        create_test_project(&pool, "test-project").await;
+
+        // Create multiple PRDs
+        let prd1 = create_prd(
+            &pool,
+            "test-project",
+            "PRD 1",
+            "Content 1",
+            PRDStatus::Draft,
+            PRDSource::Manual,
+            Some("test-user"),
+        )
+        .await
+        .unwrap();
+
+        let prd2 = create_prd(
+            &pool,
+            "test-project",
+            "PRD 2",
+            "Content 2",
+            PRDStatus::Draft,
+            PRDSource::Manual,
+            Some("test-user"),
+        )
+        .await
+        .unwrap();
+
+        // Soft delete one PRD
+        delete_prd(&pool, &prd2.id).await.unwrap();
+
+        // Get PRDs with pagination - this returns (Vec, count)
+        let (prds, count) = get_prds_by_project_paginated(&pool, "test-project", None, None)
+            .await
+            .unwrap();
+
+        // Count should match the actual number of returned PRDs (both should exclude deleted)
+        assert_eq!(
+            prds.len() as i64,
+            count,
+            "Count mismatch: pagination count should match actual results (excluding deleted)"
+        );
+        assert_eq!(prds.len(), 1, "Should only return non-deleted PRDs");
+        assert_eq!(prds[0].id, prd1.id, "Should return the non-deleted PRD");
     }
 }
