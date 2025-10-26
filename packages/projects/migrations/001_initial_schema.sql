@@ -28,7 +28,7 @@ PRAGMA foreign_keys = ON;
 -- Projects table - main entity
 CREATE TABLE projects (
     -- Core fields
-    id TEXT PRIMARY KEY,
+    id TEXT PRIMARY KEY CHECK(length(id) >= 8),
     name TEXT NOT NULL UNIQUE,
     project_root TEXT NOT NULL UNIQUE,
     description TEXT,
@@ -153,7 +153,7 @@ JOIN projects_fts fts ON p.rowid = fts.rowid;
 -- Implementation: packages/projects/src/security/encryption.rs
 -- Management: Use `orkee security` commands to configure encryption mode
 CREATE TABLE users (
-    id TEXT PRIMARY KEY,
+    id TEXT PRIMARY KEY CHECK(length(id) >= 8),
     email TEXT NOT NULL UNIQUE,
     name TEXT NOT NULL,
     default_agent_id TEXT,  -- References config/agents.json agent.id (no FK enforcement)
@@ -190,7 +190,7 @@ END;
 -- User-Agent association table
 -- Stores which agents a user has enabled and their preferences
 CREATE TABLE user_agents (
-    id TEXT PRIMARY KEY,
+    id TEXT PRIMARY KEY CHECK(length(id) >= 8),
     user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     agent_id TEXT NOT NULL,  -- References config/agents.json agent.id (no FK enforcement)
     preferred_model_id TEXT,  -- References config/models.json model.id (no FK enforcement)
@@ -228,7 +228,7 @@ END;
 
 -- Tags table
 CREATE TABLE tags (
-    id TEXT PRIMARY KEY,
+    id TEXT PRIMARY KEY CHECK(length(id) >= 8),
     name TEXT NOT NULL UNIQUE,
     color TEXT,
     description TEXT,
@@ -244,7 +244,7 @@ CREATE INDEX idx_tags_archived_at ON tags(archived_at);
 
 -- Product Requirements Documents
 CREATE TABLE prds (
-    id TEXT PRIMARY KEY,
+    id TEXT PRIMARY KEY CHECK(length(id) >= 8),
     project_id TEXT NOT NULL,
     title TEXT NOT NULL,
     content_markdown TEXT NOT NULL,
@@ -271,7 +271,7 @@ END;
 
 -- Spec Changes
 CREATE TABLE spec_changes (
-    id TEXT PRIMARY KEY,
+    id TEXT PRIMARY KEY CHECK(length(id) >= 8),
     project_id TEXT NOT NULL,
     prd_id TEXT,
     proposal_markdown TEXT NOT NULL,
@@ -321,7 +321,7 @@ END;
 
 -- Spec Capabilities
 CREATE TABLE spec_capabilities (
-    id TEXT PRIMARY KEY,
+    id TEXT PRIMARY KEY CHECK(length(id) >= 8),
     project_id TEXT NOT NULL,
     prd_id TEXT,
     name TEXT NOT NULL,
@@ -360,7 +360,7 @@ END;
 
 -- Spec Capabilities History
 CREATE TABLE spec_capabilities_history (
-    id TEXT PRIMARY KEY,
+    id TEXT PRIMARY KEY CHECK(length(id) >= 8),
     capability_id TEXT NOT NULL,
     version INTEGER NOT NULL,
     spec_markdown TEXT NOT NULL,
@@ -375,7 +375,7 @@ CREATE INDEX idx_spec_capabilities_history_capability_version ON spec_capabiliti
 
 -- Spec Requirements
 CREATE TABLE spec_requirements (
-    id TEXT PRIMARY KEY,
+    id TEXT PRIMARY KEY CHECK(length(id) >= 8),
     capability_id TEXT NOT NULL,
     name TEXT NOT NULL,
     content_markdown TEXT NOT NULL,
@@ -395,7 +395,7 @@ END;
 
 -- Spec Scenarios
 CREATE TABLE spec_scenarios (
-    id TEXT PRIMARY KEY,
+    id TEXT PRIMARY KEY CHECK(length(id) >= 8),
     requirement_id TEXT NOT NULL,
     name TEXT NOT NULL,
     when_clause TEXT NOT NULL,
@@ -410,7 +410,7 @@ CREATE INDEX idx_spec_scenarios_requirement ON spec_scenarios(requirement_id);
 
 -- Spec Change Tasks
 CREATE TABLE spec_change_tasks (
-    id TEXT PRIMARY KEY,
+    id TEXT PRIMARY KEY CHECK(length(id) >= 8),
     change_id TEXT NOT NULL,
     task_number TEXT NOT NULL,
     task_text TEXT NOT NULL,
@@ -499,7 +499,7 @@ END;
 
 -- Spec Deltas
 CREATE TABLE spec_deltas (
-    id TEXT PRIMARY KEY,
+    id TEXT PRIMARY KEY CHECK(length(id) >= 8),
     change_id TEXT NOT NULL,
     capability_id TEXT,
     capability_name TEXT NOT NULL,
@@ -520,7 +520,7 @@ CREATE INDEX idx_spec_deltas_capability ON spec_deltas(capability_id);
 
 -- Tasks table
 CREATE TABLE tasks (
-    id TEXT PRIMARY KEY,
+    id TEXT PRIMARY KEY CHECK(length(id) >= 8),
     project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
     title TEXT NOT NULL,
     description TEXT,
@@ -612,7 +612,7 @@ END;
 
 -- Agent executions table
 CREATE TABLE agent_executions (
-    id TEXT PRIMARY KEY,
+    id TEXT PRIMARY KEY CHECK(length(id) >= 8),
     task_id TEXT NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
     agent_id TEXT,  -- References config/agents.json agent.id (no FK enforcement)
     model TEXT,  -- References config/models.json model.id (no FK enforcement)
@@ -689,7 +689,7 @@ END;
 
 -- PR reviews table
 CREATE TABLE pr_reviews (
-    id TEXT PRIMARY KEY,
+    id TEXT PRIMARY KEY CHECK(length(id) >= 8),
     execution_id TEXT NOT NULL REFERENCES agent_executions(id) ON DELETE CASCADE,
     reviewer_id TEXT,  -- References config/agents.json agent.id (no FK enforcement)
     reviewer_type TEXT NOT NULL DEFAULT 'ai',
@@ -745,7 +745,7 @@ END;
 
 -- PRD-Spec Sync History
 CREATE TABLE prd_spec_sync_history (
-    id TEXT PRIMARY KEY,
+    id TEXT PRIMARY KEY CHECK(length(id) >= 8),
     prd_id TEXT NOT NULL,
     direction TEXT NOT NULL CHECK(direction IN ('prd_to_spec', 'spec_to_prd', 'task_to_spec')),
     changes_json TEXT NOT NULL,
@@ -758,7 +758,7 @@ CREATE INDEX idx_prd_spec_sync_history_prd ON prd_spec_sync_history(prd_id);
 
 -- Spec Materializations
 CREATE TABLE spec_materializations (
-    id TEXT PRIMARY KEY,
+    id TEXT PRIMARY KEY CHECK(length(id) >= 8),
     project_id TEXT NOT NULL,
     path TEXT NOT NULL,
     materialized_at TEXT NOT NULL DEFAULT (datetime('now', 'utc')),
@@ -775,7 +775,7 @@ CREATE INDEX idx_spec_materializations_path ON spec_materializations(project_id,
 
 -- Context Configurations
 CREATE TABLE context_configurations (
-    id TEXT PRIMARY KEY,
+    id TEXT PRIMARY KEY CHECK(length(id) >= 8),
     project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
     name TEXT NOT NULL,
     description TEXT,
@@ -791,7 +791,7 @@ CREATE INDEX idx_context_configs_project ON context_configurations(project_id);
 
 -- Context Snapshots
 CREATE TABLE context_snapshots (
-    id TEXT PRIMARY KEY,
+    id TEXT PRIMARY KEY CHECK(length(id) >= 8),
     configuration_id TEXT REFERENCES context_configurations(id) ON DELETE SET NULL,
     project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
     content TEXT NOT NULL,
@@ -806,7 +806,7 @@ CREATE INDEX idx_context_snapshots_config ON context_snapshots(configuration_id)
 
 -- Context Usage Patterns
 CREATE TABLE context_usage_patterns (
-    id TEXT PRIMARY KEY,
+    id TEXT PRIMARY KEY CHECK(length(id) >= 8),
     project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
     file_path TEXT NOT NULL,
     inclusion_count INTEGER NOT NULL DEFAULT 0,
@@ -819,7 +819,7 @@ CREATE INDEX idx_context_patterns_last_used ON context_usage_patterns(last_used)
 
 -- AST-Spec Mappings
 CREATE TABLE ast_spec_mappings (
-    id TEXT PRIMARY KEY,
+    id TEXT PRIMARY KEY CHECK(length(id) >= 8),
     project_id TEXT NOT NULL REFERENCES projects(id),
     file_path TEXT NOT NULL,
     symbol_name TEXT NOT NULL,
@@ -837,7 +837,7 @@ CREATE INDEX idx_ast_spec_mappings_requirement ON ast_spec_mappings(requirement_
 
 -- Context Templates
 CREATE TABLE context_templates (
-    id TEXT PRIMARY KEY,
+    id TEXT PRIMARY KEY CHECK(length(id) >= 8),
     name TEXT NOT NULL,
     description TEXT,
     template_type TEXT NOT NULL,
@@ -849,7 +849,7 @@ CREATE TABLE context_templates (
 
 -- AI Usage Tracking
 CREATE TABLE ai_usage_logs (
-    id TEXT PRIMARY KEY,
+    id TEXT PRIMARY KEY CHECK(length(id) >= 8),
     project_id TEXT NOT NULL,
     request_id TEXT,
     operation TEXT NOT NULL,
@@ -908,7 +908,7 @@ ON password_attempts(locked_until) WHERE locked_until IS NOT NULL;
 
 -- API Tokens
 CREATE TABLE api_tokens (
-    id TEXT PRIMARY KEY,
+    id TEXT PRIMARY KEY CHECK(length(id) >= 8),
     token_hash TEXT NOT NULL,
     name TEXT NOT NULL,
     created_at TEXT NOT NULL DEFAULT (datetime('now', 'utc')),
@@ -980,7 +980,7 @@ END;
 
 -- Telemetry Events
 CREATE TABLE telemetry_events (
-    id TEXT PRIMARY KEY,
+    id TEXT PRIMARY KEY CHECK(length(id) >= 8),
     event_type TEXT NOT NULL,
     event_name TEXT NOT NULL,
     event_data TEXT,
@@ -1018,7 +1018,7 @@ CREATE TABLE telemetry_stats (
 
 -- Sync Snapshots
 CREATE TABLE sync_snapshots (
-    id TEXT PRIMARY KEY,
+    id TEXT PRIMARY KEY CHECK(length(id) >= 8),
     created_at TEXT NOT NULL DEFAULT (datetime('now', 'utc')),
     compressed_data BLOB NOT NULL,
     checksum TEXT NOT NULL,
@@ -1032,7 +1032,7 @@ CREATE INDEX idx_sync_snapshots_status ON sync_snapshots(sync_status);
 
 -- Sync State
 CREATE TABLE sync_state (
-    id TEXT PRIMARY KEY,
+    id TEXT PRIMARY KEY CHECK(length(id) >= 8),
     user_id TEXT,
     device_id TEXT,
     last_sync_at TEXT,
