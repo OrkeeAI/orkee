@@ -302,8 +302,9 @@ CREATE TABLE spec_changes (
 
 -- Spec change indexes
 -- Query patterns:
---   - verb_prefix is ALWAYS queried with project_id (e.g., WHERE project_id = ? AND verb_prefix = ?)
---   - No queries filter by verb_prefix alone, so standalone verb_prefix index is not needed
+--   - List changes by project: WHERE project_id = ? (most common)
+--   - Change ID generation: WHERE project_id = ? AND verb_prefix = ?
+--   - Both indexes needed: standalone for listing, composite for ID generation
 CREATE INDEX idx_spec_changes_project ON spec_changes(project_id);
 CREATE INDEX idx_spec_changes_status ON spec_changes(status);
 CREATE INDEX idx_spec_changes_created_at ON spec_changes(created_at);
@@ -345,11 +346,13 @@ CREATE TABLE spec_capabilities (
 
 -- Spec capability indexes
 -- Query patterns:
---   - All project_id queries also filter by status (e.g., WHERE project_id = ? AND status = 'active')
---   - Therefore project_id alone index is redundant
+--   - List capabilities by project: WHERE project_id = ? (archive queries)
+--   - Active capabilities: WHERE project_id = ? AND status = 'active' (common filtering)
+--   - Both indexes needed: standalone for listing, composite for filtered queries
+CREATE INDEX idx_spec_capabilities_project ON spec_capabilities(project_id);
 CREATE INDEX idx_spec_capabilities_prd ON spec_capabilities(prd_id);
 CREATE INDEX idx_spec_capabilities_status ON spec_capabilities(status);
-CREATE INDEX idx_spec_capabilities_project_status ON spec_capabilities(project_id, status);  -- Primary query pattern
+CREATE INDEX idx_spec_capabilities_project_status ON spec_capabilities(project_id, status);  -- Supports active capability queries
 CREATE INDEX idx_spec_capabilities_change ON spec_capabilities(change_id);
 CREATE INDEX idx_spec_capabilities_not_deleted ON spec_capabilities(id) WHERE deleted_at IS NULL;
 CREATE INDEX idx_spec_capabilities_project_not_deleted ON spec_capabilities(project_id, status) WHERE deleted_at IS NULL;
