@@ -228,16 +228,52 @@ mod tests {
     fn test_validate_agent_model() {
         let registry = ModelRegistry::new().unwrap();
 
-        // Valid combination
+        // Valid combinations for claude-code (Claude-only agent)
         assert!(
             registry.validate_agent_model("claude-code", "claude-sonnet-4-20250514"),
             "claude-code should support sonnet-4"
         );
+        assert!(
+            registry.validate_agent_model("claude-code", "claude-opus-4-20250514"),
+            "claude-code should support opus-4"
+        );
+        assert!(
+            registry.validate_agent_model("claude-code", "claude-3-5-haiku-20241022"),
+            "claude-code should support haiku"
+        );
 
-        // Invalid combination (Aider uses GPT, not a Claude-only model)
+        // Valid combinations for aider (multi-provider agent)
+        assert!(
+            registry.validate_agent_model("aider", "claude-sonnet-4-20250514"),
+            "aider should support sonnet-4"
+        );
+        assert!(
+            registry.validate_agent_model("aider", "gpt-4o"),
+            "aider should support gpt-4o"
+        );
+        assert!(
+            registry.validate_agent_model("aider", "claude-opus-4-20250514"),
+            "aider should support opus-4"
+        );
+
+        // Invalid combinations - models not in agent's supported list
         assert!(
             !registry.validate_agent_model("aider", "claude-3-5-haiku-20241022"),
-            "aider should not support haiku (not in its list)"
+            "aider should not support haiku (not in its supported models list)"
+        );
+        assert!(
+            !registry.validate_agent_model("claude-code", "gpt-4o"),
+            "claude-code should not support gpt-4o (Claude-only agent)"
+        );
+
+        // Invalid combinations - nonexistent agent or model
+        assert!(
+            !registry.validate_agent_model("nonexistent-agent", "claude-sonnet-4-20250514"),
+            "nonexistent agent should not validate"
+        );
+        assert!(
+            !registry.validate_agent_model("aider", "nonexistent-model"),
+            "nonexistent model should not validate"
         );
     }
 
