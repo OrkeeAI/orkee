@@ -1,17 +1,20 @@
 {
-  "version": "2025-01-26",
+  "version": "2025-10-26",
   "models": [
     {
-      "id": "claude-sonnet-4-20250514",
+      "id": "claude-sonnet-4-5-20250929",
       "provider": "anthropic",
-      "name": "Claude Sonnet 4",
-      "model_identifier": "claude-sonnet-4-20250514",
-      "description": "Best coding model in the world",
+      "name": "Claude Sonnet 4.5",
+      "model_identifier": "claude-sonnet-4-5-20250929",
+      "description": "Our smartest model for complex agents and coding",
       "max_context_tokens": 200000,
+      "max_output_tokens": 64000,
+      "knowledge_cutoff": "2025-01",
       "capabilities": {
         "tools": true,
         "vision": true,
-        "web_search": true
+        "extended_thinking": true,
+        "web_search": false
       },
       "pricing": {
         "input_per_1k_tokens": 0.003,
@@ -20,38 +23,44 @@
       "is_available": true
     },
     {
-      "id": "claude-opus-4-20250514",
+      "id": "claude-haiku-4-5-20251001",
       "provider": "anthropic",
-      "name": "Claude Opus 4",
-      "model_identifier": "claude-opus-4-20250514",
-      "description": "Most intelligent model, hybrid reasoning for complex tasks",
+      "name": "Claude Haiku 4.5",
+      "model_identifier": "claude-haiku-4-5-20251001",
+      "description": "Our fastest model with near-frontier intelligence",
       "max_context_tokens": 200000,
+      "max_output_tokens": 64000,
+      "knowledge_cutoff": "2025-02",
       "capabilities": {
         "tools": true,
         "vision": true,
-        "web_search": true
-      },
-      "pricing": {
-        "input_per_1k_tokens": 0.015,
-        "output_per_1k_tokens": 0.075
-      },
-      "is_available": true
-    },
-    {
-      "id": "claude-3-5-haiku-20241022",
-      "provider": "anthropic",
-      "name": "Claude 3.5 Haiku",
-      "model_identifier": "claude-3-5-haiku-20241022",
-      "description": "Fast and efficient, near-frontier performance at low cost",
-      "max_context_tokens": 200000,
-      "capabilities": {
-        "tools": true,
-        "vision": true,
+        "extended_thinking": true,
         "web_search": false
       },
       "pricing": {
         "input_per_1k_tokens": 0.001,
         "output_per_1k_tokens": 0.005
+      },
+      "is_available": true
+    },
+    {
+      "id": "claude-opus-4-1-20250805",
+      "provider": "anthropic",
+      "name": "Claude Opus 4.1",
+      "model_identifier": "claude-opus-4-1-20250805",
+      "description": "Exceptional model for specialized reasoning tasks",
+      "max_context_tokens": 200000,
+      "max_output_tokens": 32000,
+      "knowledge_cutoff": "2025-01",
+      "capabilities": {
+        "tools": true,
+        "vision": true,
+        "extended_thinking": false,
+        "web_search": false
+      },
+      "pricing": {
+        "input_per_1k_tokens": 0.015,
+        "output_per_1k_tokens": 0.075
       },
       "is_available": true
     },

@@ -1,5 +1,5 @@
 {
-  "version": "2025-01-26",
+  "version": "2025-10-26",
   "agents": [
     {
       "id": "claude-code",
@@ -10,19 +10,19 @@
       "required_providers": ["anthropic"],
       "supported_models": [
         {
-          "model_id": "claude-sonnet-4-20250514",
+          "model_id": "claude-sonnet-4-5-20250929",
           "is_default": true,
           "is_recommended": true,
           "display_order": 1
         },
         {
-          "model_id": "claude-opus-4-20250514",
+          "model_id": "claude-haiku-4-5-20251001",
           "is_default": false,
           "is_recommended": true,
           "display_order": 2
         },
         {
-          "model_id": "claude-3-5-haiku-20241022",
+          "model_id": "claude-opus-4-1-20250805",
           "is_default": false,
           "is_recommended": true,
           "display_order": 3
@@ -44,7 +44,7 @@
       "required_providers": ["anthropic", "openai"],
       "supported_models": [
         {
-          "model_id": "claude-sonnet-4-20250514",
+          "model_id": "claude-sonnet-4-5-20250929",
           "is_default": true,
           "is_recommended": true,
           "display_order": 1
@@ -56,7 +56,7 @@
           "display_order": 2
         },
         {
-          "model_id": "claude-opus-4-20250514",
+          "model_id": "claude-opus-4-1-20250805",
           "is_default": false,
           "is_recommended": false,
           "display_order": 3

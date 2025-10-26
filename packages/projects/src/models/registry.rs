@@ -171,9 +171,9 @@ mod tests {
     #[test]
     fn test_get_model() {
         let registry = ModelRegistry::new().unwrap();
-        let model = registry.get_model("claude-sonnet-4-20250514");
-        assert!(model.is_some(), "Should find Claude Sonnet 4");
-        assert_eq!(model.unwrap().name, "Claude Sonnet 4");
+        let model = registry.get_model("claude-sonnet-4-5-20250929");
+        assert!(model.is_some(), "Should find Claude Sonnet 4.5");
+        assert_eq!(model.unwrap().name, "Claude Sonnet 4.5");
     }
 
     #[test]
@@ -219,8 +219,8 @@ mod tests {
         assert!(model.is_some(), "Should have default model");
         assert_eq!(
             model.unwrap().id,
-            "claude-sonnet-4-20250514",
-            "Default should be Sonnet 4"
+            "claude-sonnet-4-5-20250929",
+            "Default should be Sonnet 4.5"
         );
     }
 
@@ -230,36 +230,36 @@ mod tests {
 
         // Valid combinations for claude-code (Claude-only agent)
         assert!(
-            registry.validate_agent_model("claude-code", "claude-sonnet-4-20250514"),
-            "claude-code should support sonnet-4"
+            registry.validate_agent_model("claude-code", "claude-sonnet-4-5-20250929"),
+            "claude-code should support sonnet-4.5"
         );
         assert!(
-            registry.validate_agent_model("claude-code", "claude-opus-4-20250514"),
-            "claude-code should support opus-4"
+            registry.validate_agent_model("claude-code", "claude-haiku-4-5-20251001"),
+            "claude-code should support haiku-4.5"
         );
         assert!(
-            registry.validate_agent_model("claude-code", "claude-3-5-haiku-20241022"),
-            "claude-code should support haiku"
+            registry.validate_agent_model("claude-code", "claude-opus-4-1-20250805"),
+            "claude-code should support opus-4.1"
         );
 
         // Valid combinations for aider (multi-provider agent)
         assert!(
-            registry.validate_agent_model("aider", "claude-sonnet-4-20250514"),
-            "aider should support sonnet-4"
+            registry.validate_agent_model("aider", "claude-sonnet-4-5-20250929"),
+            "aider should support sonnet-4.5"
         );
         assert!(
             registry.validate_agent_model("aider", "gpt-4o"),
             "aider should support gpt-4o"
         );
         assert!(
-            registry.validate_agent_model("aider", "claude-opus-4-20250514"),
-            "aider should support opus-4"
+            registry.validate_agent_model("aider", "claude-opus-4-1-20250805"),
+            "aider should support opus-4.1"
         );
 
         // Invalid combinations - models not in agent's supported list
         assert!(
-            !registry.validate_agent_model("aider", "claude-3-5-haiku-20241022"),
-            "aider should not support haiku (not in its supported models list)"
+            !registry.validate_agent_model("aider", "claude-haiku-4-5-20251001"),
+            "aider should not support haiku-4.5 (not in its supported models list)"
         );
         assert!(
             !registry.validate_agent_model("claude-code", "gpt-4o"),
@@ -268,7 +268,7 @@ mod tests {
 
         // Invalid combinations - nonexistent agent or model
         assert!(
-            !registry.validate_agent_model("nonexistent-agent", "claude-sonnet-4-20250514"),
+            !registry.validate_agent_model("nonexistent-agent", "claude-sonnet-4-5-20250929"),
             "nonexistent agent should not validate"
         );
         assert!(
@@ -280,7 +280,7 @@ mod tests {
     #[test]
     fn test_model_exists() {
         let registry = ModelRegistry::new().unwrap();
-        assert!(registry.model_exists("claude-sonnet-4-20250514"));
+        assert!(registry.model_exists("claude-sonnet-4-5-20250929"));
         assert!(!registry.model_exists("nonexistent-model"));
     }
 
