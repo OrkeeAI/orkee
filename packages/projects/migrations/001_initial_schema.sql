@@ -782,13 +782,8 @@ CREATE INDEX idx_ai_usage_logs_provider_model ON ai_usage_logs(provider, model);
 CREATE INDEX idx_ai_usage_logs_provider_model_created ON ai_usage_logs(provider, model, created_at);
 CREATE INDEX idx_ai_usage_logs_context ON ai_usage_logs(context_snapshot_id);
 
--- Cleanup old AI logs (90 days retention)
-CREATE TRIGGER cleanup_old_ai_logs
-AFTER INSERT ON ai_usage_logs
-BEGIN
-  DELETE FROM ai_usage_logs
-  WHERE created_at < datetime('now', '-90 days');
-END;
+-- Note: AI usage logs should be cleaned up via scheduled job (recommended: 90 days retention)
+-- Running cleanup on every INSERT would cause performance issues at scale
 
 -- ============================================================================
 -- SECURITY & AUTHENTICATION
