@@ -1187,10 +1187,7 @@ mod tests {
         assert_eq!(normalized, "");
 
         // Extreme path traversal attempt - tests the integer underflow fix
-        let mut components = vec![];
-        for _ in 0..1000 {
-            components.push("..");
-        }
+        let components = vec![".."; 1000];
         let extreme_path = components.join("/");
         let path = Path::new(&extreme_path);
         let normalized = builder.normalize_path(path);

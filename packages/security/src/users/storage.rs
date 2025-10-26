@@ -1,8 +1,9 @@
 // ABOUTME: User storage layer using SQLite
 // ABOUTME: Handles CRUD operations for users and their settings
 
-use sqlx::{QueryBuilder, Row, SqlitePool};
 use std::env;
+
+use sqlx::{QueryBuilder, Row, SqlitePool};
 use tracing::debug;
 
 use super::types::{User, UserUpdateInput};

@@ -31,7 +31,7 @@ static STORAGE_MANAGER: Mutex<Option<Arc<StorageManager>>> = Mutex::new(None);
 thread_local! {
     /// Thread-local storage manager for test isolation
     /// This allows parallel test execution without global singleton conflicts
-    static TEST_STORAGE_MANAGER: std::cell::RefCell<Option<Arc<StorageManager>>> = std::cell::RefCell::new(None);
+    static TEST_STORAGE_MANAGER: std::cell::RefCell<Option<Arc<StorageManager>>> = const { std::cell::RefCell::new(None) };
 }
 
 /// Reset the storage manager for testing
@@ -63,7 +63,7 @@ pub async fn initialize_storage() -> ManagerResult<()> {
             Ok(())
         })?;
         info!("Storage manager initialized successfully (thread-local)");
-        return Ok(());
+        Ok(())
     }
 
     #[cfg(not(any(test, feature = "test-utils")))]
@@ -108,7 +108,7 @@ pub async fn initialize_storage_with_path(db_path: std::path::PathBuf) -> Manage
             Ok(())
         })?;
         info!("Storage manager initialized successfully with custom path (thread-local)");
-        return Ok(());
+        Ok(())
     }
 
     #[cfg(not(any(test, feature = "test-utils")))]

@@ -1,9 +1,10 @@
 // ABOUTME: AI service for making structured generation calls to Anthropic Claude
 // ABOUTME: Handles API requests, response parsing, and usage tracking
 
+use std::env;
+
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
-use std::env;
 use thiserror::Error;
 use tracing::{error, info};
 

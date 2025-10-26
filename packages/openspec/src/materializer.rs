@@ -593,7 +593,7 @@ mod tests {
     async fn test_materializer_creation() {
         let pool = Pool::<Sqlite>::connect(":memory:").await.unwrap();
         let _materializer = OpenSpecMaterializer::new(pool);
-        assert!(true, "Materializer created successfully");
+        // Test passes if materializer creation doesn't panic
     }
 
     #[tokio::test]
