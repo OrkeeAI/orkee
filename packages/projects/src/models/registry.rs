@@ -7,8 +7,15 @@ use std::sync::LazyLock;
 use super::types::{Agent, AgentsConfig, Model, ModelsConfig};
 
 /// Global registry for models and agents, loaded from JSON at startup
-pub static REGISTRY: LazyLock<ModelRegistry> =
-    LazyLock::new(|| ModelRegistry::new().expect("Failed to initialize ModelRegistry"));
+pub static REGISTRY: LazyLock<ModelRegistry> = LazyLock::new(|| {
+    ModelRegistry::new().unwrap_or_else(|e| {
+        panic!(
+            "FATAL: Failed to load model/agent configuration. \
+             Check config/models.json and config/agents.json: {}",
+            e
+        )
+    })
+});
 
 #[derive(Debug)]
 pub struct ModelRegistry {
