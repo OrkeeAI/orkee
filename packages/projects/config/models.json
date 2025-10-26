@@ -171,6 +171,48 @@
         "output_per_1k_tokens": 0.015
       },
       "is_available": true
+    },
+    {
+      "id": "gpt-5",
+      "provider": "openai",
+      "name": "GPT-5",
+      "model_identifier": "gpt-5",
+      "description": "OpenAI's most advanced model with extended reasoning",
+      "max_context_tokens": 272000,
+      "max_output_tokens": 128000,
+      "knowledge_cutoff": "2025-08",
+      "capabilities": {
+        "tools": true,
+        "vision": true,
+        "extended_reasoning": true,
+        "web_search": false
+      },
+      "pricing": {
+        "input_per_1k_tokens": 0.00125,
+        "output_per_1k_tokens": 0.01
+      },
+      "is_available": true
+    },
+    {
+      "id": "gpt-5-mini",
+      "provider": "openai",
+      "name": "GPT-5 Mini",
+      "model_identifier": "gpt-5-mini",
+      "description": "Cost-effective GPT-5 variant for high-volume tasks",
+      "max_context_tokens": 272000,
+      "max_output_tokens": 128000,
+      "knowledge_cutoff": "2025-08",
+      "capabilities": {
+        "tools": true,
+        "vision": true,
+        "extended_reasoning": true,
+        "web_search": false
+      },
+      "pricing": {
+        "input_per_1k_tokens": 0.00025,
+        "output_per_1k_tokens": 0.002
+      },
+      "is_available": true
     }
   ]
 }

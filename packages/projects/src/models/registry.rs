@@ -314,4 +314,70 @@ mod tests {
             "Should have at least one recommended model"
         );
     }
+
+    #[test]
+    fn test_codex_agent() {
+        let registry = ModelRegistry::new().unwrap();
+
+        // Verify Codex agent exists
+        assert!(registry.agent_exists("codex"), "Codex agent should exist");
+
+        // Verify Codex agent details
+        let agent = registry.get_agent("codex");
+        assert!(agent.is_some(), "Should find Codex agent");
+        let agent = agent.unwrap();
+        assert_eq!(agent.name, "Codex CLI");
+        assert_eq!(agent.id, "codex");
+
+        // Verify Codex supports GPT-5 models
+        assert!(
+            registry.validate_agent_model("codex", "gpt-5"),
+            "codex should support gpt-5"
+        );
+        assert!(
+            registry.validate_agent_model("codex", "gpt-5-mini"),
+            "codex should support gpt-5-mini"
+        );
+        assert!(
+            registry.validate_agent_model("codex", "gpt-4o"),
+            "codex should support gpt-4o"
+        );
+
+        // Verify Codex default model is GPT-5
+        let default_model = registry.get_agent_default_model("codex");
+        assert!(default_model.is_some(), "Should have default model");
+        assert_eq!(
+            default_model.unwrap().id,
+            "gpt-5",
+            "Default should be GPT-5"
+        );
+
+        // Verify Codex does not support Claude models
+        assert!(
+            !registry.validate_agent_model("codex", "claude-sonnet-4-5-20250929"),
+            "codex should not support Claude models"
+        );
+    }
+
+    #[test]
+    fn test_gpt5_models() {
+        let registry = ModelRegistry::new().unwrap();
+
+        // Verify GPT-5 exists
+        assert!(registry.model_exists("gpt-5"), "GPT-5 should exist");
+        let model = registry.get_model("gpt-5");
+        assert!(model.is_some(), "Should find GPT-5");
+        let model = model.unwrap();
+        assert_eq!(model.name, "GPT-5");
+        assert_eq!(model.provider, "openai");
+
+        // Verify GPT-5 Mini exists
+        assert!(
+            registry.model_exists("gpt-5-mini"),
+            "GPT-5 Mini should exist"
+        );
+        let mini_model = registry.get_model("gpt-5-mini");
+        assert!(mini_model.is_some(), "Should find GPT-5 Mini");
+        assert_eq!(mini_model.unwrap().name, "GPT-5 Mini");
+    }
 }
