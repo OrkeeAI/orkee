@@ -575,6 +575,8 @@ CREATE INDEX idx_tasks_tag_id ON tasks(tag_id);
 CREATE INDEX idx_tasks_change_id ON tasks(change_id);
 CREATE INDEX idx_tasks_from_prd_id ON tasks(from_prd_id);
 CREATE INDEX idx_tasks_user_status ON tasks(created_by_user_id, status);
+CREATE INDEX idx_tasks_project_status ON tasks(project_id, status);
+CREATE INDEX idx_tasks_project_priority ON tasks(project_id, priority);
 
 CREATE TRIGGER tasks_updated_at AFTER UPDATE ON tasks
 FOR EACH ROW WHEN NEW.updated_at = OLD.updated_at
