@@ -25,22 +25,23 @@ Extract functionality into focused packages while maintaining backward compatibi
 
 ### Phase 2: Storage & Simple Utilities (No Cross-Dependencies)
 
-- [ ] **`storage`** - Data layer and persistence
+- [x] **`storage`** - Data layer and persistence
   - SQLite implementation (storage/sqlite.rs - 1,393 lines)
-  - Migration system
+  - Migration system (single source of truth)
   - Storage traits and factory (storage/factory.rs)
-  - Sync engine for cloud (storage/sync/)
   - Legacy JSON storage (storage/legacy.rs)
   - Transaction management
-  - **Estimated effort**: 3 hours
+  - **Status**: ✅ COMPLETED
+  - **Tests**: 11/11 passing
+  - **Actual effort**: 3 hours (as estimated)
   - **Dependencies**: orkee_core
-  - **Priority**: ⚠️ CRITICAL - Many other packages depend on storage
+  - **Note**: Sync engine (storage/sync/) excluded as dead code
   - **Key files**:
     - `storage/sqlite.rs` (1,393 lines) - SQLite implementation
     - `storage/factory.rs` - Storage factory pattern
-    - `storage/sync/engine.rs` (615 lines) - Sync engine
     - `storage/legacy.rs` - Backward compatibility
-    - `storage/mod.rs` - Main storage module
+    - `storage/lib.rs` - Main storage module with EncryptionMode enum
+    - `migrations/001_initial_schema.sql` - Database schema (single source of truth)
 
 - [ ] **`security`** - Security and authentication (812+ lines)
   - Encryption service (security/encryption.rs - 812 lines)
@@ -431,17 +432,23 @@ mod tests {
 ## Current Progress
 
 - ✅ Phase 1: Foundation (orkee_core) - COMPLETED
-- ⏸️ Phase 2: Storage & Simple Utilities (storage, security, formatter, git_utils) - PENDING
+- ⏳ Phase 2: Storage & Simple Utilities (storage ✅, security, formatter, git_utils) - IN PROGRESS
 - ⏳ Phase 3: Domain Packages (openspec ✅, ai, context, tags, settings, tasks) - IN PROGRESS
 - ⏸️ Phase 4: Integration Layer (api) - PENDING
 
 ### Next Steps
 
-**Immediate Priority**: Extract Phase 2 packages (can be done in parallel):
-1. **storage** (3 hours) - ⚠️ CRITICAL: Unblocks ai, context, tags, settings, tasks
-2. **security** (2 hours) - Independent, can be done alongside storage
-3. **formatter** (30 min) - Independent, quick win
-4. **git_utils** (30 min) - Independent, quick win
+**Immediate Priority**: Complete Phase 2 packages (can be done in parallel):
+1. **security** (2 hours) - Independent, can be done now
+2. **formatter** (30 min) - Independent, quick win
+3. **git_utils** (30 min) - Independent, quick win
+
+**Then**: Extract remaining Phase 3 packages (now unblocked by storage completion):
+1. **ai** (2-3 hours) - Depends on storage (now available)
+2. **context** (2-3 hours) - Depends on storage (now available)
+3. **tags** (30 min) - Depends on storage (now available)
+4. **settings** (1 hour) - Depends on storage (now available)
+5. **tasks** (1-2 hours) - Depends on storage and openspec (both available)
 
 ## Notes
 
@@ -453,7 +460,7 @@ mod tests {
 ## Time Estimate
 
 - **Total estimated time**: 15-20 hours
-- **Already completed**: 6 hours (orkee_core: 2 hours, openspec: 4 hours)
-- **Remaining**: 9-14 hours
+- **Already completed**: 9 hours (orkee_core: 2 hours, openspec: 4 hours, storage: 3 hours)
+- **Remaining**: 6-11 hours
 
 This refactoring can be done incrementally, with each package extraction being independently valuable.
