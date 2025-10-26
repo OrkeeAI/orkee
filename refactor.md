@@ -43,23 +43,28 @@ Extract functionality into focused packages while maintaining backward compatibi
     - `storage/lib.rs` - Main storage module with EncryptionMode enum
     - `migrations/001_initial_schema.sql` - Database schema (single source of truth)
 
-- [ ] **`security`** - Security and authentication (812+ lines)
-  - Encryption service (security/encryption.rs - 812 lines)
-  - API token management (api_tokens/)
-  - User authentication (users/)
+- [x] **`security`** - Security and authentication (~1,400 lines)
+  - Encryption service (encryption/encryption.rs - 783 lines)
+  - API token management (api_tokens/ - 246 lines)
+  - User authentication (users/ - 377 lines)
   - Password management
   - Permission system
-  - **Estimated effort**: 2 hours
-  - **Dependencies**: orkee_core
+  - **Status**: ✅ COMPLETED
+  - **Tests**: 50/50 passing
+  - **Actual effort**: 2 hours (as estimated)
+  - **Dependencies**: orkee_core, storage
   - **Key files**:
-    - `security/encryption.rs` (812 lines) - Main encryption logic
-    - `api_tokens/` - Token management
-    - `users/` - User management
-    - `api/security_handlers.rs` (1,244 lines) - HTTP handlers
-  - **Testing considerations**:
-    - Extensive encryption tests (20+ test cases)
-    - Key rotation tests
-    - Token validation tests
+    - `encryption/encryption.rs` (783 lines) - ChaCha20-Poly1305 AEAD encryption
+    - `api_tokens/storage.rs` (246 lines) - Token CRUD operations
+    - `users/storage.rs` (377 lines) - User management and encrypted API keys
+    - `api/security_handlers.rs` (1,244 lines) - HTTP handlers (kept in projects for now)
+  - **Testing**:
+    - 27 encryption tests (key rotation, machine/password modes, portability)
+    - 7 token tests (generation, validation, constant-time comparison)
+    - 16 user tests (encryption, masking, key migration)
+  - **Notes**:
+    - Removed agent validation from UserStorage to avoid circular dependency
+    - Validation moved to API/handler level in projects package
 
 - [ ] **`formatter`** - Output formatting
   - Project formatting (formatter.rs)
@@ -432,16 +437,15 @@ mod tests {
 ## Current Progress
 
 - ✅ Phase 1: Foundation (orkee_core) - COMPLETED
-- ⏳ Phase 2: Storage & Simple Utilities (storage ✅, security, formatter, git_utils) - IN PROGRESS
+- ⏳ Phase 2: Storage & Simple Utilities (storage ✅, security ✅, formatter, git_utils) - IN PROGRESS
 - ⏳ Phase 3: Domain Packages (openspec ✅, ai, context, tags, settings, tasks) - IN PROGRESS
 - ⏸️ Phase 4: Integration Layer (api) - PENDING
 
 ### Next Steps
 
-**Immediate Priority**: Complete Phase 2 packages (can be done in parallel):
-1. **security** (2 hours) - Independent, can be done now
-2. **formatter** (30 min) - Independent, quick win
-3. **git_utils** (30 min) - Independent, quick win
+**Immediate Priority**: Complete remaining Phase 2 packages (can be done in parallel):
+1. **formatter** (30 min) - Independent, quick win
+2. **git_utils** (30 min) - Independent, quick win
 
 **Then**: Extract remaining Phase 3 packages (now unblocked by storage completion):
 1. **ai** (2-3 hours) - Depends on storage (now available)
@@ -460,7 +464,7 @@ mod tests {
 ## Time Estimate
 
 - **Total estimated time**: 15-20 hours
-- **Already completed**: 9 hours (orkee_core: 2 hours, openspec: 4 hours, storage: 3 hours)
-- **Remaining**: 6-11 hours
+- **Already completed**: 11 hours (orkee_core: 2 hours, openspec: 4 hours, storage: 3 hours, security: 2 hours)
+- **Remaining**: 4-9 hours
 
 This refactoring can be done incrementally, with each package extraction being independently valuable.
