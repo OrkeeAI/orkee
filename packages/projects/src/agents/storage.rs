@@ -95,6 +95,11 @@ impl AgentStorage {
     pub async fn activate_agent(&self, user_id: &str, agent_id: &str) -> Result<(), StorageError> {
         debug!("Activating agent: {} for user: {}", agent_id, user_id);
 
+        // Validate agent exists in registry (replaces DB foreign key constraint)
+        if !REGISTRY.agent_exists(agent_id) {
+            return Err(StorageError::InvalidAgent(agent_id.to_string()));
+        }
+
         sqlx::query(
             r#"
             UPDATE user_agents
@@ -117,6 +122,11 @@ impl AgentStorage {
         agent_id: &str,
     ) -> Result<(), StorageError> {
         debug!("Deactivating agent: {} for user: {}", agent_id, user_id);
+
+        // Validate agent exists in registry (replaces DB foreign key constraint)
+        if !REGISTRY.agent_exists(agent_id) {
+            return Err(StorageError::InvalidAgent(agent_id.to_string()));
+        }
 
         sqlx::query(
             r#"

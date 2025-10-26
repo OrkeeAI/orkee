@@ -31,6 +31,12 @@ pub enum StorageError {
     Encryption(String),
     #[error("Validation error: {0}")]
     Validation(String),
+    #[error("Invalid agent ID '{0}': agent not found in config/agents.json")]
+    InvalidAgent(String),
+    #[error("Invalid model ID '{model_id}' for agent '{agent_id}': model not supported by this agent")]
+    InvalidAgentModel { agent_id: String, model_id: String },
+    #[error("Invalid model ID '{0}': model not found in config/models.json")]
+    InvalidModel(String),
     #[error("Setting '{0}' is environment-only and cannot be modified at runtime")]
     EnvOnly(String),
     #[error("Project not found")]

@@ -137,6 +137,13 @@ impl TaskStorage {
 
         debug!("Creating task: {} for project: {}", task_id, project_id);
 
+        // Validate agent exists in registry if provided (replaces DB foreign key constraint)
+        if let Some(agent_id) = &input.assigned_agent_id {
+            if !crate::models::REGISTRY.agent_exists(agent_id) {
+                return Err(StorageError::InvalidAgent(agent_id.to_string()));
+            }
+        }
+
         sqlx::query(
             r#"
             INSERT INTO tasks (
@@ -202,6 +209,13 @@ impl TaskStorage {
         input: TaskUpdateInput,
     ) -> Result<Task, StorageError> {
         debug!("Updating task: {}", task_id);
+
+        // Validate agent exists in registry if provided (replaces DB foreign key constraint)
+        if let Some(agent_id) = &input.assigned_agent_id {
+            if !crate::models::REGISTRY.agent_exists(agent_id) {
+                return Err(StorageError::InvalidAgent(agent_id.to_string()));
+            }
+        }
 
         // Build dynamic UPDATE query based on provided fields
         let mut query = String::from("UPDATE tasks SET updated_at = ?");
