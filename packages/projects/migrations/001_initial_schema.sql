@@ -586,7 +586,7 @@ END;
 
 -- Task full-text search
 CREATE VIRTUAL TABLE tasks_fts USING fts5(
-    task_id UNINDEXED,
+    id UNINDEXED,
     title,
     description,
     details,
@@ -597,7 +597,7 @@ CREATE VIRTUAL TABLE tasks_fts USING fts5(
 
 -- Task FTS triggers
 CREATE TRIGGER tasks_fts_insert AFTER INSERT ON tasks BEGIN
-    INSERT INTO tasks_fts(rowid, task_id, title, description, details, tags)
+    INSERT INTO tasks_fts(rowid, id, title, description, details, tags)
     VALUES (new.rowid, new.id, new.title, new.description, new.details, new.tags);
 END;
 
@@ -607,7 +607,7 @@ END;
 
 CREATE TRIGGER tasks_fts_update AFTER UPDATE ON tasks BEGIN
     DELETE FROM tasks_fts WHERE rowid = old.rowid;
-    INSERT INTO tasks_fts(rowid, task_id, title, description, details, tags)
+    INSERT INTO tasks_fts(rowid, id, title, description, details, tags)
     VALUES (new.rowid, new.id, new.title, new.description, new.details, new.tags);
 END;
 
