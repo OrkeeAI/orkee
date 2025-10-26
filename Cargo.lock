@@ -1239,6 +1239,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "git_utils"
+version = "0.0.9"
+dependencies = [
+ "git2",
+ "orkee_core",
+ "tracing",
+]
+
+[[package]]
 name = "glob"
 version = "0.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2610,6 +2619,7 @@ dependencies = [
  "flate2",
  "formatter",
  "git2",
+ "git_utils",
  "hex",
  "hostname",
  "http-body-util",

@@ -77,13 +77,15 @@ Extract functionality into focused packages while maintaining backward compatibi
   - **Key files**:
     - `formatter.rs` - Main formatting logic
 
-- [ ] **`git_utils`** - Git integration
+- [x] **`git_utils`** - Git integration
   - Git repository info extraction
   - Git operations
-  - **Estimated effort**: 30 minutes
-  - **Dependencies**: orkee_core
+  - **Status**: ✅ COMPLETED
+  - **Tests**: 1/1 passing
+  - **Actual effort**: 15 minutes (faster than estimated!)
+  - **Dependencies**: orkee_core, git2, tracing
   - **Key files**:
-    - `git_utils.rs` - Git utility functions
+    - `git_utils.rs` - Git utility functions (get_git_repository_info, parse_github_url)
 
 ### Phase 3: Domain Packages (Depend on Storage)
 
@@ -439,16 +441,13 @@ mod tests {
 ## Current Progress
 
 - ✅ Phase 1: Foundation (orkee_core) - COMPLETED
-- ⏳ Phase 2: Storage & Simple Utilities (storage ✅, security ✅, formatter ✅, git_utils) - IN PROGRESS
+- ✅ Phase 2: Storage & Simple Utilities (storage ✅, security ✅, formatter ✅, git_utils ✅) - COMPLETED
 - ⏳ Phase 3: Domain Packages (openspec ✅, ai, context, tags, settings, tasks) - IN PROGRESS
 - ⏸️ Phase 4: Integration Layer (api) - PENDING
 
 ### Next Steps
 
-**Immediate Priority**: Complete remaining Phase 2 packages (can be done in parallel):
-1. **git_utils** (30 min) - Independent, quick win
-
-**Then**: Extract remaining Phase 3 packages (now unblocked by storage completion):
+**Immediate Priority**: Extract remaining Phase 3 packages (all unblocked by storage/Phase 2 completion):
 1. **ai** (2-3 hours) - Depends on storage (now available)
 2. **context** (2-3 hours) - Depends on storage (now available)
 3. **tags** (30 min) - Depends on storage (now available)
@@ -465,7 +464,8 @@ mod tests {
 ## Time Estimate
 
 - **Total estimated time**: 15-20 hours
-- **Already completed**: 11.25 hours (orkee_core: 2 hours, openspec: 4 hours, storage: 3 hours, security: 2 hours, formatter: 0.25 hours)
-- **Remaining**: 3.75-8.75 hours
+- **Already completed**: 11.5 hours (orkee_core: 2 hours, openspec: 4 hours, storage: 3 hours, security: 2 hours, formatter: 0.25 hours, git_utils: 0.25 hours)
+- **Phase 2 fully complete**: All foundation and utilities extracted
+- **Remaining**: 3.5-8.5 hours (Phase 3 domain packages + Phase 4 API integration)
 
 This refactoring can be done incrementally, with each package extraction being independently valuable.

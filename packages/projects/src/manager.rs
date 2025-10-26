@@ -1,4 +1,4 @@
-use crate::git_utils::get_git_repository_info;
+use git_utils::get_git_repository_info;
 use storage::{factory::StorageManager, StorageError};
 use orkee_core::types::{Project, ProjectCreateInput, ProjectStatus, ProjectUpdateInput};
 use orkee_core::{validate_project_data, validate_project_update, ValidationError};

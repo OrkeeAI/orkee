@@ -10,7 +10,6 @@ pub mod api;
 pub mod context;
 pub mod db;
 pub mod executions;
-pub mod git_utils;
 pub mod manager;
 pub mod models;
 pub mod pagination;

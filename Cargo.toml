@@ -5,6 +5,7 @@ members = [
     "packages/security",
     "packages/openspec",
     "packages/formatter",
+    "packages/git_utils",
     "packages/cli",
     "packages/config",
     "packages/projects",

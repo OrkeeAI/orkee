@@ -1,3 +1,6 @@
+// ABOUTME: Git integration utilities for extracting repository information from projects.
+// ABOUTME: Handles GitHub URL parsing (SSH/HTTPS formats) and retrieves branch/remote data.
+
 use git2::Repository;
 use orkee_core::types::GitRepositoryInfo;
 use tracing::debug;
