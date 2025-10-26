@@ -337,32 +337,6 @@ mod tests {
             .await
             .unwrap();
 
-        sqlx::query(include_str!(
-            "../../migrations/20250117000000_task_management.sql"
-        ))
-        .execute(&pool)
-        .await
-        .unwrap();
-
-        sqlx::query(include_str!("../../migrations/20250118000000_openspec.sql"))
-            .execute(&pool)
-            .await
-            .unwrap();
-
-        sqlx::query(include_str!(
-            "../../migrations/20250127000000_openspec_alignment.sql"
-        ))
-        .execute(&pool)
-        .await
-        .unwrap();
-
-        sqlx::query(include_str!(
-            "../../migrations/20250128000000_task_completion_tracking.sql"
-        ))
-        .execute(&pool)
-        .await
-        .unwrap();
-
         // Create test project
         sqlx::query(
             "INSERT INTO projects (id, name, project_root, description, created_at, updated_at)
