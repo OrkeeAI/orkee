@@ -155,10 +155,12 @@ Extract functionality into focused packages while maintaining backward compatibi
     - Renamed AgentStorage → UserAgentStorage for clarity
     - Execution tracking includes PR reviews and code changes
 
-- [ ] **`ai`** - AI service and usage tracking (~809 lines)
+- [x] **`ai`** - AI service and usage tracking (~809 lines)
   - AI service integration (service.rs - 282 lines)
   - AI usage logs (usage_logs/ - 527 lines)
-  - **Estimated effort**: 45 minutes - 1 hour
+  - **Status**: ✅ COMPLETED
+  - **Tests**: 2/2 passing (ai_usage_integration_tests, ai_proxy_integration_tests)
+  - **Actual effort**: 15 minutes (much faster than estimated!)
   - **Dependencies**: orkee_core, storage, reqwest
   - **Database tables**: ai_usage_logs
   - **Key files**:
@@ -171,6 +173,9 @@ Extract functionality into focused packages while maintaining backward compatibi
     - `api/ai_usage_log_handlers.rs` (89 lines) - Usage endpoints
     - `api/agents_handlers.rs` (123 lines) - Agent endpoints
     - `api/executions_handlers.rs` (341 lines) - Execution endpoints
+  - **Notes**:
+    - Test files successfully moved to ai package
+    - No import changes needed - service.rs already self-contained
 
 - [ ] **`context`** - Code analysis and context management
   - AST analysis (context/ast_analyzer.rs)
@@ -481,7 +486,7 @@ mod tests {
 9. ✅ **settings** - Depends on orkee_core, storage (COMPLETED)
 10. ✅ **tasks** - Depends on orkee_core, storage, openspec (COMPLETED)
 11. ✅ **agents** - Depends on orkee_core, storage, models (COMPLETED)
-12. **ai** - Depends on orkee_core, storage
+12. ✅ **ai** - Depends on orkee_core, storage (COMPLETED)
 13. **context** - Depends on orkee_core, storage
 
 **Phase 4: Integration Layer** (Depends on everything - extract LAST)
@@ -491,14 +496,13 @@ mod tests {
 
 - ✅ Phase 1: Foundation (orkee_core) - COMPLETED
 - ✅ Phase 2: Storage & Simple Utilities (storage ✅, security ✅, formatter ✅, git_utils ✅, models ✅) - COMPLETED
-- ⏳ Phase 3: Domain Packages (openspec ✅, tags ✅, settings ✅, tasks ✅, agents ✅, ai, context) - IN PROGRESS (5/7 completed)
+- ⏳ Phase 3: Domain Packages (openspec ✅, tags ✅, settings ✅, tasks ✅, agents ✅, ai ✅, context) - IN PROGRESS (6/7 completed)
 - ⏸️ Phase 4: Integration Layer (api) - PENDING
 
 ### Next Steps
 
-**Immediate Priority**: Extract remaining Phase 3 packages (all unblocked by storage/Phase 2 completion):
-1. **ai** (45 min - 1 hour) - Depends on storage (now available)
-2. **context** (2-3 hours) - Depends on storage (now available)
+**Immediate Priority**: Extract remaining Phase 3 package:
+1. **context** (2-3 hours) - Depends on storage (now available)
 
 ## Notes
 
@@ -510,9 +514,9 @@ mod tests {
 ## Time Estimate
 
 - **Total estimated time**: 15-20 hours
-- **Already completed**: 15.75 hours (orkee_core: 2 hours, openspec: 4 hours, storage: 3 hours, security: 2 hours, formatter: 0.25 hours, git_utils: 0.25 hours, tags: 0.5 hours, settings: 0.75 hours, tasks: 1.5 hours, models: 0.5 hours, agents: 1 hour)
+- **Already completed**: 16 hours (orkee_core: 2 hours, openspec: 4 hours, storage: 3 hours, security: 2 hours, formatter: 0.25 hours, git_utils: 0.25 hours, tags: 0.5 hours, settings: 0.75 hours, tasks: 1.5 hours, models: 0.5 hours, agents: 1 hour, ai: 0.25 hours)
 - **Phase 2 fully complete**: All foundation and utilities extracted (including models)
-- **Phase 3 progress**: 5/7 packages completed (openspec, tags, settings, tasks, agents)
-- **Remaining**: 1-4.75 hours (Phase 3 domain packages: ai + context + Phase 4 API integration)
+- **Phase 3 progress**: 6/7 packages completed (openspec, tags, settings, tasks, agents, ai) - 86% complete!
+- **Remaining**: 0.5-4 hours (Phase 3: context + Phase 4 API integration)
 
 This refactoring can be done incrementally, with each package extraction being independently valuable.
