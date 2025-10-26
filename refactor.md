@@ -66,11 +66,13 @@ Extract functionality into focused packages while maintaining backward compatibi
     - Removed agent validation from UserStorage to avoid circular dependency
     - Validation moved to API/handler level in projects package
 
-- [ ] **`formatter`** - Output formatting
+- [x] **`formatter`** - Output formatting
   - Project formatting (formatter.rs)
   - Table formatting
   - Detail views
-  - **Estimated effort**: 30 minutes
+  - **Status**: ✅ COMPLETED
+  - **Tests**: 5/5 passing
+  - **Actual effort**: 15 minutes (faster than estimated!)
   - **Dependencies**: orkee_core
   - **Key files**:
     - `formatter.rs` - Main formatting logic
@@ -437,15 +439,14 @@ mod tests {
 ## Current Progress
 
 - ✅ Phase 1: Foundation (orkee_core) - COMPLETED
-- ⏳ Phase 2: Storage & Simple Utilities (storage ✅, security ✅, formatter, git_utils) - IN PROGRESS
+- ⏳ Phase 2: Storage & Simple Utilities (storage ✅, security ✅, formatter ✅, git_utils) - IN PROGRESS
 - ⏳ Phase 3: Domain Packages (openspec ✅, ai, context, tags, settings, tasks) - IN PROGRESS
 - ⏸️ Phase 4: Integration Layer (api) - PENDING
 
 ### Next Steps
 
 **Immediate Priority**: Complete remaining Phase 2 packages (can be done in parallel):
-1. **formatter** (30 min) - Independent, quick win
-2. **git_utils** (30 min) - Independent, quick win
+1. **git_utils** (30 min) - Independent, quick win
 
 **Then**: Extract remaining Phase 3 packages (now unblocked by storage completion):
 1. **ai** (2-3 hours) - Depends on storage (now available)
@@ -464,7 +465,7 @@ mod tests {
 ## Time Estimate
 
 - **Total estimated time**: 15-20 hours
-- **Already completed**: 11 hours (orkee_core: 2 hours, openspec: 4 hours, storage: 3 hours, security: 2 hours)
-- **Remaining**: 4-9 hours
+- **Already completed**: 11.25 hours (orkee_core: 2 hours, openspec: 4 hours, storage: 3 hours, security: 2 hours, formatter: 0.25 hours)
+- **Remaining**: 3.75-8.75 hours
 
 This refactoring can be done incrementally, with each package extraction being independently valuable.

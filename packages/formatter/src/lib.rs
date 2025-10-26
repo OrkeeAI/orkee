@@ -1,3 +1,6 @@
+// ABOUTME: Output formatting utilities for Orkee projects.
+// ABOUTME: Provides table and detail views for displaying project information in CLI/TUI.
+
 use orkee_core::truncate;
 use orkee_core::types::Project;
 
