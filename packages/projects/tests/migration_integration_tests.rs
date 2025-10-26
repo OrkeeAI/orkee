@@ -1302,3 +1302,207 @@ async fn test_migration_seed_data_is_idempotent() {
         .unwrap();
     assert_eq!(storage_meta_count_after, 2, "Storage metadata count should remain 2 after rerun");
 }
+
+// ==============================================================================
+// DOWN MIGRATION COMPLETENESS TESTS
+// ==============================================================================
+// Tests that down migration properly cleans up all database objects
+
+#[tokio::test]
+async fn test_down_migration_removes_all_tables() {
+    let pool = setup_migrated_db().await;
+
+    // Verify tables exist after up migration
+    let table_count_before: i64 = sqlx::query_scalar(
+        "SELECT COUNT(*) FROM sqlite_master
+         WHERE type='table'
+         AND name NOT LIKE 'sqlite_%'
+         AND name != '_sqlx_migrations'"
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    assert!(table_count_before > 30, "Should have 30+ tables after migration");
+
+    // Read and execute down migration
+    let down_sql = std::fs::read_to_string("migrations/001_initial_schema.down.sql")
+        .expect("Should read down migration file");
+
+    // Execute down migration (SQLx doesn't support this natively, so we do it manually)
+    // Parse SQL properly: remove comments and handle multi-line statements
+    for statement in down_sql.split(';') {
+        // Remove SQL comments (lines starting with --)
+        let cleaned: String = statement
+            .lines()
+            .filter(|line| !line.trim().starts_with("--"))
+            .collect::<Vec<&str>>()
+            .join("\n");
+
+        let trimmed = cleaned.trim();
+        if trimmed.is_empty() {
+            continue;
+        }
+
+        sqlx::query(trimmed)
+            .execute(&pool)
+            .await
+            .unwrap_or_else(|e| panic!("Down migration statement failed: {}\nError: {}", trimmed, e));
+    }
+
+    // Verify all application tables are dropped
+    let table_count_after: i64 = sqlx::query_scalar(
+        "SELECT COUNT(*) FROM sqlite_master
+         WHERE type='table'
+         AND name NOT LIKE 'sqlite_%'
+         AND name != '_sqlx_migrations'"
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    assert_eq!(table_count_after, 0, "All application tables should be dropped after down migration");
+
+    // Verify all views are dropped
+    let view_count: i64 = sqlx::query_scalar(
+        "SELECT COUNT(*) FROM sqlite_master WHERE type='view'"
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    assert_eq!(view_count, 0, "All views should be dropped");
+
+    // Verify all triggers are dropped
+    let trigger_count: i64 = sqlx::query_scalar(
+        "SELECT COUNT(*) FROM sqlite_master
+         WHERE type='trigger'
+         AND name NOT LIKE 'sqlite_%'"
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    assert_eq!(trigger_count, 0, "All triggers should be dropped");
+
+    // Verify all custom indexes are dropped (except on _sqlx_migrations)
+    let index_count: i64 = sqlx::query_scalar(
+        "SELECT COUNT(*) FROM sqlite_master
+         WHERE type='index'
+         AND name NOT LIKE 'sqlite_%'
+         AND tbl_name != '_sqlx_migrations'"
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    assert_eq!(index_count, 0, "All custom indexes should be dropped");
+}
+
+#[tokio::test]
+async fn test_down_migration_drops_tables_in_correct_order() {
+    let pool = setup_migrated_db().await;
+
+    // Insert some test data to verify FK cascade behavior
+    sqlx::query(
+        "INSERT INTO projects (id, name, project_root, created_at, updated_at)
+         VALUES ('test-proj-down', 'Test Project', '/tmp/test', datetime('now', 'utc'), datetime('now', 'utc'))"
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+
+    sqlx::query(
+        "INSERT INTO tasks (id, project_id, title, status, priority, created_by_user_id, created_at, updated_at)
+         VALUES ('test-task-down', 'test-proj-down', 'Test Task', 'pending', 'medium', 'default-user', datetime('now', 'utc'), datetime('now', 'utc'))"
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+
+    // Verify data exists
+    let project_count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM projects WHERE id = 'test-proj-down'")
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+    assert_eq!(project_count, 1, "Test project should exist");
+
+    let task_count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM tasks WHERE id = 'test-task-down'")
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+    assert_eq!(task_count, 1, "Test task should exist");
+
+    // Execute down migration
+    let down_sql = std::fs::read_to_string("migrations/001_initial_schema.down.sql")
+        .expect("Should read down migration file");
+
+    for statement in down_sql.split(';') {
+        let cleaned: String = statement
+            .lines()
+            .filter(|line| !line.trim().starts_with("--"))
+            .collect::<Vec<&str>>()
+            .join("\n");
+
+        let trimmed = cleaned.trim();
+        if trimmed.is_empty() {
+            continue;
+        }
+
+        // Should not fail even with existing data due to IF EXISTS and proper ordering
+        sqlx::query(trimmed)
+            .execute(&pool)
+            .await
+            .unwrap_or_else(|e| panic!("Down migration should handle existing data: {}", e));
+    }
+
+    // Verify cleanup is complete
+    let table_count: i64 = sqlx::query_scalar(
+        "SELECT COUNT(*) FROM sqlite_master
+         WHERE type='table'
+         AND name NOT LIKE 'sqlite_%'
+         AND name != '_sqlx_migrations'"
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    assert_eq!(table_count, 0, "All tables should be dropped after down migration with data");
+}
+
+#[tokio::test]
+async fn test_down_migration_is_idempotent() {
+    let pool = setup_migrated_db().await;
+
+    // Read down migration
+    let down_sql = std::fs::read_to_string("migrations/001_initial_schema.down.sql")
+        .expect("Should read down migration file");
+
+    // Execute down migration twice
+    for _attempt in 0..2 {
+        for statement in down_sql.split(';') {
+            let cleaned: String = statement
+                .lines()
+                .filter(|line| !line.trim().starts_with("--"))
+                .collect::<Vec<&str>>()
+                .join("\n");
+
+            let trimmed = cleaned.trim();
+            if trimmed.is_empty() {
+                continue;
+            }
+
+            // Should succeed on both attempts due to IF EXISTS
+            sqlx::query(trimmed)
+                .execute(&pool)
+                .await
+                .unwrap_or_else(|e| panic!("Down migration should be idempotent: {}", e));
+        }
+    }
+
+    // Verify final state is clean
+    let table_count: i64 = sqlx::query_scalar(
+        "SELECT COUNT(*) FROM sqlite_master
+         WHERE type='table'
+         AND name NOT LIKE 'sqlite_%'
+         AND name != '_sqlx_migrations'"
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    assert_eq!(table_count, 0, "All tables should remain dropped after second run");
+}

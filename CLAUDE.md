@@ -290,6 +290,44 @@ The CLI server provides a REST API for project management:
 3. Simple enough to maintain inline with schema
 4. Uses `INSERT OR IGNORE` for safe reruns
 
+#### Down Migration Strategy
+
+**Purpose**: Rollback migration for development resets and test cleanup (not used in production).
+
+**Approach**: Comprehensive cleanup with verification:
+
+**Pre-Drop Verification** (commented out by default):
+- Count records that will be deleted (projects, users, tasks)
+- Check for orphaned data (data without proper FK relationships)
+- Helps identify data integrity issues before cleanup
+
+**Drop Order**:
+1. **Triggers first** - Prevents trigger execution errors during table drops
+2. **Views** - No dependencies on other objects
+3. **Tables** - Reverse dependency order (child tables before parent tables)
+
+**Clean State Verification** (commented out by default):
+- List remaining tables (should only show `_sqlx_migrations` and SQLite internal tables)
+- List remaining views (should be empty)
+- List remaining triggers (should be empty)
+- List remaining indexes (should only show indexes on `_sqlx_migrations`)
+
+**Migration Metadata Cleanup** (optional, use with caution):
+- Option to delete from `_sqlx_migrations` to reset migration state
+- Option to drop `_sqlx_migrations` table entirely
+- **WARNING**: Never do this in production - only for development resets
+
+**Location**: `packages/projects/migrations/001_initial_schema.down.sql`
+
+**Testing**: 3 comprehensive tests verify down migration completeness:
+- `test_down_migration_removes_all_tables` - Verifies all tables/views/triggers/indexes are dropped
+- `test_down_migration_drops_tables_in_correct_order` - Verifies FK cascade behavior with test data
+- `test_down_migration_is_idempotent` - Verifies safe rerun with `DROP IF EXISTS`
+
+**Idempotency**: All DROP statements use `IF EXISTS` for safe reruns.
+
+**SQLx Note**: SQLx doesn't automatically run down migrations. They're for manual rollback via `sqlite3 < migrations/*.down.sql` or test cleanup.
+
 ## Preview Servers & External Server Discovery
 
 Orkee provides comprehensive development server management with automatic discovery of servers started outside of Orkee.
