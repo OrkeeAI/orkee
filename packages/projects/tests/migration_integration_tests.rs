@@ -117,12 +117,18 @@ async fn test_seed_data_default_user_created() {
             .await
             .unwrap();
 
-    assert_eq!(id, "default-user", "Default user ID should be 'default-user'");
+    assert_eq!(
+        id, "default-user",
+        "Default user ID should be 'default-user'"
+    );
     assert_eq!(
         email, "user@localhost",
         "Default user email should be 'user@localhost'"
     );
-    assert_eq!(name, "Default User", "Default user name should be 'Default User'");
+    assert_eq!(
+        name, "Default User",
+        "Default user name should be 'Default User'"
+    );
 }
 
 #[tokio::test]
@@ -287,9 +293,9 @@ async fn test_tasks_foreign_keys_configured() {
     );
 
     // Verify ON DELETE behavior for created_by_user_id
-    let user_fk = fk_rows.iter().find(|(_, _, table, from, _, _, _, _)| {
-        table == "users" && from == "created_by_user_id"
-    });
+    let user_fk = fk_rows
+        .iter()
+        .find(|(_, _, table, from, _, _, _, _)| table == "users" && from == "created_by_user_id");
 
     assert!(
         user_fk.is_some(),
@@ -447,7 +453,7 @@ async fn test_no_orphaned_indexes() {
 
     // Get all indexes
     let indexes: Vec<(String, String)> = sqlx::query_as(
-        "SELECT name, tbl_name FROM sqlite_master WHERE type='index' AND name NOT LIKE 'sqlite_%'"
+        "SELECT name, tbl_name FROM sqlite_master WHERE type='index' AND name NOT LIKE 'sqlite_%'",
     )
     .fetch_all(&pool)
     .await
@@ -455,7 +461,7 @@ async fn test_no_orphaned_indexes() {
 
     // Get all tables
     let tables: Vec<String> = sqlx::query_scalar(
-        "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'"
+        "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'",
     )
     .fetch_all(&pool)
     .await
