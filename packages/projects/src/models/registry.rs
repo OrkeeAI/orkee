@@ -331,6 +331,10 @@ mod tests {
 
         // Verify Codex supports GPT-5 models
         assert!(
+            registry.validate_agent_model("codex", "gpt-5-codex"),
+            "codex should support gpt-5-codex"
+        );
+        assert!(
             registry.validate_agent_model("codex", "gpt-5"),
             "codex should support gpt-5"
         );
@@ -343,13 +347,13 @@ mod tests {
             "codex should support gpt-4o"
         );
 
-        // Verify Codex default model is GPT-5
+        // Verify Codex default model is GPT-5-Codex
         let default_model = registry.get_agent_default_model("codex");
         assert!(default_model.is_some(), "Should have default model");
         assert_eq!(
             default_model.unwrap().id,
-            "gpt-5",
-            "Default should be GPT-5"
+            "gpt-5-codex",
+            "Default should be GPT-5-Codex"
         );
 
         // Verify Codex does not support Claude models
@@ -379,5 +383,16 @@ mod tests {
         let mini_model = registry.get_model("gpt-5-mini");
         assert!(mini_model.is_some(), "Should find GPT-5 Mini");
         assert_eq!(mini_model.unwrap().name, "GPT-5 Mini");
+
+        // Verify GPT-5-Codex exists
+        assert!(
+            registry.model_exists("gpt-5-codex"),
+            "GPT-5-Codex should exist"
+        );
+        let codex_model = registry.get_model("gpt-5-codex");
+        assert!(codex_model.is_some(), "Should find GPT-5-Codex");
+        let codex_model = codex_model.unwrap();
+        assert_eq!(codex_model.name, "GPT-5 Codex");
+        assert_eq!(codex_model.provider, "openai");
     }
 }

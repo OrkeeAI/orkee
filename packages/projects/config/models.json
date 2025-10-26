@@ -213,6 +213,28 @@
         "output_per_1k_tokens": 0.002
       },
       "is_available": true
+    },
+    {
+      "id": "gpt-5-codex",
+      "provider": "openai",
+      "name": "GPT-5 Codex",
+      "model_identifier": "gpt-5-codex",
+      "description": "GPT-5 optimized for agentic coding with enhanced software engineering capabilities",
+      "max_context_tokens": 400000,
+      "max_output_tokens": 128000,
+      "knowledge_cutoff": "2025-09",
+      "capabilities": {
+        "tools": true,
+        "vision": true,
+        "extended_reasoning": true,
+        "code_optimized": true,
+        "web_search": false
+      },
+      "pricing": {
+        "input_per_1k_tokens": 0.00125,
+        "output_per_1k_tokens": 0.01
+      },
+      "is_available": true
     }
   ]
 }

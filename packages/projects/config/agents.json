@@ -78,22 +78,28 @@
       "required_providers": ["openai"],
       "supported_models": [
         {
-          "model_id": "gpt-5",
+          "model_id": "gpt-5-codex",
           "is_default": true,
           "is_recommended": true,
           "display_order": 1
         },
         {
-          "model_id": "gpt-5-mini",
+          "model_id": "gpt-5",
           "is_default": false,
           "is_recommended": true,
           "display_order": 2
         },
         {
+          "model_id": "gpt-5-mini",
+          "is_default": false,
+          "is_recommended": true,
+          "display_order": 3
+        },
+        {
           "model_id": "gpt-4o",
           "is_default": false,
           "is_recommended": false,
-          "display_order": 3
+          "display_order": 4
         }
       ],
       "default_config": {
