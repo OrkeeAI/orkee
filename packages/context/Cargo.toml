@@ -1,0 +1,40 @@
+[package]
+name = "context"
+version.workspace = true
+edition.workspace = true
+description = "Code analysis and context management for Orkee"
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+# Orkee packages
+openspec = { path = "../openspec" }
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# Tree-sitter for AST parsing
+tree-sitter.workspace = true
+tree-sitter-javascript.workspace = true
+tree-sitter-typescript.workspace = true
+tree-sitter-python.workspace = true
+tree-sitter-rust.workspace = true
+
+# Database
+sqlx = { version = "0.8", features = ["runtime-tokio-rustls", "sqlite"] }
+
+# Utilities
+chrono = { version = "0.4", features = ["serde"] }
+lazy_static = "1.4"
+sha2 = "0.10"
+walkdir = "2.4"
+tokio = { version = "1.0", features = ["sync", "rt"] }
+tracing = "0.1"
+rand = "0.8"
+num_cpus = "1.16"
+
+[dev-dependencies]
+tokio = { version = "1.0", features = ["macros", "rt-multi-thread"] }
+tempfile = "3.0"

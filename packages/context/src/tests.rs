@@ -3,7 +3,7 @@
 
 #[cfg(test)]
 mod tests {
-    use crate::context::{
+    use crate::{
         ast_analyzer::AstAnalyzer, dependency_graph::DependencyGraph,
         incremental_parser::IncrementalParser, types::ContextConfiguration,
     };
@@ -149,7 +149,7 @@ mod tests {
 
     #[test]
     fn test_token_estimation() {
-        use crate::context::language_support::estimate_tokens;
+        use crate::language_support::estimate_tokens;
 
         let python_code = "def hello(): return 'world'";
         let java_code = "public class Hello { public String greet() { return \"world\"; } }";
@@ -194,7 +194,7 @@ mod tests {
 
     #[test]
     fn test_multi_language_detection() {
-        use crate::context::language_support::MultiLanguageParser;
+        use crate::language_support::MultiLanguageParser;
 
         let parser = MultiLanguageParser::new();
 

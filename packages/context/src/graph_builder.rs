@@ -541,7 +541,7 @@ impl GraphBuilder {
     /// Recursively process symbols and create nodes/edges
     fn process_symbols_recursive(
         &self,
-        symbols: &[crate::context::Symbol],
+        symbols: &[crate::Symbol],
         file_path: &str,
         parent_node_id: &str,
         nodes: &mut Vec<GraphNode>,
@@ -561,7 +561,7 @@ impl GraphBuilder {
 
 /// Helper function for recursive symbol processing
 fn process_symbols_recursive_impl(
-    symbols: &[crate::context::Symbol],
+    symbols: &[crate::Symbol],
     file_path: &str,
     parent_node_id: &str,
     nodes: &mut Vec<GraphNode>,
@@ -579,10 +579,10 @@ fn process_symbols_recursive_impl(
 
         // Determine node type
         let node_type = match symbol.kind {
-            crate::context::SymbolKind::Function => NodeType::Function,
-            crate::context::SymbolKind::Class => NodeType::Class,
-            crate::context::SymbolKind::Interface => NodeType::Class, // Treat interfaces as classes in graph
-            crate::context::SymbolKind::Method => NodeType::Function, // Treat methods as functions in graph
+            crate::SymbolKind::Function => NodeType::Function,
+            crate::SymbolKind::Class => NodeType::Class,
+            crate::SymbolKind::Interface => NodeType::Class, // Treat interfaces as classes in graph
+            crate::SymbolKind::Method => NodeType::Function, // Treat methods as functions in graph
             _ => NodeType::Module,
         };
 

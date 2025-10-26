@@ -1,8 +1,8 @@
 // ABOUTME: Bridge between OpenSpec system and Context generation
 // ABOUTME: Generates context from PRDs, tasks, and validates spec coverage
 
-use crate::context::ast_analyzer::Symbol;
-use crate::context::spec_context::SpecContextBuilder;
+use crate::ast_analyzer::Symbol;
+use crate::spec_context::SpecContextBuilder;
 use openspec::types::{SpecCapability, SpecRequirement, SpecScenario, PRD};
 use sqlx::SqlitePool;
 use std::collections::HashMap;

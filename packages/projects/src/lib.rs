@@ -4,7 +4,6 @@
 //! for managing development projects with persistent storage.
 
 pub mod api;
-pub mod context;
 pub mod db;
 pub mod manager;
 pub mod pagination;
@@ -97,6 +96,9 @@ pub use storage;
 
 // Re-export security module (used by API handlers)
 pub use security;
+
+// Re-export context module (used by API handlers)
+pub use context;
 
 // Re-export tasks types (used by API handlers)
 pub use tasks::{

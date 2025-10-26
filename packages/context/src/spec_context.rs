@@ -1,4 +1,4 @@
-use crate::context::ast_analyzer::{AstAnalyzer, Symbol};
+use crate::ast_analyzer::{AstAnalyzer, Symbol};
 use openspec::types::{SpecCapability, SpecRequirement, SpecScenario};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;

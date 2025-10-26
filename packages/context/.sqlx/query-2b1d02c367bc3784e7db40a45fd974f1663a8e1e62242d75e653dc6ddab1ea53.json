@@ -1,0 +1,56 @@
+{
+  "db_name": "SQLite",
+  "query": "\n            SELECT id, project_id, content, CAST(file_count AS INTEGER) as \"file_count!: i32\", \n                   CAST(total_tokens AS INTEGER) as \"token_count!: i32\",\n                   metadata, created_at\n            FROM context_snapshots\n            WHERE id = ?\n            ",
+  "describe": {
+    "columns": [
+      {
+        "name": "id",
+        "ordinal": 0,
+        "type_info": "Text"
+      },
+      {
+        "name": "project_id",
+        "ordinal": 1,
+        "type_info": "Text"
+      },
+      {
+        "name": "content",
+        "ordinal": 2,
+        "type_info": "Text"
+      },
+      {
+        "name": "file_count!: i32",
+        "ordinal": 3,
+        "type_info": "Null"
+      },
+      {
+        "name": "token_count!: i32",
+        "ordinal": 4,
+        "type_info": "Null"
+      },
+      {
+        "name": "metadata",
+        "ordinal": 5,
+        "type_info": "Text"
+      },
+      {
+        "name": "created_at",
+        "ordinal": 6,
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      true,
+      false,
+      false,
+      null,
+      null,
+      false,
+      false
+    ]
+  },
+  "hash": "2b1d02c367bc3784e7db40a45fd974f1663a8e1e62242d75e653dc6ddab1ea53"
+}

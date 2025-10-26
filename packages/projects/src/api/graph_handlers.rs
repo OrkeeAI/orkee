@@ -257,7 +257,7 @@ mod tests {
 
     #[test]
     fn test_graph_response_success() {
-        use crate::context::graph_types::{CodeGraph, GraphMetadata};
+        use context::graph_types::{CodeGraph, GraphMetadata};
         use chrono::Utc;
 
         let graph = CodeGraph {

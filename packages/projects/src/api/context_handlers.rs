@@ -560,7 +560,7 @@ pub async fn validate_spec(
     Path(project_id): Path<String>,
     State(db): State<DbState>,
     Json(request): Json<ValidateSpecRequest>,
-) -> Result<Json<crate::context::openspec_bridge::SpecValidationReport>, impl IntoResponse> {
+) -> Result<Json<context::openspec_bridge::SpecValidationReport>, impl IntoResponse> {
     info!(
         "Validating spec for project: {}, capability: {}",
         project_id, request.capability_id

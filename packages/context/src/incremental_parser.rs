@@ -1,4 +1,4 @@
-use crate::context::ast_analyzer::{Symbol, SymbolKind};
+use crate::ast_analyzer::{Symbol, SymbolKind};
 use sha2::{Digest, Sha256};
 use std::collections::HashMap;
 use std::fs;

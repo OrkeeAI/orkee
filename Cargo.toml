@@ -13,6 +13,7 @@ members = [
     "packages/agents",
     "packages/executions",
     "packages/ai",
+    "packages/context",
     "packages/cli",
     "packages/config",
     "packages/projects",
