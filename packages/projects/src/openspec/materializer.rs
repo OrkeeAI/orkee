@@ -54,7 +54,7 @@ impl OpenSpecMaterializer {
     /// Materialize OpenSpec structure for a project to disk
     ///
     /// Creates the following structure:
-    /// ```
+    /// ```text
     /// openspec/
     ///   ├── project.md
     ///   ├── AGENTS.md
