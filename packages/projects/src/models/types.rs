@@ -26,8 +26,10 @@ pub struct ModelCapabilities {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ModelPricing {
-    pub input_per_1k_tokens: f64,
-    pub output_per_1k_tokens: f64,
+    /// Price per 1 million input tokens (USD)
+    pub input_per_million_tokens: f64,
+    /// Price per 1 million output tokens (USD)
+    pub output_per_million_tokens: f64,
 }
 
 /// CLI coding agent configuration from config/agents.json

@@ -17,8 +17,8 @@
         "web_search": false
       },
       "pricing": {
-        "input_per_1k_tokens": 0.003,
-        "output_per_1k_tokens": 0.015
+        "input_per_million_tokens": 3.0,
+        "output_per_million_tokens": 15.0
       },
       "is_available": true
     },
@@ -38,8 +38,8 @@
         "web_search": false
       },
       "pricing": {
-        "input_per_1k_tokens": 0.001,
-        "output_per_1k_tokens": 0.005
+        "input_per_million_tokens": 1.0,
+        "output_per_million_tokens": 5.0
       },
       "is_available": true
     },
@@ -59,8 +59,8 @@
         "web_search": false
       },
       "pricing": {
-        "input_per_1k_tokens": 0.015,
-        "output_per_1k_tokens": 0.075
+        "input_per_million_tokens": 15.0,
+        "output_per_million_tokens": 75.0
       },
       "is_available": true
     },
@@ -77,8 +77,8 @@
         "web_search": false
       },
       "pricing": {
-        "input_per_1k_tokens": 0.0025,
-        "output_per_1k_tokens": 0.01
+        "input_per_million_tokens": 2.5,
+        "output_per_million_tokens": 10.0
       },
       "is_available": true
     },
@@ -95,8 +95,8 @@
         "web_search": false
       },
       "pricing": {
-        "input_per_1k_tokens": 0.01,
-        "output_per_1k_tokens": 0.03
+        "input_per_million_tokens": 10.0,
+        "output_per_million_tokens": 30.0
       },
       "is_available": true
     },
@@ -113,8 +113,8 @@
         "web_search": true
       },
       "pricing": {
-        "input_per_1k_tokens": 0.00125,
-        "output_per_1k_tokens": 0.005
+        "input_per_million_tokens": 1.25,
+        "output_per_million_tokens": 5.0
       },
       "is_available": true
     },
@@ -131,8 +131,8 @@
         "web_search": true
       },
       "pricing": {
-        "input_per_1k_tokens": 0.000075,
-        "output_per_1k_tokens": 0.0003
+        "input_per_million_tokens": 0.075,
+        "output_per_million_tokens": 0.3
       },
       "is_available": true
     },
@@ -149,8 +149,8 @@
         "web_search": true
       },
       "pricing": {
-        "input_per_1k_tokens": 0.002,
-        "output_per_1k_tokens": 0.01
+        "input_per_million_tokens": 2.0,
+        "output_per_million_tokens": 10.0
       },
       "is_available": true
     },
@@ -167,8 +167,8 @@
         "web_search": true
       },
       "pricing": {
-        "input_per_1k_tokens": 0.005,
-        "output_per_1k_tokens": 0.015
+        "input_per_million_tokens": 5.0,
+        "output_per_million_tokens": 15.0
       },
       "is_available": true
     },
@@ -188,8 +188,8 @@
         "web_search": false
       },
       "pricing": {
-        "input_per_1k_tokens": 0.00125,
-        "output_per_1k_tokens": 0.01
+        "input_per_million_tokens": 1.25,
+        "output_per_million_tokens": 10.0
       },
       "is_available": true
     },
@@ -209,8 +209,8 @@
         "web_search": false
       },
       "pricing": {
-        "input_per_1k_tokens": 0.00025,
-        "output_per_1k_tokens": 0.002
+        "input_per_million_tokens": 0.25,
+        "output_per_million_tokens": 2.0
       },
       "is_available": true
     },
@@ -231,8 +231,8 @@
         "web_search": false
       },
       "pricing": {
-        "input_per_1k_tokens": 0.00125,
-        "output_per_1k_tokens": 0.01
+        "input_per_million_tokens": 1.25,
+        "output_per_million_tokens": 10.0
       },
       "is_available": true
     }
