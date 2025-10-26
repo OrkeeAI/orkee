@@ -437,3 +437,485 @@ pub async fn archive_change(
         ),
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use axum::{
+        body::Body,
+        http::{Request, StatusCode},
+    };
+    use openspec::db::{create_prd, create_spec_change, create_spec_delta};
+    use openspec::types::{PRDSource, PRDStatus};
+    use sqlx::{Pool, Sqlite};
+    use tower::ServiceExt;
+
+    async fn setup_test_db() -> DbState {
+        let pool = Pool::<Sqlite>::connect(":memory:").await.unwrap();
+
+        // Run migrations
+        sqlx::migrate!("../storage/migrations")
+            .run(&pool)
+            .await
+            .expect("Failed to run migrations");
+
+        DbState::new(pool).expect("Failed to create DbState")
+    }
+
+    async fn setup_test_data(
+        pool: &Pool<Sqlite>,
+        project_id: &str,
+    ) -> (String, String) {
+        // Create test project
+        sqlx::query(
+            "INSERT INTO projects (id, name, project_root, description, created_at, updated_at)
+             VALUES (?, 'Test Project', '/tmp/test', 'Test', datetime('now'), datetime('now'))",
+        )
+        .bind(project_id)
+        .execute(pool)
+        .await
+        .unwrap();
+
+        // Create PRD
+        let prd = create_prd(
+            pool,
+            project_id,
+            "Test PRD",
+            "Content",
+            PRDStatus::Draft,
+            PRDSource::Manual,
+            Some("test-user"),
+        )
+        .await
+        .unwrap();
+
+        // Create change
+        let change = create_spec_change(
+            pool,
+            project_id,
+            Some(&prd.id),
+            "## Proposal\nTest proposal",
+            "## Tasks\n- [ ] Task 1",
+            Some("## Design\nTest design"),
+            "test-user",
+        )
+        .await
+        .unwrap();
+
+        (prd.id, change.id)
+    }
+
+    #[tokio::test]
+    async fn test_validate_change_with_valid_delta() {
+        let db_state = setup_test_db().await;
+        let project_id = "test-project";
+        let (_prd_id, change_id) = setup_test_data(&db_state.pool, project_id).await;
+
+        // Add a valid delta
+        let valid_delta = r#"## ADDED Requirements
+
+### Requirement: User Authentication
+The system SHALL provide secure user authentication.
+
+#### Scenario: Successful login
+- **WHEN** valid credentials are provided
+- **THEN** a JWT token is returned
+"#;
+
+        create_spec_delta(
+            &db_state.pool,
+            &change_id,
+            None,
+            "user-auth",
+            DeltaType::Added,
+            valid_delta,
+            0,
+        )
+        .await
+        .unwrap();
+
+        let app = crate::create_changes_router().with_state(db_state);
+
+        // Validate change
+        let request = Request::builder()
+            .method("GET")
+            .uri(format!("/{}/changes/{}/validate?strict=true", project_id, change_id))
+            .body(Body::empty())
+            .unwrap();
+
+        let response = app.oneshot(request).await.unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+
+        // Check response body
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+
+        assert_eq!(json["success"], true);
+        assert_eq!(json["data"]["valid"], true);
+        assert_eq!(json["data"]["errors"].as_array().unwrap().len(), 0);
+        assert_eq!(json["data"]["deltasValidated"], 1);
+    }
+
+    #[tokio::test]
+    async fn test_validate_change_with_invalid_delta() {
+        let db_state = setup_test_db().await;
+        let project_id = "test-project";
+        let (_prd_id, change_id) = setup_test_data(&db_state.pool, project_id).await;
+
+        // Add an invalid delta (missing WHEN/THEN format)
+        let invalid_delta = r#"## ADDED Requirements
+
+### Requirement: User Authentication
+The system SHALL provide secure user authentication.
+
+#### Scenario: Successful login
+WHEN valid credentials are provided
+THEN a JWT token is returned
+"#;
+
+        create_spec_delta(
+            &db_state.pool,
+            &change_id,
+            None,
+            "user-auth",
+            DeltaType::Added,
+            invalid_delta,
+            0,
+        )
+        .await
+        .unwrap();
+
+        let app = crate::create_changes_router().with_state(db_state);
+
+        // Validate change
+        let request = Request::builder()
+            .method("GET")
+            .uri(format!("/{}/changes/{}/validate?strict=false", project_id, change_id))
+            .body(Body::empty())
+            .unwrap();
+
+        let response = app.oneshot(request).await.unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+
+        // Check response body
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+
+        assert_eq!(json["success"], true);
+        assert_eq!(json["data"]["valid"], false);
+        assert!(json["data"]["errors"].as_array().unwrap().len() > 0);
+        assert_eq!(json["data"]["deltasValidated"], 1);
+    }
+
+    #[tokio::test]
+    async fn test_validate_change_not_found() {
+        let db_state = setup_test_db().await;
+        let project_id = "test-project";
+
+        // Create project only (no change)
+        sqlx::query(
+            "INSERT INTO projects (id, name, project_root, description, created_at, updated_at)
+             VALUES (?, 'Test Project', '/tmp/test', 'Test', datetime('now'), datetime('now'))",
+        )
+        .bind(project_id)
+        .execute(&db_state.pool)
+        .await
+        .unwrap();
+
+        let app = crate::create_changes_router().with_state(db_state);
+
+        // Try to validate non-existent change
+        let request = Request::builder()
+            .method("GET")
+            .uri(format!("/{}/changes/nonexistent/validate", project_id))
+            .body(Body::empty())
+            .unwrap();
+
+        let response = app.oneshot(request).await.unwrap();
+        // Non-existent change returns OK with 0 deltas validated (not an error)
+        assert_eq!(response.status(), StatusCode::OK);
+
+        // Check response indicates no deltas were found
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+
+        assert_eq!(json["success"], true);
+        assert_eq!(json["data"]["deltasValidated"], 0);
+    }
+
+    #[tokio::test]
+    async fn test_archive_change_success() {
+        let db_state = setup_test_db().await;
+        let project_id = "test-project";
+        let (_prd_id, change_id) = setup_test_data(&db_state.pool, project_id).await;
+
+        // Add a valid delta
+        let valid_delta = r#"## ADDED Requirements
+
+### Requirement: User Authentication
+The system SHALL provide secure user authentication.
+
+#### Scenario: Successful login
+- **WHEN** valid credentials are provided
+- **THEN** a JWT token is returned
+"#;
+
+        create_spec_delta(
+            &db_state.pool,
+            &change_id,
+            None,
+            "user-auth",
+            DeltaType::Added,
+            valid_delta,
+            0,
+        )
+        .await
+        .unwrap();
+
+        let app = crate::create_changes_router().with_state(db_state.clone());
+
+        // Archive change with apply_specs=true
+        let request_body = serde_json::json!({
+            "applySpecs": true
+        });
+
+        let request = Request::builder()
+            .method("POST")
+            .uri(format!("/{}/changes/{}/archive", project_id, change_id))
+            .header("content-type", "application/json")
+            .body(Body::from(serde_json::to_string(&request_body).unwrap()))
+            .unwrap();
+
+        let response = app.oneshot(request).await.unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+
+        // Check response body
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+
+        assert_eq!(json["success"], true);
+        assert_eq!(json["data"]["archived"], true);
+        assert_eq!(json["data"]["specsApplied"], true);
+
+        // Verify change is archived in database
+        let change = openspec_db::get_spec_change(&db_state.pool, &change_id)
+            .await
+            .unwrap();
+        assert_eq!(change.status, ChangeStatus::Archived);
+
+        // Verify capability was created
+        let caps: Vec<String> = sqlx::query_scalar(
+            "SELECT name FROM spec_capabilities WHERE project_id = ?",
+        )
+        .bind(project_id)
+        .fetch_all(&db_state.pool)
+        .await
+        .unwrap();
+
+        assert_eq!(caps.len(), 1);
+        assert_eq!(caps[0], "user-auth");
+    }
+
+    #[tokio::test]
+    async fn test_archive_change_without_applying_specs() {
+        let db_state = setup_test_db().await;
+        let project_id = "test-project";
+        let (_prd_id, change_id) = setup_test_data(&db_state.pool, project_id).await;
+
+        // Add a valid delta
+        let valid_delta = r#"## ADDED Requirements
+
+### Requirement: User Authentication
+The system SHALL provide secure user authentication.
+
+#### Scenario: Successful login
+- **WHEN** valid credentials are provided
+- **THEN** a JWT token is returned
+"#;
+
+        create_spec_delta(
+            &db_state.pool,
+            &change_id,
+            None,
+            "user-auth",
+            DeltaType::Added,
+            valid_delta,
+            0,
+        )
+        .await
+        .unwrap();
+
+        let app = crate::create_changes_router().with_state(db_state.clone());
+
+        // Archive change with apply_specs=false
+        let request_body = serde_json::json!({
+            "applySpecs": false
+        });
+
+        let request = Request::builder()
+            .method("POST")
+            .uri(format!("/{}/changes/{}/archive", project_id, change_id))
+            .header("content-type", "application/json")
+            .body(Body::from(serde_json::to_string(&request_body).unwrap()))
+            .unwrap();
+
+        let response = app.oneshot(request).await.unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+
+        // Check response body
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+
+        assert_eq!(json["success"], true);
+        assert_eq!(json["data"]["archived"], true);
+        assert_eq!(json["data"]["specsApplied"], false);
+
+        // Verify change is archived in database
+        let change = openspec_db::get_spec_change(&db_state.pool, &change_id)
+            .await
+            .unwrap();
+        assert_eq!(change.status, ChangeStatus::Archived);
+
+        // Verify NO capability was created
+        let caps: Vec<String> = sqlx::query_scalar(
+            "SELECT name FROM spec_capabilities WHERE project_id = ?",
+        )
+        .bind(project_id)
+        .fetch_all(&db_state.pool)
+        .await
+        .unwrap();
+
+        assert_eq!(caps.len(), 0);
+    }
+
+    #[tokio::test]
+    async fn test_archive_already_archived_change() {
+        let db_state = setup_test_db().await;
+        let project_id = "test-project";
+        let (_prd_id, change_id) = setup_test_data(&db_state.pool, project_id).await;
+
+        // Add a valid delta
+        let valid_delta = r#"## ADDED Requirements
+
+### Requirement: User Authentication
+The system SHALL provide secure user authentication.
+
+#### Scenario: Successful login
+- **WHEN** valid credentials are provided
+- **THEN** a JWT token is returned
+"#;
+
+        create_spec_delta(
+            &db_state.pool,
+            &change_id,
+            None,
+            "user-auth",
+            DeltaType::Added,
+            valid_delta,
+            0,
+        )
+        .await
+        .unwrap();
+
+        // Archive it once
+        openspec::archive::archive_change(&db_state.pool, &change_id, false)
+            .await
+            .unwrap();
+
+        let app = crate::create_changes_router().with_state(db_state);
+
+        // Try to archive again
+        let request_body = serde_json::json!({
+            "applySpecs": false
+        });
+
+        let request = Request::builder()
+            .method("POST")
+            .uri(format!("/{}/changes/{}/archive", project_id, change_id))
+            .header("content-type", "application/json")
+            .body(Body::from(serde_json::to_string(&request_body).unwrap()))
+            .unwrap();
+
+        let response = app.oneshot(request).await.unwrap();
+        assert_eq!(response.status(), StatusCode::INTERNAL_SERVER_ERROR);
+
+        // Check error message
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+
+        assert_eq!(json["success"], false);
+        assert!(json["error"]
+            .as_str()
+            .unwrap()
+            .contains("already archived"));
+    }
+
+    #[tokio::test]
+    async fn test_archive_change_with_invalid_delta() {
+        let db_state = setup_test_db().await;
+        let project_id = "test-project";
+        let (_prd_id, change_id) = setup_test_data(&db_state.pool, project_id).await;
+
+        // Add an invalid delta (missing proper formatting)
+        let invalid_delta = r#"## ADDED Requirements
+
+### Requirement: User Authentication
+The system should provide authentication.
+
+No scenario here!
+"#;
+
+        create_spec_delta(
+            &db_state.pool,
+            &change_id,
+            None,
+            "user-auth",
+            DeltaType::Added,
+            invalid_delta,
+            0,
+        )
+        .await
+        .unwrap();
+
+        let app = crate::create_changes_router().with_state(db_state);
+
+        // Try to archive change with invalid delta
+        let request_body = serde_json::json!({
+            "applySpecs": true
+        });
+
+        let request = Request::builder()
+            .method("POST")
+            .uri(format!("/{}/changes/{}/archive", project_id, change_id))
+            .header("content-type", "application/json")
+            .body(Body::from(serde_json::to_string(&request_body).unwrap()))
+            .unwrap();
+
+        let response = app.oneshot(request).await.unwrap();
+        assert_eq!(response.status(), StatusCode::INTERNAL_SERVER_ERROR);
+
+        // Check error message indicates validation failure
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+
+        assert_eq!(json["success"], false);
+        assert!(json["error"]
+            .as_str()
+            .unwrap()
+            .contains("Validation failed") || json["error"].as_str().unwrap().contains("validation"));
+    }
+}
