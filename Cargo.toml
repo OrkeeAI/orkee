@@ -9,6 +9,8 @@ members = [
     "packages/tags",
     "packages/settings",
     "packages/tasks",
+    "packages/models",
+    "packages/agents",
     "packages/cli",
     "packages/config",
     "packages/projects",
