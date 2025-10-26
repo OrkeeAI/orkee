@@ -1,8 +1,8 @@
+use async_trait::async_trait;
+use chrono::{DateTime, Utc};
 use orkee_core::types::{
     Priority, Project, ProjectCreateInput, ProjectStatus, ProjectUpdateInput, TaskSource,
 };
-use async_trait::async_trait;
-use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use thiserror::Error;

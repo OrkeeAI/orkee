@@ -1,5 +1,5 @@
-use orkee_core::types::GitRepositoryInfo;
 use git2::Repository;
+use orkee_core::types::GitRepositoryInfo;
 use tracing::debug;
 
 pub fn get_git_repository_info(project_path: &str) -> Option<GitRepositoryInfo> {
