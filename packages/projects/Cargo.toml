@@ -63,7 +63,7 @@ chrono = { version = "0.4", features = ["serde"] }
 dirs = "5.0"
 rand = "0.8"
 hex = "0.4"
-axum = "0.7"
+axum = "0.8"
 tower = { version = "0.4", features = ["util"] }
 tracing = "0.1"
 thiserror = "2.0"

@@ -3,6 +3,10 @@
 
 use sqlx::{Pool, Row, Sqlite};
 
+/// Type alias for SQLite PRAGMA foreign_key_list results
+/// Represents: (id, seq, table, from, to, on_update, on_delete, match)
+type ForeignKeyRow = (i64, i64, String, String, String, String, String, String);
+
 /// Helper to create a fresh in-memory database with migrations applied
 async fn setup_migrated_db() -> Pool<Sqlite> {
     let pool = Pool::<Sqlite>::connect(":memory:").await.unwrap();
@@ -247,11 +251,10 @@ async fn test_tasks_foreign_keys_configured() {
 
     // Get foreign key definitions for tasks table
     // PRAGMA foreign_key_list returns: id, seq, table, from, to, on_update, on_delete, match
-    let fk_rows: Vec<(i64, i64, String, String, String, String, String, String)> =
-        sqlx::query_as("PRAGMA foreign_key_list(tasks)")
-            .fetch_all(&pool)
-            .await
-            .unwrap();
+    let fk_rows: Vec<ForeignKeyRow> = sqlx::query_as("PRAGMA foreign_key_list(tasks)")
+        .fetch_all(&pool)
+        .await
+        .unwrap();
 
     // Verify critical foreign keys exist
     let fk_tables: Vec<String> = fk_rows
@@ -301,11 +304,10 @@ async fn test_spec_changes_foreign_keys_configured() {
 
     // Get foreign key definitions for spec_changes table
     // PRAGMA foreign_key_list returns: id, seq, table, from, to, on_update, on_delete, match
-    let fk_rows: Vec<(i64, i64, String, String, String, String, String, String)> =
-        sqlx::query_as("PRAGMA foreign_key_list(spec_changes)")
-            .fetch_all(&pool)
-            .await
-            .unwrap();
+    let fk_rows: Vec<ForeignKeyRow> = sqlx::query_as("PRAGMA foreign_key_list(spec_changes)")
+        .fetch_all(&pool)
+        .await
+        .unwrap();
 
     // Verify foreign keys
     let fk_tables: Vec<String> = fk_rows

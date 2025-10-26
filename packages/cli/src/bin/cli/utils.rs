@@ -92,13 +92,3 @@ async fn get_database_pool() -> Result<SqlitePool, Box<dyn std::error::Error>> {
     Ok(pool)
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_max_depth_constant() {
-        assert!(MAX_PARENT_SEARCH_DEPTH > 0);
-        assert!(MAX_PARENT_SEARCH_DEPTH <= 20); // Reasonable limit
-    }
-}
