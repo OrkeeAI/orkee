@@ -217,6 +217,8 @@ CREATE TABLE user_agents (
     UNIQUE(user_id, agent_id)
 );
 
+CREATE INDEX idx_user_agents_agent_id ON user_agents(agent_id);
+
 CREATE TRIGGER user_agents_updated_at AFTER UPDATE ON user_agents
 FOR EACH ROW WHEN NEW.updated_at = OLD.updated_at
 BEGIN
