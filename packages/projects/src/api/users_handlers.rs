@@ -12,7 +12,7 @@ use tracing::info;
 use super::auth::CurrentUser;
 use super::response::ok_or_internal_error;
 use crate::db::DbState;
-use crate::users::{MaskedUser, UserUpdateInput};
+use security::users::{MaskedUser, UserUpdateInput};
 
 /// Get current user (with masked credentials)
 pub async fn get_current_user(State(db): State<DbState>) -> impl IntoResponse {

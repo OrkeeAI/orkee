@@ -644,7 +644,7 @@ pub async fn server_events(
         }
 
         // Update last used timestamp
-        let token_hash = orkee_projects::api_tokens::TokenStorage::hash_token(&token);
+        let token_hash = orkee_projects::TokenStorage::hash_token(&token);
         if let Err(e) = state
             .db_state
             .token_storage

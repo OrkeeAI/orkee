@@ -5,7 +5,7 @@
 mod tests {
     use super::super::storage::UserStorage;
     use super::super::types::UserUpdateInput;
-    use security::encryption::ApiKeyEncryption;
+    use crate::encryption::ApiKeyEncryption;
     use sqlx::SqlitePool;
 
     async fn setup_test_db() -> SqlitePool {

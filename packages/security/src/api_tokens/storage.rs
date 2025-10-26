@@ -1,7 +1,7 @@
 // ABOUTME: Storage operations for API tokens
 // ABOUTME: Token generation, hashing, verification, and database operations
 
-use security::api_tokens::types::{ApiToken, TokenGeneration};
+use crate::api_tokens::types::{ApiToken, TokenGeneration};
 use storage::StorageError;
 use base64::Engine;
 use rand::Rng;

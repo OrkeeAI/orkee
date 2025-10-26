@@ -2617,6 +2617,7 @@ dependencies = [
  "regex",
  "reqwest 0.12.24",
  "ring",
+ "security",
  "serde",
  "serde_json",
  "sha2",
@@ -3553,6 +3554,34 @@ name = "sdd"
 version = "3.0.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "490dcfcbfef26be6800d11870ff2df8774fa6e86d047e3e8c8a76b25655e41ca"
+
+[[package]]
+name = "security"
+version = "0.0.9"
+dependencies = [
+ "argon2",
+ "async-trait",
+ "base64 0.22.1",
+ "chrono",
+ "hex",
+ "hostname",
+ "machine-uid",
+ "orkee_core",
+ "rand 0.8.5",
+ "ring",
+ "serde",
+ "serde_json",
+ "sha2",
+ "sqlx",
+ "storage",
+ "subtle",
+ "tempfile",
+ "thiserror 2.0.17",
+ "tokio",
+ "tokio-test",
+ "tracing",
+ "uuid",
+]
 
 [[package]]
 name = "security-framework"

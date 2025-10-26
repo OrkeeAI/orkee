@@ -442,7 +442,7 @@ impl ProjectsManager {
     /// Get current encryption mode
     pub async fn get_encryption_mode(
         &self,
-    ) -> ManagerResult<Option<crate::security::encryption::EncryptionMode>> {
+    ) -> ManagerResult<Option<security::encryption::encryption::EncryptionMode>> {
         let storage = self.storage_manager.storage();
         storage
             .get_encryption_mode()
@@ -455,7 +455,7 @@ impl ProjectsManager {
         &self,
     ) -> ManagerResult<
         Option<(
-            crate::security::encryption::EncryptionMode,
+            security::encryption::encryption::EncryptionMode,
             Option<Vec<u8>>,
             Option<Vec<u8>>,
         )>,
@@ -470,7 +470,7 @@ impl ProjectsManager {
     /// Set encryption mode and settings
     pub async fn set_encryption_mode(
         &self,
-        mode: crate::security::encryption::EncryptionMode,
+        mode: security::encryption::encryption::EncryptionMode,
         salt: Option<&[u8]>,
         hash: Option<&[u8]>,
     ) -> ManagerResult<()> {

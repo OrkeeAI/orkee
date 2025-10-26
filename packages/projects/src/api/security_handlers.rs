@@ -8,7 +8,7 @@ use tracing::{error, info};
 use super::auth::CurrentUser;
 use super::response::{ok_or_internal_error, ApiResponse};
 use crate::db::DbState;
-use crate::security::ApiKeyEncryption;
+use security::encryption::ApiKeyEncryption;
 use storage::StorageError;
 
 // Password validation constants

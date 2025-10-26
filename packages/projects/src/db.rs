@@ -7,13 +7,13 @@ use tracing::{debug, info};
 
 use crate::agents::AgentStorage;
 use crate::ai_usage_logs::AiUsageLogStorage;
-use crate::api_tokens::TokenStorage;
+use security::api_tokens::TokenStorage;
 use crate::executions::ExecutionStorage;
 use crate::settings::SettingsStorage;
 use storage::StorageError;
 use crate::tags::TagStorage;
 use crate::tasks::TaskStorage;
-use crate::users::UserStorage;
+use security::users::UserStorage;
 
 /// Shared database state for API handlers
 #[derive(Clone)]
@@ -117,9 +117,9 @@ impl DbState {
     pub async fn change_encryption_password_atomic(
         &self,
         user_id: &str,
-        old_encryption: &crate::security::ApiKeyEncryption,
-        new_encryption: &crate::security::ApiKeyEncryption,
-        mode: crate::security::encryption::EncryptionMode,
+        old_encryption: &security::encryption::ApiKeyEncryption,
+        new_encryption: &security::encryption::ApiKeyEncryption,
+        mode: security::encryption::encryption::EncryptionMode,
         new_salt: &[u8],
         new_hash: &[u8],
     ) -> Result<(), StorageError> {
@@ -145,7 +145,7 @@ impl DbState {
             match encrypted_key {
                 Some(value)
                     if !value.is_empty()
-                        && crate::security::ApiKeyEncryption::is_encrypted(&value) =>
+                        && security::encryption::ApiKeyEncryption::is_encrypted(&value) =>
                 {
                     // Decrypt with old encryption
                     let plaintext = old_encryption.decrypt(&value).map_err(|e| {

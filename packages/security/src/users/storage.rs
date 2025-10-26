@@ -6,7 +6,7 @@ use std::env;
 use tracing::debug;
 
 use super::types::{User, UserUpdateInput};
-use security::encryption::ApiKeyEncryption;
+use crate::encryption::ApiKeyEncryption;
 use storage::StorageError;
 
 pub struct UserStorage {
@@ -52,10 +52,9 @@ impl UserStorage {
     ) -> Result<(), StorageError> {
         debug!("Setting default agent: {} for user: {}", agent_id, user_id);
 
-        // Validate agent exists in registry (replaces DB foreign key constraint)
-        if !crate::models::REGISTRY.agent_exists(agent_id) {
-            return Err(StorageError::InvalidAgent(agent_id.to_string()));
-        }
+        // NOTE: Agent validation should be performed at the API/handler level
+        // before calling this method. The security package doesn't have access
+        // to the models registry to avoid circular dependencies.
 
         sqlx::query(
             r#"

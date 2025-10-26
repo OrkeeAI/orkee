@@ -7,7 +7,6 @@ pub mod agents;
 pub mod ai_service;
 pub mod ai_usage_logs;
 pub mod api;
-pub mod api_tokens;
 pub mod context;
 pub mod db;
 pub mod executions;
@@ -16,11 +15,9 @@ pub mod git_utils;
 pub mod manager;
 pub mod models;
 pub mod pagination;
-pub mod security;
 pub mod settings;
 pub mod tags;
 pub mod tasks;
-pub mod users;
 
 #[cfg(test)]
 pub mod test_utils;
@@ -86,8 +83,11 @@ pub use db::DbState;
 // Re-export pagination types
 pub use pagination::{PaginatedResponse, PaginationMeta, PaginationParams};
 
-// Re-export API token types
-pub use api_tokens::{ApiToken, TokenGeneration, TokenStorage};
+// Re-export security types (API tokens, encryption, users)
+pub use security::{
+    ApiKeyEncryption, ApiToken, EncryptionError, MaskedUser, TokenGeneration, TokenStorage, User,
+    UserStorage, UserUpdateInput,
+};
 
 // Re-export models and agents registry
 pub use models::{
@@ -100,3 +100,6 @@ pub use openspec;
 
 // Re-export storage module for backward compatibility
 pub use storage;
+
+// Re-export security module for backward compatibility
+pub use security;
