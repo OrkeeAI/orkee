@@ -4,6 +4,16 @@
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 
+// Security: Input length limits to prevent ReDoS attacks
+/// Maximum size for entire markdown input (1MB - same as content size limit in db.rs)
+const MAX_MARKDOWN_SIZE: usize = 1024 * 1024;
+
+/// Maximum length for a single task line (10KB - reasonable for task descriptions)
+const MAX_LINE_LENGTH: usize = 10 * 1024;
+
+/// Maximum nesting depth for tasks (prevents stack overflow from extreme indentation)
+const MAX_NESTING_DEPTH: usize = 20;
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ParsedTask {
     pub number: String,                // e.g., "1.1", "2.3", "1"
@@ -24,6 +34,9 @@ pub enum TaskParseError {
 
     #[error("Empty task description")]
     EmptyDescription,
+
+    #[error("Input too large: {0}")]
+    InputTooLarge(String),
 }
 
 pub type TaskParseResult<T> = Result<T, TaskParseError>;
@@ -37,6 +50,15 @@ pub type TaskParseResult<T> = Result<T, TaskParseError>;
 ///
 /// Returns tasks in document order with hierarchy information
 pub fn parse_tasks_from_markdown(markdown: &str) -> TaskParseResult<Vec<ParsedTask>> {
+    // Security: Validate input size before regex processing to prevent ReDoS
+    if markdown.len() > MAX_MARKDOWN_SIZE {
+        return Err(TaskParseError::InputTooLarge(format!(
+            "Markdown input exceeds maximum size of {} bytes (got {} bytes)",
+            MAX_MARKDOWN_SIZE,
+            markdown.len()
+        )));
+    }
+
     let mut tasks = Vec::new();
     let mut display_order = 0;
     let mut malformed_lines = Vec::new();
@@ -51,6 +73,15 @@ pub fn parse_tasks_from_markdown(markdown: &str) -> TaskParseResult<Vec<ParsedTa
         .map_err(|e| TaskParseError::InvalidFormat(format!("Regex compilation failed: {}", e)))?;
 
     for line in markdown.lines() {
+        // Security: Validate line length before regex processing
+        if line.len() > MAX_LINE_LENGTH {
+            return Err(TaskParseError::InputTooLarge(format!(
+                "Task line exceeds maximum length of {} bytes (got {} bytes)",
+                MAX_LINE_LENGTH,
+                line.len()
+            )));
+        }
+
         let trimmed = line.trim();
 
         // Skip empty lines and non-task lines (like headers)
@@ -74,6 +105,14 @@ pub fn parse_tasks_from_markdown(markdown: &str) -> TaskParseResult<Vec<ParsedTa
 
             // Calculate nesting level from indentation (2 spaces = 1 level)
             let level = indent.len() / 2;
+
+            // Security: Prevent excessive nesting that could cause performance issues
+            if level > MAX_NESTING_DEPTH {
+                return Err(TaskParseError::InvalidFormat(format!(
+                    "Task nesting depth exceeds maximum of {} levels (got {} levels)",
+                    MAX_NESTING_DEPTH, level
+                )));
+            }
 
             // Determine if task is completed
             let is_completed = checkbox.eq_ignore_ascii_case("x");
@@ -162,6 +201,15 @@ pub fn update_task_in_markdown(
     task_number: &str,
     is_completed: bool,
 ) -> TaskParseResult<String> {
+    // Security: Validate input size before regex processing
+    if markdown.len() > MAX_MARKDOWN_SIZE {
+        return Err(TaskParseError::InputTooLarge(format!(
+            "Markdown input exceeds maximum size of {} bytes (got {} bytes)",
+            MAX_MARKDOWN_SIZE,
+            markdown.len()
+        )));
+    }
+
     let mut result = Vec::new();
     let task_pattern = Regex::new(r"^(\s*- )\[([ xX])\](\s*\d+(?:\.\d+)*\s+.+)$")
         .map_err(|e| TaskParseError::InvalidFormat(format!("Regex compilation failed: {}", e)))?;
@@ -169,6 +217,14 @@ pub fn update_task_in_markdown(
     let mut found = false;
 
     for line in markdown.lines() {
+        // Security: Validate line length before regex processing
+        if line.len() > MAX_LINE_LENGTH {
+            return Err(TaskParseError::InputTooLarge(format!(
+                "Task line exceeds maximum length of {} bytes (got {} bytes)",
+                MAX_LINE_LENGTH,
+                line.len()
+            )));
+        }
         if let Some(captures) = task_pattern.captures(line) {
             let prefix = captures.get(1).map_or("", |m| m.as_str());
             let suffix = captures.get(3).map_or("", |m| m.as_str());
@@ -395,5 +451,81 @@ mod tests {
 "#;
         let tasks = parse_tasks_from_markdown(markdown).unwrap();
         assert_eq!(tasks.len(), 0);
+    }
+
+    #[test]
+    fn test_input_size_limit() {
+        // Create markdown that exceeds MAX_MARKDOWN_SIZE (1MB)
+        let large_task = "- [ ] ".to_string() + &"x".repeat(MAX_MARKDOWN_SIZE);
+        let result = parse_tasks_from_markdown(&large_task);
+
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert!(matches!(err, TaskParseError::InputTooLarge(_)));
+        let err_msg = format!("{}", err);
+        assert!(err_msg.contains("exceeds maximum size"));
+    }
+
+    #[test]
+    fn test_line_length_limit() {
+        // Create a single task line that exceeds MAX_LINE_LENGTH (10KB)
+        let large_line = "- [ ] 1 ".to_string() + &"x".repeat(MAX_LINE_LENGTH);
+        let result = parse_tasks_from_markdown(&large_line);
+
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert!(matches!(err, TaskParseError::InputTooLarge(_)));
+        let err_msg = format!("{}", err);
+        assert!(err_msg.contains("Task line exceeds maximum length"));
+    }
+
+    #[test]
+    fn test_nesting_depth_limit() {
+        // Create a task with excessive nesting (> MAX_NESTING_DEPTH = 20)
+        let deep_indent = " ".repeat((MAX_NESTING_DEPTH + 1) * 2); // 21 levels
+        let markdown = format!("{}- [ ] 1 Deeply nested task", deep_indent);
+        let result = parse_tasks_from_markdown(&markdown);
+
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert!(matches!(err, TaskParseError::InvalidFormat(_)));
+        let err_msg = format!("{}", err);
+        assert!(err_msg.contains("nesting depth exceeds maximum"));
+    }
+
+    #[test]
+    fn test_reasonable_input_size_succeeds() {
+        // Test with a reasonable but large markdown (under limits)
+        let mut tasks_markdown = String::new();
+        for i in 0..100 {
+            tasks_markdown.push_str(&format!("- [ ] {} Task {}\n", i, "x".repeat(100)));
+        }
+
+        let result = parse_tasks_from_markdown(&tasks_markdown);
+        assert!(result.is_ok());
+        let tasks = result.unwrap();
+        assert_eq!(tasks.len(), 100);
+    }
+
+    #[test]
+    fn test_update_task_input_size_limit() {
+        // Create markdown that exceeds MAX_MARKDOWN_SIZE
+        let large_markdown = "- [ ] 1 ".to_string() + &"x".repeat(MAX_MARKDOWN_SIZE);
+        let result = update_task_in_markdown(&large_markdown, "1", true);
+
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert!(matches!(err, TaskParseError::InputTooLarge(_)));
+    }
+
+    #[test]
+    fn test_update_task_line_length_limit() {
+        // Create a task line that exceeds MAX_LINE_LENGTH
+        let large_line = "- [ ] 1 ".to_string() + &"x".repeat(MAX_LINE_LENGTH);
+        let result = update_task_in_markdown(&large_line, "1", true);
+
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert!(matches!(err, TaskParseError::InputTooLarge(_)));
     }
 }
