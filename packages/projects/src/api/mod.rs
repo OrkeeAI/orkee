@@ -23,6 +23,7 @@ pub mod tags_handlers;
 pub mod task_spec_handlers;
 pub mod tasks_handlers;
 pub mod users_handlers;
+pub mod validation;
 
 /// Creates the projects API router
 pub fn create_projects_router() -> Router {

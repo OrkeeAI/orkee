@@ -41,8 +41,8 @@ async fn test_list_changes() {
             &ctx.base_url,
             &format!("/{}/changes", project_id),
             &json!({
-                "proposalMarkdown": format!("# Proposal {}", i),
-                "tasksMarkdown": format!("# Tasks {}", i),
+                "proposalMarkdown": format!("# Proposal {}\n\nThis is proposal content for change {}", i, i),
+                "tasksMarkdown": format!("# Tasks {}\n\n- Task 1\n- Task 2", i),
                 "createdBy": "test-user"
             }),
         )
@@ -104,8 +104,8 @@ async fn test_update_change_status() {
         &ctx.base_url,
         &format!("/{}/changes", project_id),
         &json!({
-            "proposalMarkdown": "# Proposal",
-            "tasksMarkdown": "# Tasks",
+            "proposalMarkdown": "# Proposal\n\nThis is the proposal content",
+            "tasksMarkdown": "# Tasks\n\n- Task 1\n- Task 2",
             "createdBy": "test-user"
         }),
     )
@@ -150,8 +150,8 @@ async fn test_get_change_deltas() {
         &ctx.base_url,
         &format!("/{}/changes", project_id),
         &json!({
-            "proposalMarkdown": "# Proposal",
-            "tasksMarkdown": "# Tasks",
+            "proposalMarkdown": "# Proposal\n\nThis is the proposal content",
+            "tasksMarkdown": "# Tasks\n\n- Task 1\n- Task 2",
             "createdBy": "test-user"
         }),
     )
@@ -184,8 +184,8 @@ async fn test_create_delta() {
         &ctx.base_url,
         &format!("/{}/changes", project_id),
         &json!({
-            "proposalMarkdown": "# Proposal",
-            "tasksMarkdown": "# Tasks",
+            "proposalMarkdown": "# Proposal\n\nThis is the proposal content",
+            "tasksMarkdown": "# Tasks\n\n- Task 1\n- Task 2",
             "createdBy": "test-user"
         }),
     )
@@ -201,7 +201,7 @@ async fn test_create_delta() {
         &json!({
             "capabilityName": "New Capability",
             "deltaType": "added",
-            "deltaMarkdown": "# New capability markdown",
+            "deltaMarkdown": "# New capability\n\nThis is the capability content.",
             "position": 0
         }),
     )
@@ -224,8 +224,8 @@ async fn test_list_changes_with_pagination() {
             &ctx.base_url,
             &format!("/{}/changes", project_id),
             &json!({
-                "proposalMarkdown": format!("# Proposal {}", i),
-                "tasksMarkdown": format!("# Tasks {}", i),
+                "proposalMarkdown": format!("# Proposal {}\n\nThis is proposal content for change {}", i, i),
+                "tasksMarkdown": format!("# Tasks {}\n\n- Task 1\n- Task 2", i),
                 "createdBy": "test-user"
             }),
         )

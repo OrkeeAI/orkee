@@ -125,6 +125,21 @@ where
     }
 }
 
+/// Create a BAD_REQUEST (400) response for validation errors
+pub fn bad_request<E>(error: E, error_context: &str) -> axum::response::Response
+where
+    E: std::fmt::Display,
+{
+    (
+        StatusCode::BAD_REQUEST,
+        ResponseJson(ApiResponse::<()>::error(format!(
+            "{}: {}",
+            error_context, error
+        ))),
+    )
+        .into_response()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
