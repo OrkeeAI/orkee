@@ -5,7 +5,6 @@
 
 pub mod agents;
 pub mod ai_service;
-pub mod models;
 pub mod ai_usage_logs;
 pub mod api;
 pub mod api_tokens;
@@ -16,6 +15,7 @@ pub mod executions;
 pub mod formatter;
 pub mod git_utils;
 pub mod manager;
+pub mod models;
 pub mod openspec;
 pub mod pagination;
 pub mod security;

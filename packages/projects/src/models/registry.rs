@@ -7,9 +7,8 @@ use std::sync::LazyLock;
 use super::types::{Agent, AgentsConfig, Model, ModelsConfig};
 
 /// Global registry for models and agents, loaded from JSON at startup
-pub static REGISTRY: LazyLock<ModelRegistry> = LazyLock::new(|| {
-    ModelRegistry::new().expect("Failed to initialize ModelRegistry")
-});
+pub static REGISTRY: LazyLock<ModelRegistry> =
+    LazyLock::new(|| ModelRegistry::new().expect("Failed to initialize ModelRegistry"));
 
 #[derive(Debug)]
 pub struct ModelRegistry {
@@ -91,10 +90,7 @@ impl ModelRegistry {
     pub fn get_agent_default_model(&self, agent_id: &str) -> Option<&Model> {
         let agent = self.agents.get(agent_id)?;
 
-        let default_model_ref = agent
-            .supported_models
-            .iter()
-            .find(|mr| mr.is_default)?;
+        let default_model_ref = agent.supported_models.iter().find(|mr| mr.is_default)?;
 
         self.models.get(&default_model_ref.model_id)
     }
@@ -270,6 +266,9 @@ mod tests {
         assert!(models.is_some(), "Should have recommended models");
 
         let models = models.unwrap();
-        assert!(!models.is_empty(), "Should have at least one recommended model");
+        assert!(
+            !models.is_empty(),
+            "Should have at least one recommended model"
+        );
     }
 }

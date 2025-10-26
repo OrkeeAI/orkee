@@ -672,7 +672,10 @@ Test description.
         // Delete the capability from database
         // NOTE: This test sometimes fails due to a SQLite FK cascade bug with RETURNING
         // Workaround: Manually delete the record without relying on FK cascades
-        sqlx::query("PRAGMA foreign_keys = OFF").execute(&pool).await.unwrap();
+        sqlx::query("PRAGMA foreign_keys = OFF")
+            .execute(&pool)
+            .await
+            .unwrap();
 
         sqlx::query("DELETE FROM spec_capabilities WHERE project_id = ? AND name = ?")
             .bind(&project_id)
@@ -681,7 +684,10 @@ Test description.
             .await
             .expect("Failed to delete capability");
 
-        sqlx::query("PRAGMA foreign_keys = ON").execute(&pool).await.unwrap();
+        sqlx::query("PRAGMA foreign_keys = ON")
+            .execute(&pool)
+            .await
+            .unwrap();
 
         // Verify it's gone
         let caps = openspec_db::get_capabilities_by_project(&pool, &project_id)
