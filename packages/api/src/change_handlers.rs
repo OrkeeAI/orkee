@@ -355,7 +355,12 @@ pub async fn validate_change(
     // Get all deltas for the change
     let deltas = match openspec_db::get_deltas_by_change(&db.pool, &change_id).await {
         Ok(d) => d,
-        Err(e) => return ok_or_internal_error::<ValidationResultResponse, _>(Err(e), "Failed to get change deltas"),
+        Err(e) => {
+            return ok_or_internal_error::<ValidationResultResponse, _>(
+                Err(e),
+                "Failed to get change deltas",
+            )
+        }
     };
 
     // Validate each delta
@@ -373,7 +378,10 @@ pub async fn validate_change(
         deltas_validated: deltas.len(),
     };
 
-    ok_or_internal_error::<ValidationResultResponse, openspec::DbError>(Ok(response), "Failed to validate change")
+    ok_or_internal_error::<ValidationResultResponse, openspec::DbError>(
+        Ok(response),
+        "Failed to validate change",
+    )
 }
 
 /// Request body for archiving a change
@@ -418,8 +426,14 @@ pub async fn archive_change(
                 specs_applied: request.apply_specs,
                 capabilities_created: 0, // TODO: Update archive function to return count
             };
-            ok_or_internal_error::<ArchiveResultResponse, openspec::ArchiveError>(Ok(response), "Failed to archive change")
+            ok_or_internal_error::<ArchiveResultResponse, openspec::ArchiveError>(
+                Ok(response),
+                "Failed to archive change",
+            )
         }
-        Err(e) => ok_or_internal_error::<ArchiveResultResponse, openspec::ArchiveError>(Err(e), "Failed to archive change"),
+        Err(e) => ok_or_internal_error::<ArchiveResultResponse, openspec::ArchiveError>(
+            Err(e),
+            "Failed to archive change",
+        ),
     }
 }
