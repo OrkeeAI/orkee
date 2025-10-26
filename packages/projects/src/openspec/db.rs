@@ -3,7 +3,7 @@
 
 use super::types::*;
 use chrono::Utc;
-use sqlx::{Pool, Sqlite};
+use sqlx::{Executor, Pool, Sqlite};
 
 #[derive(Debug, thiserror::Error)]
 pub enum DbError {
@@ -963,6 +963,35 @@ pub async fn create_spec_change(
     design_markdown: Option<&str>,
     created_by: &str,
 ) -> DbResult<SpecChange> {
+    create_spec_change_with_verb(
+        pool,
+        project_id,
+        prd_id,
+        proposal_markdown,
+        tasks_markdown,
+        design_markdown,
+        created_by,
+        None,
+        None,
+    )
+    .await
+}
+
+/// Create a spec change with optional verb prefix and change number
+pub async fn create_spec_change_with_verb<'a, E>(
+    executor: E,
+    project_id: &str,
+    prd_id: Option<&str>,
+    proposal_markdown: &str,
+    tasks_markdown: &str,
+    design_markdown: Option<&str>,
+    created_by: &str,
+    verb_prefix: Option<&str>,
+    change_number: Option<i32>,
+) -> DbResult<SpecChange>
+where
+    E: Executor<'a, Database = Sqlite>,
+{
     // Validate content sizes
     validate_content_size(proposal_markdown, "Change proposal")?;
     validate_content_size(tasks_markdown, "Change tasks")?;
@@ -989,13 +1018,13 @@ pub async fn create_spec_change(
     .bind(proposal_markdown)
     .bind(tasks_markdown)
     .bind(design_markdown)
-    .bind::<Option<String>>(None) // verb_prefix
-    .bind::<Option<i32>>(None) // change_number
+    .bind(verb_prefix)
+    .bind(change_number)
     .bind::<Option<String>>(None) // validation_errors
     .bind(created_by)
     .bind(now)
     .bind(now)
-    .fetch_one(pool)
+    .fetch_one(executor)
     .await?;
 
     Ok(change)
@@ -1147,15 +1176,18 @@ pub async fn restore_spec_change(pool: &Pool<Sqlite>, id: &str) -> DbResult<Spec
 // ============================================================================
 
 /// Create a spec delta
-pub async fn create_spec_delta(
-    pool: &Pool<Sqlite>,
+pub async fn create_spec_delta<'a, E>(
+    executor: E,
     change_id: &str,
     capability_id: Option<&str>,
     capability_name: &str,
     delta_type: DeltaType,
     delta_markdown: &str,
     position: i32,
-) -> DbResult<SpecDelta> {
+) -> DbResult<SpecDelta>
+where
+    E: Executor<'a, Database = Sqlite>,
+{
     let id = crate::storage::generate_project_id();
     let now = Utc::now();
 
@@ -1174,7 +1206,7 @@ pub async fn create_spec_delta(
     .bind(delta_markdown)
     .bind(position)
     .bind(now)
-    .fetch_one(pool)
+    .fetch_one(executor)
     .await?;
 
     Ok(delta)

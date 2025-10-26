@@ -1,7 +1,7 @@
 // ABOUTME: Helper functions for building OpenSpec changes from PRD analysis
 // ABOUTME: Generates change IDs, builds markdown content, and determines change metadata
 
-use super::db::{create_spec_change, create_spec_delta, DbError};
+use super::db::{create_spec_change_with_verb, create_spec_delta, DbError};
 use super::types::{DeltaType, SpecChange};
 use crate::api::ai_handlers::{PRDAnalysisData, SpecCapability, TaskSuggestion};
 use sqlx::{Pool, Sqlite};
@@ -229,7 +229,8 @@ pub fn calculate_overall_complexity(analysis: &PRDAnalysisData) -> String {
     }
 }
 
-/// Create a change from PRD analysis
+/// Create a change from PRD analysis with atomic ID generation
+/// Uses a transaction with retry logic to prevent race conditions
 pub async fn create_change_from_analysis(
     pool: &Pool<Sqlite>,
     project_id: &str,
@@ -237,75 +238,118 @@ pub async fn create_change_from_analysis(
     analysis: &PRDAnalysisData,
     user_id: &str,
 ) -> Result<SpecChange, DbError> {
-    // Generate unique change ID
+    const MAX_RETRIES: u32 = 5;
+    const INITIAL_BACKOFF_MS: u64 = 10;
+
     let verb = determine_verb_from_analysis(analysis);
-    let change_id = generate_change_id(pool, project_id, &verb).await?;
-
-    // Build proposal markdown
     let proposal_markdown = build_proposal_markdown(analysis);
-
-    // Build tasks markdown
     let tasks_markdown = build_tasks_markdown(&analysis.suggested_tasks);
-
-    // Determine if design.md is needed
     let design_markdown = if needs_design_doc(analysis) {
         Some(build_design_markdown(analysis))
     } else {
         None
     };
 
-    // Create change in database (with verb and change number)
-    let change = create_spec_change(
-        pool,
-        project_id,
-        Some(prd_id),
-        &proposal_markdown,
-        &tasks_markdown,
-        design_markdown.as_deref(),
-        user_id,
-    )
-    .await?;
+    for attempt in 0..MAX_RETRIES {
+        // Start a transaction
+        let mut tx = pool.begin().await?;
 
-    // Update change with verb prefix and change number
-    let change_number = change_id
-        .split('-')
-        .next_back()
-        .and_then(|s| s.parse::<i32>().ok())
-        .unwrap_or(1);
-
-    sqlx::query(
-        r#"
-        UPDATE spec_changes
-        SET verb_prefix = ?, change_number = ?
-        WHERE id = ?
-        "#,
-    )
-    .bind(&verb)
-    .bind(change_number)
-    .bind(&change.id)
-    .execute(pool)
-    .await?;
-
-    // Create deltas for each capability
-    for (position, capability) in analysis.capabilities.iter().enumerate() {
-        let delta_markdown = build_capability_delta_markdown(capability);
-
-        create_spec_delta(
-            pool,
-            &change.id,
-            None, // No existing capability yet
-            &capability.name,
-            DeltaType::Added,
-            &delta_markdown,
-            position as i32,
+        // Generate the next change number within the transaction
+        let next_number: i32 = sqlx::query_scalar(
+            r#"
+            SELECT COALESCE(MAX(change_number), 0) + 1
+            FROM spec_changes
+            WHERE project_id = ? AND verb_prefix = ? AND deleted_at IS NULL
+            "#,
         )
+        .bind(project_id)
+        .bind(&verb)
+        .fetch_one(&mut *tx)
         .await?;
+
+        // Create the change with verb and number atomically
+        let change_result = create_spec_change_with_verb(
+            &mut *tx,
+            project_id,
+            Some(prd_id),
+            &proposal_markdown,
+            &tasks_markdown,
+            design_markdown.as_deref(),
+            user_id,
+            Some(&verb),
+            Some(next_number),
+        )
+        .await;
+
+        // Handle the result
+        match change_result {
+            Ok(change) => {
+                // Create deltas for each capability
+                for (position, capability) in analysis.capabilities.iter().enumerate() {
+                    let delta_markdown = build_capability_delta_markdown(capability);
+
+                    create_spec_delta(
+                        &mut *tx,
+                        &change.id,
+                        None, // No existing capability yet
+                        &capability.name,
+                        DeltaType::Added,
+                        &delta_markdown,
+                        position as i32,
+                    )
+                    .await?;
+                }
+
+                // Commit the transaction
+                match tx.commit().await {
+                    Ok(_) => {
+                        // Fetch the created change from the main pool
+                        return super::db::get_spec_change(pool, &change.id).await;
+                    }
+                    Err(e) => {
+                        // Check if this is a unique constraint violation
+                        if is_unique_constraint_error_sqlx(&e) && attempt < MAX_RETRIES - 1 {
+                            // Calculate exponential backoff and retry
+                            let backoff_ms = INITIAL_BACKOFF_MS * 2_u64.pow(attempt);
+                            tokio::time::sleep(tokio::time::Duration::from_millis(backoff_ms)).await;
+                            continue;
+                        }
+                        return Err(DbError::from(e));
+                    }
+                }
+            }
+            Err(e) => {
+                // Rollback the transaction
+                let _ = tx.rollback().await;
+
+                // Check if this is a unique constraint violation
+                if is_unique_constraint_error(&e) && attempt < MAX_RETRIES - 1 {
+                    // Calculate exponential backoff and retry
+                    let backoff_ms = INITIAL_BACKOFF_MS * 2_u64.pow(attempt);
+                    tokio::time::sleep(tokio::time::Duration::from_millis(backoff_ms)).await;
+                    continue;
+                }
+                // Not a constraint violation or out of retries, return the error
+                return Err(e);
+            }
+        }
     }
 
-    // Fetch updated change
-    let updated_change = super::db::get_spec_change(pool, &change.id).await?;
+    unreachable!("Retry loop should always return or continue")
+}
 
-    Ok(updated_change)
+/// Check if a sqlx error is a unique constraint violation or deadlock
+fn is_unique_constraint_error_sqlx(e: &sqlx::Error) -> bool {
+    let error_str = e.to_string();
+    error_str.contains("UNIQUE constraint failed") || error_str.contains("database is deadlocked")
+}
+
+/// Check if a DbError is a unique constraint violation
+fn is_unique_constraint_error(e: &DbError) -> bool {
+    match e {
+        DbError::SqlxError(sqlx_err) => is_unique_constraint_error_sqlx(sqlx_err),
+        _ => false,
+    }
 }
 
 #[cfg(test)]
