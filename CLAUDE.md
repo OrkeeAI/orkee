@@ -236,6 +236,98 @@ The CLI server provides a REST API for project management:
 
 **Migration from Legacy**: Automatic migration from `~/.orkee/projects.json` to SQLite on first run
 
+### Database Migrations
+- **Initial schema**: `packages/projects/migrations/001_initial_schema.sql`
+- **Migration system**: Uses SQLx migrations (tracked in `_sqlx_migrations` table)
+- **To reset dev database**: `rm ~/.orkee/orkee.db && cargo run`
+- **Integration tests**: `cargo test migration_integration_tests`
+- **Schema validation**: All migrations tested automatically on every test run
+
+#### Orphaned Reference Validation
+
+**Problem**: Agent and model data is stored in JSON config files (`config/agents.json`, `config/models.json`) but referenced by TEXT IDs in the database. When an agent/model is removed from config, database records become orphaned.
+
+**Solution**: Automatic startup validation (runs during `SqliteStorage::initialize()`):
+
+**Tables Validated**:
+- `user_agents.agent_id` (NOT NULL) → **Deletes** orphaned records
+- `user_agents.preferred_model_id` (nullable) → **Clears to NULL**
+- `users.default_agent_id` (nullable) → **Clears to NULL**
+- `tasks.assigned_agent_id` (nullable) → **Clears to NULL**
+- `tasks.reviewed_by_agent_id` (nullable) → **Clears to NULL**
+- `agent_executions.agent_id` (nullable) → **Clears to NULL**
+- `agent_executions.model` (nullable) → **Clears to NULL**
+- `ai_usage_logs.model` (NOT NULL) → **Logs warning only** (preserves historical data)
+
+**Implementation**: `packages/projects/src/storage/sqlite.rs:217-435`
+
+**Testing**: 7 comprehensive tests in `packages/projects/tests/migration_integration_tests.rs:848-1186`
+
+**Logging**: Warnings logged to stderr on startup if orphaned references are found and cleaned up
+
+#### Seed Data Strategy
+
+**Approach**: All seed data uses `INSERT OR IGNORE` for idempotent migrations.
+
+**Seed Data Included**:
+- `storage_metadata` - Storage type and creation timestamp
+- `users` - Default user (required for FK dependencies)
+- `tags` - Default "main" tag (required for task FK dependencies)
+- `encryption_settings` - Machine-based encryption by default
+- `password_attempts` - Password attempt tracking initialization
+- `telemetry_settings` - Telemetry configuration defaults
+- `system_settings` - Default configuration (ports, security, TLS, rate limiting, etc.)
+
+**Idempotency**: All INSERT statements use `OR IGNORE` to prevent UNIQUE constraint violations on migration reruns.
+
+**Location**: `packages/projects/migrations/001_initial_schema.sql:1062-1128`
+
+**Testing**: Comprehensive idempotency test verifies all seed data can be safely rerun (`test_migration_seed_data_is_idempotent`)
+
+**Why in Migration**: Seed data is in the migration file (not separate `seeds.rs`) because:
+1. Required for FK dependencies (default user, default tag)
+2. Essential for application startup (encryption settings, system config)
+3. Simple enough to maintain inline with schema
+4. Uses `INSERT OR IGNORE` for safe reruns
+
+#### Down Migration Strategy
+
+**Purpose**: Rollback migration for development resets and test cleanup (not used in production).
+
+**Approach**: Comprehensive cleanup with verification:
+
+**Pre-Drop Verification** (commented out by default):
+- Count records that will be deleted (projects, users, tasks)
+- Check for orphaned data (data without proper FK relationships)
+- Helps identify data integrity issues before cleanup
+
+**Drop Order**:
+1. **Triggers first** - Prevents trigger execution errors during table drops
+2. **Views** - No dependencies on other objects
+3. **Tables** - Reverse dependency order (child tables before parent tables)
+
+**Clean State Verification** (commented out by default):
+- List remaining tables (should only show `_sqlx_migrations` and SQLite internal tables)
+- List remaining views (should be empty)
+- List remaining triggers (should be empty)
+- List remaining indexes (should only show indexes on `_sqlx_migrations`)
+
+**Migration Metadata Cleanup** (optional, use with caution):
+- Option to delete from `_sqlx_migrations` to reset migration state
+- Option to drop `_sqlx_migrations` table entirely
+- **WARNING**: Never do this in production - only for development resets
+
+**Location**: `packages/projects/migrations/001_initial_schema.down.sql`
+
+**Testing**: 3 comprehensive tests verify down migration completeness:
+- `test_down_migration_removes_all_tables` - Verifies all tables/views/triggers/indexes are dropped
+- `test_down_migration_drops_tables_in_correct_order` - Verifies FK cascade behavior with test data
+- `test_down_migration_is_idempotent` - Verifies safe rerun with `DROP IF EXISTS`
+
+**Idempotency**: All DROP statements use `IF EXISTS` for safe reruns.
+
+**SQLx Note**: SQLx doesn't automatically run down migrations. They're for manual rollback via `sqlite3 < migrations/*.down.sql` or test cleanup.
+
 ## Preview Servers & External Server Discovery
 
 Orkee provides comprehensive development server management with automatic discovery of servers started outside of Orkee.

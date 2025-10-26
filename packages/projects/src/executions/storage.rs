@@ -103,6 +103,30 @@ impl ExecutionStorage {
             execution_id, input.task_id
         );
 
+        // Validate agent exists in registry if provided (replaces DB foreign key constraint)
+        if let Some(agent_id) = &input.agent_id {
+            if !crate::models::REGISTRY.agent_exists(agent_id) {
+                return Err(StorageError::InvalidAgent(agent_id.to_string()));
+            }
+        }
+
+        // Validate model exists in registry if provided (replaces DB foreign key constraint)
+        if let Some(model_id) = &input.model {
+            if !crate::models::REGISTRY.model_exists(model_id) {
+                return Err(StorageError::InvalidModel(model_id.to_string()));
+            }
+        }
+
+        // Validate model is supported by agent if both are provided
+        if let (Some(agent_id), Some(model_id)) = (&input.agent_id, &input.model) {
+            if !crate::models::REGISTRY.validate_agent_model(agent_id, model_id) {
+                return Err(StorageError::InvalidAgentModel {
+                    agent_id: agent_id.to_string(),
+                    model_id: model_id.to_string(),
+                });
+            }
+        }
+
         sqlx::query(
             r#"
             INSERT INTO agent_executions (

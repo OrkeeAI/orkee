@@ -52,6 +52,11 @@ impl UserStorage {
     ) -> Result<(), StorageError> {
         debug!("Setting default agent: {} for user: {}", agent_id, user_id);
 
+        // Validate agent exists in registry (replaces DB foreign key constraint)
+        if !crate::models::REGISTRY.agent_exists(agent_id) {
+            return Err(StorageError::InvalidAgent(agent_id.to_string()));
+        }
+
         sqlx::query(
             r#"
             UPDATE users

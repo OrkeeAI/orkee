@@ -332,36 +332,10 @@ mod tests {
         let pool = Pool::<Sqlite>::connect(":memory:").await.unwrap();
 
         // Run migrations
-        sqlx::query(include_str!("../../migrations/001_initial_schema.sql"))
-            .execute(&pool)
+        sqlx::migrate!("./migrations")
+            .run(&pool)
             .await
-            .unwrap();
-
-        sqlx::query(include_str!(
-            "../../migrations/20250117000000_task_management.sql"
-        ))
-        .execute(&pool)
-        .await
-        .unwrap();
-
-        sqlx::query(include_str!("../../migrations/20250118000000_openspec.sql"))
-            .execute(&pool)
-            .await
-            .unwrap();
-
-        sqlx::query(include_str!(
-            "../../migrations/20250127000000_openspec_alignment.sql"
-        ))
-        .execute(&pool)
-        .await
-        .unwrap();
-
-        sqlx::query(include_str!(
-            "../../migrations/20250128000000_task_completion_tracking.sql"
-        ))
-        .execute(&pool)
-        .await
-        .unwrap();
+            .expect("Failed to run migrations");
 
         // Create test project
         sqlx::query(

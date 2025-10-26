@@ -1,0 +1,181 @@
+{
+  "version": "2025-10-26",
+  "agents": [
+    {
+      "id": "claude-code",
+      "name": "Claude Code",
+      "type": "ai",
+      "description": "Anthropic's official CLI for Claude - pair programming in your terminal",
+      "avatar_url": null,
+      "required_providers": ["anthropic"],
+      "supported_models": [
+        {
+          "model_id": "claude-sonnet-4-5-20250929",
+          "is_default": true,
+          "is_recommended": true,
+          "display_order": 1
+        },
+        {
+          "model_id": "claude-haiku-4-5-20251001",
+          "is_default": false,
+          "is_recommended": true,
+          "display_order": 2
+        },
+        {
+          "model_id": "claude-opus-4-1-20250805",
+          "is_default": false,
+          "is_recommended": true,
+          "display_order": 3
+        }
+      ],
+      "default_config": {
+        "temperature": 0.7,
+        "max_tokens": 4096,
+        "system_prompt": null
+      },
+      "is_available": true
+    },
+    {
+      "id": "aider",
+      "name": "Aider",
+      "type": "ai",
+      "description": "AI pair programming in your terminal - works with multiple providers",
+      "avatar_url": null,
+      "required_providers": ["anthropic", "openai"],
+      "supported_models": [
+        {
+          "model_id": "claude-sonnet-4-5-20250929",
+          "is_default": true,
+          "is_recommended": true,
+          "display_order": 1
+        },
+        {
+          "model_id": "gpt-4o",
+          "is_default": false,
+          "is_recommended": true,
+          "display_order": 2
+        },
+        {
+          "model_id": "claude-opus-4-1-20250805",
+          "is_default": false,
+          "is_recommended": false,
+          "display_order": 3
+        }
+      ],
+      "default_config": {
+        "temperature": 0.5,
+        "max_tokens": 8192,
+        "system_prompt": null
+      },
+      "is_available": true
+    },
+    {
+      "id": "codex",
+      "name": "Codex CLI",
+      "type": "ai",
+      "description": "OpenAI's terminal-based coding agent with file reading, modification, and command execution capabilities",
+      "avatar_url": null,
+      "required_providers": ["openai"],
+      "supported_models": [
+        {
+          "model_id": "gpt-5-codex",
+          "is_default": true,
+          "is_recommended": true,
+          "display_order": 1
+        },
+        {
+          "model_id": "gpt-5",
+          "is_default": false,
+          "is_recommended": true,
+          "display_order": 2
+        },
+        {
+          "model_id": "gpt-5-mini",
+          "is_default": false,
+          "is_recommended": true,
+          "display_order": 3
+        },
+        {
+          "model_id": "gpt-4o",
+          "is_default": false,
+          "is_recommended": false,
+          "display_order": 4
+        }
+      ],
+      "default_config": {
+        "temperature": 0.7,
+        "max_tokens": 4096,
+        "system_prompt": null
+      },
+      "is_available": true
+    },
+    {
+      "id": "gemini-cli",
+      "name": "Gemini CLI",
+      "type": "ai",
+      "description": "Google's terminal-based AI agent with multimodal capabilities, code execution, and Google Search grounding",
+      "avatar_url": null,
+      "required_providers": ["google"],
+      "supported_models": [
+        {
+          "model_id": "gemini-2.5-pro",
+          "is_default": true,
+          "is_recommended": true,
+          "display_order": 1
+        },
+        {
+          "model_id": "gemini-2.5-flash",
+          "is_default": false,
+          "is_recommended": true,
+          "display_order": 2
+        },
+        {
+          "model_id": "gemini-2.5-flash-lite",
+          "is_default": false,
+          "is_recommended": true,
+          "display_order": 3
+        }
+      ],
+      "default_config": {
+        "temperature": 0.7,
+        "max_tokens": 8192,
+        "system_prompt": null
+      },
+      "is_available": true
+    },
+    {
+      "id": "grok-cli",
+      "name": "Grok CLI",
+      "type": "ai",
+      "description": "xAI's conversational AI CLI with intelligent text editing and tool usage capabilities",
+      "avatar_url": null,
+      "required_providers": ["xai"],
+      "supported_models": [
+        {
+          "model_id": "grok-4-fast",
+          "is_default": true,
+          "is_recommended": true,
+          "display_order": 1
+        },
+        {
+          "model_id": "grok-4-latest",
+          "is_default": false,
+          "is_recommended": true,
+          "display_order": 2
+        },
+        {
+          "model_id": "grok-3-latest",
+          "is_default": false,
+          "is_recommended": false,
+          "display_order": 3
+        }
+      ],
+      "default_config": {
+        "temperature": 0.7,
+        "max_tokens": 4096,
+        "system_prompt": null
+      },
+      "is_available": true
+    }
+  ]
+}

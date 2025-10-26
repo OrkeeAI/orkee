@@ -1411,82 +1411,11 @@ mod tests {
     async fn setup_test_db() -> Pool<Sqlite> {
         let pool = Pool::<Sqlite>::connect(":memory:").await.unwrap();
 
-        // Run migrations in order
-        sqlx::query(include_str!("../../migrations/001_initial_schema.sql"))
-            .execute(&pool)
+        // Run migrations
+        sqlx::migrate!("./migrations")
+            .run(&pool)
             .await
-            .unwrap();
-
-        sqlx::query(include_str!(
-            "../../migrations/20250117000000_task_management.sql"
-        ))
-        .execute(&pool)
-        .await
-        .unwrap();
-
-        sqlx::query(include_str!("../../migrations/20250118000000_openspec.sql"))
-            .execute(&pool)
-            .await
-            .unwrap();
-
-        sqlx::query(include_str!("../../migrations/20250119000000_security.sql"))
-            .execute(&pool)
-            .await
-            .unwrap();
-
-        sqlx::query(include_str!(
-            "../../migrations/20250120000000_telemetry.sql"
-        ))
-        .execute(&pool)
-        .await
-        .unwrap();
-
-        sqlx::query(include_str!("../../migrations/20250122000000_context.sql"))
-            .execute(&pool)
-            .await
-            .unwrap();
-
-        sqlx::query(include_str!(
-            "../../migrations/20250123000000_context_spec_integration.sql"
-        ))
-        .execute(&pool)
-        .await
-        .unwrap();
-
-        sqlx::query(include_str!(
-            "../../migrations/20250124000000_users_table.sql"
-        ))
-        .execute(&pool)
-        .await
-        .unwrap();
-
-        sqlx::query(include_str!(
-            "../../migrations/20250125000000_system_settings.sql"
-        ))
-        .execute(&pool)
-        .await
-        .unwrap();
-
-        sqlx::query(include_str!(
-            "../../migrations/20250126000000_api_tokens.sql"
-        ))
-        .execute(&pool)
-        .await
-        .unwrap();
-
-        sqlx::query(include_str!(
-            "../../migrations/20250127000000_openspec_alignment.sql"
-        ))
-        .execute(&pool)
-        .await
-        .unwrap();
-
-        sqlx::query(include_str!(
-            "../../migrations/20250128000000_task_completion_tracking.sql"
-        ))
-        .execute(&pool)
-        .await
-        .unwrap();
+            .expect("Failed to run migrations");
 
         pool
     }

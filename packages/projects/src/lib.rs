@@ -15,6 +15,7 @@ pub mod executions;
 pub mod formatter;
 pub mod git_utils;
 pub mod manager;
+pub mod models;
 pub mod openspec;
 pub mod pagination;
 pub mod security;
@@ -92,3 +93,9 @@ pub use pagination::{PaginatedResponse, PaginationMeta, PaginationParams};
 
 // Re-export API token types
 pub use api_tokens::{ApiToken, TokenGeneration, TokenStorage};
+
+// Re-export models and agents registry
+pub use models::{
+    Agent, AgentConfig, AgentModelRef, Model, ModelCapabilities, ModelPricing, ModelRegistry,
+    REGISTRY,
+};

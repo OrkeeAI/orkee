@@ -1,0 +1,296 @@
+{
+  "version": "2025-10-26",
+  "models": [
+    {
+      "id": "claude-sonnet-4-5-20250929",
+      "provider": "anthropic",
+      "name": "Claude Sonnet 4.5",
+      "model_identifier": "claude-sonnet-4-5-20250929",
+      "description": "Our smartest model for complex agents and coding",
+      "max_context_tokens": 200000,
+      "max_output_tokens": 64000,
+      "knowledge_cutoff": "2025-01",
+      "capabilities": {
+        "tools": true,
+        "vision": true,
+        "extended_thinking": true,
+        "web_search": false
+      },
+      "pricing": {
+        "input_per_million_tokens": 3.0,
+        "output_per_million_tokens": 15.0
+      },
+      "is_available": true
+    },
+    {
+      "id": "claude-haiku-4-5-20251001",
+      "provider": "anthropic",
+      "name": "Claude Haiku 4.5",
+      "model_identifier": "claude-haiku-4-5-20251001",
+      "description": "Our fastest model with near-frontier intelligence",
+      "max_context_tokens": 200000,
+      "max_output_tokens": 64000,
+      "knowledge_cutoff": "2025-02",
+      "capabilities": {
+        "tools": true,
+        "vision": true,
+        "extended_thinking": true,
+        "web_search": false
+      },
+      "pricing": {
+        "input_per_million_tokens": 1.0,
+        "output_per_million_tokens": 5.0
+      },
+      "is_available": true
+    },
+    {
+      "id": "claude-opus-4-1-20250805",
+      "provider": "anthropic",
+      "name": "Claude Opus 4.1",
+      "model_identifier": "claude-opus-4-1-20250805",
+      "description": "Exceptional model for specialized reasoning tasks",
+      "max_context_tokens": 200000,
+      "max_output_tokens": 32000,
+      "knowledge_cutoff": "2025-01",
+      "capabilities": {
+        "tools": true,
+        "vision": true,
+        "extended_thinking": false,
+        "web_search": false
+      },
+      "pricing": {
+        "input_per_million_tokens": 15.0,
+        "output_per_million_tokens": 75.0
+      },
+      "is_available": true
+    },
+    {
+      "id": "gpt-4o",
+      "provider": "openai",
+      "name": "GPT-4o",
+      "model_identifier": "gpt-4o",
+      "description": "Multimodal GPT-4 optimized for speed",
+      "max_context_tokens": 128000,
+      "capabilities": {
+        "tools": true,
+        "vision": true,
+        "web_search": false
+      },
+      "pricing": {
+        "input_per_million_tokens": 2.5,
+        "output_per_million_tokens": 10.0
+      },
+      "is_available": true
+    },
+    {
+      "id": "gpt-4-turbo-preview",
+      "provider": "openai",
+      "name": "GPT-4 Turbo",
+      "model_identifier": "gpt-4-turbo-preview",
+      "description": "Latest GPT-4 with improved performance",
+      "max_context_tokens": 128000,
+      "capabilities": {
+        "tools": true,
+        "vision": true,
+        "web_search": false
+      },
+      "pricing": {
+        "input_per_million_tokens": 10.0,
+        "output_per_million_tokens": 30.0
+      },
+      "is_available": true
+    },
+    {
+      "id": "gemini-2.5-pro",
+      "provider": "google",
+      "name": "Gemini 2.5 Pro",
+      "model_identifier": "gemini-2.5-pro",
+      "description": "Capable of reasoning over complex problems in code, math, and STEM",
+      "max_context_tokens": 1048576,
+      "max_output_tokens": 65536,
+      "knowledge_cutoff": "2025-01",
+      "capabilities": {
+        "tools": true,
+        "vision": true,
+        "extended_thinking": true,
+        "code_execution": true,
+        "web_search": true
+      },
+      "pricing": {
+        "input_per_million_tokens": 1.25,
+        "output_per_million_tokens": 10.0
+      },
+      "is_available": true
+    },
+    {
+      "id": "gemini-2.5-flash",
+      "provider": "google",
+      "name": "Gemini 2.5 Flash",
+      "model_identifier": "gemini-2.5-flash",
+      "description": "Best model in terms of price-performance for large scale processing",
+      "max_context_tokens": 1048576,
+      "max_output_tokens": 65536,
+      "knowledge_cutoff": "2025-01",
+      "capabilities": {
+        "tools": true,
+        "vision": true,
+        "extended_thinking": true,
+        "code_execution": true,
+        "web_search": true
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.30,
+        "output_per_million_tokens": 2.50
+      },
+      "is_available": true
+    },
+    {
+      "id": "gemini-2.5-flash-lite",
+      "provider": "google",
+      "name": "Gemini 2.5 Flash-Lite",
+      "model_identifier": "gemini-2.5-flash-lite",
+      "description": "Fastest flash model optimized for cost-efficiency and high throughput",
+      "max_context_tokens": 1048576,
+      "max_output_tokens": 65536,
+      "knowledge_cutoff": "2025-01",
+      "capabilities": {
+        "tools": true,
+        "vision": true,
+        "extended_thinking": false,
+        "code_execution": false,
+        "web_search": true
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.10,
+        "output_per_million_tokens": 0.40
+      },
+      "is_available": true
+    },
+    {
+      "id": "grok-4-latest",
+      "provider": "xai",
+      "name": "Grok 4",
+      "model_identifier": "grok-4-latest",
+      "description": "xAI's most advanced model with deep reasoning capabilities",
+      "max_context_tokens": 256000,
+      "max_output_tokens": 128000,
+      "knowledge_cutoff": "2024-11",
+      "capabilities": {
+        "tools": true,
+        "vision": true,
+        "extended_thinking": true,
+        "web_search": true
+      },
+      "pricing": {
+        "input_per_million_tokens": 3.0,
+        "output_per_million_tokens": 15.0
+      },
+      "is_available": true
+    },
+    {
+      "id": "grok-4-fast",
+      "provider": "xai",
+      "name": "Grok 4 Fast",
+      "model_identifier": "grok-4-fast",
+      "description": "High-performance variant with 2M context and 40% fewer thinking tokens",
+      "max_context_tokens": 2000000,
+      "max_output_tokens": 128000,
+      "knowledge_cutoff": "2024-11",
+      "capabilities": {
+        "tools": true,
+        "vision": true,
+        "extended_thinking": true,
+        "web_search": true
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.20,
+        "output_per_million_tokens": 0.50
+      },
+      "is_available": true
+    },
+    {
+      "id": "grok-3-latest",
+      "provider": "xai",
+      "name": "Grok 3",
+      "model_identifier": "grok-3-latest",
+      "description": "Previous generation flagship model",
+      "max_context_tokens": 131072,
+      "max_output_tokens": 65536,
+      "knowledge_cutoff": "2024-11",
+      "capabilities": {
+        "tools": true,
+        "vision": true,
+        "web_search": true
+      },
+      "pricing": {
+        "input_per_million_tokens": 3.0,
+        "output_per_million_tokens": 15.0
+      },
+      "is_available": true
+    },
+    {
+      "id": "gpt-5",
+      "provider": "openai",
+      "name": "GPT-5",
+      "model_identifier": "gpt-5",
+      "description": "OpenAI's most advanced model with extended reasoning",
+      "max_context_tokens": 272000,
+      "max_output_tokens": 128000,
+      "knowledge_cutoff": "2025-08",
+      "capabilities": {
+        "tools": true,
+        "vision": true,
+        "extended_reasoning": true,
+        "web_search": false
+      },
+      "pricing": {
+        "input_per_million_tokens": 1.25,
+        "output_per_million_tokens": 10.0
+      },
+      "is_available": true
+    },
+    {
+      "id": "gpt-5-mini",
+      "provider": "openai",
+      "name": "GPT-5 Mini",
+      "model_identifier": "gpt-5-mini",
+      "description": "Cost-effective GPT-5 variant for high-volume tasks",
+      "max_context_tokens": 272000,
+      "max_output_tokens": 128000,
+      "knowledge_cutoff": "2025-08",
+      "capabilities": {
+        "tools": true,
+        "vision": true,
+        "extended_reasoning": true,
+        "web_search": false
+      },
+      "pricing": {
+        "input_per_million_tokens": 0.25,
+        "output_per_million_tokens": 2.0
+      },
+      "is_available": true
+    },
+    {
+      "id": "gpt-5-codex",
+      "provider": "openai",
+      "name": "GPT-5 Codex",
+      "model_identifier": "gpt-5-codex",
+      "description": "GPT-5 optimized for agentic coding with enhanced software engineering capabilities",
+      "max_context_tokens": 400000,
+      "max_output_tokens": 128000,
+      "knowledge_cutoff": "2025-09",
+      "capabilities": {
+        "tools": true,
+        "vision": true,
+        "extended_reasoning": true,
+        "code_optimized": true,
+        "web_search": false
+      },
+      "pricing": {
+        "input_per_million_tokens": 1.25,
+        "output_per_million_tokens": 10.0
+      },
+      "is_available": true
+    }
+  ]
+}
