@@ -326,3 +326,100 @@ pub async fn bulk_update_tasks(
     let result = openspec_db::bulk_update_change_tasks(&db.pool, validated_tasks).await;
     ok_or_internal_error(result, "Failed to bulk update tasks")
 }
+
+/// Request body for validation
+#[derive(Deserialize)]
+pub struct ValidateChangeRequest {
+    pub strict: Option<bool>,
+}
+
+/// Response for validation
+#[derive(serde::Serialize)]
+pub struct ValidationResultResponse {
+    pub valid: bool,
+    pub errors: Vec<String>,
+    #[serde(rename = "deltasValidated")]
+    pub deltas_validated: usize,
+}
+
+/// Validate a change's deltas against OpenSpec format
+pub async fn validate_change(
+    State(db): State<DbState>,
+    Path((_project_id, change_id)): Path<(String, String)>,
+    Query(request): Query<ValidateChangeRequest>,
+) -> impl IntoResponse {
+    info!("Validating change: {}", change_id);
+
+    let strict = request.strict.unwrap_or(false);
+
+    // Get all deltas for the change
+    let deltas = match openspec_db::get_deltas_by_change(&db.pool, &change_id).await {
+        Ok(d) => d,
+        Err(e) => return ok_or_internal_error::<ValidationResultResponse, _>(Err(e), "Failed to get change deltas"),
+    };
+
+    // Validate each delta
+    let validator = openspec::markdown_validator::OpenSpecMarkdownValidator::new(strict);
+    let mut all_errors = Vec::new();
+
+    for delta in &deltas {
+        let errors = validator.validate_delta_markdown(&delta.delta_markdown);
+        all_errors.extend(errors.into_iter().map(|e| e.message));
+    }
+
+    let response = ValidationResultResponse {
+        valid: all_errors.is_empty(),
+        errors: all_errors,
+        deltas_validated: deltas.len(),
+    };
+
+    ok_or_internal_error::<ValidationResultResponse, openspec::DbError>(Ok(response), "Failed to validate change")
+}
+
+/// Request body for archiving a change
+#[derive(Deserialize)]
+pub struct ArchiveChangeRequest {
+    #[serde(rename = "applySpecs")]
+    pub apply_specs: bool,
+}
+
+/// Response for archive operation
+#[derive(serde::Serialize)]
+pub struct ArchiveResultResponse {
+    #[serde(rename = "changeId")]
+    pub change_id: String,
+    pub archived: bool,
+    #[serde(rename = "specsApplied")]
+    pub specs_applied: bool,
+    #[serde(rename = "capabilitiesCreated")]
+    pub capabilities_created: usize,
+}
+
+/// Archive a completed change and optionally apply its deltas
+pub async fn archive_change(
+    State(db): State<DbState>,
+    Path((_project_id, change_id)): Path<(String, String)>,
+    Json(request): Json<ArchiveChangeRequest>,
+) -> impl IntoResponse {
+    info!(
+        "Archiving change: {} (apply_specs: {})",
+        change_id, request.apply_specs
+    );
+
+    let result = openspec::archive::archive_change(&db.pool, &change_id, request.apply_specs).await;
+
+    match result {
+        Ok(_) => {
+            // Archive was successful, now get the count of capabilities
+            // For now, we'll return 0 since the archive function doesn't return a count
+            let response = ArchiveResultResponse {
+                change_id: change_id.clone(),
+                archived: true,
+                specs_applied: request.apply_specs,
+                capabilities_created: 0, // TODO: Update archive function to return count
+            };
+            ok_or_internal_error::<ArchiveResultResponse, openspec::ArchiveError>(Ok(response), "Failed to archive change")
+        }
+        Err(e) => ok_or_internal_error::<ArchiveResultResponse, openspec::ArchiveError>(Err(e), "Failed to archive change"),
+    }
+}
