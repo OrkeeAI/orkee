@@ -133,7 +133,7 @@ CREATE TABLE users (
     anthropic_api_key TEXT,
     google_api_key TEXT,
     xai_api_key TEXT,
-    ai_gateway_enabled INTEGER DEFAULT 0,
+    ai_gateway_enabled BOOLEAN DEFAULT FALSE,
     ai_gateway_url TEXT,
     ai_gateway_key TEXT,
     avatar_url TEXT,
@@ -157,17 +157,17 @@ CREATE TABLE agents (
     languages TEXT,
     frameworks TEXT,
     max_context_tokens INTEGER,
-    supports_tools INTEGER NOT NULL DEFAULT 0,
-    supports_vision INTEGER NOT NULL DEFAULT 0,
-    supports_web_search INTEGER NOT NULL DEFAULT 0,
+    supports_tools BOOLEAN NOT NULL DEFAULT FALSE,
+    supports_vision BOOLEAN NOT NULL DEFAULT FALSE,
+    supports_web_search BOOLEAN NOT NULL DEFAULT FALSE,
     api_endpoint TEXT,
     temperature REAL,
     max_tokens INTEGER,
     system_prompt TEXT,
     cost_per_1k_input_tokens REAL,
     cost_per_1k_output_tokens REAL,
-    is_available INTEGER NOT NULL DEFAULT 1,
-    requires_api_key INTEGER NOT NULL DEFAULT 1,
+    is_available BOOLEAN NOT NULL DEFAULT TRUE,
+    requires_api_key BOOLEAN NOT NULL DEFAULT TRUE,
     metadata TEXT,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
@@ -451,7 +451,7 @@ CREATE TABLE tasks (
     description TEXT,
     status TEXT NOT NULL DEFAULT 'pending',
     priority TEXT NOT NULL DEFAULT 'medium',
-    created_by_user_id TEXT NOT NULL DEFAULT 'default-user',
+    created_by_user_id TEXT NOT NULL DEFAULT 'default-user' REFERENCES users(id) ON DELETE RESTRICT,
     assigned_agent_id TEXT REFERENCES agents(id) ON DELETE SET NULL,
     reviewed_by_agent_id TEXT REFERENCES agents(id) ON DELETE SET NULL,
     parent_id TEXT REFERENCES tasks(id) ON DELETE CASCADE,
@@ -737,7 +737,7 @@ CREATE TABLE ast_spec_mappings (
     line_number INTEGER,
     requirement_id TEXT REFERENCES spec_requirements(id),
     confidence REAL DEFAULT 0.0,
-    verified INTEGER DEFAULT 0,
+    verified BOOLEAN DEFAULT FALSE,
     created_at TEXT DEFAULT (datetime('now', 'utc')),
     FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
 );
@@ -822,7 +822,7 @@ CREATE TABLE api_tokens (
     name TEXT NOT NULL,
     created_at TEXT NOT NULL DEFAULT (datetime('now', 'utc')),
     last_used_at TEXT,
-    is_active INTEGER DEFAULT 1 NOT NULL
+    is_active BOOLEAN NOT NULL DEFAULT TRUE
 );
 
 CREATE INDEX idx_api_tokens_active ON api_tokens(is_active);
@@ -846,9 +846,9 @@ CREATE TABLE system_settings (
     category TEXT NOT NULL,
     description TEXT,
     data_type TEXT NOT NULL DEFAULT 'string',
-    is_secret INTEGER DEFAULT 0,
-    requires_restart INTEGER DEFAULT 0,
-    is_env_only INTEGER DEFAULT 0,
+    is_secret BOOLEAN DEFAULT FALSE,
+    requires_restart BOOLEAN DEFAULT FALSE,
+    is_env_only BOOLEAN DEFAULT FALSE,
     updated_at TEXT NOT NULL DEFAULT (datetime('now', 'utc')),
     updated_by TEXT DEFAULT 'system'
 );
