@@ -494,6 +494,8 @@ CREATE INDEX idx_tasks_status ON tasks(status);
 CREATE INDEX idx_tasks_assigned_agent_id ON tasks(assigned_agent_id);
 CREATE INDEX idx_tasks_created_by_user_id ON tasks(created_by_user_id);
 CREATE INDEX idx_tasks_tag_id ON tasks(tag_id);
+CREATE INDEX idx_tasks_change_id ON tasks(change_id);
+CREATE INDEX idx_tasks_from_prd_id ON tasks(from_prd_id);
 CREATE INDEX idx_tasks_user_status ON tasks(created_by_user_id, status);
 
 -- Task full-text search
