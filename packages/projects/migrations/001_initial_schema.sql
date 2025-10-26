@@ -214,9 +214,9 @@ CREATE TABLE prds (
     version INTEGER DEFAULT 1,
     status TEXT DEFAULT 'draft' CHECK(status IN ('draft', 'approved', 'superseded')),
     source TEXT DEFAULT 'manual' CHECK(source IN ('manual', 'generated', 'synced')),
-    deleted_at TIMESTAMP,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now', 'utc')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now', 'utc')),
     created_by TEXT,
     FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
 );
@@ -237,19 +237,19 @@ CREATE TABLE spec_changes (
     status TEXT DEFAULT 'draft' CHECK(status IN ('draft', 'review', 'approved', 'implementing', 'completed', 'archived')),
     created_by TEXT NOT NULL,
     approved_by TEXT,
-    approved_at TIMESTAMP,
-    archived_at TIMESTAMP,
-    deleted_at TIMESTAMP,
+    approved_at TEXT,
+    archived_at TEXT,
+    deleted_at TEXT,
     verb_prefix TEXT,
     change_number INTEGER,
     validation_status TEXT DEFAULT 'pending' CHECK(validation_status IN ('pending', 'valid', 'invalid')),
     validation_errors TEXT,
     tasks_completion_percentage INTEGER DEFAULT 0 CHECK(tasks_completion_percentage >= 0 AND tasks_completion_percentage <= 100),
-    tasks_parsed_at TIMESTAMP,
+    tasks_parsed_at TEXT,
     tasks_total_count INTEGER DEFAULT 0,
     tasks_completed_count INTEGER DEFAULT 0,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    created_at TEXT NOT NULL DEFAULT (datetime('now', 'utc')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now', 'utc')),
     FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
     FOREIGN KEY (prd_id) REFERENCES prds(id) ON DELETE SET NULL
 );
@@ -279,9 +279,9 @@ CREATE TABLE spec_capabilities (
     status TEXT DEFAULT 'active' CHECK(status IN ('active', 'deprecated', 'archived')),
     change_id TEXT REFERENCES spec_changes(id),
     is_openspec_compliant BOOLEAN DEFAULT FALSE,
-    deleted_at TIMESTAMP,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now', 'utc')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now', 'utc')),
     FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
     FOREIGN KEY (prd_id) REFERENCES prds(id) ON DELETE SET NULL
 );
@@ -303,7 +303,7 @@ CREATE TABLE spec_capabilities_history (
     spec_markdown TEXT NOT NULL,
     design_markdown TEXT,
     purpose_markdown TEXT,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    created_at TEXT NOT NULL DEFAULT (datetime('now', 'utc')),
     FOREIGN KEY (capability_id) REFERENCES spec_capabilities(id) ON DELETE CASCADE,
     UNIQUE (capability_id, version)
 );
@@ -317,8 +317,8 @@ CREATE TABLE spec_requirements (
     name TEXT NOT NULL,
     content_markdown TEXT NOT NULL,
     position INTEGER DEFAULT 0,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    created_at TEXT NOT NULL DEFAULT (datetime('now', 'utc')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now', 'utc')),
     FOREIGN KEY (capability_id) REFERENCES spec_capabilities(id) ON DELETE CASCADE
 );
 
@@ -333,7 +333,7 @@ CREATE TABLE spec_scenarios (
     then_clause TEXT NOT NULL,
     and_clauses TEXT,
     position INTEGER DEFAULT 0,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    created_at TEXT NOT NULL DEFAULT (datetime('now', 'utc')),
     FOREIGN KEY (requirement_id) REFERENCES spec_requirements(id) ON DELETE CASCADE
 );
 
@@ -347,11 +347,11 @@ CREATE TABLE spec_change_tasks (
     task_text TEXT NOT NULL,
     is_completed BOOLEAN DEFAULT FALSE NOT NULL,
     completed_by TEXT,
-    completed_at TIMESTAMP,
+    completed_at TEXT,
     display_order INTEGER NOT NULL,
     parent_number TEXT,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now', 'utc')) NOT NULL,
+    updated_at TEXT NOT NULL DEFAULT (datetime('now', 'utc')) NOT NULL,
     FOREIGN KEY (change_id) REFERENCES spec_changes(id) ON DELETE CASCADE
 );
 
@@ -378,7 +378,7 @@ BEGIN
             FROM spec_change_tasks
             WHERE change_id = NEW.change_id
         ),
-        updated_at = CURRENT_TIMESTAMP
+        updated_at = datetime('now', 'utc')
     WHERE id = NEW.change_id;
 END;
 
@@ -396,7 +396,7 @@ BEGIN
             FROM spec_change_tasks
             WHERE change_id = NEW.change_id
         ),
-        updated_at = CURRENT_TIMESTAMP
+        updated_at = datetime('now', 'utc')
     WHERE id = NEW.change_id;
 END;
 
@@ -418,7 +418,7 @@ BEGIN
             FROM spec_change_tasks
             WHERE change_id = OLD.change_id
         ),
-        updated_at = CURRENT_TIMESTAMP
+        updated_at = datetime('now', 'utc')
     WHERE id = OLD.change_id;
 END;
 
@@ -431,7 +431,7 @@ CREATE TABLE spec_deltas (
     delta_type TEXT NOT NULL CHECK(delta_type IN ('added', 'modified', 'removed')),
     delta_markdown TEXT NOT NULL,
     position INTEGER DEFAULT 0,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    created_at TEXT NOT NULL DEFAULT (datetime('now', 'utc')),
     FOREIGN KEY (change_id) REFERENCES spec_changes(id) ON DELETE CASCADE,
     FOREIGN KEY (capability_id) REFERENCES spec_capabilities(id) ON DELETE SET NULL
 );
@@ -451,7 +451,7 @@ CREATE TABLE tasks (
     description TEXT,
     status TEXT NOT NULL DEFAULT 'pending',
     priority TEXT NOT NULL DEFAULT 'medium',
-    created_by_user_id TEXT NOT NULL REFERENCES users(id) ON DELETE SET NULL DEFAULT 'default-user',
+    created_by_user_id TEXT NOT NULL DEFAULT 'default-user',
     assigned_agent_id TEXT REFERENCES agents(id) ON DELETE SET NULL,
     reviewed_by_agent_id TEXT REFERENCES agents(id) ON DELETE SET NULL,
     parent_id TEXT REFERENCES tasks(id) ON DELETE CASCADE,
@@ -639,8 +639,8 @@ CREATE TABLE task_spec_links (
     scenario_id TEXT,
     validation_status TEXT DEFAULT 'pending' CHECK(validation_status IN ('pending', 'passed', 'failed')),
     validation_result TEXT,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    created_at TEXT NOT NULL DEFAULT (datetime('now', 'utc')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now', 'utc')),
     PRIMARY KEY (task_id, requirement_id),
     FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE,
     FOREIGN KEY (requirement_id) REFERENCES spec_requirements(id) ON DELETE CASCADE,
@@ -659,7 +659,7 @@ CREATE TABLE prd_spec_sync_history (
     direction TEXT NOT NULL CHECK(direction IN ('prd_to_spec', 'spec_to_prd', 'task_to_spec')),
     changes_json TEXT NOT NULL,
     performed_by TEXT,
-    performed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    performed_at TEXT NOT NULL DEFAULT (datetime('now', 'utc')),
     FOREIGN KEY (prd_id) REFERENCES prds(id) ON DELETE CASCADE
 );
 
@@ -670,7 +670,7 @@ CREATE TABLE spec_materializations (
     id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(8)))),
     project_id TEXT NOT NULL,
     path TEXT NOT NULL,
-    materialized_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    materialized_at TEXT NOT NULL DEFAULT (datetime('now', 'utc')),
     sha256_hash TEXT NOT NULL,
     FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
 );
@@ -771,7 +771,7 @@ CREATE TABLE ai_usage_logs (
     duration_ms INTEGER,
     error TEXT,
     context_snapshot_id TEXT REFERENCES context_snapshots(id),
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    created_at TEXT NOT NULL DEFAULT (datetime('now', 'utc')),
     FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
 );
 
