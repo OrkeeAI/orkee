@@ -156,7 +156,7 @@ CREATE TABLE users (
     id TEXT PRIMARY KEY CHECK(length(id) >= 8),
     email TEXT NOT NULL UNIQUE,
     name TEXT NOT NULL,
-    default_agent_id TEXT,  -- References config/agents.json agent.id (no FK enforcement)
+    default_agent_id TEXT,  -- References packages/agents/config/agents.json agent.id (no FK enforcement)
     theme TEXT DEFAULT 'system',
 
     -- API keys stored as encrypted base64 strings
@@ -184,8 +184,8 @@ BEGIN
 END;
 
 -- Agents table
--- Agents table removed: Now loaded from config/agents.json
--- Models are defined in config/models.json
+-- Agents table removed: Now loaded from packages/agents/config/agents.json
+-- Models are defined in packages/models/config/models.json
 -- See src/models/mod.rs for ModelRegistry (in-memory registry)
 
 -- User-Agent association table
@@ -193,8 +193,8 @@ END;
 CREATE TABLE user_agents (
     id TEXT PRIMARY KEY CHECK(length(id) >= 8),
     user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    agent_id TEXT NOT NULL,  -- References config/agents.json agent.id (no FK enforcement)
-    preferred_model_id TEXT,  -- References config/models.json model.id (no FK enforcement)
+    agent_id TEXT NOT NULL,  -- References packages/agents/config/agents.json agent.id (no FK enforcement)
+    preferred_model_id TEXT,  -- References packages/models/config/models.json model.id (no FK enforcement)
     is_active INTEGER NOT NULL DEFAULT 1,
 
     -- User customization
@@ -533,8 +533,8 @@ CREATE TABLE tasks (
     status TEXT NOT NULL DEFAULT 'pending',
     priority TEXT NOT NULL DEFAULT 'medium',
     created_by_user_id TEXT NOT NULL DEFAULT 'default-user' REFERENCES users(id) ON DELETE RESTRICT,
-    assigned_agent_id TEXT,  -- References config/agents.json agent.id (no FK enforcement)
-    reviewed_by_agent_id TEXT,  -- References config/agents.json agent.id (no FK enforcement)
+    assigned_agent_id TEXT,  -- References packages/agents/config/agents.json agent.id (no FK enforcement)
+    reviewed_by_agent_id TEXT,  -- References packages/agents/config/agents.json agent.id (no FK enforcement)
     parent_id TEXT REFERENCES tasks(id) ON DELETE CASCADE,
     tag_id TEXT REFERENCES tags(id) ON DELETE SET NULL,
     position INTEGER NOT NULL DEFAULT 0,
@@ -622,8 +622,8 @@ END;
 CREATE TABLE agent_executions (
     id TEXT PRIMARY KEY CHECK(length(id) >= 8),
     task_id TEXT NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
-    agent_id TEXT,  -- References config/agents.json agent.id (no FK enforcement)
-    model TEXT,  -- References config/models.json model.id (no FK enforcement)
+    agent_id TEXT,  -- References packages/agents/config/agents.json agent.id (no FK enforcement)
+    model TEXT,  -- References packages/models/config/models.json model.id (no FK enforcement)
     started_at TEXT NOT NULL,
     completed_at TEXT,
     status TEXT NOT NULL DEFAULT 'running',
@@ -699,7 +699,7 @@ END;
 CREATE TABLE pr_reviews (
     id TEXT PRIMARY KEY CHECK(length(id) >= 8),
     execution_id TEXT NOT NULL REFERENCES agent_executions(id) ON DELETE CASCADE,
-    reviewer_id TEXT,  -- References config/agents.json agent.id (no FK enforcement)
+    reviewer_id TEXT,  -- References packages/agents/config/agents.json agent.id (no FK enforcement)
     reviewer_type TEXT NOT NULL DEFAULT 'ai',
     review_status TEXT NOT NULL,
     review_body TEXT,
@@ -1074,7 +1074,7 @@ VALUES ('default-user', 'user@localhost', 'Default User', datetime('now', 'utc')
 INSERT OR IGNORE INTO tags (id, name, color, description, created_at)
 VALUES ('tag-main', 'main', '#3b82f6', 'Default main tag for tasks', datetime('now', 'utc'));
 
--- Note: Agents and models are now loaded from config/agents.json and config/models.json
+-- Note: Agents and models are now loaded from packages/agents/config/agents.json and packages/models/config/models.json
 -- No seed data needed here. See src/models/mod.rs for ModelRegistry
 
 -- Encryption settings (machine-based encryption by default)

@@ -3,7 +3,7 @@
 
 use serde::{Deserialize, Serialize};
 
-/// AI model configuration from config/models.json
+/// AI model configuration from packages/models/config/models.json
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Model {
     pub id: String,
@@ -32,7 +32,7 @@ pub struct ModelPricing {
     pub output_per_million_tokens: f64,
 }
 
-/// CLI coding agent configuration from config/agents.json
+/// CLI coding agent configuration from packages/agents/config/agents.json
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Agent {
     pub id: String,

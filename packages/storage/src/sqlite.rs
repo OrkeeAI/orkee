@@ -214,7 +214,7 @@ impl SqliteStorage {
 
     /// Validate all agent and model references in the database against config files
     /// This runs on startup to detect and handle orphaned references when agents/models
-    /// are removed from config/agents.json or config/models.json
+    /// are removed from packages/agents/config/agents.json or packages/models/config/models.json
     ///
     /// NOTE: Validation temporarily disabled - this logic should move to projects package
     /// since it depends on application-level models registry, not storage layer

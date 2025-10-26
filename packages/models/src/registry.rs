@@ -11,7 +11,7 @@ pub static REGISTRY: LazyLock<ModelRegistry> = LazyLock::new(|| {
     ModelRegistry::new().unwrap_or_else(|e| {
         panic!(
             "FATAL: Failed to load model/agent configuration. \
-             Check config/models.json and config/agents.json: {}",
+             Check packages/models/config/models.json and packages/agents/config/agents.json: {}",
             e
         )
     })
@@ -28,7 +28,7 @@ impl ModelRegistry {
     pub fn new() -> Result<Self, Box<dyn std::error::Error>> {
         // Load JSON files embedded at compile time
         let models_json = include_str!("../config/models.json");
-        let agents_json = include_str!("../config/agents.json");
+        let agents_json = include_str!("../../agents/config/agents.json");
 
         // Parse JSON
         let models_config: ModelsConfig = serde_json::from_str(models_json)?;

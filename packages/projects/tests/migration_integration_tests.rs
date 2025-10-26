@@ -41,7 +41,7 @@ async fn test_all_core_tables_created() {
     .unwrap();
 
     // Core tables that must exist
-    // Note: agents table removed - now loaded from config/agents.json
+    // Note: agents table removed - now loaded from packages/agents/config/agents.json
     let required_tables = vec![
         "_sqlx_migrations",
         "agent_executions",
@@ -133,7 +133,7 @@ async fn test_seed_data_default_user_created() {
 
 #[tokio::test]
 async fn test_agents_loaded_from_json() {
-    // Agents are now loaded from config/agents.json via ModelRegistry
+    // Agents are now loaded from packages/agents/config/agents.json via ModelRegistry
     // This test verifies the registry can be initialized and contains expected agents
     use models::REGISTRY;
 
@@ -267,7 +267,7 @@ async fn test_tasks_foreign_keys_configured() {
         fk_tables.contains(&"users".to_string()),
         "tasks should have FK to users (created_by_user_id)"
     );
-    // Note: FK to agents removed - agent_id fields now reference config/agents.json (no FK enforcement)
+    // Note: FK to agents removed - agent_id fields now reference packages/agents/config/agents.json (no FK enforcement)
     assert!(
         fk_tables.contains(&"spec_changes".to_string()),
         "tasks should have FK to spec_changes"

@@ -132,7 +132,7 @@ Extract functionality into focused packages while maintaining backward compatibi
     - `registry.rs` (574 lines) - In-memory registry with LazyLock
     - `types.rs` (77 lines) - Model, Agent, AgentConfig types
     - `config/models.json` - Model definitions
-    - `config/agents.json` - Agent definitions
+    - `../../agents/config/agents.json` - Agent definitions (loaded from agents package)
 
 - [x] **`agents`** - User agent configuration (~214 lines)
   - User agent preferences and settings
