@@ -350,8 +350,8 @@ CREATE TABLE spec_change_tasks (
     completed_at TEXT,
     display_order INTEGER NOT NULL,
     parent_number TEXT,
-    created_at TEXT NOT NULL DEFAULT (datetime('now', 'utc')) NOT NULL,
-    updated_at TEXT NOT NULL DEFAULT (datetime('now', 'utc')) NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now', 'utc')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now', 'utc')),
     FOREIGN KEY (change_id) REFERENCES spec_changes(id) ON DELETE CASCADE
 );
 
@@ -682,21 +682,6 @@ CREATE INDEX idx_spec_materializations_path ON spec_materializations(project_id,
 -- CONTEXT MANAGEMENT
 -- ============================================================================
 
--- Context Snapshots (must come before ai_usage_logs)
-CREATE TABLE context_snapshots (
-    id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
-    configuration_id TEXT REFERENCES context_configurations(id) ON DELETE SET NULL,
-    project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
-    content TEXT NOT NULL,
-    file_count INTEGER NOT NULL DEFAULT 0,
-    total_tokens INTEGER NOT NULL DEFAULT 0,
-    metadata TEXT NOT NULL DEFAULT '{}',
-    created_at TEXT NOT NULL DEFAULT (datetime('now'))
-);
-
-CREATE INDEX idx_context_snapshots_project ON context_snapshots(project_id);
-CREATE INDEX idx_context_snapshots_config ON context_snapshots(configuration_id);
-
 -- Context Configurations
 CREATE TABLE context_configurations (
     id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
@@ -712,6 +697,21 @@ CREATE TABLE context_configurations (
 );
 
 CREATE INDEX idx_context_configs_project ON context_configurations(project_id);
+
+-- Context Snapshots
+CREATE TABLE context_snapshots (
+    id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+    configuration_id TEXT REFERENCES context_configurations(id) ON DELETE SET NULL,
+    project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    content TEXT NOT NULL,
+    file_count INTEGER NOT NULL DEFAULT 0,
+    total_tokens INTEGER NOT NULL DEFAULT 0,
+    metadata TEXT NOT NULL DEFAULT '{}',
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX idx_context_snapshots_project ON context_snapshots(project_id);
+CREATE INDEX idx_context_snapshots_config ON context_snapshots(configuration_id);
 
 -- Context Usage Patterns
 CREATE TABLE context_usage_patterns (
@@ -968,7 +968,7 @@ INSERT INTO storage_metadata (key, value) VALUES
 INSERT OR IGNORE INTO users (id, email, name, created_at, updated_at)
 VALUES ('default-user', 'user@localhost', 'Default User', datetime('now', 'utc'), datetime('now', 'utc'));
 
--- AI agents (Updated January 2025 with Claude 4 models)
+-- AI agents (default configurations for supported models)
 INSERT OR IGNORE INTO agents (id, name, type, provider, model, display_name, description, cost_per_1k_input_tokens, cost_per_1k_output_tokens, max_context_tokens, supports_tools, supports_vision, supports_web_search, created_at, updated_at)
 VALUES
     ('claude-sonnet-4', 'claude-sonnet-4', 'ai', 'anthropic', 'claude-sonnet-4-20250514', 'Claude Sonnet 4', 'Best coding model in the world, strongest for building complex agents', 0.003, 0.015, 200000, 1, 1, 1, datetime('now', 'utc'), datetime('now', 'utc')),
