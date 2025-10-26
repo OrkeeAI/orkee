@@ -60,7 +60,7 @@ fn validate_name(name: &str) -> Result<(), ValidationError> {
     if !re.is_match(name) {
         return Err(ValidationError::new(
             "name",
-            "Name must contain only letters, numbers, hyphens, underscores, and spaces",
+            "Name must start and end with a letter or number, and can only contain letters, numbers, hyphens, underscores, and spaces. Examples: 'My Project', 'web-app', 'api_v2'.",
         ));
     }
 
@@ -84,7 +84,7 @@ fn validate_path_safety(path_str: &str) -> Result<(), ValidationError> {
             Component::ParentDir => {
                 return Err(ValidationError::new(
                     "projectRoot",
-                    "Path cannot contain '..' (parent directory references)",
+                    "Path cannot contain '..' (parent directory references) for security reasons. Please use an absolute path like '/Users/yourname/Projects/myproject' or '~/Projects/myproject'.",
                 ));
             }
             Component::Normal(os_str) => {
@@ -93,7 +93,7 @@ fn validate_path_safety(path_str: &str) -> Result<(), ValidationError> {
                     if s.starts_with('.') && s != "." {
                         return Err(ValidationError::new(
                             "projectRoot",
-                            "Path cannot contain hidden directories",
+                            format!("Path cannot contain hidden directories like '{}' for security reasons. Hidden directories often contain sensitive data (e.g., .ssh, .git).", s),
                         ));
                     }
                 }
@@ -135,7 +135,10 @@ fn validate_path_safety(path_str: &str) -> Result<(), ValidationError> {
         if normalized_path.starts_with(&blocked_expanded) {
             return Err(ValidationError::new(
                 "projectRoot",
-                format!("Access to {} is not allowed", blocked),
+                format!(
+                    "Access to {} is blocked for security reasons. Please use a path in ~/Projects, ~/Documents, ~/Desktop, or ~/Downloads instead.",
+                    blocked
+                ),
             ));
         }
     }
@@ -158,11 +161,19 @@ fn validate_script(script: &str, field_name: &str) -> Result<(), ValidationError
     let script_lower = script.to_lowercase();
     for dangerous in DANGEROUS_COMMANDS {
         if script_lower.contains(&dangerous.to_lowercase()) {
+            let suggestion = match *dangerous {
+                "rm -rf /" | "rm -rf /*" => "To clean project files, use 'npm run clean' or 'cargo clean' instead of 'rm -rf'.",
+                ":(){ :|:& };:" => "This is a fork bomb that will crash your system.",
+                "dd if=/dev/zero" | "mkfs." | "format " | "> /dev/sda" => "This command can destroy data. Never use disk formatting commands in project scripts.",
+                "chmod -R 777 /" => "Use 'chmod +x script.sh' for specific files instead of changing permissions recursively.",
+                _ => "This command is blocked for safety reasons.",
+            };
+
             return Err(ValidationError::new(
                 field_name,
                 format!(
-                    "Script contains potentially dangerous command: {}",
-                    dangerous
+                    "Script contains dangerous command '{}' which could damage your system. {}",
+                    dangerous, suggestion
                 ),
             ));
         }
@@ -222,7 +233,7 @@ pub async fn validate_project_data(
         if description.contains("<script") || description.contains("javascript:") {
             errors.push(ValidationError::new(
                 "description",
-                "Description cannot contain script tags or javascript",
+                "Description cannot contain script tags or javascript for security reasons. Use plain text or markdown formatting instead.",
             ));
         }
     }
@@ -263,7 +274,7 @@ pub async fn validate_project_data(
             if !tag_re.is_match(tag) {
                 errors.push(ValidationError::new(
                     "tags",
-                    format!("Tag '{}' contains invalid characters", tag),
+                    format!("Tag '{}' contains invalid characters. Tags can only contain letters, numbers, hyphens, and underscores (e.g., 'rust', 'web-app', 'api_v2').", tag),
                 ));
             }
         }
@@ -327,7 +338,7 @@ pub async fn validate_project_update(
         if description.contains("<script") || description.contains("javascript:") {
             errors.push(ValidationError::new(
                 "description",
-                "Description cannot contain script tags or javascript",
+                "Description cannot contain script tags or javascript for security reasons. Use plain text or markdown formatting instead.",
             ));
         }
     }
@@ -368,7 +379,7 @@ pub async fn validate_project_update(
             if !tag_re.is_match(tag) {
                 errors.push(ValidationError::new(
                     "tags",
-                    format!("Tag '{}' contains invalid characters", tag),
+                    format!("Tag '{}' contains invalid characters. Tags can only contain letters, numbers, hyphens, and underscores (e.g., 'rust', 'web-app', 'api_v2').", tag),
                 ));
             }
         }
