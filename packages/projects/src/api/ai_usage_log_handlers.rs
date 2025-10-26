@@ -10,7 +10,7 @@ use serde::Deserialize;
 use tracing::info;
 
 use super::response::ok_or_internal_error;
-use crate::ai_usage_logs::AiUsageQuery;
+use ai::usage_logs::AiUsageQuery;
 use crate::db::DbState;
 
 #[derive(Deserialize)]

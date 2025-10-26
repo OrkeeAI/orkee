@@ -3,15 +3,10 @@
 //! A project management library for Orkee that provides CRUD operations
 //! for managing development projects with persistent storage.
 
-pub mod agents;
-pub mod ai_service;
-pub mod ai_usage_logs;
 pub mod api;
 pub mod context;
 pub mod db;
-pub mod executions;
 pub mod manager;
-pub mod models;
 pub mod pagination;
 
 #[cfg(test)]
@@ -109,7 +104,29 @@ pub use storage;
 // Re-export security module for backward compatibility
 pub use security;
 
+// Re-export models module for backward compatibility
+pub use models;
+
+// Re-export agents module for backward compatibility
+pub use agents;
+
+// Re-export ai module for backward compatibility
+pub use ai;
+
 // Re-export tasks types and storage
 pub use tasks::{
     Task, TaskCreateInput, TaskPriority, TaskStatus, TaskStorage, TaskUpdateInput,
+};
+
+// Re-export agents types
+pub use agents::{
+    AgentExecution, AgentExecutionCreateInput, AgentExecutionUpdateInput, ExecutionStatus,
+    ExecutionStorage, PrReview, PrReviewCreateInput, PrReviewUpdateInput, PrStatus, ReviewStatus,
+    ReviewerType, UserAgent, UserAgentStorage,
+};
+
+// Re-export AI types
+pub use ai::{
+    AIResponse, AIService, AIServiceError, AIServiceResult, AiUsageLog, AiUsageLogStorage,
+    AiUsageQuery, AiUsageStats, ModelStats, OperationStats, ProviderStats, Usage,
 };

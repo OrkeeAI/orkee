@@ -12,7 +12,7 @@ use tracing::info;
 
 use super::response::ok_or_internal_error;
 use crate::db::DbState;
-use crate::models::REGISTRY;
+use models::REGISTRY;
 use crate::pagination::{PaginatedResponse, PaginationParams};
 
 /// List all available agents from JSON configuration

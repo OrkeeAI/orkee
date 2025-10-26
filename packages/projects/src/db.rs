@@ -5,22 +5,21 @@ use sqlx::{sqlite::SqlitePoolOptions, SqlitePool};
 use std::sync::Arc;
 use tracing::{debug, info};
 
-use crate::agents::AgentStorage;
-use crate::ai_usage_logs::AiUsageLogStorage;
+use agents::{ExecutionStorage, UserAgentStorage};
+use ai::AiUsageLogStorage;
 use security::api_tokens::TokenStorage;
-use crate::executions::ExecutionStorage;
+use security::users::UserStorage;
 use settings::SettingsStorage;
 use storage::StorageError;
 use tags::TagStorage;
 use tasks::TaskStorage;
-use security::users::UserStorage;
 
 /// Shared database state for API handlers
 #[derive(Clone)]
 pub struct DbState {
     pub pool: SqlitePool,
     pub task_storage: Arc<TaskStorage>,
-    pub agent_storage: Arc<AgentStorage>,
+    pub agent_storage: Arc<UserAgentStorage>,
     pub user_storage: Arc<UserStorage>,
     pub tag_storage: Arc<TagStorage>,
     pub execution_storage: Arc<ExecutionStorage>,
@@ -33,7 +32,7 @@ impl DbState {
     /// Create new database state from a SQLite pool
     pub fn new(pool: SqlitePool) -> Result<Self, StorageError> {
         let task_storage = Arc::new(TaskStorage::new(pool.clone()));
-        let agent_storage = Arc::new(AgentStorage::new(pool.clone()));
+        let agent_storage = Arc::new(UserAgentStorage::new(pool.clone()));
         let user_storage = Arc::new(UserStorage::new(pool.clone())?);
         let tag_storage = Arc::new(TagStorage::new(pool.clone()));
         let execution_storage = Arc::new(ExecutionStorage::new(pool.clone()));

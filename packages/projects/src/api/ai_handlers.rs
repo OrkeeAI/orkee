@@ -12,8 +12,8 @@ use tracing::{error, info};
 
 use super::auth::CurrentUser;
 use super::response::ApiResponse;
-use crate::ai_service::{AIService, AIServiceError};
-use crate::ai_usage_logs::AiUsageLog;
+use ai::service::{AIService, AIServiceError};
+use ai::usage_logs::AiUsageLog;
 use crate::db::DbState;
 use openspec::db as openspec_db;
 use tasks::{TaskCreateInput, TaskPriority};
