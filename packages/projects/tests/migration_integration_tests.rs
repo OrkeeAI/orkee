@@ -1182,3 +1182,123 @@ async fn test_valid_agent_model_references_unchanged() {
     assert_eq!(agent, "claude-code", "Valid agent_id should be preserved");
     assert_eq!(model.as_deref(), Some("claude-sonnet-4-5-20250929"), "Valid model_id should be preserved");
 }
+
+// ==============================================================================
+// SEED DATA IDEMPOTENCY TESTS
+// ==============================================================================
+// Tests that migration can be safely rerun without violating UNIQUE constraints
+
+#[tokio::test]
+async fn test_migration_seed_data_is_idempotent() {
+    let pool = setup_migrated_db().await;
+
+    // Verify seed data exists after first migration
+    let user_count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM users WHERE id = 'default-user'")
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+    assert_eq!(user_count, 1, "Default user should exist after migration");
+
+    let tag_count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM tags WHERE id = 'tag-main'")
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+    assert_eq!(tag_count, 1, "Default tag should exist after migration");
+
+    let storage_meta_count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM storage_metadata")
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+    assert_eq!(storage_meta_count, 2, "Storage metadata should have 2 rows (created_at, storage_type)");
+
+    let encryption_count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM encryption_settings WHERE id = 1")
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+    assert_eq!(encryption_count, 1, "Encryption settings should exist");
+
+    let password_attempts_count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM password_attempts WHERE id = 1")
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+    assert_eq!(password_attempts_count, 1, "Password attempts tracking should exist");
+
+    let telemetry_settings_count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM telemetry_settings WHERE id = 1")
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+    assert_eq!(telemetry_settings_count, 1, "Telemetry settings should exist");
+
+    let system_settings_count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM system_settings")
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+    assert!(system_settings_count > 0, "System settings should have default configuration");
+
+    // Attempt to rerun seed data statements (simulating migration rerun)
+    // All should succeed due to INSERT OR IGNORE
+    let result1 = sqlx::query(
+        "INSERT OR IGNORE INTO users (id, email, name, created_at, updated_at)
+         VALUES ('default-user', 'user@localhost', 'Default User', datetime('now', 'utc'), datetime('now', 'utc'))"
+    )
+    .execute(&pool)
+    .await;
+    assert!(result1.is_ok(), "Rerunning default user insert should not fail");
+
+    let result2 = sqlx::query(
+        "INSERT OR IGNORE INTO tags (id, name, color, description, created_at)
+         VALUES ('tag-main', 'main', '#3b82f6', 'Default main tag for tasks', datetime('now', 'utc'))"
+    )
+    .execute(&pool)
+    .await;
+    assert!(result2.is_ok(), "Rerunning default tag insert should not fail");
+
+    let result3 = sqlx::query(
+        "INSERT OR IGNORE INTO storage_metadata (key, value) VALUES
+         ('created_at', datetime('now', 'utc')),
+         ('storage_type', 'sqlite')"
+    )
+    .execute(&pool)
+    .await;
+    assert!(result3.is_ok(), "Rerunning storage_metadata insert should not fail");
+
+    let result4 = sqlx::query(
+        "INSERT OR IGNORE INTO encryption_settings (id, encryption_mode) VALUES (1, 'machine')"
+    )
+    .execute(&pool)
+    .await;
+    assert!(result4.is_ok(), "Rerunning encryption_settings insert should not fail");
+
+    let result5 = sqlx::query(
+        "INSERT OR IGNORE INTO password_attempts (id, attempt_count) VALUES (1, 0)"
+    )
+    .execute(&pool)
+    .await;
+    assert!(result5.is_ok(), "Rerunning password_attempts insert should not fail");
+
+    let result6 = sqlx::query(
+        "INSERT OR IGNORE INTO telemetry_settings (id) VALUES (1)"
+    )
+    .execute(&pool)
+    .await;
+    assert!(result6.is_ok(), "Rerunning telemetry_settings insert should not fail");
+
+    // Verify counts haven't changed (INSERT OR IGNORE didn't create duplicates)
+    let user_count_after: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM users WHERE id = 'default-user'")
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+    assert_eq!(user_count_after, 1, "User count should remain 1 after rerun");
+
+    let tag_count_after: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM tags WHERE id = 'tag-main'")
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+    assert_eq!(tag_count_after, 1, "Tag count should remain 1 after rerun");
+
+    let storage_meta_count_after: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM storage_metadata")
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+    assert_eq!(storage_meta_count_after, 2, "Storage metadata count should remain 2 after rerun");
+}

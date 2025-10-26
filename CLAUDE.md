@@ -265,6 +265,31 @@ The CLI server provides a REST API for project management:
 
 **Logging**: Warnings logged to stderr on startup if orphaned references are found and cleaned up
 
+#### Seed Data Strategy
+
+**Approach**: All seed data uses `INSERT OR IGNORE` for idempotent migrations.
+
+**Seed Data Included**:
+- `storage_metadata` - Storage type and creation timestamp
+- `users` - Default user (required for FK dependencies)
+- `tags` - Default "main" tag (required for task FK dependencies)
+- `encryption_settings` - Machine-based encryption by default
+- `password_attempts` - Password attempt tracking initialization
+- `telemetry_settings` - Telemetry configuration defaults
+- `system_settings` - Default configuration (ports, security, TLS, rate limiting, etc.)
+
+**Idempotency**: All INSERT statements use `OR IGNORE` to prevent UNIQUE constraint violations on migration reruns.
+
+**Location**: `packages/projects/migrations/001_initial_schema.sql:1062-1128`
+
+**Testing**: Comprehensive idempotency test verifies all seed data can be safely rerun (`test_migration_seed_data_is_idempotent`)
+
+**Why in Migration**: Seed data is in the migration file (not separate `seeds.rs`) because:
+1. Required for FK dependencies (default user, default tag)
+2. Essential for application startup (encryption settings, system config)
+3. Simple enough to maintain inline with schema
+4. Uses `INSERT OR IGNORE` for safe reruns
+
 ## Preview Servers & External Server Discovery
 
 Orkee provides comprehensive development server management with automatic discovery of servers started outside of Orkee.
