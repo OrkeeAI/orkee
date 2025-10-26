@@ -1003,7 +1003,7 @@ ON telemetry_events(event_type, created_at);
 
 -- Telemetry Statistics
 CREATE TABLE telemetry_stats (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    id TEXT PRIMARY KEY CHECK(length(id) >= 8),
     stat_date TEXT NOT NULL,
     total_events INTEGER DEFAULT 0,
     error_events INTEGER DEFAULT 0,
