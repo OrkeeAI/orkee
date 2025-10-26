@@ -195,24 +195,38 @@ Extract functionality into focused packages while maintaining backward compatibi
     - Test files successfully moved to ai package
     - No import changes needed - service.rs already self-contained
 
-- [ ] **`context`** - Code analysis and context management
-  - AST analysis (context/ast_analyzer.rs)
-  - Dependency graph building (context/graph_builder.rs - 1,209 lines)
-  - Language support (context/language_support.rs)
-  - Incremental parsing (context/incremental_parser.rs)
-  - History service (context/history_service.rs)
-  - Batch processor (context/batch_processor.rs)
-  - Formatter (context/formatter.rs)
-  - OpenSpec bridge (context/openspec_bridge.rs)
-  - **Estimated effort**: 2-3 hours
-  - **Dependencies**: orkee_core, storage
+- [x] **`context`** - Code analysis and context management (~4,644 lines)
+  - AST analysis (ast_analyzer.rs - 396 lines)
+  - Dependency graph building (graph_builder.rs - 1,209 lines)
+  - Language support (language_support.rs - 367 lines)
+  - Incremental parsing (incremental_parser.rs - 311 lines)
+  - History service (history_service.rs - 306 lines)
+  - Batch processor (batch_processor.rs - 141 lines)
+  - Formatter (formatter.rs - 347 lines)
+  - OpenSpec bridge (openspec_bridge.rs - 365 lines)
+  - **Status**: ✅ COMPLETED
+  - **Tests**: 38/38 passing (7 ignored for incomplete AST features)
+  - **Actual effort**: 2 hours (as estimated!)
+  - **Dependencies**: openspec, tree-sitter, sqlx
   - **Key files**:
-    - `context/graph_builder.rs` (1,209 lines) - Main graph building
-    - `context/ast_analyzer.rs` - AST analysis
-    - `context/dependency_graph.rs` - Graph types
-    - `context/language_support.rs` - Language-specific support
+    - `graph_builder.rs` (1,209 lines) - Main graph building logic
+    - `dependency_graph.rs` (426 lines) - Dependency graph types and operations
+    - `ast_analyzer.rs` (396 lines) - AST parsing and symbol extraction
+    - `language_support.rs` (367 lines) - Language-specific configurations
+    - `openspec_bridge.rs` (365 lines) - OpenSpec integration
+    - `formatter.rs` (347 lines) - Context formatting
+    - `incremental_parser.rs` (311 lines) - Incremental parsing
+    - `history_service.rs` (306 lines) - File history tracking
+    - `spec_context.rs` (290 lines) - Spec context generation
+    - `batch_processor.rs` (141 lines) - Batch processing
+    - `types.rs` (103 lines) - Type definitions
+    - `graph_types.rs` (70 lines) - Graph-specific types
+  - **API handlers** (kept in projects for Phase 4):
     - `api/context_handlers.rs` (799 lines) - HTTP handlers
-    - `api/graph_handlers.rs` - Graph API endpoints
+    - `api/graph_handlers.rs` (288 lines) - Graph API endpoints
+  - **Notes**:
+    - Generated SQLx query cache for offline compilation
+    - Added missing dependencies: rand, num_cpus
 
 - [x] **`tags`** - Tagging system
   - Tag management (types, CRUD operations)
@@ -506,7 +520,7 @@ mod tests {
 11. ✅ **agents** - Depends on orkee_core, storage, models (COMPLETED)
 12. ✅ **executions** - Depends on orkee_core, storage, models (COMPLETED)
 13. ✅ **ai** - Depends on orkee_core, storage (COMPLETED)
-14. **context** - Depends on orkee_core, storage
+14. ✅ **context** - Depends on openspec, tree-sitter, sqlx (COMPLETED)
 
 **Phase 4: Integration Layer** (Depends on everything - extract LAST)
 15. **api** - Depends on all other packages
@@ -515,13 +529,13 @@ mod tests {
 
 - ✅ Phase 1: Foundation (orkee_core) - COMPLETED
 - ✅ Phase 2: Storage & Simple Utilities (storage ✅, security ✅, formatter ✅, git_utils ✅, models ✅) - COMPLETED
-- ⏳ Phase 3: Domain Packages (openspec ✅, tags ✅, settings ✅, tasks ✅, agents ✅, executions ✅, ai ✅, context) - IN PROGRESS (7/8 completed - 87.5%)
+- ✅ Phase 3: Domain Packages (openspec ✅, tags ✅, settings ✅, tasks ✅, agents ✅, executions ✅, ai ✅, context ✅) - COMPLETED (8/8 - 100%)
 - ⏸️ Phase 4: Integration Layer (api) - PENDING
 
 ### Next Steps
 
-**Immediate Priority**: Extract remaining Phase 3 package:
-1. **context** (2-3 hours) - Depends on storage (now available)
+**Immediate Priority**: Extract Phase 4 integration layer:
+1. **api** (1-2 hours) - HTTP handlers and routing (depends on all other packages)
 
 ## Notes
 
@@ -534,9 +548,9 @@ mod tests {
 ## Time Estimate
 
 - **Total estimated time**: 15-20 hours
-- **Already completed**: 16.5 hours (orkee_core: 2 hours, openspec: 4 hours, storage: 3 hours, security: 2 hours, formatter: 0.25 hours, git_utils: 0.25 hours, tags: 0.5 hours, settings: 0.75 hours, tasks: 1.5 hours, models: 0.5 hours, agents: 1 hour, executions: 0.5 hours, ai: 0.25 hours)
+- **Already completed**: 18.5 hours (orkee_core: 2 hours, openspec: 4 hours, storage: 3 hours, security: 2 hours, formatter: 0.25 hours, git_utils: 0.25 hours, tags: 0.5 hours, settings: 0.75 hours, tasks: 1.5 hours, models: 0.5 hours, agents: 1 hour, executions: 0.5 hours, ai: 0.25 hours, context: 2 hours)
 - **Phase 2 fully complete**: All foundation and utilities extracted (including models)
-- **Phase 3 progress**: 7/8 packages completed (openspec, tags, settings, tasks, agents, executions, ai) - 87.5% complete!
-- **Remaining**: 0.5-4 hours (Phase 3: context + Phase 4 API integration)
+- **Phase 3 fully complete**: All domain packages extracted (openspec, tags, settings, tasks, agents, executions, ai, context) - 100%!
+- **Remaining**: 1-2 hours (Phase 4: API integration layer)
 
 This refactoring can be done incrementally, with each package extraction being independently valuable.
