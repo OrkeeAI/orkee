@@ -168,6 +168,9 @@ async fn apply_delta(
                 // Verify capability exists
                 let _existing = get_capability(pool, cap_id).await?;
 
+                // Wrap the destructive operations in a transaction for atomic update
+                let mut tx = pool.begin().await?;
+
                 // Update the spec markdown
                 sqlx::query(
                     "UPDATE spec_capabilities
@@ -178,43 +181,61 @@ async fn apply_delta(
                 .bind(Utc::now())
                 .bind(&change.id)
                 .bind(cap_id)
-                .execute(pool)
+                .execute(&mut *tx)
                 .await?;
 
                 // Parse to get updated requirements
                 let parsed = parse_capability_from_delta(&delta.delta_markdown)?;
 
                 // Delete existing requirements and scenarios (cascading delete via FK)
+                // This is safe because we're in a transaction - if creation fails, delete rolls back
                 sqlx::query("DELETE FROM spec_requirements WHERE capability_id = ?")
                     .bind(cap_id)
-                    .execute(pool)
+                    .execute(&mut *tx)
                     .await?;
 
-                // Create new requirements and scenarios
+                // Create new requirements and scenarios (inline to use transaction)
                 for (req_idx, req) in parsed.requirements.iter().enumerate() {
-                    let req_db = create_requirement(
-                        pool,
-                        cap_id,
-                        &req.name,
-                        &req.description,
-                        req_idx as i32,
+                    let req_id = crate::storage::generate_project_id();
+                    let now = Utc::now();
+
+                    // Insert requirement
+                    sqlx::query(
+                        "INSERT INTO spec_requirements (id, capability_id, name, content_markdown, position, created_at, updated_at)
+                         VALUES (?, ?, ?, ?, ?, ?, ?)",
                     )
+                    .bind(&req_id)
+                    .bind(cap_id)
+                    .bind(&req.name)
+                    .bind(&req.description)
+                    .bind(req_idx as i32)
+                    .bind(now)
+                    .bind(now)
+                    .execute(&mut *tx)
                     .await?;
 
+                    // Insert scenarios for this requirement
                     for (scenario_idx, scenario) in req.scenarios.iter().enumerate() {
-                        create_scenario(
-                            pool,
-                            &req_db.id,
-                            &scenario.name,
-                            &scenario.when,
-                            &scenario.then,
-                            if scenario.and.is_empty() {
-                                None
-                            } else {
-                                Some(scenario.and.clone())
-                            },
-                            scenario_idx as i32,
+                        let scenario_id = crate::storage::generate_project_id();
+                        let and_json = if scenario.and.is_empty() {
+                            None
+                        } else {
+                            Some(serde_json::to_string(&scenario.and).unwrap_or_default())
+                        };
+
+                        sqlx::query(
+                            "INSERT INTO spec_scenarios (id, requirement_id, name, when_clause, then_clause, and_clauses, position, created_at)
+                             VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
                         )
+                        .bind(&scenario_id)
+                        .bind(&req_id)
+                        .bind(&scenario.name)
+                        .bind(&scenario.when)
+                        .bind(&scenario.then)
+                        .bind(and_json)
+                        .bind(scenario_idx as i32)
+                        .bind(now)
+                        .execute(&mut *tx)
                         .await?;
                     }
                 }
@@ -224,8 +245,11 @@ async fn apply_delta(
                 sqlx::query("UPDATE spec_capabilities SET requirement_count = ? WHERE id = ?")
                     .bind(req_count)
                     .bind(cap_id)
-                    .execute(pool)
+                    .execute(&mut *tx)
                     .await?;
+
+                // Commit transaction - all operations succeed or all fail
+                tx.commit().await?;
             } else {
                 return Err(ArchiveError::InvalidDelta(format!(
                     "Modified delta for '{}' missing capability_id",
