@@ -341,10 +341,10 @@ mod tests {
         let pool = Pool::<Sqlite>::connect(":memory:").await.unwrap();
 
         // Run migrations
-        sqlx::query(include_str!("../../migrations/001_initial_schema.sql"))
-            .execute(&pool)
+        sqlx::migrate!("./migrations")
+            .run(&pool)
             .await
-            .unwrap();
+            .expect("Failed to run migrations");
 
         pool
     }
