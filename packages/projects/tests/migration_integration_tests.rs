@@ -135,7 +135,7 @@ async fn test_seed_data_default_user_created() {
 async fn test_agents_loaded_from_json() {
     // Agents are now loaded from config/agents.json via ModelRegistry
     // This test verifies the registry can be initialized and contains expected agents
-    use orkee_projects::models::REGISTRY;
+    use models::REGISTRY;
 
     let agent = REGISTRY.get_agent("claude-code");
     assert!(agent.is_some(), "Should find claude-code agent");
@@ -884,7 +884,7 @@ async fn test_orphaned_user_agents_deleted_on_startup() {
     // Create storage with validation (which runs in initialize())
     // Note: We can't easily test this with in-memory DB since SqliteStorage::new creates new connection
     // Instead, we'll test the validation logic would detect this by checking agent exists
-    use orkee_projects::models::REGISTRY;
+    use models::REGISTRY;
     let agent_exists = REGISTRY.agent_exists("non-existent-agent");
     assert!(
         !agent_exists,
@@ -943,7 +943,7 @@ async fn test_orphaned_preferred_model_cleared_on_startup() {
     );
 
     // Simulate validation clearing the orphaned model
-    use orkee_projects::models::REGISTRY;
+    use models::REGISTRY;
     let model_exists = REGISTRY.model_exists("deleted-model-v1");
     assert!(!model_exists, "Deleted model should not be in registry");
 
@@ -985,7 +985,7 @@ async fn test_orphaned_default_agent_cleared_from_users() {
     assert_eq!(default_agent.as_deref(), Some("removed-agent-2024"));
 
     // Verify agent doesn't exist in registry
-    use orkee_projects::models::REGISTRY;
+    use models::REGISTRY;
     assert!(!REGISTRY.agent_exists("removed-agent-2024"));
 
     // Simulate cleanup
@@ -1154,7 +1154,7 @@ async fn test_historical_ai_usage_logs_preserved() {
     );
 
     // Verify the model doesn't exist in current registry
-    use orkee_projects::models::REGISTRY;
+    use models::REGISTRY;
     assert!(
         !REGISTRY.model_exists("davinci-002"),
         "Legacy model should not be in current registry"
@@ -1195,7 +1195,7 @@ async fn test_valid_agent_model_references_unchanged() {
     .unwrap();
 
     // Verify valid references exist in registry
-    use orkee_projects::models::REGISTRY;
+    use models::REGISTRY;
     assert!(
         REGISTRY.agent_exists("claude-code"),
         "Valid agent should exist in registry"

@@ -506,10 +506,11 @@ mod tests {
 
 ## Notes
 
-- The original `packages/projects/` can remain as a facade/integration package that re-exports from the new packages
-- This ensures backward compatibility for existing consumers (cli, tui, dashboard)
-- Each extraction should be a separate PR/commit for easy review and rollback if needed
-- Tests should pass after each extraction
+- **No backward compatibility needed**: Since the app isn't in production yet, we don't maintain facade re-exports in `packages/projects/`
+- Consumers (cli, tui, dashboard) import directly from extracted packages (models, agents, ai, etc.)
+- `packages/projects/` remains as an integration layer for API handlers and business logic
+- Each extraction is a separate commit for easy review and rollback if needed
+- All tests pass after each extraction
 
 ## Time Estimate
 

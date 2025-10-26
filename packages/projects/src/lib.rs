@@ -89,44 +89,16 @@ pub use security::{
     UserStorage, UserUpdateInput,
 };
 
-// Re-export models and agents registry
-pub use models::{
-    Agent, AgentConfig, AgentModelRef, Model, ModelCapabilities, ModelPricing, ModelRegistry,
-    REGISTRY,
-};
-
-// Re-export openspec module for backward compatibility
+// Re-export openspec module (used by API handlers)
 pub use openspec;
 
-// Re-export storage module for backward compatibility
+// Re-export storage module (used by API handlers)
 pub use storage;
 
-// Re-export security module for backward compatibility
+// Re-export security module (used by API handlers)
 pub use security;
 
-// Re-export models module for backward compatibility
-pub use models;
-
-// Re-export agents module for backward compatibility
-pub use agents;
-
-// Re-export ai module for backward compatibility
-pub use ai;
-
-// Re-export tasks types and storage
+// Re-export tasks types (used by API handlers)
 pub use tasks::{
     Task, TaskCreateInput, TaskPriority, TaskStatus, TaskStorage, TaskUpdateInput,
-};
-
-// Re-export agents types
-pub use agents::{
-    AgentExecution, AgentExecutionCreateInput, AgentExecutionUpdateInput, ExecutionStatus,
-    ExecutionStorage, PrReview, PrReviewCreateInput, PrReviewUpdateInput, PrStatus, ReviewStatus,
-    ReviewerType, UserAgent, UserAgentStorage,
-};
-
-// Re-export AI types
-pub use ai::{
-    AIResponse, AIService, AIServiceError, AIServiceResult, AiUsageLog, AiUsageLogStorage,
-    AiUsageQuery, AiUsageStats, ModelStats, OperationStats, ProviderStats, Usage,
 };
