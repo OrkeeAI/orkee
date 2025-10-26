@@ -15,10 +15,10 @@ export function ArchiveView({ projectId }: ArchiveViewProps) {
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
       <div>
-        {/* ChangesList will be filtered to show only archived changes via status filter */}
         <ChangesList
           projectId={projectId}
           onSelectChange={setSelectedChangeId}
+          statusFilter="archived"
         />
       </div>
       <div>

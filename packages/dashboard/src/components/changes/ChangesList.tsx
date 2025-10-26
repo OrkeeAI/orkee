@@ -12,13 +12,17 @@ import type { ChangeStatus } from '@/services/changes';
 interface ChangesListProps {
   projectId: string;
   onSelectChange?: (changeId: string) => void;
+  statusFilter?: ChangeStatus;
 }
 
-export function ChangesList({ projectId, onSelectChange }: ChangesListProps) {
-  const [statusFilter, setStatusFilter] = useState<ChangeStatus | undefined>(undefined);
+export function ChangesList({ projectId, onSelectChange, statusFilter: propStatusFilter }: ChangesListProps) {
+  const [internalStatusFilter, setInternalStatusFilter] = useState<ChangeStatus | undefined>(undefined);
   const [selectedChangeId, setSelectedChangeId] = useState<string | null>(null);
 
-  const { data: changes, isLoading, error } = useChanges(projectId, statusFilter);
+  // Use prop status filter if provided, otherwise use internal state
+  const activeStatusFilter = propStatusFilter ?? internalStatusFilter;
+
+  const { data: changes, isLoading, error } = useChanges(projectId, activeStatusFilter);
   const validateMutation = useValidateChange(projectId);
   const archiveMutation = useArchiveChange(projectId);
 
@@ -136,8 +140,9 @@ export function ChangesList({ projectId, onSelectChange }: ChangesListProps) {
         <div className="flex items-center gap-2">
           <select
             className="border rounded px-3 py-1 text-sm"
-            value={statusFilter || ''}
-            onChange={(e) => setStatusFilter(e.target.value as ChangeStatus || undefined)}
+            value={activeStatusFilter || ''}
+            onChange={(e) => setInternalStatusFilter(e.target.value as ChangeStatus || undefined)}
+            disabled={!!propStatusFilter}
           >
             <option value="">All Statuses</option>
             <option value="proposal">Proposal</option>
