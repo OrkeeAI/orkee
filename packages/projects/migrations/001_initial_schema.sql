@@ -161,6 +161,7 @@ CREATE TABLE users (
 
     -- API keys stored as encrypted base64 strings
     -- CHECK constraint enforces minimum encrypted length or NULL (use NULL for "not set")
+    -- Minimum 38 chars = base64(12-byte nonce + 16-byte tag + 0-byte plaintext)
     openai_api_key TEXT CHECK (openai_api_key IS NULL OR length(openai_api_key) >= 38),
     anthropic_api_key TEXT CHECK (anthropic_api_key IS NULL OR length(anthropic_api_key) >= 38),
     google_api_key TEXT CHECK (google_api_key IS NULL OR length(google_api_key) >= 38),
