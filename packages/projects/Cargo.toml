@@ -29,6 +29,9 @@ git_utils = { path = "../git_utils" }
 # Tags package
 tags = { path = "../tags" }
 
+# Settings package
+settings = { path = "../settings" }
+
 # Database
 sqlx = { version = "0.8.1", default-features = false, features = ["runtime-tokio-rustls", "sqlite", "uuid", "chrono", "migrate", "macros", "json"] }
 

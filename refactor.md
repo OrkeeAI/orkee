@@ -170,16 +170,20 @@ Extract functionality into focused packages while maintaining backward compatibi
     - `tags/storage.rs` - SQLite storage implementation with archive/unarchive
     - `tags/lib.rs` - Main module with re-exports
 
-- [ ] **`settings`** - Settings management
+- [x] **`settings`** - Settings management
   - System configuration
   - Settings validation
   - Settings storage
-  - **Estimated effort**: 1 hour
-  - **Dependencies**: orkee_core, storage
+  - **Status**: ✅ COMPLETED
+  - **Tests**: 27/27 passing (11 integration tests + 16 validation unit tests)
+  - **Actual effort**: 45 minutes (faster than estimated!)
+  - **Dependencies**: storage (no orkee_core dependency needed)
   - **Key files**:
-    - `settings/` directory
-    - `settings/validation.rs` - Settings validation
-    - `settings/storage.rs` - Settings persistence
+    - `settings/types.rs` - Type definitions (SystemSetting, SettingUpdate, SettingCategory)
+    - `settings/validation.rs` (399 lines) - Input validation with comprehensive tests
+    - `settings/storage.rs` (242 lines) - Database CRUD operations
+    - `settings/storage_tests.rs` (331 lines) - Integration tests
+    - `settings/lib.rs` - Main module with re-exports
 
 - [ ] **`tasks`** - Task management system
   - Task CRUD operations (tasks/)
@@ -446,7 +450,7 @@ mod tests {
 
 - ✅ Phase 1: Foundation (orkee_core) - COMPLETED
 - ✅ Phase 2: Storage & Simple Utilities (storage ✅, security ✅, formatter ✅, git_utils ✅) - COMPLETED
-- ⏳ Phase 3: Domain Packages (openspec ✅, tags ✅, ai, context, settings, tasks) - IN PROGRESS
+- ⏳ Phase 3: Domain Packages (openspec ✅, tags ✅, settings ✅, ai, context, tasks) - IN PROGRESS
 - ⏸️ Phase 4: Integration Layer (api) - PENDING
 
 ### Next Steps
@@ -454,8 +458,7 @@ mod tests {
 **Immediate Priority**: Extract remaining Phase 3 packages (all unblocked by storage/Phase 2 completion):
 1. **ai** (2-3 hours) - Depends on storage (now available)
 2. **context** (2-3 hours) - Depends on storage (now available)
-3. **settings** (1 hour) - Depends on storage (now available)
-4. **tasks** (1-2 hours) - Depends on storage and openspec (both available)
+3. **tasks** (1-2 hours) - Depends on storage and openspec (both available)
 
 ## Notes
 
@@ -467,9 +470,9 @@ mod tests {
 ## Time Estimate
 
 - **Total estimated time**: 15-20 hours
-- **Already completed**: 12 hours (orkee_core: 2 hours, openspec: 4 hours, storage: 3 hours, security: 2 hours, formatter: 0.25 hours, git_utils: 0.25 hours, tags: 0.5 hours)
+- **Already completed**: 12.75 hours (orkee_core: 2 hours, openspec: 4 hours, storage: 3 hours, security: 2 hours, formatter: 0.25 hours, git_utils: 0.25 hours, tags: 0.5 hours, settings: 0.75 hours)
 - **Phase 2 fully complete**: All foundation and utilities extracted
-- **Phase 3 progress**: 2/6 packages completed (openspec, tags)
-- **Remaining**: 3-8 hours (Phase 3 domain packages: ai, context, settings, tasks + Phase 4 API integration)
+- **Phase 3 progress**: 3/6 packages completed (openspec, tags, settings)
+- **Remaining**: 3-7 hours (Phase 3 domain packages: ai, context, tasks + Phase 4 API integration)
 
 This refactoring can be done incrementally, with each package extraction being independently valuable.

@@ -7,6 +7,7 @@ members = [
     "packages/formatter",
     "packages/git_utils",
     "packages/tags",
+    "packages/settings",
     "packages/cli",
     "packages/config",
     "packages/projects",

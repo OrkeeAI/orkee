@@ -1,7 +1,7 @@
 // ABOUTME: Storage operations for system settings
 // ABOUTME: Database CRUD for runtime configuration
 
-use crate::settings::types::{BulkSettingUpdate, SettingUpdate, SystemSetting};
+use crate::types::{BulkSettingUpdate, SettingUpdate, SystemSetting};
 use storage::StorageError;
 use sqlx::{Row, SqlitePool};
 
@@ -75,7 +75,7 @@ impl SettingsStorage {
         }
 
         // Validate the new value
-        crate::settings::validation::validate_setting_value(
+        crate::validation::validate_setting_value(
             key,
             &update.value,
             &setting.data_type,
@@ -116,7 +116,7 @@ impl SettingsStorage {
             }
 
             // Validate the value
-            if let Err(e) = crate::settings::validation::validate_setting_value(
+            if let Err(e) = crate::validation::validate_setting_value(
                 &item.key,
                 &item.value,
                 &setting.data_type,

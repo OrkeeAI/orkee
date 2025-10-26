@@ -2639,6 +2639,7 @@ dependencies = [
  "security",
  "serde",
  "serde_json",
+ "settings",
  "sha2",
  "sqlx",
  "storage",
@@ -3731,6 +3732,18 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn",
+]
+
+[[package]]
+name = "settings"
+version = "0.0.9"
+dependencies = [
+ "serde",
+ "sqlx",
+ "storage",
+ "thiserror 2.0.17",
+ "tokio",
+ "tracing",
 ]
 
 [[package]]

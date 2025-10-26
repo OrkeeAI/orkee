@@ -3,8 +3,8 @@
 
 #[cfg(test)]
 mod tests {
-    use crate::settings::storage::SettingsStorage;
-    use crate::settings::types::{BulkSettingUpdate, SettingUpdate, SettingUpdateItem};
+    use crate::storage::SettingsStorage;
+    use crate::types::{BulkSettingUpdate, SettingUpdate, SettingUpdateItem};
     use storage::StorageError;
     use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
     use std::str::FromStr;

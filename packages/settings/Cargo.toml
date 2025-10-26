@@ -1,0 +1,20 @@
+[package]
+name = "settings"
+version.workspace = true
+edition.workspace = true
+description = "System settings management with database persistence"
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+serde = { version = "1.0", features = ["derive"] }
+thiserror = "2.0"
+sqlx = { version = "0.8.2", features = ["runtime-tokio-rustls", "sqlite"] }
+tracing = "0.1"
+
+# Orkee packages
+storage = { path = "../storage" }
+
+[dev-dependencies]
+tokio = { version = "1.0", features = ["macros"] }

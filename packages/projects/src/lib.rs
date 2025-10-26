@@ -13,7 +13,6 @@ pub mod executions;
 pub mod manager;
 pub mod models;
 pub mod pagination;
-pub mod settings;
 pub mod tasks;
 
 #[cfg(test)]
@@ -62,6 +61,13 @@ pub use orkee_core::generate_project_id;
 
 // Re-export formatter functions
 pub use formatter::{format_project_details, format_projects_table};
+
+// Re-export settings types for backward compatibility
+pub use settings::{
+    validate_setting_value, BulkSettingUpdate, SettingCategory, SettingUpdate,
+    SettingUpdateItem, SettingsResponse, SettingsStorage, SystemSetting,
+    ValidationError as SettingsValidationError,
+};
 
 // Re-export constants from core
 pub use orkee_core::{orkee_dir, projects_file, PROJECTS_VERSION};
