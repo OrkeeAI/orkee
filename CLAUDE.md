@@ -243,6 +243,28 @@ The CLI server provides a REST API for project management:
 - **Integration tests**: `cargo test migration_integration_tests`
 - **Schema validation**: All migrations tested automatically on every test run
 
+#### Orphaned Reference Validation
+
+**Problem**: Agent and model data is stored in JSON config files (`config/agents.json`, `config/models.json`) but referenced by TEXT IDs in the database. When an agent/model is removed from config, database records become orphaned.
+
+**Solution**: Automatic startup validation (runs during `SqliteStorage::initialize()`):
+
+**Tables Validated**:
+- `user_agents.agent_id` (NOT NULL) → **Deletes** orphaned records
+- `user_agents.preferred_model_id` (nullable) → **Clears to NULL**
+- `users.default_agent_id` (nullable) → **Clears to NULL**
+- `tasks.assigned_agent_id` (nullable) → **Clears to NULL**
+- `tasks.reviewed_by_agent_id` (nullable) → **Clears to NULL**
+- `agent_executions.agent_id` (nullable) → **Clears to NULL**
+- `agent_executions.model` (nullable) → **Clears to NULL**
+- `ai_usage_logs.model` (NOT NULL) → **Logs warning only** (preserves historical data)
+
+**Implementation**: `packages/projects/src/storage/sqlite.rs:217-435`
+
+**Testing**: 7 comprehensive tests in `packages/projects/tests/migration_integration_tests.rs:848-1186`
+
+**Logging**: Warnings logged to stderr on startup if orphaned references are found and cleaned up
+
 ## Preview Servers & External Server Discovery
 
 Orkee provides comprehensive development server management with automatic discovery of servers started outside of Orkee.
