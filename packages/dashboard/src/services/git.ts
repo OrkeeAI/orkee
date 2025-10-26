@@ -82,13 +82,7 @@ export const getCommitHistory = async (
     throw new Error(response.error || 'Failed to fetch commit history');
   }
 
-  // Unwrap the nested API response
-  const apiResponse = response.data;
-  if (!apiResponse.success || !apiResponse.data) {
-    throw new Error(apiResponse.error || 'Failed to fetch commit history');
-  }
-
-  return apiResponse.data;
+  return response.data;
 };
 
 export const getCommitDetails = async (
@@ -106,13 +100,7 @@ export const getCommitDetails = async (
     throw new Error(response.error || 'Failed to get commit details');
   }
 
-  // Unwrap the nested API response
-  const apiResponse = response.data;
-  if (!apiResponse.success || !apiResponse.data) {
-    throw new Error(apiResponse.error || 'Failed to get commit details');
-  }
-
-  return apiResponse.data;
+  return response.data;
 };
 
 export const getFileDiff = async (
@@ -140,13 +128,7 @@ export const getFileDiff = async (
     throw new Error(response.error || 'Failed to get file diff');
   }
 
-  // Unwrap the nested API response
-  const apiResponse = response.data;
-  if (!apiResponse.success || !apiResponse.data) {
-    throw new Error(apiResponse.error || 'Failed to get file diff');
-  }
-
-  return apiResponse.data;
+  return response.data;
 };
 
 // React Query hooks
