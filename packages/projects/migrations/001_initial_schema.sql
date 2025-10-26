@@ -148,7 +148,7 @@ CREATE TABLE users (
     id TEXT PRIMARY KEY,
     email TEXT NOT NULL UNIQUE,
     name TEXT NOT NULL,
-    default_agent_id TEXT,
+    default_agent_id TEXT REFERENCES agents(id) ON DELETE SET NULL,
     theme TEXT DEFAULT 'system',
     openai_api_key TEXT,
     anthropic_api_key TEXT,
@@ -163,6 +163,12 @@ CREATE TABLE users (
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
 );
+
+CREATE TRIGGER users_updated_at AFTER UPDATE ON users
+FOR EACH ROW WHEN NEW.updated_at = OLD.updated_at
+BEGIN
+    UPDATE users SET updated_at = datetime('now', 'utc') WHERE id = NEW.id;
+END;
 
 -- Agents table
 CREATE TABLE agents (
@@ -194,6 +200,12 @@ CREATE TABLE agents (
     updated_at TEXT NOT NULL
 );
 
+CREATE TRIGGER agents_updated_at AFTER UPDATE ON agents
+FOR EACH ROW WHEN NEW.updated_at = OLD.updated_at
+BEGIN
+    UPDATE agents SET updated_at = datetime('now', 'utc') WHERE id = NEW.id;
+END;
+
 -- User-Agent association table
 CREATE TABLE user_agents (
     id TEXT PRIMARY KEY,
@@ -205,6 +217,12 @@ CREATE TABLE user_agents (
     updated_at TEXT NOT NULL,
     UNIQUE(user_id, agent_id)
 );
+
+CREATE TRIGGER user_agents_updated_at AFTER UPDATE ON user_agents
+FOR EACH ROW WHEN NEW.updated_at = OLD.updated_at
+BEGIN
+    UPDATE user_agents SET updated_at = datetime('now', 'utc') WHERE id = NEW.id;
+END;
 
 -- ============================================================================
 -- TASK MANAGEMENT
@@ -247,6 +265,12 @@ CREATE INDEX idx_prds_status ON prds(status);
 CREATE INDEX idx_prds_not_deleted ON prds(id) WHERE deleted_at IS NULL;
 CREATE INDEX idx_prds_project_not_deleted ON prds(project_id, status) WHERE deleted_at IS NULL;
 
+CREATE TRIGGER prds_updated_at AFTER UPDATE ON prds
+FOR EACH ROW WHEN NEW.updated_at = OLD.updated_at
+BEGIN
+    UPDATE prds SET updated_at = datetime('now', 'utc') WHERE id = NEW.id;
+END;
+
 -- Spec Changes
 CREATE TABLE spec_changes (
     id TEXT PRIMARY KEY,
@@ -287,6 +311,12 @@ CREATE UNIQUE INDEX idx_spec_changes_unique_change_number
   ON spec_changes(project_id, verb_prefix, change_number)
   WHERE deleted_at IS NULL;
 
+CREATE TRIGGER spec_changes_updated_at AFTER UPDATE ON spec_changes
+FOR EACH ROW WHEN NEW.updated_at = OLD.updated_at
+BEGIN
+    UPDATE spec_changes SET updated_at = datetime('now', 'utc') WHERE id = NEW.id;
+END;
+
 -- Spec Capabilities
 CREATE TABLE spec_capabilities (
     id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(8)))),
@@ -317,6 +347,12 @@ CREATE INDEX idx_spec_capabilities_not_deleted ON spec_capabilities(id) WHERE de
 CREATE INDEX idx_spec_capabilities_project_not_deleted ON spec_capabilities(project_id, status) WHERE deleted_at IS NULL;
 CREATE INDEX idx_spec_capabilities_prd_not_deleted ON spec_capabilities(prd_id) WHERE deleted_at IS NULL;
 
+CREATE TRIGGER spec_capabilities_updated_at AFTER UPDATE ON spec_capabilities
+FOR EACH ROW WHEN NEW.updated_at = OLD.updated_at
+BEGIN
+    UPDATE spec_capabilities SET updated_at = datetime('now', 'utc') WHERE id = NEW.id;
+END;
+
 -- Spec Capabilities History
 CREATE TABLE spec_capabilities_history (
     id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(8)))),
@@ -345,6 +381,12 @@ CREATE TABLE spec_requirements (
 );
 
 CREATE INDEX idx_spec_requirements_capability ON spec_requirements(capability_id);
+
+CREATE TRIGGER spec_requirements_updated_at AFTER UPDATE ON spec_requirements
+FOR EACH ROW WHEN NEW.updated_at = OLD.updated_at
+BEGIN
+    UPDATE spec_requirements SET updated_at = datetime('now', 'utc') WHERE id = NEW.id;
+END;
 
 -- Spec Scenarios
 CREATE TABLE spec_scenarios (
@@ -380,6 +422,12 @@ CREATE TABLE spec_change_tasks (
 CREATE INDEX idx_spec_change_tasks_change ON spec_change_tasks(change_id, display_order);
 CREATE INDEX idx_spec_change_tasks_completion ON spec_change_tasks(change_id, is_completed);
 CREATE INDEX idx_spec_change_tasks_parent ON spec_change_tasks(change_id, parent_number);
+
+CREATE TRIGGER spec_change_tasks_updated_at AFTER UPDATE ON spec_change_tasks
+FOR EACH ROW WHEN NEW.updated_at = OLD.updated_at
+BEGIN
+    UPDATE spec_change_tasks SET updated_at = datetime('now', 'utc') WHERE id = NEW.id;
+END;
 
 -- Spec change task triggers
 CREATE TRIGGER update_task_completion_stats
@@ -519,6 +567,12 @@ CREATE INDEX idx_tasks_tag_id ON tasks(tag_id);
 CREATE INDEX idx_tasks_change_id ON tasks(change_id);
 CREATE INDEX idx_tasks_from_prd_id ON tasks(from_prd_id);
 CREATE INDEX idx_tasks_user_status ON tasks(created_by_user_id, status);
+
+CREATE TRIGGER tasks_updated_at AFTER UPDATE ON tasks
+FOR EACH ROW WHEN NEW.updated_at = OLD.updated_at
+BEGIN
+    UPDATE tasks SET updated_at = datetime('now', 'utc') WHERE id = NEW.id;
+END;
 
 -- Task full-text search
 CREATE VIRTUAL TABLE tasks_fts USING fts5(
@@ -676,6 +730,12 @@ CREATE INDEX idx_task_spec_links_task ON task_spec_links(task_id);
 CREATE INDEX idx_task_spec_links_requirement ON task_spec_links(requirement_id);
 CREATE INDEX idx_task_spec_links_status ON task_spec_links(validation_status);
 CREATE INDEX idx_task_spec_links_scenario ON task_spec_links(scenario_id);
+
+CREATE TRIGGER task_spec_links_updated_at AFTER UPDATE ON task_spec_links
+FOR EACH ROW WHEN NEW.updated_at = OLD.updated_at
+BEGIN
+    UPDATE task_spec_links SET updated_at = datetime('now', 'utc') WHERE id = NEW.id;
+END;
 
 -- PRD-Spec Sync History
 CREATE TABLE prd_spec_sync_history (
@@ -879,6 +939,12 @@ CREATE TABLE system_settings (
 );
 
 CREATE INDEX idx_system_settings_category ON system_settings(category);
+
+CREATE TRIGGER system_settings_updated_at AFTER UPDATE ON system_settings
+FOR EACH ROW WHEN NEW.updated_at = OLD.updated_at
+BEGIN
+    UPDATE system_settings SET updated_at = datetime('now', 'utc') WHERE key = NEW.key;
+END;
 
 -- ============================================================================
 -- TELEMETRY
