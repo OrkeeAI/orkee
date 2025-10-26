@@ -244,24 +244,50 @@ Orkee includes a comprehensive OpenSpec implementation for spec-driven developme
 - Database schema with 9 tables for PRDs, specs, requirements, scenarios, and changes
 - 46 Rust unit tests passing across parser, validator, and sync modules
 - 28 REST API endpoints for full CRUD operations
-- 11 frontend components for spec management
+- 5-tab dashboard interface for complete workflow management
 - Complete AI integration with cost tracking
+
+### Dashboard Interface
+
+The OpenSpec dashboard provides a **5-tab workflow** for managing the complete spec-driven development lifecycle:
+
+```
+📄 PRDs → 📝 Changes → ✅ Specs → 📦 Archive → 📊 Coverage
+```
+
+| Tab | Purpose |
+|-----|---------|
+| **PRDs** | Upload and manage Product Requirements Documents |
+| **Changes** | Create and review change proposals with approval workflow |
+| **Specs** | Browse approved specifications and requirements |
+| **Archive** | View completed changes and implementation history |
+| **Coverage** | Track task-to-spec linking and identify orphan tasks |
 
 ### Architecture Overview
 
+**Complete OpenSpec Workflow:**
+
 ```
-PRD (Product Requirements Document)
+PRD Upload
     ↓ AI Analysis
-Spec Capabilities (functional areas)
-    ↓ Break down
-Requirements & Scenarios (WHEN/THEN)
-    ↓ Generate
-Tasks (implementation items)
-    ↓ Manual additions
-Orphan Tasks → Suggest Specs
-    ↓ Sync back
-Updated PRD (regenerated)
+Extract Capabilities
+    ↓
+Create Change Proposal
+    ↓ Review & Approval
+Implementing (with tasks)
+    ↓ Complete
+Archive Change
+    ↓ Apply Specs
+Approved Specifications
+    ↓
+Generate/Link Tasks
+    ↓
+Validate Against Scenarios
 ```
+
+**Change Status Lifecycle:** Draft → Review → Approved → Implementing → Completed → Archived
+
+**Delta Operations:** Changes can add, modify, remove, or rename capabilities with structured proposals.
 
 ### Database Schema
 
@@ -279,47 +305,61 @@ Updated PRD (regenerated)
 
 ### API Endpoints
 
-**28 REST endpoints** across 5 categories:
+**40+ REST endpoints** across 5 categories:
 
 - **PRD Management** (6 endpoints) - Upload, list, update, delete, analyze, sync
 - **Spec/Capability Management** (7 endpoints) - CRUD operations, validation, requirements
-- **Change Management** (6 endpoints) - Change proposals, deltas, status updates
+- **Change Management** (12 endpoints) - Proposals, deltas, status, validation, archiving, tasks
 - **Task-Spec Integration** (6 endpoints) - Link tasks, validate, generate, find orphans
-- **AI Proxy** (5 endpoints) - AI-powered analysis, generation, and validation
+- **AI Usage Tracking** (2 endpoints) - Cost monitoring and usage logs
+
+See [DOCS.md - OpenSpec Integration](DOCS.md#openspec-integration) for complete API reference.
 
 ### Frontend Components
 
-**11 Components** for complete spec management UI:
+**5 Main Tabs** in the dashboard interface:
 
-1. **PRDUploadDialog** - 3-tab interface for upload, preview, and AI analysis
-2. **SpecBuilderWizard** - 4-step wizard for creating specs (Mode → Capability → Requirements → Validation)
-3. **TaskSpecLinker** - Search and link tasks to spec requirements
-4. **SyncDashboard** - 3 tabs for orphan tasks, PRD sync status, and spec overview
-5. **TaskSpecIndicator** - Reusable badge showing spec link status on tasks
-6. **SpecDetailsView** - Comprehensive spec viewer with requirements and scenarios
-7. **ChangeProposalForm** - 3-tab markdown editor for proposals, tasks, and design
-8. **ValidationResultsPanel** - Display task validation results against scenarios
-9. **SpecDiffViewer** - Side-by-side version comparison
-10. **ScenarioTestRunner** - Test task implementations against WHEN/THEN/AND scenarios
-11. **CostDashboard** - AI usage tracking with cost monitoring
+1. **PRDView** - Upload and manage Product Requirements Documents
+2. **ChangesView** - Create, review, and track change proposals with status workflow
+3. **SpecificationsView** - Browse and search approved specifications
+4. **ArchiveView** - View historical implementation records
+5. **CoverageView** - Monitor task-to-spec coverage and identify orphan tasks
+
+**Supporting Components:**
+- **ChangesList** - Filterable list of changes with status indicators
+- **ChangeDetails** - Detailed change view with deltas, tasks, and validation
+- **TaskCompletionTracker** - Progress tracking for implementation tasks
+- **ValidationResultsPanel** - OpenSpec format validation feedback
+- **CostDashboard** - AI usage monitoring and cost tracking
+
+See [docs/docs/openspec/](docs/docs/openspec/) for detailed component documentation.
 
 ### Key Workflows
 
-#### PRD → Spec → Task Flow
-1. Upload PRD document (markdown format)
-2. AI analyzes and extracts capabilities
-3. Breaks down into requirements with WHEN/THEN scenarios
-4. Generates linked tasks from requirements
-5. Tasks validated against scenarios
-6. Requirements marked complete when tasks finish
+#### 1. PRD → Change → Spec Flow (Proposal-Based)
+1. Upload PRD document and analyze with AI
+2. Create change proposal with capability deltas (added/modified/removed/renamed)
+3. Submit for review and approval
+4. Implement changes with linked tasks
+5. Complete implementation and validate
+6. Archive change and optionally apply specs to create/update capabilities
 
-#### Task → Spec → PRD Flow
-1. Developer manually creates task
-2. System detects orphan task (no spec link)
-3. AI suggests spec requirement or new capability
-4. Creates change proposal for review
-5. Approved changes update spec and regenerate PRD
-6. Task now linked to requirement
+#### 2. Spec → Task → Validation Flow
+1. Browse approved specifications
+2. Generate implementation tasks from requirements
+3. Link tasks to WHEN/THEN scenarios
+4. Implement and mark tasks complete
+5. Validate implementations against scenarios
+6. Track coverage and identify orphan tasks
+
+#### 3. Orphan Task → Spec Flow
+1. System detects tasks without spec links
+2. AI suggests appropriate requirements or new capabilities
+3. Create change proposal to add missing specs
+4. Follow approval workflow
+5. Link task to newly created requirement
+
+For detailed workflow diagrams and examples, see [DOCS.md - OpenSpec Integration](DOCS.md#openspec-integration) and [docs/docs/openspec/changes.md](docs/docs/openspec/changes.md).
 
 ### AI Integration
 
@@ -347,7 +387,10 @@ All AI usage data stored locally in SQLite with retention policies and export ca
 
 ### Implementation Details
 
-For complete implementation details, technical specifications, and development timeline, see [SPEC_TASK.md](SPEC_TASK.md).
+**For complete documentation:**
+- **[DOCS.md - OpenSpec Integration](DOCS.md#openspec-integration)** - Complete API reference, workflows with mermaid diagrams
+- **[docs/docs/openspec/changes.md](docs/docs/openspec/changes.md)** - Detailed Changes & Archive workflow guide
+- **[SPEC_TASK.md](SPEC_TASK.md)** - Technical specifications and development timeline
 
 ## Documentation
 
