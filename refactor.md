@@ -120,24 +120,57 @@ Extract functionality into focused packages while maintaining backward compatibi
     - Integration tests with database operations
     - Materializer tests for spec generation
 
-- [ ] **`ai`** - AI and agent system (~2,100+ lines)
-  - AI service integration (ai_service.rs - 282 lines)
-  - Agent registry and management (agents/)
-  - Model registry and capabilities (models/ - 574 lines)
-  - AI proxy functionality (api/ai_proxy_handlers.rs - 523 lines)
-  - AI handlers (api/ai_handlers.rs - 1,302 lines)
-  - Usage logging (ai_usage_logs/)
-  - Agent execution tracking (executions/)
-  - **Estimated effort**: 2-3 hours
-  - **Dependencies**: orkee_core, storage (for persistence)
+- [x] **`models`** - AI model and agent registry (~659 lines)
+  - Model registry (registry.rs - 574 lines)
+  - Model and agent types (types.rs - 77 lines)
+  - JSON configuration files (models.json, agents.json)
+  - **Status**: ✅ COMPLETED
+  - **Tests**: N/A (pure config, no unit tests)
+  - **Actual effort**: 30 minutes (as estimated!)
+  - **Dependencies**: serde, serde_json, lazy_static only (NO orkee_core, NO storage)
   - **Key files**:
-    - `ai_service.rs` (282 lines) - Core AI service
-    - `agents/` - Agent management
-    - `models/registry.rs` (574 lines) - Model registry
-    - `api/ai_handlers.rs` (1,302 lines) - HTTP handlers
+    - `registry.rs` (574 lines) - In-memory registry with LazyLock
+    - `types.rs` (77 lines) - Model, Agent, AgentConfig types
+    - `config/models.json` - Model definitions
+    - `config/agents.json` - Agent definitions
+
+- [x] **`agents`** - Agent management and execution tracking (~1,012 lines)
+  - User agent configurations (user_agents/ - 214 lines)
+  - Execution tracking (executions/ - 798 lines)
+  - PR review tracking
+  - **Status**: ✅ COMPLETED
+  - **Tests**: 0/0 passing (no unit tests yet, integration tests in projects TBD)
+  - **Actual effort**: 1 hour (better than estimated!)
+  - **Dependencies**: orkee_core, storage, models
+  - **Database tables**: user_agents, agent_executions, pr_reviews
+  - **Key files**:
+    - `user_agents/storage.rs` (176 lines) - User agent CRUD
+    - `user_agents/types.rs` (30 lines) - UserAgent type
+    - `executions/storage.rs` (616 lines) - Execution CRUD
+    - `executions/types.rs` (174 lines) - AgentExecution, PrReview types
+  - **Testing**:
+    - No unit tests yet
+    - Uses models::REGISTRY for validation (no DB foreign keys)
+  - **Notes**:
+    - Renamed AgentStorage → UserAgentStorage for clarity
+    - Execution tracking includes PR reviews and code changes
+
+- [ ] **`ai`** - AI service and usage tracking (~809 lines)
+  - AI service integration (service.rs - 282 lines)
+  - AI usage logs (usage_logs/ - 527 lines)
+  - **Estimated effort**: 45 minutes - 1 hour
+  - **Dependencies**: orkee_core, storage, reqwest
+  - **Database tables**: ai_usage_logs
+  - **Key files**:
+    - `service.rs` (282 lines) - Anthropic API client
+    - `usage_logs/storage.rs` (448 lines) - Usage log CRUD
+    - `usage_logs/types.rs` (79 lines) - AiUsageLog types
+  - **API handlers** (kept in projects for Phase 4):
+    - `api/ai_handlers.rs` (1,254 lines) - AI endpoints
     - `api/ai_proxy_handlers.rs` (523 lines) - Proxy functionality
-    - `ai_usage_logs/` - Usage tracking
-    - `executions/` - Execution tracking
+    - `api/ai_usage_log_handlers.rs` (89 lines) - Usage endpoints
+    - `api/agents_handlers.rs` (123 lines) - Agent endpoints
+    - `api/executions_handlers.rs` (341 lines) - Execution endpoints
 
 - [ ] **`context`** - Code analysis and context management
   - AST analysis (context/ast_analyzer.rs)
@@ -436,33 +469,35 @@ mod tests {
 1. ✅ **orkee_core** - No dependencies
 
 **Phase 2: Storage & Simple Utilities** (No cross-dependencies - can be done in parallel)
-2. **storage** - Depends on orkee_core (⚠️ CRITICAL - blocks many other packages)
-3. **security** - Depends on orkee_core
-4. **formatter** - Depends on orkee_core
-5. **git_utils** - Depends on orkee_core
+2. ✅ **storage** - Depends on orkee_core (COMPLETED - blocks many other packages)
+3. ✅ **security** - Depends on orkee_core (COMPLETED)
+4. ✅ **formatter** - Depends on orkee_core (COMPLETED)
+5. ✅ **git_utils** - Depends on orkee_core (COMPLETED)
+6. ✅ **models** - Pure config, no dependencies (COMPLETED)
 
 **Phase 3: Domain Packages** (Depend on storage - must wait for Phase 2)
-6. ✅ **openspec** - Depends on orkee_core (COMPLETED - works directly with sqlx::Pool)
-7. **ai** - Depends on orkee_core, storage
-8. **context** - Depends on orkee_core, storage
-9. ✅ **tags** - Depends on orkee_core, storage (COMPLETED)
-10. ✅ **settings** - Depends on orkee_core, storage (COMPLETED)
-11. ✅ **tasks** - Depends on orkee_core, storage, openspec (COMPLETED)
+7. ✅ **openspec** - Depends on orkee_core (COMPLETED - works directly with sqlx::Pool)
+8. ✅ **tags** - Depends on orkee_core, storage (COMPLETED)
+9. ✅ **settings** - Depends on orkee_core, storage (COMPLETED)
+10. ✅ **tasks** - Depends on orkee_core, storage, openspec (COMPLETED)
+11. ✅ **agents** - Depends on orkee_core, storage, models (COMPLETED)
+12. **ai** - Depends on orkee_core, storage
+13. **context** - Depends on orkee_core, storage
 
 **Phase 4: Integration Layer** (Depends on everything - extract LAST)
-12. **api** - Depends on all other packages
+14. **api** - Depends on all other packages
 
 ## Current Progress
 
 - ✅ Phase 1: Foundation (orkee_core) - COMPLETED
-- ✅ Phase 2: Storage & Simple Utilities (storage ✅, security ✅, formatter ✅, git_utils ✅) - COMPLETED
-- ⏳ Phase 3: Domain Packages (openspec ✅, tags ✅, settings ✅, tasks ✅, ai, context) - IN PROGRESS (4/6 completed)
+- ✅ Phase 2: Storage & Simple Utilities (storage ✅, security ✅, formatter ✅, git_utils ✅, models ✅) - COMPLETED
+- ⏳ Phase 3: Domain Packages (openspec ✅, tags ✅, settings ✅, tasks ✅, agents ✅, ai, context) - IN PROGRESS (5/7 completed)
 - ⏸️ Phase 4: Integration Layer (api) - PENDING
 
 ### Next Steps
 
 **Immediate Priority**: Extract remaining Phase 3 packages (all unblocked by storage/Phase 2 completion):
-1. **ai** (2-3 hours) - Depends on storage (now available)
+1. **ai** (45 min - 1 hour) - Depends on storage (now available)
 2. **context** (2-3 hours) - Depends on storage (now available)
 
 ## Notes
@@ -475,9 +510,9 @@ mod tests {
 ## Time Estimate
 
 - **Total estimated time**: 15-20 hours
-- **Already completed**: 14.25 hours (orkee_core: 2 hours, openspec: 4 hours, storage: 3 hours, security: 2 hours, formatter: 0.25 hours, git_utils: 0.25 hours, tags: 0.5 hours, settings: 0.75 hours, tasks: 1.5 hours)
-- **Phase 2 fully complete**: All foundation and utilities extracted
-- **Phase 3 progress**: 4/6 packages completed (openspec, tags, settings, tasks)
-- **Remaining**: 2-5.75 hours (Phase 3 domain packages: ai, context + Phase 4 API integration)
+- **Already completed**: 15.75 hours (orkee_core: 2 hours, openspec: 4 hours, storage: 3 hours, security: 2 hours, formatter: 0.25 hours, git_utils: 0.25 hours, tags: 0.5 hours, settings: 0.75 hours, tasks: 1.5 hours, models: 0.5 hours, agents: 1 hour)
+- **Phase 2 fully complete**: All foundation and utilities extracted (including models)
+- **Phase 3 progress**: 5/7 packages completed (openspec, tags, settings, tasks, agents)
+- **Remaining**: 1-4.75 hours (Phase 3 domain packages: ai + context + Phase 4 API integration)
 
 This refactoring can be done incrementally, with each package extraction being independently valuable.
