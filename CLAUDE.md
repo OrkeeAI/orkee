@@ -236,6 +236,13 @@ The CLI server provides a REST API for project management:
 
 **Migration from Legacy**: Automatic migration from `~/.orkee/projects.json` to SQLite on first run
 
+### Database Migrations
+- **Initial schema**: `packages/projects/migrations/001_initial_schema.sql`
+- **Migration system**: Uses SQLx migrations (tracked in `_sqlx_migrations` table)
+- **To reset dev database**: `rm ~/.orkee/orkee.db && cargo run`
+- **Integration tests**: `cargo test migration_integration_tests`
+- **Schema validation**: All migrations tested automatically on every test run
+
 ## Preview Servers & External Server Discovery
 
 Orkee provides comprehensive development server management with automatic discovery of servers started outside of Orkee.
