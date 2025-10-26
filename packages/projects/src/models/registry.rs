@@ -395,4 +395,91 @@ mod tests {
         assert_eq!(codex_model.name, "GPT-5 Codex");
         assert_eq!(codex_model.provider, "openai");
     }
+
+    #[test]
+    fn test_gemini_cli_agent() {
+        let registry = ModelRegistry::new().unwrap();
+
+        // Verify Gemini CLI agent exists
+        assert!(
+            registry.agent_exists("gemini-cli"),
+            "Gemini CLI agent should exist"
+        );
+
+        // Verify Gemini CLI agent details
+        let agent = registry.get_agent("gemini-cli");
+        assert!(agent.is_some(), "Should find Gemini CLI agent");
+        let agent = agent.unwrap();
+        assert_eq!(agent.name, "Gemini CLI");
+        assert_eq!(agent.id, "gemini-cli");
+
+        // Verify Gemini CLI supports Gemini 2.5 models
+        assert!(
+            registry.validate_agent_model("gemini-cli", "gemini-2.5-pro"),
+            "gemini-cli should support gemini-2.5-pro"
+        );
+        assert!(
+            registry.validate_agent_model("gemini-cli", "gemini-2.5-flash"),
+            "gemini-cli should support gemini-2.5-flash"
+        );
+        assert!(
+            registry.validate_agent_model("gemini-cli", "gemini-2.5-flash-lite"),
+            "gemini-cli should support gemini-2.5-flash-lite"
+        );
+
+        // Verify Gemini CLI default model is Gemini 2.5 Pro
+        let default_model = registry.get_agent_default_model("gemini-cli");
+        assert!(default_model.is_some(), "Should have default model");
+        assert_eq!(
+            default_model.unwrap().id,
+            "gemini-2.5-pro",
+            "Default should be Gemini 2.5 Pro"
+        );
+
+        // Verify Gemini CLI does not support OpenAI or Anthropic models
+        assert!(
+            !registry.validate_agent_model("gemini-cli", "gpt-5"),
+            "gemini-cli should not support GPT-5"
+        );
+        assert!(
+            !registry.validate_agent_model("gemini-cli", "claude-sonnet-4-5-20250929"),
+            "gemini-cli should not support Claude models"
+        );
+    }
+
+    #[test]
+    fn test_gemini25_models() {
+        let registry = ModelRegistry::new().unwrap();
+
+        // Verify Gemini 2.5 Pro exists
+        assert!(
+            registry.model_exists("gemini-2.5-pro"),
+            "Gemini 2.5 Pro should exist"
+        );
+        let model = registry.get_model("gemini-2.5-pro");
+        assert!(model.is_some(), "Should find Gemini 2.5 Pro");
+        let model = model.unwrap();
+        assert_eq!(model.name, "Gemini 2.5 Pro");
+        assert_eq!(model.provider, "google");
+
+        // Verify Gemini 2.5 Flash exists
+        assert!(
+            registry.model_exists("gemini-2.5-flash"),
+            "Gemini 2.5 Flash should exist"
+        );
+        let flash_model = registry.get_model("gemini-2.5-flash");
+        assert!(flash_model.is_some(), "Should find Gemini 2.5 Flash");
+        assert_eq!(flash_model.unwrap().name, "Gemini 2.5 Flash");
+
+        // Verify Gemini 2.5 Flash-Lite exists
+        assert!(
+            registry.model_exists("gemini-2.5-flash-lite"),
+            "Gemini 2.5 Flash-Lite should exist"
+        );
+        let lite_model = registry.get_model("gemini-2.5-flash-lite");
+        assert!(lite_model.is_some(), "Should find Gemini 2.5 Flash-Lite");
+        let lite_model = lite_model.unwrap();
+        assert_eq!(lite_model.name, "Gemini 2.5 Flash-Lite");
+        assert_eq!(lite_model.provider, "google");
+    }
 }
