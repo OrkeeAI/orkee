@@ -41,12 +41,8 @@ pub fn validate_design_markdown(content: Option<&str>) -> Result<Option<String>,
                 return Ok(None);
             }
 
-            let validated = validate_markdown_field(
-                c,
-                "Design markdown",
-                MAX_DESIGN_MARKDOWN_SIZE,
-                false,
-            )?;
+            let validated =
+                validate_markdown_field(c, "Design markdown", MAX_DESIGN_MARKDOWN_SIZE, false)?;
             Ok(Some(validated))
         }
         None => Ok(None),

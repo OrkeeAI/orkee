@@ -9,7 +9,9 @@ use axum::{
 use serde::Deserialize;
 use tracing::info;
 
-use super::response::{bad_request, created_or_internal_error, ok_or_internal_error, ok_or_not_found};
+use super::response::{
+    bad_request, created_or_internal_error, ok_or_internal_error, ok_or_not_found,
+};
 use super::validation;
 use crate::db::DbState;
 use crate::openspec::db as openspec_db;
@@ -75,11 +77,11 @@ pub async fn create_change(
     info!("Creating change for project: {}", project_id);
 
     // Validate and sanitize inputs
-    let validated_proposal = match validation::validate_proposal_markdown(&request.proposal_markdown)
-    {
-        Ok(v) => v,
-        Err(e) => return bad_request(e, "Invalid proposal markdown"),
-    };
+    let validated_proposal =
+        match validation::validate_proposal_markdown(&request.proposal_markdown) {
+            Ok(v) => v,
+            Err(e) => return bad_request(e, "Invalid proposal markdown"),
+        };
 
     let validated_tasks = match validation::validate_tasks_markdown(&request.tasks_markdown) {
         Ok(v) => v,

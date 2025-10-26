@@ -311,7 +311,8 @@ pub async fn create_change_from_analysis(
                         if is_unique_constraint_error_sqlx(&e) && attempt < MAX_RETRIES - 1 {
                             // Calculate exponential backoff and retry
                             let backoff_ms = INITIAL_BACKOFF_MS * 2_u64.pow(attempt);
-                            tokio::time::sleep(tokio::time::Duration::from_millis(backoff_ms)).await;
+                            tokio::time::sleep(tokio::time::Duration::from_millis(backoff_ms))
+                                .await;
                             continue;
                         }
                         return Err(DbError::from(e));

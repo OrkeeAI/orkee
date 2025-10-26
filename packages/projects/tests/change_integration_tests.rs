@@ -309,10 +309,7 @@ async fn test_concurrent_change_creation_no_duplicates() {
     assert_eq!(changes.len(), 5, "All 5 changes should be created");
 
     // Verify all change numbers are unique
-    let change_numbers: HashSet<_> = changes
-        .iter()
-        .filter_map(|c| c.change_number)
-        .collect();
+    let change_numbers: HashSet<_> = changes.iter().filter_map(|c| c.change_number).collect();
 
     assert_eq!(
         change_numbers.len(),
@@ -322,7 +319,10 @@ async fn test_concurrent_change_creation_no_duplicates() {
 
     // Verify all change numbers are in the range [1, 5]
     for num in change_numbers.iter() {
-        assert!(*num >= 1 && *num <= 5, "Change number should be between 1 and 5");
+        assert!(
+            *num >= 1 && *num <= 5,
+            "Change number should be between 1 and 5"
+        );
     }
 
     // Verify all have the same verb prefix
