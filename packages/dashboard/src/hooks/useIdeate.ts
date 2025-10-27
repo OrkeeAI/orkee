@@ -17,6 +17,8 @@ import type {
   IdeateDependencies,
   IdeateRisks,
   IdeateResearch,
+  CreateFeatureDependencyInput,
+  OptimizationStrategy,
 } from '@/services/ideate';
 
 interface ApiError {
@@ -514,5 +516,124 @@ export function useNavigateToSection(sessionId: string) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.ideateDetail(sessionId) });
     },
+  });
+}
+
+// Phase 4: Dependency Intelligence hooks
+
+/**
+ * Get all feature dependencies for a session
+ */
+export function useFeatureDependencies(sessionId: string) {
+  return useQuery({
+    queryKey: queryKeys.ideateFeatureDependencies(sessionId),
+    queryFn: () => ideateService.getFeatureDependencies(sessionId),
+    enabled: !!sessionId,
+    staleTime: 1 * 60 * 1000, // 1 minute
+  });
+}
+
+/**
+ * Create a manual feature dependency
+ */
+export function useCreateFeatureDependency(sessionId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (input: CreateFeatureDependencyInput) =>
+      ideateService.createFeatureDependency(sessionId, input),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.ideateFeatureDependencies(sessionId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.ideateBuildOrder(sessionId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.ideateCircularDeps(sessionId) });
+    },
+  });
+}
+
+/**
+ * Delete a feature dependency
+ */
+export function useDeleteFeatureDependency(sessionId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (dependencyId: string) =>
+      ideateService.deleteFeatureDependency(sessionId, dependencyId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.ideateFeatureDependencies(sessionId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.ideateBuildOrder(sessionId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.ideateCircularDeps(sessionId) });
+    },
+  });
+}
+
+/**
+ * Analyze dependencies using AI
+ */
+export function useAnalyzeDependencies(sessionId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: () => ideateService.analyzeDependencies(sessionId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.ideateFeatureDependencies(sessionId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.ideateBuildOrder(sessionId) });
+    },
+  });
+}
+
+/**
+ * Optimize build order
+ */
+export function useOptimizeBuildOrder(sessionId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (strategy: OptimizationStrategy) =>
+      ideateService.optimizeBuildOrder(sessionId, strategy),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.ideateBuildOrder(sessionId) });
+    },
+  });
+}
+
+/**
+ * Get current build order
+ */
+export function useBuildOrder(sessionId: string) {
+  return useQuery({
+    queryKey: queryKeys.ideateBuildOrder(sessionId),
+    queryFn: () => ideateService.getBuildOrder(sessionId),
+    enabled: !!sessionId,
+    staleTime: 2 * 60 * 1000, // 2 minutes
+    retry: (failureCount, error) => {
+      const apiError = error as ApiError;
+      if (apiError?.status === 404) return false;
+      return failureCount < 2;
+    },
+  });
+}
+
+/**
+ * Get circular dependencies
+ */
+export function useCircularDependencies(sessionId: string) {
+  return useQuery({
+    queryKey: queryKeys.ideateCircularDeps(sessionId),
+    queryFn: () => ideateService.getCircularDependencies(sessionId),
+    enabled: !!sessionId,
+    staleTime: 1 * 60 * 1000, // 1 minute
+  });
+}
+
+/**
+ * Suggest quick-win features
+ */
+export function useQuickWins(sessionId: string) {
+  return useQuery({
+    queryKey: queryKeys.ideateQuickWins(sessionId),
+    queryFn: () => ideateService.suggestQuickWins(sessionId),
+    enabled: !!sessionId,
+    staleTime: 2 * 60 * 1000, // 2 minutes
   });
 }

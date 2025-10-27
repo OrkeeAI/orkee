@@ -71,6 +71,11 @@ export const queryKeys = {
   ideateDependencies: (sessionId: string) => [...queryKeys.ideate, 'dependencies', sessionId] as const,
   ideateRisks: (sessionId: string) => [...queryKeys.ideate, 'risks', sessionId] as const,
   ideateResearch: (sessionId: string) => [...queryKeys.ideate, 'research', sessionId] as const,
+  // Phase 4: Dependency Intelligence keys
+  ideateFeatureDependencies: (sessionId: string) => [...queryKeys.ideate, 'feature-dependencies', sessionId] as const,
+  ideateBuildOrder: (sessionId: string) => [...queryKeys.ideate, 'build-order', sessionId] as const,
+  ideateCircularDeps: (sessionId: string) => [...queryKeys.ideate, 'circular-deps', sessionId] as const,
+  ideateQuickWins: (sessionId: string) => [...queryKeys.ideate, 'quick-wins', sessionId] as const,
 
   // Spec keys
   specs: ['specs'] as const,

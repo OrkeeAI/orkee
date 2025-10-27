@@ -248,6 +248,58 @@ export interface IdeateResearch {
   created_at: string;
 }
 
+// Phase 4: Dependency Intelligence types
+
+export type DependencyType = 'technical' | 'logical' | 'business';
+export type DependencyStrength = 'required' | 'recommended' | 'optional';
+export type OptimizationStrategy = 'fastest' | 'balanced' | 'safest';
+
+export interface FeatureDependency {
+  id: string;
+  from_feature_id: string;
+  to_feature_id: string;
+  dependency_type: DependencyType;
+  strength: DependencyStrength;
+  reason: string | null;
+  auto_detected: boolean;
+  created_at: string;
+}
+
+export interface CreateFeatureDependencyInput {
+  fromFeatureId: string;
+  toFeatureId: string;
+  dependencyType: DependencyType;
+  strength: DependencyStrength;
+  reason?: string;
+}
+
+export interface DependencyAnalysisResult {
+  session_id: string;
+  detected_dependencies: FeatureDependency[];
+  analysis_summary: string;
+  cached: boolean;
+}
+
+export interface ParallelGroup {
+  features: string[];
+  estimated_time: number;
+}
+
+export interface BuildOrderResult {
+  session_id: string;
+  build_order: string[];
+  parallel_groups: ParallelGroup[];
+  critical_path: string[];
+  strategy: OptimizationStrategy;
+  optimization_notes: string;
+}
+
+export interface CircularDependency {
+  cycle: string[];
+  severity: string;
+  suggestion: string;
+}
+
 class IdeateService {
   /**
    * Create a new ideate session
@@ -722,6 +774,129 @@ class IdeateService {
     if (response.error || !response.data.success) {
       throw new Error(response.error || 'Failed to delete research section');
     }
+  }
+
+  // Phase 4: Dependency Intelligence methods
+
+  /**
+   * Get all feature dependencies for a session
+   */
+  async getFeatureDependencies(sessionId: string): Promise<FeatureDependency[]> {
+    const response = await apiClient.get<{ success: boolean; data: FeatureDependency[] }>(
+      `/api/ideate/${sessionId}/features/dependencies`
+    );
+
+    if (response.error || !response.data.success) {
+      throw new Error(response.error || 'Failed to fetch feature dependencies');
+    }
+
+    return response.data.data;
+  }
+
+  /**
+   * Create a manual feature dependency
+   */
+  async createFeatureDependency(sessionId: string, input: CreateFeatureDependencyInput): Promise<FeatureDependency> {
+    const response = await apiClient.post<{ success: boolean; data: FeatureDependency }>(
+      `/api/ideate/${sessionId}/features/dependencies`,
+      input
+    );
+
+    if (response.error || !response.data.success) {
+      throw new Error(response.error || 'Failed to create feature dependency');
+    }
+
+    return response.data.data;
+  }
+
+  /**
+   * Delete a feature dependency
+   */
+  async deleteFeatureDependency(sessionId: string, dependencyId: string): Promise<void> {
+    const response = await apiClient.delete<{ success: boolean }>(
+      `/api/ideate/${sessionId}/features/dependencies/${dependencyId}`
+    );
+
+    if (response.error || !response.data.success) {
+      throw new Error(response.error || 'Failed to delete feature dependency');
+    }
+  }
+
+  /**
+   * Analyze dependencies using AI
+   */
+  async analyzeDependencies(sessionId: string): Promise<DependencyAnalysisResult> {
+    const response = await apiClient.post<{ success: boolean; data: DependencyAnalysisResult }>(
+      `/api/ideate/${sessionId}/dependencies/analyze`,
+      {}
+    );
+
+    if (response.error || !response.data.success) {
+      throw new Error(response.error || 'Failed to analyze dependencies');
+    }
+
+    return response.data.data;
+  }
+
+  /**
+   * Optimize build order
+   */
+  async optimizeBuildOrder(sessionId: string, strategy: OptimizationStrategy): Promise<BuildOrderResult> {
+    const response = await apiClient.post<{ success: boolean; data: BuildOrderResult }>(
+      `/api/ideate/${sessionId}/dependencies/optimize`,
+      { strategy }
+    );
+
+    if (response.error || !response.data.success) {
+      throw new Error(response.error || 'Failed to optimize build order');
+    }
+
+    return response.data.data;
+  }
+
+  /**
+   * Get current build order
+   */
+  async getBuildOrder(sessionId: string): Promise<BuildOrderResult> {
+    const response = await apiClient.get<{ success: boolean; data: BuildOrderResult }>(
+      `/api/ideate/${sessionId}/dependencies/build-order`
+    );
+
+    if (response.error || !response.data.success) {
+      throw new Error(response.error || 'Failed to fetch build order');
+    }
+
+    return response.data.data;
+  }
+
+  /**
+   * Get circular dependencies
+   */
+  async getCircularDependencies(sessionId: string): Promise<CircularDependency[]> {
+    const response = await apiClient.get<{ success: boolean; data: CircularDependency[] }>(
+      `/api/ideate/${sessionId}/dependencies/circular`
+    );
+
+    if (response.error || !response.data.success) {
+      throw new Error(response.error || 'Failed to fetch circular dependencies');
+    }
+
+    return response.data.data;
+  }
+
+  /**
+   * Suggest quick-win features (high value, low dependency)
+   */
+  async suggestQuickWins(sessionId: string): Promise<string[]> {
+    const response = await apiClient.get<{ success: boolean; data: { quick_wins: string[] } }>(
+      `/api/ideate/${sessionId}/features/suggest-visible`
+    );
+
+    if (response.error || !response.data.success) {
+      throw new Error(response.error || 'Failed to suggest quick wins');
+    }
+
+    return response.data.data.quick_wins;
   }
 
   // Navigation methods

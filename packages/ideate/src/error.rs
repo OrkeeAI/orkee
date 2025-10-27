@@ -37,6 +37,9 @@ pub enum IdeateError {
 
     #[error("Invalid input: {0}")]
     InvalidInput(String),
+
+    #[error("Validation error: {0}")]
+    ValidationError(String),
 }
 
 pub type Result<T> = std::result::Result<T, IdeateError>;

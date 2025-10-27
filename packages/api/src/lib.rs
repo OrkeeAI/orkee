@@ -18,6 +18,7 @@ pub mod context_handlers;
 pub mod executions_handlers;
 pub mod graph_handlers;
 pub mod handlers;
+pub mod ideate_dependency_handlers;
 pub mod ideate_handlers;
 pub mod prd_handlers;
 pub mod response;
@@ -289,6 +290,39 @@ pub fn create_ideate_router() -> Router<DbState> {
         .route(
             "/ideate/{session_id}/navigate",
             post(ideate_handlers::navigate_to),
+        )
+        // Phase 4: Dependency Intelligence routes
+        .route(
+            "/ideate/{session_id}/features/dependencies",
+            get(ideate_dependency_handlers::get_dependencies),
+        )
+        .route(
+            "/ideate/{session_id}/features/dependencies",
+            post(ideate_dependency_handlers::create_dependency),
+        )
+        .route(
+            "/ideate/{session_id}/features/dependencies/{dependency_id}",
+            delete(ideate_dependency_handlers::delete_dependency),
+        )
+        .route(
+            "/ideate/{session_id}/dependencies/analyze",
+            post(ideate_dependency_handlers::analyze_dependencies),
+        )
+        .route(
+            "/ideate/{session_id}/dependencies/optimize",
+            post(ideate_dependency_handlers::optimize_build_order),
+        )
+        .route(
+            "/ideate/{session_id}/dependencies/build-order",
+            get(ideate_dependency_handlers::get_build_order),
+        )
+        .route(
+            "/ideate/{session_id}/dependencies/circular",
+            get(ideate_dependency_handlers::get_circular_dependencies),
+        )
+        .route(
+            "/ideate/{session_id}/features/suggest-visible",
+            get(ideate_dependency_handlers::suggest_quick_wins),
         )
 }
 

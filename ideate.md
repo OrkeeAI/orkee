@@ -290,42 +290,120 @@ Add a flexible PRD generation system supporting three modes:
 - [ ] Interactive user flow mapper
 - [ ] Component architecture diagram builder
 - [ ] Data model visual editor
-- [ ] Visual dependency graph (Phase 4)
+- [x] Visual dependency graph (Phase 4) ✅
 - [ ] AI auto-fill for skipped sections
 - [ ] Live PRD preview panel
 
 ---
 
-## Phase 4: Dependency Chain Focus (Week 4)
+## Phase 4: Dependency Chain Focus (Week 4) ✅ COMPLETED
 
-### Backend - Dependency Intelligence
-- [ ] POST `/api/ideate/{id}/features/dependencies` - Set dependencies
-- [ ] POST `/api/ideate/{id}/dependencies/analyze` - Auto-detect dependencies
-- [ ] POST `/api/ideate/{id}/dependencies/optimize` - Optimal build order
-- [ ] POST `/api/ideate/{id}/features/suggest-visible` - Quick-to-visible features
-- [ ] Create AI prompts for dependency detection
-- [ ] Implement graph algorithms for build order
-- [ ] Add validation for circular dependencies
+### Database Schema ✅
+- [x] Create migration file `003_dependency_intelligence.sql` (175 lines)
+- [x] `feature_dependencies` table with type (technical/logical/business) and strength (required/recommended/optional)
+- [x] `dependency_analysis_cache` table for AI analysis caching with hash-based invalidation
+- [x] `build_order_optimization` table for storing optimized build sequences
+- [x] `quick_win_features` table for tracking low-dependency high-value features
+- [x] `circular_dependencies` table for cycle detection
+- [x] Add indexes for performance
+- [x] Test migration up and down
 
-### Frontend - Dependency Tools
-- [ ] Create `DependencyMapper.tsx` - Interactive dependency builder
-  - [ ] Drag-and-drop interface
-  - [ ] Visual connection lines
-  - [ ] Circular dependency warnings
-- [ ] Create `BuildOrderVisualizer.tsx` - Show optimal build sequence
-  - [ ] Timeline-style view (no dates, just order)
-  - [ ] Highlight critical path
-  - [ ] Show parallel-buildable features
-- [ ] Create `FoundationPicker.tsx` - Select foundational features
-- [ ] Create `VisibleFeatures.tsx` - Identify quick-win features
-- [ ] Add "Optimize for quick visibility" button
-- [ ] Add "Validate dependencies" button
+### Backend - Dependency Analyzer ✅
+**File**: `packages/ideate/src/dependency_analyzer.rs` (522 lines)
+- [x] AI-powered dependency detection using Claude
+- [x] Automatic classification (technical/logical/business)
+- [x] Dependency strength levels (required/recommended/optional)
+- [x] Analysis caching with hash-based invalidation
+- [x] CRUD operations for manual dependencies
+- [x] Integration with encrypted user API keys
 
-### Integration
-- [ ] Auto-suggest dependencies when features added
-- [ ] Real-time dependency graph updates
-- [ ] Export dependency graph as image
-- [ ] Validate PRD completeness
+### Backend - Build Optimizer ✅
+**File**: `packages/ideate/src/build_optimizer.rs` (600+ lines)
+- [x] Graph algorithms using petgraph library
+- [x] Topological sort for build order
+- [x] Circular dependency detection using DFS
+- [x] Critical path analysis
+- [x] Parallel work identification
+- [x] Three optimization strategies: fastest/balanced/safest
+- [x] Estimated time per phase calculation
+
+### Backend - API Endpoints ✅
+**File**: `packages/api/src/ideate_dependency_handlers.rs` (253 lines)
+- [x] GET `/api/ideate/{id}/features/dependencies` - Get all dependencies
+- [x] POST `/api/ideate/{id}/features/dependencies` - Create manual dependency
+- [x] DELETE `/api/ideate/{id}/features/dependencies/{dep_id}` - Delete dependency
+- [x] POST `/api/ideate/{id}/dependencies/analyze` - AI-powered dependency analysis
+- [x] POST `/api/ideate/{id}/dependencies/optimize` - Optimize build order with strategy selection
+- [x] GET `/api/ideate/{id}/dependencies/build-order` - Get current build order
+- [x] GET `/api/ideate/{id}/dependencies/circular` - Detect circular dependencies
+- [x] GET `/api/ideate/{id}/features/suggest-visible` - Suggest quick-win features
+- [x] Wire endpoints into API router (`packages/api/src/lib.rs`)
+
+### Frontend - Service Layer ✅
+**File**: `packages/dashboard/src/services/ideate.ts`
+- [x] TypeScript interfaces for all Phase 4 types (FeatureDependency, BuildOrderResult, etc.)
+- [x] 8 service methods matching API endpoints with proper error handling
+- [x] Type-safe request/response handling
+
+**File**: `packages/dashboard/src/hooks/useIdeate.ts`
+- [x] `useFeatureDependencies(sessionId)` - Fetch dependencies with 1min cache
+- [x] `useCreateFeatureDependency(sessionId)` - Create with cache invalidation
+- [x] `useDeleteFeatureDependency(sessionId)` - Delete with cache invalidation
+- [x] `useAnalyzeDependencies(sessionId)` - AI analysis mutation
+- [x] `useOptimizeBuildOrder(sessionId)` - Optimization mutation with strategy
+- [x] `useBuildOrder(sessionId)` - Fetch build order with 2min cache
+- [x] `useCircularDependencies(sessionId)` - Fetch circular deps with 1min cache
+- [x] `useQuickWins(sessionId)` - Fetch quick-win suggestions with 2min cache
+
+**File**: `packages/dashboard/src/lib/queryClient.ts`
+- [x] Query key factories for proper cache invalidation
+- [x] `ideateFeatureDependencies`, `ideateBuildOrder`, `ideateCircularDeps`, `ideateQuickWins`
+
+### Frontend - UI Components ✅
+**File**: `packages/dashboard/src/components/ideate/GuidedMode/sections/DependencyMapper.tsx` (199 lines)
+- [x] Interactive React Flow graph visualization
+- [x] Auto-layout nodes based on feature list
+- [x] Color-coded edges (blue=required, purple=recommended, gray=optional, red=circular)
+- [x] Animated edges for required dependencies
+- [x] Click-to-connect nodes for manual dependency creation
+- [x] Click edge to delete dependency
+- [x] AI analysis button with loading state
+- [x] Circular dependency highlighting
+- [x] Legend explaining edge colors
+
+**File**: `packages/dashboard/src/components/ideate/GuidedMode/sections/BuildOrderVisualizer.tsx` (159 lines)
+- [x] Timeline view with numbered phases
+- [x] Strategy selector (⚡ Fastest / 📊 Balanced / 🛡️ Safest)
+- [x] Parallel work groups visualization
+- [x] Critical path highlighting with star icons
+- [x] Estimated time per phase display
+- [x] Re-optimization with different strategies
+- [x] Optimization notes display
+- [x] Empty state with strategy explanation
+
+**File**: `packages/dashboard/src/components/ideate/GuidedMode/sections/FeaturePicker.tsx` (238 lines)
+- [x] Smart feature selection with dual lists (Foundation vs Visible)
+- [x] AI-suggested quick-win recommendations card with one-click apply
+- [x] Circular dependency warnings with severity and suggestions
+- [x] Color-coded badges (quick win = green, circular = red)
+- [x] Checkbox interface with hover states
+- [x] Unassigned features tracking
+- [x] Apply button to save selections
+
+**File**: `packages/dashboard/src/components/ideate/GuidedMode/sections/DependencyChainSection.tsx` (Enhanced - 113 lines)
+- [x] Three-tab interface (Feature Selection / Dependency Graph / Build Timeline)
+- [x] Integration of all Phase 4 components
+- [x] State management for foundation/visible/enhancement features
+- [x] Save button with loading state
+- [x] Empty state handling
+
+### Integration ✅
+- [x] All components integrated into Guided Mode flow
+- [x] Real-time dependency graph updates via React Query
+- [x] Cache invalidation strategy ensures consistency
+- [x] AI analysis with user API key integration
+- [x] Circular dependency warnings surface automatically
+- [x] Quick-win suggestions update based on dependency changes
 
 ---
 
