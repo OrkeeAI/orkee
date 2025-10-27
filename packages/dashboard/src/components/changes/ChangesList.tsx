@@ -6,6 +6,14 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { useChanges, useValidateChange, useArchiveChange } from '@/hooks/useChanges';
 import type { ChangeStatus } from '@/services/changes';
 
@@ -18,6 +26,7 @@ interface ChangesListProps {
 export function ChangesList({ projectId, onSelectChange, statusFilter: propStatusFilter }: ChangesListProps) {
   const [internalStatusFilter, setInternalStatusFilter] = useState<ChangeStatus | undefined>(undefined);
   const [selectedChangeId, setSelectedChangeId] = useState<string | null>(null);
+  const [changeToArchive, setChangeToArchive] = useState<string | null>(null);
 
   // Use prop status filter if provided, otherwise use internal state
   // Using useMemo prevents race conditions when propStatusFilter changes rapidly
@@ -35,9 +44,18 @@ export function ChangesList({ projectId, onSelectChange, statusFilter: propStatu
   };
 
   const handleArchive = (changeId: string) => {
-    if (confirm('Archive this change and apply deltas to specifications? This action cannot be undone.')) {
-      archiveMutation.mutate({ changeId, applySpecs: true });
+    setChangeToArchive(changeId);
+  };
+
+  const confirmArchive = () => {
+    if (changeToArchive) {
+      archiveMutation.mutate({ changeId: changeToArchive, applySpecs: true });
+      setChangeToArchive(null);
     }
+  };
+
+  const cancelArchive = () => {
+    setChangeToArchive(null);
   };
 
   const handleSelectChange = (changeId: string) => {
@@ -230,6 +248,25 @@ export function ChangesList({ projectId, onSelectChange, statusFilter: propStatu
           </Card>
         ))}
       </div>
+
+      <Dialog open={changeToArchive !== null} onOpenChange={(open) => !open && cancelArchive()}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Archive Change</DialogTitle>
+            <DialogDescription>
+              Archive this change and apply deltas to specifications? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={cancelArchive}>
+              Cancel
+            </Button>
+            <Button variant="default" onClick={confirmArchive}>
+              Archive
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
