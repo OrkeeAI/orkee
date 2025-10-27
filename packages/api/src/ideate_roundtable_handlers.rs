@@ -12,21 +12,17 @@ use axum::{
 };
 use futures::stream::{self, Stream};
 use ideate::{
-    CreateExpertPersonaInput, ExpertModerator, ExpertPersona, MessageRole, RoundtableEvent,
-    RoundtableManager, RoundtableStatistics, StartRoundtableRequest, SuggestExpertsRequest,
+    CreateExpertPersonaInput, ExpertModerator, RoundtableEvent,
+    RoundtableManager, StartRoundtableRequest, SuggestExpertsRequest,
     UserInterjectionInput,
 };
 use orkee_projects::DbState;
 use serde::{Deserialize, Serialize};
 use std::convert::Infallible;
 use std::time::Duration;
-use tokio_stream::StreamExt as _;
-use tracing::{debug, info, warn};
+use tracing::{info, warn};
 
 use super::response::{created_or_internal_error, ok_or_internal_error, ok_or_not_found};
-
-// TODO: Replace with proper user authentication
-const DEFAULT_USER_ID: &str = "default-user";
 
 // ============================================================================
 // REQUEST/RESPONSE TYPES
@@ -60,13 +56,6 @@ struct SuccessResponse<T> {
     data: T,
 }
 
-/// Error response
-#[derive(Serialize)]
-struct ErrorResponse {
-    success: bool,
-    error: String,
-}
-
 // ============================================================================
 // EXPERT PERSONA ENDPOINTS
 // ============================================================================
@@ -79,7 +68,7 @@ pub async fn list_experts(State(db): State<DbState>) -> impl IntoResponse {
 
     let result = manager.list_experts(true).await;
 
-    ok_or_internal_error(result)
+    ok_or_internal_error(result, "Failed to list expert personas")
 }
 
 /// POST /api/ideate/:session_id/experts - Create custom expert persona
@@ -93,63 +82,26 @@ pub async fn create_expert(
 
     let result = manager.create_expert(request).await;
 
-    created_or_internal_error(result)
+    created_or_internal_error(result, "Failed to create expert persona")
 }
 
 /// POST /api/ideate/:session_id/experts/suggest - Get AI-suggested experts
 pub async fn suggest_experts(
     State(db): State<DbState>,
-    Path(session_id): Path<String>,
+    Path(_session_id): Path<String>,
     Json(request): Json<SuggestExpertsRequest>,
 ) -> impl IntoResponse {
-    info!("Suggesting experts for session: {}", session_id);
+    info!("Suggesting experts for roundtable discussion");
 
-    // Get user's API key
-    let user = match db.user_storage.get_user(DEFAULT_USER_ID).await {
-        Ok(u) => u,
-        Err(e) => {
-            warn!("Failed to retrieve user: {}", e);
-            return Json(ErrorResponse {
-                success: false,
-                error: format!("User not found: {}", e),
-            })
-            .into_response();
-        }
-    };
-
-    if user.api_key.is_none() {
-        return Json(ErrorResponse {
-            success: false,
-            error: "API key not configured. Please set your API key in settings.".to_string(),
-        })
-        .into_response();
-    }
-
-    // Create AI service with user's API key
-    let ai_service = match AIService::new(
-        user.api_key.unwrap(),
-        db.system_storage.clone(),
-        db.ai_usage_logger.clone(),
-    )
-    .await
-    {
-        Ok(service) => service,
-        Err(e) => {
-            warn!("Failed to create AI service: {}", e);
-            return Json(ErrorResponse {
-                success: false,
-                error: format!("Failed to initialize AI service: {}", e),
-            })
-            .into_response();
-        }
-    };
+    // Create AI service
+    let ai_service = AIService::new();
 
     let manager = RoundtableManager::new(db.pool.clone());
     let moderator = ExpertModerator::new(manager, ai_service);
 
     let result = moderator.suggest_experts(&request).await;
 
-    ok_or_internal_error(result)
+    ok_or_internal_error(result, "Failed to suggest experts")
 }
 
 // ============================================================================
@@ -170,7 +122,7 @@ pub async fn create_roundtable(
         .create_roundtable(&session_id, request.topic, request.num_experts)
         .await;
 
-    created_or_internal_error(result)
+    created_or_internal_error(result, "Failed to create roundtable")
 }
 
 /// GET /api/ideate/:session_id/roundtables - List roundtables for session
@@ -184,7 +136,7 @@ pub async fn list_roundtables(
 
     let result = manager.list_roundtables_for_session(&session_id).await;
 
-    ok_or_internal_error(result)
+    ok_or_internal_error(result, "Failed to list roundtables")
 }
 
 /// GET /api/ideate/roundtable/:roundtable_id - Get roundtable details
@@ -196,7 +148,9 @@ pub async fn get_roundtable(
 
     let manager = RoundtableManager::new(db.pool.clone());
 
-    let result = manager.get_roundtable_with_participants(&roundtable_id).await;
+    let result = manager
+        .get_roundtable_with_participants(&roundtable_id)
+        .await;
 
     ok_or_not_found(result, "Roundtable not found")
 }
@@ -207,7 +161,11 @@ pub async fn add_participants(
     Path(roundtable_id): Path<String>,
     Json(request): Json<AddParticipantsRequest>,
 ) -> impl IntoResponse {
-    info!("Adding {} participants to roundtable: {}", request.expert_ids.len(), roundtable_id);
+    info!(
+        "Adding {} participants to roundtable: {}",
+        request.expert_ids.len(),
+        roundtable_id
+    );
 
     let manager = RoundtableManager::new(db.pool.clone());
 
@@ -215,7 +173,7 @@ pub async fn add_participants(
         .add_participants(&roundtable_id, request.expert_ids)
         .await;
 
-    created_or_internal_error(result)
+    created_or_internal_error(result, "Failed to add participants")
 }
 
 /// GET /api/ideate/roundtable/:roundtable_id/participants - Get participants
@@ -229,7 +187,7 @@ pub async fn get_participants(
 
     let result = manager.get_participants(&roundtable_id).await;
 
-    ok_or_internal_error(result)
+    ok_or_internal_error(result, "Operation failed")
 }
 
 // ============================================================================
@@ -244,45 +202,8 @@ pub async fn start_discussion(
 ) -> impl IntoResponse {
     info!("Starting discussion for roundtable: {}", roundtable_id);
 
-    // Get user's API key
-    let user = match db.user_storage.get_user(DEFAULT_USER_ID).await {
-        Ok(u) => u,
-        Err(e) => {
-            warn!("Failed to retrieve user: {}", e);
-            return Json(ErrorResponse {
-                success: false,
-                error: format!("User not found: {}", e),
-            })
-            .into_response();
-        }
-    };
-
-    if user.api_key.is_none() {
-        return Json(ErrorResponse {
-            success: false,
-            error: "API key not configured. Please set your API key in settings.".to_string(),
-        })
-        .into_response();
-    }
-
     // Create AI service
-    let ai_service = match AIService::new(
-        user.api_key.unwrap(),
-        db.system_storage.clone(),
-        db.ai_usage_logger.clone(),
-    )
-    .await
-    {
-        Ok(service) => service,
-        Err(e) => {
-            warn!("Failed to create AI service: {}", e);
-            return Json(ErrorResponse {
-                success: false,
-                error: format!("Failed to initialize AI service: {}", e),
-            })
-            .into_response();
-        }
-    };
+    let ai_service = AIService::new();
 
     let manager = RoundtableManager::new(db.pool.clone());
     let moderator = ExpertModerator::new(manager, ai_service);
@@ -292,7 +213,10 @@ pub async fn start_discussion(
     let topic = request.topic.clone();
     tokio::spawn(async move {
         if let Err(e) = moderator.run_discussion(&roundtable_id_clone, &topic).await {
-            warn!("Discussion error for roundtable {}: {}", roundtable_id_clone, e);
+            warn!(
+                "Discussion error for roundtable {}: {}",
+                roundtable_id_clone, e
+            );
         }
     });
 
@@ -315,11 +239,6 @@ pub async fn stream_discussion(
 
     let manager = RoundtableManager::new(db.pool.clone());
 
-    // Send initial connected event
-    let connected_event = RoundtableEvent::Connected {
-        roundtable_id: roundtable_id.clone(),
-    };
-
     // Create stream that polls for new messages
     let stream = stream::unfold(
         (manager, roundtable_id, 0i32),
@@ -338,7 +257,10 @@ pub async fn stream_discussion(
                         ))
                     } else {
                         // Send new messages
-                        let new_last_order = messages.last().map(|m| m.message_order).unwrap_or(last_order);
+                        let new_last_order = messages
+                            .last()
+                            .map(|m| m.message_order)
+                            .unwrap_or(last_order);
 
                         let events: Vec<_> = messages
                             .into_iter()
@@ -389,45 +311,8 @@ pub async fn send_interjection(
 ) -> impl IntoResponse {
     info!("Handling interjection for roundtable: {}", roundtable_id);
 
-    // Get user's API key
-    let user = match db.user_storage.get_user(DEFAULT_USER_ID).await {
-        Ok(u) => u,
-        Err(e) => {
-            warn!("Failed to retrieve user: {}", e);
-            return Json(ErrorResponse {
-                success: false,
-                error: format!("User not found: {}", e),
-            })
-            .into_response();
-        }
-    };
-
-    if user.api_key.is_none() {
-        return Json(ErrorResponse {
-            success: false,
-            error: "API key not configured. Please set your API key in settings.".to_string(),
-        })
-        .into_response();
-    }
-
     // Create AI service
-    let ai_service = match AIService::new(
-        user.api_key.unwrap(),
-        db.system_storage.clone(),
-        db.ai_usage_logger.clone(),
-    )
-    .await
-    {
-        Ok(service) => service,
-        Err(e) => {
-            warn!("Failed to create AI service: {}", e);
-            return Json(ErrorResponse {
-                success: false,
-                error: format!("Failed to initialize AI service: {}", e),
-            })
-            .into_response();
-        }
-    };
+    let ai_service = AIService::new();
 
     let manager = RoundtableManager::new(db.pool.clone());
     let moderator = ExpertModerator::new(manager, ai_service);
@@ -436,7 +321,7 @@ pub async fn send_interjection(
         .handle_interjection(&roundtable_id, &request.message)
         .await;
 
-    ok_or_internal_error(result)
+    ok_or_internal_error(result, "Operation failed")
 }
 
 /// GET /api/ideate/roundtable/:roundtable_id/messages - Get all messages
@@ -450,7 +335,7 @@ pub async fn get_messages(
 
     let result = manager.get_messages(&roundtable_id).await;
 
-    ok_or_internal_error(result)
+    ok_or_internal_error(result, "Operation failed")
 }
 
 // ============================================================================
@@ -465,45 +350,8 @@ pub async fn extract_insights(
 ) -> impl IntoResponse {
     info!("Extracting insights for roundtable: {}", roundtable_id);
 
-    // Get user's API key
-    let user = match db.user_storage.get_user(DEFAULT_USER_ID).await {
-        Ok(u) => u,
-        Err(e) => {
-            warn!("Failed to retrieve user: {}", e);
-            return Json(ErrorResponse {
-                success: false,
-                error: format!("User not found: {}", e),
-            })
-            .into_response();
-        }
-    };
-
-    if user.api_key.is_none() {
-        return Json(ErrorResponse {
-            success: false,
-            error: "API key not configured. Please set your API key in settings.".to_string(),
-        })
-        .into_response();
-    }
-
     // Create AI service
-    let ai_service = match AIService::new(
-        user.api_key.unwrap(),
-        db.system_storage.clone(),
-        db.ai_usage_logger.clone(),
-    )
-    .await
-    {
-        Ok(service) => service,
-        Err(e) => {
-            warn!("Failed to create AI service: {}", e);
-            return Json(ErrorResponse {
-                success: false,
-                error: format!("Failed to initialize AI service: {}", e),
-            })
-            .into_response();
-        }
-    };
+    let ai_service = AIService::new();
 
     let manager = RoundtableManager::new(db.pool.clone());
     let moderator = ExpertModerator::new(manager, ai_service);
@@ -512,7 +360,7 @@ pub async fn extract_insights(
         .extract_insights(&roundtable_id, request.categories)
         .await;
 
-    ok_or_internal_error(result)
+    ok_or_internal_error(result, "Failed to extract insights")
 }
 
 /// GET /api/ideate/roundtable/:roundtable_id/insights - Get insights
@@ -526,7 +374,7 @@ pub async fn get_insights(
 
     let result = manager.get_insights_by_category(&roundtable_id).await;
 
-    ok_or_internal_error(result)
+    ok_or_internal_error(result, "Operation failed")
 }
 
 // ============================================================================
@@ -544,5 +392,5 @@ pub async fn get_statistics(
 
     let result = manager.get_statistics(&roundtable_id).await;
 
-    ok_or_internal_error(result)
+    ok_or_internal_error(result, "Operation failed")
 }
