@@ -4,11 +4,14 @@
 pub mod build_optimizer;
 pub mod dependency_analyzer;
 pub mod error;
+pub mod expert_moderator;
 pub mod manager;
 pub mod prd_generator;
 pub mod prompts;
 pub mod research_analyzer;
 pub mod research_prompts;
+pub mod roundtable;
+pub mod roundtable_manager;
 pub mod types;
 
 pub use build_optimizer::{
@@ -20,11 +23,20 @@ pub use dependency_analyzer::{
     DependencyType, FeatureDependency,
 };
 pub use error::{IdeateError, Result};
+pub use expert_moderator::ExpertModerator;
 pub use manager::IdeateManager;
 pub use prd_generator::PRDGenerator;
 pub use research_analyzer::{
     GapAnalysis, Lesson, Opportunity, ResearchAnalyzer, ResearchSynthesis, UIPattern,
 };
+pub use roundtable::{
+    CreateExpertPersonaInput, ExpertPersona, ExpertSuggestion, ExtractInsightsRequest,
+    ExtractInsightsResponse, InsightPriority, InsightsByCategory, MessageMetadata, MessageRole,
+    RoundtableEvent, RoundtableInsight, RoundtableMessage, RoundtableParticipant, RoundtableSession,
+    RoundtableStatistics, RoundtableStatus, RoundtableWithParticipants, StartRoundtableRequest,
+    SuggestExpertsRequest, SuggestExpertsResponse, UserInterjectionInput, UserInterjectionResponse,
+};
+pub use roundtable_manager::RoundtableManager;
 pub use types::*;
 
 /// Re-export commonly used types

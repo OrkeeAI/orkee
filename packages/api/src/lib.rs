@@ -21,6 +21,7 @@ pub mod handlers;
 pub mod ideate_dependency_handlers;
 pub mod ideate_handlers;
 pub mod ideate_research_handlers;
+pub mod ideate_roundtable_handlers;
 pub mod prd_handlers;
 pub mod response;
 pub mod security_handlers;
@@ -357,6 +358,72 @@ pub fn create_ideate_router() -> Router<DbState> {
         .route(
             "/ideate/{session_id}/research/synthesize",
             post(ideate_research_handlers::synthesize_research),
+        )
+        // Phase 6: Comprehensive Mode - Expert Roundtable routes
+        // Expert management
+        .route(
+            "/ideate/{session_id}/experts",
+            get(ideate_roundtable_handlers::list_experts),
+        )
+        .route(
+            "/ideate/{session_id}/experts",
+            post(ideate_roundtable_handlers::create_expert),
+        )
+        .route(
+            "/ideate/{session_id}/experts/suggest",
+            post(ideate_roundtable_handlers::suggest_experts),
+        )
+        // Roundtable session management
+        .route(
+            "/ideate/{session_id}/roundtable",
+            post(ideate_roundtable_handlers::create_roundtable),
+        )
+        .route(
+            "/ideate/{session_id}/roundtables",
+            get(ideate_roundtable_handlers::list_roundtables),
+        )
+        .route(
+            "/ideate/roundtable/{roundtable_id}",
+            get(ideate_roundtable_handlers::get_roundtable),
+        )
+        .route(
+            "/ideate/roundtable/{roundtable_id}/participants",
+            post(ideate_roundtable_handlers::add_participants),
+        )
+        .route(
+            "/ideate/roundtable/{roundtable_id}/participants",
+            get(ideate_roundtable_handlers::get_participants),
+        )
+        // Discussion operations
+        .route(
+            "/ideate/roundtable/{roundtable_id}/start",
+            post(ideate_roundtable_handlers::start_discussion),
+        )
+        .route(
+            "/ideate/roundtable/{roundtable_id}/stream",
+            get(ideate_roundtable_handlers::stream_discussion),
+        )
+        .route(
+            "/ideate/roundtable/{roundtable_id}/interjection",
+            post(ideate_roundtable_handlers::send_interjection),
+        )
+        .route(
+            "/ideate/roundtable/{roundtable_id}/messages",
+            get(ideate_roundtable_handlers::get_messages),
+        )
+        // Insight extraction
+        .route(
+            "/ideate/roundtable/{roundtable_id}/insights/extract",
+            post(ideate_roundtable_handlers::extract_insights),
+        )
+        .route(
+            "/ideate/roundtable/{roundtable_id}/insights",
+            get(ideate_roundtable_handlers::get_insights),
+        )
+        // Statistics
+        .route(
+            "/ideate/roundtable/{roundtable_id}/statistics",
+            get(ideate_roundtable_handlers::get_statistics),
         )
 }
 

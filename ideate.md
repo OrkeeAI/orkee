@@ -509,27 +509,107 @@ Add a flexible PRD generation system supporting three modes:
 
 ---
 
-## Phase 6: Comprehensive Mode - Expert Roundtable (Week 6)
+## Phase 6: Comprehensive Mode - Expert Roundtable (Week 6) ⏳ IN PROGRESS
 
-### Backend - Roundtable System
-- [ ] POST `/api/ideate/{id}/roundtable/start` - Start discussion
-- [ ] GET `/api/ideate/{id}/roundtable/stream` - SSE stream endpoint
-- [ ] POST `/api/ideate/{id}/roundtable/question` - User interjection
-- [ ] POST `/api/ideate/{id}/experts/suggest` - AI suggest experts
-- [ ] Create expert persona system
-- [ ] Implement streaming chat with multiple experts
-- [ ] Add moderator AI to orchestrate discussion
-- [ ] Handle user interjections mid-discussion
+### Database Schema ✅ COMPLETED
+- [x] Create migration file `006_expert_roundtable_system.sql` (~350 lines)
+- [x] `expert_personas` table - 10 predefined AI experts + custom support
+- [x] `roundtable_sessions` table - Discussion session management
+- [x] `roundtable_participants` table - Many-to-many expert-session relationship
+- [x] `roundtable_messages` table - Chronological message stream with ordering
+- [x] `expert_suggestions` table - AI-generated expert recommendations
+- [x] `roundtable_insights` table - Extracted key insights with priority
+- [x] Add indexes for performance
+- [x] Create down migration for rollback
+- [x] Test migration structure
 
-### Frontend - Roundtable UI
-- [ ] Create `ComprehensiveMode/ExpertRoundtable/`
-- [ ] Create `ExpertSelector.tsx` - Choose/create experts
-- [ ] Create `LiveDiscussion.tsx` - Real-time chat interface
-- [ ] Create `ExpertCard.tsx` - Expert profile display
-- [ ] Create `InsightsExtractor.tsx` - Extract key insights
-- [ ] Add streaming message display
-- [ ] Add interjection input
-- [ ] Add "End discussion" functionality
+### Backend - Type System & Services ✅ COMPLETED
+**File**: `packages/ideate/src/roundtable.rs` (~445 lines)
+- [x] Enums: RoundtableStatus, MessageRole, InsightPriority
+- [x] 15+ structs with full serialization support
+- [x] Helper methods for status checks and data parsing
+- [x] SSE event types for streaming (RoundtableEvent)
+- [x] Unit tests for type serialization
+
+**File**: `packages/ideate/src/roundtable_manager.rs` (~750 lines)
+- [x] Expert persona CRUD operations (list, get, create, delete)
+- [x] Roundtable session management (create, start, complete, cancel)
+- [x] Participant management (add, get with full expert details)
+- [x] Message operations (add, get, get_after for streaming)
+- [x] Insight operations (add, get, get_by_category)
+- [x] Statistics aggregation (message/expert/interjection/insight counts)
+
+**File**: `packages/ideate/src/expert_moderator.rs` (~500 lines)
+- [x] Discussion orchestration with round-robin expert selection
+- [x] AI-powered expert response generation
+- [x] User interjection handling with acknowledgment
+- [x] Expert suggestion generation based on project context
+- [x] Insight extraction from discussion history
+- [x] Built-in AI system prompts for all operations
+- [x] Natural discussion termination detection
+
+### Backend - API Endpoints ✅ COMPLETED
+**File**: `packages/api/src/ideate_roundtable_handlers.rs` (~650 lines)
+
+**Expert Management**:
+- [x] GET `/api/ideate/{session_id}/experts` - List all expert personas
+- [x] POST `/api/ideate/{session_id}/experts` - Create custom expert
+- [x] POST `/api/ideate/{session_id}/experts/suggest` - AI suggest experts
+
+**Roundtable Session Management**:
+- [x] POST `/api/ideate/{session_id}/roundtable` - Create roundtable
+- [x] GET `/api/ideate/{session_id}/roundtables` - List roundtables
+- [x] GET `/api/ideate/roundtable/{roundtable_id}` - Get roundtable details
+- [x] POST `/api/ideate/roundtable/{roundtable_id}/participants` - Add participants
+- [x] GET `/api/ideate/roundtable/{roundtable_id}/participants` - Get participants
+
+**Discussion Operations**:
+- [x] POST `/api/ideate/roundtable/{roundtable_id}/start` - Start discussion (async)
+- [x] GET `/api/ideate/roundtable/{roundtable_id}/stream` - SSE stream endpoint
+- [x] POST `/api/ideate/roundtable/{roundtable_id}/interjection` - User interjection
+- [x] GET `/api/ideate/roundtable/{roundtable_id}/messages` - Get all messages
+
+**Insight Extraction**:
+- [x] POST `/api/ideate/roundtable/{roundtable_id}/insights/extract` - Extract insights
+- [x] GET `/api/ideate/roundtable/{roundtable_id}/insights` - Get insights by category
+
+**Statistics**:
+- [x] GET `/api/ideate/roundtable/{roundtable_id}/statistics` - Get session statistics
+
+**Router Integration**:
+- [x] Wire all endpoints into `packages/api/src/lib.rs`
+
+### Backend Summary ✅
+- **Total Code**: ~2,345 lines of production Rust code
+- **Files Created**: 4 new files
+- **Files Modified**: 2 existing files
+- **API Endpoints**: 14 REST endpoints + 1 SSE streaming endpoint
+- **Database Tables**: 6 new tables with proper indexes
+
+### Frontend - Service Layer & Hooks
+- [ ] Extend `packages/dashboard/src/services/ideate.ts` with roundtable methods
+- [ ] Add React Query hooks to `packages/dashboard/src/hooks/useIdeate.ts`
+- [ ] Implement SSE hook for real-time message streaming
+- [ ] Add query key factories to `packages/dashboard/src/lib/queryClient.ts`
+
+### Frontend - UI Components
+**Directory**: `packages/dashboard/src/components/ideate/ComprehensiveMode/ExpertRoundtable/`
+- [ ] Create `ExpertCard.tsx` - Expert profile display (~120 lines)
+- [ ] Create `ExpertSelector.tsx` - Choose/create experts (~250 lines)
+- [ ] Create `LiveDiscussionView.tsx` - Real-time chat interface (~400 lines)
+- [ ] Create `UserInterjectionInput.tsx` - User participation (~180 lines)
+- [ ] Create `RoundtableStatus.tsx` - Discussion status display (~100 lines)
+- [ ] Create `InsightsExtractor.tsx` - Display extracted insights (~320 lines)
+- [ ] Create `ExpertRoundtableFlow.tsx` - Main orchestrator (~300 lines)
+- [ ] Create `index.ts` - Barrel export file
+
+### Integration
+- [ ] Integrate ExpertRoundtableFlow into ComprehensiveModeFlow.tsx
+- [ ] Add roundtable tab/section to comprehensive mode
+- [ ] Test end-to-end discussion flow
+- [ ] Test SSE streaming with network interruptions
+- [ ] Test user interjections during discussion
+- [ ] Test insight extraction and display
 
 ---
 
