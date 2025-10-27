@@ -1,24 +1,41 @@
 // ABOUTME: OpenSpec changes list view displaying all change proposals with status and validation
 // ABOUTME: Integrates with change validation and archiving functionality
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { FileEdit, CheckCircle2, XCircle, Clock, Archive, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { useChanges, useValidateChange, useArchiveChange } from '@/hooks/useChanges';
 import type { ChangeStatus } from '@/services/changes';
 
 interface ChangesListProps {
   projectId: string;
   onSelectChange?: (changeId: string) => void;
+  statusFilter?: ChangeStatus;
 }
 
-export function ChangesList({ projectId, onSelectChange }: ChangesListProps) {
-  const [statusFilter, setStatusFilter] = useState<ChangeStatus | undefined>(undefined);
+export function ChangesList({ projectId, onSelectChange, statusFilter: propStatusFilter }: ChangesListProps) {
+  const [internalStatusFilter, setInternalStatusFilter] = useState<ChangeStatus | undefined>(undefined);
   const [selectedChangeId, setSelectedChangeId] = useState<string | null>(null);
+  const [changeToArchive, setChangeToArchive] = useState<string | null>(null);
 
-  const { data: changes, isLoading, error } = useChanges(projectId, statusFilter);
+  // Use prop status filter if provided, otherwise use internal state
+  // Using useMemo prevents race conditions when propStatusFilter changes rapidly
+  const activeStatusFilter = useMemo(
+    () => propStatusFilter ?? internalStatusFilter,
+    [propStatusFilter, internalStatusFilter]
+  );
+
+  const { data: changes, isLoading, error } = useChanges(projectId, activeStatusFilter);
   const validateMutation = useValidateChange(projectId);
   const archiveMutation = useArchiveChange(projectId);
 
@@ -27,9 +44,18 @@ export function ChangesList({ projectId, onSelectChange }: ChangesListProps) {
   };
 
   const handleArchive = (changeId: string) => {
-    if (confirm('Archive this change and apply deltas to specifications? This action cannot be undone.')) {
-      archiveMutation.mutate({ changeId, applySpecs: true });
+    setChangeToArchive(changeId);
+  };
+
+  const confirmArchive = () => {
+    if (changeToArchive) {
+      archiveMutation.mutate({ changeId: changeToArchive, applySpecs: true });
+      setChangeToArchive(null);
     }
+  };
+
+  const cancelArchive = () => {
+    setChangeToArchive(null);
   };
 
   const handleSelectChange = (changeId: string) => {
@@ -136,14 +162,16 @@ export function ChangesList({ projectId, onSelectChange }: ChangesListProps) {
         <div className="flex items-center gap-2">
           <select
             className="border rounded px-3 py-1 text-sm"
-            value={statusFilter || ''}
-            onChange={(e) => setStatusFilter(e.target.value as ChangeStatus || undefined)}
+            value={activeStatusFilter || ''}
+            onChange={(e) => setInternalStatusFilter(e.target.value as ChangeStatus || undefined)}
+            disabled={!!propStatusFilter}
           >
             <option value="">All Statuses</option>
-            <option value="proposal">Proposal</option>
-            <option value="in_review">In Review</option>
+            <option value="draft">Draft</option>
+            <option value="review">Review</option>
             <option value="approved">Approved</option>
-            <option value="in_progress">In Progress</option>
+            <option value="implementing">Implementing</option>
+            <option value="completed">Completed</option>
             <option value="archived">Archived</option>
           </select>
         </div>
@@ -220,6 +248,25 @@ export function ChangesList({ projectId, onSelectChange }: ChangesListProps) {
           </Card>
         ))}
       </div>
+
+      <Dialog open={changeToArchive !== null} onOpenChange={(open) => !open && cancelArchive()}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Archive Change</DialogTitle>
+            <DialogDescription>
+              Archive this change and apply deltas to specifications? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={cancelArchive}>
+              Cancel
+            </Button>
+            <Button variant="default" onClick={confirmArchive}>
+              Archive
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

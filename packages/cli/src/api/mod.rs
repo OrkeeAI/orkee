@@ -319,7 +319,7 @@ pub async fn create_router_with_options(
             api::create_specs_router().with_state(db_state.clone()),
         )
         .nest(
-            "/api",
+            "/api/projects",
             api::create_changes_router().with_state(db_state.clone()),
         )
         .nest(

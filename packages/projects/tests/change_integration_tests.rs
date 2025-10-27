@@ -114,8 +114,19 @@ async fn test_update_change_status() {
     let create_body: serde_json::Value = create_response.json().await.unwrap();
     let change_id = create_body["data"]["id"].as_str().unwrap();
 
-    // Update status
-    let response = put_json(
+    // First transition: Draft -> Review
+    let review_response = put_json(
+        &ctx.base_url,
+        &format!("/{}/changes/{}/status", project_id, change_id),
+        &json!({
+            "status": "review"
+        }),
+    )
+    .await;
+    assert_eq!(review_response.status(), 200);
+
+    // Second transition: Review -> Approved
+    let approved_response = put_json(
         &ctx.base_url,
         &format!("/{}/changes/{}/status", project_id, change_id),
         &json!({
@@ -124,13 +135,12 @@ async fn test_update_change_status() {
         }),
     )
     .await;
+    assert_eq!(approved_response.status(), 200);
 
-    assert_eq!(response.status(), 200);
-
-    let body: serde_json::Value = response.json().await.unwrap();
+    let body: serde_json::Value = approved_response.json().await.unwrap();
     assert_eq!(body["success"], true);
 
-    // Verify the update
+    // Verify the final status
     let get_response = get(
         &ctx.base_url,
         &format!("/{}/changes/{}", project_id, change_id),

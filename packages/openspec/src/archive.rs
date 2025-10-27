@@ -1,10 +1,7 @@
 // ABOUTME: OpenSpec archive workflow for completed changes
 // ABOUTME: Validates and applies deltas to create or update capabilities
 
-use super::db::{
-    create_capability, create_requirement, create_scenario, get_capability, get_deltas_by_change,
-    get_spec_change, DbError,
-};
+use super::db::{get_deltas_by_change, get_spec_change, DbError};
 use super::markdown_validator::OpenSpecMarkdownValidator;
 use super::parser::{parse_spec_markdown, ParseError};
 use super::types::{ChangeStatus, DeltaType, ParsedCapability, SpecChange, SpecDelta};
@@ -35,11 +32,12 @@ pub enum ArchiveError {
 pub type ArchiveResult<T> = Result<T, ArchiveError>;
 
 /// Archive a completed change and optionally apply its deltas
+/// Returns the number of capabilities created (only counts ADDED deltas)
 pub async fn archive_change(
     pool: &Pool<Sqlite>,
     change_id: &str,
     apply_specs: bool,
-) -> ArchiveResult<()> {
+) -> ArchiveResult<usize> {
     // Get change
     let change = get_spec_change(pool, change_id).await?;
 
@@ -69,10 +67,19 @@ pub async fn archive_change(
         return Err(ArchiveError::ValidationFailed(all_errors.join("; ")));
     }
 
-    // Apply deltas if requested
+    // Wrap the entire archive operation (delta application + status update) in a transaction
+    // to ensure atomicity. If any part fails, all changes are rolled back.
+    let mut tx = pool.begin().await?;
+
+    // Apply deltas if requested and count capabilities created
+    let mut capabilities_created = 0;
     if apply_specs {
         for delta in deltas {
-            apply_delta(pool, &change, &delta).await?;
+            // Only ADDED deltas create new capabilities
+            if delta.delta_type == DeltaType::Added {
+                capabilities_created += 1;
+            }
+            apply_delta_tx(&mut tx, &change, &delta).await?;
         }
     }
 
@@ -84,15 +91,18 @@ pub async fn archive_change(
     )
     .bind(Utc::now())
     .bind(change_id)
-    .execute(pool)
+    .execute(&mut *tx)
     .await?;
 
-    Ok(())
+    // Commit transaction - all operations succeed or all fail
+    tx.commit().await?;
+
+    Ok(capabilities_created)
 }
 
-/// Apply a delta to create or update a capability
-async fn apply_delta(
-    pool: &Pool<Sqlite>,
+/// Apply a delta to create or update a capability using a transaction
+async fn apply_delta_tx(
+    tx: &mut sqlx::Transaction<'_, Sqlite>,
     change: &SpecChange,
     delta: &SpecDelta,
 ) -> ArchiveResult<()> {
@@ -101,75 +111,79 @@ async fn apply_delta(
             // Parse delta markdown to extract requirements
             let parsed = parse_capability_from_delta(&delta.delta_markdown)?;
 
-            // Create new capability
-            let capability = create_capability(
-                pool,
-                &change.project_id,
-                change.prd_id.as_deref(),
-                &delta.capability_name,
-                Some(&parsed.purpose),
-                &delta.delta_markdown,
-                None,
-            )
-            .await?;
+            // Create new capability (inline to use transaction)
+            let capability_id = orkee_core::generate_project_id();
+            let now = Utc::now();
 
-            // Mark as OpenSpec compliant and associate with change
             sqlx::query(
-                "UPDATE spec_capabilities
-                 SET is_openspec_compliant = TRUE, change_id = ?
-                 WHERE id = ?",
+                "INSERT INTO spec_capabilities
+                 (id, project_id, prd_id, name, purpose_markdown, spec_markdown, design_markdown,
+                  requirement_count, version, status, change_id, is_openspec_compliant, created_at, updated_at)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, 'active', ?, TRUE, ?, ?)",
             )
-            .bind(&change.id)
-            .bind(&capability.id)
-            .execute(pool)
+            .bind(&capability_id)
+            .bind(&change.project_id)
+            .bind(change.prd_id.as_deref())
+            .bind(&delta.capability_name)
+            .bind(Some(&parsed.purpose))
+            .bind(&delta.delta_markdown)
+            .bind(None::<String>) // design_markdown
+            .bind(parsed.requirements.len() as i32) // requirement_count
+            .bind(&change.id) // change_id
+            .bind(now)
+            .bind(now)
+            .execute(&mut **tx)
             .await?;
 
-            // Create requirements and scenarios
+            // Create requirements and scenarios (inline to use transaction)
             for (req_idx, req) in parsed.requirements.iter().enumerate() {
-                let req_db = create_requirement(
-                    pool,
-                    &capability.id,
-                    &req.name,
-                    &req.description,
-                    req_idx as i32,
+                let req_id = orkee_core::generate_project_id();
+
+                sqlx::query(
+                    "INSERT INTO spec_requirements (id, capability_id, name, content_markdown, position, created_at, updated_at)
+                     VALUES (?, ?, ?, ?, ?, ?, ?)",
                 )
+                .bind(&req_id)
+                .bind(&capability_id)
+                .bind(&req.name)
+                .bind(&req.description)
+                .bind(req_idx as i32)
+                .bind(now)
+                .bind(now)
+                .execute(&mut **tx)
                 .await?;
 
+                // Create scenarios for this requirement
                 for (scenario_idx, scenario) in req.scenarios.iter().enumerate() {
-                    create_scenario(
-                        pool,
-                        &req_db.id,
-                        &scenario.name,
-                        &scenario.when,
-                        &scenario.then,
-                        if scenario.and.is_empty() {
-                            None
-                        } else {
-                            Some(scenario.and.clone())
-                        },
-                        scenario_idx as i32,
+                    let scenario_id = orkee_core::generate_project_id();
+                    let and_json = if scenario.and.is_empty() {
+                        None
+                    } else {
+                        Some(serde_json::to_string(&scenario.and).unwrap_or_default())
+                    };
+
+                    sqlx::query(
+                        "INSERT INTO spec_scenarios (id, requirement_id, name, when_clause, then_clause, and_clauses, position, created_at)
+                         VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
                     )
+                    .bind(&scenario_id)
+                    .bind(&req_id)
+                    .bind(&scenario.name)
+                    .bind(&scenario.when)
+                    .bind(&scenario.then)
+                    .bind(and_json)
+                    .bind(scenario_idx as i32)
+                    .bind(now)
+                    .execute(&mut **tx)
                     .await?;
                 }
             }
-
-            // Update requirement count
-            let req_count = parsed.requirements.len() as i32;
-            sqlx::query("UPDATE spec_capabilities SET requirement_count = ? WHERE id = ?")
-                .bind(req_count)
-                .bind(&capability.id)
-                .execute(pool)
-                .await?;
         }
 
         DeltaType::Modified => {
             // Update existing capability
             if let Some(cap_id) = &delta.capability_id {
-                // Verify capability exists
-                let _existing = get_capability(pool, cap_id).await?;
-
-                // Wrap the destructive operations in a transaction for atomic update
-                let mut tx = pool.begin().await?;
+                let now = Utc::now();
 
                 // Update the spec markdown
                 sqlx::query(
@@ -178,10 +192,10 @@ async fn apply_delta(
                      WHERE id = ?",
                 )
                 .bind(&delta.delta_markdown)
-                .bind(Utc::now())
+                .bind(now)
                 .bind(&change.id)
                 .bind(cap_id)
-                .execute(&mut *tx)
+                .execute(&mut **tx)
                 .await?;
 
                 // Parse to get updated requirements
@@ -191,13 +205,12 @@ async fn apply_delta(
                 // This is safe because we're in a transaction - if creation fails, delete rolls back
                 sqlx::query("DELETE FROM spec_requirements WHERE capability_id = ?")
                     .bind(cap_id)
-                    .execute(&mut *tx)
+                    .execute(&mut **tx)
                     .await?;
 
-                // Create new requirements and scenarios (inline to use transaction)
+                // Create new requirements and scenarios
                 for (req_idx, req) in parsed.requirements.iter().enumerate() {
                     let req_id = orkee_core::generate_project_id();
-                    let now = Utc::now();
 
                     // Insert requirement
                     sqlx::query(
@@ -211,7 +224,7 @@ async fn apply_delta(
                     .bind(req_idx as i32)
                     .bind(now)
                     .bind(now)
-                    .execute(&mut *tx)
+                    .execute(&mut **tx)
                     .await?;
 
                     // Insert scenarios for this requirement
@@ -235,7 +248,7 @@ async fn apply_delta(
                         .bind(and_json)
                         .bind(scenario_idx as i32)
                         .bind(now)
-                        .execute(&mut *tx)
+                        .execute(&mut **tx)
                         .await?;
                     }
                 }
@@ -245,11 +258,8 @@ async fn apply_delta(
                 sqlx::query("UPDATE spec_capabilities SET requirement_count = ? WHERE id = ?")
                     .bind(req_count)
                     .bind(cap_id)
-                    .execute(&mut *tx)
+                    .execute(&mut **tx)
                     .await?;
-
-                // Commit transaction - all operations succeed or all fail
-                tx.commit().await?;
             } else {
                 return Err(ArchiveError::InvalidDelta(format!(
                     "Modified delta for '{}' missing capability_id",
@@ -269,7 +279,7 @@ async fn apply_delta(
                 .bind(Utc::now())
                 .bind(&change.id)
                 .bind(cap_id)
-                .execute(pool)
+                .execute(&mut **tx)
                 .await?;
             } else {
                 return Err(ArchiveError::InvalidDelta(format!(
@@ -469,6 +479,11 @@ The system SHALL provide secure user authentication.
         // Archive with apply_specs = true
         let result = archive_change(&pool, &change.id, true).await;
         assert!(result.is_ok());
+        let capabilities_created = result.unwrap();
+        assert_eq!(
+            capabilities_created, 1,
+            "Should create 1 capability for ADDED delta"
+        );
 
         // Verify change is archived
         let updated_change = get_spec_change(&pool, &change.id).await.unwrap();

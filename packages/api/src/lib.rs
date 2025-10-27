@@ -199,6 +199,14 @@ pub fn create_changes_router() -> Router<DbState> {
             put(change_handlers::update_change_status),
         )
         .route(
+            "/{project_id}/changes/{change_id}/validate",
+            get(change_handlers::validate_change),
+        )
+        .route(
+            "/{project_id}/changes/{change_id}/archive",
+            post(change_handlers::archive_change),
+        )
+        .route(
             "/{project_id}/changes/{change_id}/deltas",
             get(change_handlers::get_change_deltas),
         )

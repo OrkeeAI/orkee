@@ -236,118 +236,24 @@ The desktop app is designed to run in the background:
 
 ## OpenSpec Integration
 
-Orkee includes a comprehensive OpenSpec implementation for spec-driven development, providing end-to-end workflows from Product Requirements Documents (PRDs) to validated task execution.
-
-### Current Status
-
-✅ **Core implementation complete** - All major features implemented and ready for production use:
-- Database schema with 9 tables for PRDs, specs, requirements, scenarios, and changes
-- 46 Rust unit tests passing across parser, validator, and sync modules
-- 28 REST API endpoints for full CRUD operations
-- 11 frontend components for spec management
-- Complete AI integration with cost tracking
-
-### Architecture Overview
+Orkee includes comprehensive OpenSpec support for spec-driven development with a 5-tab workflow:
 
 ```
-PRD (Product Requirements Document)
-    ↓ AI Analysis
-Spec Capabilities (functional areas)
-    ↓ Break down
-Requirements & Scenarios (WHEN/THEN)
-    ↓ Generate
-Tasks (implementation items)
-    ↓ Manual additions
-Orphan Tasks → Suggest Specs
-    ↓ Sync back
-Updated PRD (regenerated)
+📄 PRDs → 📝 Changes → ✅ Specs → 📦 Archive → 📊 Coverage
 ```
 
-### Database Schema
+**Key Features:**
+- 🔄 **Change Management** - Proposal-based workflow with approval (Draft → Review → Approved → Implementing → Completed → Archived)
+- 📝 **Delta Operations** - Add, modify, remove, or rename capabilities with structured proposals
+- ✅ **Task Integration** - Link tasks to requirements with WHEN/THEN scenario validation
+- 🤖 **AI-Powered** - PRD analysis, task generation, spec suggestions, and validation
+- 📊 **Cost Tracking** - Monitor AI usage with detailed analytics
+- 💾 **SQLite-Based** - 9 tables storing PRDs, specs, requirements, scenarios, and change history
 
-**9 Tables** storing all spec-related data in SQLite:
-
-1. **prds** - Product Requirements Documents with versioning
-2. **spec_capabilities** - High-level functional capabilities (equivalent to spec folders)
-3. **spec_requirements** - Individual requirements within capabilities
-4. **spec_scenarios** - WHEN/THEN/AND test scenarios for requirements
-5. **spec_changes** - Change proposals with approval workflow
-6. **spec_deltas** - Capability changes (added/modified/removed)
-7. **task_spec_links** - Links between tasks and spec requirements
-8. **prd_spec_sync_history** - Audit trail for all sync operations
-9. **ai_usage_logs** - AI cost tracking and usage monitoring
-
-### API Endpoints
-
-**28 REST endpoints** across 5 categories:
-
-- **PRD Management** (6 endpoints) - Upload, list, update, delete, analyze, sync
-- **Spec/Capability Management** (7 endpoints) - CRUD operations, validation, requirements
-- **Change Management** (6 endpoints) - Change proposals, deltas, status updates
-- **Task-Spec Integration** (6 endpoints) - Link tasks, validate, generate, find orphans
-- **AI Proxy** (5 endpoints) - AI-powered analysis, generation, and validation
-
-### Frontend Components
-
-**11 Components** for complete spec management UI:
-
-1. **PRDUploadDialog** - 3-tab interface for upload, preview, and AI analysis
-2. **SpecBuilderWizard** - 4-step wizard for creating specs (Mode → Capability → Requirements → Validation)
-3. **TaskSpecLinker** - Search and link tasks to spec requirements
-4. **SyncDashboard** - 3 tabs for orphan tasks, PRD sync status, and spec overview
-5. **TaskSpecIndicator** - Reusable badge showing spec link status on tasks
-6. **SpecDetailsView** - Comprehensive spec viewer with requirements and scenarios
-7. **ChangeProposalForm** - 3-tab markdown editor for proposals, tasks, and design
-8. **ValidationResultsPanel** - Display task validation results against scenarios
-9. **SpecDiffViewer** - Side-by-side version comparison
-10. **ScenarioTestRunner** - Test task implementations against WHEN/THEN/AND scenarios
-11. **CostDashboard** - AI usage tracking with cost monitoring
-
-### Key Workflows
-
-#### PRD → Spec → Task Flow
-1. Upload PRD document (markdown format)
-2. AI analyzes and extracts capabilities
-3. Breaks down into requirements with WHEN/THEN scenarios
-4. Generates linked tasks from requirements
-5. Tasks validated against scenarios
-6. Requirements marked complete when tasks finish
-
-#### Task → Spec → PRD Flow
-1. Developer manually creates task
-2. System detects orphan task (no spec link)
-3. AI suggests spec requirement or new capability
-4. Creates change proposal for review
-5. Approved changes update spec and regenerate PRD
-6. Task now linked to requirement
-
-### AI Integration
-
-**Vercel AI SDK Integration** with production-ready features:
-
-- **PRD Analysis** - Extract capabilities and requirements from documents
-- **Task Generation** - Generate implementation tasks from specs
-- **Spec Suggestions** - AI-powered recommendations for orphan tasks
-- **Validation** - Verify task completion against WHEN/THEN scenarios
-- **Cost Tracking** - Monitor AI usage with detailed analytics
-- **Rate Limiting** - Protect against runaway costs
-- **Caching** - Reduce redundant AI calls
-
-### AI Usage Dashboard
-
-Track and monitor AI costs with comprehensive analytics:
-
-- **Summary Cards** - Total cost, tokens, requests, and average duration
-- **By Operation** - Breakdown by analysis type (PRD, spec, validation)
-- **By Model** - Compare costs across GPT-4, Claude, and other models
-- **By Provider** - OpenAI vs Anthropic usage and costs
-- **Recent Logs** - Detailed log viewer with error tracking
-
-All AI usage data stored locally in SQLite with retention policies and export capabilities.
-
-### Implementation Details
-
-For complete implementation details, technical specifications, and development timeline, see [SPEC_TASK.md](SPEC_TASK.md).
+**Documentation:**
+- **[DOCS.md - OpenSpec Integration](DOCS.md#openspec-integration)** - Complete API reference with mermaid diagrams
+- **[docs/docs/openspec/](docs/docs/openspec/)** - Detailed guides for workflows, changes, PRDs, specs, and tasks
+- **[SPEC_TASK.md](SPEC_TASK.md)** - Technical specifications
 
 ## Documentation
 
@@ -360,90 +266,34 @@ For complete implementation details, technical specifications, and development t
 
 ### Prerequisites
 
-- [Node.js](https://nodejs.org/) (v18 or later)
-- [Bun](https://bun.sh/) (v1.0 or later)
-- [Rust](https://rustup.rs/) (latest stable)
+- [Node.js](https://nodejs.org/) (v18+) | [Bun](https://bun.sh/) (v1.0+) | [Rust](https://rustup.rs/) (latest stable)
 
-### Development Setup
+### Quick Start
 
 ```bash
+# Clone and install
 git clone https://github.com/OrkeeAI/orkee.git
-cd orkee
-bun install
+cd orkee && bun install
+
+# Start development (all interfaces)
+turbo dev                    # Web dashboard + CLI server
+turbo dev:tauri              # Native desktop app
+
+# Or start specific interfaces
+cargo run --bin orkee -- dashboard --dev  # Web dashboard with hot reload
+cargo run --bin orkee -- tui              # Terminal interface
 ```
 
-### Available Commands
+### Common Commands
 
 ```bash
-# Build all apps and packages
-turbo build
-
-# Start all development servers
-turbo dev
-
-# Run tests across all packages
-turbo test
-
-# Lint all packages
-turbo lint
-
-# Work on specific packages
-turbo dev --filter=@orkee/dashboard    # Dashboard only
-turbo dev --filter=@orkee/cli          # CLI only
-turbo build --filter=@orkee/dashboard  # Build dashboard only
-
-# CLI-specific commands (run from packages/cli/)
-cargo run --bin orkee -- dashboard           # Start API (4001) + UI (5173)
-cargo run --bin orkee -- dashboard --dev     # Use local dashboard from packages/dashboard/
-cargo run --bin orkee -- dashboard --api-port 8080 --ui-port 3000  # Custom ports
-ORKEE_API_PORT=9000 ORKEE_UI_PORT=3333 cargo run --bin orkee -- dashboard  # Via env
-ORKEE_DEV_MODE=true cargo run --bin orkee -- dashboard    # Use local dashboard via env
-cargo run --bin orkee -- tui                 # Launch TUI interface
-cargo run --bin orkee -- projects list       # List all projects
-cargo run --bin orkee -- --help              # See all available commands
-cargo test                                   # Run Rust tests
-
-# Dashboard-specific commands (run from packages/dashboard/)
-bun run dev                   # Start Vite dev server (uses ORKEE_UI_PORT or 5173)
-ORKEE_UI_PORT=3000 bun run dev  # Start on custom port
-bun run build                 # Production build
-bun run lint                  # Run ESLint
-
-# Tauri Desktop App commands (run from repository root or packages/dashboard/)
-turbo dev:tauri              # Start Tauri dev app (from root)
-bun tauri dev                # Start Tauri dev app (from packages/dashboard/)
-bun tauri build              # Build production desktop app
-bun tauri build --debug      # Build with debug symbols
-bun tauri icon               # Generate app icons from source image
+turbo build                  # Build all packages
+turbo test                   # Run all tests
+turbo lint                   # Lint all packages
+cargo test                   # Run Rust tests
 ```
 
-### Dashboard Development Mode
-
-For dashboard development, you can use the local copy instead of the downloaded version:
-
-```bash
-# Method 1: Use --dev flag (recommended)
-cargo run --bin orkee -- dashboard --dev
-
-# Method 2: Use environment variable
-ORKEE_DEV_MODE=true cargo run --bin orkee -- dashboard
-
-# Method 3: With custom ports in dev mode
-cargo run --bin orkee -- dashboard --dev --api-port 8080 --ui-port 3000
-```
-
-**Benefits:**
-- 🚀 **No file copying** - Uses `packages/dashboard/` directly
-- 🔄 **Live reloading** - Vite HMR works with your source files
-- ⚡ **Faster iteration** - Immediate feedback on changes
-
-**How it works:**
-- `--dev` or `ORKEE_DEV_MODE=true` enables development mode
-- Uses local dashboard from `packages/dashboard/` instead of `~/.orkee/dashboard/`
-- Falls back to downloaded version if local dashboard isn't found
-- **Bypasses API authentication** for easier web dashboard development (localhost only)
-
-See [DEV_MODE.md](DEV_MODE.md) for detailed usage instructions and [API_SECURITY.md](API_SECURITY.md) for authentication details.
+**For detailed development instructions, see [CLAUDE.md](CLAUDE.md)**
 
 ## Contributing
 
