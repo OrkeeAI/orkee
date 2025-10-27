@@ -64,6 +64,13 @@ export const queryKeys = {
   ideateList: (projectId: string) => [...queryKeys.ideate, 'list', projectId] as const,
   ideateDetail: (sessionId: string) => [...queryKeys.ideate, 'detail', sessionId] as const,
   ideateStatus: (sessionId: string) => [...queryKeys.ideate, 'status', sessionId] as const,
+  ideateOverview: (sessionId: string) => [...queryKeys.ideate, 'overview', sessionId] as const,
+  ideateUX: (sessionId: string) => [...queryKeys.ideate, 'ux', sessionId] as const,
+  ideateTechnical: (sessionId: string) => [...queryKeys.ideate, 'technical', sessionId] as const,
+  ideateRoadmap: (sessionId: string) => [...queryKeys.ideate, 'roadmap', sessionId] as const,
+  ideateDependencies: (sessionId: string) => [...queryKeys.ideate, 'dependencies', sessionId] as const,
+  ideateRisks: (sessionId: string) => [...queryKeys.ideate, 'risks', sessionId] as const,
+  ideateResearch: (sessionId: string) => [...queryKeys.ideate, 'research', sessionId] as const,
 
   // Spec keys
   specs: ['specs'] as const,

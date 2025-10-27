@@ -17,7 +17,7 @@ pub mod prelude {
     pub use crate::error::{IdeateError, Result};
     pub use crate::manager::IdeateManager;
     pub use crate::types::{
-        IdeateMode, IdeateSession, IdeateStatus, CreateIdeateSessionInput,
-        SessionCompletionStatus, SkipSectionRequest, UpdateIdeateSessionInput,
+        CreateIdeateSessionInput, IdeateMode, IdeateSession, IdeateStatus, SessionCompletionStatus,
+        SkipSectionRequest, UpdateIdeateSessionInput,
     };
 }

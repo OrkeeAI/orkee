@@ -41,6 +41,7 @@ pub struct IdeateSession {
     pub mode: IdeateMode,
     pub status: IdeateStatus,
     pub skipped_sections: Option<Vec<String>>,
+    pub current_section: Option<String>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
@@ -60,6 +61,7 @@ pub struct UpdateIdeateSessionInput {
     pub mode: Option<IdeateMode>,
     pub status: Option<IdeateStatus>,
     pub skipped_sections: Option<Vec<String>>,
+    pub current_section: Option<String>,
 }
 
 /// Overview section data
@@ -71,6 +73,7 @@ pub struct IdeateOverview {
     pub target_audience: Option<String>,
     pub value_proposition: Option<String>,
     pub one_line_pitch: Option<String>,
+    pub ai_generated: bool,
     pub created_at: DateTime<Utc>,
 }
 
@@ -99,6 +102,7 @@ pub struct IdeateUX {
     pub user_flows: Option<Vec<UserFlow>>,
     pub ui_considerations: Option<String>,
     pub ux_principles: Option<String>,
+    pub ai_generated: bool,
     pub created_at: DateTime<Utc>,
 }
 
@@ -137,6 +141,7 @@ pub struct IdeateTechnical {
     pub apis: Option<Vec<API>>,
     pub infrastructure: Option<Infrastructure>,
     pub tech_stack_quick: Option<String>,
+    pub ai_generated: bool,
     pub created_at: DateTime<Utc>,
 }
 
@@ -187,6 +192,7 @@ pub struct IdeateRoadmap {
     pub session_id: String,
     pub mvp_scope: Option<Vec<String>>,
     pub future_phases: Option<Vec<Phase>>,
+    pub ai_generated: bool,
     pub created_at: DateTime<Utc>,
 }
 
@@ -207,6 +213,7 @@ pub struct IdeateDependencies {
     pub visible_features: Option<Vec<String>>,
     pub enhancement_features: Option<Vec<String>>,
     pub dependency_graph: Option<DependencyGraph>,
+    pub ai_generated: bool,
     pub created_at: DateTime<Utc>,
 }
 
@@ -239,6 +246,7 @@ pub struct IdeateRisks {
     pub mvp_scoping_risks: Option<Vec<Risk>>,
     pub resource_risks: Option<Vec<Risk>>,
     pub mitigations: Option<Vec<Mitigation>>,
+    pub ai_generated: bool,
     pub created_at: DateTime<Utc>,
 }
 
@@ -246,7 +254,7 @@ pub struct IdeateRisks {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Risk {
     pub description: String,
-    pub severity: String, // "low", "medium", "high", "critical"
+    pub severity: String,    // "low", "medium", "high", "critical"
     pub probability: String, // "low", "medium", "high"
 }
 
@@ -268,6 +276,7 @@ pub struct IdeateResearch {
     pub research_findings: Option<String>,
     pub technical_specs: Option<String>,
     pub reference_links: Option<Vec<Reference>>,
+    pub ai_generated: bool,
     pub created_at: DateTime<Utc>,
 }
 

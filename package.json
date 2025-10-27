@@ -19,5 +19,8 @@
   },
   "devDependencies": {
     "turbo": "^2.5.8"
+  },
+  "dependencies": {
+    "react-hook-form": "^7.65.0"
   }
 }

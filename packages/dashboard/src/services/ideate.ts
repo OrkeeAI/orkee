@@ -13,6 +13,7 @@ export interface IdeateSession {
   mode: IdeateMode;
   status: IdeateStatus;
   skipped_sections: string[] | null;
+  current_section: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -62,6 +63,189 @@ export interface GeneratedPRD {
 export interface SavePRDResult {
   prd_id: string;
   success: boolean;
+}
+
+// Section types for Guided Mode
+export interface IdeateOverview {
+  id: string;
+  session_id: string;
+  problem_statement: string | null;
+  target_audience: string | null;
+  value_proposition: string | null;
+  one_line_pitch: string | null;
+  ai_generated: boolean;
+  created_at: string;
+}
+
+export interface Persona {
+  name: string;
+  role: string;
+  goals: string[];
+  pain_points: string[];
+}
+
+export interface FlowStep {
+  action: string;
+  screen: string;
+  notes: string | null;
+}
+
+export interface UserFlow {
+  name: string;
+  steps: FlowStep[];
+  touchpoints: string[];
+}
+
+export interface IdeateUX {
+  id: string;
+  session_id: string;
+  personas: Persona[] | null;
+  user_flows: UserFlow[] | null;
+  ui_considerations: string | null;
+  ux_principles: string | null;
+  ai_generated: boolean;
+  created_at: string;
+}
+
+export interface Component {
+  name: string;
+  purpose: string;
+  technology: string | null;
+}
+
+export interface Field {
+  name: string;
+  field_type: string;
+  required: boolean;
+}
+
+export interface DataModel {
+  name: string;
+  fields: Field[];
+}
+
+export interface API {
+  name: string;
+  purpose: string;
+  endpoints: string[];
+}
+
+export interface Infrastructure {
+  hosting: string | null;
+  database: string | null;
+  caching: string | null;
+  file_storage: string | null;
+}
+
+export interface IdeateTechnical {
+  id: string;
+  session_id: string;
+  components: Component[] | null;
+  data_models: DataModel[] | null;
+  apis: API[] | null;
+  infrastructure: Infrastructure | null;
+  tech_stack_quick: string | null;
+  ai_generated: boolean;
+  created_at: string;
+}
+
+export interface Phase {
+  name: string;
+  features: string[];
+  goals: string[];
+}
+
+export interface IdeateRoadmap {
+  id: string;
+  session_id: string;
+  mvp_scope: string[] | null;
+  future_phases: Phase[] | null;
+  ai_generated: boolean;
+  created_at: string;
+}
+
+export interface GraphNode {
+  id: string;
+  label: string;
+  phase: number;
+}
+
+export interface GraphEdge {
+  from: string;
+  to: string;
+}
+
+export interface DependencyGraph {
+  nodes: GraphNode[];
+  edges: GraphEdge[];
+}
+
+export interface IdeateDependencies {
+  id: string;
+  session_id: string;
+  foundation_features: string[] | null;
+  visible_features: string[] | null;
+  enhancement_features: string[] | null;
+  dependency_graph: DependencyGraph | null;
+  ai_generated: boolean;
+  created_at: string;
+}
+
+export interface Risk {
+  description: string;
+  severity: string;
+  probability: string;
+}
+
+export interface Mitigation {
+  risk: string;
+  strategy: string;
+  owner: string | null;
+}
+
+export interface IdeateRisks {
+  id: string;
+  session_id: string;
+  technical_risks: Risk[] | null;
+  mvp_scoping_risks: Risk[] | null;
+  resource_risks: Risk[] | null;
+  mitigations: Mitigation[] | null;
+  ai_generated: boolean;
+  created_at: string;
+}
+
+export interface Competitor {
+  name: string;
+  url: string;
+  strengths: string[];
+  gaps: string[];
+  features: string[];
+}
+
+export interface SimilarProject {
+  name: string;
+  url: string;
+  positive_aspects: string[];
+  negative_aspects: string[];
+  patterns_to_adopt: string[];
+}
+
+export interface Reference {
+  title: string;
+  url: string;
+  notes: string | null;
+}
+
+export interface IdeateResearch {
+  id: string;
+  session_id: string;
+  competitors: Competitor[] | null;
+  similar_projects: SimilarProject[] | null;
+  research_findings: string | null;
+  technical_specs: string | null;
+  reference_links: Reference[] | null;
+  ai_generated: boolean;
+  created_at: string;
 }
 
 class IdeateService {
@@ -225,6 +409,349 @@ class IdeateService {
 
     if (response.error || !response.data.success) {
       throw new Error(response.error || 'Failed to save PRD');
+    }
+
+    return response.data.data;
+  }
+
+  // Section CRUD methods for Guided Mode
+
+  /**
+   * Save overview section
+   */
+  async saveOverview(sessionId: string, overview: Omit<IdeateOverview, 'id' | 'created_at'>): Promise<IdeateOverview> {
+    const response = await apiClient.post<{ success: boolean; data: IdeateOverview }>(
+      `/api/ideate/${sessionId}/overview`,
+      overview
+    );
+
+    if (response.error || !response.data.success) {
+      throw new Error(response.error || 'Failed to save overview section');
+    }
+
+    return response.data.data;
+  }
+
+  /**
+   * Get overview section
+   */
+  async getOverview(sessionId: string): Promise<IdeateOverview | null> {
+    const response = await apiClient.get<{ success: boolean; data: IdeateOverview | null }>(
+      `/api/ideate/${sessionId}/overview`
+    );
+
+    if (response.error || !response.data.success) {
+      throw new Error(response.error || 'Failed to get overview section');
+    }
+
+    return response.data.data;
+  }
+
+  /**
+   * Delete overview section
+   */
+  async deleteOverview(sessionId: string): Promise<void> {
+    const response = await apiClient.delete<{ success: boolean }>(
+      `/api/ideate/${sessionId}/overview`
+    );
+
+    if (response.error || !response.data.success) {
+      throw new Error(response.error || 'Failed to delete overview section');
+    }
+  }
+
+  /**
+   * Save UX section
+   */
+  async saveUX(sessionId: string, ux: Omit<IdeateUX, 'id' | 'created_at'>): Promise<IdeateUX> {
+    const response = await apiClient.post<{ success: boolean; data: IdeateUX }>(
+      `/api/ideate/${sessionId}/ux`,
+      ux
+    );
+
+    if (response.error || !response.data.success) {
+      throw new Error(response.error || 'Failed to save UX section');
+    }
+
+    return response.data.data;
+  }
+
+  /**
+   * Get UX section
+   */
+  async getUX(sessionId: string): Promise<IdeateUX | null> {
+    const response = await apiClient.get<{ success: boolean; data: IdeateUX | null }>(
+      `/api/ideate/${sessionId}/ux`
+    );
+
+    if (response.error || !response.data.success) {
+      throw new Error(response.error || 'Failed to get UX section');
+    }
+
+    return response.data.data;
+  }
+
+  /**
+   * Delete UX section
+   */
+  async deleteUX(sessionId: string): Promise<void> {
+    const response = await apiClient.delete<{ success: boolean }>(
+      `/api/ideate/${sessionId}/ux`
+    );
+
+    if (response.error || !response.data.success) {
+      throw new Error(response.error || 'Failed to delete UX section');
+    }
+  }
+
+  /**
+   * Save technical section
+   */
+  async saveTechnical(sessionId: string, technical: Omit<IdeateTechnical, 'id' | 'created_at'>): Promise<IdeateTechnical> {
+    const response = await apiClient.post<{ success: boolean; data: IdeateTechnical }>(
+      `/api/ideate/${sessionId}/technical`,
+      technical
+    );
+
+    if (response.error || !response.data.success) {
+      throw new Error(response.error || 'Failed to save technical section');
+    }
+
+    return response.data.data;
+  }
+
+  /**
+   * Get technical section
+   */
+  async getTechnical(sessionId: string): Promise<IdeateTechnical | null> {
+    const response = await apiClient.get<{ success: boolean; data: IdeateTechnical | null }>(
+      `/api/ideate/${sessionId}/technical`
+    );
+
+    if (response.error || !response.data.success) {
+      throw new Error(response.error || 'Failed to get technical section');
+    }
+
+    return response.data.data;
+  }
+
+  /**
+   * Delete technical section
+   */
+  async deleteTechnical(sessionId: string): Promise<void> {
+    const response = await apiClient.delete<{ success: boolean }>(
+      `/api/ideate/${sessionId}/technical`
+    );
+
+    if (response.error || !response.data.success) {
+      throw new Error(response.error || 'Failed to delete technical section');
+    }
+  }
+
+  /**
+   * Save roadmap section
+   */
+  async saveRoadmap(sessionId: string, roadmap: Omit<IdeateRoadmap, 'id' | 'created_at'>): Promise<IdeateRoadmap> {
+    const response = await apiClient.post<{ success: boolean; data: IdeateRoadmap }>(
+      `/api/ideate/${sessionId}/roadmap`,
+      roadmap
+    );
+
+    if (response.error || !response.data.success) {
+      throw new Error(response.error || 'Failed to save roadmap section');
+    }
+
+    return response.data.data;
+  }
+
+  /**
+   * Get roadmap section
+   */
+  async getRoadmap(sessionId: string): Promise<IdeateRoadmap | null> {
+    const response = await apiClient.get<{ success: boolean; data: IdeateRoadmap | null }>(
+      `/api/ideate/${sessionId}/roadmap`
+    );
+
+    if (response.error || !response.data.success) {
+      throw new Error(response.error || 'Failed to get roadmap section');
+    }
+
+    return response.data.data;
+  }
+
+  /**
+   * Delete roadmap section
+   */
+  async deleteRoadmap(sessionId: string): Promise<void> {
+    const response = await apiClient.delete<{ success: boolean }>(
+      `/api/ideate/${sessionId}/roadmap`
+    );
+
+    if (response.error || !response.data.success) {
+      throw new Error(response.error || 'Failed to delete roadmap section');
+    }
+  }
+
+  /**
+   * Save dependencies section
+   */
+  async saveDependencies(sessionId: string, dependencies: Omit<IdeateDependencies, 'id' | 'created_at'>): Promise<IdeateDependencies> {
+    const response = await apiClient.post<{ success: boolean; data: IdeateDependencies }>(
+      `/api/ideate/${sessionId}/dependencies`,
+      dependencies
+    );
+
+    if (response.error || !response.data.success) {
+      throw new Error(response.error || 'Failed to save dependencies section');
+    }
+
+    return response.data.data;
+  }
+
+  /**
+   * Get dependencies section
+   */
+  async getDependencies(sessionId: string): Promise<IdeateDependencies | null> {
+    const response = await apiClient.get<{ success: boolean; data: IdeateDependencies | null }>(
+      `/api/ideate/${sessionId}/dependencies`
+    );
+
+    if (response.error || !response.data.success) {
+      throw new Error(response.error || 'Failed to get dependencies section');
+    }
+
+    return response.data.data;
+  }
+
+  /**
+   * Delete dependencies section
+   */
+  async deleteDependencies(sessionId: string): Promise<void> {
+    const response = await apiClient.delete<{ success: boolean }>(
+      `/api/ideate/${sessionId}/dependencies`
+    );
+
+    if (response.error || !response.data.success) {
+      throw new Error(response.error || 'Failed to delete dependencies section');
+    }
+  }
+
+  /**
+   * Save risks section
+   */
+  async saveRisks(sessionId: string, risks: Omit<IdeateRisks, 'id' | 'created_at'>): Promise<IdeateRisks> {
+    const response = await apiClient.post<{ success: boolean; data: IdeateRisks }>(
+      `/api/ideate/${sessionId}/risks`,
+      risks
+    );
+
+    if (response.error || !response.data.success) {
+      throw new Error(response.error || 'Failed to save risks section');
+    }
+
+    return response.data.data;
+  }
+
+  /**
+   * Get risks section
+   */
+  async getRisks(sessionId: string): Promise<IdeateRisks | null> {
+    const response = await apiClient.get<{ success: boolean; data: IdeateRisks | null }>(
+      `/api/ideate/${sessionId}/risks`
+    );
+
+    if (response.error || !response.data.success) {
+      throw new Error(response.error || 'Failed to get risks section');
+    }
+
+    return response.data.data;
+  }
+
+  /**
+   * Delete risks section
+   */
+  async deleteRisks(sessionId: string): Promise<void> {
+    const response = await apiClient.delete<{ success: boolean }>(
+      `/api/ideate/${sessionId}/risks`
+    );
+
+    if (response.error || !response.data.success) {
+      throw new Error(response.error || 'Failed to delete risks section');
+    }
+  }
+
+  /**
+   * Save research section
+   */
+  async saveResearch(sessionId: string, research: Omit<IdeateResearch, 'id' | 'created_at'>): Promise<IdeateResearch> {
+    const response = await apiClient.post<{ success: boolean; data: IdeateResearch }>(
+      `/api/ideate/${sessionId}/research`,
+      research
+    );
+
+    if (response.error || !response.data.success) {
+      throw new Error(response.error || 'Failed to save research section');
+    }
+
+    return response.data.data;
+  }
+
+  /**
+   * Get research section
+   */
+  async getResearch(sessionId: string): Promise<IdeateResearch | null> {
+    const response = await apiClient.get<{ success: boolean; data: IdeateResearch | null }>(
+      `/api/ideate/${sessionId}/research`
+    );
+
+    if (response.error || !response.data.success) {
+      throw new Error(response.error || 'Failed to get research section');
+    }
+
+    return response.data.data;
+  }
+
+  /**
+   * Delete research section
+   */
+  async deleteResearch(sessionId: string): Promise<void> {
+    const response = await apiClient.delete<{ success: boolean }>(
+      `/api/ideate/${sessionId}/research`
+    );
+
+    if (response.error || !response.data.success) {
+      throw new Error(response.error || 'Failed to delete research section');
+    }
+  }
+
+  // Navigation methods
+
+  /**
+   * Get next incomplete section
+   */
+  async getNextSection(sessionId: string): Promise<string | null> {
+    const response = await apiClient.get<{ success: boolean; data: string | null }>(
+      `/api/ideate/${sessionId}/next-section`
+    );
+
+    if (response.error || !response.data.success) {
+      throw new Error(response.error || 'Failed to get next section');
+    }
+
+    return response.data.data;
+  }
+
+  /**
+   * Navigate to a specific section
+   */
+  async navigateTo(sessionId: string, section: string): Promise<IdeateSession> {
+    const response = await apiClient.post<{ success: boolean; data: IdeateSession }>(
+      `/api/ideate/${sessionId}/navigate`,
+      { section }
+    );
+
+    if (response.error || !response.data.success) {
+      throw new Error(response.error || 'Failed to navigate to section');
     }
 
     return response.data.data;

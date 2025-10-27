@@ -37,7 +37,6 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useIdeateSessions, useDeleteIdeateSession } from '@/hooks/useIdeate';
 import type { IdeateSession, IdeateMode, IdeateStatus } from '@/services/ideate';
-import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 
 interface SessionsListProps {
@@ -55,6 +54,16 @@ const MODE_LABELS = {
   quick: 'Quick',
   guided: 'Guided',
   comprehensive: 'Comprehensive',
+};
+
+const SECTION_LABELS: Record<string, string> = {
+  overview: 'Overview',
+  ux: 'UX Design',
+  technical: 'Technical',
+  roadmap: 'Roadmap',
+  dependencies: 'Dependencies',
+  risks: 'Risks',
+  research: 'Research',
 };
 
 export function SessionsList({ projectId, onResumeSession }: SessionsListProps) {
@@ -243,6 +252,18 @@ export function SessionsList({ projectId, onResumeSession }: SessionsListProps) 
               </CardHeader>
 
               <CardContent>
+                {/* Show current section for guided mode in-progress sessions */}
+                {session.mode === 'guided' && session.current_section && session.status !== 'completed' && (
+                  <div className="mb-3 p-2 bg-muted/50 rounded-md">
+                    <p className="text-xs text-muted-foreground">
+                      Currently on:{' '}
+                      <span className="font-medium text-foreground">
+                        {SECTION_LABELS[session.current_section] || session.current_section}
+                      </span>
+                    </p>
+                  </div>
+                )}
+
                 <div className="flex gap-2">
                   <Button
                     variant="outline"

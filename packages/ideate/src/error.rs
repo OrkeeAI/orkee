@@ -23,8 +23,11 @@ pub enum IdeateError {
     #[error("Invalid section: {0}")]
     InvalidSection(String),
 
+    #[error("Section not found: {0}")]
+    SectionNotFound(String),
+
     #[error("Section data not found: {section} for session {session_id}")]
-    SectionNotFound { section: String, session_id: String },
+    SectionDataNotFound { section: String, session_id: String },
 
     #[error("Session not ready for PRD generation: {0}")]
     NotReadyForPRD(String),

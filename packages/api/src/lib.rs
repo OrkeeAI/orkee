@@ -13,12 +13,12 @@ pub mod ai_handlers;
 pub mod ai_proxy_handlers;
 pub mod ai_usage_log_handlers;
 pub mod auth;
-pub mod ideate_handlers;
 pub mod change_handlers;
 pub mod context_handlers;
 pub mod executions_handlers;
 pub mod graph_handlers;
 pub mod handlers;
+pub mod ideate_handlers;
 pub mod prd_handlers;
 pub mod response;
 pub mod security_handlers;
@@ -162,15 +162,134 @@ pub fn create_ideate_router() -> Router<DbState> {
         .route("/ideate/start", post(ideate_handlers::start_ideate))
         .route("/ideate/{session_id}", get(ideate_handlers::get_ideate))
         .route("/ideate/{session_id}", put(ideate_handlers::update_ideate))
-        .route("/ideate/{session_id}", delete(ideate_handlers::delete_ideate))
-        .route("/ideate/{session_id}/skip-section", post(ideate_handlers::skip_section))
-        .route("/ideate/{session_id}/status", get(ideate_handlers::get_status))
-        .route("/{project_id}/ideate/sessions", get(ideate_handlers::list_ideates))
+        .route(
+            "/ideate/{session_id}",
+            delete(ideate_handlers::delete_ideate),
+        )
+        .route(
+            "/ideate/{session_id}/skip-section",
+            post(ideate_handlers::skip_section),
+        )
+        .route(
+            "/ideate/{session_id}/status",
+            get(ideate_handlers::get_status),
+        )
+        .route(
+            "/{project_id}/ideate/sessions",
+            get(ideate_handlers::list_ideates),
+        )
         // Quick Mode routes
-        .route("/ideate/{session_id}/quick-generate", post(ideate_handlers::quick_generate))
-        .route("/ideate/{session_id}/quick-expand", post(ideate_handlers::quick_expand))
-        .route("/ideate/{session_id}/preview", get(ideate_handlers::get_preview))
-        .route("/ideate/{session_id}/save-as-prd", post(ideate_handlers::save_as_prd))
+        .route(
+            "/ideate/{session_id}/quick-generate",
+            post(ideate_handlers::quick_generate),
+        )
+        .route(
+            "/ideate/{session_id}/quick-expand",
+            post(ideate_handlers::quick_expand),
+        )
+        .route(
+            "/ideate/{session_id}/preview",
+            get(ideate_handlers::get_preview),
+        )
+        .route(
+            "/ideate/{session_id}/save-as-prd",
+            post(ideate_handlers::save_as_prd),
+        )
+        // Guided Mode - Section routes
+        // Overview
+        .route(
+            "/ideate/{session_id}/overview",
+            post(ideate_handlers::save_overview),
+        )
+        .route(
+            "/ideate/{session_id}/overview",
+            get(ideate_handlers::get_overview),
+        )
+        .route(
+            "/ideate/{session_id}/overview",
+            delete(ideate_handlers::delete_overview),
+        )
+        // UX
+        .route("/ideate/{session_id}/ux", post(ideate_handlers::save_ux))
+        .route("/ideate/{session_id}/ux", get(ideate_handlers::get_ux))
+        .route(
+            "/ideate/{session_id}/ux",
+            delete(ideate_handlers::delete_ux),
+        )
+        // Technical
+        .route(
+            "/ideate/{session_id}/technical",
+            post(ideate_handlers::save_technical),
+        )
+        .route(
+            "/ideate/{session_id}/technical",
+            get(ideate_handlers::get_technical),
+        )
+        .route(
+            "/ideate/{session_id}/technical",
+            delete(ideate_handlers::delete_technical),
+        )
+        // Roadmap
+        .route(
+            "/ideate/{session_id}/roadmap",
+            post(ideate_handlers::save_roadmap),
+        )
+        .route(
+            "/ideate/{session_id}/roadmap",
+            get(ideate_handlers::get_roadmap),
+        )
+        .route(
+            "/ideate/{session_id}/roadmap",
+            delete(ideate_handlers::delete_roadmap),
+        )
+        // Dependencies
+        .route(
+            "/ideate/{session_id}/dependencies",
+            post(ideate_handlers::save_dependencies),
+        )
+        .route(
+            "/ideate/{session_id}/dependencies",
+            get(ideate_handlers::get_dependencies),
+        )
+        .route(
+            "/ideate/{session_id}/dependencies",
+            delete(ideate_handlers::delete_dependencies),
+        )
+        // Risks
+        .route(
+            "/ideate/{session_id}/risks",
+            post(ideate_handlers::save_risks),
+        )
+        .route(
+            "/ideate/{session_id}/risks",
+            get(ideate_handlers::get_risks),
+        )
+        .route(
+            "/ideate/{session_id}/risks",
+            delete(ideate_handlers::delete_risks),
+        )
+        // Research
+        .route(
+            "/ideate/{session_id}/research",
+            post(ideate_handlers::save_research),
+        )
+        .route(
+            "/ideate/{session_id}/research",
+            get(ideate_handlers::get_research),
+        )
+        .route(
+            "/ideate/{session_id}/research",
+            delete(ideate_handlers::delete_research),
+        )
+        // Navigation
+        .route(
+            "/ideate/{session_id}/next-section",
+            get(ideate_handlers::get_next_section),
+        )
+        .route(
+            "/ideate/{session_id}/navigate",
+            post(ideate_handlers::navigate_to),
+        )
 }
 
 /// Creates the specs API router for OpenSpec capabilities

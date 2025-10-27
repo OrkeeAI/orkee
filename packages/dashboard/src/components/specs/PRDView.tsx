@@ -19,6 +19,7 @@ import { ModelSelectionDialog } from '@/components/ModelSelectionDialog';
 import { CreatePRDFlow } from '@/components/ideate/CreatePRDFlow';
 import { SessionsList } from '@/components/ideate/SessionsList';
 import { QuickModeFlow } from '@/components/ideate/QuickMode';
+import { GuidedModeFlow } from '@/components/ideate/GuidedMode';
 import type { PRD, PRDAnalysisResult } from '@/services/prds';
 import type { IdeateSession } from '@/services/ideate';
 
@@ -32,6 +33,7 @@ export function PRDView({ projectId, onViewSpecs }: PRDViewProps) {
   const [showUploadDialog, setShowUploadDialog] = useState(false);
   const [showIdeateFlow, setShowIdeateFlow] = useState(false);
   const [showQuickModeFlow, setShowQuickModeFlow] = useState(false);
+  const [showGuidedModeFlow, setShowGuidedModeFlow] = useState(false);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [showModelSelection, setShowModelSelection] = useState(false);
   const [prdToAnalyze, setPrdToAnalyze] = useState<string | null>(null);
@@ -80,13 +82,20 @@ export function PRDView({ projectId, onViewSpecs }: PRDViewProps) {
     setActiveSessionId(session.id);
     if (session.mode === 'quick') {
       setShowQuickModeFlow(true);
+    } else if (session.mode === 'guided') {
+      setShowGuidedModeFlow(true);
     }
-    // TODO: Handle guided and comprehensive modes when implemented
+    // TODO: Handle comprehensive mode when implemented
   };
 
-  const handleSessionCreated = (sessionId: string) => {
+  const handleSessionCreated = (sessionId: string, mode: 'quick' | 'guided' | 'comprehensive') => {
     setActiveSessionId(sessionId);
-    setShowQuickModeFlow(true);
+    if (mode === 'quick') {
+      setShowQuickModeFlow(true);
+    } else if (mode === 'guided') {
+      setShowGuidedModeFlow(true);
+    }
+    // TODO: Handle comprehensive mode when implemented
   };
 
   const handleQuickModeComplete = (prdId: string) => {
@@ -96,6 +105,16 @@ export function PRDView({ projectId, onViewSpecs }: PRDViewProps) {
       setSelectedPRD(newPRD);
     }
     setShowQuickModeFlow(false);
+    setActiveSessionId(null);
+  };
+
+  const handleGuidedModeComplete = (prdId: string) => {
+    // Refresh PRD list and select the newly created PRD
+    const newPRD = prds?.find(p => p.id === prdId);
+    if (newPRD) {
+      setSelectedPRD(newPRD);
+    }
+    setShowGuidedModeFlow(false);
     setActiveSessionId(null);
   };
 
@@ -408,13 +427,23 @@ export function PRDView({ projectId, onViewSpecs }: PRDViewProps) {
       />
 
       {activeSessionId && (
-        <QuickModeFlow
-          projectId={projectId}
-          sessionId={activeSessionId}
-          open={showQuickModeFlow}
-          onOpenChange={setShowQuickModeFlow}
-          onComplete={handleQuickModeComplete}
-        />
+        <>
+          <QuickModeFlow
+            projectId={projectId}
+            sessionId={activeSessionId}
+            open={showQuickModeFlow}
+            onOpenChange={setShowQuickModeFlow}
+            onComplete={handleQuickModeComplete}
+          />
+
+          <GuidedModeFlow
+            projectId={projectId}
+            sessionId={activeSessionId}
+            open={showGuidedModeFlow}
+            onOpenChange={setShowGuidedModeFlow}
+            onComplete={handleGuidedModeComplete}
+          />
+        </>
       )}
     </div>
   );

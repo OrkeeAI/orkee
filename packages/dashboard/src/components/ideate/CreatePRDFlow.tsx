@@ -1,6 +1,6 @@
 // ABOUTME: Main entry component for creating a new ideate session
 // ABOUTME: Multi-step dialog: mode selection, description input, session creation
-import React, { useState } from 'react';
+import { useState } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -22,7 +22,7 @@ interface CreatePRDFlowProps {
   projectId: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSessionCreated: (sessionId: string) => void;
+  onSessionCreated: (sessionId: string, mode: IdeateMode) => void;
 }
 
 type FlowStep = 'mode' | 'description';
@@ -63,7 +63,7 @@ export function CreatePRDFlow({
       // Reset and close
       resetFlow();
       onOpenChange(false);
-      onSessionCreated(session.id);
+      onSessionCreated(session.id, selectedMode);
     } catch {
       // Error handled by React Query mutation
     }

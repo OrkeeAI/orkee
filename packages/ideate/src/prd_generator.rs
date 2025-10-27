@@ -46,13 +46,10 @@ impl PRDGenerator {
     /// Fetch AI settings from database
     async fn get_ai_settings(&self) -> Result<AISettings> {
         let settings_storage = SettingsStorage::new(self.pool.clone());
-        let ai_settings = settings_storage
-            .get_by_category("ai")
-            .await
-            .map_err(|e| {
-                error!("Failed to fetch AI settings: {}", e);
-                IdeateError::InvalidInput(format!("Failed to fetch AI settings: {}", e))
-            })?;
+        let ai_settings = settings_storage.get_by_category("ai").await.map_err(|e| {
+            error!("Failed to fetch AI settings: {}", e);
+            IdeateError::InvalidInput(format!("Failed to fetch AI settings: {}", e))
+        })?;
 
         // Convert settings to AISettings struct
         let mut settings = AISettings::default();
@@ -83,11 +80,10 @@ impl PRDGenerator {
 
     /// Get user's API key from database
     async fn get_user_api_key(&self, user_id: &str) -> Result<String> {
-        let user_storage = UserStorage::new(self.pool.clone())
-            .map_err(|e| {
-                error!("Failed to create user storage: {}", e);
-                IdeateError::AIService(format!("Failed to access user storage: {}", e))
-            })?;
+        let user_storage = UserStorage::new(self.pool.clone()).map_err(|e| {
+            error!("Failed to create user storage: {}", e);
+            IdeateError::AIService(format!("Failed to access user storage: {}", e))
+        })?;
 
         let user = user_storage.get_user(user_id).await.map_err(|e| {
             error!("Failed to fetch user: {}", e);
@@ -96,7 +92,10 @@ impl PRDGenerator {
 
         user.anthropic_api_key.ok_or_else(|| {
             warn!("User {} has no Anthropic API key configured", user_id);
-            IdeateError::InvalidInput("No Anthropic API key configured. Please add one in Settings -> API Keys".to_string())
+            IdeateError::InvalidInput(
+                "No Anthropic API key configured. Please add one in Settings -> API Keys"
+                    .to_string(),
+            )
         })
     }
 
