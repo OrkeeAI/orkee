@@ -968,12 +968,13 @@ No scenario here!
         let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
 
         assert_eq!(json["success"], false);
+        // Error handler wraps ArchiveError with "Failed to archive change:" prefix
+        // Archive module ValidationFailed error has format "Validation failed: {details}"
+        let error_msg = json["error"].as_str().unwrap();
         assert!(
-            json["error"]
-                .as_str()
-                .unwrap()
-                .contains("Validation failed")
-                || json["error"].as_str().unwrap().contains("validation")
+            error_msg.starts_with("Failed to archive change: Validation failed:"),
+            "Expected consistent error format, got: {}",
+            error_msg
         );
     }
 }
