@@ -1,6 +1,6 @@
 // ABOUTME: OpenSpec changes list view displaying all change proposals with status and validation
 // ABOUTME: Integrates with change validation and archiving functionality
-import { useState, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { FileEdit, CheckCircle2, XCircle, Clock, Archive, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -19,15 +19,12 @@ export function ChangesList({ projectId, onSelectChange, statusFilter: propStatu
   const [internalStatusFilter, setInternalStatusFilter] = useState<ChangeStatus | undefined>(undefined);
   const [selectedChangeId, setSelectedChangeId] = useState<string | null>(null);
 
-  // Clear internal state when prop is provided to avoid confusion
-  useEffect(() => {
-    if (propStatusFilter !== undefined) {
-      setInternalStatusFilter(undefined);
-    }
-  }, [propStatusFilter]);
-
   // Use prop status filter if provided, otherwise use internal state
-  const activeStatusFilter = propStatusFilter ?? internalStatusFilter;
+  // Using useMemo prevents race conditions when propStatusFilter changes rapidly
+  const activeStatusFilter = useMemo(
+    () => propStatusFilter ?? internalStatusFilter,
+    [propStatusFilter, internalStatusFilter]
+  );
 
   const { data: changes, isLoading, error } = useChanges(projectId, activeStatusFilter);
   const validateMutation = useValidateChange(projectId);
