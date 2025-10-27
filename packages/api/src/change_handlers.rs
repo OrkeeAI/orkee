@@ -156,7 +156,7 @@ pub async fn create_change(
             )
             .bind(audit_id)
             .bind(prd_id)
-            .bind(audit_record.to_string())
+            .bind(serde_json::to_string(&audit_record).expect("Failed to serialize audit record"))
             .bind(&current_user.id)
             .execute(&db.pool)
             .await
@@ -249,7 +249,7 @@ pub async fn update_change_status(
             )
             .bind(audit_id)
             .bind(prd_id)
-            .bind(audit_record.to_string())
+            .bind(serde_json::to_string(&audit_record).expect("Failed to serialize audit record"))
             .bind(&current_user.id)
             .execute(&db.pool)
             .await
@@ -354,7 +354,7 @@ pub async fn create_delta(
                 )
                 .bind(audit_id)
                 .bind(prd_id)
-                .bind(audit_record.to_string())
+                .bind(serde_json::to_string(&audit_record).expect("Failed to serialize audit record"))
                 .bind(&current_user.id)
                 .execute(&db.pool)
                 .await
@@ -597,7 +597,7 @@ pub async fn validate_change(
             )
             .bind(audit_id)
             .bind(prd_id)
-            .bind(audit_record.to_string())
+            .bind(serde_json::to_string(&audit_record).expect("Failed to serialize audit record"))
             .bind(&current_user.id)
             .execute(&db.pool)
             .await
@@ -700,7 +700,7 @@ pub async fn archive_change(
                     )
                     .bind(audit_id)
                     .bind(prd_id)
-                    .bind(audit_record.to_string())
+                    .bind(serde_json::to_string(&audit_record).expect("Failed to serialize audit record"))
                     .bind(&current_user.id)
                     .execute(&db.pool)
                     .await
