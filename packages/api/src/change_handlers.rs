@@ -66,17 +66,19 @@ pub struct CreateChangeRequest {
     pub tasks_markdown: String,
     #[serde(rename = "designMarkdown")]
     pub design_markdown: Option<String>,
-    #[serde(rename = "createdBy")]
-    pub created_by: String,
 }
 
 /// Create a new change
 pub async fn create_change(
     State(db): State<DbState>,
+    current_user: CurrentUser,
     Path(project_id): Path<String>,
     Json(request): Json<CreateChangeRequest>,
 ) -> impl IntoResponse {
-    info!("Creating change for project: {}", project_id);
+    info!(
+        "Creating change for project: {} (user: {})",
+        project_id, current_user.id
+    );
 
     // Validate and sanitize inputs
     let validated_proposal =
@@ -96,14 +98,6 @@ pub async fn create_change(
             Err(e) => return bad_request(e, "Invalid design markdown"),
         };
 
-    let validated_user = match validation::validate_user_id(&request.created_by) {
-        Ok(v) => v,
-        Err(e) => return bad_request(e, "Invalid user ID"),
-    };
-
-    // TODO: Validate user exists in database once proper auth is implemented
-    // For now, we accept any validated user ID
-
     let result = openspec_db::create_spec_change(
         &db.pool,
         &project_id,
@@ -111,7 +105,7 @@ pub async fn create_change(
         &validated_proposal,
         &validated_tasks,
         validated_design.as_deref(),
-        &validated_user,
+        &current_user.id,
     )
     .await;
 
@@ -130,10 +124,14 @@ pub struct UpdateChangeStatusRequest {
 /// Update change status
 pub async fn update_change_status(
     State(db): State<DbState>,
+    current_user: CurrentUser,
     Path((_project_id, change_id)): Path<(String, String)>,
     Json(request): Json<UpdateChangeStatusRequest>,
 ) -> impl IntoResponse {
-    info!("Updating change status: {}", change_id);
+    info!(
+        "Updating change status: {} (user: {})",
+        change_id, current_user.id
+    );
 
     // Validate approvedBy if provided
     let validated_approved_by = match &request.approved_by {
@@ -196,10 +194,14 @@ pub struct CreateDeltaRequest {
 /// Create a new delta for a change
 pub async fn create_delta(
     State(db): State<DbState>,
+    current_user: CurrentUser,
     Path((_project_id, change_id)): Path<(String, String)>,
     Json(request): Json<CreateDeltaRequest>,
 ) -> impl IntoResponse {
-    info!("Creating delta for change: {}", change_id);
+    info!(
+        "Creating delta for change: {} (user: {})",
+        change_id, current_user.id
+    );
 
     // Validate and sanitize inputs
     let validated_name = match validation::validate_capability_name(&request.capability_name) {
@@ -249,12 +251,13 @@ pub struct UpdateTaskRequest {
 /// Update a task's completion status
 pub async fn update_task(
     State(db): State<DbState>,
+    current_user: CurrentUser,
     Path((_project_id, _change_id, task_id)): Path<(String, String, String)>,
     Json(request): Json<UpdateTaskRequest>,
 ) -> impl IntoResponse {
     info!(
-        "Updating task: {} (completed: {})",
-        task_id, request.is_completed
+        "Updating task: {} (completed: {}, user: {})",
+        task_id, request.is_completed, current_user.id
     );
 
     // Validate completedBy if provided
@@ -297,10 +300,15 @@ pub struct BulkUpdateTasksRequest {
 /// Update multiple tasks at once
 pub async fn bulk_update_tasks(
     State(db): State<DbState>,
+    current_user: CurrentUser,
     Path((_project_id, _change_id)): Path<(String, String)>,
     Json(request): Json<BulkUpdateTasksRequest>,
 ) -> impl IntoResponse {
-    info!("Bulk updating {} tasks", request.tasks.len());
+    info!(
+        "Bulk updating {} tasks (user: {})",
+        request.tasks.len(),
+        current_user.id
+    );
 
     // Validate all completedBy fields in the batch
     let mut validated_tasks = Vec::with_capacity(request.tasks.len());
