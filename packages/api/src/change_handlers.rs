@@ -9,6 +9,7 @@ use axum::{
 use serde::Deserialize;
 use tracing::info;
 
+use super::auth::CurrentUser;
 use super::response::{
     bad_request, created_or_internal_error, ok_or_internal_error, ok_or_not_found,
 };
@@ -345,10 +346,14 @@ pub struct ValidationResultResponse {
 /// Validate a change's deltas against OpenSpec format
 pub async fn validate_change(
     State(db): State<DbState>,
+    current_user: CurrentUser,
     Path((_project_id, change_id)): Path<(String, String)>,
     Query(request): Query<ValidateChangeRequest>,
 ) -> impl IntoResponse {
-    info!("Validating change: {}", change_id);
+    info!(
+        "Validating change: {} (user: {})",
+        change_id, current_user.id
+    );
 
     let strict = request.strict.unwrap_or(false);
 
@@ -374,9 +379,36 @@ pub async fn validate_change(
 
     let response = ValidationResultResponse {
         valid: all_errors.is_empty(),
-        errors: all_errors,
+        errors: all_errors.clone(),
         deltas_validated: deltas.len(),
     };
+
+    // Audit log: Record validation operation
+    let audit_record = serde_json::json!({
+        "operation": "validate_change",
+        "change_id": change_id,
+        "strict_mode": strict,
+        "valid": all_errors.is_empty(),
+        "errors_count": all_errors.len(),
+        "deltas_validated": deltas.len(),
+    });
+
+    // Get change to find associated PRD
+    if let Ok(change) = openspec_db::get_spec_change(&db.pool, &change_id).await {
+        if let Some(prd_id) = &change.prd_id {
+            let audit_id = orkee_core::generate_project_id();
+            let _ = sqlx::query(
+                "INSERT INTO prd_spec_sync_history (id, prd_id, direction, changes_json, performed_by)
+                 VALUES (?, ?, 'task_to_spec', ?, ?)",
+            )
+            .bind(audit_id)
+            .bind(prd_id)
+            .bind(audit_record.to_string())
+            .bind(&current_user.id)
+            .execute(&db.pool)
+            .await;
+        }
+    }
 
     ok_or_internal_error::<ValidationResultResponse, openspec::DbError>(
         Ok(response),
@@ -406,12 +438,13 @@ pub struct ArchiveResultResponse {
 /// Archive a completed change and optionally apply its deltas
 pub async fn archive_change(
     State(db): State<DbState>,
+    current_user: CurrentUser,
     Path((_project_id, change_id)): Path<(String, String)>,
     Json(request): Json<ArchiveChangeRequest>,
 ) -> impl IntoResponse {
     info!(
-        "Archiving change: {} (apply_specs: {})",
-        change_id, request.apply_specs
+        "Archiving change: {} (apply_specs: {}, user: {})",
+        change_id, request.apply_specs, current_user.id
     );
 
     let result = openspec::archive::archive_change(&db.pool, &change_id, request.apply_specs).await;
@@ -426,6 +459,32 @@ pub async fn archive_change(
                 specs_applied: request.apply_specs,
                 capabilities_created: 0, // TODO: Update archive function to return count
             };
+
+            // Audit log: Record archive operation
+            let audit_record = serde_json::json!({
+                "operation": "archive_change",
+                "change_id": &change_id,
+                "specs_applied": request.apply_specs,
+                "capabilities_created": 0,
+            });
+
+            // Get change to find associated PRD
+            if let Ok(change) = openspec_db::get_spec_change(&db.pool, &change_id).await {
+                if let Some(prd_id) = &change.prd_id {
+                    let audit_id = orkee_core::generate_project_id();
+                    let _ = sqlx::query(
+                        "INSERT INTO prd_spec_sync_history (id, prd_id, direction, changes_json, performed_by)
+                         VALUES (?, ?, 'spec_to_prd', ?, ?)",
+                    )
+                    .bind(audit_id)
+                    .bind(prd_id)
+                    .bind(audit_record.to_string())
+                    .bind(&current_user.id)
+                    .execute(&db.pool)
+                    .await;
+                }
+            }
+
             ok_or_internal_error::<ArchiveResultResponse, openspec::ArchiveError>(
                 Ok(response),
                 "Failed to archive change",
