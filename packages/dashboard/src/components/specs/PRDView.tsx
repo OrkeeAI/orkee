@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Separator } from '@/components/ui/separator';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
@@ -16,7 +17,10 @@ import { useSpecs } from '@/hooks/useSpecs';
 import { PRDUploadDialog } from '@/components/PRDUploadDialog';
 import { ModelSelectionDialog } from '@/components/ModelSelectionDialog';
 import { CreatePRDFlow } from '@/components/ideate/CreatePRDFlow';
+import { SessionsList } from '@/components/ideate/SessionsList';
+import { QuickModeFlow } from '@/components/ideate/QuickMode';
 import type { PRD, PRDAnalysisResult } from '@/services/prds';
+import type { IdeateSession } from '@/services/ideate';
 
 interface PRDViewProps {
   projectId: string;
@@ -27,6 +31,8 @@ export function PRDView({ projectId, onViewSpecs }: PRDViewProps) {
   const [selectedPRD, setSelectedPRD] = useState<PRD | null>(null);
   const [showUploadDialog, setShowUploadDialog] = useState(false);
   const [showIdeateFlow, setShowIdeateFlow] = useState(false);
+  const [showQuickModeFlow, setShowQuickModeFlow] = useState(false);
+  const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [showModelSelection, setShowModelSelection] = useState(false);
   const [prdToAnalyze, setPrdToAnalyze] = useState<string | null>(null);
   const [analysisResult, setAnalysisResult] = useState<PRDAnalysisResult | null>(null);
@@ -68,6 +74,29 @@ export function PRDView({ projectId, onViewSpecs }: PRDViewProps) {
         }
       );
     }
+  };
+
+  const handleResumeSession = (session: IdeateSession) => {
+    setActiveSessionId(session.id);
+    if (session.mode === 'quick') {
+      setShowQuickModeFlow(true);
+    }
+    // TODO: Handle guided and comprehensive modes when implemented
+  };
+
+  const handleSessionCreated = (sessionId: string) => {
+    setActiveSessionId(sessionId);
+    setShowQuickModeFlow(true);
+  };
+
+  const handleQuickModeComplete = (prdId: string) => {
+    // Refresh PRD list and select the newly created PRD
+    const newPRD = prds?.find(p => p.id === prdId);
+    if (newPRD) {
+      setSelectedPRD(newPRD);
+    }
+    setShowQuickModeFlow(false);
+    setActiveSessionId(null);
   };
 
   const formatDate = (dateString: string) => {
@@ -161,11 +190,18 @@ export function PRDView({ projectId, onViewSpecs }: PRDViewProps) {
           projectId={projectId}
           open={showIdeateFlow}
           onOpenChange={setShowIdeateFlow}
-          onSessionCreated={(sessionId) => {
-            console.log('Ideate session created:', sessionId);
-            // TODO: Navigate to ideate session page when it exists
-          }}
+          onSessionCreated={handleSessionCreated}
         />
+
+        {activeSessionId && (
+          <QuickModeFlow
+            projectId={projectId}
+            sessionId={activeSessionId}
+            open={showQuickModeFlow}
+            onOpenChange={setShowQuickModeFlow}
+            onComplete={handleQuickModeComplete}
+          />
+        )}
       </div>
     );
   }
@@ -191,6 +227,19 @@ export function PRDView({ projectId, onViewSpecs }: PRDViewProps) {
           </Button>
         </div>
       </div>
+
+      {/* Tabs for Sessions and PRDs */}
+      <Tabs defaultValue="prds" className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="sessions">Ideate Sessions</TabsTrigger>
+          <TabsTrigger value="prds">PRDs</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="sessions" className="space-y-4">
+          <SessionsList projectId={projectId} onResumeSession={handleResumeSession} />
+        </TabsContent>
+
+        <TabsContent value="prds" className="space-y-4">
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* PRD List */}
@@ -361,6 +410,8 @@ export function PRDView({ projectId, onViewSpecs }: PRDViewProps) {
           )}
         </div>
       </div>
+        </TabsContent>
+      </Tabs>
 
       <PRDUploadDialog
         projectId={projectId}
