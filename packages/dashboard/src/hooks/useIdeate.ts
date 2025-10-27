@@ -8,6 +8,8 @@ import type {
   CreateIdeateInput,
   UpdateIdeateInput,
   SkipSectionInput,
+  QuickGenerateInput,
+  QuickExpandInput,
 } from '@/services/ideate';
 
 interface ApiError {
@@ -114,6 +116,65 @@ export function useSkipSection(projectId: string, sessionId: string) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.ideateDetail(sessionId) });
       queryClient.invalidateQueries({ queryKey: queryKeys.ideateStatus(sessionId) });
+    },
+  });
+}
+
+/**
+ * Generate PRD from session description (Quick Mode)
+ */
+export function useQuickGenerate(projectId: string, sessionId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (input?: QuickGenerateInput) => ideateService.quickGenerate(sessionId, input),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.ideateDetail(sessionId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.ideateStatus(sessionId) });
+    },
+  });
+}
+
+/**
+ * Expand specific PRD sections (Quick Mode)
+ */
+export function useQuickExpand(projectId: string, sessionId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (input: QuickExpandInput) => ideateService.quickExpand(sessionId, input),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.ideateDetail(sessionId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.ideateStatus(sessionId) });
+    },
+  });
+}
+
+/**
+ * Preview PRD before saving
+ */
+export function usePreviewPRD(sessionId: string) {
+  return useQuery({
+    queryKey: ['ideate-preview', sessionId],
+    queryFn: () => ideateService.previewPRD(sessionId),
+    enabled: !!sessionId,
+    staleTime: 30 * 1000,
+  });
+}
+
+/**
+ * Save generated PRD to OpenSpec system
+ */
+export function useSaveAsPRD(projectId: string, sessionId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: () => ideateService.saveAsPRD(sessionId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.ideateDetail(sessionId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.ideateStatus(sessionId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.ideateList(projectId) });
+      queryClient.invalidateQueries({ queryKey: ['prds', projectId] });
     },
   });
 }

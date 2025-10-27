@@ -44,6 +44,26 @@ export interface SessionCompletionStatus {
   missing_required_sections: string[];
 }
 
+export interface QuickGenerateInput {
+  sections?: string[];
+}
+
+export interface QuickExpandInput {
+  sections: string[];
+}
+
+export interface GeneratedPRD {
+  session_id: string;
+  content: string;
+  sections: Record<string, string>;
+  generated_at: string;
+}
+
+export interface SavePRDResult {
+  prd_id: string;
+  success: boolean;
+}
+
 class IdeateService {
   /**
    * Create a new ideate session
@@ -142,6 +162,69 @@ class IdeateService {
 
     if (response.error || !response.data.success) {
       throw new Error(response.error || 'Failed to fetch completion status');
+    }
+
+    return response.data.data;
+  }
+
+  /**
+   * Generate PRD from session description (Quick Mode)
+   */
+  async quickGenerate(sessionId: string, input?: QuickGenerateInput): Promise<GeneratedPRD> {
+    const response = await apiClient.post<{ success: boolean; data: GeneratedPRD }>(
+      `/api/ideate/${sessionId}/quick-generate`,
+      input || {}
+    );
+
+    if (response.error || !response.data.success) {
+      throw new Error(response.error || 'Failed to generate PRD');
+    }
+
+    return response.data.data;
+  }
+
+  /**
+   * Expand specific PRD sections (Quick Mode)
+   */
+  async quickExpand(sessionId: string, input: QuickExpandInput): Promise<GeneratedPRD> {
+    const response = await apiClient.post<{ success: boolean; data: GeneratedPRD }>(
+      `/api/ideate/${sessionId}/quick-expand`,
+      input
+    );
+
+    if (response.error || !response.data.success) {
+      throw new Error(response.error || 'Failed to expand PRD sections');
+    }
+
+    return response.data.data;
+  }
+
+  /**
+   * Preview PRD before saving
+   */
+  async previewPRD(sessionId: string): Promise<GeneratedPRD> {
+    const response = await apiClient.get<{ success: boolean; data: GeneratedPRD }>(
+      `/api/ideate/${sessionId}/preview`
+    );
+
+    if (response.error || !response.data.success) {
+      throw new Error(response.error || 'Failed to preview PRD');
+    }
+
+    return response.data.data;
+  }
+
+  /**
+   * Save generated PRD to OpenSpec system
+   */
+  async saveAsPRD(sessionId: string): Promise<SavePRDResult> {
+    const response = await apiClient.post<{ success: boolean; data: SavePRDResult }>(
+      `/api/ideate/${sessionId}/save-as-prd`,
+      {}
+    );
+
+    if (response.error || !response.data.success) {
+      throw new Error(response.error || 'Failed to save PRD');
     }
 
     return response.data.data;
