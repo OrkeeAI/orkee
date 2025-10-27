@@ -12,7 +12,7 @@ use tracing::info;
 use super::response::{created_or_internal_error, ok_or_internal_error, ok_or_not_found};
 use ideate::{
     CreateIdeateSessionInput, IdeateManager, IdeateMode, IdeateStatus, PRDGenerator,
-    SkipSectionRequest, UpdateIdeateSessionInput,
+    SkipSectionRequest, TemplateManager, UpdateIdeateSessionInput,
 };
 use orkee_projects::DbState;
 
@@ -27,6 +27,8 @@ pub struct StartIdeateRequest {
     #[serde(rename = "initialDescription")]
     pub initial_description: String,
     pub mode: IdeateMode,
+    #[serde(rename = "templateId")]
+    pub template_id: Option<String>,
 }
 
 /// Start a new ideateing session
@@ -35,8 +37,8 @@ pub async fn start_ideate(
     Json(request): Json<StartIdeateRequest>,
 ) -> impl IntoResponse {
     info!(
-        "Starting ideate session for project: {} (mode: {:?})",
-        request.project_id, request.mode
+        "Starting ideate session for project: {} (mode: {:?}), template: {:?}",
+        request.project_id, request.mode, request.template_id
     );
 
     let manager = IdeateManager::new(db.pool.clone());
@@ -44,6 +46,7 @@ pub async fn start_ideate(
         project_id: request.project_id,
         initial_description: request.initial_description,
         mode: request.mode,
+        template_id: request.template_id,
     };
 
     let result = manager.create_session(input).await;
@@ -601,4 +604,54 @@ pub async fn navigate_to(
     let manager = IdeateManager::new(db.pool.clone());
     let result = manager.navigate_to(&session_id, &request.section).await;
     ok_or_internal_error(result, "Failed to navigate to section")
+}
+
+// ===================================
+// Template Endpoints
+// ===================================
+
+/// Get all available templates
+pub async fn list_templates(State(db): State<DbState>) -> impl IntoResponse {
+    info!("Listing all PRD templates");
+    let manager = TemplateManager::new(db.pool.clone());
+    let result = manager.get_templates().await;
+    ok_or_internal_error(result, "Failed to list templates")
+}
+
+/// Get a specific template by ID
+pub async fn get_template(
+    State(db): State<DbState>,
+    Path(template_id): Path<String>,
+) -> impl IntoResponse {
+    info!("Getting template: {}", template_id);
+    let manager = TemplateManager::new(db.pool.clone());
+    let result = manager.get_template(&template_id).await;
+    ok_or_not_found(result, "Template not found")
+}
+
+/// Get templates by project type
+pub async fn get_templates_by_type(
+    State(db): State<DbState>,
+    Path(project_type): Path<String>,
+) -> impl IntoResponse {
+    info!("Getting templates for project type: {}", project_type);
+    let manager = TemplateManager::new(db.pool.clone());
+    let result = manager.get_templates_by_type(&project_type).await;
+    ok_or_internal_error(result, "Failed to get templates by type")
+}
+
+#[derive(Deserialize)]
+pub struct SuggestTemplateRequest {
+    pub description: String,
+}
+
+/// Suggest a template based on description
+pub async fn suggest_template(
+    State(db): State<DbState>,
+    Json(request): Json<SuggestTemplateRequest>,
+) -> impl IntoResponse {
+    info!("Suggesting template for description");
+    let manager = TemplateManager::new(db.pool.clone());
+    let result = manager.suggest_template(&request.description).await;
+    ok_or_internal_error(result, "Failed to suggest template")
 }

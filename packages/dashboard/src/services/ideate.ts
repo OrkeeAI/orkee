@@ -22,6 +22,7 @@ export interface CreateIdeateInput {
   projectId: string;
   initialDescription: string;
   mode: IdeateMode;
+  templateId?: string;
 }
 
 export interface UpdateIdeateInput {
@@ -474,6 +475,28 @@ export interface RoundtableStatistics {
 export interface RoundtableEvent {
   type: 'connected' | 'started' | 'message' | 'typing' | 'interjection_acknowledged' | 'completed' | 'error' | 'heartbeat';
   data?: any;
+}
+
+// =============================================================================
+// Phase 8: Templates & Intelligence Types
+// =============================================================================
+
+export type ProjectType = 'saas' | 'mobile' | 'api' | 'marketplace' | 'internal-tool';
+
+export interface PRDTemplate {
+  id: string;
+  name: string;
+  description: string | null;
+  project_type: ProjectType | null;
+  one_liner_prompts: string[] | null;
+  default_features: string[] | null;
+  default_dependencies: Record<string, any> | null;
+  is_system: boolean;
+  created_at: string;
+}
+
+export interface SuggestTemplateRequest {
+  description: string;
 }
 
 // =============================================================================
@@ -1648,6 +1671,71 @@ class IdeateService {
 
     if (response.error || !response.data.success) {
       throw new Error(response.error || 'Failed to validate PRD');
+    }
+
+    return response.data.data;
+  }
+
+  // ===========================================================================
+  // Phase 8: Template Methods
+  // ===========================================================================
+
+  /**
+   * Get all available templates
+   */
+  async getTemplates(): Promise<PRDTemplate[]> {
+    const response = await apiClient.get<{ success: boolean; data: PRDTemplate[] }>(
+      '/api/ideate/templates'
+    );
+
+    if (response.error || !response.data.success) {
+      throw new Error(response.error || 'Failed to get templates');
+    }
+
+    return response.data.data;
+  }
+
+  /**
+   * Get a specific template by ID
+   */
+  async getTemplate(templateId: string): Promise<PRDTemplate> {
+    const response = await apiClient.get<{ success: boolean; data: PRDTemplate }>(
+      `/api/ideate/templates/${templateId}`
+    );
+
+    if (response.error || !response.data.success) {
+      throw new Error(response.error || 'Failed to get template');
+    }
+
+    return response.data.data;
+  }
+
+  /**
+   * Get templates filtered by project type
+   */
+  async getTemplatesByType(projectType: ProjectType): Promise<PRDTemplate[]> {
+    const response = await apiClient.get<{ success: boolean; data: PRDTemplate[] }>(
+      `/api/ideate/templates/by-type/${projectType}`
+    );
+
+    if (response.error || !response.data.success) {
+      throw new Error(response.error || 'Failed to get templates by type');
+    }
+
+    return response.data.data;
+  }
+
+  /**
+   * Suggest best matching template based on description
+   */
+  async suggestTemplate(description: string): Promise<PRDTemplate | null> {
+    const response = await apiClient.post<{ success: boolean; data: PRDTemplate | null }>(
+      '/api/ideate/templates/suggest',
+      { description }
+    );
+
+    if (response.error || !response.data.success) {
+      throw new Error(response.error || 'Failed to suggest template');
     }
 
     return response.data.data;

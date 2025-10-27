@@ -52,6 +52,7 @@ pub struct CreateIdeateSessionInput {
     pub project_id: String,
     pub initial_description: String,
     pub mode: IdeateMode,
+    pub template_id: Option<String>,
 }
 
 /// Input for updating a session
@@ -347,4 +348,29 @@ pub struct SessionCompletionStatus {
     pub skipped_sections: Vec<String>,
     pub is_ready_for_prd: bool,
     pub missing_required_sections: Vec<String>,
+}
+
+/// PRD Quickstart Template
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PRDTemplate {
+    pub id: String,
+    pub name: String,
+    pub description: Option<String>,
+    pub project_type: Option<String>,
+    pub one_liner_prompts: Option<Vec<String>>,
+    pub default_features: Option<Vec<String>>,
+    pub default_dependencies: Option<serde_json::Value>,
+    pub is_system: bool,
+    pub created_at: DateTime<Utc>,
+}
+
+/// Input for creating a new template
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreateTemplateInput {
+    pub name: String,
+    pub description: Option<String>,
+    pub project_type: Option<String>,
+    pub one_liner_prompts: Option<Vec<String>>,
+    pub default_features: Option<Vec<String>>,
+    pub default_dependencies: Option<serde_json::Value>,
 }

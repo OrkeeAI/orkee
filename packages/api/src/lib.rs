@@ -459,6 +459,20 @@ pub fn create_ideate_router() -> Router<DbState> {
             "/ideate/{session_id}/prd/validation",
             get(ideate_generation_handlers::validate_prd),
         )
+        // Phase 8: Templates routes
+        .route("/ideate/templates", get(ideate_handlers::list_templates))
+        .route(
+            "/ideate/templates/{template_id}",
+            get(ideate_handlers::get_template),
+        )
+        .route(
+            "/ideate/templates/by-type/{project_type}",
+            get(ideate_handlers::get_templates_by_type),
+        )
+        .route(
+            "/ideate/templates/suggest",
+            post(ideate_handlers::suggest_template),
+        )
 }
 
 /// Creates the specs API router for OpenSpec capabilities

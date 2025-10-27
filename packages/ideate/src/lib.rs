@@ -14,6 +14,7 @@ pub mod research_analyzer;
 pub mod research_prompts;
 pub mod roundtable;
 pub mod roundtable_manager;
+pub mod templates;
 pub mod types;
 
 pub use build_optimizer::{
@@ -41,6 +42,7 @@ pub use roundtable::{
     SuggestExpertsRequest, SuggestExpertsResponse, UserInterjectionInput, UserInterjectionResponse,
 };
 pub use roundtable_manager::RoundtableManager;
+pub use templates::TemplateManager;
 pub use types::*;
 
 /// Re-export commonly used types

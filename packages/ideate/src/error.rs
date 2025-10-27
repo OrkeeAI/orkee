@@ -40,6 +40,12 @@ pub enum IdeateError {
 
     #[error("Validation error: {0}")]
     ValidationError(String),
+
+    #[error("Template not found: {0}")]
+    TemplateNotFound(String),
+
+    #[error("Forbidden: {0}")]
+    Forbidden(String),
 }
 
 pub type Result<T> = std::result::Result<T, IdeateError>;
