@@ -51,14 +51,14 @@ Add a flexible PRD generation system supporting three modes:
 - [x] Fix enum serialization (snake_case for BrainstormStatus)
 - [x] Test all endpoints end-to-end
 
-### Frontend - Entry Point
-- [ ] Create `packages/dashboard/src/components/brainstorm/` directory
-- [ ] Create `CreatePRDFlow.tsx` - Main entry component
-- [ ] Create `ModeSelector.tsx` - Choose Quick/Guided/Comprehensive
-- [ ] Add "Create PRD" button to `PRDView.tsx`
-- [ ] Create service `packages/dashboard/src/services/brainstorm.ts`
-- [ ] Create hooks `packages/dashboard/src/hooks/useBrainstorm.ts`
-- [ ] Test end-to-end session creation
+### Frontend - Entry Point ✅ COMPLETED
+- [x] Create `packages/dashboard/src/components/brainstorm/` directory
+- [x] Create `CreatePRDFlow.tsx` - Main entry component
+- [x] Create `ModeSelector.tsx` - Choose Quick/Guided/Comprehensive
+- [x] Add "Create PRD" button to `PRDView.tsx`
+- [x] Create service `packages/dashboard/src/services/brainstorm.ts`
+- [x] Create hooks `packages/dashboard/src/hooks/useBrainstorm.ts`
+- [x] Test end-to-end session creation
 
 ---
 

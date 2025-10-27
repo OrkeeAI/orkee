@@ -1,7 +1,7 @@
 // ABOUTME: PRD management view displaying list of PRDs with metadata and content
 // ABOUTME: Integrates with PRDUploadDialog for creating/analyzing PRDs
 import { useState } from 'react';
-import { FileText, Upload, Sparkles, Trash2, Calendar, User, Layers, ExternalLink, AlertTriangle } from 'lucide-react';
+import { FileText, Upload, Sparkles, Trash2, Calendar, User, Layers, ExternalLink, AlertTriangle, Lightbulb } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -15,6 +15,7 @@ import { usePRDs, useDeletePRD, useTriggerPRDAnalysis } from '@/hooks/usePRDs';
 import { useSpecs } from '@/hooks/useSpecs';
 import { PRDUploadDialog } from '@/components/PRDUploadDialog';
 import { ModelSelectionDialog } from '@/components/ModelSelectionDialog';
+import { CreatePRDFlow } from '@/components/brainstorm/CreatePRDFlow';
 import type { PRD, PRDAnalysisResult } from '@/services/prds';
 
 interface PRDViewProps {
@@ -25,6 +26,7 @@ interface PRDViewProps {
 export function PRDView({ projectId, onViewSpecs }: PRDViewProps) {
   const [selectedPRD, setSelectedPRD] = useState<PRD | null>(null);
   const [showUploadDialog, setShowUploadDialog] = useState(false);
+  const [showBrainstormFlow, setShowBrainstormFlow] = useState(false);
   const [showModelSelection, setShowModelSelection] = useState(false);
   const [prdToAnalyze, setPrdToAnalyze] = useState<string | null>(null);
   const [analysisResult, setAnalysisResult] = useState<PRDAnalysisResult | null>(null);
@@ -128,13 +130,19 @@ export function PRDView({ projectId, onViewSpecs }: PRDViewProps) {
         <div className="text-center space-y-2">
           <h3 className="text-lg font-semibold">No PRDs Yet</h3>
           <p className="text-sm text-muted-foreground max-w-md">
-            Upload a Product Requirements Document to get started with spec-driven development.
+            Create a new PRD through brainstorming or upload an existing document.
           </p>
         </div>
-        <Button onClick={() => setShowUploadDialog(true)}>
-          <Upload className="mr-2 h-4 w-4" />
-          Upload PRD
-        </Button>
+        <div className="flex gap-2">
+          <Button onClick={() => setShowBrainstormFlow(true)}>
+            <Lightbulb className="mr-2 h-4 w-4" />
+            Create PRD
+          </Button>
+          <Button variant="outline" onClick={() => setShowUploadDialog(true)}>
+            <Upload className="mr-2 h-4 w-4" />
+            Upload PRD
+          </Button>
+        </div>
 
         <PRDUploadDialog
           projectId={projectId}
@@ -146,6 +154,16 @@ export function PRDView({ projectId, onViewSpecs }: PRDViewProps) {
             if (newPRD) {
               setSelectedPRD(newPRD);
             }
+          }}
+        />
+
+        <CreatePRDFlow
+          projectId={projectId}
+          open={showBrainstormFlow}
+          onOpenChange={setShowBrainstormFlow}
+          onSessionCreated={(sessionId) => {
+            console.log('Brainstorm session created:', sessionId);
+            // TODO: Navigate to brainstorm session page when it exists
           }}
         />
       </div>
@@ -162,10 +180,16 @@ export function PRDView({ projectId, onViewSpecs }: PRDViewProps) {
             {prds.length} {prds.length === 1 ? 'PRD' : 'PRDs'} in this project
           </p>
         </div>
-        <Button onClick={() => setShowUploadDialog(true)} size="sm">
-          <Upload className="mr-2 h-4 w-4" />
-          Upload PRD
-        </Button>
+        <div className="flex gap-2">
+          <Button onClick={() => setShowBrainstormFlow(true)} size="sm">
+            <Lightbulb className="mr-2 h-4 w-4" />
+            Create PRD
+          </Button>
+          <Button variant="outline" onClick={() => setShowUploadDialog(true)} size="sm">
+            <Upload className="mr-2 h-4 w-4" />
+            Upload PRD
+          </Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
@@ -355,6 +379,16 @@ export function PRDView({ projectId, onViewSpecs }: PRDViewProps) {
         open={showModelSelection}
         onOpenChange={setShowModelSelection}
         onConfirm={handleAnalyze}
+      />
+
+      <CreatePRDFlow
+        projectId={projectId}
+        open={showBrainstormFlow}
+        onOpenChange={setShowBrainstormFlow}
+        onSessionCreated={(sessionId) => {
+          console.log('Brainstorm session created:', sessionId);
+          // TODO: Navigate to brainstorm session page when it exists
+        }}
       />
     </div>
   );
