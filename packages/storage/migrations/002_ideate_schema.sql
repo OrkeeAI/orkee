@@ -195,25 +195,7 @@ CREATE INDEX idx_ideate_research_session ON ideate_research(session_id);
 -- ============================================================================
 -- COMPREHENSIVE MODE FEATURES
 -- ============================================================================
-
--- Expert Roundtable Sessions
-CREATE TABLE roundtable_sessions (
-    id TEXT PRIMARY KEY CHECK(length(id) >= 8),
-    session_id TEXT NOT NULL,
-    experts TEXT, -- JSON array of expert personas
-    discussion_log TEXT, -- Full conversation transcript
-    key_insights TEXT, -- JSON array of extracted insights
-    recommendations TEXT, -- JSON array of expert recommendations
-    started_at TEXT,
-    ended_at TEXT,
-    created_at TEXT NOT NULL DEFAULT (datetime('now', 'utc')),
-    FOREIGN KEY (session_id) REFERENCES ideate_sessions(id) ON DELETE CASCADE,
-    CHECK (json_valid(experts) OR experts IS NULL),
-    CHECK (json_valid(key_insights) OR key_insights IS NULL),
-    CHECK (json_valid(recommendations) OR recommendations IS NULL)
-);
-
-CREATE INDEX idx_roundtable_sessions_session ON roundtable_sessions(session_id);
+-- Note: Roundtable system now implemented in migration 006_expert_roundtable_system.sql
 
 -- ============================================================================
 -- GENERATION TRACKING (Quick Mode)
@@ -245,6 +227,7 @@ CREATE INDEX idx_ideate_generations_status ON ideate_generations(status);
 CREATE TABLE prd_quickstart_templates (
     id TEXT PRIMARY KEY CHECK(length(id) >= 8),
     name TEXT NOT NULL,
+    description TEXT, -- Template description for UI display
     project_type TEXT, -- 'saas', 'mobile', 'api', 'marketplace', etc.
     one_liner_prompts TEXT, -- JSON array of prompts to expand one-liner
     default_features TEXT, -- JSON array of common features for this type

@@ -64,7 +64,7 @@ INSERT INTO prd_quickstart_templates (
     is_system,
     created_at
 ) VALUES (
-    'tpl_api',
+    'tpl_backend',
     'API / Backend Service',
     'Best for building RESTful or GraphQL APIs, microservices, and backend infrastructure with authentication, rate limiting, and comprehensive documentation.',
     'api',
