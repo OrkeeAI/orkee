@@ -19,6 +19,12 @@ import type {
   IdeateResearch,
   CreateFeatureDependencyInput,
   OptimizationStrategy,
+  Competitor,
+  SimilarProject,
+  GapAnalysis,
+  UIPattern,
+  Lesson,
+  ResearchSynthesis,
 } from '@/services/ideate';
 
 interface ApiError {
@@ -635,5 +641,102 @@ export function useQuickWins(sessionId: string) {
     queryFn: () => ideateService.suggestQuickWins(sessionId),
     enabled: !!sessionId,
     staleTime: 2 * 60 * 1000, // 2 minutes
+  });
+}
+
+// Phase 5: Research Analysis hooks
+
+/**
+ * Analyze a competitor URL
+ */
+export function useAnalyzeCompetitor(sessionId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ url, projectDescription }: { url: string; projectDescription?: string }) =>
+      ideateService.analyzeCompetitor(sessionId, url, projectDescription),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.ideateCompetitors(sessionId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.ideateResearch(sessionId) });
+    },
+  });
+}
+
+/**
+ * Get all analyzed competitors
+ */
+export function useCompetitors(sessionId: string) {
+  return useQuery({
+    queryKey: queryKeys.ideateCompetitors(sessionId),
+    queryFn: () => ideateService.getCompetitors(sessionId),
+    enabled: !!sessionId,
+    staleTime: 5 * 60 * 1000, // 5 minutes - competitor data changes infrequently
+  });
+}
+
+/**
+ * Perform gap analysis against competitors
+ */
+export function useAnalyzeGaps(sessionId: string) {
+  return useMutation({
+    mutationFn: (yourFeatures: string[]) =>
+      ideateService.analyzeGaps(sessionId, yourFeatures),
+  });
+}
+
+/**
+ * Extract UI/UX patterns from a URL
+ */
+export function useExtractPatterns(sessionId: string) {
+  return useMutation({
+    mutationFn: ({ url, projectDescription }: { url: string; projectDescription?: string }) =>
+      ideateService.extractPatterns(sessionId, url, projectDescription),
+  });
+}
+
+/**
+ * Add a similar project reference
+ */
+export function useAddSimilarProject(sessionId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (project: SimilarProject) =>
+      ideateService.addSimilarProject(sessionId, project),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.ideateSimilarProjects(sessionId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.ideateResearch(sessionId) });
+    },
+  });
+}
+
+/**
+ * Get all similar projects
+ */
+export function useSimilarProjects(sessionId: string) {
+  return useQuery({
+    queryKey: queryKeys.ideateSimilarProjects(sessionId),
+    queryFn: () => ideateService.getSimilarProjects(sessionId),
+    enabled: !!sessionId,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+  });
+}
+
+/**
+ * Extract lessons from a similar project
+ */
+export function useExtractLessons(sessionId: string) {
+  return useMutation({
+    mutationFn: ({ projectName, projectDescription }: { projectName: string; projectDescription?: string }) =>
+      ideateService.extractLessons(sessionId, projectName, projectDescription),
+  });
+}
+
+/**
+ * Synthesize all research findings
+ */
+export function useSynthesizeResearch(sessionId: string) {
+  return useMutation({
+    mutationFn: () => ideateService.synthesizeResearch(sessionId),
   });
 }

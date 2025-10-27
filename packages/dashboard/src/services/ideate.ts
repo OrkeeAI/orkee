@@ -248,6 +248,44 @@ export interface IdeateResearch {
   created_at: string;
 }
 
+// Phase 5: Research Analysis types
+
+export interface UIPattern {
+  pattern_type: string; // layout, navigation, interaction, visual, content
+  name: string;
+  description: string;
+  benefits: string;
+  adoption_notes: string;
+}
+
+export interface Opportunity {
+  opportunity_type: string; // differentiation, improvement, gap
+  title: string;
+  description: string;
+  competitor_context: string;
+  recommendation: string;
+}
+
+export interface GapAnalysis {
+  opportunities: Opportunity[];
+  summary: string;
+}
+
+export interface Lesson {
+  category: string; // design, implementation, feature, ux, technical
+  insight: string;
+  application: string;
+  priority: string; // high, medium, low
+}
+
+export interface ResearchSynthesis {
+  key_findings: string[];
+  market_position: string;
+  differentiators: string[];
+  risks: string[];
+  recommendations: string[];
+}
+
 // Phase 4: Dependency Intelligence types
 
 export type DependencyType = 'technical' | 'logical' | 'business';
@@ -774,6 +812,132 @@ class IdeateService {
     if (response.error || !response.data.success) {
       throw new Error(response.error || 'Failed to delete research section');
     }
+  }
+
+  // Phase 5: Research Analysis methods
+
+  /**
+   * Analyze a competitor URL
+   */
+  async analyzeCompetitor(sessionId: string, url: string, projectDescription?: string): Promise<Competitor> {
+    const response = await apiClient.post<{ success: boolean; data: Competitor }>(
+      `/api/ideate/${sessionId}/research/competitors/analyze`,
+      { url, projectDescription }
+    );
+
+    if (response.error || !response.data.success) {
+      throw new Error(response.error || 'Failed to analyze competitor');
+    }
+
+    return response.data.data;
+  }
+
+  /**
+   * Get all analyzed competitors
+   */
+  async getCompetitors(sessionId: string): Promise<Competitor[]> {
+    const response = await apiClient.get<{ success: boolean; data: Competitor[] }>(
+      `/api/ideate/${sessionId}/research/competitors`
+    );
+
+    if (response.error || !response.data.success) {
+      throw new Error(response.error || 'Failed to get competitors');
+    }
+
+    return response.data.data;
+  }
+
+  /**
+   * Perform gap analysis against competitors
+   */
+  async analyzeGaps(sessionId: string, yourFeatures: string[]): Promise<GapAnalysis> {
+    const response = await apiClient.post<{ success: boolean; data: GapAnalysis }>(
+      `/api/ideate/${sessionId}/research/gaps/analyze`,
+      { yourFeatures }
+    );
+
+    if (response.error || !response.data.success) {
+      throw new Error(response.error || 'Failed to analyze gaps');
+    }
+
+    return response.data.data;
+  }
+
+  /**
+   * Extract UI/UX patterns from a URL
+   */
+  async extractPatterns(sessionId: string, url: string, projectDescription?: string): Promise<UIPattern[]> {
+    const response = await apiClient.post<{ success: boolean; data: UIPattern[] }>(
+      `/api/ideate/${sessionId}/research/patterns/extract`,
+      { url, projectDescription }
+    );
+
+    if (response.error || !response.data.success) {
+      throw new Error(response.error || 'Failed to extract patterns');
+    }
+
+    return response.data.data;
+  }
+
+  /**
+   * Add a similar project reference
+   */
+  async addSimilarProject(sessionId: string, project: SimilarProject): Promise<void> {
+    const response = await apiClient.post<{ success: boolean }>(
+      `/api/ideate/${sessionId}/research/similar-projects`,
+      project
+    );
+
+    if (response.error || !response.data.success) {
+      throw new Error(response.error || 'Failed to add similar project');
+    }
+  }
+
+  /**
+   * Get all similar projects
+   */
+  async getSimilarProjects(sessionId: string): Promise<SimilarProject[]> {
+    const response = await apiClient.get<{ success: boolean; data: SimilarProject[] }>(
+      `/api/ideate/${sessionId}/research/similar-projects`
+    );
+
+    if (response.error || !response.data.success) {
+      throw new Error(response.error || 'Failed to get similar projects');
+    }
+
+    return response.data.data;
+  }
+
+  /**
+   * Extract lessons from a similar project
+   */
+  async extractLessons(sessionId: string, projectName: string, projectDescription?: string): Promise<Lesson[]> {
+    const response = await apiClient.post<{ success: boolean; data: Lesson[] }>(
+      `/api/ideate/${sessionId}/research/lessons/extract`,
+      { projectName, projectDescription }
+    );
+
+    if (response.error || !response.data.success) {
+      throw new Error(response.error || 'Failed to extract lessons');
+    }
+
+    return response.data.data;
+  }
+
+  /**
+   * Synthesize all research findings
+   */
+  async synthesizeResearch(sessionId: string): Promise<ResearchSynthesis> {
+    const response = await apiClient.post<{ success: boolean; data: ResearchSynthesis }>(
+      `/api/ideate/${sessionId}/research/synthesize`,
+      {}
+    );
+
+    if (response.error || !response.data.success) {
+      throw new Error(response.error || 'Failed to synthesize research');
+    }
+
+    return response.data.data;
   }
 
   // Phase 4: Dependency Intelligence methods

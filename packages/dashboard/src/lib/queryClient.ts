@@ -76,6 +76,9 @@ export const queryKeys = {
   ideateBuildOrder: (sessionId: string) => [...queryKeys.ideate, 'build-order', sessionId] as const,
   ideateCircularDeps: (sessionId: string) => [...queryKeys.ideate, 'circular-deps', sessionId] as const,
   ideateQuickWins: (sessionId: string) => [...queryKeys.ideate, 'quick-wins', sessionId] as const,
+  // Phase 5: Research Analysis keys
+  ideateCompetitors: (sessionId: string) => [...queryKeys.ideate, 'competitors', sessionId] as const,
+  ideateSimilarProjects: (sessionId: string) => [...queryKeys.ideate, 'similar-projects', sessionId] as const,
 
   // Spec keys
   specs: ['specs'] as const,

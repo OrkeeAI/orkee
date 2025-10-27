@@ -20,6 +20,7 @@ pub mod graph_handlers;
 pub mod handlers;
 pub mod ideate_dependency_handlers;
 pub mod ideate_handlers;
+pub mod ideate_research_handlers;
 pub mod prd_handlers;
 pub mod response;
 pub mod security_handlers;
@@ -323,6 +324,39 @@ pub fn create_ideate_router() -> Router<DbState> {
         .route(
             "/ideate/{session_id}/features/suggest-visible",
             get(ideate_dependency_handlers::suggest_quick_wins),
+        )
+        // Phase 5: Comprehensive Mode - Research & Competitor Analysis routes
+        .route(
+            "/ideate/{session_id}/research/competitors/analyze",
+            post(ideate_research_handlers::analyze_competitor),
+        )
+        .route(
+            "/ideate/{session_id}/research/competitors",
+            get(ideate_research_handlers::get_competitors),
+        )
+        .route(
+            "/ideate/{session_id}/research/gaps/analyze",
+            post(ideate_research_handlers::analyze_gaps),
+        )
+        .route(
+            "/ideate/{session_id}/research/patterns/extract",
+            post(ideate_research_handlers::extract_patterns),
+        )
+        .route(
+            "/ideate/{session_id}/research/similar-projects",
+            post(ideate_research_handlers::add_similar_project),
+        )
+        .route(
+            "/ideate/{session_id}/research/similar-projects",
+            get(ideate_research_handlers::get_similar_projects),
+        )
+        .route(
+            "/ideate/{session_id}/research/lessons/extract",
+            post(ideate_research_handlers::extract_lessons),
+        )
+        .route(
+            "/ideate/{session_id}/research/synthesize",
+            post(ideate_research_handlers::synthesize_research),
         )
 }
 

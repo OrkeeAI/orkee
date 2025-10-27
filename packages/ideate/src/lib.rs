@@ -7,6 +7,8 @@ pub mod error;
 pub mod manager;
 pub mod prd_generator;
 pub mod prompts;
+pub mod research_analyzer;
+pub mod research_prompts;
 pub mod types;
 
 pub use build_optimizer::{
@@ -20,6 +22,9 @@ pub use dependency_analyzer::{
 pub use error::{IdeateError, Result};
 pub use manager::IdeateManager;
 pub use prd_generator::PRDGenerator;
+pub use research_analyzer::{
+    GapAnalysis, Lesson, Opportunity, ResearchAnalyzer, ResearchSynthesis, UIPattern,
+};
 pub use types::*;
 
 /// Re-export commonly used types

@@ -20,6 +20,7 @@ import { CreatePRDFlow } from '@/components/ideate/CreatePRDFlow';
 import { SessionsList } from '@/components/ideate/SessionsList';
 import { QuickModeFlow } from '@/components/ideate/QuickMode';
 import { GuidedModeFlow } from '@/components/ideate/GuidedMode';
+import { ComprehensiveModeFlow } from '@/components/ideate/ComprehensiveMode';
 import type { PRD, PRDAnalysisResult } from '@/services/prds';
 import type { IdeateSession } from '@/services/ideate';
 
@@ -34,6 +35,7 @@ export function PRDView({ projectId, onViewSpecs }: PRDViewProps) {
   const [showIdeateFlow, setShowIdeateFlow] = useState(false);
   const [showQuickModeFlow, setShowQuickModeFlow] = useState(false);
   const [showGuidedModeFlow, setShowGuidedModeFlow] = useState(false);
+  const [showComprehensiveModeFlow, setShowComprehensiveModeFlow] = useState(false);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [showModelSelection, setShowModelSelection] = useState(false);
   const [prdToAnalyze, setPrdToAnalyze] = useState<string | null>(null);
@@ -84,8 +86,9 @@ export function PRDView({ projectId, onViewSpecs }: PRDViewProps) {
       setShowQuickModeFlow(true);
     } else if (session.mode === 'guided') {
       setShowGuidedModeFlow(true);
+    } else if (session.mode === 'comprehensive') {
+      setShowComprehensiveModeFlow(true);
     }
-    // TODO: Handle comprehensive mode when implemented
   };
 
   const handleSessionCreated = (sessionId: string, mode: 'quick' | 'guided' | 'comprehensive') => {
@@ -94,8 +97,9 @@ export function PRDView({ projectId, onViewSpecs }: PRDViewProps) {
       setShowQuickModeFlow(true);
     } else if (mode === 'guided') {
       setShowGuidedModeFlow(true);
+    } else if (mode === 'comprehensive') {
+      setShowComprehensiveModeFlow(true);
     }
-    // TODO: Handle comprehensive mode when implemented
   };
 
   const handleQuickModeComplete = (prdId: string) => {
@@ -115,6 +119,16 @@ export function PRDView({ projectId, onViewSpecs }: PRDViewProps) {
       setSelectedPRD(newPRD);
     }
     setShowGuidedModeFlow(false);
+    setActiveSessionId(null);
+  };
+
+  const handleComprehensiveModeComplete = (prdId: string) => {
+    // Refresh PRD list and select the newly created PRD
+    const newPRD = prds?.find(p => p.id === prdId);
+    if (newPRD) {
+      setSelectedPRD(newPRD);
+    }
+    setShowComprehensiveModeFlow(false);
     setActiveSessionId(null);
   };
 
@@ -442,6 +456,14 @@ export function PRDView({ projectId, onViewSpecs }: PRDViewProps) {
             open={showGuidedModeFlow}
             onOpenChange={setShowGuidedModeFlow}
             onComplete={handleGuidedModeComplete}
+          />
+
+          <ComprehensiveModeFlow
+            projectId={projectId}
+            sessionId={activeSessionId}
+            open={showComprehensiveModeFlow}
+            onOpenChange={setShowComprehensiveModeFlow}
+            onComplete={handleComprehensiveModeComplete}
           />
         </>
       )}
