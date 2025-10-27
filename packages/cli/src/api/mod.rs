@@ -299,6 +299,10 @@ pub async fn create_router_with_options(
             api::create_agents_router().with_state(db_state.clone()),
         )
         .nest(
+            "/api/models",
+            api::create_models_router().with_state(db_state.clone()),
+        )
+        .nest(
             "/api/users",
             api::create_users_router().with_state(db_state.clone()),
         )

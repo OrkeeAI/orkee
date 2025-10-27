@@ -23,6 +23,7 @@ pub mod ideate_generation_handlers;
 pub mod ideate_handlers;
 pub mod ideate_research_handlers;
 pub mod ideate_roundtable_handlers;
+pub mod models_handlers;
 pub mod prd_handlers;
 pub mod response;
 pub mod security_handlers;
@@ -80,6 +81,14 @@ pub fn create_agents_router() -> Router<DbState> {
             "/users/{user_id}/{agent_id}/activation",
             put(agents_handlers::update_agent_activation),
         )
+}
+
+/// Creates the models API router
+pub fn create_models_router() -> Router<DbState> {
+    Router::new()
+        .route("/", get(models_handlers::list_models))
+        .route("/{model_id}", get(models_handlers::get_model))
+        .route("/provider/{provider}", get(models_handlers::list_models_by_provider))
 }
 
 /// Creates the users API router

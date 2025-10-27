@@ -15,6 +15,7 @@ import { OneLineInput } from './OneLineInput';
 import { GeneratingState } from './GeneratingState';
 import { PRDEditor } from './PRDEditor';
 import { SavePreview } from './SavePreview';
+import { ModelSelectionDialog } from '@/components/ModelSelectionDialog';
 import { useQuickGenerate, useQuickExpand, useSaveAsPRD, useIdeateSession } from '@/hooks/useIdeate';
 import type { GeneratedPRD } from '@/services/ideate';
 import { toast } from 'sonner';
@@ -39,8 +40,12 @@ export function QuickModeFlow({
   const [step, setStep] = useState<FlowStep>('input');
   const [description, setDescription] = useState('');
   const [generatedPRD, setGeneratedPRD] = useState<GeneratedPRD | null>(null);
-  const [selectedSections, setSelectedSections] = useState<string[]>([]);
   const [isRegenerating, setIsRegenerating] = useState<Record<string, boolean>>({});
+  const [showModelSelection, setShowModelSelection] = useState(false);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [selectedProvider, setSelectedProvider] = useState<string>('');
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [selectedModel, setSelectedModel] = useState<string>('');
 
   const { data: session } = useIdeateSession(sessionId);
   const generateMutation = useQuickGenerate(projectId, sessionId);
@@ -54,12 +59,23 @@ export function QuickModeFlow({
     }
   }, [session]);
 
-  const handleGenerate = async () => {
+  const handleGenerate = () => {
+    // Show model selection dialog instead of directly generating
+    setShowModelSelection(true);
+  };
+
+  const handleModelConfirm = async (provider: string, model: string) => {
+    setSelectedProvider(provider);
+    setSelectedModel(model);
+
     try {
       setStep('generating');
       toast.info('Generating your PRD...', { duration: 2000 });
 
-      const result = await generateMutation.mutateAsync();
+      const result = await generateMutation.mutateAsync({
+        provider,
+        model,
+      });
       setGeneratedPRD(result);
       setStep('edit');
 
@@ -140,7 +156,7 @@ export function QuickModeFlow({
     setStep('save');
   };
 
-  const handleConfirmSave = async (name: string) => {
+  const handleConfirmSave = async () => {
     try {
       const result = await saveMutation.mutateAsync();
 
@@ -173,8 +189,9 @@ export function QuickModeFlow({
     setStep('input');
     setDescription('');
     setGeneratedPRD(null);
-    setSelectedSections([]);
     setIsRegenerating({});
+    setSelectedProvider('');
+    setSelectedModel('');
   };
 
   const handleClose = () => {
@@ -267,6 +284,15 @@ export function QuickModeFlow({
           isSaving={saveMutation.isPending}
         />
       )}
+
+      {/* Model Selection Dialog */}
+      <ModelSelectionDialog
+        open={showModelSelection}
+        onOpenChange={setShowModelSelection}
+        onConfirm={handleModelConfirm}
+        defaultProvider="anthropic"
+        defaultModel="claude-3-5-sonnet-20241022"
+      />
     </>
   );
 }

@@ -42,6 +42,7 @@ export const queryKeys = {
   health: ['health'] as const,
   prds: ['prds'] as const,
   agents: ['agents'] as const,
+  models: ['models'] as const,
   currentUser: ['current-user'] as const,
 
   // Project-specific keys

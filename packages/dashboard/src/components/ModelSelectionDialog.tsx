@@ -21,7 +21,7 @@ import {
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Sparkles, DollarSign, Zap, AlertTriangle } from 'lucide-react';
 import { useCurrentUser } from '@/hooks/useUsers';
-import { useAgents } from '@/hooks/useAgents';
+import { useModels } from '@/hooks/useModels';
 
 interface ModelSelectionDialogProps {
   open: boolean;
@@ -31,15 +31,16 @@ interface ModelSelectionDialogProps {
   defaultModel?: string;
 }
 
-interface Agent {
+interface Model {
   id: string;
-  name: string;
   provider: string;
   model: string;
   display_name: string;
+  description: string;
   cost_per_1k_input_tokens: number;
   cost_per_1k_output_tokens: number;
   max_context_tokens: number;
+  is_available: boolean;
 }
 
 export function ModelSelectionDialog({
@@ -53,7 +54,7 @@ export function ModelSelectionDialog({
   const [selectedModel, setSelectedModel] = useState(defaultModel);
   
   const { data: currentUser, isLoading: userLoading } = useCurrentUser();
-  const { data: agents, isLoading: agentsLoading } = useAgents();
+  const { data: models, isLoading: modelsLoading } = useModels();
 
   // Get available providers (those with API keys configured)
   const availableProviders = React.useMemo(() => {
@@ -87,18 +88,18 @@ export function ModelSelectionDialog({
 
   // Get models for selected provider
   const availableModels = React.useMemo(() => {
-    if (!agents || !selectedProvider) return [];
-    
-    return agents
-      .filter((agent: Agent) => agent.provider === selectedProvider)
-      .map((agent: Agent) => ({
-        value: agent.model,
-        label: agent.display_name,
-        inputCost: agent.cost_per_1k_input_tokens,
-        outputCost: agent.cost_per_1k_output_tokens,
-        contextWindow: agent.max_context_tokens,
+    if (!models || !selectedProvider) return [];
+
+    return models
+      .filter((model: Model) => model.provider === selectedProvider)
+      .map((model: Model) => ({
+        value: model.model,
+        label: model.display_name,
+        inputCost: model.cost_per_1k_input_tokens,
+        outputCost: model.cost_per_1k_output_tokens,
+        contextWindow: model.max_context_tokens,
       }));
-  }, [agents, selectedProvider]);
+  }, [models, selectedProvider]);
 
   // Get selected model details for display
   const selectedModelDetails = React.useMemo(() => {
@@ -110,14 +111,14 @@ export function ModelSelectionDialog({
     if (open && availableProviders.length > 0) {
       const provider = availableProviders[0].value;
       setSelectedProvider(provider);
-      
+
       // Set first model for this provider
-      const providerModels = agents?.filter((a: Agent) => a.provider === provider) || [];
+      const providerModels = models?.filter((m: Model) => m.provider === provider) || [];
       if (providerModels.length > 0) {
         setSelectedModel(providerModels[0].model);
       }
     }
-  }, [open, availableProviders, agents]);
+  }, [open, availableProviders, models]);
 
   // Update model when provider changes
   useEffect(() => {
@@ -134,7 +135,7 @@ export function ModelSelectionDialog({
     onOpenChange(false);
   };
 
-  if (userLoading || agentsLoading) {
+  if (userLoading || modelsLoading) {
     return (
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className="sm:max-w-[500px]">
