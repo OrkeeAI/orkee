@@ -7,7 +7,6 @@ import { render, screen, waitFor } from '@testing-library/react';
 import type { ChangeStatus } from '@/services/changes';
 
 // Mock ChangesList component
-const mockOnSelectChange = vi.fn();
 let capturedStatusFilter: ChangeStatus | undefined;
 
 vi.mock('@/components/changes/ChangesList', () => ({
