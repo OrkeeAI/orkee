@@ -85,32 +85,139 @@ Add a flexible PRD generation system supporting three modes:
 - [x] Use encrypted user API keys from database
 - [x] Settings accessible via Settings → Advanced UI
 
-### Frontend - Session List View
-- [ ] Create `packages/dashboard/src/components/ideate/SessionsList.tsx`
-- [ ] Display all ideate sessions for current project
-- [ ] Show session mode (Quick/Guided/Comprehensive)
-- [ ] Show session status (Draft/In Progress/Ready/Completed)
-- [ ] Add search/filter by mode and status
-- [ ] Add "Resume session" functionality
-- [ ] Add "Delete session" with confirmation
-- [ ] Add created/updated timestamps
-- [ ] Show linked PRD if completed
+### Frontend - Step 1: API Service Layer Extension
+**File**: `packages/dashboard/src/services/ideate.ts`
+- [ ] Add `quickGenerate(sessionId, sections?)` method → POST `/api/ideate/{id}/quick-generate`
+- [ ] Add `quickExpand(sessionId, sections)` method → POST `/api/ideate/{id}/quick-expand`
+- [ ] Add `previewPRD(sessionId)` method → GET `/api/ideate/{id}/preview`
+- [ ] Add `saveAsPRD(sessionId)` method → POST `/api/ideate/{id}/save-as-prd`
 
-### Frontend - Quick Mode UI
-- [ ] Create `packages/dashboard/src/components/ideate/QuickMode/`
-- [ ] Create `OneLineInput.tsx` - Simple description input
-- [ ] Create `QuickExpansion.tsx` - Section selection
-- [ ] Create `InstantPRD.tsx` - Show generated PRD
-- [ ] Add loading states (non-streaming for now)
-- [ ] Add edit capabilities after generation
-- [ ] Add "Save as PRD" functionality
-- [ ] Test with various one-liner descriptions
+**File**: `packages/dashboard/src/hooks/useIdeate.ts`
+- [ ] Add `useQuickGenerate(projectId, sessionId)` React Query mutation
+- [ ] Add `useQuickExpand(projectId, sessionId)` React Query mutation
+- [ ] Add `usePreviewPRD(sessionId)` React Query query
+- [ ] Add `useSaveAsPRD(projectId, sessionId)` React Query mutation
 
-### Integration
-- [ ] Wire up Quick Mode to PRD save flow
-- [ ] Add PRD preview before saving
-- [ ] Handle generation errors gracefully
-- [ ] Add success/error notifications
+### Frontend - Step 2: Session List View
+**File**: `packages/dashboard/src/components/ideate/SessionsList.tsx`
+- [ ] Create component with Card grid layout (Shadcn Card)
+- [ ] Fetch sessions using `useIdeateSessions(projectId)` hook
+- [ ] Display mode badges (Quick/Guided/Comprehensive) with Shadcn Badge
+- [ ] Display status badges with color coding (Draft/In Progress/Ready/Completed)
+- [ ] Add search input (Shadcn Input) with client-side filtering
+- [ ] Add mode filter dropdown (Shadcn Select)
+- [ ] Add status filter dropdown (Shadcn Select)
+- [ ] Format timestamps using `date-fns` `formatDistanceToNow()` with tooltips
+- [ ] Add "Resume session" button → opens appropriate mode dialog
+- [ ] Add "Delete session" button → `useDeleteIdeateSession()` with confirmation (Shadcn AlertDialog)
+- [ ] Show linked PRD badge if status is 'completed'
+- [ ] Integrate into PRDView.tsx or SpecsTab.tsx
+
+### Frontend - Step 3: Quick Mode UI Components
+**Directory**: `packages/dashboard/src/components/ideate/QuickMode/`
+
+**File**: `QuickMode/index.ts`
+- [ ] Create barrel export file
+
+**File**: `QuickMode/QuickModeFlow.tsx` (Main Orchestrator)
+- [ ] Create component orchestrating 4 steps: Input → Generating → Review/Edit → Save
+- [ ] Manage state: sessionId, generatedPRD, selectedSections, currentStep
+- [ ] Use Dialog component (full-screen or large)
+- [ ] Implement step navigation
+
+**File**: `QuickMode/OneLineInput.tsx`
+- [ ] Create Textarea (Shadcn) with mode-specific placeholder
+- [ ] Add character counter (show if > 500 chars)
+- [ ] Add validation (required, min 10 chars)
+- [ ] Add clear button
+- [ ] Add "Generate PRD" button → triggers `useQuickGenerate()`
+- [ ] Add loading state (disable during generation)
+
+**File**: `QuickMode/SectionSelector.tsx` (Optional Expansion)
+- [ ] Create checkbox list (Shadcn Checkbox) for 8 PRD sections:
+  - [ ] Overview, Core Features, User Experience, Technical Architecture
+  - [ ] Development Roadmap, Logical Dependency Chain, Risks and Mitigations, Appendix
+- [ ] Add "Select All" / "Deselect All" buttons
+- [ ] Trigger `useQuickExpand()` mutation on confirmation
+
+**File**: `QuickMode/GeneratingState.tsx`
+- [ ] Create skeleton loaders (Shadcn Skeleton) for each section
+- [ ] Add progress indicator
+- [ ] Display "Generating PRD..." message
+- [ ] Add cancel button (if backend supports)
+
+**File**: `QuickMode/PRDEditor.tsx`
+- [ ] Display generated PRD using react-markdown with remarkGfm, rehypeHighlight, rehypeSanitize
+- [ ] Implement collapsible sections (Shadcn Collapsible) for each PRD section
+- [ ] Add edit mode toggle per section (View: rendered markdown, Edit: Textarea)
+- [ ] Add "Regenerate section" button → calls `useQuickExpand()` with single section
+- [ ] Add "Save as PRD" button → triggers save flow
+- [ ] Add back to editing functionality
+
+**File**: `QuickMode/SavePreview.tsx`
+- [ ] Create modal/drawer (Shadcn Dialog) showing final PRD
+- [ ] Display read-only markdown view
+- [ ] Add project name field (editable)
+- [ ] Add "Confirm Save" button → calls `useSaveAsPRD()`
+- [ ] Add "Cancel" button → back to editor
+- [ ] On success: show toast (sonner) and navigate to PRD view
+
+### Frontend - Step 4: Integration & Error Handling
+**Toast Notifications** (using sonner)
+- [ ] Add success toast: "PRD generated successfully!"
+- [ ] Add error toast with description for each error type:
+  - [ ] AI Service Unavailable
+  - [ ] Invalid API Key
+  - [ ] Token Limit Exceeded
+  - [ ] Network Error
+- [ ] Add info toast: "Generating PRD..."
+- [ ] Add retry button in error toasts
+
+**PRD Save Flow Integration**
+- [ ] Wire up `SavePreview.tsx` to `useSaveAsPRD()` mutation
+- [ ] Update session status to "completed" on success
+- [ ] Close Quick Mode dialog on success
+- [ ] Navigate to PRD view or show PRD in list
+- [ ] Handle save errors with retry option
+
+**Error Handling**
+- [ ] Wrap all API calls in try-catch blocks
+- [ ] Display user-friendly error messages (not raw API errors)
+- [ ] Log errors to console for debugging
+- [ ] Preserve UI state on error (allow retry)
+
+### Frontend - Step 5: Update Existing Components
+**File**: `packages/dashboard/src/components/specs/PRDView.tsx`
+- [ ] Add SessionsList component as tab or section
+- [ ] Wire up `onSessionCreated` to open QuickModeFlow dialog
+
+**File**: `packages/dashboard/src/components/ideate/CreatePRDFlow.tsx`
+- [ ] Update Quick Mode branch to call `onSessionCreated(session.id)`
+- [ ] Parent component opens QuickModeFlow dialog
+
+### Frontend - Step 6: Testing
+**Test Cases**
+- [ ] Very short description (< 10 chars) - validation error
+- [ ] Normal description (50-200 chars) - success
+- [ ] Long description (> 500 chars) - success with warning
+- [ ] Special characters in description - sanitized
+- [ ] Network failure during generation - retry
+- [ ] Cancel during generation - cleanup
+- [ ] Edit section after generation - saves changes
+- [ ] Regenerate single section - updates only that section
+- [ ] Save with empty PRD name - validation error
+- [ ] Save success - PRD appears in list
+- [ ] Complete flow: Input → Generate → Edit → Save
+- [ ] Resume session from SessionsList
+- [ ] Delete session with confirmation
+
+### Technical Decisions (Implemented)
+- ✅ Markdown: react-markdown (already installed with remarkGfm, rehypeHighlight, rehypeSanitize)
+- ✅ Toast: sonner (already installed and configured in App.tsx)
+- ✅ Forms: Simple controlled components (useState pattern, no form library)
+- ✅ UI Components: Shadcn UI (Dialog, Card, Button, Input, Textarea, Badge, Skeleton, Checkbox, Select, etc.)
+- ✅ Date Formatting: date-fns for timestamp display
+- ✅ Navigation: Dialog-based (following existing CreatePRDFlow pattern)
 
 ### Future Enhancements
 - [ ] Add SSE streaming support for real-time generation
