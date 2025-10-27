@@ -1,5 +1,5 @@
 // ABOUTME: Main entry component for creating a new ideate session
-// ABOUTME: Multi-step dialog: mode selection, description input, session creation
+// ABOUTME: Multi-step dialog: mode selection, template selection, description input, session creation
 import { useState } from 'react';
 import {
   Dialog,
@@ -14,7 +14,8 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { ModeSelector } from './ModeSelector';
-import { useCreateIdeateSession } from '@/hooks/useIdeate';
+import { TemplateSelector } from './TemplateSelector';
+import { useCreateIdeateSession, useTemplates } from '@/hooks/useIdeate';
 import type { IdeateMode } from '@/services/ideate';
 import { Lightbulb, AlertCircle } from 'lucide-react';
 
@@ -25,7 +26,7 @@ interface CreatePRDFlowProps {
   onSessionCreated: (sessionId: string, mode: IdeateMode) => void;
 }
 
-type FlowStep = 'mode' | 'description';
+type FlowStep = 'mode' | 'template' | 'description';
 
 export function CreatePRDFlow({
   projectId,
@@ -35,19 +36,29 @@ export function CreatePRDFlow({
 }: CreatePRDFlowProps) {
   const [step, setStep] = useState<FlowStep>('mode');
   const [selectedMode, setSelectedMode] = useState<IdeateMode | null>(null);
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
   const [description, setDescription] = useState('');
 
   const createSessionMutation = useCreateIdeateSession(projectId);
   const { isPending: loading, error } = createSessionMutation;
+  const { data: templates = [], isLoading: templatesLoading } = useTemplates();
 
   const handleModeConfirm = () => {
     if (selectedMode) {
-      setStep('description');
+      setStep('template');
     }
   };
 
+  const handleTemplateConfirm = () => {
+    setStep('description');
+  };
+
   const handleBack = () => {
-    setStep('mode');
+    if (step === 'template') {
+      setStep('mode');
+    } else if (step === 'description') {
+      setStep('template');
+    }
   };
 
   const handleCreateSession = async () => {
@@ -58,6 +69,7 @@ export function CreatePRDFlow({
         projectId,
         initialDescription: description.trim(),
         mode: selectedMode,
+        templateId: selectedTemplateId || undefined,
       });
 
       // Reset and close
@@ -72,6 +84,7 @@ export function CreatePRDFlow({
   const resetFlow = () => {
     setStep('mode');
     setSelectedMode(null);
+    setSelectedTemplateId(null);
     setDescription('');
     createSessionMutation.reset();
   };
@@ -112,6 +125,36 @@ export function CreatePRDFlow({
                 Cancel
               </Button>
               <Button onClick={handleModeConfirm} disabled={!selectedMode}>
+                Continue
+              </Button>
+            </DialogFooter>
+          </>
+        ) : step === 'template' ? (
+          <>
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Lightbulb className="h-5 w-5" />
+                Choose a Template
+              </DialogTitle>
+              <DialogDescription id="create-prd-flow-description">
+                Select a quickstart template to pre-populate your PRD, or start from scratch.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="py-4">
+              <TemplateSelector
+                templates={templates}
+                selectedTemplateId={selectedTemplateId}
+                onSelectTemplate={setSelectedTemplateId}
+                isLoading={templatesLoading}
+              />
+            </div>
+
+            <DialogFooter>
+              <Button variant="outline" onClick={handleBack}>
+                Back
+              </Button>
+              <Button onClick={handleTemplateConfirm}>
                 Continue
               </Button>
             </DialogFooter>

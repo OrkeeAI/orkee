@@ -47,6 +47,10 @@ import type {
   AggregatedPRDData,
   GenerationHistoryItem,
   ValidationResponse,
+  // Phase 8: Templates
+  PRDTemplate,
+  ProjectType,
+  SuggestTemplateRequest,
 } from '@/services/ideate';
 
 interface ApiError {
@@ -1109,5 +1113,56 @@ export function useValidatePRD(sessionId: string) {
     queryFn: () => ideateService.validatePRD(sessionId),
     enabled: !!sessionId,
     staleTime: 1 * 60 * 1000, // 1 minute
+  });
+}
+
+// =============================================================================
+// Phase 8: Template Hooks
+// =============================================================================
+
+/**
+ * Fetch all available templates
+ */
+export function useTemplates() {
+  return useQuery({
+    queryKey: ['ideate', 'templates'],
+    queryFn: () => ideateService.getTemplates(),
+    staleTime: 10 * 60 * 1000, // 10 minutes (templates rarely change)
+  });
+}
+
+/**
+ * Fetch a specific template by ID
+ */
+export function useTemplate(templateId: string | null) {
+  return useQuery({
+    queryKey: ['ideate', 'templates', templateId],
+    queryFn: () => ideateService.getTemplate(templateId!),
+    enabled: !!templateId,
+    staleTime: 10 * 60 * 1000, // 10 minutes
+  });
+}
+
+/**
+ * Fetch templates filtered by project type
+ */
+export function useTemplatesByType(projectType: ProjectType | null) {
+  return useQuery({
+    queryKey: ['ideate', 'templates', 'type', projectType],
+    queryFn: () => ideateService.getTemplatesByType(projectType!),
+    enabled: !!projectType,
+    staleTime: 10 * 60 * 1000, // 10 minutes
+  });
+}
+
+/**
+ * Suggest best matching template based on description
+ */
+export function useSuggestTemplate(description: string) {
+  return useQuery({
+    queryKey: ['ideate', 'templates', 'suggest', description],
+    queryFn: () => ideateService.suggestTemplate(description),
+    enabled: description.length > 10, // Only suggest if description is meaningful
+    staleTime: 5 * 60 * 1000, // 5 minutes
   });
 }

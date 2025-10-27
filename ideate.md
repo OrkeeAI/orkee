@@ -244,7 +244,7 @@ The Ideate feature provides AI-assisted Product Requirements Document (PRD) crea
 
 ## Phase 8: Polish & Optimization ⏳ IN PROGRESS
 
-### Templates & Intelligence ⏳ IN PROGRESS
+### Templates & Intelligence ✅ COMPLETE
 - [x] Create default quickstart templates
   - [x] Database migration (008_ideate_templates.sql) with 5 system templates
   - [x] Templates: SaaS, Mobile App, API, Marketplace, Internal Tool
@@ -258,13 +258,14 @@ The Ideate feature provides AI-assisted Product Requirements Document (PRD) crea
   - [x] Template types and interfaces (ideate.ts)
   - [x] Service methods for template operations
   - [x] Updated CreateIdeateInput to support templateId
-- [ ] Template selection UI (IN PROGRESS)
-  - [ ] React Query hooks for template data
-  - [ ] TemplateSelector component
-  - [ ] TemplatePreview component
-  - [ ] Integration into CreatePRDFlow
-- [ ] Implement smart section suggestions
-- [ ] Add auto-save functionality
+- [x] Template selection UI
+  - [x] React Query hooks for template data (useTemplates, useTemplate, useTemplatesByType, useSuggestTemplate)
+  - [x] TemplateSelector component (grid display with "Start from Scratch" option)
+  - [x] TemplatePreview component (detailed dialog with prompts, features, dependencies)
+  - [x] Integration into CreatePRDFlow (new 'template' step in flow: mode → template → description → create)
+- [x] Implement smart template matching logic (keyword-based matching in suggest_template)
+- [ ] Implement smart section suggestions (PENDING)
+- [ ] Add auto-save functionality (PENDING)
 - [x] Session list & resume (moved to Phase 2 - COMPLETED)
 
 ### UX Improvements
