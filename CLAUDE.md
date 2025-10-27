@@ -220,6 +220,29 @@ The CLI server provides a REST API for project management:
 - **PUT `/api/projects/:id`** - Update project (body: ProjectUpdateInput)
 - **DELETE `/api/projects/:id`** - Delete project
 
+### OpenSpec Changes API
+
+The CLI server provides REST API endpoints for managing OpenSpec change proposals, PRDs, and specifications:
+
+**OpenSpec Changes Endpoints**:
+- **GET `/api/{project_id}/changes`** - List all change proposals for a project
+- **POST `/api/{project_id}/changes`** - Create a new change proposal
+- **GET `/api/{project_id}/changes/{change_id}`** - Get a specific change proposal
+- **PUT `/api/{project_id}/changes/{change_id}/status`** - Update change status
+- **GET `/api/{project_id}/changes/{change_id}/validate`** - Validate change deltas against spec format
+- **POST `/api/{project_id}/changes/{change_id}/archive`** - Archive change and apply deltas to specifications
+- **GET `/api/{project_id}/changes/{change_id}/deltas`** - List all deltas for a change
+- **POST `/api/{project_id}/changes/{change_id}/deltas`** - Create a new delta for a change
+- **GET `/api/{project_id}/changes/{change_id}/tasks`** - Get task completion tracking for a change
+- **POST `/api/{project_id}/changes/{change_id}/tasks/parse`** - Parse markdown tasks from change
+- **PUT `/api/{project_id}/changes/{change_id}/tasks/bulk`** - Bulk update task completion status
+- **PUT `/api/{project_id}/changes/{change_id}/tasks/{task_id}`** - Update a specific task
+
+**Rate Limiting**: All OpenSpec endpoints are subject to the Projects API rate limit:
+- `RATE_LIMIT_PROJECTS_RPM`: 30 requests/minute (default)
+- Configurable via environment variable
+- See [Rate Limiting](#rate-limiting) section for details
+
 ### Data Storage
 **SQLite Database**: Projects stored in `~/.orkee/orkee.db` using SQLite with:
 - **Local-First Architecture**: Full functionality works offline
