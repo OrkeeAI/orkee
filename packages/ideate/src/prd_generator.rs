@@ -8,6 +8,7 @@ use tracing::{error, info, warn};
 
 use crate::error::{IdeateError, Result};
 use crate::prompts;
+use crate::prd_aggregator::{AggregatedPRDData, PRDAggregator};
 use security::users::storage::UserStorage;
 use settings::storage::SettingsStorage;
 
@@ -370,6 +371,382 @@ impl PRDGenerator {
         }
 
         markdown
+    }
+
+    /// Generate PRD from aggregated session data (Guided/Comprehensive modes)
+    pub async fn generate_from_session(
+        &self,
+        user_id: &str,
+        session_id: &str,
+    ) -> Result<GeneratedPRD> {
+        info!("Generating PRD from session data: {}", session_id);
+
+        // Aggregate all session data
+        let aggregator = PRDAggregator::new(self.pool.clone());
+        let aggregated = aggregator.aggregate_session_data(session_id).await?;
+
+        // Fetch AI configuration
+        let settings = self.get_ai_settings().await?;
+        let api_key = self.get_user_api_key(user_id).await?;
+        let ai_service = AIService::with_api_key_and_model(api_key, settings.model.clone());
+
+        // Build context from all available sections
+        let context = self.build_context_from_aggregated(&aggregated);
+
+        // Generate PRD using AI with full context
+        let prompt = self.build_session_prd_prompt(&aggregated, &context);
+        let system_prompt = Some(prompts::SYSTEM_PROMPT.to_string());
+
+        let response: AIResponse<serde_json::Value> = ai_service
+            .generate_structured(prompt, system_prompt)
+            .await
+            .map_err(|e| {
+                error!("Failed to generate PRD from session: {}", e);
+                IdeateError::AIService(format!("Failed to generate PRD: {}", e))
+            })?;
+
+        let generated_prd: GeneratedPRD = serde_json::from_value(response.data).map_err(|e| {
+            error!("Failed to parse AI response: {}", e);
+            IdeateError::AIService(format!("Failed to parse AI response: {}", e))
+        })?;
+
+        info!(
+            "Successfully generated PRD from session (tokens: {})",
+            response.usage.total_tokens()
+        );
+
+        Ok(generated_prd)
+    }
+
+    /// Fill skipped sections with AI-generated content
+    pub async fn fill_skipped_sections(
+        &self,
+        user_id: &str,
+        session_id: &str,
+        sections_to_fill: Vec<String>,
+    ) -> Result<Vec<(String, serde_json::Value)>> {
+        info!(
+            "Filling {} skipped sections for session: {}",
+            sections_to_fill.len(),
+            session_id
+        );
+
+        // Get aggregated data for context
+        let aggregator = PRDAggregator::new(self.pool.clone());
+        let aggregated = aggregator.aggregate_session_data(session_id).await?;
+        let context = self.build_context_from_aggregated(&aggregated);
+
+        let mut filled_sections = Vec::new();
+
+        for section in sections_to_fill {
+            info!("Filling section: {}", section);
+            let filled_content = self
+                .generate_section_with_context(
+                    user_id,
+                    &section,
+                    &aggregated.session.initial_description,
+                    &context,
+                )
+                .await?;
+
+            filled_sections.push((section, filled_content));
+        }
+
+        info!(
+            "Successfully filled {} sections",
+            filled_sections.len()
+        );
+
+        Ok(filled_sections)
+    }
+
+    /// Generate a section with full context from other sections
+    pub async fn generate_section_with_context(
+        &self,
+        user_id: &str,
+        section: &str,
+        description: &str,
+        context: &str,
+    ) -> Result<serde_json::Value> {
+        info!("Generating section '{}' with context", section);
+
+        let settings = self.get_ai_settings().await?;
+        let api_key = self.get_user_api_key(user_id).await?;
+        let ai_service = AIService::with_api_key_and_model(api_key, settings.model.clone());
+
+        // Build enhanced prompt with context
+        let prompt = self.build_section_prompt_with_context(section, description, context)?;
+        let system_prompt = Some(prompts::SYSTEM_PROMPT.to_string());
+
+        let response: AIResponse<serde_json::Value> = ai_service
+            .generate_structured(prompt, system_prompt)
+            .await
+            .map_err(|e| {
+                error!("Failed to generate section '{}': {}", section, e);
+                IdeateError::AIService(format!("Failed to generate section: {}", e))
+            })?;
+
+        info!(
+            "Successfully generated section '{}' with context (tokens: {})",
+            section,
+            response.usage.total_tokens()
+        );
+
+        Ok(response.data)
+    }
+
+    /// Regenerate a specific section with updated context
+    pub async fn regenerate_section_with_full_context(
+        &self,
+        user_id: &str,
+        session_id: &str,
+        section: &str,
+    ) -> Result<serde_json::Value> {
+        info!("Regenerating section '{}' for session {}", section, session_id);
+
+        // Get latest aggregated data
+        let aggregator = PRDAggregator::new(self.pool.clone());
+        let aggregated = aggregator.aggregate_session_data(session_id).await?;
+        let context = self.build_context_from_aggregated(&aggregated);
+
+        self.generate_section_with_context(
+            user_id,
+            section,
+            &aggregated.session.initial_description,
+            &context,
+        )
+        .await
+    }
+
+    /// Build context string from aggregated data
+    fn build_context_from_aggregated(&self, data: &AggregatedPRDData) -> String {
+        let mut context = String::new();
+
+        context.push_str(&format!(
+            "Project: {}\n\n",
+            data.session.initial_description
+        ));
+
+        if let Some(overview) = &data.overview {
+            context.push_str("## Overview\n");
+            if let Some(problem) = &overview.problem_statement {
+                context.push_str(&format!("Problem: {}\n", problem));
+            }
+            if let Some(audience) = &overview.target_audience {
+                context.push_str(&format!("Target Audience: {}\n", audience));
+            }
+            if let Some(value) = &overview.value_proposition {
+                context.push_str(&format!("Value Proposition: {}\n", value));
+            }
+            context.push_str("\n");
+        }
+
+        if let Some(technical) = &data.technical {
+            context.push_str("## Technical Context\n");
+            if let Some(stack) = &technical.tech_stack_quick {
+                context.push_str(&format!("Tech Stack: {}\n", stack));
+            }
+            context.push_str(&format!("Components: {}\n", technical.components.len()));
+            context.push_str("\n");
+        }
+
+        if let Some(roadmap) = &data.roadmap {
+            context.push_str("## Roadmap Context\n");
+            context.push_str(&format!("MVP Features: {}\n", roadmap.mvp_scope.len()));
+            context.push_str("\n");
+        }
+
+        if let Some(deps) = &data.dependencies {
+            context.push_str("## Dependency Context\n");
+            context.push_str(&format!(
+                "Foundation Features: {}\n",
+                deps.foundation_features.len()
+            ));
+            context.push_str(&format!(
+                "Visible Features: {}\n",
+                deps.visible_features.len()
+            ));
+            context.push_str("\n");
+        }
+
+        // Add research insights if available
+        if let Some(research) = &data.research {
+            context.push_str("## Research Context\n");
+            context.push_str(&format!("Competitors Analyzed: {}\n", research.competitors.len()));
+            context.push_str(&format!(
+                "Similar Projects: {}\n",
+                research.similar_projects.len()
+            ));
+            if let Some(findings) = &research.research_findings {
+                context.push_str(&format!("Findings: {}\n", findings));
+            }
+            context.push_str("\n");
+        }
+
+        // Add expert roundtable insights
+        if let Some(insights) = &data.roundtable_insights {
+            if !insights.is_empty() {
+                context.push_str("## Expert Insights\n");
+                for insight in insights.iter().take(5) {
+                    // Limit to top 5
+                    context.push_str(&format!(
+                        "- [{}] {}: {}\n",
+                        insight.priority, insight.category, insight.content
+                    ));
+                }
+                context.push_str("\n");
+            }
+        }
+
+        context
+    }
+
+    /// Build prompt for generating PRD from session data
+    fn build_session_prd_prompt(&self, data: &AggregatedPRDData, context: &str) -> String {
+        let mut prompt = String::new();
+
+        prompt.push_str("# Generate Complete PRD from Session Data\n\n");
+        prompt.push_str("You are generating a Product Requirements Document (PRD) based on collected session data.\n\n");
+        prompt.push_str("## Context\n");
+        prompt.push_str(context);
+        prompt.push_str("\n## Your Task\n");
+        prompt.push_str("Generate a complete, cohesive PRD that:\n");
+        prompt.push_str("1. Synthesizes all available information\n");
+        prompt.push_str("2. Fills in any gaps with reasonable assumptions\n");
+        prompt.push_str("3. Maintains consistency across all sections\n");
+        prompt.push_str("4. Follows the standard 8-section PRD structure\n\n");
+
+        // Add notes about skipped sections
+        if !data.skipped_sections.is_empty() {
+            prompt.push_str("## Skipped Sections (Generate These)\n");
+            for section in &data.skipped_sections {
+                prompt.push_str(&format!("- {}\n", section));
+            }
+            prompt.push_str("\n");
+        }
+
+        prompt.push_str("Generate the PRD in the standard GeneratedPRD JSON format.\n");
+
+        prompt
+    }
+
+    /// Build enhanced prompt for section generation with context
+    fn build_section_prompt_with_context(
+        &self,
+        section: &str,
+        description: &str,
+        context: &str,
+    ) -> Result<String> {
+        let mut prompt = String::new();
+
+        prompt.push_str(&format!("# Generate {} Section\n\n", section));
+        prompt.push_str("## Project Description\n");
+        prompt.push_str(description);
+        prompt.push_str("\n\n## Context from Other Sections\n");
+        prompt.push_str(context);
+        prompt.push_str("\n\n## Your Task\n");
+        prompt.push_str(&format!(
+            "Generate the {} section of the PRD that is consistent with the context above.\n",
+            section
+        ));
+        prompt.push_str("Ensure your output:\n");
+        prompt.push_str("1. Aligns with information from other sections\n");
+        prompt.push_str("2. Fills any gaps identified in the context\n");
+        prompt.push_str("3. Maintains consistency in terminology and approach\n");
+        prompt.push_str("4. Provides specific, actionable information\n\n");
+
+        // Add section-specific guidance
+        match section {
+            "overview" => {
+                prompt.push_str("Focus on: problem statement, target audience, value proposition, one-line pitch.\n");
+            }
+            "ux" => {
+                prompt.push_str("Focus on: user personas, user flows, UI considerations, UX principles.\n");
+            }
+            "technical" => {
+                prompt.push_str("Focus on: system components, data models, APIs, infrastructure, tech stack.\n");
+            }
+            "roadmap" => {
+                prompt.push_str("Focus on: MVP scope (no timelines, just features), future phases.\n");
+            }
+            "dependencies" => {
+                prompt.push_str("Focus on: foundation features, visible features, enhancement features, build order.\n");
+            }
+            "risks" => {
+                prompt.push_str("Focus on: technical risks, MVP scoping risks, resource risks, mitigation strategies.\n");
+            }
+            "research" => {
+                prompt.push_str("Focus on: competitors, similar projects, research findings, technical specs.\n");
+            }
+            _ => {
+                return Err(IdeateError::InvalidSection(format!(
+                    "Unknown section: {}",
+                    section
+                )))
+            }
+        }
+
+        Ok(prompt)
+    }
+
+    /// Merge AI-generated content with existing manual content
+    pub fn merge_content(
+        &self,
+        existing: &GeneratedPRD,
+        ai_generated: &GeneratedPRD,
+        sections_to_replace: Vec<String>,
+    ) -> GeneratedPRD {
+        let mut merged = existing.clone();
+
+        for section in sections_to_replace {
+            match section.as_str() {
+                "overview" => {
+                    if ai_generated.overview.is_some() {
+                        merged.overview = ai_generated.overview.clone();
+                    }
+                }
+                "features" => {
+                    if ai_generated.features.is_some() {
+                        merged.features = ai_generated.features.clone();
+                    }
+                }
+                "ux" => {
+                    if ai_generated.ux.is_some() {
+                        merged.ux = ai_generated.ux.clone();
+                    }
+                }
+                "technical" => {
+                    if ai_generated.technical.is_some() {
+                        merged.technical = ai_generated.technical.clone();
+                    }
+                }
+                "roadmap" => {
+                    if ai_generated.roadmap.is_some() {
+                        merged.roadmap = ai_generated.roadmap.clone();
+                    }
+                }
+                "dependencies" => {
+                    if ai_generated.dependencies.is_some() {
+                        merged.dependencies = ai_generated.dependencies.clone();
+                    }
+                }
+                "risks" => {
+                    if ai_generated.risks.is_some() {
+                        merged.risks = ai_generated.risks.clone();
+                    }
+                }
+                "research" => {
+                    if ai_generated.research.is_some() {
+                        merged.research = ai_generated.research.clone();
+                    }
+                }
+                _ => {
+                    warn!("Unknown section to merge: {}", section);
+                }
+            }
+        }
+
+        merged
     }
 }
 

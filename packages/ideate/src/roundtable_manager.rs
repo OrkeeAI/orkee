@@ -37,7 +37,7 @@ impl RoundtableManager {
         let rows = sqlx::query(query)
             .fetch_all(&self.db)
             .await
-            .map_err(|e| IdeateError::Database(e.to_string()))?;
+            .map_err(|e| IdeateError::Database(e))?;
 
         let experts = rows
             .into_iter()
@@ -72,8 +72,8 @@ impl RoundtableManager {
         .bind(expert_id)
         .fetch_optional(&self.db)
         .await
-        .map_err(|e| IdeateError::Database(e.to_string()))?
-        .ok_or_else(|| IdeateError::NotFound(format!("Expert not found: {}", expert_id)))?;
+        .map_err(|e| IdeateError::Database(e))?
+        .ok_or_else(|| IdeateError::SectionNotFound(format!("Expert not found: {}", expert_id)))?;
 
         let expertise_json: String = row.get("expertise");
         let expertise: Vec<String> = serde_json::from_str(&expertise_json)
@@ -95,7 +95,7 @@ impl RoundtableManager {
     pub async fn create_expert(&self, input: CreateExpertPersonaInput) -> Result<ExpertPersona> {
         let id = format!("expert_{}", uuid::Uuid::new_v4().to_string().replace("-", ""));
         let expertise_json = serde_json::to_string(&input.expertise)
-            .map_err(|e| IdeateError::Validation(e.to_string()))?;
+            .map_err(|e| IdeateError::ValidationError(e.to_string()))?;
         let created_at = Utc::now();
 
         sqlx::query(
@@ -111,7 +111,7 @@ impl RoundtableManager {
         .bind(created_at)
         .execute(&self.db)
         .await
-        .map_err(|e| IdeateError::Database(e.to_string()))?;
+        .map_err(|e| IdeateError::Database(e))?;
 
         info!("Created custom expert persona: {}", id);
 
@@ -135,10 +135,10 @@ impl RoundtableManager {
         .bind(expert_id)
         .execute(&self.db)
         .await
-        .map_err(|e| IdeateError::Database(e.to_string()))?;
+        .map_err(|e| IdeateError::Database(e))?;
 
         if result.rows_affected() == 0 {
-            return Err(IdeateError::NotFound(format!(
+            return Err(IdeateError::SectionNotFound(format!(
                 "Expert not found or is a default expert: {}",
                 expert_id
             )));
@@ -160,7 +160,7 @@ impl RoundtableManager {
         num_experts: i32,
     ) -> Result<RoundtableSession> {
         if num_experts < 2 || num_experts > 5 {
-            return Err(IdeateError::Validation(
+            return Err(IdeateError::ValidationError(
                 "Number of experts must be between 2 and 5".to_string(),
             ));
         }
@@ -179,7 +179,7 @@ impl RoundtableManager {
         .bind(created_at)
         .execute(&self.db)
         .await
-        .map_err(|e| IdeateError::Database(e.to_string()))?;
+        .map_err(|e| IdeateError::Database(e))?;
 
         info!("Created roundtable session: {} for ideate session: {}", id, session_id);
 
@@ -207,8 +207,8 @@ impl RoundtableManager {
         .bind(roundtable_id)
         .fetch_optional(&self.db)
         .await
-        .map_err(|e| IdeateError::Database(e.to_string()))?
-        .ok_or_else(|| IdeateError::NotFound(format!("Roundtable not found: {}", roundtable_id)))?;
+        .map_err(|e| IdeateError::Database(e))?
+        .ok_or_else(|| IdeateError::SectionNotFound(format!("Roundtable not found: {}", roundtable_id)))?;
 
         Ok(self.row_to_roundtable_session(row))
     }
@@ -225,7 +225,7 @@ impl RoundtableManager {
         .bind(session_id)
         .fetch_all(&self.db)
         .await
-        .map_err(|e| IdeateError::Database(e.to_string()))?;
+        .map_err(|e| IdeateError::Database(e))?;
 
         let roundtables = rows
             .into_iter()
@@ -248,10 +248,10 @@ impl RoundtableManager {
         .bind(roundtable_id)
         .execute(&self.db)
         .await
-        .map_err(|e| IdeateError::Database(e.to_string()))?;
+        .map_err(|e| IdeateError::Database(e))?;
 
         if result.rows_affected() == 0 {
-            return Err(IdeateError::Validation(format!(
+            return Err(IdeateError::ValidationError(format!(
                 "Cannot start roundtable: {} (may not be in setup status)",
                 roundtable_id
             )));
@@ -274,10 +274,10 @@ impl RoundtableManager {
         .bind(roundtable_id)
         .execute(&self.db)
         .await
-        .map_err(|e| IdeateError::Database(e.to_string()))?;
+        .map_err(|e| IdeateError::Database(e))?;
 
         if result.rows_affected() == 0 {
-            return Err(IdeateError::Validation(format!(
+            return Err(IdeateError::ValidationError(format!(
                 "Cannot complete roundtable: {} (may not be in discussing status)",
                 roundtable_id
             )));
@@ -297,7 +297,7 @@ impl RoundtableManager {
         .bind(roundtable_id)
         .execute(&self.db)
         .await
-        .map_err(|e| IdeateError::Database(e.to_string()))?;
+        .map_err(|e| IdeateError::Database(e))?;
 
         info!("Cancelled roundtable discussion: {}", roundtable_id);
         Ok(())
@@ -329,7 +329,7 @@ impl RoundtableManager {
             .bind(joined_at)
             .execute(&self.db)
             .await
-            .map_err(|e| IdeateError::Database(e.to_string()))?;
+            .map_err(|e| IdeateError::Database(e))?;
 
             participants.push(RoundtableParticipant {
                 id,
@@ -355,7 +355,7 @@ impl RoundtableManager {
         .bind(roundtable_id)
         .fetch_all(&self.db)
         .await
-        .map_err(|e| IdeateError::Database(e.to_string()))?;
+        .map_err(|e| IdeateError::Database(e))?;
 
         let experts = rows
             .into_iter()
@@ -420,7 +420,7 @@ impl RoundtableManager {
         .bind(roundtable_id)
         .fetch_one(&self.db)
         .await
-        .map_err(|e| IdeateError::Database(e.to_string()))?;
+        .map_err(|e| IdeateError::Database(e))?;
 
         let metadata_json = metadata
             .map(|m| serde_json::to_string(&m).ok())
@@ -442,7 +442,7 @@ impl RoundtableManager {
         .bind(created_at)
         .execute(&self.db)
         .await
-        .map_err(|e| IdeateError::Database(e.to_string()))?;
+        .map_err(|e| IdeateError::Database(e))?;
 
         debug!("Added message {} to roundtable: {}", id, roundtable_id);
 
@@ -470,7 +470,7 @@ impl RoundtableManager {
         .bind(roundtable_id)
         .fetch_all(&self.db)
         .await
-        .map_err(|e| IdeateError::Database(e.to_string()))?;
+        .map_err(|e| IdeateError::Database(e))?;
 
         let messages = rows
             .into_iter()
@@ -496,7 +496,7 @@ impl RoundtableManager {
         .bind(after_order)
         .fetch_all(&self.db)
         .await
-        .map_err(|e| IdeateError::Database(e.to_string()))?;
+        .map_err(|e| IdeateError::Database(e))?;
 
         let messages = rows
             .into_iter()
@@ -524,10 +524,10 @@ impl RoundtableManager {
         let created_at = Utc::now();
 
         let source_experts_json = serde_json::to_string(&source_experts)
-            .map_err(|e| IdeateError::Validation(e.to_string()))?;
+            .map_err(|e| IdeateError::ValidationError(e.to_string()))?;
 
-        let source_message_ids_json = source_message_ids
-            .map(|ids| serde_json::to_string(&ids).ok())
+        let source_message_ids_json = source_message_ids.as_ref()
+            .map(|ids| serde_json::to_string(ids).ok())
             .flatten();
 
         sqlx::query(
@@ -545,7 +545,7 @@ impl RoundtableManager {
         .bind(created_at)
         .execute(&self.db)
         .await
-        .map_err(|e| IdeateError::Database(e.to_string()))?;
+        .map_err(|e| IdeateError::Database(e))?;
 
         debug!("Added insight {} to roundtable: {}", id, roundtable_id);
 
@@ -572,7 +572,7 @@ impl RoundtableManager {
         .bind(roundtable_id)
         .fetch_all(&self.db)
         .await
-        .map_err(|e| IdeateError::Database(e.to_string()))?;
+        .map_err(|e| IdeateError::Database(e))?;
 
         let insights = rows
             .into_iter()
@@ -621,7 +621,7 @@ impl RoundtableManager {
         .bind(roundtable_id)
         .fetch_one(&self.db)
         .await
-        .map_err(|e| IdeateError::Database(e.to_string()))?;
+        .map_err(|e| IdeateError::Database(e))?;
 
         let expert_count: i32 = sqlx::query_scalar(
             "SELECT COUNT(*) FROM roundtable_participants WHERE roundtable_id = ?"
@@ -629,7 +629,7 @@ impl RoundtableManager {
         .bind(roundtable_id)
         .fetch_one(&self.db)
         .await
-        .map_err(|e| IdeateError::Database(e.to_string()))?;
+        .map_err(|e| IdeateError::Database(e))?;
 
         let user_interjection_count: i32 = sqlx::query_scalar(
             "SELECT COUNT(*) FROM roundtable_messages WHERE roundtable_id = ? AND role = 'user'"
@@ -637,7 +637,7 @@ impl RoundtableManager {
         .bind(roundtable_id)
         .fetch_one(&self.db)
         .await
-        .map_err(|e| IdeateError::Database(e.to_string()))?;
+        .map_err(|e| IdeateError::Database(e))?;
 
         let insight_count: i32 = sqlx::query_scalar(
             "SELECT COUNT(*) FROM roundtable_insights WHERE roundtable_id = ?"
@@ -645,7 +645,7 @@ impl RoundtableManager {
         .bind(roundtable_id)
         .fetch_one(&self.db)
         .await
-        .map_err(|e| IdeateError::Database(e.to_string()))?;
+        .map_err(|e| IdeateError::Database(e))?;
 
         Ok(RoundtableStatistics {
             roundtable_id: roundtable_id.to_string(),

@@ -39,7 +39,7 @@ impl ExpertModerator {
         // Get participants
         let participants = self.manager.get_participants(roundtable_id).await?;
         if participants.is_empty() {
-            return Err(IdeateError::Validation(
+            return Err(IdeateError::ValidationError(
                 "Cannot start discussion without participants".to_string(),
             ));
         }
@@ -355,7 +355,7 @@ impl ExpertModerator {
         let next_expert = participants
             .iter()
             .min_by_key(|expert| speak_counts.get(&expert.id).unwrap_or(&0))
-            .ok_or_else(|| IdeateError::Validation("No participants available".to_string()))?;
+            .ok_or_else(|| IdeateError::ValidationError("No participants available".to_string()))?;
 
         Ok(next_expert)
     }

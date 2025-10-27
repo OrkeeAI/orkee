@@ -19,6 +19,7 @@ pub mod executions_handlers;
 pub mod graph_handlers;
 pub mod handlers;
 pub mod ideate_dependency_handlers;
+pub mod ideate_generation_handlers;
 pub mod ideate_handlers;
 pub mod ideate_research_handlers;
 pub mod ideate_roundtable_handlers;
@@ -424,6 +425,39 @@ pub fn create_ideate_router() -> Router<DbState> {
         .route(
             "/ideate/roundtable/{roundtable_id}/statistics",
             get(ideate_roundtable_handlers::get_statistics),
+        )
+        // Phase 7: PRD Generation & Export routes
+        .route(
+            "/ideate/{session_id}/prd/generate",
+            post(ideate_generation_handlers::generate_prd),
+        )
+        .route(
+            "/ideate/{session_id}/prd/fill-sections",
+            post(ideate_generation_handlers::fill_skipped_sections),
+        )
+        .route(
+            "/ideate/{session_id}/prd/regenerate-section",
+            post(ideate_generation_handlers::regenerate_section),
+        )
+        .route(
+            "/ideate/{session_id}/prd/preview",
+            get(ideate_generation_handlers::get_prd_preview),
+        )
+        .route(
+            "/ideate/{session_id}/prd/export",
+            post(ideate_generation_handlers::export_prd),
+        )
+        .route(
+            "/ideate/{session_id}/prd/completeness",
+            get(ideate_generation_handlers::get_completeness),
+        )
+        .route(
+            "/ideate/{session_id}/prd/history",
+            get(ideate_generation_handlers::get_generation_history),
+        )
+        .route(
+            "/ideate/{session_id}/prd/validation",
+            get(ideate_generation_handlers::validate_prd),
         )
 }
 

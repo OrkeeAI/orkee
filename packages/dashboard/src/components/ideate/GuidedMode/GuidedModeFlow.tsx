@@ -1,7 +1,7 @@
 // ABOUTME: Main orchestrator for Guided Mode step-by-step PRD creation
 // ABOUTME: Manages navigation through 7 sections with progress tracking and skip functionality
 import { useState, useEffect } from 'react';
-import { ArrowLeft, Check } from 'lucide-react';
+import { ArrowLeft, FileText } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -20,11 +20,11 @@ import { RoadmapSection } from './sections/RoadmapSection';
 import { DependencyChainSection } from './sections/DependencyChainSection';
 import { RisksSection } from './sections/RisksSection';
 import { AppendixSection } from './sections/AppendixSection';
+import { PRDGeneratorFlow } from '../PRDGenerator/PRDGeneratorFlow';
 import {
   useIdeateSession,
   useIdeateStatus,
   useNavigateToSection,
-  useSaveAsPRD,
 } from '@/hooks/useIdeate';
 import { toast } from 'sonner';
 
@@ -57,19 +57,19 @@ interface GuidedModeFlowProps {
 }
 
 export function GuidedModeFlow({
-  projectId,
+  projectId: _projectId,
   sessionId,
   open,
   onOpenChange,
-  onComplete,
+  onComplete: _onComplete,
 }: GuidedModeFlowProps) {
   const [skipDialogOpen, setSkipDialogOpen] = useState(false);
   const [currentSection, setCurrentSection] = useState<SectionName>('overview');
+  const [showPRDGenerator, setShowPRDGenerator] = useState(false);
 
   const { data: session } = useIdeateSession(sessionId);
   const { data: status } = useIdeateStatus(sessionId);
   const navigateMutation = useNavigateToSection(sessionId);
-  const saveMutation = useSaveAsPRD(projectId, sessionId);
 
   // Initialize current section from session
   useEffect(() => {
@@ -115,20 +115,12 @@ export function GuidedModeFlow({
     setSkipDialogOpen(false);
   };
 
-  const handleSaveAsPRD = async () => {
-    try {
-      toast.info('Saving PRD...', { duration: 2000 });
-      const result = await saveMutation.mutateAsync();
+  const handleGeneratePRD = () => {
+    setShowPRDGenerator(true);
+  };
 
-      toast.success('PRD saved successfully!');
-      onComplete?.(result.prd_id);
-      onOpenChange(false);
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      toast.error('Failed to save PRD', {
-        description: errorMessage,
-      });
-    }
+  const handleBackToSections = () => {
+    setShowPRDGenerator(false);
   };
 
   const renderSection = () => {
@@ -155,6 +147,35 @@ export function GuidedModeFlow({
   const currentIndex = SECTIONS.findIndex(s => s.id === currentSection);
   const isFirstSection = currentIndex === 0;
   const isLastSection = currentIndex === SECTIONS.length - 1;
+
+  // If showing PRD generator, render it in a simple layout
+  if (showPRDGenerator && session) {
+    return (
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="max-w-7xl h-[90vh] p-0">
+          <div className="flex flex-col h-full">
+            {/* Header with back button */}
+            <div className="border-b p-4">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleBackToSections}
+                className="gap-2"
+              >
+                <ArrowLeft className="h-4 w-4" />
+                Back to Sections
+              </Button>
+            </div>
+
+            {/* PRD Generator */}
+            <div className="flex-1 overflow-y-auto p-6">
+              <PRDGeneratorFlow session={session} />
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
+  }
 
   return (
     <>
@@ -197,12 +218,11 @@ export function GuidedModeFlow({
 
                 {status?.is_ready_for_prd && (
                   <Button
-                    onClick={handleSaveAsPRD}
-                    disabled={saveMutation.isPending}
+                    onClick={handleGeneratePRD}
                     className="w-full"
                   >
-                    <Check className="w-4 h-4 mr-2" />
-                    {saveMutation.isPending ? 'Saving...' : 'Save as PRD'}
+                    <FileText className="w-4 h-4 mr-2" />
+                    Generate PRD
                   </Button>
                 )}
               </div>

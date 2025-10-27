@@ -476,6 +476,72 @@ export interface RoundtableEvent {
   data?: any;
 }
 
+// =============================================================================
+// Phase 7: PRD Generation & Export Types
+// =============================================================================
+
+export type ExportFormat = 'markdown' | 'html' | 'pdf' | 'docx';
+
+export interface ExportOptions {
+  format: ExportFormat;
+  includeToc?: boolean;
+  includeMetadata?: boolean;
+  includePageNumbers?: boolean;
+  customCss?: string;
+  title?: string;
+}
+
+export interface ExportResult {
+  format: string;
+  content: string;
+  fileName: string;
+  mimeType: string;
+  sizeBytes: number;
+}
+
+export interface CompletenessMetrics {
+  total_sections: number;
+  completed_sections: number;
+  skipped_sections: number;
+  ai_filled_sections: number;
+  completeness_percentage: number;
+  missing_required: string[];
+}
+
+export interface AggregatedPRDData {
+  session: IdeateSession;
+  overview: IdeateOverview | null;
+  ux: IdeateUX | null;
+  technical: IdeateTechnical | null;
+  roadmap: IdeateRoadmap | null;
+  dependencies: IdeateDependencies | null;
+  risks: IdeateRisks | null;
+  research: IdeateResearch | null;
+  roundtableInsights: RoundtableInsight[] | null;
+  skippedSections: string[];
+  completeness: CompletenessMetrics;
+}
+
+export interface GenerationHistoryItem {
+  id: string;
+  version: number;
+  generationMethod: string;
+  validationStatus: string;
+  createdAt: string;
+}
+
+export interface ValidationIssue {
+  rule: string;
+  section: string | null;
+  message: string;
+}
+
+export interface ValidationResponse {
+  status: string;
+  errors: ValidationIssue[];
+  warnings: ValidationIssue[];
+}
+
 class IdeateService {
   /**
    * Create a new ideate session
@@ -1454,6 +1520,134 @@ class IdeateService {
 
     if (response.error || !response.data.success) {
       throw new Error(response.error || 'Failed to get statistics');
+    }
+
+    return response.data.data;
+  }
+
+  // =============================================================================
+  // Phase 7: PRD Generation & Export
+  // =============================================================================
+
+  /**
+   * Generate PRD from collected session data
+   */
+  async generatePRD(sessionId: string, includeSkipped = false): Promise<GeneratedPRD> {
+    const response = await apiClient.post<{ success: boolean; data: GeneratedPRD }>(
+      `/api/ideate/${sessionId}/prd/generate`,
+      { includeSkipped }
+    );
+
+    if (response.error || !response.data.success) {
+      throw new Error(response.error || 'Failed to generate PRD');
+    }
+
+    return response.data.data;
+  }
+
+  /**
+   * AI-fill skipped sections with context
+   */
+  async fillSkippedSections(sessionId: string, sections: string[]): Promise<Record<string, any>> {
+    const response = await apiClient.post<{ success: boolean; data: Record<string, any> }>(
+      `/api/ideate/${sessionId}/prd/fill-sections`,
+      { sections }
+    );
+
+    if (response.error || !response.data.success) {
+      throw new Error(response.error || 'Failed to fill skipped sections');
+    }
+
+    return response.data.data;
+  }
+
+  /**
+   * Regenerate specific section with full context
+   */
+  async regenerateSection(sessionId: string, section: string): Promise<any> {
+    const response = await apiClient.post<{ success: boolean; data: any }>(
+      `/api/ideate/${sessionId}/prd/regenerate-section`,
+      { section }
+    );
+
+    if (response.error || !response.data.success) {
+      throw new Error(response.error || 'Failed to regenerate section');
+    }
+
+    return response.data.data;
+  }
+
+  /**
+   * Get PRD preview (aggregated data)
+   */
+  async getPRDPreview(sessionId: string): Promise<AggregatedPRDData> {
+    const response = await apiClient.get<{ success: boolean; data: AggregatedPRDData }>(
+      `/api/ideate/${sessionId}/prd/preview`
+    );
+
+    if (response.error || !response.data.success) {
+      throw new Error(response.error || 'Failed to get PRD preview');
+    }
+
+    return response.data.data;
+  }
+
+  /**
+   * Export PRD in specified format
+   */
+  async exportPRD(sessionId: string, options: ExportOptions): Promise<ExportResult> {
+    const response = await apiClient.post<{ success: boolean; data: ExportResult }>(
+      `/api/ideate/${sessionId}/prd/export`,
+      options
+    );
+
+    if (response.error || !response.data.success) {
+      throw new Error(response.error || 'Failed to export PRD');
+    }
+
+    return response.data.data;
+  }
+
+  /**
+   * Get completeness metrics for session
+   */
+  async getCompleteness(sessionId: string): Promise<CompletenessMetrics> {
+    const response = await apiClient.get<{ success: boolean; data: CompletenessMetrics }>(
+      `/api/ideate/${sessionId}/prd/completeness`
+    );
+
+    if (response.error || !response.data.success) {
+      throw new Error(response.error || 'Failed to get completeness metrics');
+    }
+
+    return response.data.data;
+  }
+
+  /**
+   * Get PRD generation history
+   */
+  async getGenerationHistory(sessionId: string): Promise<GenerationHistoryItem[]> {
+    const response = await apiClient.get<{ success: boolean; data: GenerationHistoryItem[] }>(
+      `/api/ideate/${sessionId}/prd/history`
+    );
+
+    if (response.error || !response.data.success) {
+      throw new Error(response.error || 'Failed to get generation history');
+    }
+
+    return response.data.data;
+  }
+
+  /**
+   * Validate PRD against rules
+   */
+  async validatePRD(sessionId: string): Promise<ValidationResponse> {
+    const response = await apiClient.get<{ success: boolean; data: ValidationResponse }>(
+      `/api/ideate/${sessionId}/prd/validation`
+    );
+
+    if (response.error || !response.data.success) {
+      throw new Error(response.error || 'Failed to validate PRD');
     }
 
     return response.data.data;

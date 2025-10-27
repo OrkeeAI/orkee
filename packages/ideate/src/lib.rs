@@ -5,7 +5,9 @@ pub mod build_optimizer;
 pub mod dependency_analyzer;
 pub mod error;
 pub mod expert_moderator;
+pub mod export_service;
 pub mod manager;
+pub mod prd_aggregator;
 pub mod prd_generator;
 pub mod prompts;
 pub mod research_analyzer;
@@ -24,7 +26,9 @@ pub use dependency_analyzer::{
 };
 pub use error::{IdeateError, Result};
 pub use expert_moderator::ExpertModerator;
+pub use export_service::{ExportFormat, ExportOptions, ExportResult, ExportService};
 pub use manager::IdeateManager;
+pub use prd_aggregator::{AggregatedPRDData, CompletenessMetrics, PRDAggregator};
 pub use prd_generator::PRDGenerator;
 pub use research_analyzer::{
     GapAnalysis, Lesson, Opportunity, ResearchAnalyzer, ResearchSynthesis, UIPattern,

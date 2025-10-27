@@ -40,6 +40,13 @@ import type {
   InsightsByCategory,
   RoundtableStatistics,
   RoundtableEvent,
+  // Phase 7: PRD Generation & Export
+  ExportOptions,
+  ExportResult,
+  CompletenessMetrics,
+  AggregatedPRDData,
+  GenerationHistoryItem,
+  ValidationResponse,
 } from '@/services/ideate';
 
 interface ApiError {
@@ -993,5 +1000,114 @@ export function useRoundtableStatistics(roundtableId: string) {
     queryFn: () => ideateService.getRoundtableStatistics(roundtableId),
     enabled: !!roundtableId,
     staleTime: 30 * 1000, // 30 seconds
+  });
+}
+
+// =============================================================================
+// Phase 7: PRD Generation & Export Hooks
+// =============================================================================
+
+/**
+ * Generate PRD from collected session data
+ */
+export function useGeneratePRD(sessionId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ includeSkipped = false }: { includeSkipped?: boolean }) =>
+      ideateService.generatePRD(sessionId, includeSkipped),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['ideate', sessionId, 'prd'] });
+      queryClient.invalidateQueries({ queryKey: ['ideate', sessionId, 'history'] });
+    },
+  });
+}
+
+/**
+ * AI-fill skipped sections
+ */
+export function useFillSkippedSections(sessionId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (sections: string[]) =>
+      ideateService.fillSkippedSections(sessionId, sections),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['ideate', sessionId, 'preview'] });
+      queryClient.invalidateQueries({ queryKey: ['ideate', sessionId, 'completeness'] });
+    },
+  });
+}
+
+/**
+ * Regenerate specific section
+ */
+export function useRegenerateSection(sessionId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (section: string) =>
+      ideateService.regenerateSection(sessionId, section),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['ideate', sessionId, 'preview'] });
+    },
+  });
+}
+
+/**
+ * Get PRD preview (aggregated data)
+ */
+export function usePRDPreview(sessionId: string) {
+  return useQuery({
+    queryKey: ['ideate', sessionId, 'preview'],
+    queryFn: () => ideateService.getPRDPreview(sessionId),
+    enabled: !!sessionId,
+    staleTime: 1 * 60 * 1000, // 1 minute
+  });
+}
+
+/**
+ * Export PRD in specified format
+ */
+export function useExportPRD(sessionId: string) {
+  return useMutation({
+    mutationFn: (options: ExportOptions) =>
+      ideateService.exportPRD(sessionId, options),
+  });
+}
+
+/**
+ * Get completeness metrics
+ */
+export function useCompleteness(sessionId: string) {
+  return useQuery({
+    queryKey: ['ideate', sessionId, 'completeness'],
+    queryFn: () => ideateService.getCompleteness(sessionId),
+    enabled: !!sessionId,
+    staleTime: 30 * 1000, // 30 seconds
+  });
+}
+
+/**
+ * Get generation history
+ */
+export function useGenerationHistory(sessionId: string) {
+  return useQuery({
+    queryKey: ['ideate', sessionId, 'history'],
+    queryFn: () => ideateService.getGenerationHistory(sessionId),
+    enabled: !!sessionId,
+    staleTime: 2 * 60 * 1000, // 2 minutes
+  });
+}
+
+/**
+ * Validate PRD
+ */
+export function useValidatePRD(sessionId: string) {
+  return useQuery({
+    queryKey: ['ideate', sessionId, 'validation'],
+    queryFn: () => ideateService.validatePRD(sessionId),
+    enabled: !!sessionId,
+    staleTime: 1 * 60 * 1000, // 1 minute
   });
 }

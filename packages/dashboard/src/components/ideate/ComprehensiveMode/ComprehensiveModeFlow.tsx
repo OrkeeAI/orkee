@@ -2,7 +2,7 @@
 // ABOUTME: Extends Guided Mode with competitor analysis and similar project research
 
 import { useState, useEffect } from 'react';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, FileText } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -24,11 +24,11 @@ import { RisksSection } from '../GuidedMode/sections/RisksSection';
 import { CompetitorAnalysisSection } from './sections/CompetitorAnalysisSection';
 import { SimilarProjectsSection } from './sections/SimilarProjectsSection';
 import { ExpertRoundtableFlow } from './ExpertRoundtable';
+import { PRDGeneratorFlow } from '../PRDGenerator/PRDGeneratorFlow';
 import {
   useIdeateSession,
   useIdeateStatus,
   useNavigateToSection,
-  useSaveAsPRD,
 } from '@/hooks/useIdeate';
 import { toast } from 'sonner';
 
@@ -60,20 +60,20 @@ interface ComprehensiveModeFlowProps {
 }
 
 export function ComprehensiveModeFlow({
-  projectId,
+  projectId: _projectId,
   sessionId,
   open,
   onOpenChange,
-  onComplete,
+  onComplete: _onComplete,
 }: ComprehensiveModeFlowProps) {
   const [skipDialogOpen, setSkipDialogOpen] = useState(false);
   const [currentSection, setCurrentSection] = useState<SectionName>('overview');
   const [researchTab, setResearchTab] = useState<'competitors' | 'similar-projects' | 'expert-roundtable'>('competitors');
+  const [showPRDGenerator, setShowPRDGenerator] = useState(false);
 
   const { data: session } = useIdeateSession(sessionId);
   const { data: status } = useIdeateStatus(sessionId);
   const navigateMutation = useNavigateToSection(sessionId);
-  const saveMutation = useSaveAsPRD(projectId, sessionId);
 
   // Initialize current section from session
   useEffect(() => {
@@ -117,20 +117,12 @@ export function ComprehensiveModeFlow({
     setSkipDialogOpen(false);
   };
 
-  const handleSaveAsPRD = async () => {
-    try {
-      toast.info('Saving PRD...', { duration: 2000 });
-      const result = await saveMutation.mutateAsync();
+  const handleGeneratePRD = () => {
+    setShowPRDGenerator(true);
+  };
 
-      toast.success('PRD saved successfully!');
-      onComplete?.(result.prd_id);
-      onOpenChange(false);
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      toast.error('Failed to save PRD', {
-        description: errorMessage,
-      });
-    }
+  const handleBackToSections = () => {
+    setShowPRDGenerator(false);
   };
 
   const renderSection = () => {
@@ -162,7 +154,7 @@ export function ComprehensiveModeFlow({
               <SimilarProjectsSection sessionId={sessionId} />
             </TabsContent>
             <TabsContent value="expert-roundtable" className="mt-4">
-              <ExpertRoundtableFlow sessionId={sessionId} defaultTopic={session?.name} />
+              <ExpertRoundtableFlow sessionId={sessionId} defaultTopic={session?.initial_description} />
             </TabsContent>
           </Tabs>
         );
@@ -174,7 +166,31 @@ export function ComprehensiveModeFlow({
   const currentIndex = SECTIONS.findIndex(s => s.id === currentSection);
   const isFirstSection = currentIndex === 0;
   const isLastSection = currentIndex === SECTIONS.length - 1;
-  const canSaveAsPRD = status?.is_ready_for_prd ?? false;
+
+  // If showing PRD generator, render it in a simple layout
+  if (showPRDGenerator && session) {
+    return (
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="max-w-7xl h-[90vh] flex flex-col">
+          <DialogHeader>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleBackToSections}
+              className="gap-2 w-fit"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Back to Sections
+            </Button>
+          </DialogHeader>
+
+          <div className="flex-1 overflow-y-auto">
+            <PRDGeneratorFlow session={session} />
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
+  }
 
   return (
     <>
@@ -203,7 +219,7 @@ export function ComprehensiveModeFlow({
                 sections={SECTIONS}
                 currentSection={currentSection}
                 onSectionSelect={handleSectionSelect}
-                skippedSections={status?.skipped_sections ?? []}
+                completionStatus={status}
               />
             </div>
 
@@ -233,12 +249,10 @@ export function ComprehensiveModeFlow({
                 </Button>
               )}
 
-              {isLastSection && (
-                <Button
-                  onClick={handleSaveAsPRD}
-                  disabled={!canSaveAsPRD || saveMutation.isPending}
-                >
-                  {saveMutation.isPending ? 'Saving...' : 'Save as PRD'}
+              {isLastSection && status?.is_ready_for_prd && (
+                <Button onClick={handleGeneratePRD}>
+                  <FileText className="mr-2 h-4 w-4" />
+                  Generate PRD
                 </Button>
               )}
             </div>
