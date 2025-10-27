@@ -1,10 +1,10 @@
-# PRD Brainstorming & Ideation Feature - Implementation Plan
+# PRD Ideation Feature - Implementation Plan
 
 ## Overview
 Add a flexible PRD generation system supporting three modes:
 - **Quick Mode**: One-liner → Complete PRD
 - **Guided Mode**: Step-by-step with optional sections
-- **Comprehensive Mode**: Full brainstorming with expert roundtables, competitor analysis
+- **Comprehensive Mode**: Full ideation with expert roundtables, competitor analysis
 
 ## Target PRD Structure
 1. Overview (Problem, Target, Value)
@@ -21,16 +21,16 @@ Add a flexible PRD generation system supporting three modes:
 ## Phase 1: Core Infrastructure & Database (Week 1) ✅ COMPLETED
 
 ### Database Schema ✅
-- [x] Create migration file `002_brainstorm_schema.sql`
-- [x] `brainstorm_sessions` table with mode tracking
-- [x] `brainstorm_overview` table (optional)
-- [x] `brainstorm_features` table with dependency fields
-- [x] `brainstorm_ux` table (optional)
-- [x] `brainstorm_technical` table (optional)
-- [x] `brainstorm_roadmap` table (optional, NO timeline fields)
-- [x] `brainstorm_dependencies` table (foundation/visible/enhancement)
-- [x] `brainstorm_risks` table (optional)
-- [x] `brainstorm_research` table (optional)
+- [x] Create migration file `002_ideate_schema.sql`
+- [x] `ideate_sessions` table with mode tracking
+- [x] `ideate_overview` table (optional)
+- [x] `ideate_features` table with dependency fields
+- [x] `ideate_ux` table (optional)
+- [x] `ideate_technical` table (optional)
+- [x] `ideate_roadmap` table (optional, NO timeline fields)
+- [x] `ideate_dependencies` table (foundation/visible/enhancement)
+- [x] `ideate_risks` table (optional)
+- [x] `ideate_research` table (optional)
 - [x] `roundtable_sessions` table (for comprehensive mode)
 - [x] `prd_quickstart_templates` table
 - [x] Add indexes for performance
@@ -38,46 +38,70 @@ Add a flexible PRD generation system supporting three modes:
 
 ### Backend - Session Management ✅
 - [x] Create `packages/ideate` package with types, error handling, and manager
-- [x] Create `packages/api/src/brainstorm_handlers.rs`
-- [x] POST `/api/brainstorm/start` - Create session with mode
-- [x] GET `/api/brainstorm/{id}/status` - Get completion status
-- [x] POST `/api/brainstorm/{id}/skip-section` - Mark section as skipped
-- [x] GET `/api/brainstorm/{id}` - Get full session data
-- [x] PUT `/api/brainstorm/{id}` - Update session
-- [x] DELETE `/api/brainstorm/{id}` - Delete session
-- [x] GET `/api/{project_id}/brainstorm/sessions` - List sessions by project
+- [x] Create `packages/api/src/ideate_handlers.rs`
+- [x] POST `/api/ideate/start` - Create session with mode
+- [x] GET `/api/ideate/{id}/status` - Get completion status
+- [x] POST `/api/ideate/{id}/skip-section` - Mark section as skipped
+- [x] GET `/api/ideate/{id}` - Get full session data
+- [x] PUT `/api/ideate/{id}` - Update session
+- [x] DELETE `/api/ideate/{id}` - Delete session
+- [x] GET `/api/{project_id}/ideate/sessions` - List sessions by project
 - [x] Register routes in `packages/api/src/lib.rs`
 - [x] Mount router in `packages/cli/src/api/mod.rs`
-- [x] Fix enum serialization (snake_case for BrainstormStatus)
+- [x] Fix enum serialization (snake_case for IdeateStatus)
 - [x] Test all endpoints end-to-end
 
 ### Frontend - Entry Point ✅ COMPLETED
-- [x] Create `packages/dashboard/src/components/brainstorm/` directory
+- [x] Create `packages/dashboard/src/components/ideate/` directory
 - [x] Create `CreatePRDFlow.tsx` - Main entry component
 - [x] Create `ModeSelector.tsx` - Choose Quick/Guided/Comprehensive
 - [x] Add "Create PRD" button to `PRDView.tsx`
-- [x] Create service `packages/dashboard/src/services/brainstorm.ts`
-- [x] Create hooks `packages/dashboard/src/hooks/useBrainstorm.ts`
+- [x] Create service `packages/dashboard/src/services/ideate.ts`
+- [x] Create hooks `packages/dashboard/src/hooks/useIdeate.ts`
 - [x] Test end-to-end session creation
 
 ---
 
-## Phase 2: Quick Mode (One-liner → PRD) (Week 2)
+## Phase 2: Quick Mode (One-liner → PRD) (Week 2) 🚧 IN PROGRESS
 
-### Backend - Quick Mode
-- [ ] POST `/api/brainstorm/{id}/quick-generate` - Generate PRD from one-liner
-- [ ] POST `/api/brainstorm/{id}/quick-expand` - Expand specific sections
-- [ ] Integrate AI service for PRD generation
-- [ ] Create prompts for each PRD section
-- [ ] Handle token limits and streaming
-- [ ] Add error handling and retries
+### Backend - Quick Mode ✅ COMPLETED
+- [x] POST `/api/ideate/{id}/quick-generate` - Generate PRD from one-liner
+- [x] POST `/api/ideate/{id}/quick-expand` - Expand specific sections
+- [x] GET `/api/ideate/{id}/preview` - Preview PRD before saving
+- [x] POST `/api/ideate/{id}/save-as-prd` - Save PRD to OpenSpec system
+- [x] Integrate AI service for PRD generation (Claude via stored API key)
+- [x] Create `prd_generator.rs` service with database settings integration
+- [x] Create `prompts.rs` with structured prompts for each PRD section
+- [x] Implement database-based configuration (ideate.* settings)
+- [x] Add error handling with proper error types
+
+### Backend - Settings Integration ✅
+- [x] Add AI configuration to system_settings table:
+  - `ideate.max_tokens` (default: 8000)
+  - `ideate.temperature` (default: 0.7)
+  - `ideate.model` (default: claude-3-opus-20240229)
+  - `ideate.timeout_seconds` (default: 120)
+  - `ideate.retry_attempts` (default: 3)
+- [x] Use encrypted user API keys from database
+- [x] Settings accessible via Settings → Advanced UI
+
+### Frontend - Session List View
+- [ ] Create `packages/dashboard/src/components/ideate/SessionsList.tsx`
+- [ ] Display all ideate sessions for current project
+- [ ] Show session mode (Quick/Guided/Comprehensive)
+- [ ] Show session status (Draft/In Progress/Ready/Completed)
+- [ ] Add search/filter by mode and status
+- [ ] Add "Resume session" functionality
+- [ ] Add "Delete session" with confirmation
+- [ ] Add created/updated timestamps
+- [ ] Show linked PRD if completed
 
 ### Frontend - Quick Mode UI
-- [ ] Create `packages/dashboard/src/components/brainstorm/QuickMode/`
+- [ ] Create `packages/dashboard/src/components/ideate/QuickMode/`
 - [ ] Create `OneLineInput.tsx` - Simple description input
 - [ ] Create `QuickExpansion.tsx` - Section selection
 - [ ] Create `InstantPRD.tsx` - Show generated PRD
-- [ ] Add loading states with streaming progress
+- [ ] Add loading states (non-streaming for now)
 - [ ] Add edit capabilities after generation
 - [ ] Add "Save as PRD" functionality
 - [ ] Test with various one-liner descriptions
@@ -88,24 +112,29 @@ Add a flexible PRD generation system supporting three modes:
 - [ ] Handle generation errors gracefully
 - [ ] Add success/error notifications
 
+### Future Enhancements
+- [ ] Add SSE streaming support for real-time generation
+- [ ] Implement token limit handling with chunking
+- [ ] Add retry logic with exponential backoff
+
 ---
 
 ## Phase 3: Guided Mode - Core Sections (Week 3)
 
 ### Backend - Section Endpoints
-- [ ] POST/GET `/api/brainstorm/{id}/overview`
-- [ ] POST/GET `/api/brainstorm/{id}/features`
-- [ ] POST/GET `/api/brainstorm/{id}/ux`
-- [ ] POST/GET `/api/brainstorm/{id}/technical`
-- [ ] POST/GET `/api/brainstorm/{id}/roadmap`
-- [ ] POST/GET `/api/brainstorm/{id}/dependencies`
-- [ ] POST/GET `/api/brainstorm/{id}/risks`
-- [ ] POST/GET `/api/brainstorm/{id}/research`
+- [ ] POST/GET `/api/ideate/{id}/overview`
+- [ ] POST/GET `/api/ideate/{id}/features`
+- [ ] POST/GET `/api/ideate/{id}/ux`
+- [ ] POST/GET `/api/ideate/{id}/technical`
+- [ ] POST/GET `/api/ideate/{id}/roadmap`
+- [ ] POST/GET `/api/ideate/{id}/dependencies`
+- [ ] POST/GET `/api/ideate/{id}/risks`
+- [ ] POST/GET `/api/ideate/{id}/research`
 - [ ] Add AI suggestion endpoints for each section
 - [ ] Implement skip with AI fill functionality
 
 ### Frontend - Guided Mode Structure
-- [ ] Create `packages/dashboard/src/components/brainstorm/GuidedMode/`
+- [ ] Create `packages/dashboard/src/components/ideate/GuidedMode/`
 - [ ] Create `SectionNavigator.tsx` - Navigation between sections
 - [ ] Create `SkipDialog.tsx` - Confirm skip with AI fill option
 - [ ] Create `SectionProgress.tsx` - Visual progress indicator
@@ -158,10 +187,10 @@ Add a flexible PRD generation system supporting three modes:
 ## Phase 4: Dependency Chain Focus (Week 4)
 
 ### Backend - Dependency Intelligence
-- [ ] POST `/api/brainstorm/{id}/features/dependencies` - Set dependencies
-- [ ] POST `/api/brainstorm/{id}/dependencies/analyze` - Auto-detect dependencies
-- [ ] POST `/api/brainstorm/{id}/dependencies/optimize` - Optimal build order
-- [ ] POST `/api/brainstorm/{id}/features/suggest-visible` - Quick-to-visible features
+- [ ] POST `/api/ideate/{id}/features/dependencies` - Set dependencies
+- [ ] POST `/api/ideate/{id}/dependencies/analyze` - Auto-detect dependencies
+- [ ] POST `/api/ideate/{id}/dependencies/optimize` - Optimal build order
+- [ ] POST `/api/ideate/{id}/features/suggest-visible` - Quick-to-visible features
 - [ ] Create AI prompts for dependency detection
 - [ ] Implement graph algorithms for build order
 - [ ] Add validation for circular dependencies
@@ -191,11 +220,11 @@ Add a flexible PRD generation system supporting three modes:
 ## Phase 5: Comprehensive Mode - Research Tools (Week 5)
 
 ### Backend - Research & Analysis
-- [ ] POST `/api/brainstorm/{id}/competitors/analyze` - Analyze competitor URL
-- [ ] POST `/api/brainstorm/{id}/competitors/compare` - Compare features
-- [ ] GET `/api/brainstorm/{id}/competitors` - List competitors
-- [ ] POST `/api/brainstorm/{id}/similar/add` - Add similar project
-- [ ] POST `/api/brainstorm/{id}/similar/extract-patterns` - Extract UI patterns
+- [ ] POST `/api/ideate/{id}/competitors/analyze` - Analyze competitor URL
+- [ ] POST `/api/ideate/{id}/competitors/compare` - Compare features
+- [ ] GET `/api/ideate/{id}/competitors` - List competitors
+- [ ] POST `/api/ideate/{id}/similar/add` - Add similar project
+- [ ] POST `/api/ideate/{id}/similar/extract-patterns` - Extract UI patterns
 - [ ] Implement web scraping with `reqwest` + `scraper`
 - [ ] Add screenshot analysis with AI vision
 - [ ] Create competitor feature extraction logic
@@ -215,10 +244,10 @@ Add a flexible PRD generation system supporting three modes:
 ## Phase 6: Comprehensive Mode - Expert Roundtable (Week 6)
 
 ### Backend - Roundtable System
-- [ ] POST `/api/brainstorm/{id}/roundtable/start` - Start discussion
-- [ ] GET `/api/brainstorm/{id}/roundtable/stream` - SSE stream endpoint
-- [ ] POST `/api/brainstorm/{id}/roundtable/question` - User interjection
-- [ ] POST `/api/brainstorm/{id}/experts/suggest` - AI suggest experts
+- [ ] POST `/api/ideate/{id}/roundtable/start` - Start discussion
+- [ ] GET `/api/ideate/{id}/roundtable/stream` - SSE stream endpoint
+- [ ] POST `/api/ideate/{id}/roundtable/question` - User interjection
+- [ ] POST `/api/ideate/{id}/experts/suggest` - AI suggest experts
 - [ ] Create expert persona system
 - [ ] Implement streaming chat with multiple experts
 - [ ] Add moderator AI to orchestrate discussion
@@ -239,10 +268,10 @@ Add a flexible PRD generation system supporting three modes:
 ## Phase 7: PRD Generation & Export (Week 7)
 
 ### Backend - PRD Generation
-- [ ] POST `/api/brainstorm/{id}/generate-prd` - Generate complete PRD
-- [ ] POST `/api/brainstorm/{id}/generate-section/{section}` - Generate one section
-- [ ] GET `/api/brainstorm/{id}/prd/preview` - Preview before save
-- [ ] POST `/api/brainstorm/{id}/prd/save` - Save as PRD in system
+- [ ] POST `/api/ideate/{id}/generate-prd` - Generate complete PRD
+- [ ] POST `/api/ideate/{id}/generate-section/{section}` - Generate one section
+- [ ] GET `/api/ideate/{id}/prd/preview` - Preview before save
+- [ ] POST `/api/ideate/{id}/prd/save` - Save as PRD in system
 - [ ] Implement section-by-section generation
 - [ ] Handle skipped sections with AI fill
 - [ ] Add PRD validation logic
@@ -275,7 +304,7 @@ Add a flexible PRD generation system supporting three modes:
 - [ ] Add template selection UI
 - [ ] Implement smart section suggestions
 - [ ] Add auto-save functionality
-- [ ] Add session resume capability
+- [ ] Session list & resume (moved to Phase 2)
 
 ### UX Improvements
 - [ ] Add keyboard shortcuts
