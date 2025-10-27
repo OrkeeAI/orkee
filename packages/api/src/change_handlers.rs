@@ -360,7 +360,7 @@ pub async fn validate_change(
 
     // First verify the change exists
     match openspec_db::get_spec_change(&db.pool, &change_id).await {
-        Ok(_) => {}, // Change exists, continue
+        Ok(_) => {} // Change exists, continue
         Err(openspec_db::DbError::NotFound(msg)) => {
             return (
                 StatusCode::NOT_FOUND,

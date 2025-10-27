@@ -476,7 +476,10 @@ The system SHALL provide secure user authentication.
         let result = archive_change(&pool, &change.id, true).await;
         assert!(result.is_ok());
         let capabilities_created = result.unwrap();
-        assert_eq!(capabilities_created, 1, "Should create 1 capability for ADDED delta");
+        assert_eq!(
+            capabilities_created, 1,
+            "Should create 1 capability for ADDED delta"
+        );
 
         // Verify change is archived
         let updated_change = get_spec_change(&pool, &change.id).await.unwrap();
