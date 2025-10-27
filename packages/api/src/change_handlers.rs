@@ -521,10 +521,7 @@ mod tests {
         DbState::new(pool).expect("Failed to create DbState")
     }
 
-    async fn setup_test_data(
-        pool: &Pool<Sqlite>,
-        project_id: &str,
-    ) -> (String, String) {
+    async fn setup_test_data(pool: &Pool<Sqlite>, project_id: &str) -> (String, String) {
         // Create test project
         sqlx::query(
             "INSERT INTO projects (id, name, project_root, description, created_at, updated_at)
@@ -598,7 +595,10 @@ The system SHALL provide secure user authentication.
         // Validate change
         let request = Request::builder()
             .method("GET")
-            .uri(format!("/{}/changes/{}/validate?strict=true", project_id, change_id))
+            .uri(format!(
+                "/{}/changes/{}/validate?strict=true",
+                project_id, change_id
+            ))
             .body(Body::empty())
             .unwrap();
 
@@ -651,7 +651,10 @@ THEN a JWT token is returned
         // Validate change
         let request = Request::builder()
             .method("GET")
-            .uri(format!("/{}/changes/{}/validate?strict=false", project_id, change_id))
+            .uri(format!(
+                "/{}/changes/{}/validate?strict=false",
+                project_id, change_id
+            ))
             .body(Body::empty())
             .unwrap();
 
@@ -771,13 +774,12 @@ The system SHALL provide secure user authentication.
         assert_eq!(change.status, ChangeStatus::Archived);
 
         // Verify capability was created
-        let caps: Vec<String> = sqlx::query_scalar(
-            "SELECT name FROM spec_capabilities WHERE project_id = ?",
-        )
-        .bind(project_id)
-        .fetch_all(&db_state.pool)
-        .await
-        .unwrap();
+        let caps: Vec<String> =
+            sqlx::query_scalar("SELECT name FROM spec_capabilities WHERE project_id = ?")
+                .bind(project_id)
+                .fetch_all(&db_state.pool)
+                .await
+                .unwrap();
 
         assert_eq!(caps.len(), 1);
         assert_eq!(caps[0], "user-auth");
@@ -846,13 +848,12 @@ The system SHALL provide secure user authentication.
         assert_eq!(change.status, ChangeStatus::Archived);
 
         // Verify NO capability was created
-        let caps: Vec<String> = sqlx::query_scalar(
-            "SELECT name FROM spec_capabilities WHERE project_id = ?",
-        )
-        .bind(project_id)
-        .fetch_all(&db_state.pool)
-        .await
-        .unwrap();
+        let caps: Vec<String> =
+            sqlx::query_scalar("SELECT name FROM spec_capabilities WHERE project_id = ?")
+                .bind(project_id)
+                .fetch_all(&db_state.pool)
+                .await
+                .unwrap();
 
         assert_eq!(caps.len(), 0);
     }
@@ -915,10 +916,7 @@ The system SHALL provide secure user authentication.
         let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
 
         assert_eq!(json["success"], false);
-        assert!(json["error"]
-            .as_str()
-            .unwrap()
-            .contains("already archived"));
+        assert!(json["error"].as_str().unwrap().contains("already archived"));
     }
 
     #[tokio::test]
@@ -972,9 +970,12 @@ No scenario here!
         let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
 
         assert_eq!(json["success"], false);
-        assert!(json["error"]
-            .as_str()
-            .unwrap()
-            .contains("Validation failed") || json["error"].as_str().unwrap().contains("validation"));
+        assert!(
+            json["error"]
+                .as_str()
+                .unwrap()
+                .contains("Validation failed")
+                || json["error"].as_str().unwrap().contains("validation")
+        );
     }
 }
