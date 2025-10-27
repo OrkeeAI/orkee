@@ -147,15 +147,4 @@ CREATE INDEX idx_circular_dependencies_session ON circular_dependencies(session_
 CREATE INDEX idx_circular_dependencies_resolved ON circular_dependencies(resolved);
 CREATE INDEX idx_circular_dependencies_severity ON circular_dependencies(severity);
 
--- ============================================================================
--- GUIDED MODE TRACKING
--- ============================================================================
-
--- Add current_section tracking to ideate_sessions (if not exists)
--- This supports the guided mode navigation
-ALTER TABLE ideate_sessions ADD COLUMN current_section TEXT
-    CHECK(current_section IS NULL OR current_section IN (
-        'overview', 'ux', 'technical', 'roadmap', 'dependencies', 'risks', 'research'
-    ));
-
-CREATE INDEX idx_ideate_sessions_current_section ON ideate_sessions(current_section);
+-- Note: current_section tracking for guided mode is handled by migration 003
