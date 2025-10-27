@@ -3,7 +3,8 @@
 
 use axum::{
     extract::{Path, Query, State},
-    response::IntoResponse,
+    http::StatusCode,
+    response::{IntoResponse, Json as ResponseJson},
     Json,
 };
 use serde::Deserialize;
@@ -11,7 +12,7 @@ use tracing::info;
 
 use super::auth::CurrentUser;
 use super::response::{
-    bad_request, created_or_internal_error, ok_or_internal_error, ok_or_not_found,
+    bad_request, created_or_internal_error, ok_or_internal_error, ok_or_not_found, ApiResponse,
 };
 use super::validation;
 use openspec::db as openspec_db;
@@ -357,6 +358,24 @@ pub async fn validate_change(
 
     let strict = request.strict.unwrap_or(false);
 
+    // First verify the change exists
+    match openspec_db::get_spec_change(&db.pool, &change_id).await {
+        Ok(_) => {}, // Change exists, continue
+        Err(openspec_db::DbError::NotFound(msg)) => {
+            return (
+                StatusCode::NOT_FOUND,
+                ResponseJson(ApiResponse::<ValidationResultResponse>::error(msg)),
+            )
+                .into_response()
+        }
+        Err(e) => {
+            return ok_or_internal_error::<ValidationResultResponse, _>(
+                Err(e),
+                "Failed to verify change exists",
+            )
+        }
+    }
+
     // Get all deltas for the change
     let deltas = match openspec_db::get_deltas_by_change(&db.pool, &change_id).await {
         Ok(d) => d,
@@ -696,17 +715,20 @@ THEN a JWT token is returned
             .unwrap();
 
         let response = app.oneshot(request).await.unwrap();
-        // Non-existent change returns OK with 0 deltas validated (not an error)
-        assert_eq!(response.status(), StatusCode::OK);
+        // Non-existent change should return 404 Not Found
+        assert_eq!(response.status(), StatusCode::NOT_FOUND);
 
-        // Check response indicates no deltas were found
+        // Check response contains error message
         let body = axum::body::to_bytes(response.into_body(), usize::MAX)
             .await
             .unwrap();
         let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
 
-        assert_eq!(json["success"], true);
-        assert_eq!(json["data"]["deltasValidated"], 0);
+        assert_eq!(json["success"], false);
+        assert!(json["error"]
+            .as_str()
+            .unwrap()
+            .contains("Spec change not found"));
     }
 
     #[tokio::test]
