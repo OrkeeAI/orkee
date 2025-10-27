@@ -734,6 +734,11 @@ mod tests {
     use sqlx::{Pool, Sqlite};
     use tower::ServiceExt;
 
+    mod test_constants {
+        pub const TEST_PROJECT_ID: &str = "test-project";
+        pub const TEST_USER_ID: &str = "test-user";
+    }
+
     async fn setup_test_db() -> DbState {
         let pool = Pool::<Sqlite>::connect(":memory:").await.unwrap();
 
@@ -765,7 +770,7 @@ mod tests {
             "Content",
             PRDStatus::Draft,
             PRDSource::Manual,
-            Some("test-user"),
+            Some(test_constants::TEST_USER_ID),
         )
         .await
         .unwrap();
@@ -778,7 +783,7 @@ mod tests {
             "## Proposal\nTest proposal",
             "## Tasks\n- [ ] Task 1",
             Some("## Design\nTest design"),
-            "test-user",
+            test_constants::TEST_USER_ID,
         )
         .await
         .unwrap();
@@ -789,7 +794,7 @@ mod tests {
     #[tokio::test]
     async fn test_validate_change_with_valid_delta() {
         let db_state = setup_test_db().await;
-        let project_id = "test-project";
+        let project_id = test_constants::TEST_PROJECT_ID;
         let (_prd_id, change_id) = setup_test_data(&db_state.pool, project_id).await;
 
         // Add a valid delta
@@ -845,7 +850,7 @@ The system SHALL provide secure user authentication.
     #[tokio::test]
     async fn test_validate_change_with_invalid_delta() {
         let db_state = setup_test_db().await;
-        let project_id = "test-project";
+        let project_id = test_constants::TEST_PROJECT_ID;
         let (_prd_id, change_id) = setup_test_data(&db_state.pool, project_id).await;
 
         // Add an invalid delta (missing WHEN/THEN format)
@@ -901,7 +906,7 @@ THEN a JWT token is returned
     #[tokio::test]
     async fn test_validate_change_not_found() {
         let db_state = setup_test_db().await;
-        let project_id = "test-project";
+        let project_id = test_constants::TEST_PROJECT_ID;
 
         // Create project only (no change)
         sqlx::query(
@@ -942,7 +947,7 @@ THEN a JWT token is returned
     #[tokio::test]
     async fn test_archive_change_success() {
         let db_state = setup_test_db().await;
-        let project_id = "test-project";
+        let project_id = test_constants::TEST_PROJECT_ID;
         let (_prd_id, change_id) = setup_test_data(&db_state.pool, project_id).await;
 
         // Add a valid delta
@@ -1016,7 +1021,7 @@ The system SHALL provide secure user authentication.
     #[tokio::test]
     async fn test_archive_change_without_applying_specs() {
         let db_state = setup_test_db().await;
-        let project_id = "test-project";
+        let project_id = test_constants::TEST_PROJECT_ID;
         let (_prd_id, change_id) = setup_test_data(&db_state.pool, project_id).await;
 
         // Add a valid delta
@@ -1089,7 +1094,7 @@ The system SHALL provide secure user authentication.
     #[tokio::test]
     async fn test_archive_already_archived_change() {
         let db_state = setup_test_db().await;
-        let project_id = "test-project";
+        let project_id = test_constants::TEST_PROJECT_ID;
         let (_prd_id, change_id) = setup_test_data(&db_state.pool, project_id).await;
 
         // Add a valid delta
@@ -1150,7 +1155,7 @@ The system SHALL provide secure user authentication.
     #[tokio::test]
     async fn test_archive_change_with_invalid_delta() {
         let db_state = setup_test_db().await;
-        let project_id = "test-project";
+        let project_id = test_constants::TEST_PROJECT_ID;
         let (_prd_id, change_id) = setup_test_data(&db_state.pool, project_id).await;
 
         // Add an invalid delta (missing proper formatting)
@@ -1213,7 +1218,7 @@ No scenario here!
         let db_state = setup_test_db().await;
 
         // Create project and test data
-        let project_id = "test-project";
+        let project_id = test_constants::TEST_PROJECT_ID;
         let (_prd_id, change_id) = setup_test_data(&db_state.pool, project_id).await;
 
         let app = crate::create_changes_router().with_state(db_state);
@@ -1250,7 +1255,7 @@ No scenario here!
         let db_state = setup_test_db().await;
 
         // Create project and test data
-        let project_id = "test-project";
+        let project_id = test_constants::TEST_PROJECT_ID;
         let (_prd_id, change_id) = setup_test_data(&db_state.pool, project_id).await;
 
         let app = crate::create_changes_router().with_state(db_state);
