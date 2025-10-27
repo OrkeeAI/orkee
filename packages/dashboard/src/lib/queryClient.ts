@@ -79,6 +79,14 @@ export const queryKeys = {
   // Phase 5: Research Analysis keys
   ideateCompetitors: (sessionId: string) => [...queryKeys.ideate, 'competitors', sessionId] as const,
   ideateSimilarProjects: (sessionId: string) => [...queryKeys.ideate, 'similar-projects', sessionId] as const,
+  // Phase 6: Expert Roundtable keys
+  ideateExperts: (sessionId: string) => [...queryKeys.ideate, 'experts', sessionId] as const,
+  ideateRoundtables: (sessionId: string) => [...queryKeys.ideate, 'roundtables', sessionId] as const,
+  ideateRoundtableDetail: (roundtableId: string) => [...queryKeys.ideate, 'roundtable-detail', roundtableId] as const,
+  ideateRoundtableParticipants: (roundtableId: string) => [...queryKeys.ideate, 'roundtable-participants', roundtableId] as const,
+  ideateRoundtableMessages: (roundtableId: string) => [...queryKeys.ideate, 'roundtable-messages', roundtableId] as const,
+  ideateRoundtableInsights: (roundtableId: string) => [...queryKeys.ideate, 'roundtable-insights', roundtableId] as const,
+  ideateRoundtableStatistics: (roundtableId: string) => [...queryKeys.ideate, 'roundtable-statistics', roundtableId] as const,
 
   // Spec keys
   specs: ['specs'] as const,

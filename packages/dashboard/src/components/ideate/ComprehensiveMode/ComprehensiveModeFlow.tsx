@@ -23,6 +23,7 @@ import { DependencyChainSection } from '../GuidedMode/sections/DependencyChainSe
 import { RisksSection } from '../GuidedMode/sections/RisksSection';
 import { CompetitorAnalysisSection } from './sections/CompetitorAnalysisSection';
 import { SimilarProjectsSection } from './sections/SimilarProjectsSection';
+import { ExpertRoundtableFlow } from './ExpertRoundtable';
 import {
   useIdeateSession,
   useIdeateStatus,
@@ -67,7 +68,7 @@ export function ComprehensiveModeFlow({
 }: ComprehensiveModeFlowProps) {
   const [skipDialogOpen, setSkipDialogOpen] = useState(false);
   const [currentSection, setCurrentSection] = useState<SectionName>('overview');
-  const [researchTab, setResearchTab] = useState<'competitors' | 'similar-projects'>('competitors');
+  const [researchTab, setResearchTab] = useState<'competitors' | 'similar-projects' | 'expert-roundtable'>('competitors');
 
   const { data: session } = useIdeateSession(sessionId);
   const { data: status } = useIdeateStatus(sessionId);
@@ -149,15 +150,19 @@ export function ComprehensiveModeFlow({
       case 'research':
         return (
           <Tabs value={researchTab} onValueChange={(v) => setResearchTab(v as any)}>
-            <TabsList className="grid w-full grid-cols-2">
+            <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="competitors">Competitor Analysis</TabsTrigger>
               <TabsTrigger value="similar-projects">Similar Projects</TabsTrigger>
+              <TabsTrigger value="expert-roundtable">Expert Roundtable</TabsTrigger>
             </TabsList>
             <TabsContent value="competitors" className="mt-4">
               <CompetitorAnalysisSection sessionId={sessionId} />
             </TabsContent>
             <TabsContent value="similar-projects" className="mt-4">
               <SimilarProjectsSection sessionId={sessionId} />
+            </TabsContent>
+            <TabsContent value="expert-roundtable" className="mt-4">
+              <ExpertRoundtableFlow sessionId={sessionId} defaultTopic={session?.name} />
             </TabsContent>
           </Tabs>
         );

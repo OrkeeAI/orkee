@@ -1,6 +1,7 @@
 // ABOUTME: React Query hooks for ideate session operations (fetch, create, update, delete, skip)
 // ABOUTME: Includes cache invalidation and optimistic updates for responsive UI
 
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { ideateService } from '@/services/ideate';
 import { queryKeys } from '@/lib/queryClient';
@@ -25,6 +26,20 @@ import type {
   UIPattern,
   Lesson,
   ResearchSynthesis,
+  ExpertPersona,
+  CreateExpertPersonaInput,
+  SuggestExpertsRequest,
+  CreateRoundtableRequest,
+  RoundtableSession,
+  RoundtableWithParticipants,
+  AddParticipantsRequest,
+  StartRoundtableRequest,
+  UserInterjectionInput,
+  RoundtableMessage,
+  ExtractInsightsRequest,
+  InsightsByCategory,
+  RoundtableStatistics,
+  RoundtableEvent,
 } from '@/services/ideate';
 
 interface ApiError {
@@ -738,5 +753,245 @@ export function useExtractLessons(sessionId: string) {
 export function useSynthesizeResearch(sessionId: string) {
   return useMutation({
     mutationFn: () => ideateService.synthesizeResearch(sessionId),
+  });
+}
+
+// Phase 6: Expert Roundtable hooks
+
+/**
+ * List all expert personas
+ */
+export function useListExperts(sessionId: string) {
+  return useQuery({
+    queryKey: queryKeys.ideateExperts(sessionId),
+    queryFn: () => ideateService.listExperts(sessionId),
+    enabled: !!sessionId,
+    staleTime: 5 * 60 * 1000, // 5 minutes - experts change infrequently
+  });
+}
+
+/**
+ * Create a custom expert persona
+ */
+export function useCreateExpert(sessionId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (input: CreateExpertPersonaInput) =>
+      ideateService.createExpert(sessionId, input),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.ideateExperts(sessionId) });
+    },
+  });
+}
+
+/**
+ * Get AI-suggested experts for a topic
+ */
+export function useSuggestExperts(sessionId: string) {
+  return useMutation({
+    mutationFn: (request: SuggestExpertsRequest) =>
+      ideateService.suggestExperts(sessionId, request),
+  });
+}
+
+/**
+ * Create a roundtable session
+ */
+export function useCreateRoundtable(sessionId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (request: CreateRoundtableRequest) =>
+      ideateService.createRoundtable(sessionId, request),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.ideateRoundtables(sessionId) });
+    },
+  });
+}
+
+/**
+ * List all roundtables for a session
+ */
+export function useListRoundtables(sessionId: string) {
+  return useQuery({
+    queryKey: queryKeys.ideateRoundtables(sessionId),
+    queryFn: () => ideateService.listRoundtables(sessionId),
+    enabled: !!sessionId,
+    staleTime: 1 * 60 * 1000, // 1 minute
+  });
+}
+
+/**
+ * Get roundtable details with participants
+ */
+export function useGetRoundtable(roundtableId: string) {
+  return useQuery({
+    queryKey: queryKeys.ideateRoundtableDetail(roundtableId),
+    queryFn: () => ideateService.getRoundtable(roundtableId),
+    enabled: !!roundtableId,
+    staleTime: 30 * 1000, // 30 seconds
+    retry: (failureCount, error) => {
+      const apiError = error as ApiError;
+      if (apiError?.status === 404) return false;
+      return failureCount < 2;
+    },
+  });
+}
+
+/**
+ * Add participants to a roundtable
+ */
+export function useAddParticipants(roundtableId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (request: AddParticipantsRequest) =>
+      ideateService.addParticipants(roundtableId, request),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.ideateRoundtableDetail(roundtableId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.ideateRoundtableParticipants(roundtableId) });
+    },
+  });
+}
+
+/**
+ * Get roundtable participants
+ */
+export function useGetParticipants(roundtableId: string) {
+  return useQuery({
+    queryKey: queryKeys.ideateRoundtableParticipants(roundtableId),
+    queryFn: () => ideateService.getParticipants(roundtableId),
+    enabled: !!roundtableId,
+    staleTime: 1 * 60 * 1000, // 1 minute
+  });
+}
+
+/**
+ * Start a roundtable discussion
+ */
+export function useStartDiscussion(roundtableId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (request: StartRoundtableRequest) =>
+      ideateService.startDiscussion(roundtableId, request),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.ideateRoundtableDetail(roundtableId) });
+    },
+  });
+}
+
+/**
+ * Custom hook for SSE stream of roundtable messages
+ */
+export function useRoundtableStream(roundtableId: string, enabled = true) {
+  const [messages, setMessages] = useState<RoundtableMessage[]>([]);
+  const [isConnected, setIsConnected] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!roundtableId || !enabled) return;
+
+    const streamUrl = ideateService.getRoundtableStreamUrl(roundtableId);
+    const eventSource = new EventSource(streamUrl);
+
+    eventSource.onopen = () => {
+      setIsConnected(true);
+      setError(null);
+    };
+
+    eventSource.onmessage = (event) => {
+      try {
+        const roundtableEvent: RoundtableEvent = JSON.parse(event.data);
+
+        if (roundtableEvent.type === 'message' && 'message' in roundtableEvent) {
+          setMessages((prev) => [...prev, roundtableEvent.message]);
+        } else if (roundtableEvent.type === 'error' && 'error' in roundtableEvent) {
+          setError(roundtableEvent.error);
+        }
+      } catch (err) {
+        console.error('Failed to parse SSE message:', err);
+      }
+    };
+
+    eventSource.onerror = () => {
+      setIsConnected(false);
+      setError('Connection lost');
+      eventSource.close();
+    };
+
+    return () => {
+      eventSource.close();
+      setIsConnected(false);
+    };
+  }, [roundtableId, enabled]);
+
+  return { messages, isConnected, error };
+}
+
+/**
+ * Send a user interjection to the discussion
+ */
+export function useSendInterjection(roundtableId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (input: UserInterjectionInput) =>
+      ideateService.sendInterjection(roundtableId, input),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.ideateRoundtableMessages(roundtableId) });
+    },
+  });
+}
+
+/**
+ * Get all roundtable messages
+ */
+export function useGetRoundtableMessages(roundtableId: string) {
+  return useQuery({
+    queryKey: queryKeys.ideateRoundtableMessages(roundtableId),
+    queryFn: () => ideateService.getRoundtableMessages(roundtableId),
+    enabled: !!roundtableId,
+    staleTime: 10 * 1000, // 10 seconds - messages update frequently
+  });
+}
+
+/**
+ * Extract insights from discussion
+ */
+export function useExtractInsights(roundtableId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (request: ExtractInsightsRequest) =>
+      ideateService.extractInsights(roundtableId, request),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.ideateRoundtableInsights(roundtableId) });
+    },
+  });
+}
+
+/**
+ * Get roundtable insights grouped by category
+ */
+export function useGetInsights(roundtableId: string) {
+  return useQuery({
+    queryKey: queryKeys.ideateRoundtableInsights(roundtableId),
+    queryFn: () => ideateService.getInsights(roundtableId),
+    enabled: !!roundtableId,
+    staleTime: 2 * 60 * 1000, // 2 minutes
+  });
+}
+
+/**
+ * Get roundtable statistics
+ */
+export function useRoundtableStatistics(roundtableId: string) {
+  return useQuery({
+    queryKey: queryKeys.ideateRoundtableStatistics(roundtableId),
+    queryFn: () => ideateService.getRoundtableStatistics(roundtableId),
+    enabled: !!roundtableId,
+    staleTime: 30 * 1000, // 30 seconds
   });
 }

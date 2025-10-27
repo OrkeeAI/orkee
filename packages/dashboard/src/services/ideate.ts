@@ -338,6 +338,144 @@ export interface CircularDependency {
   suggestion: string;
 }
 
+// ============================================================================
+// ROUNDTABLE TYPES (Phase 6)
+// ============================================================================
+
+export type RoundtableStatus = 'setup' | 'discussing' | 'completed' | 'cancelled';
+export type MessageRole = 'expert' | 'user' | 'moderator' | 'system';
+export type InsightPriority = 'low' | 'medium' | 'high' | 'critical';
+
+export interface ExpertPersona {
+  id: string;
+  name: string;
+  role: string;
+  expertise: string[];
+  system_prompt: string;
+  bio: string | null;
+  is_default: boolean;
+  created_at: string;
+}
+
+export interface CreateExpertPersonaInput {
+  name: string;
+  role: string;
+  expertise: string[];
+  system_prompt: string;
+  bio?: string;
+}
+
+export interface ExpertSuggestion {
+  id: string;
+  session_id: string;
+  expert_name: string;
+  role: string;
+  expertise_area: string;
+  reason: string;
+  relevance_score: number | null;
+  created_at: string;
+}
+
+export interface SuggestExpertsRequest {
+  projectDescription: string;
+  existingContent?: string;
+  numExperts?: number;
+}
+
+export interface RoundtableSession {
+  id: string;
+  session_id: string;
+  status: RoundtableStatus;
+  topic: string;
+  num_experts: number;
+  moderator_persona: string | null;
+  started_at: string | null;
+  completed_at: string | null;
+  created_at: string;
+}
+
+export interface CreateRoundtableRequest {
+  topic: string;
+  numExperts: number;
+}
+
+export interface RoundtableWithParticipants {
+  session: RoundtableSession;
+  participants: ExpertPersona[];
+}
+
+export interface AddParticipantsRequest {
+  expertIds: string[];
+}
+
+export interface StartRoundtableRequest {
+  topic: string;
+  expertIds: string[];
+  durationMinutes?: number;
+}
+
+export interface RoundtableMessage {
+  id: string;
+  roundtable_id: string;
+  message_order: number;
+  role: MessageRole;
+  expert_id: string | null;
+  expert_name: string | null;
+  content: string;
+  metadata: string | null;
+  created_at: string;
+}
+
+export interface UserInterjectionInput {
+  message: string;
+}
+
+export interface UserInterjectionResponse {
+  message_id: string;
+  acknowledged: boolean;
+}
+
+export interface RoundtableInsight {
+  id: string;
+  roundtable_id: string;
+  insight_text: string;
+  category: string;
+  priority: InsightPriority;
+  source_experts: string[];
+  source_message_ids: string[] | null;
+  created_at: string;
+}
+
+export interface ExtractInsightsRequest {
+  categories?: string[];
+}
+
+export interface ExtractInsightsResponse {
+  insights: RoundtableInsight[];
+  summary: string | null;
+}
+
+export interface InsightsByCategory {
+  category: string;
+  insights: RoundtableInsight[];
+}
+
+export interface RoundtableStatistics {
+  roundtable_id: string;
+  message_count: number;
+  expert_count: number;
+  user_interjection_count: number;
+  insight_count: number;
+  duration_seconds: number | null;
+  started_at: string | null;
+  completed_at: string | null;
+}
+
+export interface RoundtableEvent {
+  type: 'connected' | 'started' | 'message' | 'typing' | 'interjection_acknowledged' | 'completed' | 'error' | 'heartbeat';
+  data?: any;
+}
+
 class IdeateService {
   /**
    * Create a new ideate session
@@ -1091,6 +1229,231 @@ class IdeateService {
 
     if (response.error || !response.data.success) {
       throw new Error(response.error || 'Failed to navigate to section');
+    }
+
+    return response.data.data;
+  }
+
+  // ============================================================================
+  // ROUNDTABLE METHODS (Phase 6)
+  // ============================================================================
+
+  /**
+   * List all expert personas (default + custom)
+   */
+  async listExperts(sessionId: string): Promise<ExpertPersona[]> {
+    const response = await apiClient.get<{ success: boolean; data: ExpertPersona[] }>(
+      `/api/ideate/${sessionId}/experts`
+    );
+
+    if (response.error || !response.data.success) {
+      throw new Error(response.error || 'Failed to list experts');
+    }
+
+    return response.data.data;
+  }
+
+  /**
+   * Create a custom expert persona
+   */
+  async createExpert(sessionId: string, input: CreateExpertPersonaInput): Promise<ExpertPersona> {
+    const response = await apiClient.post<{ success: boolean; data: ExpertPersona }>(
+      `/api/ideate/${sessionId}/experts`,
+      input
+    );
+
+    if (response.error || !response.data.success) {
+      throw new Error(response.error || 'Failed to create expert');
+    }
+
+    return response.data.data;
+  }
+
+  /**
+   * Get AI-suggested experts for session
+   */
+  async suggestExperts(sessionId: string, request: SuggestExpertsRequest): Promise<ExpertSuggestion[]> {
+    const response = await apiClient.post<{ success: boolean; data: { suggestions: ExpertSuggestion[] } }>(
+      `/api/ideate/${sessionId}/experts/suggest`,
+      request
+    );
+
+    if (response.error || !response.data.success) {
+      throw new Error(response.error || 'Failed to suggest experts');
+    }
+
+    return response.data.data.suggestions;
+  }
+
+  /**
+   * Create a roundtable session
+   */
+  async createRoundtable(sessionId: string, request: CreateRoundtableRequest): Promise<RoundtableSession> {
+    const response = await apiClient.post<{ success: boolean; data: RoundtableSession }>(
+      `/api/ideate/${sessionId}/roundtable`,
+      request
+    );
+
+    if (response.error || !response.data.success) {
+      throw new Error(response.error || 'Failed to create roundtable');
+    }
+
+    return response.data.data;
+  }
+
+  /**
+   * List roundtables for a session
+   */
+  async listRoundtables(sessionId: string): Promise<RoundtableSession[]> {
+    const response = await apiClient.get<{ success: boolean; data: RoundtableSession[] }>(
+      `/api/ideate/${sessionId}/roundtables`
+    );
+
+    if (response.error || !response.data.success) {
+      throw new Error(response.error || 'Failed to list roundtables');
+    }
+
+    return response.data.data;
+  }
+
+  /**
+   * Get roundtable with participants
+   */
+  async getRoundtable(roundtableId: string): Promise<RoundtableWithParticipants> {
+    const response = await apiClient.get<{ success: boolean; data: RoundtableWithParticipants }>(
+      `/api/ideate/roundtable/${roundtableId}`
+    );
+
+    if (response.error || !response.data.success) {
+      throw new Error(response.error || 'Failed to get roundtable');
+    }
+
+    return response.data.data;
+  }
+
+  /**
+   * Add participants to roundtable
+   */
+  async addParticipants(roundtableId: string, request: AddParticipantsRequest): Promise<void> {
+    const response = await apiClient.post<{ success: boolean }>(
+      `/api/ideate/roundtable/${roundtableId}/participants`,
+      request
+    );
+
+    if (response.error || !response.data.success) {
+      throw new Error(response.error || 'Failed to add participants');
+    }
+  }
+
+  /**
+   * Get participants for roundtable
+   */
+  async getParticipants(roundtableId: string): Promise<ExpertPersona[]> {
+    const response = await apiClient.get<{ success: boolean; data: ExpertPersona[] }>(
+      `/api/ideate/roundtable/${roundtableId}/participants`
+    );
+
+    if (response.error || !response.data.success) {
+      throw new Error(response.error || 'Failed to get participants');
+    }
+
+    return response.data.data;
+  }
+
+  /**
+   * Start roundtable discussion (async - returns immediately)
+   */
+  async startDiscussion(roundtableId: string, request: StartRoundtableRequest): Promise<void> {
+    const response = await apiClient.post<{ success: boolean }>(
+      `/api/ideate/roundtable/${roundtableId}/start`,
+      request
+    );
+
+    if (response.error || !response.data.success) {
+      throw new Error(response.error || 'Failed to start discussion');
+    }
+  }
+
+  /**
+   * Get SSE stream URL for real-time discussion updates
+   * Note: This returns the URL, actual SSE connection should be managed by React hook
+   */
+  getRoundtableStreamUrl(roundtableId: string): string {
+    return `/api/ideate/roundtable/${roundtableId}/stream`;
+  }
+
+  /**
+   * Send user interjection during discussion
+   */
+  async sendInterjection(roundtableId: string, input: UserInterjectionInput): Promise<UserInterjectionResponse> {
+    const response = await apiClient.post<{ success: boolean; data: UserInterjectionResponse }>(
+      `/api/ideate/roundtable/${roundtableId}/interjection`,
+      input
+    );
+
+    if (response.error || !response.data.success) {
+      throw new Error(response.error || 'Failed to send interjection');
+    }
+
+    return response.data.data;
+  }
+
+  /**
+   * Get all messages for roundtable
+   */
+  async getRoundtableMessages(roundtableId: string): Promise<RoundtableMessage[]> {
+    const response = await apiClient.get<{ success: boolean; data: RoundtableMessage[] }>(
+      `/api/ideate/roundtable/${roundtableId}/messages`
+    );
+
+    if (response.error || !response.data.success) {
+      throw new Error(response.error || 'Failed to get messages');
+    }
+
+    return response.data.data;
+  }
+
+  /**
+   * Extract insights from roundtable discussion
+   */
+  async extractInsights(roundtableId: string, request: ExtractInsightsRequest): Promise<ExtractInsightsResponse> {
+    const response = await apiClient.post<{ success: boolean; data: ExtractInsightsResponse }>(
+      `/api/ideate/roundtable/${roundtableId}/insights/extract`,
+      request
+    );
+
+    if (response.error || !response.data.success) {
+      throw new Error(response.error || 'Failed to extract insights');
+    }
+
+    return response.data.data;
+  }
+
+  /**
+   * Get insights grouped by category
+   */
+  async getInsights(roundtableId: string): Promise<InsightsByCategory[]> {
+    const response = await apiClient.get<{ success: boolean; data: InsightsByCategory[] }>(
+      `/api/ideate/roundtable/${roundtableId}/insights`
+    );
+
+    if (response.error || !response.data.success) {
+      throw new Error(response.error || 'Failed to get insights');
+    }
+
+    return response.data.data;
+  }
+
+  /**
+   * Get roundtable statistics
+   */
+  async getRoundtableStatistics(roundtableId: string): Promise<RoundtableStatistics> {
+    const response = await apiClient.get<{ success: boolean; data: RoundtableStatistics }>(
+      `/api/ideate/roundtable/${roundtableId}/statistics`
+    );
+
+    if (response.error || !response.data.success) {
+      throw new Error(response.error || 'Failed to get statistics');
     }
 
     return response.data.data;
