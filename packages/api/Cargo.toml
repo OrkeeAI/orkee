@@ -24,6 +24,7 @@ agents = { path = "../agents" }
 executions = { path = "../executions" }
 ai = { path = "../ai" }
 models = { path = "../models" }
+ideate = { path = "../ideate", package = "orkee-ideate" }
 
 # Database
 sqlx = { version = "0.8", features = ["runtime-tokio", "sqlite", "macros"] }

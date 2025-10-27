@@ -13,6 +13,7 @@ pub mod ai_handlers;
 pub mod ai_proxy_handlers;
 pub mod ai_usage_log_handlers;
 pub mod auth;
+pub mod brainstorm_handlers;
 pub mod change_handlers;
 pub mod context_handlers;
 pub mod executions_handlers;
@@ -153,6 +154,18 @@ pub fn create_prds_router() -> Router<DbState> {
             "/{project_id}/prds/{prd_id}/capabilities",
             get(prd_handlers::get_prd_capabilities),
         )
+}
+
+/// Creates the Brainstorm API router for PRD ideation and brainstorming
+pub fn create_brainstorm_router() -> Router<DbState> {
+    Router::new()
+        .route("/brainstorm/start", post(brainstorm_handlers::start_brainstorm))
+        .route("/brainstorm/{session_id}", get(brainstorm_handlers::get_brainstorm))
+        .route("/brainstorm/{session_id}", put(brainstorm_handlers::update_brainstorm))
+        .route("/brainstorm/{session_id}", delete(brainstorm_handlers::delete_brainstorm))
+        .route("/brainstorm/{session_id}/skip-section", post(brainstorm_handlers::skip_section))
+        .route("/brainstorm/{session_id}/status", get(brainstorm_handlers::get_status))
+        .route("/{project_id}/brainstorm/sessions", get(brainstorm_handlers::list_brainstorms))
 }
 
 /// Creates the specs API router for OpenSpec capabilities

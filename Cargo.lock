@@ -136,6 +136,7 @@ dependencies = [
  "models",
  "nanoid",
  "openspec",
+ "orkee-ideate",
  "orkee-projects",
  "orkee_core",
  "reqwest 0.12.24",
@@ -2725,6 +2726,28 @@ name = "orkee-config"
 version = "0.0.9"
 dependencies = [
  "tracing",
+]
+
+[[package]]
+name = "orkee-ideate"
+version = "0.0.9"
+dependencies = [
+ "ai",
+ "async-trait",
+ "axum 0.8.6",
+ "chrono",
+ "nanoid",
+ "orkee_core",
+ "serde",
+ "serde_json",
+ "sqlx",
+ "tempfile",
+ "thiserror 2.0.17",
+ "tokio",
+ "tokio-test",
+ "tower 0.4.13",
+ "tracing",
+ "uuid",
 ]
 
 [[package]]

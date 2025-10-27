@@ -277,6 +277,10 @@ pub async fn create_router_with_options(
             api::create_prds_router().with_state(db_state.clone()),
         )
         .nest(
+            "/api",
+            api::create_brainstorm_router().with_state(db_state.clone()),
+        )
+        .nest(
             "/api/projects",
             api::create_specs_router().with_state(db_state.clone()),
         )
