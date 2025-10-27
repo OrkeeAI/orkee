@@ -152,60 +152,6 @@ export function PRDView({ projectId, onViewSpecs }: PRDViewProps) {
     );
   }
 
-  if (!prds || prds.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center h-64 space-y-4">
-        <FileText className="h-16 w-16 text-muted-foreground" />
-        <div className="text-center space-y-2">
-          <h3 className="text-lg font-semibold">No PRDs Yet</h3>
-          <p className="text-sm text-muted-foreground max-w-md">
-            Create a new PRD through ideateing or upload an existing document.
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <Button onClick={() => setShowIdeateFlow(true)}>
-            <Lightbulb className="mr-2 h-4 w-4" />
-            Create PRD
-          </Button>
-          <Button variant="outline" onClick={() => setShowUploadDialog(true)}>
-            <Upload className="mr-2 h-4 w-4" />
-            Upload PRD
-          </Button>
-        </div>
-
-        <PRDUploadDialog
-          projectId={projectId}
-          open={showUploadDialog}
-          onOpenChange={setShowUploadDialog}
-          onComplete={(prdId) => {
-            // Select the newly created PRD
-            const newPRD = prds?.find(p => p.id === prdId);
-            if (newPRD) {
-              setSelectedPRD(newPRD);
-            }
-          }}
-        />
-
-        <CreatePRDFlow
-          projectId={projectId}
-          open={showIdeateFlow}
-          onOpenChange={setShowIdeateFlow}
-          onSessionCreated={handleSessionCreated}
-        />
-
-        {activeSessionId && (
-          <QuickModeFlow
-            projectId={projectId}
-            sessionId={activeSessionId}
-            open={showQuickModeFlow}
-            onOpenChange={setShowQuickModeFlow}
-            onComplete={handleQuickModeComplete}
-          />
-        )}
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-4">
       {/* Header with Upload Button */}
@@ -213,7 +159,7 @@ export function PRDView({ projectId, onViewSpecs }: PRDViewProps) {
         <div>
           <h3 className="text-lg font-semibold">Product Requirements Documents</h3>
           <p className="text-sm text-muted-foreground">
-            {prds.length} {prds.length === 1 ? 'PRD' : 'PRDs'} in this project
+            {prds?.length || 0} {prds?.length === 1 ? 'PRD' : 'PRDs'} in this project
           </p>
         </div>
         <div className="flex gap-2">
@@ -240,6 +186,27 @@ export function PRDView({ projectId, onViewSpecs }: PRDViewProps) {
         </TabsContent>
 
         <TabsContent value="prds" className="space-y-4">
+          {(!prds || prds.length === 0) ? (
+            <div className="flex flex-col items-center justify-center h-64 space-y-4">
+              <FileText className="h-16 w-16 text-muted-foreground" />
+              <div className="text-center space-y-2">
+                <h3 className="text-lg font-semibold">No PRDs Yet</h3>
+                <p className="text-sm text-muted-foreground max-w-md">
+                  Create a new PRD through ideating or upload an existing document.
+                </p>
+              </div>
+              <div className="flex gap-2">
+                <Button onClick={() => setShowIdeateFlow(true)}>
+                  <Lightbulb className="mr-2 h-4 w-4" />
+                  Create PRD
+                </Button>
+                <Button variant="outline" onClick={() => setShowUploadDialog(true)}>
+                  <Upload className="mr-2 h-4 w-4" />
+                  Upload PRD
+                </Button>
+              </div>
+            </div>
+          ) : (
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* PRD List */}
@@ -410,6 +377,7 @@ export function PRDView({ projectId, onViewSpecs }: PRDViewProps) {
           )}
         </div>
       </div>
+          )}
         </TabsContent>
       </Tabs>
 
@@ -436,11 +404,18 @@ export function PRDView({ projectId, onViewSpecs }: PRDViewProps) {
         projectId={projectId}
         open={showIdeateFlow}
         onOpenChange={setShowIdeateFlow}
-        onSessionCreated={(sessionId) => {
-          console.log('Ideate session created:', sessionId);
-          // TODO: Navigate to ideate session page when it exists
-        }}
+        onSessionCreated={handleSessionCreated}
       />
+
+      {activeSessionId && (
+        <QuickModeFlow
+          projectId={projectId}
+          sessionId={activeSessionId}
+          open={showQuickModeFlow}
+          onOpenChange={setShowQuickModeFlow}
+          onComplete={handleQuickModeComplete}
+        />
+      )}
     </div>
   );
 }
