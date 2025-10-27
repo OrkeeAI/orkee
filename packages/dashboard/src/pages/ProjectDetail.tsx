@@ -568,23 +568,39 @@ export function ProjectDetail() {
               <CardDescription>Project information and metadata</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid gap-2">
-                <div className="flex justify-between items-center py-2">
-                  <span className="text-sm">Project ID</span>
-                  <code className="text-xs bg-muted px-2 py-1 rounded">{project.id}</code>
-                </div>
-                <div className="flex justify-between items-center py-2">
-                  <span className="text-sm">Created</span>
-                  <span className="text-sm text-muted-foreground">
-                    {new Date(project.createdAt).toLocaleString()}
-                  </span>
-                </div>
-                <div className="flex justify-between items-center py-2">
-                  <span className="text-sm">Last Modified</span>
-                  <span className="text-sm text-muted-foreground">
-                    {new Date(project.updatedAt).toLocaleString()}
-                  </span>
-                </div>
+              <div className="w-full overflow-x-auto">
+                <table className="w-full table-fixed">
+                  <tbody className="divide-y">
+                    <tr className="group">
+                      <td className="py-2 pr-4 w-1/3">
+                        <span className="text-sm font-medium">Project ID</span>
+                      </td>
+                      <td className="py-2 w-2/3">
+                        <code className="text-xs bg-muted px-2 py-1 rounded break-all">{project.id}</code>
+                      </td>
+                    </tr>
+                    <tr className="group">
+                      <td className="py-2 pr-4 w-1/3">
+                        <span className="text-sm font-medium">Created</span>
+                      </td>
+                      <td className="py-2 w-2/3">
+                        <span className="text-sm text-muted-foreground break-words">
+                          {new Date(project.createdAt).toLocaleString()}
+                        </span>
+                      </td>
+                    </tr>
+                    <tr className="group">
+                      <td className="py-2 pr-4 w-1/3">
+                        <span className="text-sm font-medium">Last Modified</span>
+                      </td>
+                      <td className="py-2 w-2/3">
+                        <span className="text-sm text-muted-foreground break-words">
+                          {new Date(project.updatedAt).toLocaleString()}
+                        </span>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
               </div>
             </CardContent>
           </Card>
