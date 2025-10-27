@@ -20,6 +20,37 @@ use openspec::types::{ChangeStatus, DeltaType, TaskUpdate};
 use orkee_projects::pagination::{PaginatedResponse, PaginationParams};
 use orkee_projects::DbState;
 
+/// Validate if a status transition is allowed
+fn is_valid_status_transition(from: ChangeStatus, to: ChangeStatus) -> bool {
+    use ChangeStatus::*;
+
+    match (from, to) {
+        // Same status is always valid (no-op)
+        (a, b) if a == b => true,
+
+        // Draft can go to Review or Archived
+        (Draft, Review) | (Draft, Archived) => true,
+
+        // Review can go back to Draft, forward to Approved, or be Archived
+        (Review, Draft) | (Review, Approved) | (Review, Archived) => true,
+
+        // Approved can go back to Draft, forward to Implementing, or be Archived
+        (Approved, Draft) | (Approved, Implementing) | (Approved, Archived) => true,
+
+        // Implementing can go back to Approved, forward to Completed, or be Archived
+        (Implementing, Approved) | (Implementing, Completed) | (Implementing, Archived) => true,
+
+        // Completed can go back to Implementing or be Archived
+        (Completed, Implementing) | (Completed, Archived) => true,
+
+        // Archived is a final state - no transitions allowed
+        (Archived, _) => false,
+
+        // All other transitions are invalid
+        _ => false,
+    }
+}
+
 /// List all changes for a project
 pub async fn list_changes(
     State(db): State<DbState>,
@@ -132,6 +163,30 @@ pub async fn update_change_status(
         "Updating change status: {} (user: {})",
         change_id, current_user.id
     );
+
+    // Get current change to check current status
+    let current_change = match openspec_db::get_spec_change(&db.pool, &change_id).await {
+        Ok(change) => change,
+        Err(openspec_db::DbError::NotFound(msg)) => {
+            return (
+                StatusCode::NOT_FOUND,
+                ResponseJson(ApiResponse::<()>::error(msg)),
+            )
+                .into_response()
+        }
+        Err(e) => return ok_or_internal_error::<(), _>(Err(e), "Failed to get change"),
+    };
+
+    // Validate status transition
+    if !is_valid_status_transition(current_change.status.clone(), request.status.clone()) {
+        return bad_request(
+            format!(
+                "Invalid status transition from {:?} to {:?}",
+                current_change.status, request.status
+            ),
+            "Invalid status transition",
+        );
+    }
 
     // Validate approvedBy if provided
     let validated_approved_by = match &request.approved_by {
