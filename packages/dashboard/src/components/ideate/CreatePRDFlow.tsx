@@ -1,4 +1,4 @@
-// ABOUTME: Main entry component for creating a new brainstorm session
+// ABOUTME: Main entry component for creating a new ideate session
 // ABOUTME: Multi-step dialog: mode selection, description input, session creation
 import React, { useState } from 'react';
 import {
@@ -14,8 +14,8 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { ModeSelector } from './ModeSelector';
-import { useCreateBrainstormSession } from '@/hooks/useBrainstorm';
-import type { BrainstormMode } from '@/services/brainstorm';
+import { useCreateIdeateSession } from '@/hooks/useIdeate';
+import type { IdeateMode } from '@/services/ideate';
 import { Lightbulb, AlertCircle } from 'lucide-react';
 
 interface CreatePRDFlowProps {
@@ -34,10 +34,10 @@ export function CreatePRDFlow({
   onSessionCreated,
 }: CreatePRDFlowProps) {
   const [step, setStep] = useState<FlowStep>('mode');
-  const [selectedMode, setSelectedMode] = useState<BrainstormMode | null>(null);
+  const [selectedMode, setSelectedMode] = useState<IdeateMode | null>(null);
   const [description, setDescription] = useState('');
 
-  const createSessionMutation = useCreateBrainstormSession(projectId);
+  const createSessionMutation = useCreateIdeateSession(projectId);
   const { isPending: loading, error } = createSessionMutation;
 
   const handleModeConfirm = () => {
@@ -92,7 +92,7 @@ export function CreatePRDFlow({
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
                 <Lightbulb className="h-5 w-5" />
-                Start Brainstorming
+                Start Ideateing
               </DialogTitle>
               <DialogDescription id="create-prd-flow-description">
                 Choose how you want to create your PRD. Each mode offers different levels of
@@ -186,7 +186,7 @@ export function CreatePRDFlow({
                 onClick={handleCreateSession}
                 disabled={loading || !description.trim()}
               >
-                {loading ? 'Creating Session...' : 'Start Brainstorming'}
+                {loading ? 'Creating Session...' : 'Start Ideateing'}
               </Button>
             </DialogFooter>
           </>

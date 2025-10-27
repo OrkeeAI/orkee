@@ -59,11 +59,11 @@ export const queryKeys = {
   prdDetail: (projectId: string, prdId: string) => [...queryKeys.prds, 'detail', projectId, prdId] as const,
   prdAnalysis: (projectId: string, prdId: string) => [...queryKeys.prds, 'analysis', projectId, prdId] as const,
 
-  // Brainstorm keys
-  brainstorm: ['brainstorm'] as const,
-  brainstormList: (projectId: string) => [...queryKeys.brainstorm, 'list', projectId] as const,
-  brainstormDetail: (sessionId: string) => [...queryKeys.brainstorm, 'detail', sessionId] as const,
-  brainstormStatus: (sessionId: string) => [...queryKeys.brainstorm, 'status', sessionId] as const,
+  // Ideate keys
+  ideate: ['ideate'] as const,
+  ideateList: (projectId: string) => [...queryKeys.ideate, 'list', projectId] as const,
+  ideateDetail: (sessionId: string) => [...queryKeys.ideate, 'detail', sessionId] as const,
+  ideateStatus: (sessionId: string) => [...queryKeys.ideate, 'status', sessionId] as const,
 
   // Spec keys
   specs: ['specs'] as const,

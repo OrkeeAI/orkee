@@ -3,18 +3,21 @@
 
 pub mod error;
 pub mod manager;
+pub mod prd_generator;
+pub mod prompts;
 pub mod types;
 
 pub use error::{IdeateError, Result};
-pub use manager::BrainstormManager;
+pub use manager::IdeateManager;
+pub use prd_generator::PRDGenerator;
 pub use types::*;
 
 /// Re-export commonly used types
 pub mod prelude {
     pub use crate::error::{IdeateError, Result};
-    pub use crate::manager::BrainstormManager;
+    pub use crate::manager::IdeateManager;
     pub use crate::types::{
-        BrainstormMode, BrainstormSession, BrainstormStatus, CreateBrainstormSessionInput,
-        SessionCompletionStatus, SkipSectionRequest, UpdateBrainstormSessionInput,
+        IdeateMode, IdeateSession, IdeateStatus, CreateIdeateSessionInput,
+        SessionCompletionStatus, SkipSectionRequest, UpdateIdeateSessionInput,
     };
 }

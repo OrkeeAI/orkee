@@ -1125,4 +1125,11 @@ INSERT OR IGNORE INTO system_settings (key, value, category, description, data_t
     ('enable_request_id', 'true', 'security', 'Enable request ID generation for audit logging', 'boolean', 1, 0),
 
     -- Telemetry
-    ('telemetry_enabled', 'false', 'telemetry', 'Enable telemetry data collection', 'boolean', 0, 0);
+    ('telemetry_enabled', 'false', 'telemetry', 'Enable telemetry data collection', 'boolean', 0, 0),
+
+    -- AI & Ideation Configuration
+    ('ideate.max_tokens', '8000', 'ai', 'Maximum tokens per PRD section generation', 'integer', 0, 0),
+    ('ideate.temperature', '0.7', 'ai', 'AI temperature for creativity (0-1)', 'number', 0, 0),
+    ('ideate.model', 'claude-3-opus-20240229', 'ai', 'AI model for PRD generation', 'string', 0, 0),
+    ('ideate.timeout_seconds', '120', 'ai', 'Timeout for PRD generation requests', 'integer', 0, 0),
+    ('ideate.retry_attempts', '3', 'ai', 'Number of retry attempts on AI API failure', 'integer', 0, 0);

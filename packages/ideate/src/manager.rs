@@ -1,4 +1,4 @@
-// ABOUTME: Brainstorming session management with CRUD operations
+// ABOUTME: Ideation session management with CRUD operations
 // ABOUTME: Handles session lifecycle, section management, and status tracking
 
 use crate::error::{IdeateError, Result};
@@ -7,22 +7,22 @@ use chrono::Utc;
 use sqlx::{Row, SqlitePool};
 
 /// Manager for brainstorming sessions
-pub struct BrainstormManager {
+pub struct IdeateManager {
     db: SqlitePool,
 }
 
-impl BrainstormManager {
+impl IdeateManager {
     pub fn new(db: SqlitePool) -> Self {
         Self { db }
     }
 
     /// Create a new brainstorming session
-    pub async fn create_session(&self, input: CreateBrainstormSessionInput) -> Result<BrainstormSession> {
+    pub async fn create_session(&self, input: CreateIdeateSessionInput) -> Result<IdeateSession> {
         let id = nanoid::nanoid!(8);
         let now = Utc::now();
 
         let session = sqlx::query(
-            "INSERT INTO brainstorm_sessions (id, project_id, initial_description, mode, status, created_at, updated_at)
+            "INSERT INTO ideate_sessions (id, project_id, initial_description, mode, status, created_at, updated_at)
              VALUES ($1, $2, $3, $4, $5, $6, $7)
              RETURNING id, project_id, initial_description, mode, status, skipped_sections, created_at, updated_at"
         )
@@ -30,13 +30,13 @@ impl BrainstormManager {
         .bind(&input.project_id)
         .bind(&input.initial_description)
         .bind(&input.mode)
-        .bind(BrainstormStatus::Draft)
+        .bind(IdeateStatus::Draft)
         .bind(now)
         .bind(now)
         .fetch_one(&self.db)
         .await?;
 
-        Ok(BrainstormSession {
+        Ok(IdeateSession {
             id: session.get("id"),
             project_id: session.get("project_id"),
             initial_description: session.get("initial_description"),
@@ -50,10 +50,10 @@ impl BrainstormManager {
     }
 
     /// Get a session by ID
-    pub async fn get_session(&self, session_id: &str) -> Result<BrainstormSession> {
+    pub async fn get_session(&self, session_id: &str) -> Result<IdeateSession> {
         let session = sqlx::query(
             "SELECT id, project_id, initial_description, mode, status, skipped_sections, created_at, updated_at
-             FROM brainstorm_sessions
+             FROM ideate_sessions
              WHERE id = $1"
         )
         .bind(session_id)
@@ -61,7 +61,7 @@ impl BrainstormManager {
         .await?
         .ok_or_else(|| IdeateError::SessionNotFound(session_id.to_string()))?;
 
-        Ok(BrainstormSession {
+        Ok(IdeateSession {
             id: session.get("id"),
             project_id: session.get("project_id"),
             initial_description: session.get("initial_description"),
@@ -75,10 +75,10 @@ impl BrainstormManager {
     }
 
     /// List sessions for a project
-    pub async fn list_sessions(&self, project_id: &str) -> Result<Vec<BrainstormSession>> {
+    pub async fn list_sessions(&self, project_id: &str) -> Result<Vec<IdeateSession>> {
         let sessions = sqlx::query(
             "SELECT id, project_id, initial_description, mode, status, skipped_sections, created_at, updated_at
-             FROM brainstorm_sessions
+             FROM ideate_sessions
              WHERE project_id = $1
              ORDER BY created_at DESC"
         )
@@ -88,7 +88,7 @@ impl BrainstormManager {
 
         sessions.into_iter()
             .map(|row| {
-                Ok(BrainstormSession {
+                Ok(IdeateSession {
                     id: row.get("id"),
                     project_id: row.get("project_id"),
                     initial_description: row.get("initial_description"),
@@ -107,8 +107,8 @@ impl BrainstormManager {
     pub async fn update_session(
         &self,
         session_id: &str,
-        input: UpdateBrainstormSessionInput,
-    ) -> Result<BrainstormSession> {
+        input: UpdateIdeateSessionInput,
+    ) -> Result<IdeateSession> {
         let mut updates = Vec::new();
         let mut bind_count = 1;
 
@@ -136,7 +136,7 @@ impl BrainstormManager {
         updates.push("updated_at = datetime('now', 'utc')".to_string());
 
         let query = format!(
-            "UPDATE brainstorm_sessions SET {} WHERE id = ${}
+            "UPDATE ideate_sessions SET {} WHERE id = ${}
              RETURNING id, project_id, initial_description, mode, status, skipped_sections, created_at, updated_at",
             updates.join(", "),
             bind_count
@@ -162,7 +162,7 @@ impl BrainstormManager {
 
         let session = q.fetch_one(&self.db).await?;
 
-        Ok(BrainstormSession {
+        Ok(IdeateSession {
             id: session.get("id"),
             project_id: session.get("project_id"),
             initial_description: session.get("initial_description"),
@@ -177,7 +177,7 @@ impl BrainstormManager {
 
     /// Delete a session
     pub async fn delete_session(&self, session_id: &str) -> Result<()> {
-        let result = sqlx::query("DELETE FROM brainstorm_sessions WHERE id = $1")
+        let result = sqlx::query("DELETE FROM ideate_sessions WHERE id = $1")
             .bind(session_id)
             .execute(&self.db)
             .await?;
@@ -199,7 +199,7 @@ impl BrainstormManager {
         }
 
         let json = serde_json::to_string(&skipped)?;
-        sqlx::query("UPDATE brainstorm_sessions SET skipped_sections = $1, updated_at = datetime('now', 'utc') WHERE id = $2")
+        sqlx::query("UPDATE ideate_sessions SET skipped_sections = $1, updated_at = datetime('now', 'utc') WHERE id = $2")
             .bind(json)
             .bind(session_id)
             .execute(&self.db)
@@ -263,9 +263,9 @@ impl BrainstormManager {
         }
 
         let is_ready = match session.mode {
-            BrainstormMode::Quick => true, // Quick mode is always ready
-            BrainstormMode::Guided => completed_count >= 2, // At least 2 sections
-            BrainstormMode::Comprehensive => completed_count >= 5, // At least 5 sections
+            IdeateMode::Quick => true, // Quick mode is always ready
+            IdeateMode::Guided => completed_count >= 2, // At least 2 sections
+            IdeateMode::Comprehensive => completed_count >= 5, // At least 5 sections
         };
 
         Ok(SessionCompletionStatus {

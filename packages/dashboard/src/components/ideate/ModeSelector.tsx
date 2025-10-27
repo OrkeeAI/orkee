@@ -1,20 +1,20 @@
-// ABOUTME: Mode selection component for brainstorm session creation
+// ABOUTME: Mode selection component for ideate session creation
 // ABOUTME: Displays three mode options (Quick, Guided, Comprehensive) with descriptions
 import React from 'react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Zap, MapPin, Sparkles } from 'lucide-react';
-import type { BrainstormMode } from '@/services/brainstorm';
+import type { IdeateMode } from '@/services/ideate';
 import { cn } from '@/lib/utils';
 
 interface ModeSelectorProps {
-  selectedMode: BrainstormMode | null;
-  onSelectMode: (mode: BrainstormMode) => void;
+  selectedMode: IdeateMode | null;
+  onSelectMode: (mode: IdeateMode) => void;
   onConfirm?: () => void;
 }
 
 interface ModeOption {
-  mode: BrainstormMode;
+  mode: IdeateMode;
   title: string;
   description: string;
   icon: React.ReactNode;
@@ -49,7 +49,7 @@ const MODE_OPTIONS: ModeOption[] = [
   {
     mode: 'comprehensive',
     title: 'Comprehensive Mode',
-    description: 'Deep brainstorming with research and expert roundtables',
+    description: 'Deep ideateing with research and expert roundtables',
     icon: <Sparkles className="h-6 w-6" />,
     features: [
       'Competitor analysis',
@@ -64,7 +64,7 @@ export function ModeSelector({ selectedMode, onSelectMode, onConfirm }: ModeSele
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold tracking-tight">Choose Your Brainstorming Mode</h2>
+        <h2 className="text-2xl font-bold tracking-tight">Choose Your Ideateing Mode</h2>
         <p className="text-muted-foreground mt-2">
           Select how you want to create your PRD. You can always edit the result later.
         </p>

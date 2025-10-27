@@ -14,6 +14,12 @@ orkee_core = { path = "../core" }
 # AI package for intelligent suggestions
 ai = { path = "../ai" }
 
+# Settings for configuration
+settings = { path = "../settings" }
+
+# Security for user API keys
+security = { path = "../security" }
+
 # Database
 sqlx = { version = "0.8.1", default-features = false, features = ["runtime-tokio-rustls", "sqlite", "uuid", "chrono", "migrate", "macros", "json"] }
 

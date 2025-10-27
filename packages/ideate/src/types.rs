@@ -1,14 +1,14 @@
-// ABOUTME: Type definitions for brainstorming and PRD ideation
+// ABOUTME: Type definitions for PRD ideation
 // ABOUTME: Defines session modes, statuses, and data structures for all PRD sections
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-/// Brainstorming session mode
+/// Ideateing session mode
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, sqlx::Type)]
 #[sqlx(type_name = "TEXT", rename_all = "lowercase")]
 #[serde(rename_all = "lowercase")]
-pub enum BrainstormMode {
+pub enum IdeateMode {
     /// Quick mode: one-liner → complete PRD
     Quick,
     /// Guided mode: step-by-step with optional sections
@@ -17,11 +17,11 @@ pub enum BrainstormMode {
     Comprehensive,
 }
 
-/// Brainstorming session status
+/// Ideateing session status
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, sqlx::Type)]
 #[sqlx(type_name = "TEXT", rename_all = "snake_case")]
 #[serde(rename_all = "snake_case")]
-pub enum BrainstormStatus {
+pub enum IdeateStatus {
     /// Initial state
     Draft,
     /// User is actively working on it
@@ -34,12 +34,12 @@ pub enum BrainstormStatus {
 
 /// Main brainstorming session
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct BrainstormSession {
+pub struct IdeateSession {
     pub id: String,
     pub project_id: String,
     pub initial_description: String,
-    pub mode: BrainstormMode,
-    pub status: BrainstormStatus,
+    pub mode: IdeateMode,
+    pub status: IdeateStatus,
     pub skipped_sections: Option<Vec<String>>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
@@ -47,24 +47,24 @@ pub struct BrainstormSession {
 
 /// Input for creating a new brainstorming session
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CreateBrainstormSessionInput {
+pub struct CreateIdeateSessionInput {
     pub project_id: String,
     pub initial_description: String,
-    pub mode: BrainstormMode,
+    pub mode: IdeateMode,
 }
 
 /// Input for updating a session
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct UpdateBrainstormSessionInput {
+pub struct UpdateIdeateSessionInput {
     pub initial_description: Option<String>,
-    pub mode: Option<BrainstormMode>,
-    pub status: Option<BrainstormStatus>,
+    pub mode: Option<IdeateMode>,
+    pub status: Option<IdeateStatus>,
     pub skipped_sections: Option<Vec<String>>,
 }
 
 /// Overview section data
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct BrainstormOverview {
+pub struct IdeateOverview {
     pub id: String,
     pub session_id: String,
     pub problem_statement: Option<String>,
@@ -76,7 +76,7 @@ pub struct BrainstormOverview {
 
 /// Feature with dependency information
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct BrainstormFeature {
+pub struct IdeateFeature {
     pub id: String,
     pub session_id: String,
     pub feature_name: String,
@@ -92,7 +92,7 @@ pub struct BrainstormFeature {
 
 /// User experience section
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct BrainstormUX {
+pub struct IdeateUX {
     pub id: String,
     pub session_id: String,
     pub personas: Option<Vec<Persona>>,
@@ -129,7 +129,7 @@ pub struct FlowStep {
 
 /// Technical architecture section
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct BrainstormTechnical {
+pub struct IdeateTechnical {
     pub id: String,
     pub session_id: String,
     pub components: Option<Vec<Component>>,
@@ -182,7 +182,7 @@ pub struct Infrastructure {
 
 /// Development roadmap section
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct BrainstormRoadmap {
+pub struct IdeateRoadmap {
     pub id: String,
     pub session_id: String,
     pub mvp_scope: Option<Vec<String>>,
@@ -200,7 +200,7 @@ pub struct Phase {
 
 /// Logical dependency chain section
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct BrainstormDependencies {
+pub struct IdeateDependencies {
     pub id: String,
     pub session_id: String,
     pub foundation_features: Option<Vec<String>>,
@@ -232,7 +232,7 @@ pub struct GraphEdge {
 
 /// Risks and mitigations section
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct BrainstormRisks {
+pub struct IdeateRisks {
     pub id: String,
     pub session_id: String,
     pub technical_risks: Option<Vec<Risk>>,
@@ -260,7 +260,7 @@ pub struct Mitigation {
 
 /// Research and appendix section
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct BrainstormResearch {
+pub struct IdeateResearch {
     pub id: String,
     pub session_id: String,
     pub competitors: Option<Vec<Competitor>>,

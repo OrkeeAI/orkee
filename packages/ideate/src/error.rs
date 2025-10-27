@@ -1,5 +1,5 @@
 // ABOUTME: Error types for the ideate package
-// ABOUTME: Defines all error variants for brainstorming operations
+// ABOUTME: Defines all error variants for ideation operations
 
 use thiserror::Error;
 

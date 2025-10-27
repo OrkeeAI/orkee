@@ -1,32 +1,32 @@
-// ABOUTME: Brainstorm session service layer for PRD ideation API integration
+// ABOUTME: Ideate session service layer for PRD ideation API integration
 // ABOUTME: Handles session CRUD, mode selection, and section skip functionality
 
 import { apiClient } from './api';
 
-export type BrainstormMode = 'quick' | 'guided' | 'comprehensive';
-export type BrainstormStatus = 'draft' | 'in_progress' | 'ready_for_prd' | 'completed';
+export type IdeateMode = 'quick' | 'guided' | 'comprehensive';
+export type IdeateStatus = 'draft' | 'in_progress' | 'ready_for_prd' | 'completed';
 
-export interface BrainstormSession {
+export interface IdeateSession {
   id: string;
   project_id: string;
   initial_description: string;
-  mode: BrainstormMode;
-  status: BrainstormStatus;
+  mode: IdeateMode;
+  status: IdeateStatus;
   skipped_sections: string[] | null;
   created_at: string;
   updated_at: string;
 }
 
-export interface CreateBrainstormInput {
+export interface CreateIdeateInput {
   projectId: string;
   initialDescription: string;
-  mode: BrainstormMode;
+  mode: IdeateMode;
 }
 
-export interface UpdateBrainstormInput {
+export interface UpdateIdeateInput {
   initialDescription?: string;
-  mode?: BrainstormMode;
-  status?: BrainstormStatus;
+  mode?: IdeateMode;
+  status?: IdeateStatus;
   skippedSections?: string[];
 }
 
@@ -44,77 +44,77 @@ export interface SessionCompletionStatus {
   missing_required_sections: string[];
 }
 
-class BrainstormService {
+class IdeateService {
   /**
-   * Create a new brainstorm session
+   * Create a new ideate session
    */
-  async createSession(input: CreateBrainstormInput): Promise<BrainstormSession> {
-    const response = await apiClient.post<{ success: boolean; data: BrainstormSession }>(
-      '/api/brainstorm/start',
+  async createSession(input: CreateIdeateInput): Promise<IdeateSession> {
+    const response = await apiClient.post<{ success: boolean; data: IdeateSession }>(
+      '/api/ideate/start',
       input
     );
 
     if (response.error || !response.data.success) {
-      throw new Error(response.error || 'Failed to create brainstorm session');
+      throw new Error(response.error || 'Failed to create ideate session');
     }
 
     return response.data.data;
   }
 
   /**
-   * Get a brainstorm session by ID
+   * Get a ideate session by ID
    */
-  async getSession(sessionId: string): Promise<BrainstormSession> {
-    const response = await apiClient.get<{ success: boolean; data: BrainstormSession }>(
-      `/api/brainstorm/${sessionId}`
+  async getSession(sessionId: string): Promise<IdeateSession> {
+    const response = await apiClient.get<{ success: boolean; data: IdeateSession }>(
+      `/api/ideate/${sessionId}`
     );
 
     if (response.error || !response.data.success) {
-      throw new Error(response.error || 'Failed to fetch brainstorm session');
+      throw new Error(response.error || 'Failed to fetch ideate session');
     }
 
     return response.data.data;
   }
 
   /**
-   * List all brainstorm sessions for a project
+   * List all ideate sessions for a project
    */
-  async listSessions(projectId: string): Promise<BrainstormSession[]> {
-    const response = await apiClient.get<{ success: boolean; data: BrainstormSession[] }>(
-      `/api/${projectId}/brainstorm/sessions`
+  async listSessions(projectId: string): Promise<IdeateSession[]> {
+    const response = await apiClient.get<{ success: boolean; data: IdeateSession[] }>(
+      `/api/${projectId}/ideate/sessions`
     );
 
     if (response.error || !response.data.success) {
-      throw new Error(response.error || 'Failed to fetch brainstorm sessions');
+      throw new Error(response.error || 'Failed to fetch ideate sessions');
     }
 
     return response.data.data;
   }
 
   /**
-   * Update a brainstorm session
+   * Update a ideate session
    */
-  async updateSession(sessionId: string, input: UpdateBrainstormInput): Promise<void> {
+  async updateSession(sessionId: string, input: UpdateIdeateInput): Promise<void> {
     const response = await apiClient.put<{ success: boolean }>(
-      `/api/brainstorm/${sessionId}`,
+      `/api/ideate/${sessionId}`,
       input
     );
 
     if (response.error || !response.data.success) {
-      throw new Error(response.error || 'Failed to update brainstorm session');
+      throw new Error(response.error || 'Failed to update ideate session');
     }
   }
 
   /**
-   * Delete a brainstorm session
+   * Delete a ideate session
    */
   async deleteSession(sessionId: string): Promise<void> {
     const response = await apiClient.delete<{ success: boolean }>(
-      `/api/brainstorm/${sessionId}`
+      `/api/ideate/${sessionId}`
     );
 
     if (response.error || !response.data.success) {
-      throw new Error(response.error || 'Failed to delete brainstorm session');
+      throw new Error(response.error || 'Failed to delete ideate session');
     }
   }
 
@@ -123,7 +123,7 @@ class BrainstormService {
    */
   async skipSection(sessionId: string, input: SkipSectionInput): Promise<void> {
     const response = await apiClient.post<{ success: boolean }>(
-      `/api/brainstorm/${sessionId}/skip-section`,
+      `/api/ideate/${sessionId}/skip-section`,
       input
     );
 
@@ -137,7 +137,7 @@ class BrainstormService {
    */
   async getCompletionStatus(sessionId: string): Promise<SessionCompletionStatus> {
     const response = await apiClient.get<{ success: boolean; data: SessionCompletionStatus }>(
-      `/api/brainstorm/${sessionId}/status`
+      `/api/ideate/${sessionId}/status`
     );
 
     if (response.error || !response.data.success) {
@@ -148,4 +148,4 @@ class BrainstormService {
   }
 }
 
-export const brainstormService = new BrainstormService();
+export const ideateService = new IdeateService();

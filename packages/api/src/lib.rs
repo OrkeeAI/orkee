@@ -13,7 +13,7 @@ pub mod ai_handlers;
 pub mod ai_proxy_handlers;
 pub mod ai_usage_log_handlers;
 pub mod auth;
-pub mod brainstorm_handlers;
+pub mod ideate_handlers;
 pub mod change_handlers;
 pub mod context_handlers;
 pub mod executions_handlers;
@@ -156,16 +156,21 @@ pub fn create_prds_router() -> Router<DbState> {
         )
 }
 
-/// Creates the Brainstorm API router for PRD ideation and brainstorming
-pub fn create_brainstorm_router() -> Router<DbState> {
+/// Creates the Brainstorm API router for PRD ideation and ideateing
+pub fn create_ideate_router() -> Router<DbState> {
     Router::new()
-        .route("/brainstorm/start", post(brainstorm_handlers::start_brainstorm))
-        .route("/brainstorm/{session_id}", get(brainstorm_handlers::get_brainstorm))
-        .route("/brainstorm/{session_id}", put(brainstorm_handlers::update_brainstorm))
-        .route("/brainstorm/{session_id}", delete(brainstorm_handlers::delete_brainstorm))
-        .route("/brainstorm/{session_id}/skip-section", post(brainstorm_handlers::skip_section))
-        .route("/brainstorm/{session_id}/status", get(brainstorm_handlers::get_status))
-        .route("/{project_id}/brainstorm/sessions", get(brainstorm_handlers::list_brainstorms))
+        .route("/ideate/start", post(ideate_handlers::start_ideate))
+        .route("/ideate/{session_id}", get(ideate_handlers::get_ideate))
+        .route("/ideate/{session_id}", put(ideate_handlers::update_ideate))
+        .route("/ideate/{session_id}", delete(ideate_handlers::delete_ideate))
+        .route("/ideate/{session_id}/skip-section", post(ideate_handlers::skip_section))
+        .route("/ideate/{session_id}/status", get(ideate_handlers::get_status))
+        .route("/{project_id}/ideate/sessions", get(ideate_handlers::list_ideates))
+        // Quick Mode routes
+        .route("/ideate/{session_id}/quick-generate", post(ideate_handlers::quick_generate))
+        .route("/ideate/{session_id}/quick-expand", post(ideate_handlers::quick_expand))
+        .route("/ideate/{session_id}/preview", get(ideate_handlers::get_preview))
+        .route("/ideate/{session_id}/save-as-prd", post(ideate_handlers::save_as_prd))
 }
 
 /// Creates the specs API router for OpenSpec capabilities

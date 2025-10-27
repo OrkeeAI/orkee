@@ -15,7 +15,7 @@ import { usePRDs, useDeletePRD, useTriggerPRDAnalysis } from '@/hooks/usePRDs';
 import { useSpecs } from '@/hooks/useSpecs';
 import { PRDUploadDialog } from '@/components/PRDUploadDialog';
 import { ModelSelectionDialog } from '@/components/ModelSelectionDialog';
-import { CreatePRDFlow } from '@/components/brainstorm/CreatePRDFlow';
+import { CreatePRDFlow } from '@/components/ideate/CreatePRDFlow';
 import type { PRD, PRDAnalysisResult } from '@/services/prds';
 
 interface PRDViewProps {
@@ -26,7 +26,7 @@ interface PRDViewProps {
 export function PRDView({ projectId, onViewSpecs }: PRDViewProps) {
   const [selectedPRD, setSelectedPRD] = useState<PRD | null>(null);
   const [showUploadDialog, setShowUploadDialog] = useState(false);
-  const [showBrainstormFlow, setShowBrainstormFlow] = useState(false);
+  const [showIdeateFlow, setShowIdeateFlow] = useState(false);
   const [showModelSelection, setShowModelSelection] = useState(false);
   const [prdToAnalyze, setPrdToAnalyze] = useState<string | null>(null);
   const [analysisResult, setAnalysisResult] = useState<PRDAnalysisResult | null>(null);
@@ -130,11 +130,11 @@ export function PRDView({ projectId, onViewSpecs }: PRDViewProps) {
         <div className="text-center space-y-2">
           <h3 className="text-lg font-semibold">No PRDs Yet</h3>
           <p className="text-sm text-muted-foreground max-w-md">
-            Create a new PRD through brainstorming or upload an existing document.
+            Create a new PRD through ideateing or upload an existing document.
           </p>
         </div>
         <div className="flex gap-2">
-          <Button onClick={() => setShowBrainstormFlow(true)}>
+          <Button onClick={() => setShowIdeateFlow(true)}>
             <Lightbulb className="mr-2 h-4 w-4" />
             Create PRD
           </Button>
@@ -159,11 +159,11 @@ export function PRDView({ projectId, onViewSpecs }: PRDViewProps) {
 
         <CreatePRDFlow
           projectId={projectId}
-          open={showBrainstormFlow}
-          onOpenChange={setShowBrainstormFlow}
+          open={showIdeateFlow}
+          onOpenChange={setShowIdeateFlow}
           onSessionCreated={(sessionId) => {
-            console.log('Brainstorm session created:', sessionId);
-            // TODO: Navigate to brainstorm session page when it exists
+            console.log('Ideate session created:', sessionId);
+            // TODO: Navigate to ideate session page when it exists
           }}
         />
       </div>
@@ -181,7 +181,7 @@ export function PRDView({ projectId, onViewSpecs }: PRDViewProps) {
           </p>
         </div>
         <div className="flex gap-2">
-          <Button onClick={() => setShowBrainstormFlow(true)} size="sm">
+          <Button onClick={() => setShowIdeateFlow(true)} size="sm">
             <Lightbulb className="mr-2 h-4 w-4" />
             Create PRD
           </Button>
@@ -383,11 +383,11 @@ export function PRDView({ projectId, onViewSpecs }: PRDViewProps) {
 
       <CreatePRDFlow
         projectId={projectId}
-        open={showBrainstormFlow}
-        onOpenChange={setShowBrainstormFlow}
+        open={showIdeateFlow}
+        onOpenChange={setShowIdeateFlow}
         onSessionCreated={(sessionId) => {
-          console.log('Brainstorm session created:', sessionId);
-          // TODO: Navigate to brainstorm session page when it exists
+          console.log('Ideate session created:', sessionId);
+          // TODO: Navigate to ideate session page when it exists
         }}
       />
     </div>
