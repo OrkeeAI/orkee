@@ -359,15 +359,14 @@ pub async fn validate_change(
     let strict = request.strict.unwrap_or(false);
 
     // Verify project exists
-    let project_exists: Result<bool, sqlx::Error> = sqlx::query_scalar(
-        "SELECT EXISTS(SELECT 1 FROM projects WHERE id = ?)"
-    )
-    .bind(&project_id)
-    .fetch_one(&db.pool)
-    .await;
+    let project_exists: Result<bool, sqlx::Error> =
+        sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM projects WHERE id = ?)")
+            .bind(&project_id)
+            .fetch_one(&db.pool)
+            .await;
 
     match project_exists {
-        Ok(true) => {}, // Project exists, continue
+        Ok(true) => {} // Project exists, continue
         Ok(false) => {
             return (
                 StatusCode::NOT_FOUND,
@@ -495,15 +494,14 @@ pub async fn archive_change(
     );
 
     // Verify project exists
-    let project_exists: Result<bool, sqlx::Error> = sqlx::query_scalar(
-        "SELECT EXISTS(SELECT 1 FROM projects WHERE id = ?)"
-    )
-    .bind(&project_id)
-    .fetch_one(&db.pool)
-    .await;
+    let project_exists: Result<bool, sqlx::Error> =
+        sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM projects WHERE id = ?)")
+            .bind(&project_id)
+            .fetch_one(&db.pool)
+            .await;
 
     match project_exists {
-        Ok(true) => {}, // Project exists, continue
+        Ok(true) => {} // Project exists, continue
         Ok(false) => {
             return (
                 StatusCode::NOT_FOUND,
@@ -1069,7 +1067,10 @@ No scenario here!
         // Try to validate change for non-existent project
         let request = Request::builder()
             .method("GET")
-            .uri(format!("/nonexistent-project/changes/{}/validate", change_id))
+            .uri(format!(
+                "/nonexistent-project/changes/{}/validate",
+                change_id
+            ))
             .body(Body::empty())
             .unwrap();
 
@@ -1103,7 +1104,10 @@ No scenario here!
         // Try to archive change for non-existent project
         let request = Request::builder()
             .method("POST")
-            .uri(format!("/nonexistent-project/changes/{}/archive", change_id))
+            .uri(format!(
+                "/nonexistent-project/changes/{}/archive",
+                change_id
+            ))
             .header("content-type", "application/json")
             .body(Body::from(r#"{"applySpecs":true}"#))
             .unwrap();
