@@ -140,6 +140,32 @@ pub async fn create_change(
     )
     .await;
 
+    // Audit log: Record change creation if associated with a PRD
+    if let Ok(ref change) = result {
+        if let Some(prd_id) = &request.prd_id {
+            let audit_record = serde_json::json!({
+                "operation": "create_change",
+                "change_id": &change.id,
+                "project_id": &project_id,
+            });
+
+            let audit_id = orkee_core::generate_project_id();
+            if let Err(e) = sqlx::query(
+                "INSERT INTO prd_spec_sync_history (id, prd_id, direction, changes_json, performed_by)
+                 VALUES (?, ?, 'prd_to_spec', ?, ?)",
+            )
+            .bind(audit_id)
+            .bind(prd_id)
+            .bind(audit_record.to_string())
+            .bind(&current_user.id)
+            .execute(&db.pool)
+            .await
+            {
+                tracing::warn!("Failed to write audit log for create_change: {}", e);
+            }
+        }
+    }
+
     created_or_internal_error(result, "Failed to create change")
 }
 
@@ -200,10 +226,38 @@ pub async fn update_change_status(
     let result = openspec_db::update_spec_change_status(
         &db.pool,
         &change_id,
-        request.status,
+        request.status.clone(),
         validated_approved_by.as_deref(),
     )
     .await;
+
+    // Audit log: Record status transition if associated with a PRD
+    if result.is_ok() {
+        if let Some(prd_id) = &current_change.prd_id {
+            let audit_record = serde_json::json!({
+                "operation": "update_change_status",
+                "change_id": &change_id,
+                "from_status": format!("{:?}", current_change.status),
+                "to_status": format!("{:?}", request.status),
+                "approved_by": validated_approved_by.as_deref(),
+            });
+
+            let audit_id = orkee_core::generate_project_id();
+            if let Err(e) = sqlx::query(
+                "INSERT INTO prd_spec_sync_history (id, prd_id, direction, changes_json, performed_by)
+                 VALUES (?, ?, 'task_to_spec', ?, ?)",
+            )
+            .bind(audit_id)
+            .bind(prd_id)
+            .bind(audit_record.to_string())
+            .bind(&current_user.id)
+            .execute(&db.pool)
+            .await
+            {
+                tracing::warn!("Failed to write audit log for update_change_status: {}", e);
+            }
+        }
+    }
 
     ok_or_internal_error(result, "Failed to update change status")
 }
@@ -274,11 +328,42 @@ pub async fn create_delta(
         &change_id,
         request.capability_id.as_deref(),
         &validated_name,
-        request.delta_type,
+        request.delta_type.clone(),
         &validated_markdown,
         request.position,
     )
     .await;
+
+    // Audit log: Record delta creation if associated with a PRD
+    if let Ok(ref delta) = result {
+        // Get change to find associated PRD
+        if let Ok(change) = openspec_db::get_spec_change(&db.pool, &change_id).await {
+            if let Some(prd_id) = &change.prd_id {
+                let audit_record = serde_json::json!({
+                    "operation": "create_delta",
+                    "delta_id": &delta.id,
+                    "change_id": &change_id,
+                    "capability_name": &validated_name,
+                    "delta_type": format!("{:?}", request.delta_type),
+                });
+
+                let audit_id = orkee_core::generate_project_id();
+                if let Err(e) = sqlx::query(
+                    "INSERT INTO prd_spec_sync_history (id, prd_id, direction, changes_json, performed_by)
+                     VALUES (?, ?, 'task_to_spec', ?, ?)",
+                )
+                .bind(audit_id)
+                .bind(prd_id)
+                .bind(audit_record.to_string())
+                .bind(&current_user.id)
+                .execute(&db.pool)
+                .await
+                {
+                    tracing::warn!("Failed to write audit log for create_delta: {}", e);
+                }
+            }
+        }
+    }
 
     created_or_internal_error(result, "Failed to create delta")
 }
