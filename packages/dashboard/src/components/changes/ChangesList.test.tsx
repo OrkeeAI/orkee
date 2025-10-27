@@ -219,11 +219,13 @@ describe('ChangesList', () => {
     it('should display correct status badges', () => {
       render(<ChangesList projectId={projectId} />);
 
-      expect(screen.getByText('Draft')).toBeInTheDocument();
-      // "Approved" appears in both the filter dropdown and the status badge
+      // Status labels appear in both the filter dropdown and the status badges
+      const draftElements = screen.getAllByText('Draft');
+      expect(draftElements.length).toBeGreaterThan(0);
+
       const approvedElements = screen.getAllByText('Approved');
       expect(approvedElements.length).toBeGreaterThan(0);
-      // "Archived" also appears in both the filter dropdown and the status badge
+
       const archivedElements = screen.getAllByText('Archived');
       expect(archivedElements.length).toBeGreaterThan(0);
     });

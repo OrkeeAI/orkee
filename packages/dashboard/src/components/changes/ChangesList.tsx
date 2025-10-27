@@ -145,10 +145,11 @@ export function ChangesList({ projectId, onSelectChange, statusFilter: propStatu
             disabled={!!propStatusFilter}
           >
             <option value="">All Statuses</option>
-            <option value="proposal">Proposal</option>
-            <option value="in_review">In Review</option>
+            <option value="draft">Draft</option>
+            <option value="review">Review</option>
             <option value="approved">Approved</option>
-            <option value="in_progress">In Progress</option>
+            <option value="implementing">Implementing</option>
+            <option value="completed">Completed</option>
             <option value="archived">Archived</option>
           </select>
         </div>
