@@ -83,7 +83,8 @@ pub async fn validate_change_cli(change_id: &str, strict: bool) -> DbResult<CliV
 /// Archive a change and apply its deltas
 pub async fn archive_change_cli(change_id: &str, apply_specs: bool) -> ArchiveResult<()> {
     let pool = get_pool().await?;
-    archive_change(&pool, change_id, apply_specs).await
+    let _capabilities_created = archive_change(&pool, change_id, apply_specs).await?;
+    Ok(())
 }
 
 /// Export OpenSpec structure to filesystem

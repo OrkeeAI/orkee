@@ -35,11 +35,12 @@ pub enum ArchiveError {
 pub type ArchiveResult<T> = Result<T, ArchiveError>;
 
 /// Archive a completed change and optionally apply its deltas
+/// Returns the number of capabilities created (only counts ADDED deltas)
 pub async fn archive_change(
     pool: &Pool<Sqlite>,
     change_id: &str,
     apply_specs: bool,
-) -> ArchiveResult<()> {
+) -> ArchiveResult<usize> {
     // Get change
     let change = get_spec_change(pool, change_id).await?;
 
@@ -69,9 +70,14 @@ pub async fn archive_change(
         return Err(ArchiveError::ValidationFailed(all_errors.join("; ")));
     }
 
-    // Apply deltas if requested
+    // Apply deltas if requested and count capabilities created
+    let mut capabilities_created = 0;
     if apply_specs {
         for delta in deltas {
+            // Only ADDED deltas create new capabilities
+            if delta.delta_type == DeltaType::Added {
+                capabilities_created += 1;
+            }
             apply_delta(pool, &change, &delta).await?;
         }
     }
@@ -87,7 +93,7 @@ pub async fn archive_change(
     .execute(pool)
     .await?;
 
-    Ok(())
+    Ok(capabilities_created)
 }
 
 /// Apply a delta to create or update a capability
@@ -469,6 +475,8 @@ The system SHALL provide secure user authentication.
         // Archive with apply_specs = true
         let result = archive_change(&pool, &change.id, true).await;
         assert!(result.is_ok());
+        let capabilities_created = result.unwrap();
+        assert_eq!(capabilities_created, 1, "Should create 1 capability for ADDED delta");
 
         // Verify change is archived
         let updated_change = get_spec_change(&pool, &change.id).await.unwrap();

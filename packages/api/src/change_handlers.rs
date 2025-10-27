@@ -450,14 +450,12 @@ pub async fn archive_change(
     let result = openspec::archive::archive_change(&db.pool, &change_id, request.apply_specs).await;
 
     match result {
-        Ok(_) => {
-            // Archive was successful, now get the count of capabilities
-            // For now, we'll return 0 since the archive function doesn't return a count
+        Ok(capabilities_created) => {
             let response = ArchiveResultResponse {
                 change_id: change_id.clone(),
                 archived: true,
                 specs_applied: request.apply_specs,
-                capabilities_created: 0, // TODO: Update archive function to return count
+                capabilities_created,
             };
 
             // Audit log: Record archive operation
@@ -465,7 +463,7 @@ pub async fn archive_change(
                 "operation": "archive_change",
                 "change_id": &change_id,
                 "specs_applied": request.apply_specs,
-                "capabilities_created": 0,
+                "capabilities_created": capabilities_created,
             });
 
             // Get change to find associated PRD
