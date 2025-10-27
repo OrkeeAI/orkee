@@ -348,7 +348,7 @@ pub struct ValidationResultResponse {
 pub async fn validate_change(
     State(db): State<DbState>,
     current_user: CurrentUser,
-    Path((_project_id, change_id)): Path<(String, String)>,
+    Path((project_id, change_id)): Path<(String, String)>,
     Query(request): Query<ValidateChangeRequest>,
 ) -> impl IntoResponse {
     info!(
@@ -358,7 +358,35 @@ pub async fn validate_change(
 
     let strict = request.strict.unwrap_or(false);
 
-    // First verify the change exists
+    // Verify project exists
+    let project_exists: Result<bool, sqlx::Error> = sqlx::query_scalar(
+        "SELECT EXISTS(SELECT 1 FROM projects WHERE id = ?)"
+    )
+    .bind(&project_id)
+    .fetch_one(&db.pool)
+    .await;
+
+    match project_exists {
+        Ok(true) => {}, // Project exists, continue
+        Ok(false) => {
+            return (
+                StatusCode::NOT_FOUND,
+                ResponseJson(ApiResponse::<ValidationResultResponse>::error(format!(
+                    "Project not found: {}",
+                    project_id
+                ))),
+            )
+                .into_response()
+        }
+        Err(e) => {
+            return ok_or_internal_error::<ValidationResultResponse, _>(
+                Err(e),
+                "Failed to verify project exists",
+            )
+        }
+    }
+
+    // Verify the change exists
     match openspec_db::get_spec_change(&db.pool, &change_id).await {
         Ok(_) => {} // Change exists, continue
         Err(openspec_db::DbError::NotFound(msg)) => {
@@ -458,13 +486,41 @@ pub struct ArchiveResultResponse {
 pub async fn archive_change(
     State(db): State<DbState>,
     current_user: CurrentUser,
-    Path((_project_id, change_id)): Path<(String, String)>,
+    Path((project_id, change_id)): Path<(String, String)>,
     Json(request): Json<ArchiveChangeRequest>,
 ) -> impl IntoResponse {
     info!(
         "Archiving change: {} (apply_specs: {}, user: {})",
         change_id, request.apply_specs, current_user.id
     );
+
+    // Verify project exists
+    let project_exists: Result<bool, sqlx::Error> = sqlx::query_scalar(
+        "SELECT EXISTS(SELECT 1 FROM projects WHERE id = ?)"
+    )
+    .bind(&project_id)
+    .fetch_one(&db.pool)
+    .await;
+
+    match project_exists {
+        Ok(true) => {}, // Project exists, continue
+        Ok(false) => {
+            return (
+                StatusCode::NOT_FOUND,
+                ResponseJson(ApiResponse::<ArchiveResultResponse>::error(format!(
+                    "Project not found: {}",
+                    project_id
+                ))),
+            )
+                .into_response()
+        }
+        Err(e) => {
+            return ok_or_internal_error::<ArchiveResultResponse, _>(
+                Err(e),
+                "Failed to verify project exists",
+            )
+        }
+    }
 
     let result = openspec::archive::archive_change(&db.pool, &change_id, request.apply_specs).await;
 
@@ -998,5 +1054,74 @@ No scenario here!
             "Expected consistent error format, got: {}",
             error_msg
         );
+    }
+
+    #[tokio::test]
+    async fn test_validate_change_project_not_found() {
+        let db_state = setup_test_db().await;
+
+        // Create project and test data
+        let project_id = "test-project";
+        let (_prd_id, change_id) = setup_test_data(&db_state.pool, project_id).await;
+
+        let app = crate::create_changes_router().with_state(db_state);
+
+        // Try to validate change for non-existent project
+        let request = Request::builder()
+            .method("GET")
+            .uri(format!("/nonexistent-project/changes/{}/validate", change_id))
+            .body(Body::empty())
+            .unwrap();
+
+        let response = app.oneshot(request).await.unwrap();
+        // Should return 404 Not Found for non-existent project
+        assert_eq!(response.status(), StatusCode::NOT_FOUND);
+
+        // Check error message
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+
+        assert_eq!(json["success"], false);
+        assert!(json["error"]
+            .as_str()
+            .unwrap()
+            .contains("Project not found: nonexistent-project"));
+    }
+
+    #[tokio::test]
+    async fn test_archive_change_project_not_found() {
+        let db_state = setup_test_db().await;
+
+        // Create project and test data
+        let project_id = "test-project";
+        let (_prd_id, change_id) = setup_test_data(&db_state.pool, project_id).await;
+
+        let app = crate::create_changes_router().with_state(db_state);
+
+        // Try to archive change for non-existent project
+        let request = Request::builder()
+            .method("POST")
+            .uri(format!("/nonexistent-project/changes/{}/archive", change_id))
+            .header("content-type", "application/json")
+            .body(Body::from(r#"{"applySpecs":true}"#))
+            .unwrap();
+
+        let response = app.oneshot(request).await.unwrap();
+        // Should return 404 Not Found for non-existent project
+        assert_eq!(response.status(), StatusCode::NOT_FOUND);
+
+        // Check error message
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+
+        assert_eq!(json["success"], false);
+        assert!(json["error"]
+            .as_str()
+            .unwrap()
+            .contains("Project not found: nonexistent-project"));
     }
 }
