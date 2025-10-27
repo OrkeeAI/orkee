@@ -23,7 +23,7 @@ export function UXSection({ sessionId }: UXSectionProps) {
   const { data: ux, isLoading, error } = useIdeateUX(sessionId);
   const saveMutation = useSaveUX(sessionId);
 
-  const { register, handleSubmit, reset, formState: { errors, isDirty } } = useForm<UXFormData>();
+  const { register, handleSubmit, reset, formState: { isDirty } } = useForm<UXFormData>();
 
   useEffect(() => {
     if (ux) {
@@ -44,7 +44,7 @@ export function UXSection({ sessionId }: UXSectionProps) {
         ai_generated: false,
       });
       toast.success('UX section saved successfully!');
-    } catch (error) {
+    } catch {
       toast.error('Failed to save UX section');
     }
   };

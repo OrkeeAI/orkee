@@ -7,8 +7,8 @@ use sqlx::{Pool, Sqlite};
 use tracing::{error, info, warn};
 
 use crate::error::{IdeateError, Result};
-use crate::prompts;
 use crate::prd_aggregator::{AggregatedPRDData, PRDAggregator};
+use crate::prompts;
 use security::users::storage::UserStorage;
 use settings::storage::SettingsStorage;
 
@@ -106,14 +106,34 @@ impl PRDGenerator {
         user_id: &str,
         description: &str,
     ) -> Result<GeneratedPRD> {
-        info!("Generating complete PRD for user {}", user_id);
+        self.generate_complete_prd_with_model(user_id, description, None, None)
+            .await
+    }
 
-        // Fetch configuration
+    /// Generate a complete PRD with optional provider and model overrides
+    pub async fn generate_complete_prd_with_model(
+        &self,
+        user_id: &str,
+        description: &str,
+        provider: Option<String>,
+        model: Option<String>,
+    ) -> Result<GeneratedPRD> {
+        info!(
+            "Generating complete PRD for user {} with provider: {:?}, model: {:?}",
+            user_id, provider, model
+        );
+
+        // Fetch configuration (for defaults if not provided)
         let settings = self.get_ai_settings().await?;
         let api_key = self.get_user_api_key(user_id).await?;
 
-        // Create AI service
-        let ai_service = AIService::with_api_key_and_model(api_key, settings.model.clone());
+        // Use provided model or fall back to settings
+        let model_to_use = model.unwrap_or(settings.model.clone());
+
+        info!("Using model: {}", model_to_use);
+
+        // Create AI service with the selected model
+        let ai_service = AIService::with_api_key_and_model(api_key, model_to_use);
 
         // Generate complete PRD using the AI
         let prompt = prompts::complete_prd_prompt(description);
@@ -266,7 +286,7 @@ impl PRDGenerator {
                     for pain in &persona.pain_points {
                         markdown.push_str(&format!("- {}\n", pain));
                     }
-                    markdown.push_str("\n");
+                    markdown.push('\n');
                 }
             }
 
@@ -295,7 +315,7 @@ impl PRDGenerator {
                 for comp in components {
                     markdown.push_str(&format!("- **{}**: {}\n", comp.name, comp.purpose));
                 }
-                markdown.push_str("\n");
+                markdown.push('\n');
             }
 
             if let Some(infra) = &tech.infrastructure {
@@ -306,7 +326,7 @@ impl PRDGenerator {
                 if let Some(db) = &infra.database {
                     markdown.push_str(&format!("- **Database:** {}\n", db));
                 }
-                markdown.push_str("\n");
+                markdown.push('\n');
             }
         }
 
@@ -318,7 +338,7 @@ impl PRDGenerator {
                 for item in mvp {
                     markdown.push_str(&format!("- {}\n", item));
                 }
-                markdown.push_str("\n");
+                markdown.push('\n');
             }
         }
 
@@ -330,7 +350,7 @@ impl PRDGenerator {
                 for item in foundation {
                     markdown.push_str(&format!("- {}\n", item));
                 }
-                markdown.push_str("\n");
+                markdown.push('\n');
             }
 
             if let Some(visible) = &deps.visible_features {
@@ -338,7 +358,7 @@ impl PRDGenerator {
                 for item in visible {
                     markdown.push_str(&format!("- {}\n", item));
                 }
-                markdown.push_str("\n");
+                markdown.push('\n');
             }
         }
 
@@ -353,7 +373,7 @@ impl PRDGenerator {
                         risk.description, risk.severity, risk.probability, risk.description
                     ));
                 }
-                markdown.push_str("\n");
+                markdown.push('\n');
             }
         }
 
@@ -366,7 +386,7 @@ impl PRDGenerator {
                     markdown.push_str(&format!("#### {}\n", comp.name));
                     markdown.push_str(&format!("**URL:** {}\n\n", comp.url));
                 }
-                markdown.push_str("\n");
+                markdown.push('\n');
             }
         }
 
@@ -452,10 +472,7 @@ impl PRDGenerator {
             filled_sections.push((section, filled_content));
         }
 
-        info!(
-            "Successfully filled {} sections",
-            filled_sections.len()
-        );
+        info!("Successfully filled {} sections", filled_sections.len());
 
         Ok(filled_sections)
     }
@@ -502,7 +519,10 @@ impl PRDGenerator {
         session_id: &str,
         section: &str,
     ) -> Result<serde_json::Value> {
-        info!("Regenerating section '{}' for session {}", section, session_id);
+        info!(
+            "Regenerating section '{}' for session {}",
+            section, session_id
+        );
 
         // Get latest aggregated data
         let aggregator = PRDAggregator::new(self.pool.clone());
@@ -538,7 +558,7 @@ impl PRDGenerator {
             if let Some(value) = &overview.value_proposition {
                 context.push_str(&format!("Value Proposition: {}\n", value));
             }
-            context.push_str("\n");
+            context.push('\n');
         }
 
         if let Some(technical) = &data.technical {
@@ -547,13 +567,13 @@ impl PRDGenerator {
                 context.push_str(&format!("Tech Stack: {}\n", stack));
             }
             context.push_str(&format!("Components: {}\n", technical.components.len()));
-            context.push_str("\n");
+            context.push('\n');
         }
 
         if let Some(roadmap) = &data.roadmap {
             context.push_str("## Roadmap Context\n");
             context.push_str(&format!("MVP Features: {}\n", roadmap.mvp_scope.len()));
-            context.push_str("\n");
+            context.push('\n');
         }
 
         if let Some(deps) = &data.dependencies {
@@ -566,13 +586,16 @@ impl PRDGenerator {
                 "Visible Features: {}\n",
                 deps.visible_features.len()
             ));
-            context.push_str("\n");
+            context.push('\n');
         }
 
         // Add research insights if available
         if let Some(research) = &data.research {
             context.push_str("## Research Context\n");
-            context.push_str(&format!("Competitors Analyzed: {}\n", research.competitors.len()));
+            context.push_str(&format!(
+                "Competitors Analyzed: {}\n",
+                research.competitors.len()
+            ));
             context.push_str(&format!(
                 "Similar Projects: {}\n",
                 research.similar_projects.len()
@@ -580,7 +603,7 @@ impl PRDGenerator {
             if let Some(findings) = &research.research_findings {
                 context.push_str(&format!("Findings: {}\n", findings));
             }
-            context.push_str("\n");
+            context.push('\n');
         }
 
         // Add expert roundtable insights
@@ -594,7 +617,7 @@ impl PRDGenerator {
                         insight.priority, insight.category, insight.content
                     ));
                 }
-                context.push_str("\n");
+                context.push('\n');
             }
         }
 
@@ -622,7 +645,7 @@ impl PRDGenerator {
             for section in &data.skipped_sections {
                 prompt.push_str(&format!("- {}\n", section));
             }
-            prompt.push_str("\n");
+            prompt.push('\n');
         }
 
         prompt.push_str("Generate the PRD in the standard GeneratedPRD JSON format.\n");
@@ -661,13 +684,19 @@ impl PRDGenerator {
                 prompt.push_str("Focus on: problem statement, target audience, value proposition, one-line pitch.\n");
             }
             "ux" => {
-                prompt.push_str("Focus on: user personas, user flows, UI considerations, UX principles.\n");
+                prompt.push_str(
+                    "Focus on: user personas, user flows, UI considerations, UX principles.\n",
+                );
             }
             "technical" => {
-                prompt.push_str("Focus on: system components, data models, APIs, infrastructure, tech stack.\n");
+                prompt.push_str(
+                    "Focus on: system components, data models, APIs, infrastructure, tech stack.\n",
+                );
             }
             "roadmap" => {
-                prompt.push_str("Focus on: MVP scope (no timelines, just features), future phases.\n");
+                prompt.push_str(
+                    "Focus on: MVP scope (no timelines, just features), future phases.\n",
+                );
             }
             "dependencies" => {
                 prompt.push_str("Focus on: foundation features, visible features, enhancement features, build order.\n");

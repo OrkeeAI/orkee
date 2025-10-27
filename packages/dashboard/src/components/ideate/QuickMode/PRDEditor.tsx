@@ -5,7 +5,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
 import rehypeSanitize from 'rehype-sanitize';
-import { Edit2, Eye, RefreshCw, Save, ChevronDown, ChevronRight } from 'lucide-react';
+import { Edit2, RefreshCw, Save, ChevronDown, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -24,7 +24,7 @@ interface PRDEditorProps {
 }
 
 export function PRDEditor({
-  prdContent,
+  prdContent: _prdContent, // eslint-disable-line @typescript-eslint/no-unused-vars
   sections,
   onSectionUpdate,
   onRegenerateSection,

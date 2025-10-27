@@ -231,35 +231,25 @@ pub struct InsightsByCategory {
 #[serde(tag = "type", content = "data")]
 pub enum RoundtableEvent {
     /// Initial connection established
-    Connected {
-        roundtable_id: String,
-    },
+    Connected { roundtable_id: String },
     /// Discussion started
     Started {
         roundtable_id: String,
         participants: Vec<ExpertPersona>,
     },
     /// New message in discussion
-    Message {
-        message: RoundtableMessage,
-    },
+    Message { message: RoundtableMessage },
     /// Expert is typing (optional feature)
-    Typing {
-        expert_name: String,
-    },
+    Typing { expert_name: String },
     /// User interjection acknowledged
-    InterjectionAcknowledged {
-        message_id: String,
-    },
+    InterjectionAcknowledged { message_id: String },
     /// Discussion completed
     Completed {
         roundtable_id: String,
         message_count: i32,
     },
     /// Error occurred
-    Error {
-        error: String,
-    },
+    Error { error: String },
     /// Heartbeat to keep connection alive
     Heartbeat,
 }
@@ -371,16 +361,10 @@ mod tests {
     #[test]
     fn test_roundtable_status_transitions() {
         let status = RoundtableStatus::Setup;
-        assert_eq!(
-            serde_json::to_string(&status).unwrap(),
-            r#""setup""#
-        );
+        assert_eq!(serde_json::to_string(&status).unwrap(), r#""setup""#);
 
         let status = RoundtableStatus::Discussing;
-        assert_eq!(
-            serde_json::to_string(&status).unwrap(),
-            r#""discussing""#
-        );
+        assert_eq!(serde_json::to_string(&status).unwrap(), r#""discussing""#);
     }
 
     #[test]
@@ -397,7 +381,10 @@ mod tests {
         let low = InsightPriority::Low;
         let high = InsightPriority::High;
 
-        assert!(!matches!(low, InsightPriority::High | InsightPriority::Critical));
+        assert!(!matches!(
+            low,
+            InsightPriority::High | InsightPriority::Critical
+        ));
         assert!(matches!(
             high,
             InsightPriority::High | InsightPriority::Critical

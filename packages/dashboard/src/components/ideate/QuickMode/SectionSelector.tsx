@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const PRD_SECTIONS = [
   { id: 'overview', name: 'Overview', description: 'Problem, target audience, value proposition' },
   { id: 'features', name: 'Core Features', description: 'What, why, and how of each feature' },

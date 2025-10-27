@@ -50,6 +50,7 @@ vi.mock('lucide-react', () => ({
   Clock: () => null,
   Archive: () => null,
   AlertTriangle: () => null,
+  X: () => null,
 }));
 
 // Mock React Query hooks

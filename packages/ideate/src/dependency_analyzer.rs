@@ -126,7 +126,7 @@ impl DependencyAnalyzer {
         let response = &ai_response.data.response;
 
         // Parse AI response
-        let parsed = self.parse_dependency_response(&response, &features, session_id)?;
+        let parsed = self.parse_dependency_response(response, &features, session_id)?;
 
         // Store dependencies in database
         for dep in &parsed.dependencies {
@@ -346,7 +346,7 @@ impl DependencyAnalyzer {
         .bind(&dep.session_id)
         .bind(&dep.from_feature_id)
         .bind(&dep.to_feature_id)
-        .bind(&dep.dependency_type)
+        .bind(dep.dependency_type)
         .bind(strength_str)
         .bind(&dep.reason)
         .bind(dep.auto_detected)

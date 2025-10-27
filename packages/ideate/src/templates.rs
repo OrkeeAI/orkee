@@ -22,7 +22,7 @@ impl TemplateManager {
             "SELECT id, name, description, project_type, one_liner_prompts, default_features,
                     default_dependencies, is_system, created_at
              FROM prd_quickstart_templates
-             ORDER BY is_system DESC, name ASC"
+             ORDER BY is_system DESC, name ASC",
         )
         .fetch_all(&self.db)
         .await?;
@@ -57,7 +57,7 @@ impl TemplateManager {
             "SELECT id, name, description, project_type, one_liner_prompts, default_features,
                     default_dependencies, is_system, created_at
              FROM prd_quickstart_templates
-             WHERE id = $1"
+             WHERE id = $1",
         )
         .bind(template_id)
         .fetch_optional(&self.db)
@@ -107,7 +107,7 @@ impl TemplateManager {
               default_dependencies, is_system, created_at)
              VALUES ($1, $2, $3, $4, $5, $6, $7, 0, $8)
              RETURNING id, name, description, project_type, one_liner_prompts, default_features,
-                       default_dependencies, is_system, created_at"
+                       default_dependencies, is_system, created_at",
         )
         .bind(&id)
         .bind(&input.name)
@@ -143,7 +143,7 @@ impl TemplateManager {
     pub async fn delete_template(&self, template_id: &str) -> Result<()> {
         let result = sqlx::query(
             "DELETE FROM prd_quickstart_templates
-             WHERE id = $1 AND is_system = 0"
+             WHERE id = $1 AND is_system = 0",
         )
         .bind(template_id)
         .execute(&self.db)
@@ -165,7 +165,7 @@ impl TemplateManager {
                     default_dependencies, is_system, created_at
              FROM prd_quickstart_templates
              WHERE project_type = $1
-             ORDER BY is_system DESC, name ASC"
+             ORDER BY is_system DESC, name ASC",
         )
         .bind(project_type)
         .fetch_all(&self.db)

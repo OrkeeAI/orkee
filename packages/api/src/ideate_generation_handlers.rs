@@ -10,9 +10,7 @@ use serde::{Deserialize, Serialize};
 use tracing::info;
 
 use super::response::{ok_or_internal_error, ok_or_not_found};
-use ideate::{
-    ExportFormat, ExportOptions, PRDAggregator, PRDGenerator,
-};
+use ideate::{ExportFormat, ExportOptions, PRDAggregator, PRDGenerator};
 use orkee_projects::DbState;
 
 // TODO: Replace with proper user authentication
@@ -207,7 +205,9 @@ pub async fn get_completeness(
     let result = aggregator.aggregate_session_data(&session_id).await;
 
     match result {
-        Ok(data) => ok_or_internal_error::<ideate::CompletenessMetrics, String>(Ok(data.completeness), ""),
+        Ok(data) => {
+            ok_or_internal_error::<ideate::CompletenessMetrics, String>(Ok(data.completeness), "")
+        }
         Err(e) => ok_or_internal_error::<ideate::CompletenessMetrics, _>(
             Err(e),
             "Failed to get completeness metrics",
@@ -249,22 +249,22 @@ pub async fn get_generation_history(
         Ok(rows) => {
             let history: Vec<GenerationHistoryItem> = rows
                 .into_iter()
-                .map(|(id, version, method, status, created_at)| GenerationHistoryItem {
-                    id,
-                    version,
-                    generation_method: method,
-                    validation_status: status,
-                    created_at,
-                })
+                .map(
+                    |(id, version, method, status, created_at)| GenerationHistoryItem {
+                        id,
+                        version,
+                        generation_method: method,
+                        validation_status: status,
+                        created_at,
+                    },
+                )
                 .collect();
             ok_or_internal_error::<Vec<GenerationHistoryItem>, String>(Ok(history), "")
         }
-        Err(e) => {
-            ok_or_internal_error::<Vec<GenerationHistoryItem>, _>(
-                Err(ideate::IdeateError::Database(e)),
-                "Failed to get generation history",
-            )
-        }
+        Err(e) => ok_or_internal_error::<Vec<GenerationHistoryItem>, _>(
+            Err(ideate::IdeateError::Database(e)),
+            "Failed to get generation history",
+        ),
     }
 }
 

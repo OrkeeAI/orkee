@@ -23,18 +23,18 @@ export function AppendixSection({ sessionId }: { sessionId: string }) {
     }
   }, [data, reset]);
 
-  const onSubmit = async (formData: any) => {
+  const onSubmit = async (formData: unknown) => {
     try {
       await saveMutation.mutateAsync({
         session_id: sessionId,
-        ...formData,
+        ...(formData as Record<string, unknown>),
         competitors: null,
         similar_projects: null,
         reference_links: null,
         ai_generated: false,
       });
       toast.success('Research saved!');
-    } catch (error) {
+    } catch {
       toast.error('Failed to save');
     }
   };

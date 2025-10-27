@@ -79,10 +79,7 @@ pub async fn analyze_competitor(
         Ok(s) => s,
         Err(e) => {
             warn!("Failed to retrieve session: {}", e);
-            return ok_or_not_found::<(), ideate::IdeateError>(
-                Err(e),
-                "Session not found",
-            );
+            return ok_or_not_found::<(), ideate::IdeateError>(Err(e), "Session not found");
         }
     };
 
@@ -159,10 +156,7 @@ pub async fn analyze_gaps(
         Ok(s) => s,
         Err(e) => {
             warn!("Failed to retrieve session: {}", e);
-            return ok_or_not_found::<(), ideate::IdeateError>(
-                Err(e),
-                "Session not found",
-            );
+            return ok_or_not_found::<(), ideate::IdeateError>(Err(e), "Session not found");
         }
     };
 
@@ -231,10 +225,7 @@ pub async fn extract_patterns(
         Ok(s) => s,
         Err(e) => {
             warn!("Failed to retrieve session: {}", e);
-            return ok_or_not_found::<(), ideate::IdeateError>(
-                Err(e),
-                "Session not found",
-            );
+            return ok_or_not_found::<(), ideate::IdeateError>(Err(e), "Session not found");
         }
     };
 
@@ -339,10 +330,7 @@ pub async fn extract_lessons(
         Ok(s) => s,
         Err(e) => {
             warn!("Failed to retrieve session: {}", e);
-            return ok_or_not_found::<(), ideate::IdeateError>(
-                Err(e),
-                "Session not found",
-            );
+            return ok_or_not_found::<(), ideate::IdeateError>(Err(e), "Session not found");
         }
     };
 
@@ -435,10 +423,7 @@ pub async fn synthesize_research(
         Ok(s) => s,
         Err(e) => {
             warn!("Failed to retrieve session: {}", e);
-            return ok_or_not_found::<(), ideate::IdeateError>(
-                Err(e),
-                "Session not found",
-            );
+            return ok_or_not_found::<(), ideate::IdeateError>(Err(e), "Session not found");
         }
     };
 

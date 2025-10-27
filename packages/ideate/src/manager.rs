@@ -29,7 +29,7 @@ impl IdeateManager {
         .bind(&id)
         .bind(&input.project_id)
         .bind(&input.initial_description)
-        .bind(&input.mode)
+        .bind(input.mode)
         .bind(IdeateStatus::Draft)
         .bind(now)
         .bind(now)
@@ -342,12 +342,12 @@ impl IdeateManager {
         let personas_json = ux
             .personas
             .as_ref()
-            .map(|p| serde_json::to_string(p))
+            .map(serde_json::to_string)
             .transpose()?;
         let flows_json = ux
             .user_flows
             .as_ref()
-            .map(|f| serde_json::to_string(f))
+            .map(serde_json::to_string)
             .transpose()?;
 
         if let Some(existing_id) = existing {
@@ -447,22 +447,22 @@ impl IdeateManager {
         let components_json = technical
             .components
             .as_ref()
-            .map(|c| serde_json::to_string(c))
+            .map(serde_json::to_string)
             .transpose()?;
         let models_json = technical
             .data_models
             .as_ref()
-            .map(|m| serde_json::to_string(m))
+            .map(serde_json::to_string)
             .transpose()?;
         let apis_json = technical
             .apis
             .as_ref()
-            .map(|a| serde_json::to_string(a))
+            .map(serde_json::to_string)
             .transpose()?;
         let infra_json = technical
             .infrastructure
             .as_ref()
-            .map(|i| serde_json::to_string(i))
+            .map(serde_json::to_string)
             .transpose()?;
 
         if let Some(existing_id) = existing {
@@ -569,12 +569,12 @@ impl IdeateManager {
         let mvp_json = roadmap
             .mvp_scope
             .as_ref()
-            .map(|m| serde_json::to_string(m))
+            .map(serde_json::to_string)
             .transpose()?;
         let phases_json = roadmap
             .future_phases
             .as_ref()
-            .map(|p| serde_json::to_string(p))
+            .map(serde_json::to_string)
             .transpose()?;
 
         if let Some(existing_id) = existing {
@@ -667,22 +667,22 @@ impl IdeateManager {
         let foundation_json = deps
             .foundation_features
             .as_ref()
-            .map(|f| serde_json::to_string(f))
+            .map(serde_json::to_string)
             .transpose()?;
         let visible_json = deps
             .visible_features
             .as_ref()
-            .map(|v| serde_json::to_string(v))
+            .map(serde_json::to_string)
             .transpose()?;
         let enhancement_json = deps
             .enhancement_features
             .as_ref()
-            .map(|e| serde_json::to_string(e))
+            .map(serde_json::to_string)
             .transpose()?;
         let graph_json = deps
             .dependency_graph
             .as_ref()
-            .map(|g| serde_json::to_string(g))
+            .map(serde_json::to_string)
             .transpose()?;
 
         if let Some(existing_id) = existing {
@@ -782,22 +782,22 @@ impl IdeateManager {
         let tech_risks_json = risks
             .technical_risks
             .as_ref()
-            .map(|t| serde_json::to_string(t))
+            .map(serde_json::to_string)
             .transpose()?;
         let mvp_risks_json = risks
             .mvp_scoping_risks
             .as_ref()
-            .map(|m| serde_json::to_string(m))
+            .map(serde_json::to_string)
             .transpose()?;
         let resource_risks_json = risks
             .resource_risks
             .as_ref()
-            .map(|r| serde_json::to_string(r))
+            .map(serde_json::to_string)
             .transpose()?;
         let mitigations_json = risks
             .mitigations
             .as_ref()
-            .map(|m| serde_json::to_string(m))
+            .map(serde_json::to_string)
             .transpose()?;
 
         if let Some(existing_id) = existing {
@@ -901,17 +901,17 @@ impl IdeateManager {
         let competitors_json = research
             .competitors
             .as_ref()
-            .map(|c| serde_json::to_string(c))
+            .map(serde_json::to_string)
             .transpose()?;
         let projects_json = research
             .similar_projects
             .as_ref()
-            .map(|p| serde_json::to_string(p))
+            .map(serde_json::to_string)
             .transpose()?;
         let refs_json = research
             .reference_links
             .as_ref()
-            .map(|r| serde_json::to_string(r))
+            .map(serde_json::to_string)
             .transpose()?;
 
         if let Some(existing_id) = existing {
@@ -1005,7 +1005,7 @@ impl IdeateManager {
 
     /// Get the next incomplete section
     pub async fn get_next_section(&self, session_id: &str) -> Result<Option<String>> {
-        let sections = vec![
+        let sections = [
             "overview",
             "features",
             "ux",
@@ -1039,7 +1039,7 @@ impl IdeateManager {
 
     /// Navigate to a specific section (updates current_section field)
     pub async fn navigate_to(&self, session_id: &str, section: &str) -> Result<IdeateSession> {
-        let valid_sections = vec![
+        let valid_sections = [
             "overview",
             "features",
             "ux",

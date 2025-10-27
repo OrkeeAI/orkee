@@ -41,6 +41,7 @@ export type SectionName =
   | 'risks'
   | 'research';
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const SECTIONS: Array<{ id: SectionName; label: string; description: string }> = [
   { id: 'overview', label: 'Overview', description: 'Problem, audience, and value proposition' },
   { id: 'ux', label: 'User Experience', description: 'Personas, user flows, and UI principles' },
@@ -60,11 +61,11 @@ interface ComprehensiveModeFlowProps {
 }
 
 export function ComprehensiveModeFlow({
-  projectId: _projectId,
+  projectId: _projectId, // eslint-disable-line @typescript-eslint/no-unused-vars
   sessionId,
   open,
   onOpenChange,
-  onComplete: _onComplete,
+  onComplete: _onComplete, // eslint-disable-line @typescript-eslint/no-unused-vars
 }: ComprehensiveModeFlowProps) {
   const [skipDialogOpen, setSkipDialogOpen] = useState(false);
   const [currentSection, setCurrentSection] = useState<SectionName>('overview');
@@ -112,7 +113,7 @@ export function ComprehensiveModeFlow({
     setSkipDialogOpen(true);
   };
 
-  const handleSkipConfirm = async (_aiGenerate: boolean) => {
+  const handleSkipConfirm = async () => {
     await handleNext();
     setSkipDialogOpen(false);
   };
@@ -141,7 +142,7 @@ export function ComprehensiveModeFlow({
         return <RisksSection sessionId={sessionId} />;
       case 'research':
         return (
-          <Tabs value={researchTab} onValueChange={(v) => setResearchTab(v as any)}>
+          <Tabs value={researchTab} onValueChange={(v) => setResearchTab(v as 'competitors' | 'similar-projects' | 'expert-roundtable')}>
             <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="competitors">Competitor Analysis</TabsTrigger>
               <TabsTrigger value="similar-projects">Similar Projects</TabsTrigger>

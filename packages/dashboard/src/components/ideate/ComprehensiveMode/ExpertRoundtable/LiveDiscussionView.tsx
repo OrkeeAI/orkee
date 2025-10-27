@@ -5,11 +5,9 @@ import { useEffect, useRef } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Separator } from '@/components/ui/separator';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { MessageSquare, User, Bot, Shield, AlertCircle, Wifi, WifiOff } from 'lucide-react';
 import { useRoundtableStream } from '@/hooks/useIdeate';
-import { cn } from '@/lib/utils';
 import type { RoundtableMessage, MessageRole, ExpertPersona } from '@/services/ideate';
 
 interface LiveDiscussionViewProps {

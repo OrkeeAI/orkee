@@ -11,14 +11,13 @@ import {
   MiniMap,
   useNodesState,
   useEdgesState,
-  addEdge,
   Connection,
   ConnectionMode,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Trash2, Sparkles } from 'lucide-react';
+import { Sparkles } from 'lucide-react';
 import {
   useFeatureDependencies,
   useCreateFeatureDependency,
@@ -99,7 +98,7 @@ export function DependencyMapper({ sessionId, features }: DependencyMapperProps)
   }, [dependencies, circularDeps]);
 
   const [nodes, , onNodesChange] = useNodesState(initialNodes);
-  const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
+  const [edges, , onEdgesChange] = useEdgesState(initialEdges);
 
   // Handle new connection (manual dependency creation)
   const onConnect = useCallback(
@@ -114,7 +113,7 @@ export function DependencyMapper({ sessionId, features }: DependencyMapperProps)
           strength: 'recommended',
         });
         toast.success('Dependency created');
-      } catch (error) {
+      } catch {
         toast.error('Failed to create dependency');
       }
     },
@@ -128,7 +127,7 @@ export function DependencyMapper({ sessionId, features }: DependencyMapperProps)
         try {
           await deleteMutation.mutateAsync(edge.id);
           toast.success('Dependency deleted');
-        } catch (error) {
+        } catch {
           toast.error('Failed to delete dependency');
         }
       }
@@ -141,8 +140,8 @@ export function DependencyMapper({ sessionId, features }: DependencyMapperProps)
     try {
       await analyzeMutation.mutateAsync();
       toast.success('Dependencies analyzed with AI');
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to analyze dependencies');
+    } catch (error: unknown) {
+      toast.error((error as Error).message || 'Failed to analyze dependencies');
     }
   };
 

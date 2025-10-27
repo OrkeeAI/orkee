@@ -3,13 +3,10 @@
 
 use serde::{Deserialize, Serialize};
 use sqlx::{Pool, Row, Sqlite};
-use tracing::{error, info, warn};
+use tracing::{error, info};
 
 use crate::error::{IdeateError, Result};
-use crate::types::{
-    IdeateFeature, IdeateOverview, IdeateRisks, IdeateRoadmap, IdeateSession,
-    IdeateTechnical, IdeateUX, IdeateDependencies,
-};
+use crate::types::IdeateSession;
 
 /// Complete aggregated PRD data from all sections
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -146,6 +143,18 @@ pub struct CompletenessMetrics {
     pub is_complete: bool,
 }
 
+/// Helper struct to group section data for completeness calculation
+struct SectionData<'a> {
+    overview: &'a Option<OverviewData>,
+    ux: &'a Option<UXData>,
+    technical: &'a Option<TechnicalData>,
+    roadmap: &'a Option<RoadmapData>,
+    dependencies: &'a Option<DependencyData>,
+    risks: &'a Option<RisksData>,
+    research: &'a Option<ResearchData>,
+    skipped_sections: &'a [String],
+}
+
 /// PRD Aggregator service
 pub struct PRDAggregator {
     pool: Pool<Sqlite>,
@@ -177,9 +186,16 @@ impl PRDAggregator {
         let roundtable_insights = self.get_roundtable_insights(session_id).await.ok();
 
         // Calculate completeness
-        let completeness = self.calculate_completeness(
-            &overview, &ux, &technical, &roadmap, &dependencies, &risks, &research, &skipped_sections
-        );
+        let completeness = self.calculate_completeness(SectionData {
+            overview: &overview,
+            ux: &ux,
+            technical: &technical,
+            roadmap: &roadmap,
+            dependencies: &dependencies,
+            risks: &risks,
+            research: &research,
+            skipped_sections: &skipped_sections,
+        });
 
         info!(
             "Session {} aggregation complete: {:.1}% complete",
@@ -216,30 +232,43 @@ impl PRDAggregator {
         })?;
 
         Ok(IdeateSession {
-            id: row.try_get("id").map_err(|e| IdeateError::AIService(e.to_string()))?,
-            project_id: row.try_get("project_id").map_err(|e| IdeateError::AIService(e.to_string()))?,
-            initial_description: row.try_get("initial_description").map_err(|e| IdeateError::AIService(e.to_string()))?,
+            id: row
+                .try_get("id")
+                .map_err(|e| IdeateError::AIService(e.to_string()))?,
+            project_id: row
+                .try_get("project_id")
+                .map_err(|e| IdeateError::AIService(e.to_string()))?,
+            initial_description: row
+                .try_get("initial_description")
+                .map_err(|e| IdeateError::AIService(e.to_string()))?,
             mode: {
-                let mode_str: String = row.try_get("mode").map_err(|e| IdeateError::AIService(e.to_string()))?;
+                let mode_str: String = row
+                    .try_get("mode")
+                    .map_err(|e| IdeateError::AIService(e.to_string()))?;
                 serde_json::from_str(&format!(r#""{}""#, mode_str))
                     .map_err(|e| IdeateError::AIService(e.to_string()))?
             },
             status: {
-                let status_str: String = row.try_get("status").map_err(|e| IdeateError::AIService(e.to_string()))?;
+                let status_str: String = row
+                    .try_get("status")
+                    .map_err(|e| IdeateError::AIService(e.to_string()))?;
                 serde_json::from_str(&format!(r#""{}""#, status_str))
                     .map_err(|e| IdeateError::AIService(e.to_string()))?
             },
-            skipped_sections: row.try_get::<Option<String>, _>("skipped_sections")
+            skipped_sections: row
+                .try_get::<Option<String>, _>("skipped_sections")
                 .ok()
                 .flatten()
                 .and_then(|s| serde_json::from_str(&s).ok()),
             current_section: row.try_get("current_section").ok(),
-            created_at: row.try_get::<String, _>("created_at")
+            created_at: row
+                .try_get::<String, _>("created_at")
                 .ok()
                 .and_then(|s| chrono::DateTime::parse_from_rfc3339(&s).ok())
                 .map(|dt| dt.with_timezone(&chrono::Utc))
                 .unwrap_or_else(chrono::Utc::now),
-            updated_at: row.try_get::<String, _>("updated_at")
+            updated_at: row
+                .try_get::<String, _>("updated_at")
                 .ok()
                 .and_then(|s| chrono::DateTime::parse_from_rfc3339(&s).ok())
                 .map(|dt| dt.with_timezone(&chrono::Utc))
@@ -271,7 +300,7 @@ impl PRDAggregator {
     async fn get_ux_data(&self, session_id: &str) -> Result<UXData> {
         let row = sqlx::query(
             "SELECT personas, user_flows, ui_considerations, ux_principles, ai_generated
-             FROM ideate_ux WHERE session_id = ?"
+             FROM ideate_ux WHERE session_id = ?",
         )
         .bind(session_id)
         .fetch_one(&self.pool)
@@ -279,12 +308,14 @@ impl PRDAggregator {
         .map_err(|_| IdeateError::SectionNotFound("UX data not found".to_string()))?;
 
         Ok(UXData {
-            personas: row.try_get::<Option<String>, _>("personas")
+            personas: row
+                .try_get::<Option<String>, _>("personas")
                 .ok()
                 .flatten()
                 .and_then(|p| serde_json::from_str(&p).ok())
                 .unwrap_or_default(),
-            user_flows: row.try_get::<Option<String>, _>("user_flows")
+            user_flows: row
+                .try_get::<Option<String>, _>("user_flows")
                 .ok()
                 .flatten()
                 .and_then(|f| serde_json::from_str(&f).ok())
@@ -299,7 +330,7 @@ impl PRDAggregator {
     async fn get_technical_data(&self, session_id: &str) -> Result<TechnicalData> {
         let row = sqlx::query(
             "SELECT components, data_models, apis, infrastructure, tech_stack_quick, ai_generated
-             FROM ideate_technical WHERE session_id = ?"
+             FROM ideate_technical WHERE session_id = ?",
         )
         .bind(session_id)
         .fetch_one(&self.pool)
@@ -307,22 +338,26 @@ impl PRDAggregator {
         .map_err(|_| IdeateError::SectionNotFound("Technical data not found".to_string()))?;
 
         Ok(TechnicalData {
-            components: row.try_get::<Option<String>, _>("components")
+            components: row
+                .try_get::<Option<String>, _>("components")
                 .ok()
                 .flatten()
                 .and_then(|c| serde_json::from_str(&c).ok())
                 .unwrap_or_default(),
-            data_models: row.try_get::<Option<String>, _>("data_models")
+            data_models: row
+                .try_get::<Option<String>, _>("data_models")
                 .ok()
                 .flatten()
                 .and_then(|d| serde_json::from_str(&d).ok())
                 .unwrap_or_default(),
-            apis: row.try_get::<Option<String>, _>("apis")
+            apis: row
+                .try_get::<Option<String>, _>("apis")
                 .ok()
                 .flatten()
                 .and_then(|a| serde_json::from_str(&a).ok())
                 .unwrap_or_default(),
-            infrastructure: row.try_get::<Option<String>, _>("infrastructure")
+            infrastructure: row
+                .try_get::<Option<String>, _>("infrastructure")
                 .ok()
                 .flatten()
                 .and_then(|i| serde_json::from_str(&i).ok()),
@@ -333,21 +368,22 @@ impl PRDAggregator {
 
     /// Get roadmap data
     async fn get_roadmap_data(&self, session_id: &str) -> Result<RoadmapData> {
-        let row = sqlx::query(
-            "SELECT mvp_scope, future_phases FROM ideate_roadmap WHERE session_id = ?"
-        )
-        .bind(session_id)
-        .fetch_one(&self.pool)
-        .await
-        .map_err(|_| IdeateError::SectionNotFound("Roadmap not found".to_string()))?;
+        let row =
+            sqlx::query("SELECT mvp_scope, future_phases FROM ideate_roadmap WHERE session_id = ?")
+                .bind(session_id)
+                .fetch_one(&self.pool)
+                .await
+                .map_err(|_| IdeateError::SectionNotFound("Roadmap not found".to_string()))?;
 
         Ok(RoadmapData {
-            mvp_scope: row.try_get::<Option<String>, _>("mvp_scope")
+            mvp_scope: row
+                .try_get::<Option<String>, _>("mvp_scope")
                 .ok()
                 .flatten()
                 .and_then(|m| serde_json::from_str(&m).ok())
                 .unwrap_or_default(),
-            future_phases: row.try_get::<Option<String>, _>("future_phases")
+            future_phases: row
+                .try_get::<Option<String>, _>("future_phases")
                 .ok()
                 .flatten()
                 .and_then(|f| serde_json::from_str(&f).ok())
@@ -359,7 +395,7 @@ impl PRDAggregator {
     async fn get_dependency_data(&self, session_id: &str) -> Result<DependencyData> {
         let row = sqlx::query(
             "SELECT foundation_features, visible_features, enhancement_features, dependency_graph
-             FROM ideate_dependencies WHERE session_id = ?"
+             FROM ideate_dependencies WHERE session_id = ?",
         )
         .bind(session_id)
         .fetch_one(&self.pool)
@@ -370,22 +406,26 @@ impl PRDAggregator {
         let build_order = self.get_build_order(session_id).await.ok();
 
         Ok(DependencyData {
-            foundation_features: row.try_get::<Option<String>, _>("foundation_features")
+            foundation_features: row
+                .try_get::<Option<String>, _>("foundation_features")
                 .ok()
                 .flatten()
                 .and_then(|f| serde_json::from_str(&f).ok())
                 .unwrap_or_default(),
-            visible_features: row.try_get::<Option<String>, _>("visible_features")
+            visible_features: row
+                .try_get::<Option<String>, _>("visible_features")
                 .ok()
                 .flatten()
                 .and_then(|v| serde_json::from_str(&v).ok())
                 .unwrap_or_default(),
-            enhancement_features: row.try_get::<Option<String>, _>("enhancement_features")
+            enhancement_features: row
+                .try_get::<Option<String>, _>("enhancement_features")
                 .ok()
                 .flatten()
                 .and_then(|e| serde_json::from_str(&e).ok())
                 .unwrap_or_default(),
-            dependency_graph: row.try_get::<Option<String>, _>("dependency_graph")
+            dependency_graph: row
+                .try_get::<Option<String>, _>("dependency_graph")
                 .ok()
                 .flatten()
                 .and_then(|g| serde_json::from_str(&g).ok()),
@@ -397,7 +437,7 @@ impl PRDAggregator {
     async fn get_risks_data(&self, session_id: &str) -> Result<RisksData> {
         let row = sqlx::query(
             "SELECT technical_risks, mvp_scoping_risks, resource_risks, mitigations
-             FROM ideate_risks WHERE session_id = ?"
+             FROM ideate_risks WHERE session_id = ?",
         )
         .bind(session_id)
         .fetch_one(&self.pool)
@@ -405,22 +445,26 @@ impl PRDAggregator {
         .map_err(|_| IdeateError::SectionNotFound("Risks not found".to_string()))?;
 
         Ok(RisksData {
-            technical_risks: row.try_get::<Option<String>, _>("technical_risks")
+            technical_risks: row
+                .try_get::<Option<String>, _>("technical_risks")
                 .ok()
                 .flatten()
                 .and_then(|t| serde_json::from_str(&t).ok())
                 .unwrap_or_default(),
-            mvp_scoping_risks: row.try_get::<Option<String>, _>("mvp_scoping_risks")
+            mvp_scoping_risks: row
+                .try_get::<Option<String>, _>("mvp_scoping_risks")
                 .ok()
                 .flatten()
                 .and_then(|m| serde_json::from_str(&m).ok())
                 .unwrap_or_default(),
-            resource_risks: row.try_get::<Option<String>, _>("resource_risks")
+            resource_risks: row
+                .try_get::<Option<String>, _>("resource_risks")
                 .ok()
                 .flatten()
                 .and_then(|r| serde_json::from_str(&r).ok())
                 .unwrap_or_default(),
-            mitigations: row.try_get::<Option<String>, _>("mitigations")
+            mitigations: row
+                .try_get::<Option<String>, _>("mitigations")
                 .ok()
                 .flatten()
                 .and_then(|m| serde_json::from_str(&m).ok())
@@ -440,19 +484,22 @@ impl PRDAggregator {
         .map_err(|_| IdeateError::SectionNotFound("Research not found".to_string()))?;
 
         Ok(ResearchData {
-            competitors: row.try_get::<Option<String>, _>("competitors")
+            competitors: row
+                .try_get::<Option<String>, _>("competitors")
                 .ok()
                 .flatten()
                 .and_then(|c| serde_json::from_str(&c).ok())
                 .unwrap_or_default(),
-            similar_projects: row.try_get::<Option<String>, _>("similar_projects")
+            similar_projects: row
+                .try_get::<Option<String>, _>("similar_projects")
                 .ok()
                 .flatten()
                 .and_then(|s| serde_json::from_str(&s).ok())
                 .unwrap_or_default(),
             research_findings: row.try_get("research_findings").ok(),
             technical_specs: row.try_get("technical_specs").ok(),
-            reference_links: row.try_get::<Option<String>, _>("reference_links")
+            reference_links: row
+                .try_get::<Option<String>, _>("reference_links")
                 .ok()
                 .flatten()
                 .and_then(|r| serde_json::from_str(&r).ok())
@@ -507,43 +554,33 @@ impl PRDAggregator {
     }
 
     /// Calculate completeness metrics
-    fn calculate_completeness(
-        &self,
-        overview: &Option<OverviewData>,
-        ux: &Option<UXData>,
-        technical: &Option<TechnicalData>,
-        roadmap: &Option<RoadmapData>,
-        dependencies: &Option<DependencyData>,
-        risks: &Option<RisksData>,
-        research: &Option<ResearchData>,
-        skipped_sections: &[String],
-    ) -> CompletenessMetrics {
+    fn calculate_completeness(&self, sections: SectionData) -> CompletenessMetrics {
         let total_sections = 7; // overview, ux, technical, roadmap, dependencies, risks, research
         let mut completed_sections = 0;
         let mut ai_filled = 0;
 
-        if let Some(o) = overview {
+        if let Some(o) = sections.overview {
             completed_sections += 1;
             if o.ai_generated {
                 ai_filled += 1;
             }
         }
-        if ux.is_some() {
+        if sections.ux.is_some() {
             completed_sections += 1;
         }
-        if technical.is_some() {
+        if sections.technical.is_some() {
             completed_sections += 1;
         }
-        if roadmap.is_some() {
+        if sections.roadmap.is_some() {
             completed_sections += 1;
         }
-        if dependencies.is_some() {
+        if sections.dependencies.is_some() {
             completed_sections += 1;
         }
-        if risks.is_some() {
+        if sections.risks.is_some() {
             completed_sections += 1;
         }
-        if research.is_some() {
+        if sections.research.is_some() {
             completed_sections += 1;
         }
 
@@ -553,7 +590,7 @@ impl PRDAggregator {
         CompletenessMetrics {
             total_sections,
             completed_sections,
-            skipped_sections: skipped_sections.len(),
+            skipped_sections: sections.skipped_sections.len(),
             ai_filled_sections: ai_filled,
             completion_percentage,
             is_complete,

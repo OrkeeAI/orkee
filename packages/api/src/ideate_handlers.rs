@@ -156,16 +156,18 @@ pub async fn get_status(
 /// Request body for quick PRD generation
 #[derive(Deserialize)]
 pub struct QuickGenerateRequest {
-    // Empty for now - uses session's initial_description
+    pub provider: Option<String>,
+    pub model: Option<String>,
 }
 
 /// Generate a complete PRD from the session's initial description (Quick Mode)
 pub async fn quick_generate(
     State(db): State<DbState>,
     Path(session_id): Path<String>,
-    Json(_request): Json<QuickGenerateRequest>,
+    Json(request): Json<QuickGenerateRequest>,
 ) -> impl IntoResponse {
-    info!("Generating complete PRD for session: {}", session_id);
+    info!("Generating complete PRD for session: {} with provider: {:?}, model: {:?}",
+        session_id, request.provider, request.model);
 
     // Get the session to retrieve the description
     let manager = IdeateManager::new(db.pool.clone());
@@ -176,10 +178,15 @@ pub async fn quick_generate(
         }
     };
 
-    // Generate PRD using the generator
+    // Generate PRD using the generator with optional provider and model
     let generator = PRDGenerator::new(db.pool.clone());
     let result = generator
-        .generate_complete_prd(DEFAULT_USER_ID, &session.initial_description)
+        .generate_complete_prd_with_model(
+            DEFAULT_USER_ID,
+            &session.initial_description,
+            request.provider,
+            request.model
+        )
         .await;
 
     match result {

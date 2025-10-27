@@ -14,7 +14,11 @@ Your role is to:
 Always respond in valid JSON format matching the requested structure."#;
 
 /// Analyze competitor from scraped HTML content
-pub fn competitor_analysis_prompt(project_description: &str, html_content: &str, url: &str) -> String {
+pub fn competitor_analysis_prompt(
+    project_description: &str,
+    html_content: &str,
+    url: &str,
+) -> String {
     format!(
         r#"You are analyzing a competitor for this project:
 
@@ -162,9 +166,7 @@ Look for:
 4. Unmet user needs evident from competitor limitations
 
 Identify 4-6 key opportunities."#,
-        project_description,
-        your_features_str,
-        competitor_list
+        project_description, your_features_str, competitor_list
     )
 }
 
@@ -265,8 +267,6 @@ Generate a research summary in this JSON format:
 }}
 
 Provide strategic, actionable insights."#,
-        project_description,
-        competitor_summary,
-        similar_projects_count
+        project_description, competitor_summary, similar_projects_count
     )
 }

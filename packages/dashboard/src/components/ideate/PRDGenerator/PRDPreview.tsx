@@ -33,7 +33,7 @@ interface SectionData {
   title: string;
   key: keyof AggregatedPRDData;
   status: 'completed' | 'skipped' | 'ai-filled' | 'empty';
-  content: any;
+  content: unknown;
 }
 
 export function PRDPreview({ data, sessionId, onRegenerateSection }: PRDPreviewProps) {
@@ -150,20 +150,23 @@ export function PRDPreview({ data, sessionId, onRegenerateSection }: PRDPreviewP
     if (section.key === 'roundtableInsights' && Array.isArray(section.content)) {
       return (
         <div className="space-y-3">
-          {section.content.map((insight: any, idx: number) => (
-            <div key={idx} className="rounded-lg border p-3 space-y-2">
+          {section.content.map((insight: unknown, idx: number) => {
+            const data = insight as { insight_text?: string; priority?: string; category?: string; suggested_by?: string };
+            return (
+              <div key={idx} className="rounded-lg border p-3 space-y-2">
               <div className="flex items-start justify-between">
-                <p className="font-medium">{insight.insight_text}</p>
-                <Badge variant="outline">{insight.priority}</Badge>
+                <p className="font-medium">{data.insight_text}</p>
+                <Badge variant="outline">{data.priority}</Badge>
               </div>
-              <p className="text-sm text-muted-foreground">{insight.category}</p>
-              {insight.suggested_by && (
+              <p className="text-sm text-muted-foreground">{data.category}</p>
+              {data.suggested_by && (
                 <p className="text-xs text-muted-foreground">
-                  Suggested by: {insight.suggested_by}
+                  Suggested by: {data.suggested_by}
                 </p>
               )}
-            </div>
-          ))}
+              </div>
+            );
+          })}
         </div>
       );
     }

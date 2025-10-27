@@ -24,18 +24,19 @@ export function RisksSection({ sessionId }: { sessionId: string }) {
     }
   }, [data, reset]);
 
-  const onSubmit = async (formData: any) => {
+  const onSubmit = async (formData: unknown) => {
+    const data = formData as { technical?: string; scoping?: string; resource?: string };
     try {
       await saveMutation.mutateAsync({
         session_id: sessionId,
-        technical_risks: formData.technical?.split('\n').filter((s: string) => s.trim()).map((desc: string) => ({ description: desc, severity: 'medium', probability: 'medium' })) || null,
-        mvp_scoping_risks: formData.scoping?.split('\n').filter((s: string) => s.trim()).map((desc: string) => ({ description: desc, severity: 'medium', probability: 'medium' })) || null,
-        resource_risks: formData.resource?.split('\n').filter((s: string) => s.trim()).map((desc: string) => ({ description: desc, severity: 'medium', probability: 'medium' })) || null,
+        technical_risks: data.technical?.split('\n').filter((s: string) => s.trim()).map((desc: string) => ({ description: desc, severity: 'medium', probability: 'medium' })) || null,
+        mvp_scoping_risks: data.scoping?.split('\n').filter((s: string) => s.trim()).map((desc: string) => ({ description: desc, severity: 'medium', probability: 'medium' })) || null,
+        resource_risks: data.resource?.split('\n').filter((s: string) => s.trim()).map((desc: string) => ({ description: desc, severity: 'medium', probability: 'medium' })) || null,
         mitigations: null,
         ai_generated: false,
       });
       toast.success('Risks saved!');
-    } catch (error) {
+    } catch {
       toast.error('Failed to save');
     }
   };

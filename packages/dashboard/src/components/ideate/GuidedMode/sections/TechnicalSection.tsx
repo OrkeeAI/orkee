@@ -5,7 +5,7 @@ import { useForm } from 'react-hook-form';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { Loader2, Save } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import { useIdeateTechnical, useSaveTechnical } from '@/hooks/useIdeate';
 import { toast } from 'sonner';
 
@@ -18,11 +18,11 @@ export function TechnicalSection({ sessionId }: { sessionId: string }) {
     if (data) reset({ tech_stack_quick: data.tech_stack_quick || '' });
   }, [data, reset]);
 
-  const onSubmit = async (formData: any) => {
+  const onSubmit = async (formData: unknown) => {
     try {
-      await saveMutation.mutateAsync({ session_id: sessionId, ...formData, components: null, data_models: null, apis: null, infrastructure: null, ai_generated: false });
+      await saveMutation.mutateAsync({ session_id: sessionId, ...(formData as Record<string, unknown>), components: null, data_models: null, apis: null, infrastructure: null, ai_generated: false });
       toast.success('Technical section saved!');
-    } catch (error) {
+    } catch {
       toast.error('Failed to save');
     }
   };

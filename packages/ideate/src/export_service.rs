@@ -6,7 +6,6 @@ use sqlx::{Pool, Sqlite};
 use tracing::{error, info, warn};
 
 use crate::error::{IdeateError, Result};
-use crate::prd_aggregator::{AggregatedPRDData, PRDAggregator};
 use crate::prd_generator::{GeneratedPRD, PRDGenerator};
 
 /// Export format options
@@ -47,7 +46,7 @@ pub struct ExportOptions {
     pub include_toc: bool,
     pub include_metadata: bool,
     pub include_page_numbers: bool, // HTML/PDF only
-    pub custom_css: Option<String>,  // HTML/PDF only
+    pub custom_css: Option<String>, // HTML/PDF only
     pub title: Option<String>,
 }
 
@@ -181,7 +180,7 @@ impl ExportService {
     }
 
     /// Export as PDF (via HTML conversion)
-    fn export_pdf_from_html(&self, html: &str) -> Result<String> {
+    fn export_pdf_from_html(&self, _html: &str) -> Result<String> {
         // NOTE: PDF generation requires external dependencies (headless Chrome, wkhtmltopdf, etc.)
         // For MVP, we return the HTML with a note that PDF generation requires setup
 
@@ -198,7 +197,7 @@ impl ExportService {
     }
 
     /// Export as DOCX
-    fn export_docx(&self, prd: &GeneratedPRD, options: &ExportOptions) -> Result<String> {
+    fn export_docx(&self, _prd: &GeneratedPRD, _options: &ExportOptions) -> Result<String> {
         // NOTE: DOCX generation requires the docx crate or similar library
         // For MVP, we provide structure but not full implementation
 
@@ -211,7 +210,8 @@ impl ExportService {
         // return Ok(base64::encode(bytes));
 
         Err(IdeateError::InvalidInput(
-            "DOCX export requires additional setup. Please use Markdown or HTML export.".to_string()
+            "DOCX export requires additional setup. Please use Markdown or HTML export."
+                .to_string(),
         ))
     }
 
@@ -284,7 +284,8 @@ generated_by: Orkee Ideate
             ExportFormat::Html => "text/html".to_string(),
             ExportFormat::Pdf => "application/pdf".to_string(),
             ExportFormat::Docx => {
-                "application/vnd.openxmlformats-officedocument.wordprocessingml.document".to_string()
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                    .to_string()
             }
         }
     }
@@ -301,7 +302,7 @@ generated_by: Orkee Ideate
 
         sqlx::query(
             "INSERT INTO ideate_exports (id, session_id, format, file_path, exported_at)
-             VALUES (?, ?, ?, ?, datetime('now', 'utc'))"
+             VALUES (?, ?, ?, ?, datetime('now', 'utc'))",
         )
         .bind(&id)
         .bind(session_id)
@@ -340,20 +341,20 @@ fn markdown_to_html(markdown: &str) -> String {
 
         if in_code_block {
             html.push_str(&html_escape(line));
-            html.push_str("\n");
+            html.push('\n');
             continue;
         }
 
-        if line.starts_with("# ") {
-            html.push_str(&format!("<h1>{}</h1>\n", html_escape(&line[2..])));
-        } else if line.starts_with("## ") {
-            html.push_str(&format!("<h2>{}</h2>\n", html_escape(&line[3..])));
-        } else if line.starts_with("### ") {
-            html.push_str(&format!("<h3>{}</h3>\n", html_escape(&line[4..])));
-        } else if line.starts_with("#### ") {
-            html.push_str(&format!("<h4>{}</h4>\n", html_escape(&line[5..])));
-        } else if line.starts_with("- ") {
-            html.push_str(&format!("<li>{}</li>\n", html_escape(&line[2..])));
+        if let Some(stripped) = line.strip_prefix("# ") {
+            html.push_str(&format!("<h1>{}</h1>\n", html_escape(stripped)));
+        } else if let Some(stripped) = line.strip_prefix("## ") {
+            html.push_str(&format!("<h2>{}</h2>\n", html_escape(stripped)));
+        } else if let Some(stripped) = line.strip_prefix("### ") {
+            html.push_str(&format!("<h3>{}</h3>\n", html_escape(stripped)));
+        } else if let Some(stripped) = line.strip_prefix("#### ") {
+            html.push_str(&format!("<h4>{}</h4>\n", html_escape(stripped)));
+        } else if let Some(stripped) = line.strip_prefix("- ") {
+            html.push_str(&format!("<li>{}</li>\n", html_escape(stripped)));
         } else if line.starts_with("**") && line.ends_with("**") {
             let content = &line[2..line.len() - 2];
             html.push_str(&format!("<strong>{}</strong>\n", html_escape(content)));

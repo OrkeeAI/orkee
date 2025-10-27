@@ -5,8 +5,8 @@ use crate::error::{IdeateError, Result};
 use crate::roundtable::*;
 use crate::roundtable_manager::RoundtableManager;
 use ai::AIService;
-use serde::{Deserialize, Serialize};
-use tracing::{debug, info, warn};
+use serde::Deserialize;
+use tracing::{debug, info};
 
 const MAX_DISCUSSION_ROUNDS: usize = 15; // Maximum number of back-and-forth exchanges
 const MAX_RESPONSE_TOKENS: usize = 500; // Max tokens per expert response
@@ -26,12 +26,11 @@ impl ExpertModerator {
     }
 
     /// Start a moderated roundtable discussion
-    pub async fn run_discussion(
-        &self,
-        roundtable_id: &str,
-        initial_topic: &str,
-    ) -> Result<()> {
-        info!("Starting moderated discussion for roundtable: {}", roundtable_id);
+    pub async fn run_discussion(&self, roundtable_id: &str, initial_topic: &str) -> Result<()> {
+        info!(
+            "Starting moderated discussion for roundtable: {}",
+            roundtable_id
+        );
 
         // Mark roundtable as started
         self.manager.start_roundtable(roundtable_id).await?;
@@ -85,12 +84,7 @@ impl ExpertModerator {
 
             // Generate expert response
             let expert_response = self
-                .generate_expert_response(
-                    &next_expert,
-                    initial_topic,
-                    &messages,
-                    &participants,
-                )
+                .generate_expert_response(next_expert, initial_topic, &messages, &participants)
                 .await?;
 
             // Add expert message
@@ -107,7 +101,10 @@ impl ExpertModerator {
 
             // Check if discussion should naturally end
             if self.should_end_discussion(&messages)? {
-                info!("Discussion reached natural conclusion at round {}", round + 1);
+                info!(
+                    "Discussion reached natural conclusion at round {}",
+                    round + 1
+                );
                 break;
             }
         }
@@ -138,7 +135,10 @@ impl ExpertModerator {
         roundtable_id: &str,
         user_message: &str,
     ) -> Result<UserInterjectionResponse> {
-        info!("Handling user interjection in roundtable: {}", roundtable_id);
+        info!(
+            "Handling user interjection in roundtable: {}",
+            roundtable_id
+        );
 
         // Add user message
         let message = self
@@ -217,7 +217,10 @@ impl ExpertModerator {
             .suggestions
             .into_iter()
             .map(|s| ExpertSuggestion {
-                id: format!("suggestion_{}", uuid::Uuid::new_v4().to_string().replace("-", "")),
+                id: format!(
+                    "suggestion_{}",
+                    uuid::Uuid::new_v4().to_string().replace("-", "")
+                ),
                 session_id: "".to_string(), // Will be set by handler
                 expert_name: s.name,
                 role: s.role,
@@ -271,9 +274,7 @@ impl ExpertModerator {
                 Some(INSIGHT_EXTRACTION_SYSTEM_PROMPT.to_string()),
             )
             .await
-            .map_err(|e| {
-                IdeateError::AIService(format!("Failed to extract insights: {}", e))
-            })?;
+            .map_err(|e| IdeateError::AIService(format!("Failed to extract insights: {}", e)))?;
 
         // Store insights in database
         let mut stored_insights = Vec::new();
@@ -301,7 +302,10 @@ impl ExpertModerator {
             stored_insights.push(insight);
         }
 
-        info!("Extracted {} insights from discussion", stored_insights.len());
+        info!(
+            "Extracted {} insights from discussion",
+            stored_insights.len()
+        );
 
         Ok(ExtractInsightsResponse {
             insights: stored_insights,
@@ -405,7 +409,7 @@ impl ExpertModerator {
     fn format_conversation_history(
         &self,
         messages: &[RoundtableMessage],
-        all_experts: &[ExpertPersona],
+        _all_experts: &[ExpertPersona],
     ) -> Result<String> {
         let mut formatted = String::new();
 
@@ -446,10 +450,7 @@ impl ExpertModerator {
     fn build_expert_suggestion_prompt(&self, request: &SuggestExpertsRequest) -> Result<String> {
         let num_experts = request.num_experts.unwrap_or(3);
 
-        let mut prompt = format!(
-            "Project Description:\n{}\n\n",
-            request.project_description
-        );
+        let mut prompt = format!("Project Description:\n{}\n\n", request.project_description);
 
         if let Some(content) = &request.existing_content {
             prompt.push_str(&format!("Existing Content:\n{}\n\n", content));

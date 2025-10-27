@@ -18,12 +18,13 @@ export function RoadmapSection({ sessionId }: { sessionId: string }) {
     if (data) reset({ mvp_scope_text: data.mvp_scope?.join('\n') || '' });
   }, [data, reset]);
 
-  const onSubmit = async (formData: any) => {
-    const mvp_scope = formData.mvp_scope_text ? formData.mvp_scope_text.split('\n').filter((s: string) => s.trim()) : null;
+  const onSubmit = async (formData: unknown) => {
+    const data = formData as { mvp_scope_text?: string };
+    const mvp_scope = data.mvp_scope_text ? data.mvp_scope_text.split('\n').filter((s: string) => s.trim()) : null;
     try {
       await saveMutation.mutateAsync({ session_id: sessionId, mvp_scope, future_phases: null, ai_generated: false });
       toast.success('Roadmap saved!');
-    } catch (error) {
+    } catch {
       toast.error('Failed to save');
     }
   };

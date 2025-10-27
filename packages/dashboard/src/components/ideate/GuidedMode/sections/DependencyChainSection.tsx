@@ -38,7 +38,7 @@ export function DependencyChainSection({ sessionId }: { sessionId: string }) {
         ai_generated: false,
       });
       toast.success('Dependencies saved!');
-    } catch (error) {
+    } catch {
       toast.error('Failed to save');
     }
   };

@@ -37,9 +37,10 @@ pub use research_analyzer::{
 pub use roundtable::{
     CreateExpertPersonaInput, ExpertPersona, ExpertSuggestion, ExtractInsightsRequest,
     ExtractInsightsResponse, InsightPriority, InsightsByCategory, MessageMetadata, MessageRole,
-    RoundtableEvent, RoundtableInsight, RoundtableMessage, RoundtableParticipant, RoundtableSession,
-    RoundtableStatistics, RoundtableStatus, RoundtableWithParticipants, StartRoundtableRequest,
-    SuggestExpertsRequest, SuggestExpertsResponse, UserInterjectionInput, UserInterjectionResponse,
+    RoundtableEvent, RoundtableInsight, RoundtableMessage, RoundtableParticipant,
+    RoundtableSession, RoundtableStatistics, RoundtableStatus, RoundtableWithParticipants,
+    StartRoundtableRequest, SuggestExpertsRequest, SuggestExpertsResponse, UserInterjectionInput,
+    UserInterjectionResponse,
 };
 pub use roundtable_manager::RoundtableManager;
 pub use templates::TemplateManager;

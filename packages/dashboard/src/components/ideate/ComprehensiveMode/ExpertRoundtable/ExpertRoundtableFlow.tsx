@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Loader2, Users, MessageSquare, Lightbulb, Play, CheckCircle, AlertCircle } from 'lucide-react';
 import { ExpertSelector } from './ExpertSelector';
 import { LiveDiscussionView } from './LiveDiscussionView';

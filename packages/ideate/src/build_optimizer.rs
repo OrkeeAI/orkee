@@ -13,6 +13,13 @@ use sqlx::{Row, SqlitePool};
 use std::collections::{HashMap, HashSet, VecDeque};
 use tracing::{info, warn};
 
+/// Type alias for dependency graph tuple
+type DependencyGraph = (
+    DiGraph<String, ()>,
+    HashMap<String, NodeIndex>,
+    HashMap<NodeIndex, String>,
+);
+
 /// Optimization strategy for build order
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -152,11 +159,7 @@ impl BuildOptimizer {
         &self,
         features: &[IdeateFeature],
         dependencies: &[FeatureDependency],
-    ) -> Result<(
-        DiGraph<String, ()>,
-        HashMap<String, NodeIndex>,
-        HashMap<NodeIndex, String>,
-    )> {
+    ) -> Result<DependencyGraph> {
         let mut graph = DiGraph::new();
         let mut node_map = HashMap::new();
         let mut reverse_map = HashMap::new();
@@ -203,7 +206,7 @@ impl BuildOptimizer {
 
         for node in graph.node_indices() {
             if !visited.contains(&node) {
-                self.find_cycles_dfs(
+                Self::find_cycles_dfs(
                     graph,
                     node,
                     &mut visited,
@@ -219,7 +222,6 @@ impl BuildOptimizer {
 
     /// DFS helper for cycle detection
     fn find_cycles_dfs(
-        &self,
         graph: &DiGraph<String, ()>,
         node: NodeIndex,
         visited: &mut HashSet<NodeIndex>,
@@ -232,7 +234,7 @@ impl BuildOptimizer {
 
         for neighbor in graph.neighbors(node) {
             if !visited.contains(&neighbor) {
-                self.find_cycles_dfs(graph, neighbor, visited, rec_stack, cycles, reverse_map)?;
+                Self::find_cycles_dfs(graph, neighbor, visited, rec_stack, cycles, reverse_map)?;
             } else if rec_stack.contains(&neighbor) {
                 // Found a cycle
                 let cycle_start = rec_stack.iter().position(|&n| n == neighbor).unwrap();

@@ -48,6 +48,8 @@ export interface SessionCompletionStatus {
 
 export interface QuickGenerateInput {
   sections?: string[];
+  provider?: string;
+  model?: string;
 }
 
 export interface QuickExpandInput {
@@ -474,7 +476,7 @@ export interface RoundtableStatistics {
 
 export interface RoundtableEvent {
   type: 'connected' | 'started' | 'message' | 'typing' | 'interjection_acknowledged' | 'completed' | 'error' | 'heartbeat';
-  data?: any;
+  data?: unknown;
 }
 
 // =============================================================================
@@ -490,7 +492,7 @@ export interface PRDTemplate {
   project_type: ProjectType | null;
   one_liner_prompts: string[] | null;
   default_features: string[] | null;
-  default_dependencies: Record<string, any> | null;
+  default_dependencies: Record<string, unknown> | null;
   is_system: boolean;
   created_at: string;
 }
@@ -1571,8 +1573,8 @@ class IdeateService {
   /**
    * AI-fill skipped sections with context
    */
-  async fillSkippedSections(sessionId: string, sections: string[]): Promise<Record<string, any>> {
-    const response = await apiClient.post<{ success: boolean; data: Record<string, any> }>(
+  async fillSkippedSections(sessionId: string, sections: string[]): Promise<Record<string, unknown>> {
+    const response = await apiClient.post<{ success: boolean; data: Record<string, unknown> }>(
       `/api/ideate/${sessionId}/prd/fill-sections`,
       { sections }
     );
@@ -1587,8 +1589,8 @@ class IdeateService {
   /**
    * Regenerate specific section with full context
    */
-  async regenerateSection(sessionId: string, section: string): Promise<any> {
-    const response = await apiClient.post<{ success: boolean; data: any }>(
+  async regenerateSection(sessionId: string, section: string): Promise<unknown> {
+    const response = await apiClient.post<{ success: boolean; data: unknown }>(
       `/api/ideate/${sessionId}/prd/regenerate-section`,
       { section }
     );

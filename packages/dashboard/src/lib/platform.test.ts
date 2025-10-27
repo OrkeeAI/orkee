@@ -2,6 +2,10 @@
 // ABOUTME: Validates platform utilities work correctly in both Tauri and web environments
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+
+// Unmock the platform module for this test file so we can test the real implementation
+vi.unmock('@/lib/platform');
+
 import {
   isTauriApp,
   isWebApp,

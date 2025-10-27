@@ -12,16 +12,16 @@ use std::time::Duration;
 use tracing::{debug, error, info};
 
 /// Maximum number of concurrent URL analyses
-const MAX_CONCURRENT_ANALYSES: usize = 3;
+const _MAX_CONCURRENT_ANALYSES: usize = 3;
 
 /// Rate limiting delay between requests (milliseconds)
-const RATE_LIMIT_DELAY_MS: u64 = 2000;
+const _RATE_LIMIT_DELAY_MS: u64 = 2000;
 
 /// Cache expiration for competitor analysis (24 hours)
-const COMPETITOR_CACHE_HOURS: i64 = 24;
+const _COMPETITOR_CACHE_HOURS: i64 = 24;
 
 /// Cache expiration for pattern extraction (1 hour)
-const PATTERN_CACHE_HOURS: i64 = 1;
+const _PATTERN_CACHE_HOURS: i64 = 1;
 
 /// UI/UX pattern extracted from analysis
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -100,15 +100,10 @@ impl ResearchAnalyzer {
         debug!("Fetching content from: {}", parsed_url);
 
         // Fetch the page
-        let response = self
-            .http_client
-            .get(url)
-            .send()
-            .await
-            .map_err(|e| {
-                error!("Failed to fetch URL {}: {}", url, e);
-                IdeateError::InvalidInput(format!("Failed to fetch URL: {}", e))
-            })?;
+        let response = self.http_client.get(url).send().await.map_err(|e| {
+            error!("Failed to fetch URL {}: {}", url, e);
+            IdeateError::InvalidInput(format!("Failed to fetch URL: {}", e))
+        })?;
 
         if !response.status().is_success() {
             return Err(IdeateError::InvalidInput(format!(

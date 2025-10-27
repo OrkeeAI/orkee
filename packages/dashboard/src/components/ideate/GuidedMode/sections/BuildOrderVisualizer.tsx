@@ -42,8 +42,8 @@ export function BuildOrderVisualizer({ sessionId }: BuildOrderVisualizerProps) {
     try {
       await optimizeMutation.mutateAsync(strategy);
       toast.success('Build order optimized');
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to optimize');
+    } catch (error: unknown) {
+      toast.error((error as Error).message || 'Failed to optimize');
     }
   };
 
