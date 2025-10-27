@@ -187,44 +187,46 @@ export function ProjectDetail() {
 
       {/* Tabbed Content */}
       <Tabs defaultValue="overview" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-8">
-          <TabsTrigger value="overview" className="flex items-center gap-2">
-            <Info className="h-4 w-4" />
-            Overview
-          </TabsTrigger>
-          <TabsTrigger value="specs" className="flex items-center gap-2">
-            <FileText className="h-4 w-4" />
-            Specs
-          </TabsTrigger>
-          <TabsTrigger value="tasks" className="flex items-center gap-2">
-            <ListTodo className="h-4 w-4" />
-            Tasks
-          </TabsTrigger>
-          <TabsTrigger value="context" className="flex items-center gap-2">
-            <Layers className="h-4 w-4" />
-            Context
-          </TabsTrigger>
-          <TabsTrigger value="graph" className="flex items-center gap-2">
-            <Network className="h-4 w-4" />
-            Graph
-          </TabsTrigger>
-          <TabsTrigger value="ai-usage" className="flex items-center gap-2">
-            <DollarSign className="h-4 w-4" />
-            AI Usage
-          </TabsTrigger>
-          <TabsTrigger value="preview" className="flex items-center gap-2">
-            <Play className="h-4 w-4" />
-            Preview
-          </TabsTrigger>
-          <TabsTrigger value="git" className="flex items-center gap-2">
-            <GitBranch className="h-4 w-4" />
-            Git
-          </TabsTrigger>
-          <TabsTrigger value="settings" className="flex items-center gap-2">
-            <Settings className="h-4 w-4" />
-            Settings
-          </TabsTrigger>
-        </TabsList>
+        <div className="w-full overflow-x-auto">
+          <TabsList className="inline-flex w-auto min-w-full">
+            <TabsTrigger value="overview" className="flex items-center gap-1.5 whitespace-nowrap px-3">
+              <Info className="h-4 w-4 shrink-0" />
+              <span className="hidden sm:inline">Overview</span>
+            </TabsTrigger>
+            <TabsTrigger value="specs" className="flex items-center gap-1.5 whitespace-nowrap px-3">
+              <FileText className="h-4 w-4 shrink-0" />
+              <span className="hidden sm:inline">Specs</span>
+            </TabsTrigger>
+            <TabsTrigger value="tasks" className="flex items-center gap-1.5 whitespace-nowrap px-3">
+              <ListTodo className="h-4 w-4 shrink-0" />
+              <span className="hidden sm:inline">Tasks</span>
+            </TabsTrigger>
+            <TabsTrigger value="context" className="flex items-center gap-1.5 whitespace-nowrap px-3">
+              <Layers className="h-4 w-4 shrink-0" />
+              <span className="hidden sm:inline">Context</span>
+            </TabsTrigger>
+            <TabsTrigger value="graph" className="flex items-center gap-1.5 whitespace-nowrap px-3">
+              <Network className="h-4 w-4 shrink-0" />
+              <span className="hidden sm:inline">Graph</span>
+            </TabsTrigger>
+            <TabsTrigger value="ai-usage" className="flex items-center gap-1.5 whitespace-nowrap px-3">
+              <DollarSign className="h-4 w-4 shrink-0" />
+              <span className="hidden sm:inline">AI Usage</span>
+            </TabsTrigger>
+            <TabsTrigger value="preview" className="flex items-center gap-1.5 whitespace-nowrap px-3">
+              <Play className="h-4 w-4 shrink-0" />
+              <span className="hidden sm:inline">Preview</span>
+            </TabsTrigger>
+            <TabsTrigger value="git" className="flex items-center gap-1.5 whitespace-nowrap px-3">
+              <GitBranch className="h-4 w-4 shrink-0" />
+              <span className="hidden sm:inline">Git</span>
+            </TabsTrigger>
+            <TabsTrigger value="settings" className="flex items-center gap-1.5 whitespace-nowrap px-3">
+              <Settings className="h-4 w-4 shrink-0" />
+              <span className="hidden sm:inline">Settings</span>
+            </TabsTrigger>
+          </TabsList>
+        </div>
 
         <TabsContent value="specs" className="space-y-4">
           <SpecsTab projectId={project.id} />
