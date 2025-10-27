@@ -451,7 +451,7 @@ pub async fn validate_change(
     if let Ok(change) = openspec_db::get_spec_change(&db.pool, &change_id).await {
         if let Some(prd_id) = &change.prd_id {
             let audit_id = orkee_core::generate_project_id();
-            let _ = sqlx::query(
+            if let Err(e) = sqlx::query(
                 "INSERT INTO prd_spec_sync_history (id, prd_id, direction, changes_json, performed_by)
                  VALUES (?, ?, 'task_to_spec', ?, ?)",
             )
@@ -460,7 +460,10 @@ pub async fn validate_change(
             .bind(audit_record.to_string())
             .bind(&current_user.id)
             .execute(&db.pool)
-            .await;
+            .await
+            {
+                tracing::warn!("Failed to write audit log for validation: {}", e);
+            }
         }
     }
 
@@ -551,7 +554,7 @@ pub async fn archive_change(
             if let Ok(change) = openspec_db::get_spec_change(&db.pool, &change_id).await {
                 if let Some(prd_id) = &change.prd_id {
                     let audit_id = orkee_core::generate_project_id();
-                    let _ = sqlx::query(
+                    if let Err(e) = sqlx::query(
                         "INSERT INTO prd_spec_sync_history (id, prd_id, direction, changes_json, performed_by)
                          VALUES (?, ?, 'spec_to_prd', ?, ?)",
                     )
@@ -560,7 +563,10 @@ pub async fn archive_change(
                     .bind(audit_record.to_string())
                     .bind(&current_user.id)
                     .execute(&db.pool)
-                    .await;
+                    .await
+                    {
+                        tracing::warn!("Failed to write audit log for archive: {}", e);
+                    }
                 }
             }
 
