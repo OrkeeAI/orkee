@@ -332,6 +332,57 @@ curl -X POST http://localhost:4001/api/projects/{project_id}/changes/{change_id}
 6. Change is marked as archived
 7. Change moves to Archive tab
 
+## Security & Audit
+
+### Authentication
+
+All change management endpoints require authentication via the `CurrentUser` extractor:
+- **Single-user mode** (desktop app): Automatically authenticated as "default-user"
+- **Multi-user mode** (future): Will use JWT/session-based authentication
+
+The authenticated user is logged with all validate and archive operations.
+
+### Audit Logging
+
+All validate and archive operations are automatically logged to the `prd_spec_sync_history` table for historical tracking:
+
+**Validate Operation:**
+```json
+{
+  "operation": "validate_change",
+  "change_id": "change-123",
+  "strict_mode": true,
+  "valid": true,
+  "errors_count": 0,
+  "deltas_validated": 3
+}
+```
+
+**Archive Operation:**
+```json
+{
+  "operation": "archive_change",
+  "change_id": "change-123",
+  "specs_applied": true,
+  "capabilities_created": 5
+}
+```
+
+Audit records include:
+- Operation type (validate/archive)
+- User who performed the operation
+- Timestamp (UTC)
+- Operation details (validation results, specs applied, etc.)
+
+### Test Coverage
+
+Both validate and archive handlers have comprehensive test coverage:
+- ✅ 7 unit/integration tests per handler
+- ✅ Valid and invalid delta scenarios
+- ✅ Error cases (already archived, validation failures)
+- ✅ Database state verification
+- ✅ HTTP response validation
+
 ## API Reference
 
 ### List Changes
