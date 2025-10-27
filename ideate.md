@@ -220,266 +220,266 @@ Add a flexible PRD generation system supporting three modes:
 - ✅ Navigation: Dialog-based (following existing CreatePRDFlow pattern)
 
 ### Future Enhancements
-- [x] Add SSE streaming support for real-time generation
-- [x] Implement token limit handling with chunking
-- [x] Add retry logic with exponential backoff
+- [ ] Add SSE streaming support for real-time generation
+- [ ] Implement token limit handling with chunking
+- [ ] Add retry logic with exponential backoff
 
 ---
 
 ## Phase 3: Guided Mode - Core Sections (Week 3)
 
 ### Backend - Section Endpoints
-- [x] POST/GET `/api/ideate/{id}/overview`
-- [x] POST/GET `/api/ideate/{id}/features`
-- [x] POST/GET `/api/ideate/{id}/ux`
-- [x] POST/GET `/api/ideate/{id}/technical`
-- [x] POST/GET `/api/ideate/{id}/roadmap`
-- [x] POST/GET `/api/ideate/{id}/dependencies`
-- [x] POST/GET `/api/ideate/{id}/risks`
-- [x] POST/GET `/api/ideate/{id}/research`
-- [x] Add AI suggestion endpoints for each section
-- [x] Implement skip with AI fill functionality
+- [ ] POST/GET `/api/ideate/{id}/overview`
+- [ ] POST/GET `/api/ideate/{id}/features`
+- [ ] POST/GET `/api/ideate/{id}/ux`
+- [ ] POST/GET `/api/ideate/{id}/technical`
+- [ ] POST/GET `/api/ideate/{id}/roadmap`
+- [ ] POST/GET `/api/ideate/{id}/dependencies`
+- [ ] POST/GET `/api/ideate/{id}/risks`
+- [ ] POST/GET `/api/ideate/{id}/research`
+- [ ] Add AI suggestion endpoints for each section
+- [ ] Implement skip with AI fill functionality
 
 ### Frontend - Guided Mode Structure
-- [x] Create `packages/dashboard/src/components/ideate/GuidedMode/`
-- [x] Create `SectionNavigator.tsx` - Navigation between sections
-- [x] Create `SkipDialog.tsx` - Confirm skip with AI fill option
-- [x] Create `SectionProgress.tsx` - Visual progress indicator
+- [ ] Create `packages/dashboard/src/components/ideate/GuidedMode/`
+- [ ] Create `SectionNavigator.tsx` - Navigation between sections
+- [ ] Create `SkipDialog.tsx` - Confirm skip with AI fill option
+- [ ] Create `SectionProgress.tsx` - Visual progress indicator
 
 ### Frontend - Individual Section Forms
-- [x] Create `Sections/OverviewSection.tsx`
-  - [x] Problem statement input
-  - [x] Target audience selector
-  - [x] Value proposition builder
-- [x] Create `Sections/FeaturesSection.tsx`
-  - [x] Feature list with What/Why/How
-  - [x] Dependency picker (to other features)
-  - [x] Phase selector (foundation/visible/enhancement)
-- [x] Create `Sections/UXSection.tsx`
-  - [x] Persona builder
-  - [x] User flow mapper
-  - [x] UI/UX considerations
-- [x] Create `Sections/TechnicalSection.tsx`
-  - [x] Component architecture
-  - [x] Data model builder
-  - [x] API/integration list
-  - [x] Tech stack selector
-- [x] Create `Sections/RoadmapSection.tsx`
-  - [x] MVP scope builder (NO timelines)
-  - [x] Future phase planner
-  - [x] Scope-only focus
-- [x] Create `Sections/DependencyChainSection.tsx`
-  - [x] Foundation features picker
-  - [x] Visible features picker
-  - [x] Enhancement features picker
-  - [x] Build order visualizer
-- [x] Create `Sections/RisksSection.tsx`
-  - [x] Risk identifier
-  - [x] Mitigation planner
-- [x] Create `Sections/AppendixSection.tsx`
-  - [x] Research notes
-  - [x] Technical specs
-  - [x] References
+- [ ] Create `Sections/OverviewSection.tsx`
+  - [ ] Problem statement input
+  - [ ] Target audience selector
+  - [ ] Value proposition builder
+- [ ] Create `Sections/FeaturesSection.tsx`
+  - [ ] Feature list with What/Why/How
+  - [ ] Dependency picker (to other features)
+  - [ ] Phase selector (foundation/visible/enhancement)
+- [ ] Create `Sections/UXSection.tsx`
+  - [ ] Persona builder
+  - [ ] User flow mapper
+  - [ ] UI/UX considerations
+- [ ] Create `Sections/TechnicalSection.tsx`
+  - [ ] Component architecture
+  - [ ] Data model builder
+  - [ ] API/integration list
+  - [ ] Tech stack selector
+- [ ] Create `Sections/RoadmapSection.tsx`
+  - [ ] MVP scope builder (NO timelines)
+  - [ ] Future phase planner
+  - [ ] Scope-only focus
+- [ ] Create `Sections/DependencyChainSection.tsx`
+  - [ ] Foundation features picker
+  - [ ] Visible features picker
+  - [ ] Enhancement features picker
+  - [ ] Build order visualizer
+- [ ] Create `Sections/RisksSection.tsx`
+  - [ ] Risk identifier
+  - [ ] Mitigation planner
+- [ ] Create `Sections/AppendixSection.tsx`
+  - [ ] Research notes
+  - [ ] Technical specs
+  - [ ] References
 
 ### Shared Components
-- [x] Create `DependencyGraph.tsx` - Visual dependency viewer
-- [x] Create `PhaseBuilder.tsx` - Foundation/Visible/Enhancement UI
-- [x] Create `FeatureCard.tsx` - Reusable feature display
-- [x] Create `SkipButton.tsx` - Skip section button
-- [x] Create `AIFillButton.tsx` - AI complete section button
-- [x] Create `PRDPreview.tsx` - Live PRD preview panel
+- [ ] Create `DependencyGraph.tsx` - Visual dependency viewer
+- [ ] Create `PhaseBuilder.tsx` - Foundation/Visible/Enhancement UI
+- [ ] Create `FeatureCard.tsx` - Reusable feature display
+- [ ] Create `SkipButton.tsx` - Skip section button
+- [ ] Create `AIFillButton.tsx` - AI complete section button
+- [ ] Create `PRDPreview.tsx` - Live PRD preview panel
 
 ---
 
 ## Phase 4: Dependency Chain Focus (Week 4)
 
 ### Backend - Dependency Intelligence
-- [x] POST `/api/ideate/{id}/features/dependencies` - Set dependencies
-- [x] POST `/api/ideate/{id}/dependencies/analyze` - Auto-detect dependencies
-- [x] POST `/api/ideate/{id}/dependencies/optimize` - Optimal build order
-- [x] POST `/api/ideate/{id}/features/suggest-visible` - Quick-to-visible features
-- [x] Create AI prompts for dependency detection
-- [x] Implement graph algorithms for build order
-- [x] Add validation for circular dependencies
+- [ ] POST `/api/ideate/{id}/features/dependencies` - Set dependencies
+- [ ] POST `/api/ideate/{id}/dependencies/analyze` - Auto-detect dependencies
+- [ ] POST `/api/ideate/{id}/dependencies/optimize` - Optimal build order
+- [ ] POST `/api/ideate/{id}/features/suggest-visible` - Quick-to-visible features
+- [ ] Create AI prompts for dependency detection
+- [ ] Implement graph algorithms for build order
+- [ ] Add validation for circular dependencies
 
 ### Frontend - Dependency Tools
-- [x] Create `DependencyMapper.tsx` - Interactive dependency builder
-  - [x] Drag-and-drop interface
-  - [x] Visual connection lines
-  - [x] Circular dependency warnings
-- [x] Create `BuildOrderVisualizer.tsx` - Show optimal build sequence
-  - [x] Timeline-style view (no dates, just order)
-  - [x] Highlight critical path
-  - [x] Show parallel-buildable features
-- [x] Create `FoundationPicker.tsx` - Select foundational features
-- [x] Create `VisibleFeatures.tsx` - Identify quick-win features
-- [x] Add "Optimize for quick visibility" button
-- [x] Add "Validate dependencies" button
+- [ ] Create `DependencyMapper.tsx` - Interactive dependency builder
+  - [ ] Drag-and-drop interface
+  - [ ] Visual connection lines
+  - [ ] Circular dependency warnings
+- [ ] Create `BuildOrderVisualizer.tsx` - Show optimal build sequence
+  - [ ] Timeline-style view (no dates, just order)
+  - [ ] Highlight critical path
+  - [ ] Show parallel-buildable features
+- [ ] Create `FoundationPicker.tsx` - Select foundational features
+- [ ] Create `VisibleFeatures.tsx` - Identify quick-win features
+- [ ] Add "Optimize for quick visibility" button
+- [ ] Add "Validate dependencies" button
 
 ### Integration
-- [x] Auto-suggest dependencies when features added
-- [x] Real-time dependency graph updates
-- [x] Export dependency graph as image
-- [x] Validate PRD completeness
+- [ ] Auto-suggest dependencies when features added
+- [ ] Real-time dependency graph updates
+- [ ] Export dependency graph as image
+- [ ] Validate PRD completeness
 
 ---
 
 ## Phase 5: Comprehensive Mode - Research Tools (Week 5)
 
 ### Backend - Research & Analysis
-- [x] POST `/api/ideate/{id}/competitors/analyze` - Analyze competitor URL
-- [x] POST `/api/ideate/{id}/competitors/compare` - Compare features
-- [x] GET `/api/ideate/{id}/competitors` - List competitors
-- [x] POST `/api/ideate/{id}/similar/add` - Add similar project
-- [x] POST `/api/ideate/{id}/similar/extract-patterns` - Extract UI patterns
-- [x] Implement web scraping with `reqwest` + `scraper`
-- [x] Add screenshot analysis with AI vision
-- [x] Create competitor feature extraction logic
+- [ ] POST `/api/ideate/{id}/competitors/analyze` - Analyze competitor URL
+- [ ] POST `/api/ideate/{id}/competitors/compare` - Compare features
+- [ ] GET `/api/ideate/{id}/competitors` - List competitors
+- [ ] POST `/api/ideate/{id}/similar/add` - Add similar project
+- [ ] POST `/api/ideate/{id}/similar/extract-patterns` - Extract UI patterns
+- [ ] Implement web scraping with `reqwest` + `scraper`
+- [ ] Add screenshot analysis with AI vision
+- [ ] Create competitor feature extraction logic
 
 ### Frontend - Research UI
-- [x] Create `ComprehensiveMode/CompetitorAnalysis/`
-- [x] Create `CompetitorScanner.tsx` - URL input and analysis
-- [x] Create `FeatureComparison.tsx` - Side-by-side comparison table
-- [x] Create `GapFinder.tsx` - Identify opportunities
-- [x] Create `ComprehensiveMode/SimilarProjects/`
-- [x] Create `ProjectFinder.tsx` - Add similar projects
-- [x] Create `PatternExtractor.tsx` - Extract UI/UX patterns
-- [x] Create `LessonsLearned.tsx` - Capture insights
+- [ ] Create `ComprehensiveMode/CompetitorAnalysis/`
+- [ ] Create `CompetitorScanner.tsx` - URL input and analysis
+- [ ] Create `FeatureComparison.tsx` - Side-by-side comparison table
+- [ ] Create `GapFinder.tsx` - Identify opportunities
+- [ ] Create `ComprehensiveMode/SimilarProjects/`
+- [ ] Create `ProjectFinder.tsx` - Add similar projects
+- [ ] Create `PatternExtractor.tsx` - Extract UI/UX patterns
+- [ ] Create `LessonsLearned.tsx` - Capture insights
 
 ---
 
 ## Phase 6: Comprehensive Mode - Expert Roundtable (Week 6)
 
 ### Backend - Roundtable System
-- [x] POST `/api/ideate/{id}/roundtable/start` - Start discussion
-- [x] GET `/api/ideate/{id}/roundtable/stream` - SSE stream endpoint
-- [x] POST `/api/ideate/{id}/roundtable/question` - User interjection
-- [x] POST `/api/ideate/{id}/experts/suggest` - AI suggest experts
-- [x] Create expert persona system
-- [x] Implement streaming chat with multiple experts
-- [x] Add moderator AI to orchestrate discussion
-- [x] Handle user interjections mid-discussion
+- [ ] POST `/api/ideate/{id}/roundtable/start` - Start discussion
+- [ ] GET `/api/ideate/{id}/roundtable/stream` - SSE stream endpoint
+- [ ] POST `/api/ideate/{id}/roundtable/question` - User interjection
+- [ ] POST `/api/ideate/{id}/experts/suggest` - AI suggest experts
+- [ ] Create expert persona system
+- [ ] Implement streaming chat with multiple experts
+- [ ] Add moderator AI to orchestrate discussion
+- [ ] Handle user interjections mid-discussion
 
 ### Frontend - Roundtable UI
-- [x] Create `ComprehensiveMode/ExpertRoundtable/`
-- [x] Create `ExpertSelector.tsx` - Choose/create experts
-- [x] Create `LiveDiscussion.tsx` - Real-time chat interface
-- [x] Create `ExpertCard.tsx` - Expert profile display
-- [x] Create `InsightsExtractor.tsx` - Extract key insights
-- [x] Add streaming message display
-- [x] Add interjection input
-- [x] Add "End discussion" functionality
+- [ ] Create `ComprehensiveMode/ExpertRoundtable/`
+- [ ] Create `ExpertSelector.tsx` - Choose/create experts
+- [ ] Create `LiveDiscussion.tsx` - Real-time chat interface
+- [ ] Create `ExpertCard.tsx` - Expert profile display
+- [ ] Create `InsightsExtractor.tsx` - Extract key insights
+- [ ] Add streaming message display
+- [ ] Add interjection input
+- [ ] Add "End discussion" functionality
 
 ---
 
 ## Phase 7: PRD Generation & Export (Week 7)
 
 ### Backend - PRD Generation
-- [x] POST `/api/ideate/{id}/generate-prd` - Generate complete PRD
-- [x] POST `/api/ideate/{id}/generate-section/{section}` - Generate one section
-- [x] GET `/api/ideate/{id}/prd/preview` - Preview before save
-- [x] POST `/api/ideate/{id}/prd/save` - Save as PRD in system
-- [x] Implement section-by-section generation
-- [x] Handle skipped sections with AI fill
-- [x] Add PRD validation logic
-- [x] Create markdown export
+- [ ] POST `/api/ideate/{id}/generate-prd` - Generate complete PRD
+- [ ] POST `/api/ideate/{id}/generate-section/{section}` - Generate one section
+- [ ] GET `/api/ideate/{id}/prd/preview` - Preview before save
+- [ ] POST `/api/ideate/{id}/prd/save` - Save as PRD in system
+- [ ] Implement section-by-section generation
+- [ ] Handle skipped sections with AI fill
+- [ ] Add PRD validation logic
+- [ ] Create markdown export
 
 ### Frontend - PRD Generation UI
-- [x] Create `PRDGenerator/`
-- [x] Create `PreviewPane.tsx` - Live PRD preview
-- [x] Create `SectionEditor.tsx` - Edit generated sections
-- [x] Create `ExportOptions.tsx` - Choose export format
-- [x] Add "Generate PRD" button
-- [x] Add section regeneration
-- [x] Add manual editing before save
-- [x] Add export formats (Markdown, PDF, HTML)
+- [ ] Create `PRDGenerator/`
+- [ ] Create `PreviewPane.tsx` - Live PRD preview
+- [ ] Create `SectionEditor.tsx` - Edit generated sections
+- [ ] Create `ExportOptions.tsx` - Choose export format
+- [ ] Add "Generate PRD" button
+- [ ] Add section regeneration
+- [ ] Add manual editing before save
+- [ ] Add export formats (Markdown, PDF, HTML)
 
 ### Integration
-- [x] Connect to existing PRD system
-- [x] Test full Quick Mode flow
-- [x] Test full Guided Mode flow
-- [x] Test full Comprehensive Mode flow
-- [x] Add comprehensive error handling
-- [x] Add loading states throughout
+- [ ] Connect to existing PRD system
+- [ ] Test full Quick Mode flow
+- [ ] Test full Guided Mode flow
+- [ ] Test full Comprehensive Mode flow
+- [ ] Add comprehensive error handling
+- [ ] Add loading states throughout
 
 ---
 
 ## Phase 8: Polish & Optimization (Week 8)
 
 ### Templates & Intelligence
-- [x] Create default quickstart templates
-- [x] Add template selection UI
-- [x] Implement smart section suggestions
-- [x] Add auto-save functionality
-- [x] Session list & resume (moved to Phase 2)
+- [ ] Create default quickstart templates
+- [ ] Add template selection UI
+- [ ] Implement smart section suggestions
+- [ ] Add auto-save functionality
+- [x] Session list & resume (moved to Phase 2 - COMPLETED)
 
 ### UX Improvements
-- [x] Add keyboard shortcuts
-- [x] Add tooltips and help text
-- [x] Improve mobile responsiveness
-- [x] Add dark mode support
-- [x] Polish animations and transitions
+- [ ] Add keyboard shortcuts
+- [ ] Add tooltips and help text
+- [ ] Improve mobile responsiveness
+- [ ] Add dark mode support
+- [ ] Polish animations and transitions
 
 ### Performance
-- [x] Optimize database queries
-- [x] Add caching where appropriate
-- [x] Implement request debouncing
-- [x] Optimize bundle size
-- [x] Add loading skeletons
+- [ ] Optimize database queries
+- [ ] Add caching where appropriate
+- [ ] Implement request debouncing
+- [ ] Optimize bundle size
+- [ ] Add loading skeletons
 
 ### Testing & Documentation
-- [x] Write unit tests for backend handlers
-- [x] Write integration tests for flows
-- [x] Write component tests for UI
-- [x] Create user documentation
-- [x] Create developer documentation
-- [x] Add inline code comments
+- [ ] Write unit tests for backend handlers
+- [ ] Write integration tests for flows
+- [ ] Write component tests for UI
+- [ ] Create user documentation
+- [ ] Create developer documentation
+- [ ] Add inline code comments
 
 ### Final Review
-- [x] Test all three modes end-to-end
-- [x] Test skip functionality
-- [x] Test AI fill functionality
-- [x] Test dependency chain builder
-- [x] Test roundtable discussions
-- [x] Test competitor analysis
-- [x] Fix any bugs found
-- [x] Performance profiling
-- [x] Security audit
-- [x] Accessibility check
+- [ ] Test all three modes end-to-end
+- [ ] Test skip functionality
+- [ ] Test AI fill functionality
+- [ ] Test dependency chain builder
+- [ ] Test roundtable discussions
+- [ ] Test competitor analysis
+- [ ] Fix any bugs found
+- [ ] Performance profiling
+- [ ] Security audit
+- [ ] Accessibility check
 
 ---
 
 ## Success Criteria
 
-### Quick Mode
+### Quick Mode ✅ COMPLETED
 - [x] User can enter one-liner and get complete PRD in < 30 seconds
 - [x] Generated PRD includes all 8 sections
 - [x] User can edit and save PRD
 
 ### Guided Mode
-- [x] User can skip any section
-- [x] Skipped sections can be AI-filled
-- [x] Navigation works smoothly
-- [x] Progress is saved automatically
-- [x] Can resume sessions
+- [ ] User can skip any section
+- [ ] Skipped sections can be AI-filled
+- [ ] Navigation works smoothly
+- [ ] Progress is saved automatically
+- [ ] Can resume sessions
 
 ### Comprehensive Mode
-- [x] Roundtable works with 3+ experts
-- [x] Competitor analysis extracts features
-- [x] Similar projects add value
-- [x] All insights feed into PRD
+- [ ] Roundtable works with 3+ experts
+- [ ] Competitor analysis extracts features
+- [ ] Similar projects add value
+- [ ] All insights feed into PRD
 
 ### Dependency Chain
-- [x] Visual dependency graph works
-- [x] Auto-detection finds dependencies
-- [x] Build order is logical
-- [x] Foundation/Visible/Enhancement phases clear
+- [ ] Visual dependency graph works
+- [ ] Auto-detection finds dependencies
+- [ ] Build order is logical
+- [ ] Foundation/Visible/Enhancement phases clear
 
 ### PRD Quality
-- [x] Generated PRDs match template structure
-- [x] Content is coherent and actionable
-- [x] No timeline pressure (scope only)
-- [x] Logical dependency chain included
+- [ ] Generated PRDs match template structure
+- [ ] Content is coherent and actionable
+- [ ] No timeline pressure (scope only)
+- [ ] Logical dependency chain included
 
 ---
 
