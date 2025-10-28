@@ -208,9 +208,33 @@ And these features:
 Generate a logical dependency chain:
 
 {{
-  "foundationFeatures": ["Features that must be built first - core infrastructure"],
-  "visibleFeatures": ["Features that give users something to see/use quickly"],
-  "enhancementFeatures": ["Features that build upon the foundation"],
+  "foundationFeatures": [
+    {{
+      "id": "feature-id",
+      "name": "Feature name",
+      "rationale": "Why this must be built first",
+      "blocks": ["feature-ids that depend on this"],
+      "dependsOn": ["feature-ids this depends on"]
+    }}
+  ],
+  "visibleFeatures": [
+    {{
+      "id": "feature-id",
+      "name": "Feature name",
+      "rationale": "Why this gives quick user value",
+      "blocks": ["feature-ids that depend on this"],
+      "dependsOn": ["feature-ids this depends on"]
+    }}
+  ],
+  "enhancementFeatures": [
+    {{
+      "id": "feature-id",
+      "name": "Feature name",
+      "rationale": "Why this enhances the experience",
+      "blocks": ["feature-ids that depend on this"],
+      "dependsOn": ["feature-ids this depends on"]
+    }}
+  ],
   "dependencyGraph": {{
     "nodes": [
       {{
@@ -363,9 +387,33 @@ Provide a structured JSON response with ALL sections:
     "futurePhases": [...]
   }},
   "dependencies": {{
-    "foundationFeatures": [...],
-    "visibleFeatures": [...],
-    "enhancementFeatures": [...],
+    "foundationFeatures": [
+      {{
+        "id": "feature-id",
+        "name": "Feature name",
+        "rationale": "Why this must be built first",
+        "blocks": ["feature-ids that depend on this"],
+        "dependsOn": ["feature-ids this depends on"]
+      }}
+    ],
+    "visibleFeatures": [
+      {{
+        "id": "feature-id",
+        "name": "Feature name",
+        "rationale": "Why this gives quick user value",
+        "blocks": ["feature-ids that depend on this"],
+        "dependsOn": ["feature-ids this depends on"]
+      }}
+    ],
+    "enhancementFeatures": [
+      {{
+        "id": "feature-id",
+        "name": "Feature name",
+        "rationale": "Why this enhances the experience",
+        "blocks": ["feature-ids that depend on this"],
+        "dependsOn": ["feature-ids this depends on"]
+      }}
+    ],
     "dependencyGraph": {{
       "nodes": [
         {{

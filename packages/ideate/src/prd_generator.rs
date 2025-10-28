@@ -349,7 +349,7 @@ impl PRDGenerator {
             if let Some(foundation) = &deps.foundation_features {
                 markdown.push_str("### Foundation Features (Build First)\n\n");
                 for item in foundation {
-                    markdown.push_str(&format!("- {}\n", item));
+                    markdown.push_str(&format!("- {} ({}): {}\n", item.id, item.name, item.rationale));
                 }
                 markdown.push('\n');
             }
@@ -357,7 +357,7 @@ impl PRDGenerator {
             if let Some(visible) = &deps.visible_features {
                 markdown.push_str("### Visible Features (Quick Wins)\n\n");
                 for item in visible {
-                    markdown.push_str(&format!("- {}\n", item));
+                    markdown.push_str(&format!("- {} ({}): {}\n", item.id, item.name, item.rationale));
                 }
                 markdown.push('\n');
             }
@@ -920,13 +920,24 @@ pub struct Phase {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Dependencies {
     #[serde(rename = "foundationFeatures")]
-    pub foundation_features: Option<Vec<String>>,
+    pub foundation_features: Option<Vec<DependencyFeature>>,
     #[serde(rename = "visibleFeatures")]
-    pub visible_features: Option<Vec<String>>,
+    pub visible_features: Option<Vec<DependencyFeature>>,
     #[serde(rename = "enhancementFeatures")]
-    pub enhancement_features: Option<Vec<String>>,
+    pub enhancement_features: Option<Vec<DependencyFeature>>,
     #[serde(rename = "dependencyGraph")]
     pub dependency_graph: Option<DependencyGraph>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DependencyFeature {
+    pub id: String,
+    pub name: String,
+    pub rationale: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub blocks: Vec<String>,
+    #[serde(rename = "dependsOn", default, skip_serializing_if = "Vec::is_empty")]
+    pub depends_on: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
