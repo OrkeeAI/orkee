@@ -673,6 +673,109 @@ class IdeateService {
   }
 
   /**
+   * Generate PRD from session description (Quick Mode) with streaming updates
+   */
+  async quickGenerateStreaming(
+    sessionId: string,
+    onPartialUpdate?: (partial: any) => void,
+    input?: QuickGenerateInput
+  ): Promise<GeneratedPRD> {
+    // Fetch API key from backend
+    let apiKey: string;
+    try {
+      console.log('[quickGenerateStreaming] Fetching API key from backend...');
+      apiKey = await usersService.getAnthropicApiKey();
+    } catch (error) {
+      throw new Error(
+        error instanceof Error
+          ? error.message
+          : 'Failed to fetch API key. Please add your Anthropic API key in Settings.'
+      );
+    }
+
+    // Get the session to extract description
+    const session = await this.getSession(sessionId);
+
+    // Create AI service with fetched API key
+    const aiService = createAIService({
+      apiKey,
+      model: input?.model || 'claude-sonnet-4-20250514',
+      maxTokens: 64000,
+      temperature: 0.7,
+    });
+
+    console.log(`[quickGenerateStreaming] Generating PRD for session ${sessionId}`);
+    console.log(`[quickGenerateStreaming] Model: ${aiService.getModel()}`);
+    console.log(`[quickGenerateStreaming] Description: ${session.initial_description.substring(0, 100)}...`);
+
+    // Generate complete PRD with streaming
+    const streamResult = await aiService.generateCompletePRDStreaming(session.initial_description);
+
+    // Consume the stream and emit partial updates
+    if (onPartialUpdate) {
+      (async () => {
+        try {
+          for await (const partial of streamResult.partialObjectStream) {
+            onPartialUpdate(partial);
+          }
+        } catch (error) {
+          console.error('[quickGenerateStreaming] Stream error:', error);
+        }
+      })();
+    }
+
+    // Wait for final result
+    const result = {
+      data: await streamResult.object,
+      usage: await streamResult.usage,
+    };
+
+    console.log(`[quickGenerateStreaming] Generation complete`);
+    console.log(`[quickGenerateStreaming] Tokens: ${result.usage.totalTokens} (${result.usage.inputTokens} in, ${result.usage.outputTokens} out)`);
+
+    // Transform structured data to markdown sections
+    const sections: Record<string, string> = {
+      overview: JSON.stringify(result.data.overview, null, 2),
+      features: JSON.stringify(result.data.features, null, 2),
+      ux: JSON.stringify(result.data.ux, null, 2),
+      technical: JSON.stringify(result.data.technical, null, 2),
+      roadmap: JSON.stringify(result.data.roadmap, null, 2),
+      dependencies: JSON.stringify(result.data.dependencies, null, 2),
+      risks: JSON.stringify(result.data.risks, null, 2),
+      research: JSON.stringify(result.data.research, null, 2),
+    };
+
+    // Save sections to database (non-blocking error handling)
+    try {
+      console.log('[quickGenerateStreaming] Saving sections to database...');
+      await this.saveSections(sessionId, {
+        overview: result.data.overview,
+        ux: result.data.ux,
+        technical: result.data.technical,
+        roadmap: result.data.roadmap,
+        dependencies: result.data.dependencies,
+        risks: result.data.risks,
+        research: result.data.research,
+      });
+      console.log(`[quickGenerateStreaming] Sections saved to database`);
+    } catch (saveError) {
+      console.error('[quickGenerateStreaming] Failed to save sections:', saveError);
+    }
+
+    // Generate complete markdown content
+    const content = Object.entries(sections)
+      .map(([section, data]) => `## ${section}\n\n${data}\n\n`)
+      .join('');
+
+    return {
+      session_id: sessionId,
+      content,
+      sections,
+      generated_at: new Date().toISOString(),
+    };
+  }
+
+  /**
    * Generate PRD from session description (Quick Mode)
    */
   async quickGenerate(sessionId: string, input?: QuickGenerateInput): Promise<GeneratedPRD> {
