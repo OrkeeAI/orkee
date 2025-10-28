@@ -169,9 +169,17 @@ export function QuickModeFlow({
     setStep('save');
   };
 
-  const handleConfirmSave = async () => {
+  const handleConfirmSave = async (title: string) => {
+    if (!generatedPRD) {
+      toast.error('No PRD to save');
+      return;
+    }
+
     try {
-      const result = await saveMutation.mutateAsync();
+      const result = await saveMutation.mutateAsync({
+        title,
+        contentMarkdown: generatedPRD.content,
+      });
 
       toast.success('PRD saved successfully!', {
         description: 'Your PRD has been saved to the OpenSpec system.',

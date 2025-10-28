@@ -193,7 +193,7 @@ export function useSaveAsPRD(projectId: string, sessionId: string) {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: () => ideateService.saveAsPRD(sessionId),
+    mutationFn: (data: { title: string; contentMarkdown: string }) => ideateService.saveAsPRD(sessionId, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.ideateDetail(sessionId) });
       queryClient.invalidateQueries({ queryKey: queryKeys.ideateStatus(sessionId) });

@@ -920,10 +920,10 @@ class IdeateService {
   /**
    * Save generated PRD to OpenSpec system
    */
-  async saveAsPRD(sessionId: string): Promise<SavePRDResult> {
+  async saveAsPRD(sessionId: string, data: { title: string; contentMarkdown: string }): Promise<SavePRDResult> {
     const response = await apiClient.post<{ success: boolean; data: SavePRDResult }>(
       `/api/ideate/${sessionId}/save-as-prd`,
-      {}
+      data
     );
 
     if (response.error || !response.data.success) {
