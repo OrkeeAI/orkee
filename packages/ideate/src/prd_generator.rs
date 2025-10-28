@@ -148,6 +148,7 @@ impl PRDGenerator {
             })?;
 
         // Parse the response into GeneratedPRD
+        info!("AI response JSON: {}", serde_json::to_string_pretty(&response.data).unwrap_or_else(|_| "Failed to serialize".to_string()));
         let generated_prd: GeneratedPRD = serde_json::from_value(response.data).map_err(|e| {
             error!("Failed to parse AI response: {}", e);
             IdeateError::AIService(format!("Failed to parse AI response: {}", e))
@@ -939,12 +940,16 @@ pub struct GraphNode {
     pub id: String,
     pub label: String,
     pub phase: u8,
+    #[serde(rename = "type", skip_serializing_if = "Option::is_none")]
+    pub node_type: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GraphEdge {
     pub from: String,
     pub to: String,
+    #[serde(rename = "type", skip_serializing_if = "Option::is_none")]
+    pub edge_type: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

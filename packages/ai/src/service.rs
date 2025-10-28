@@ -10,7 +10,7 @@ use tracing::{error, info};
 
 const ANTHROPIC_API_URL: &str = "https://api.anthropic.com/v1/messages";
 const DEFAULT_MODEL: &str = "claude-sonnet-4-20250514"; // Claude Sonnet 4 (May 2025)
-const DEFAULT_MAX_TOKENS: u32 = 8000;
+const DEFAULT_MAX_TOKENS: u32 = 64000;
 const DEFAULT_TEMPERATURE: f32 = 0.7;
 
 #[derive(Debug, Error)]
@@ -91,6 +91,15 @@ pub struct AIService {
 }
 
 impl AIService {
+    /// Create HTTP client with timeout configuration
+    fn create_client() -> Client {
+        Client::builder()
+            .timeout(std::time::Duration::from_secs(600))
+            .connect_timeout(std::time::Duration::from_secs(10))
+            .build()
+            .expect("Failed to build HTTP client")
+    }
+
     /// Creates a new AI service instance
     /// API key is fetched from ANTHROPIC_API_KEY environment variable
     /// Model can be overridden with ANTHROPIC_MODEL environment variable
@@ -107,7 +116,7 @@ impl AIService {
         }
 
         Self {
-            client: Client::new(),
+            client: Self::create_client(),
             api_key,
             model,
         }
@@ -118,7 +127,7 @@ impl AIService {
         let model = env::var("ANTHROPIC_MODEL").unwrap_or_else(|_| DEFAULT_MODEL.to_string());
 
         Self {
-            client: Client::new(),
+            client: Self::create_client(),
             api_key: Some(api_key),
             model,
         }
@@ -127,7 +136,7 @@ impl AIService {
     /// Creates a new AI service instance with a specific API key and model
     pub fn with_api_key_and_model(api_key: String, model: String) -> Self {
         Self {
-            client: Client::new(),
+            client: Self::create_client(),
             api_key: Some(api_key),
             model,
         }
@@ -159,7 +168,7 @@ impl AIService {
         };
 
         info!(
-            "Making Anthropic API request: model={}, max_tokens={}",
+            "Making Anthropic API request: model={}, max_tokens={}, timeout=600s",
             request.model, request.max_tokens
         );
 
@@ -171,7 +180,21 @@ impl AIService {
             .header("content-type", "application/json")
             .json(&request)
             .send()
-            .await?;
+            .await
+            .map_err(|e| {
+                if e.is_timeout() {
+                    error!("Anthropic API request timed out after 600 seconds");
+                    AIServiceError::ApiError("Request timed out after 600 seconds. The AI service may be overloaded or unavailable.".to_string())
+                } else if e.is_connect() {
+                    error!("Failed to connect to Anthropic API: {}", e);
+                    AIServiceError::ApiError(format!("Connection failed: {}. Please check your internet connection.", e))
+                } else {
+                    error!("Anthropic API request failed: {}", e);
+                    AIServiceError::RequestFailed(e)
+                }
+            })?;
+
+        info!("Received response from Anthropic API: status={}", response.status());
 
         if !response.status().is_success() {
             let status = response.status();
@@ -199,9 +222,28 @@ impl AIService {
             .text
             .clone();
 
+        // Strip markdown code fences if present (```json ... ``` or ````json ... ````)
+        let cleaned_text = text.trim();
+        let json_text = if cleaned_text.starts_with("```") {
+            // Find the first newline after opening fence
+            let start = cleaned_text.find('\n').map(|i| i + 1).unwrap_or(0);
+            // Find the closing fence (search from start position to avoid finding opening fence)
+            let end = cleaned_text[start..]
+                .rfind("```")
+                .map(|i| i + start)
+                .unwrap_or(cleaned_text.len());
+            cleaned_text[start..end].trim()
+        } else {
+            cleaned_text
+        };
+
         // Parse the JSON response
-        let data: T = serde_json::from_str(&text)
-            .map_err(|e| AIServiceError::ParseError(format!("Failed to parse JSON: {}", e)))?;
+        info!("Raw JSON response (first 5000 chars): {}", &json_text[..json_text.len().min(5000)]);
+        let data: T = serde_json::from_str(json_text)
+            .map_err(|e| {
+                error!("JSON parsing failed: {}. JSON snippet: {}", e, &json_text[..json_text.len().min(500)]);
+                AIServiceError::ParseError(format!("Failed to parse JSON: {}", e))
+            })?;
 
         Ok(AIResponse {
             data,

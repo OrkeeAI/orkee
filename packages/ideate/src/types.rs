@@ -230,12 +230,16 @@ pub struct GraphNode {
     pub id: String,
     pub label: String,
     pub phase: i32,
+    #[serde(rename = "type", skip_serializing_if = "Option::is_none")]
+    pub node_type: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GraphEdge {
     pub from: String,
     pub to: String,
+    #[serde(rename = "type", skip_serializing_if = "Option::is_none")]
+    pub edge_type: Option<String>,
 }
 
 /// Risks and mitigations section
@@ -285,7 +289,7 @@ pub struct IdeateResearch {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Competitor {
     pub name: String,
-    pub url: String,
+    pub url: Option<String>,
     pub strengths: Vec<String>,
     pub gaps: Vec<String>,
     pub features: Vec<String>,
@@ -295,7 +299,7 @@ pub struct Competitor {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SimilarProject {
     pub name: String,
-    pub url: String,
+    pub url: Option<String>,
     pub positive_aspects: Vec<String>,
     pub negative_aspects: Vec<String>,
     pub patterns_to_adopt: Vec<String>,
@@ -305,7 +309,7 @@ pub struct SimilarProject {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Reference {
     pub title: String,
-    pub url: String,
+    pub url: Option<String>,
     pub notes: Option<String>,
 }
 

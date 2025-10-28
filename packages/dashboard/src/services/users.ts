@@ -78,6 +78,30 @@ export class UsersService {
     // result.data is the MaskedUser directly
     return result.data;
   }
+
+  /**
+   * Get Anthropic API key (decrypted)
+   * Returns the actual API key for use in frontend AI service
+   */
+  async getAnthropicApiKey(): Promise<string> {
+    const response = await apiClient.get<ApiResponse<{ apiKey: string | null; error?: string }>>(
+      '/api/users/anthropic-key'
+    );
+
+    if (response.error || !response.data?.success) {
+      throw new Error(response.data?.error || response.error || 'Failed to fetch API key');
+    }
+
+    const apiKey = response.data.data?.apiKey;
+    if (!apiKey) {
+      throw new Error(
+        response.data.data?.error ||
+          'No Anthropic API key configured. Please add your API key in Settings.'
+      );
+    }
+
+    return apiKey;
+  }
 }
 
 export const usersService = new UsersService();

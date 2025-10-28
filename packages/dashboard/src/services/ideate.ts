@@ -2,6 +2,8 @@
 // ABOUTME: Handles session CRUD, mode selection, and section skip functionality
 
 import { apiClient } from './api';
+import { usersService } from './users';
+import { createAIService } from './ai';
 
 export type IdeateMode = 'quick' | 'guided' | 'comprehensive';
 export type IdeateStatus = 'draft' | 'in_progress' | 'ready_for_prd' | 'completed';
@@ -674,16 +676,50 @@ class IdeateService {
    * Generate PRD from session description (Quick Mode)
    */
   async quickGenerate(sessionId: string, input?: QuickGenerateInput): Promise<GeneratedPRD> {
-    const response = await apiClient.post<{ success: boolean; data: GeneratedPRD }>(
-      `/api/ideate/${sessionId}/quick-generate`,
-      input || {}
-    );
+    // Get the session to extract description
+    const session = await this.getSession(sessionId);
 
-    if (response.error || !response.data.success) {
-      throw new Error(response.error || 'Failed to generate PRD');
-    }
+    // Create AI service with config (no API key needed - proxy handles it)
+    const aiService = createAIService({
+      apiKey: '', // Not used - proxy fetches from database
+      model: input?.model || 'claude-sonnet-4-20250514',
+      maxTokens: 64000,
+      temperature: 0.7,
+    });
 
-    return response.data.data;
+    console.log(`[quickGenerate] Generating PRD for session ${sessionId}`);
+    console.log(`[quickGenerate] Model: ${aiService.getModel()}`);
+    console.log(`[quickGenerate] Description: ${session.initial_description.substring(0, 100)}...`);
+
+    // Generate complete PRD
+    const result = await aiService.generateCompletePRD(session.initial_description);
+
+    console.log(`[quickGenerate] Generation complete`);
+    console.log(`[quickGenerate] Tokens: ${result.usage.totalTokens} (${result.usage.inputTokens} in, ${result.usage.outputTokens} out)`);
+
+    // Transform structured data to markdown sections
+    const sections: Record<string, string> = {
+      overview: JSON.stringify(result.data.overview, null, 2),
+      features: JSON.stringify(result.data.features, null, 2),
+      ux: JSON.stringify(result.data.ux, null, 2),
+      technical: JSON.stringify(result.data.technical, null, 2),
+      roadmap: JSON.stringify(result.data.roadmap, null, 2),
+      dependencies: JSON.stringify(result.data.dependencies, null, 2),
+      risks: JSON.stringify(result.data.risks, null, 2),
+      research: JSON.stringify(result.data.research, null, 2),
+    };
+
+    // Generate complete markdown content
+    const content = Object.entries(sections)
+      .map(([section, data]) => `## ${section}\n\n${data}\n\n`)
+      .join('');
+
+    return {
+      session_id: sessionId,
+      content,
+      sections,
+      generated_at: new Date().toISOString(),
+    };
   }
 
   /**

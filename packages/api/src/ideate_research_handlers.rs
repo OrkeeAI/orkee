@@ -291,7 +291,7 @@ pub async fn add_similar_project(
 
     let project = SimilarProject {
         name: request.name,
-        url: request.url,
+        url: Some(request.url),
         positive_aspects: request.positive_aspects,
         negative_aspects: request.negative_aspects,
         patterns_to_adopt: request.patterns_to_adopt,

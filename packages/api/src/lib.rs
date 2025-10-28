@@ -102,6 +102,7 @@ pub fn create_users_router() -> Router<DbState> {
         )
         .route("/{user_id}/theme", put(users_handlers::update_theme))
         .route("/credentials", put(users_handlers::update_credentials))
+        .route("/anthropic-key", get(users_handlers::get_anthropic_key))
 }
 
 /// Creates the tags API router
