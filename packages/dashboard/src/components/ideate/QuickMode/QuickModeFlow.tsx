@@ -16,7 +16,8 @@ import { GeneratingState } from './GeneratingState';
 import { PRDEditor } from './PRDEditor';
 import { SavePreview } from './SavePreview';
 import { ModelSelectionDialog } from '@/components/ModelSelectionDialog';
-import { useQuickGenerate, useQuickExpand, useSaveAsPRD, useIdeateSession } from '@/hooks/useIdeate';
+import { useQuickExpand, useSaveAsPRD, useIdeateSession } from '@/hooks/useIdeate';
+import { ideateService } from '@/services/ideate';
 import type { GeneratedPRD } from '@/services/ideate';
 import { toast } from 'sonner';
 
@@ -40,6 +41,8 @@ export function QuickModeFlow({
   const [step, setStep] = useState<FlowStep>('input');
   const [description, setDescription] = useState('');
   const [generatedPRD, setGeneratedPRD] = useState<GeneratedPRD | null>(null);
+  const [partialPRD, setPartialPRD] = useState<any>(null);
+  const [isGenerating, setIsGenerating] = useState(false);
   const [isRegenerating, setIsRegenerating] = useState<Record<string, boolean>>({});
   const [showModelSelection, setShowModelSelection] = useState(false);
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -48,7 +51,6 @@ export function QuickModeFlow({
   const [selectedModel, setSelectedModel] = useState<string>('');
 
   const { data: session } = useIdeateSession(sessionId);
-  const generateMutation = useQuickGenerate(projectId, sessionId);
   const expandMutation = useQuickExpand(projectId, sessionId);
   const saveMutation = useSaveAsPRD(projectId, sessionId);
 
@@ -70,18 +72,29 @@ export function QuickModeFlow({
 
     try {
       setStep('generating');
-      toast.info('Generating your PRD...', { duration: 2000 });
+      setIsGenerating(true);
+      setPartialPRD(null);
+      toast.info('Generating your PRD with streaming...', { duration: 2000 });
 
-      const result = await generateMutation.mutateAsync({
-        provider,
-        model,
-      });
+      // Call streaming version with real-time callback
+      const result = await ideateService.quickGenerateStreaming(
+        sessionId,
+        (partial) => {
+          console.log('[Stream Update]', partial);
+          setPartialPRD(partial);
+        },
+        { provider, model }
+      );
+
+      // Final result received and saved to database
       setGeneratedPRD(result);
       setStep('edit');
+      setIsGenerating(false);
 
       toast.success('PRD generated successfully!');
     } catch (error) {
       setStep('input');
+      setIsGenerating(false);
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
 
       // Provide specific error messages
@@ -189,6 +202,8 @@ export function QuickModeFlow({
     setStep('input');
     setDescription('');
     setGeneratedPRD(null);
+    setPartialPRD(null);
+    setIsGenerating(false);
     setIsRegenerating({});
     setSelectedProvider('');
     setSelectedModel('');
@@ -226,25 +241,29 @@ export function QuickModeFlow({
                 value={description}
                 onChange={setDescription}
                 onGenerate={handleGenerate}
-                isGenerating={generateMutation.isPending}
-                error={generateMutation.error?.message}
+                isGenerating={isGenerating}
+                error={undefined}
               />
             )}
 
             {/* Step: Generating */}
             {step === 'generating' && (
-              <GeneratingState message="Generating your comprehensive PRD..." />
+              <div className="space-y-4">
+                <GeneratingState message="Generating your comprehensive PRD..." />
+                {partialPRD && (
+                  <div className="mt-4 p-4 border rounded-lg bg-muted/30">
+                    <h3 className="text-sm font-medium mb-2">Streaming Progress:</h3>
+                    <pre className="text-xs overflow-auto max-h-96 whitespace-pre-wrap">
+                      {JSON.stringify(partialPRD, null, 2)}
+                    </pre>
+                  </div>
+                )}
+              </div>
             )}
 
             {/* Step: Edit */}
             {step === 'edit' && generatedPRD && (
               <div className="space-y-4">
-                {generateMutation.error && (
-                  <Alert variant="destructive">
-                    <AlertDescription>{generateMutation.error.message}</AlertDescription>
-                  </Alert>
-                )}
-
                 <PRDEditor
                   prdContent={generatedPRD.content}
                   sections={generatedPRD.sections}

@@ -209,6 +209,10 @@ pub fn create_ideate_router() -> Router<DbState> {
             "/ideate/{session_id}/save-as-prd",
             post(ideate_handlers::save_as_prd),
         )
+        .route(
+            "/ideate/{session_id}/save-sections",
+            post(ideate_handlers::save_sections),
+        )
         // Guided Mode - Section routes
         // Overview
         .route(

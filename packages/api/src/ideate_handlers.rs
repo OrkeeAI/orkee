@@ -662,3 +662,230 @@ pub async fn suggest_template(
     let result = manager.suggest_template(&request.description).await;
     ok_or_internal_error(result, "Failed to suggest template")
 }
+
+// ============================================================================
+// QUICK MODE - SAVE SECTIONS ENDPOINT
+// ============================================================================
+
+/// Request body for saving all PRD sections at once (for frontend streaming)
+/// Note: Uses separate DTOs without database fields (id, session_id, created_at, ai_generated)
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SaveSectionsRequest {
+    pub overview: Option<OverviewInput>,
+    pub ux: Option<UXInput>,
+    pub technical: Option<TechnicalInput>,
+    pub roadmap: Option<RoadmapInput>,
+    pub dependencies: Option<DependenciesInput>,
+    pub risks: Option<RisksInput>,
+    pub research: Option<ResearchInput>,
+}
+
+// DTOs for API input (match frontend TypeScript schemas with camelCase)
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct OverviewInput {
+    pub problem_statement: Option<String>,
+    pub target_audience: Option<String>,
+    pub value_proposition: Option<String>,
+    pub one_line_pitch: Option<String>,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UXInput {
+    pub personas: Option<serde_json::Value>,
+    pub user_flows: Option<serde_json::Value>,
+    pub ui_considerations: Option<String>,
+    pub ux_principles: Option<String>,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TechnicalInput {
+    pub components: Option<serde_json::Value>,
+    pub data_models: Option<serde_json::Value>,
+    pub apis: Option<serde_json::Value>,
+    pub infrastructure: Option<serde_json::Value>,
+    pub tech_stack_quick: Option<String>,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RoadmapInput {
+    pub mvp_scope: Option<Vec<String>>,
+    pub future_phases: Option<serde_json::Value>,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DependenciesInput {
+    pub foundation_features: Option<Vec<String>>,
+    pub visible_features: Option<Vec<String>>,
+    pub enhancement_features: Option<Vec<String>>,
+    pub dependency_graph: Option<serde_json::Value>,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RisksInput {
+    pub technical_risks: Option<serde_json::Value>,
+    pub mvp_scoping_risks: Option<serde_json::Value>,
+    pub resource_risks: Option<serde_json::Value>,
+    pub mitigations: Option<serde_json::Value>,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ResearchInput {
+    pub competitors: Option<serde_json::Value>,
+    pub similar_projects: Option<serde_json::Value>,
+    pub research_findings: Option<String>,
+    pub technical_specs: Option<String>,
+    pub reference_links: Option<serde_json::Value>,
+}
+
+/// Save generated PRD sections to database (used after frontend streaming)
+pub async fn save_sections(
+    State(db): State<DbState>,
+    Path(session_id): Path<String>,
+    Json(request): Json<SaveSectionsRequest>,
+) -> impl IntoResponse {
+    info!("Saving PRD sections for session: {}", session_id);
+
+    use chrono::Utc;
+    use nanoid::nanoid;
+
+    let manager = IdeateManager::new(db.pool.clone());
+    let mut saved_sections = Vec::new();
+    let mut errors = Vec::new();
+
+    // Convert DTOs to full entities and save each section if provided
+    if let Some(input) = request.overview {
+        let entity = ideate::IdeateOverview {
+            id: nanoid!(),
+            session_id: session_id.clone(),
+            problem_statement: input.problem_statement,
+            target_audience: input.target_audience,
+            value_proposition: input.value_proposition,
+            one_line_pitch: input.one_line_pitch,
+            ai_generated: true,
+            created_at: Utc::now(),
+        };
+        match manager.save_overview(&session_id, entity).await {
+            Ok(_) => saved_sections.push("overview"),
+            Err(e) => errors.push(format!("overview: {}", e)),
+        }
+    }
+
+    if let Some(input) = request.ux {
+        let entity = ideate::IdeateUX {
+            id: nanoid!(),
+            session_id: session_id.clone(),
+            personas: input.personas.and_then(|v| serde_json::from_value(v).ok()),
+            user_flows: input.user_flows.and_then(|v| serde_json::from_value(v).ok()),
+            ui_considerations: input.ui_considerations,
+            ux_principles: input.ux_principles,
+            ai_generated: true,
+            created_at: Utc::now(),
+        };
+        match manager.save_ux(&session_id, entity).await {
+            Ok(_) => saved_sections.push("ux"),
+            Err(e) => errors.push(format!("ux: {}", e)),
+        }
+    }
+
+    if let Some(input) = request.technical {
+        let entity = ideate::IdeateTechnical {
+            id: nanoid!(),
+            session_id: session_id.clone(),
+            components: input.components.and_then(|v| serde_json::from_value(v).ok()),
+            data_models: input.data_models.and_then(|v| serde_json::from_value(v).ok()),
+            apis: input.apis.and_then(|v| serde_json::from_value(v).ok()),
+            infrastructure: input.infrastructure.and_then(|v| serde_json::from_value(v).ok()),
+            tech_stack_quick: input.tech_stack_quick,
+            ai_generated: true,
+            created_at: Utc::now(),
+        };
+        match manager.save_technical(&session_id, entity).await {
+            Ok(_) => saved_sections.push("technical"),
+            Err(e) => errors.push(format!("technical: {}", e)),
+        }
+    }
+
+    if let Some(input) = request.roadmap {
+        let entity = ideate::IdeateRoadmap {
+            id: nanoid!(),
+            session_id: session_id.clone(),
+            mvp_scope: input.mvp_scope,
+            future_phases: input.future_phases.and_then(|v| serde_json::from_value(v).ok()),
+            ai_generated: true,
+            created_at: Utc::now(),
+        };
+        match manager.save_roadmap(&session_id, entity).await {
+            Ok(_) => saved_sections.push("roadmap"),
+            Err(e) => errors.push(format!("roadmap: {}", e)),
+        }
+    }
+
+    if let Some(input) = request.dependencies {
+        let entity = ideate::IdeateDependencies {
+            id: nanoid!(),
+            session_id: session_id.clone(),
+            foundation_features: input.foundation_features,
+            visible_features: input.visible_features,
+            enhancement_features: input.enhancement_features,
+            dependency_graph: input.dependency_graph.and_then(|v| serde_json::from_value(v).ok()),
+            ai_generated: true,
+            created_at: Utc::now(),
+        };
+        match manager.save_dependencies(&session_id, entity).await {
+            Ok(_) => saved_sections.push("dependencies"),
+            Err(e) => errors.push(format!("dependencies: {}", e)),
+        }
+    }
+
+    if let Some(input) = request.risks {
+        let entity = ideate::IdeateRisks {
+            id: nanoid!(),
+            session_id: session_id.clone(),
+            technical_risks: input.technical_risks.and_then(|v| serde_json::from_value(v).ok()),
+            mvp_scoping_risks: input.mvp_scoping_risks.and_then(|v| serde_json::from_value(v).ok()),
+            resource_risks: input.resource_risks.and_then(|v| serde_json::from_value(v).ok()),
+            mitigations: input.mitigations.and_then(|v| serde_json::from_value(v).ok()),
+            ai_generated: true,
+            created_at: Utc::now(),
+        };
+        match manager.save_risks(&session_id, entity).await {
+            Ok(_) => saved_sections.push("risks"),
+            Err(e) => errors.push(format!("risks: {}", e)),
+        }
+    }
+
+    if let Some(input) = request.research {
+        let entity = ideate::IdeateResearch {
+            id: nanoid!(),
+            session_id: session_id.clone(),
+            competitors: input.competitors.and_then(|v| serde_json::from_value(v).ok()),
+            similar_projects: input.similar_projects.and_then(|v| serde_json::from_value(v).ok()),
+            research_findings: input.research_findings,
+            technical_specs: input.technical_specs,
+            reference_links: input.reference_links.and_then(|v| serde_json::from_value(v).ok()),
+            ai_generated: true,
+            created_at: Utc::now(),
+        };
+        match manager.save_research(&session_id, entity).await {
+            Ok(_) => saved_sections.push("research"),
+            Err(e) => errors.push(format!("research: {}", e)),
+        }
+    }
+
+    // Return result with saved sections and any errors
+    let response = serde_json::json!({
+        "message": "Sections saved",
+        "saved": saved_sections,
+        "errors": if errors.is_empty() { None } else { Some(errors) }
+    });
+
+    ok_or_internal_error::<_, String>(Ok(response), "Failed to save sections")
+}
