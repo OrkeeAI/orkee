@@ -13,6 +13,7 @@ import { queryClient } from '@/lib/queryClient'
 import { Projects } from '@/pages/Projects'
 import { ProjectDetail } from '@/pages/ProjectDetail'
 import { Settings } from '@/pages/Settings'
+import { Templates } from '@/pages/Templates'
 import OAuthCallback from '@/pages/OAuthCallback'
 import { PopupCloseHandler } from '@/components/PopupCloseHandler'
 import { CliSetupDialog } from '@/components/CliSetupDialog'
@@ -86,6 +87,7 @@ function AppWithTelemetry() {
               <Route path="/" element={<Navigate to="/projects" replace />} />
               <Route path="/projects" element={<Projects />} />
               <Route path="/projects/:id" element={<ProjectDetail />} />
+              <Route path="/templates" element={<Templates />} />
               <Route path="/settings" element={<Settings />} />
             </Routes>
           </Layout>
