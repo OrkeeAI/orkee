@@ -89,24 +89,24 @@ async function generateStructured<T>(
   schema: ZodSchema<T>,
   systemPrompt: string = SYSTEM_PROMPT
 ): Promise<AIGenerationResult<T>> {
-  if (!config.apiKey) {
-    throw new AIGenerationError(
-      'API key is required. Please add your Anthropic API key in Settings.',
-      'NO_API_KEY'
-    );
-  }
+  // API key is not needed here - the proxy will fetch it from the database
+  // We pass a dummy key to satisfy the SDK's requirements
+  const dummyKey = 'proxy-will-handle-this';
 
   try {
-    // Call Anthropic API directly from the frontend using Vercel AI SDK
+    // Get the API base URL (defaults to http://localhost:4001)
+    const apiBaseUrl = (window as any).__ORKEE_API_URL__ || 'http://localhost:4001';
+
     const anthropic = createAnthropic({
-      apiKey: config.apiKey,
-      // Add header to allow direct browser access
+      apiKey: dummyKey,
+      baseURL: `${apiBaseUrl}/api/ai/anthropic/v1`,
+      // Add header to allow direct browser access (safe because we're using a proxy)
       headers: {
         'anthropic-dangerous-direct-browser-access': 'true',
       },
     });
 
-    console.log(`[AI Service] Calling Anthropic API directly`);
+    console.log(`[AI Service] Using proxy at: ${apiBaseUrl}/api/ai/anthropic/v1`);
 
     const model = config.model || DEFAULT_MODEL;
     const maxTokens = config.maxTokens || DEFAULT_MAX_TOKENS;
