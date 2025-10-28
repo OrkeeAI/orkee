@@ -18,16 +18,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { toast } from 'sonner';
-
-interface PRDTemplate {
-  id: string;
-  name: string;
-  description?: string;
-  content: string;
-  created_at: string;
-  updated_at?: string;
-  is_default?: boolean;
-}
+import { templatesService, type PRDTemplate } from '@/services/templates';
 
 export function Templates() {
   const [templates, setTemplates] = useState<PRDTemplate[]>([]);
@@ -49,26 +40,8 @@ export function Templates() {
   const loadTemplates = async () => {
     try {
       setIsLoading(true);
-      // TODO: Replace with actual API call when backend is ready
-      // For now, load from localStorage
-      const stored = localStorage.getItem('prd-templates');
-      if (stored) {
-        setTemplates(JSON.parse(stored));
-      } else {
-        // Initialize with example templates
-        const exampleTemplates: PRDTemplate[] = [
-          {
-            id: 'standard',
-            name: 'Standard PRD',
-            description: 'Default template for general product requirements',
-            content: '# Product Requirements Document\n\n## Overview\n\n**Problem Statement**: [Describe the problem]\n\n**Target Audience**: [Who are the users?]\n\n**Value Proposition**: [Why is this solution better?]\n\n## Core Features\n\n### Feature 1\n- **What**: [Description]\n- **Why**: [Importance]\n- **How**: [Implementation approach]\n\n## Technical Architecture\n\n[Technical details]\n\n## User Experience\n\n### Personas\n[User personas]\n\n### User Flows\n[Key user journeys]\n\n## Roadmap\n\n### MVP Scope\n[Minimum viable features]\n\n### Future Phases\n[Post-MVP features]\n\n## Risks & Mitigations\n\n[Potential risks and how to address them]\n',
-            created_at: new Date().toISOString(),
-            is_default: true,
-          },
-        ];
-        localStorage.setItem('prd-templates', JSON.stringify(exampleTemplates));
-        setTemplates(exampleTemplates);
-      }
+      const data = await templatesService.getAll();
+      setTemplates(data);
     } catch (error) {
       toast.error('Failed to load templates');
       console.error('Failed to load templates:', error);
@@ -108,9 +81,8 @@ export function Templates() {
     }
 
     try {
-      const updatedTemplates = templates.filter((t) => t.id !== template.id);
-      localStorage.setItem('prd-templates', JSON.stringify(updatedTemplates));
-      setTemplates(updatedTemplates);
+      await templatesService.delete(template.id);
+      setTemplates(templates.filter((t) => t.id !== template.id));
       toast.success('Template deleted successfully');
     } catch (error) {
       toast.error('Failed to delete template');
@@ -130,17 +102,13 @@ export function Templates() {
     }
 
     try {
-      const newTemplate: PRDTemplate = {
-        id: `template-${Date.now()}`,
+      const newTemplate = await templatesService.create({
         name: templateName.trim(),
         description: templateDescription.trim() || undefined,
         content: templateContent,
-        created_at: new Date().toISOString(),
-      };
+      });
 
-      const updatedTemplates = [...templates, newTemplate];
-      localStorage.setItem('prd-templates', JSON.stringify(updatedTemplates));
-      setTemplates(updatedTemplates);
+      setTemplates([...templates, newTemplate]);
       setShowCreateDialog(false);
       toast.success('Template created successfully');
     } catch (error) {
@@ -163,19 +131,15 @@ export function Templates() {
     }
 
     try {
-      const updatedTemplate: PRDTemplate = {
-        ...selectedTemplate,
+      const updatedTemplate = await templatesService.update(selectedTemplate.id, {
         name: templateName.trim(),
         description: templateDescription.trim() || undefined,
         content: templateContent,
-        updated_at: new Date().toISOString(),
-      };
+      });
 
-      const updatedTemplates = templates.map((t) =>
+      setTemplates(templates.map((t) =>
         t.id === selectedTemplate.id ? updatedTemplate : t
-      );
-      localStorage.setItem('prd-templates', JSON.stringify(updatedTemplates));
-      setTemplates(updatedTemplates);
+      ));
       setShowEditDialog(false);
       toast.success('Template updated successfully');
     } catch (error) {

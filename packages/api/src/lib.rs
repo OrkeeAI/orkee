@@ -29,6 +29,7 @@ pub mod response;
 pub mod security_handlers;
 pub mod spec_handlers;
 pub mod tags_handlers;
+pub mod template_handlers;
 pub mod task_spec_handlers;
 pub mod tasks_handlers;
 pub mod users_handlers;
@@ -719,5 +720,24 @@ pub fn create_graph_router() -> Router<DbState> {
         .route(
             "/{project_id}/graph/spec-mapping",
             get(graph_handlers::get_spec_mapping_graph),
+        )
+}
+
+/// Creates the templates API router for PRD output template management
+pub fn create_templates_router() -> Router<DbState> {
+    Router::new()
+        .route("/templates", get(template_handlers::list_templates))
+        .route("/templates", post(template_handlers::create_template))
+        .route(
+            "/templates/{template_id}",
+            get(template_handlers::get_template),
+        )
+        .route(
+            "/templates/{template_id}",
+            put(template_handlers::update_template),
+        )
+        .route(
+            "/templates/{template_id}",
+            delete(template_handlers::delete_template),
         )
 }
