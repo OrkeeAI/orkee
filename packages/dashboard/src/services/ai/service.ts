@@ -1,8 +1,8 @@
 // ABOUTME: AI service for generating structured PRD content using Vercel AI SDK
-// ABOUTME: Provides type-safe PRD generation with Anthropic Claude using generateObject
+// ABOUTME: Supports both non-streaming (generateObject) and streaming (streamObject) generation with Anthropic Claude
 
 import { createAnthropic } from '@ai-sdk/anthropic';
-import { generateObject } from 'ai';
+import { generateObject, streamObject } from 'ai';
 import type { ZodSchema } from 'zod';
 import {
   CompletePRDSchema,
@@ -81,7 +81,29 @@ export class AIGenerationError extends Error {
 }
 
 /**
- * Core generation function using Vercel AI SDK with direct Anthropic API calls
+ * Result of streaming AI generation
+ */
+export interface AIStreamingResult<T> {
+  partialObjectStream: AsyncIterable<DeepPartial<T>>;
+  object: Promise<T>;
+  usage: Promise<{
+    inputTokens: number;
+    outputTokens: number;
+    totalTokens: number;
+  }>;
+}
+
+/**
+ * Deep partial type for streaming results
+ */
+type DeepPartial<T> = T extends object
+  ? {
+      [P in keyof T]?: DeepPartial<T[P]>;
+    }
+  : T;
+
+/**
+ * Core generation function using Vercel AI SDK with direct Anthropic API calls (non-streaming)
  */
 async function generateStructured<T>(
   config: AIGenerationConfig,
@@ -163,6 +185,94 @@ async function generateStructured<T>(
 
     throw new AIGenerationError(
       'An unexpected error occurred during generation',
+      'API_ERROR',
+      error
+    );
+  }
+}
+
+/**
+ * Core streaming generation function using Vercel AI SDK with direct Anthropic API calls
+ */
+async function generateStreamedStructured<T>(
+  config: AIGenerationConfig,
+  prompt: string,
+  schema: ZodSchema<T>,
+  systemPrompt: string = SYSTEM_PROMPT
+): Promise<AIStreamingResult<T>> {
+  if (!config.apiKey) {
+    throw new AIGenerationError(
+      'API key is required. Please add your Anthropic API key in Settings.',
+      'NO_API_KEY'
+    );
+  }
+
+  try {
+    // Create Anthropic client for direct API calls (no proxy)
+    const anthropic = createAnthropic({
+      apiKey: config.apiKey,
+      headers: {
+        'anthropic-dangerous-direct-browser-access': 'true',
+      },
+    });
+
+    console.log(`[AI Service] Calling Anthropic API directly (streaming)`);
+
+    const model = config.model || DEFAULT_MODEL;
+    const maxTokens = config.maxTokens || DEFAULT_MAX_TOKENS;
+    const temperature = config.temperature ?? DEFAULT_TEMPERATURE;
+
+    console.log(`[AI Service] Generating with model: ${model} (streaming)`);
+    console.log(`[AI Service] Max tokens: ${maxTokens}, Temperature: ${temperature}`);
+
+    const result = streamObject({
+      model: anthropic(model),
+      schema,
+      system: systemPrompt,
+      prompt,
+      maxTokens,
+      temperature,
+    });
+
+    console.log(`[AI Service] Stream started`);
+
+    // Transform the result to match our interface
+    return {
+      partialObjectStream: result.partialObjectStream,
+      object: result.object,
+      usage: result.usage.then((usage) => ({
+        inputTokens: usage.promptTokens,
+        outputTokens: usage.completionTokens,
+        totalTokens: usage.totalTokens,
+      })),
+    };
+  } catch (error) {
+    console.error('[AI Service] Streaming generation failed:', error);
+
+    if (error instanceof Error) {
+      if (error.message.includes('API key')) {
+        throw new AIGenerationError(
+          'Invalid API key. Please check your Anthropic API key in Settings.',
+          'API_ERROR',
+          error
+        );
+      }
+      if (error.message.includes('timeout')) {
+        throw new AIGenerationError(
+          'Generation timed out. Please try again or use a faster model.',
+          'API_ERROR',
+          error
+        );
+      }
+      throw new AIGenerationError(
+        `Streaming generation failed: ${error.message}`,
+        'API_ERROR',
+        error
+      );
+    }
+
+    throw new AIGenerationError(
+      'An unexpected error occurred during streaming generation',
       'API_ERROR',
       error
     );
@@ -259,6 +369,99 @@ export class AIService {
   async generateResearch(description: string): Promise<AIGenerationResult<IdeateResearch>> {
     const prompt = researchPrompt(description);
     return generateStructured(this.config, prompt, IdeateResearchSchema);
+  }
+
+  // Streaming versions of generation methods
+
+  /**
+   * Generate complete PRD from description (streaming)
+   */
+  async generateCompletePRDStreaming(description: string): Promise<AIStreamingResult<CompletePRD>> {
+    const prompt = completePRDPrompt(description);
+    return generateStreamedStructured(this.config, prompt, CompletePRDSchema);
+  }
+
+  /**
+   * Generate overview section (streaming)
+   */
+  async generateOverviewStreaming(description: string): Promise<AIStreamingResult<IdeateOverview>> {
+    const prompt = overviewPrompt(description);
+    return generateStreamedStructured(this.config, prompt, IdeateOverviewSchema);
+  }
+
+  /**
+   * Generate features section (streaming)
+   */
+  async generateFeaturesStreaming(description: string): Promise<AIStreamingResult<IdeateFeature[]>> {
+    const prompt = featuresPrompt(description);
+    const result = await generateStreamedStructured(this.config, prompt, FeaturesResponseSchema);
+
+    // Transform the stream to extract just the features array
+    return {
+      partialObjectStream: (async function* () {
+        for await (const partial of result.partialObjectStream) {
+          if (partial && 'features' in partial && partial.features) {
+            yield partial.features;
+          }
+        }
+      })(),
+      object: result.object.then((obj) => obj.features),
+      usage: result.usage,
+    };
+  }
+
+  /**
+   * Generate UX section (streaming)
+   */
+  async generateUXStreaming(description: string): Promise<AIStreamingResult<IdeateUX>> {
+    const prompt = uxPrompt(description);
+    return generateStreamedStructured(this.config, prompt, IdeateUXSchema);
+  }
+
+  /**
+   * Generate technical architecture section (streaming)
+   */
+  async generateTechnicalStreaming(description: string): Promise<AIStreamingResult<IdeateTechnical>> {
+    const prompt = technicalPrompt(description);
+    return generateStreamedStructured(this.config, prompt, IdeateTechnicalSchema);
+  }
+
+  /**
+   * Generate roadmap section (streaming)
+   */
+  async generateRoadmapStreaming(
+    description: string,
+    features: string
+  ): Promise<AIStreamingResult<IdeateRoadmap>> {
+    const prompt = roadmapPrompt(description, features);
+    return generateStreamedStructured(this.config, prompt, IdeateRoadmapSchema);
+  }
+
+  /**
+   * Generate dependencies section (streaming)
+   */
+  async generateDependenciesStreaming(
+    description: string,
+    features: string
+  ): Promise<AIStreamingResult<IdeateDependencies>> {
+    const prompt = dependenciesPrompt(description, features);
+    return generateStreamedStructured(this.config, prompt, IdeateDependenciesSchema);
+  }
+
+  /**
+   * Generate risks section (streaming)
+   */
+  async generateRisksStreaming(description: string): Promise<AIStreamingResult<IdeateRisks>> {
+    const prompt = risksPrompt(description);
+    return generateStreamedStructured(this.config, prompt, IdeateRisksSchema);
+  }
+
+  /**
+   * Generate research section (streaming)
+   */
+  async generateResearchStreaming(description: string): Promise<AIStreamingResult<IdeateResearch>> {
+    const prompt = researchPrompt(description);
+    return generateStreamedStructured(this.config, prompt, IdeateResearchSchema);
   }
 
   /**
