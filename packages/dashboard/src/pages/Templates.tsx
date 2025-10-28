@@ -1,7 +1,7 @@
 // ABOUTME: PRD template management page
 // ABOUTME: Create, edit, and delete global PRD templates for ideation
 import { useState, useEffect } from 'react';
-import { FileText, Plus, Edit, Trash2, Eye, Download } from 'lucide-react';
+import { FileText, Plus, Edit, Trash2, Eye, Download, Star } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -114,6 +114,35 @@ export function Templates() {
     } catch (error) {
       toast.error('Failed to create template');
       console.error('Failed to create template:', error);
+    }
+  };
+
+  const handleToggleDefault = async (template: PRDTemplate) => {
+    try {
+      const updatedTemplate = await templatesService.update(template.id, {
+        is_default: !template.is_default,
+      });
+
+      // If setting as default, unset all other defaults
+      const updatedTemplates = templates.map((t) => {
+        if (t.id === template.id) {
+          return updatedTemplate;
+        } else if (updatedTemplate.is_default && t.is_default) {
+          // Unset other defaults
+          return { ...t, is_default: false };
+        }
+        return t;
+      });
+
+      setTemplates(updatedTemplates);
+      toast.success(
+        updatedTemplate.is_default
+          ? 'Set as default template'
+          : 'Removed as default template'
+      );
+    } catch (error) {
+      toast.error('Failed to update template');
+      console.error('Failed to update template:', error);
     }
   };
 
@@ -230,6 +259,14 @@ export function Templates() {
                   >
                     <Eye className="mr-2 h-4 w-4" />
                     Preview
+                  </Button>
+                  <Button
+                    variant={template.is_default ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => handleToggleDefault(template)}
+                    title={template.is_default ? "Remove as default" : "Set as default"}
+                  >
+                    <Star className={`h-4 w-4 ${template.is_default ? 'fill-current' : ''}`} />
                   </Button>
                   <Button
                     variant="outline"

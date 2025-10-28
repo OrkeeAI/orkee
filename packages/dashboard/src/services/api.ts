@@ -85,8 +85,8 @@ export class ApiClient {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      const data = await response.json();
-      return { data };
+      const json = await response.json();
+      return { data: json.data, error: json.error };
     } catch (error) {
       console.error(`API GET error for ${endpoint}:`, error);
       return {
@@ -122,8 +122,8 @@ export class ApiClient {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      const data = await response.json();
-      return { data };
+      const json = await response.json();
+      return { data: json.data, error: json.error };
     } catch (error) {
       console.error(`API POST error for ${endpoint}:`, error);
       return {
@@ -159,8 +159,8 @@ export class ApiClient {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      const data = await response.json();
-      return { data };
+      const json = await response.json();
+      return { data: json.data, error: json.error };
     } catch (error) {
       console.error(`API PUT error for ${endpoint}:`, error);
       return {
@@ -195,8 +195,8 @@ export class ApiClient {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      const data = await response.json();
-      return { data };
+      const json = await response.json();
+      return { data: json.data, error: json.error };
     } catch (error) {
       console.error(`API DELETE error for ${endpoint}:`, error);
       return {
