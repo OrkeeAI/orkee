@@ -676,12 +676,25 @@ class IdeateService {
    * Generate PRD from session description (Quick Mode)
    */
   async quickGenerate(sessionId: string, input?: QuickGenerateInput): Promise<GeneratedPRD> {
+    // Fetch API key from backend
+    let apiKey: string;
+    try {
+      console.log('[quickGenerate] Fetching API key from backend...');
+      apiKey = await usersService.getAnthropicApiKey();
+    } catch (error) {
+      throw new Error(
+        error instanceof Error
+          ? error.message
+          : 'Failed to fetch API key. Please add your Anthropic API key in Settings.'
+      );
+    }
+
     // Get the session to extract description
     const session = await this.getSession(sessionId);
 
-    // Create AI service with config (no API key needed - proxy handles it)
+    // Create AI service with fetched API key
     const aiService = createAIService({
-      apiKey: '', // Not used - proxy fetches from database
+      apiKey,
       model: input?.model || 'claude-sonnet-4-20250514',
       maxTokens: 64000,
       temperature: 0.7,
@@ -709,6 +722,23 @@ class IdeateService {
       research: JSON.stringify(result.data.research, null, 2),
     };
 
+    // Save sections to database (non-blocking error handling)
+    try {
+      console.log('[quickGenerate] Saving sections to database...');
+      await this.saveSections(sessionId, {
+        overview: result.data.overview,
+        ux: result.data.ux,
+        technical: result.data.technical,
+        roadmap: result.data.roadmap,
+        dependencies: result.data.dependencies,
+        risks: result.data.risks,
+        research: result.data.research,
+      });
+      console.log(`[quickGenerate] Sections saved to database`);
+    } catch (saveError) {
+      console.error('[quickGenerate] Failed to save sections:', saveError);
+    }
+
     // Generate complete markdown content
     const content = Object.entries(sections)
       .map(([section, data]) => `## ${section}\n\n${data}\n\n`)
@@ -720,6 +750,37 @@ class IdeateService {
       sections,
       generated_at: new Date().toISOString(),
     };
+  }
+
+  /**
+   * Save generated PRD sections to database
+   */
+  async saveSections(sessionId: string, sections: {
+    overview?: unknown;
+    ux?: unknown;
+    technical?: unknown;
+    roadmap?: unknown;
+    dependencies?: unknown;
+    risks?: unknown;
+    research?: unknown;
+  }): Promise<void> {
+    const response = await apiClient.post<{
+      success: boolean;
+      data: {
+        saved: string[];
+        errors: Record<string, string>;
+      };
+    }>(`/api/ideate/${sessionId}/save-sections`, sections);
+
+    if (response.error || !response.data?.success) {
+      throw new Error(response.error || 'Failed to save PRD sections');
+    }
+
+    if (response.data.data.errors && Object.keys(response.data.data.errors).length > 0) {
+      console.warn('[saveSections] Some sections failed to save:', response.data.data.errors);
+    }
+
+    console.log(`[saveSections] Successfully saved sections:`, response.data.data.saved);
   }
 
   /**
