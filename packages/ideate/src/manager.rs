@@ -24,7 +24,7 @@ impl IdeateManager {
         let session = sqlx::query(
             "INSERT INTO ideate_sessions (id, project_id, initial_description, mode, status, created_at, updated_at)
              VALUES ($1, $2, $3, $4, $5, $6, $7)
-             RETURNING id, project_id, initial_description, mode, status, skipped_sections, current_section, created_at, updated_at"
+             RETURNING id, project_id, initial_description, mode, status, skipped_sections, current_section, generated_prd_id, created_at, updated_at"
         )
         .bind(&id)
         .bind(&input.project_id)
@@ -46,6 +46,7 @@ impl IdeateManager {
                 .get::<Option<String>, _>("skipped_sections")
                 .and_then(|s| serde_json::from_str(&s).ok()),
             current_section: session.get("current_section"),
+            generated_prd_id: session.get("generated_prd_id"),
             created_at: session.get("created_at"),
             updated_at: session.get("updated_at"),
         })
@@ -54,7 +55,7 @@ impl IdeateManager {
     /// Get a session by ID
     pub async fn get_session(&self, session_id: &str) -> Result<IdeateSession> {
         let session = sqlx::query(
-            "SELECT id, project_id, initial_description, mode, status, skipped_sections, current_section, created_at, updated_at
+            "SELECT id, project_id, initial_description, mode, status, skipped_sections, current_section, generated_prd_id, created_at, updated_at
              FROM ideate_sessions
              WHERE id = $1"
         )
@@ -73,6 +74,7 @@ impl IdeateManager {
                 .get::<Option<String>, _>("skipped_sections")
                 .and_then(|s| serde_json::from_str(&s).ok()),
             current_section: session.get("current_section"),
+            generated_prd_id: session.get("generated_prd_id"),
             created_at: session.get("created_at"),
             updated_at: session.get("updated_at"),
         })
@@ -81,7 +83,7 @@ impl IdeateManager {
     /// List sessions for a project
     pub async fn list_sessions(&self, project_id: &str) -> Result<Vec<IdeateSession>> {
         let sessions = sqlx::query(
-            "SELECT id, project_id, initial_description, mode, status, skipped_sections, current_section, created_at, updated_at
+            "SELECT id, project_id, initial_description, mode, status, skipped_sections, current_section, generated_prd_id, created_at, updated_at
              FROM ideate_sessions
              WHERE project_id = $1
              ORDER BY created_at DESC"
@@ -103,6 +105,7 @@ impl IdeateManager {
                         .get::<Option<String>, _>("skipped_sections")
                         .and_then(|s| serde_json::from_str(&s).ok()),
                     current_section: row.get("current_section"),
+                    generated_prd_id: row.get("generated_prd_id"),
                     created_at: row.get("created_at"),
                     updated_at: row.get("updated_at"),
                 })
@@ -148,7 +151,7 @@ impl IdeateManager {
 
         let query = format!(
             "UPDATE ideate_sessions SET {} WHERE id = ${}
-             RETURNING id, project_id, initial_description, mode, status, skipped_sections, current_section, created_at, updated_at",
+             RETURNING id, project_id, initial_description, mode, status, skipped_sections, current_section, generated_prd_id, created_at, updated_at",
             updates.join(", "),
             bind_count
         );
@@ -186,6 +189,7 @@ impl IdeateManager {
                 .get::<Option<String>, _>("skipped_sections")
                 .and_then(|s| serde_json::from_str(&s).ok()),
             current_section: session.get("current_section"),
+            generated_prd_id: session.get("generated_prd_id"),
             created_at: session.get("created_at"),
             updated_at: session.get("updated_at"),
         })

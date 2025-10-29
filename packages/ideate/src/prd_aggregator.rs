@@ -220,7 +220,7 @@ impl PRDAggregator {
     /// Get session by ID
     async fn get_session(&self, session_id: &str) -> Result<IdeateSession> {
         let row = sqlx::query(
-            "SELECT id, project_id, initial_description, mode, status, skipped_sections, current_section,
+            "SELECT id, project_id, initial_description, mode, status, skipped_sections, current_section, generated_prd_id,
              created_at, updated_at FROM ideate_sessions WHERE id = ?"
         )
         .bind(session_id)
@@ -261,6 +261,7 @@ impl PRDAggregator {
                 .flatten()
                 .and_then(|s| serde_json::from_str(&s).ok()),
             current_section: row.try_get("current_section").ok(),
+            generated_prd_id: row.try_get("generated_prd_id").ok(),
             created_at: row
                 .try_get::<String, _>("created_at")
                 .ok()
