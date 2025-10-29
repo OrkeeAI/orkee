@@ -66,9 +66,9 @@ export function PRDView({ projectId, onViewSpecs }: PRDViewProps) {
     setShowModelSelection(true);
   };
 
-  const handleAnalyze = (provider: string, model: string) => {
+  const handleAnalyze = (provider: string, model: string, templateId: string) => {
     if (prdToAnalyze) {
-      console.log(`Analyzing PRD ${prdToAnalyze} with ${provider}/${model}`);
+      console.log(`Analyzing PRD ${prdToAnalyze} with ${provider}/${model}, template: ${templateId}`);
       analyzePRDMutation.mutate(
         { prdId: prdToAnalyze, provider, model },
         {

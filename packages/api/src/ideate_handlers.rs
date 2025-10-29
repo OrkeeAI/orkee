@@ -679,6 +679,7 @@ pub struct SaveSectionsRequest {
     pub dependencies: Option<DependenciesInput>,
     pub risks: Option<RisksInput>,
     pub research: Option<ResearchInput>,
+    pub template_id: Option<String>,
 }
 
 // DTOs for API input (match frontend TypeScript schemas with camelCase)
@@ -877,6 +878,24 @@ pub async fn save_sections(
         match manager.save_research(&session_id, entity).await {
             Ok(_) => saved_sections.push("research"),
             Err(e) => errors.push(format!("research: {}", e)),
+        }
+    }
+
+    // Update session with template_id if provided
+    if let Some(template_id) = request.template_id {
+        match sqlx::query("UPDATE ideate_sessions SET template_id = ? WHERE id = ?")
+            .bind(&template_id)
+            .bind(&session_id)
+            .execute(&db.pool)
+            .await
+        {
+            Ok(_) => {
+                info!("Updated session {} with template_id: {}", session_id, template_id);
+            }
+            Err(e) => {
+                tracing::warn!("Failed to update session template_id: {}", e);
+                errors.push(format!("template_id: {}", e));
+            }
         }
     }
 

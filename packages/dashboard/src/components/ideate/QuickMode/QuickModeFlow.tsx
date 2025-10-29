@@ -66,7 +66,7 @@ export function QuickModeFlow({
     setShowModelSelection(true);
   };
 
-  const handleModelConfirm = async (provider: string, model: string) => {
+  const handleModelConfirm = async (provider: string, model: string, templateId: string) => {
     setSelectedProvider(provider);
     setSelectedModel(model);
 
@@ -83,7 +83,7 @@ export function QuickModeFlow({
           console.log('[Stream Update]', partial);
           setPartialPRD(partial);
         },
-        { provider, model }
+        { provider, model, templateId }
       );
 
       // Final result received and saved to database

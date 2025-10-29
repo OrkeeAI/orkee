@@ -74,7 +74,7 @@ export function PRDUploadDialog({ projectId, open, onOpenChange, onComplete = ()
     setShowModelSelection(true);
   };
 
-  const handleAnalyze = async (provider: string, model: string) => {
+  const handleAnalyze = async (provider: string, model: string, templateId: string) => {
     if (!contentMarkdown.trim()) return;
 
     setIsAnalyzing(true);
@@ -93,12 +93,12 @@ export function PRDUploadDialog({ projectId, open, onOpenChange, onComplete = ()
 
       // TODO: Update analyze API to accept provider and model
       // For now, the backend will use environment variable or default
-      console.log(`Analyzing with ${provider}/${model}`);
-      
+      console.log(`Analyzing with ${provider}/${model}, template: ${templateId}`);
+
       const result = await analyzePRDMutation.mutateAsync(tempPRD.id);
       setAnalysisResult(result);
       setActiveTab('analysis');
-      
+
       toast.success(`PRD analyzed with ${provider}/${model}`);
     } catch (error) {
       console.error('Analysis failed:', error);

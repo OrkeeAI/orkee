@@ -4,6 +4,7 @@
 import { apiClient } from './api';
 import { usersService } from './users';
 import { createAIService } from './ai';
+import { templatesService } from './templates';
 
 export type IdeateMode = 'quick' | 'guided' | 'comprehensive';
 export type IdeateStatus = 'draft' | 'in_progress' | 'ready_for_prd' | 'completed';
@@ -52,6 +53,7 @@ export interface QuickGenerateInput {
   sections?: string[];
   provider?: string;
   model?: string;
+  templateId?: string;
 }
 
 export interface QuickExpandInput {
@@ -763,9 +765,28 @@ class IdeateService {
     }
 
     // Generate complete markdown content
-    const content = Object.entries(sections)
-      .map(([section, data]) => `## ${section}\n\n${data}\n\n`)
-      .join('');
+    let content: string;
+
+    if (input?.templateId) {
+      try {
+        console.log(`[quickGenerateStreaming] Fetching template ${input.templateId}`);
+        const template = await templatesService.getById(input.templateId);
+
+        // Apply template to format sections
+        content = applyTemplateToSections(template.content, sections);
+        console.log(`[quickGenerateStreaming] Applied template "${template.name}" to sections`);
+      } catch (error) {
+        console.error('[quickGenerateStreaming] Failed to apply template, using default formatting:', error);
+        content = Object.entries(sections)
+          .map(([section, data]) => `## ${section}\n\n${data}\n\n`)
+          .join('');
+      }
+    } else {
+      // Default formatting without template
+      content = Object.entries(sections)
+        .map(([section, data]) => `## ${section}\n\n${data}\n\n`)
+        .join('');
+    }
 
     return {
       session_id: sessionId,
@@ -866,14 +887,19 @@ class IdeateService {
     dependencies?: unknown;
     risks?: unknown;
     research?: unknown;
-  }): Promise<void> {
+  }, templateId?: string): Promise<void> {
+    const requestBody = {
+      ...sections,
+      ...(templateId && { template_id: templateId }),
+    };
+
     const response = await apiClient.post<{
       success: boolean;
       data: {
         saved: string[];
         errors: Record<string, string>;
       };
-    }>(`/api/ideate/${sessionId}/save-sections`, sections);
+    }>(`/api/ideate/${sessionId}/save-sections`, requestBody);
 
     if (response.error || !response.data?.success) {
       throw new Error(response.error || 'Failed to save PRD sections');
@@ -884,6 +910,9 @@ class IdeateService {
     }
 
     console.log(`[saveSections] Successfully saved sections:`, response.data.data.saved);
+    if (templateId) {
+      console.log(`[saveSections] Template ID saved: ${templateId}`);
+    }
   }
 
   /**
@@ -1942,6 +1971,28 @@ class IdeateService {
 
     return response.data.data;
   }
+}
+
+/**
+ * Apply template formatting to sections
+ * Replaces placeholders like {{overview}}, {{features}}, etc. with section content
+ */
+function applyTemplateToSections(
+  templateContent: string,
+  sections: Record<string, string>
+): string {
+  let formattedContent = templateContent;
+
+  // Replace each placeholder with its corresponding section content
+  for (const [sectionKey, sectionData] of Object.entries(sections)) {
+    const placeholder = `{{${sectionKey}}}`;
+    formattedContent = formattedContent.replace(
+      new RegExp(placeholder, 'g'),
+      sectionData
+    );
+  }
+
+  return formattedContent;
 }
 
 export const ideateService = new IdeateService();
