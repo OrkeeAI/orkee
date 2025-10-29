@@ -242,6 +242,50 @@ pub async fn quick_expand(
     ok_or_internal_error(result, "Failed to expand section")
 }
 
+/// Parse PRD markdown content into sections by level-2 headings
+fn parse_prd_sections(markdown: &str) -> serde_json::Map<String, serde_json::Value> {
+    let mut sections = serde_json::Map::new();
+
+    // Map of markdown heading patterns to section IDs
+    let section_patterns = [
+        ("## 1. Overview", "overview"),
+        ("## 2. Core Features", "features"),
+        ("## 3. User Experience", "ux"),
+        ("## 4. Technical Architecture", "technical"),
+        ("## 5. Development Roadmap", "roadmap"),
+        ("## 6. Logical Dependency Chain", "dependencies"),
+        ("## 7. Risks and Mitigations", "risks"),
+        ("## 8. Research & References", "appendix"),
+        ("## 8. Appendix", "appendix"), // Fallback pattern
+    ];
+
+    let lines: Vec<&str> = markdown.lines().collect();
+
+    for (pattern, section_id) in &section_patterns {
+        // Find the starting line with this pattern
+        let start_idx = lines.iter().position(|line| line.trim().starts_with(pattern));
+
+        if let Some(start) = start_idx {
+            // Find the next level-2 heading (or end of document)
+            let end_idx = lines[start + 1..]
+                .iter()
+                .position(|line| line.trim().starts_with("## "))
+                .map(|i| start + 1 + i)
+                .unwrap_or(lines.len());
+
+            // Extract content between this heading and the next (excluding the heading itself)
+            let section_lines = lines[start + 1..end_idx].to_vec();
+            let section_content = section_lines.join("\n").trim().to_string();
+
+            if !section_content.is_empty() {
+                sections.insert(section_id.to_string(), serde_json::Value::String(section_content));
+            }
+        }
+    }
+
+    sections
+}
+
 /// Get a preview of the generated PRD in markdown format
 pub async fn get_preview(
     State(db): State<DbState>,
@@ -264,10 +308,11 @@ pub async fn get_preview(
         match openspec::db::get_prd(&db.pool, prd_id).await {
             Ok(saved_prd) => {
                 info!("Successfully retrieved saved PRD: {}", prd_id);
+                let sections = parse_prd_sections(&saved_prd.content_markdown);
                 let response = serde_json::json!({
                     "markdown": saved_prd.content_markdown,
                     "content": saved_prd.content_markdown,
-                    "sections": {}
+                    "sections": sections
                 });
                 return ok_or_internal_error::<_, String>(Ok(response), "Failed to get preview");
             }
