@@ -55,7 +55,7 @@ export function ModelSelectionDialog({
 }: ModelSelectionDialogProps) {
   const [selectedProvider, setSelectedProvider] = useState(defaultProvider);
   const [selectedModel, setSelectedModel] = useState(defaultModel);
-  const [selectedTemplateId, setSelectedTemplateId] = useState<string | undefined>(defaultTemplateId);
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string>(defaultTemplateId || '');
 
   const { data: currentUser, isLoading: userLoading } = useCurrentUser();
   const { data: models, isLoading: modelsLoading } = useModels();
@@ -142,8 +142,8 @@ export function ModelSelectionDialog({
   }, [selectedProvider, availableModels, selectedModel]);
 
   const handleConfirm = () => {
-    if (!selectedTemplateId) {
-      // Should not happen as we set a default, but handle it gracefully
+    if (!selectedTemplateId || selectedTemplateId === '') {
+      // Template must be selected before confirming
       return;
     }
     onConfirm(selectedProvider, selectedModel, selectedTemplateId);
