@@ -72,10 +72,14 @@ export function GuidedModeFlow({
   const { data: status } = useIdeateStatus(sessionId);
   const navigateMutation = useNavigateToSection(sessionId);
 
-  // Initialize current section from session
+  // Initialize current section from session, or show PRDGeneratorFlow for completed sessions
   useEffect(() => {
     if (session?.current_section && SECTIONS.some(s => s.id === session.current_section)) {
       setCurrentSection(session.current_section as SectionName);
+    }
+    // For completed sessions, automatically show the PRD generator
+    if (session?.status === 'completed') {
+      setShowPRDGenerator(true);
     }
   }, [session]);
 
