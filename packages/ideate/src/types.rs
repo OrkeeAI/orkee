@@ -42,6 +42,7 @@ pub struct IdeateSession {
     pub status: IdeateStatus,
     pub skipped_sections: Option<Vec<String>>,
     pub current_section: Option<String>,
+    pub generated_prd_id: Option<String>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }

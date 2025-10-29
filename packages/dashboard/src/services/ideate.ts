@@ -1928,12 +1928,11 @@ class IdeateService {
   // ===========================================================================
 
   /**
-   * Get all available templates
+   * Get all available templates, optionally filtered by category
    */
-  async getTemplates(): Promise<PRDTemplate[]> {
-    const response = await apiClient.get<{ success: boolean; data: PRDTemplate[] }>(
-      '/api/ideate/templates'
-    );
+  async getTemplates(category?: 'quickstart' | 'output'): Promise<PRDTemplate[]> {
+    const url = category ? `/api/ideate/templates?category=${category}` : '/api/ideate/templates';
+    const response = await apiClient.get<{ success: boolean; data: PRDTemplate[] }>(url);
 
     if (response.error || !response.data.success) {
       throw new Error(response.error || 'Failed to get templates');

@@ -40,12 +40,12 @@ export function RegenerateTemplateDialog({
   const [isRegenerating, setIsRegenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Fetch available templates on mount
+  // Fetch available output templates on mount
   useEffect(() => {
     const loadTemplates = async () => {
       try {
         setIsLoading(true);
-        const data = await ideateService.getTemplates();
+        const data = await ideateService.getTemplates('output');
         setTemplates(data);
         if (data.length > 0) {
           setSelectedTemplateId(data[0].id);

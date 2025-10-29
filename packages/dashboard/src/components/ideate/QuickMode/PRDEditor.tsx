@@ -19,6 +19,7 @@ interface PRDEditorProps {
   sections: Record<string, string>;
   onSectionUpdate: (sectionId: string, content: string) => void;
   onRegenerateSection: (sectionId: string) => void;
+  onGeneratePRD: () => void;
   onSave: () => void;
   isRegenerating?: Record<string, boolean>;
 }
@@ -28,6 +29,7 @@ export function PRDEditor({
   sections,
   onSectionUpdate,
   onRegenerateSection,
+  onGeneratePRD,
   onSave,
   isRegenerating = {},
 }: PRDEditorProps) {
@@ -95,10 +97,16 @@ export function PRDEditor({
             Collapse All
           </Button>
         </div>
-        <Button onClick={onSave} className="gap-2">
-          <Save className="h-4 w-4" />
-          Save as PRD
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={onGeneratePRD} className="gap-2">
+            <RefreshCw className="h-4 w-4" />
+            Generate PRD
+          </Button>
+          <Button onClick={onSave} className="gap-2">
+            <Save className="h-4 w-4" />
+            Save
+          </Button>
+        </div>
       </div>
 
       {/* Sections */}

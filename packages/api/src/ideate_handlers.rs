@@ -14,6 +14,7 @@ use ideate::{
     CreateIdeateSessionInput, IdeateManager, IdeateMode, IdeateStatus, PRDGenerator,
     SkipSectionRequest, TemplateManager, UpdateIdeateSessionInput,
 };
+use openspec;
 use orkee_projects::DbState;
 
 // TODO: Replace with proper user authentication
@@ -257,7 +258,27 @@ pub async fn get_preview(
         }
     };
 
-    // Generate PRD
+    // If session has a saved PRD, retrieve it instead of regenerating
+    if let Some(prd_id) = &session.generated_prd_id {
+        info!("Session has saved PRD, retrieving it: {}", prd_id);
+        match openspec::db::get_prd(&db.pool, prd_id).await {
+            Ok(saved_prd) => {
+                info!("Successfully retrieved saved PRD: {}", prd_id);
+                let response = serde_json::json!({
+                    "markdown": saved_prd.content_markdown,
+                    "content": saved_prd.content_markdown,
+                    "sections": {}
+                });
+                return ok_or_internal_error::<_, String>(Ok(response), "Failed to get preview");
+            }
+            Err(e) => {
+                info!("Failed to retrieve saved PRD, will regenerate: {}", e);
+            }
+        }
+    }
+
+    // No saved PRD, generate on-demand
+    info!("No saved PRD, generating new one for session: {}", session_id);
     let generator = PRDGenerator::new(db.pool.clone());
     let prd = match generator
         .generate_complete_prd(DEFAULT_USER_ID, &session.initial_description)

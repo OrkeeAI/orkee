@@ -16,6 +16,7 @@ import { GeneratingState } from './GeneratingState';
 import { PRDEditor } from './PRDEditor';
 import { SavePreview } from './SavePreview';
 import { ModelSelectionDialog } from '@/components/ModelSelectionDialog';
+import { RegenerateTemplateDialog } from '../PRDGenerator/RegenerateTemplateDialog';
 import { useQuickExpand, useSaveAsPRD, useIdeateSession } from '@/hooks/useIdeate';
 import { ideateService } from '@/services/ideate';
 import type { GeneratedPRD } from '@/services/ideate';
@@ -45,6 +46,7 @@ export function QuickModeFlow({
   const [isGenerating, setIsGenerating] = useState(false);
   const [isRegenerating, setIsRegenerating] = useState<Record<string, boolean>>({});
   const [showModelSelection, setShowModelSelection] = useState(false);
+  const [showRegenerateDialog, setShowRegenerateDialog] = useState(false);
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [selectedProvider, setSelectedProvider] = useState<string>('');
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -54,12 +56,37 @@ export function QuickModeFlow({
   const expandMutation = useQuickExpand(projectId, sessionId);
   const saveMutation = useSaveAsPRD(projectId, sessionId);
 
-  // Initialize description from session
+  // Initialize from session: load description and check for existing PRD
   useEffect(() => {
     if (session?.initial_description) {
       setDescription(session.initial_description);
     }
-  }, [session]);
+
+    // Try to load existing PRD (for resumed sessions)
+    const loadPRD = async () => {
+      try {
+        console.log('[QuickModeFlow] Attempting to load PRD for session:', sessionId);
+        const prd = await ideateService.previewPRD(sessionId);
+        console.log('[QuickModeFlow] PRD loaded:', { hasPRD: !!prd, hasContent: !!prd?.content, hasSections: !!prd?.sections });
+        if (prd && prd.content && prd.sections) {
+          console.log('[QuickModeFlow] Setting PRD and jumping to edit step');
+          setGeneratedPRD(prd);
+          setStep('edit');
+        } else {
+          console.log('[QuickModeFlow] PRD incomplete - missing content or sections');
+        }
+      } catch (error) {
+        // No existing PRD, stay on input step
+        console.debug('[QuickModeFlow] No existing PRD found:', error instanceof Error ? error.message : error);
+      }
+    };
+
+    // Only try to load if we have a session and the description is already set
+    if (session?.initial_description) {
+      console.log('[QuickModeFlow] Session loaded with description, attempting to load PRD');
+      loadPRD();
+    }
+  }, [session, sessionId]);
 
   const handleGenerate = () => {
     // Show model selection dialog instead of directly generating
@@ -149,6 +176,10 @@ export function QuickModeFlow({
     } finally {
       setIsRegenerating((prev) => ({ ...prev, [sectionId]: false }));
     }
+  };
+
+  const handleGeneratePRD = () => {
+    setShowRegenerateDialog(true);
   };
 
   const handleSectionUpdate = (sectionId: string, content: string) => {
@@ -277,6 +308,7 @@ export function QuickModeFlow({
                   sections={generatedPRD.sections}
                   onSectionUpdate={handleSectionUpdate}
                   onRegenerateSection={handleRegenerateSection}
+                  onGeneratePRD={handleGeneratePRD}
                   onSave={handleSaveClick}
                   isRegenerating={isRegenerating}
                 />
@@ -309,6 +341,17 @@ export function QuickModeFlow({
           projectName={session?.initial_description.slice(0, 50) || 'My PRD'}
           onConfirmSave={handleConfirmSave}
           isSaving={saveMutation.isPending}
+        />
+      )}
+
+      {/* Regenerate Template Dialog */}
+      {showRegenerateDialog && (
+        <RegenerateTemplateDialog
+          sessionId={sessionId}
+          onClose={() => setShowRegenerateDialog(false)}
+          onSuccess={() => {
+            toast.success('PRD regenerated with new template!');
+          }}
         />
       )}
 
