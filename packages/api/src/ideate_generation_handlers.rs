@@ -11,6 +11,7 @@ use tracing::info;
 
 use super::response::{ok_or_internal_error, ok_or_not_found};
 use ideate::{ExportFormat, ExportOptions, PRDAggregator, PRDGenerator};
+use ideate::prd_generator::GeneratedPRD;
 use orkee_projects::DbState;
 
 // TODO: Replace with proper user authentication
@@ -371,4 +372,36 @@ pub async fn validate_prd(
     };
 
     ok_or_internal_error::<ValidationResponse, String>(Ok(response), "")
+}
+
+/// Request body for regenerating PRD with new template
+#[derive(Deserialize)]
+pub struct RegeneratePRDWithTemplateRequest {
+    #[serde(rename = "templateId")]
+    pub template_id: String,
+}
+
+/// Regenerate PRD with a different template's style/format
+pub async fn regenerate_prd_with_template(
+    State(db): State<DbState>,
+    Path(session_id): Path<String>,
+    Json(request): Json<RegeneratePRDWithTemplateRequest>,
+) -> impl IntoResponse {
+    info!(
+        "Regenerating PRD for session: {} with template: {}",
+        session_id, request.template_id
+    );
+
+    let generator = PRDGenerator::new(db.pool.clone());
+    let result = generator
+        .regenerate_with_template(DEFAULT_USER_ID, &session_id, &request.template_id)
+        .await;
+
+    match result {
+        Ok(prd) => ok_or_internal_error::<GeneratedPRD, String>(Ok(prd), ""),
+        Err(e) => ok_or_internal_error::<GeneratedPRD, _>(
+            Err(e),
+            "Failed to regenerate PRD with template",
+        ),
+    }
 }

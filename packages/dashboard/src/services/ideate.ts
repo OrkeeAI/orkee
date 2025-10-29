@@ -1832,6 +1832,22 @@ class IdeateService {
   }
 
   /**
+   * Regenerate PRD with different template
+   */
+  async regenerateWithTemplate(sessionId: string, templateId: string): Promise<unknown> {
+    const response = await apiClient.post<{ success: boolean; data: unknown }>(
+      `/api/ideate/${sessionId}/prd/regenerate-template`,
+      { templateId }
+    );
+
+    if (response.error || !response.data.success) {
+      throw new Error(response.error || 'Failed to regenerate with template');
+    }
+
+    return response.data.data;
+  }
+
+  /**
    * Get PRD preview (aggregated data)
    */
   async getPRDPreview(sessionId: string): Promise<AggregatedPRDData> {

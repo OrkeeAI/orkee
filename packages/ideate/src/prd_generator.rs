@@ -778,6 +778,107 @@ impl PRDGenerator {
 
         merged
     }
+
+    /// Regenerate PRD sections to match a different template's style/format
+    pub async fn regenerate_with_template(
+        &self,
+        user_id: &str,
+        session_id: &str,
+        template_id: &str,
+    ) -> Result<GeneratedPRD> {
+        info!(
+            "Regenerating PRD for session {} with template {}",
+            session_id, template_id
+        );
+
+        // Fetch existing session data
+        let aggregator = PRDAggregator::new(self.pool.clone());
+        let aggregated = aggregator.aggregate_session_data(session_id).await?;
+
+        // Fetch template details
+        let template = sqlx::query_as::<_, (String, String)>(
+            "SELECT id, name FROM prd_quickstart_templates WHERE id = ?",
+        )
+        .bind(template_id)
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(|e| {
+            error!("Failed to fetch template: {}", e);
+            IdeateError::Database(e)
+        })?
+        .ok_or_else(|| {
+            warn!("Template {} not found", template_id);
+            IdeateError::InvalidInput(format!("Template not found: {}", template_id))
+        })?;
+
+        let template_name = template.1;
+
+        // Get AI settings and API key
+        let settings = self.get_ai_settings().await?;
+        let api_key = self.get_user_api_key(user_id).await?;
+        let ai_service = AIService::with_api_key_and_model(api_key, settings.model.clone());
+
+        // Build context from current sections
+        let context = self.build_context_from_aggregated(&aggregated);
+
+        // Build prompt for intelligent template reformatting
+        let prompt = self.build_template_regeneration_prompt(&aggregated, &context, &template_name);
+        let system_prompt = Some(prompts::SYSTEM_PROMPT.to_string());
+
+        // Call Claude to intelligently reformat the data
+        let response: AIResponse<serde_json::Value> = ai_service
+            .generate_structured(prompt, system_prompt)
+            .await
+            .map_err(|e| {
+                error!("AI generation failed for template regeneration: {}", e);
+                IdeateError::AIService(format!("Failed to regenerate for template: {}", e))
+            })?;
+
+        // Parse the response into GeneratedPRD
+        let regenerated_prd: GeneratedPRD = serde_json::from_value(response.data).map_err(|e| {
+            error!("Failed to parse regenerated PRD: {}", e);
+            IdeateError::AIService(format!("Failed to parse regenerated PRD: {}", e))
+        })?;
+
+        info!(
+            "Successfully regenerated PRD for template {} (tokens: {})",
+            template_name,
+            response.usage.total_tokens()
+        );
+
+        Ok(regenerated_prd)
+    }
+
+    /// Build prompt for intelligent template regeneration
+    fn build_template_regeneration_prompt(
+        &self,
+        _data: &AggregatedPRDData,
+        context: &str,
+        template_name: &str,
+    ) -> String {
+        let mut prompt = String::new();
+
+        prompt.push_str("# Intelligently Reformat PRD for Different Template\n\n");
+        prompt.push_str(&format!(
+            "You are reformatting an existing Product Requirements Document to match the style and structure of the \"{}\" template.\n\n",
+            template_name
+        ));
+
+        prompt.push_str("## Current PRD Data\n");
+        prompt.push_str(context);
+        prompt.push_str("\n## Task\n");
+        prompt.push_str("Reformat and restructure the PRD data to match the target template's style:\n");
+        prompt.push_str("1. Maintain all essential information from the original PRD\n");
+        prompt.push_str("2. Reorganize content to fit the template's structure\n");
+        prompt.push_str("3. Adjust tone and emphasis to match the template's approach\n");
+        prompt.push_str("4. Fill any template-specific requirements with intelligent extrapolation from existing data\n");
+        prompt.push_str("5. Ensure consistency across all sections\n");
+        prompt.push_str("6. Preserve all technical accuracy and feature details\n\n");
+
+        prompt.push_str("Generate the reformatted PRD in the standard GeneratedPRD JSON format.\n");
+
+        prompt
+    }
 }
 
 /// Generated PRD structure
