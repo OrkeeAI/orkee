@@ -53,42 +53,35 @@ VALUES (
 
 ## Overview
 
-**Problem Statement**: [Describe the problem]
-
-**Target Audience**: [Who are the users?]
-
-**Value Proposition**: [Why is this solution better?]
+{{overview}}
 
 ## Core Features
 
-### Feature 1
-- **What**: [Description]
-- **Why**: [Importance]
-- **How**: [Implementation approach]
+{{features}}
 
 ## Technical Architecture
 
-[Technical details]
+{{technical}}
 
 ## User Experience
 
-### Personas
-[User personas]
-
-### User Flows
-[Key user journeys]
+{{ux}}
 
 ## Roadmap
 
-### MVP Scope
-[Minimum viable features]
+{{roadmap}}
 
-### Future Phases
-[Post-MVP features]
+## Dependencies & Build Order
+
+{{dependencies}}
 
 ## Risks & Mitigations
 
-[Potential risks and how to address them]
+{{risks}}
+
+## Research & Competitive Analysis
+
+{{research}}
 ',
     1
 );

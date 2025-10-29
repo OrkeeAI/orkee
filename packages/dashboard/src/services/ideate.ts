@@ -1974,8 +1974,208 @@ class IdeateService {
 }
 
 /**
+ * Format section data to readable markdown
+ */
+function formatSectionData(section: string, jsonData: string): string {
+  try {
+    const data = JSON.parse(jsonData);
+
+    switch (section) {
+      case 'overview': {
+        const lines: string[] = [];
+        if (data.problem_statement) {
+          lines.push(`**Problem**: ${data.problem_statement}`);
+        }
+        if (data.target_audience) {
+          lines.push(`**Target Audience**: ${data.target_audience}`);
+        }
+        if (data.value_proposition) {
+          lines.push(`**Value Proposition**: ${data.value_proposition}`);
+        }
+        return lines.join('\n\n');
+      }
+
+      case 'features': {
+        const lines: string[] = [];
+        if (data.features && Array.isArray(data.features)) {
+          data.features.forEach((feature: any) => {
+            lines.push(`### ${feature.name || 'Feature'}`);
+            if (feature.description) {
+              lines.push(feature.description);
+            }
+            if (feature.benefits && Array.isArray(feature.benefits)) {
+              lines.push('\n**Benefits:**');
+              feature.benefits.forEach((benefit: string) => {
+                lines.push(`- ${benefit}`);
+              });
+            }
+          });
+        }
+        return lines.join('\n\n');
+      }
+
+      case 'ux': {
+        const lines: string[] = [];
+        if (data.personas && Array.isArray(data.personas)) {
+          lines.push('### Personas');
+          data.personas.forEach((persona: any) => {
+            lines.push(`\n**${persona.name}** - ${persona.role}`);
+            if (persona.goals && Array.isArray(persona.goals)) {
+              lines.push('\nGoals:');
+              persona.goals.forEach((goal: string) => {
+                lines.push(`- ${goal}`);
+              });
+            }
+            if (persona.pain_points && Array.isArray(persona.pain_points)) {
+              lines.push('\nPain Points:');
+              persona.pain_points.forEach((point: string) => {
+                lines.push(`- ${point}`);
+              });
+            }
+          });
+        }
+        if (data.user_flows && Array.isArray(data.user_flows)) {
+          lines.push('\n\n### User Flows');
+          data.user_flows.forEach((flow: any) => {
+            lines.push(`\n**${flow.name}**`);
+            if (flow.steps && Array.isArray(flow.steps)) {
+              flow.steps.forEach((step: any) => {
+                lines.push(`- ${step.action} → ${step.screen}`);
+              });
+            }
+          });
+        }
+        if (data.ui_considerations) {
+          lines.push(`\n\n### UI Considerations\n${data.ui_considerations}`);
+        }
+        return lines.join('\n');
+      }
+
+      case 'technical': {
+        const lines: string[] = [];
+        if (data.tech_stack_quick) {
+          lines.push(`**Tech Stack**: ${data.tech_stack_quick}`);
+        }
+        if (data.components && Array.isArray(data.components)) {
+          lines.push('\n### Components');
+          data.components.forEach((comp: any) => {
+            lines.push(`\n**${comp.name}** (${comp.technology || 'TBD'})`);
+            if (comp.purpose) {
+              lines.push(`Purpose: ${comp.purpose}`);
+            }
+          });
+        }
+        if (data.infrastructure) {
+          lines.push('\n### Infrastructure');
+          if (data.infrastructure.hosting) {
+            lines.push(`- Hosting: ${data.infrastructure.hosting}`);
+          }
+          if (data.infrastructure.database) {
+            lines.push(`- Database: ${data.infrastructure.database}`);
+          }
+          if (data.infrastructure.caching) {
+            lines.push(`- Caching: ${data.infrastructure.caching}`);
+          }
+        }
+        return lines.join('\n');
+      }
+
+      case 'roadmap': {
+        const lines: string[] = [];
+        if (data.mvp_scope && Array.isArray(data.mvp_scope)) {
+          lines.push('### MVP Scope');
+          data.mvp_scope.forEach((item: string) => {
+            lines.push(`- ${item}`);
+          });
+        }
+        if (data.future_phases && Array.isArray(data.future_phases)) {
+          lines.push('\n### Future Phases');
+          data.future_phases.forEach((phase: any) => {
+            lines.push(`\n**${phase.name}**`);
+            if (phase.features && Array.isArray(phase.features)) {
+              phase.features.forEach((feature: string) => {
+                lines.push(`- ${feature}`);
+              });
+            }
+          });
+        }
+        return lines.join('\n');
+      }
+
+      case 'dependencies': {
+        const lines: string[] = [];
+        if (data.foundation_features && Array.isArray(data.foundation_features)) {
+          lines.push('### Foundation Features (Required First)');
+          data.foundation_features.forEach((feature: string) => {
+            lines.push(`- ${feature}`);
+          });
+        }
+        if (data.visible_features && Array.isArray(data.visible_features)) {
+          lines.push('\n### Visible Features (Core Functionality)');
+          data.visible_features.forEach((feature: string) => {
+            lines.push(`- ${feature}`);
+          });
+        }
+        if (data.enhancement_features && Array.isArray(data.enhancement_features)) {
+          lines.push('\n### Enhancement Features (Optional)');
+          data.enhancement_features.forEach((feature: string) => {
+            lines.push(`- ${feature}`);
+          });
+        }
+        return lines.join('\n');
+      }
+
+      case 'risks': {
+        const lines: string[] = [];
+        if (data.technical_risks && Array.isArray(data.technical_risks)) {
+          lines.push('### Technical Risks');
+          data.technical_risks.forEach((risk: any) => {
+            lines.push(`\n**${risk.description}** (${risk.severity})`);
+            lines.push(`Probability: ${risk.probability}`);
+          });
+        }
+        if (data.mitigations && Array.isArray(data.mitigations)) {
+          lines.push('\n### Mitigations');
+          data.mitigations.forEach((mitigation: any) => {
+            lines.push(`\n**Risk**: ${mitigation.risk}`);
+            lines.push(`**Strategy**: ${mitigation.strategy}`);
+          });
+        }
+        return lines.join('\n');
+      }
+
+      case 'research': {
+        const lines: string[] = [];
+        if (data.research_findings) {
+          lines.push(`**Key Findings**: ${data.research_findings}`);
+        }
+        if (data.competitors && Array.isArray(data.competitors)) {
+          lines.push('\n### Competitors');
+          data.competitors.forEach((competitor: any) => {
+            lines.push(`\n**${competitor.name}** - ${competitor.url}`);
+            if (competitor.strengths && Array.isArray(competitor.strengths)) {
+              lines.push('\nStrengths:');
+              competitor.strengths.forEach((s: string) => {
+                lines.push(`- ${s}`);
+              });
+            }
+          });
+        }
+        return lines.join('\n');
+      }
+
+      default:
+        return jsonData;
+    }
+  } catch (error) {
+    console.error(`Failed to format section data for ${section}:`, error);
+    return jsonData;
+  }
+}
+
+/**
  * Apply template formatting to sections
- * Replaces placeholders like {{overview}}, {{features}}, etc. with section content
+ * Parses JSON section data and replaces template placeholders with formatted markdown
  */
 function applyTemplateToSections(
   templateContent: string,
@@ -1983,13 +2183,20 @@ function applyTemplateToSections(
 ): string {
   let formattedContent = templateContent;
 
-  // Replace each placeholder with its corresponding section content
+  // Parse and format each section, then replace in template
   for (const [sectionKey, sectionData] of Object.entries(sections)) {
-    const placeholder = `{{${sectionKey}}}`;
+    const formattedData = formatSectionData(sectionKey, sectionData);
+
+    // Try multiple placeholder patterns for flexibility
+    // 1. {{sectionName}} pattern
+    const pattern1 = `{{${sectionKey}}}`;
     formattedContent = formattedContent.replace(
-      new RegExp(placeholder, 'g'),
-      sectionData
+      new RegExp(pattern1.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'),
+      formattedData
     );
+
+    // 2. [Description-style] patterns for human-readable placeholders
+    // These will be replaced by the formatted content already inserted above
   }
 
   return formattedContent;
