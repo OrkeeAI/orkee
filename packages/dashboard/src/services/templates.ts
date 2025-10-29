@@ -28,39 +28,39 @@ export interface UpdateTemplateInput {
 
 export const templatesService = {
   async getAll(): Promise<PRDTemplate[]> {
-    const response = await apiClient.get<PRDTemplate[]>('/api/templates');
+    const response = await apiClient.get<{ success: boolean; data: PRDTemplate[] }>('/api/templates');
     if (response.error) {
       throw new Error(response.error);
     }
-    return response.data;
+    return response.data.data;
   },
 
   async getById(id: string): Promise<PRDTemplate> {
-    const response = await apiClient.get<PRDTemplate>(`/api/templates/${id}`);
+    const response = await apiClient.get<{ success: boolean; data: PRDTemplate }>(`/api/templates/${id}`);
     if (response.error) {
       throw new Error(response.error);
     }
-    return response.data;
+    return response.data.data;
   },
 
   async create(input: CreateTemplateInput): Promise<PRDTemplate> {
-    const response = await apiClient.post<PRDTemplate>('/api/templates', input);
+    const response = await apiClient.post<{ success: boolean; data: PRDTemplate }>('/api/templates', input);
     if (response.error) {
       throw new Error(response.error);
     }
-    return response.data;
+    return response.data.data;
   },
 
   async update(id: string, input: UpdateTemplateInput): Promise<PRDTemplate> {
-    const response = await apiClient.put<PRDTemplate>(`/api/templates/${id}`, input);
+    const response = await apiClient.put<{ success: boolean; data: PRDTemplate }>(`/api/templates/${id}`, input);
     if (response.error) {
       throw new Error(response.error);
     }
-    return response.data;
+    return response.data.data;
   },
 
   async delete(id: string): Promise<void> {
-    const response = await apiClient.delete<void>(`/api/templates/${id}`);
+    const response = await apiClient.delete<{ success: boolean }>(`/api/templates/${id}`);
     if (response.error) {
       throw new Error(response.error);
     }
