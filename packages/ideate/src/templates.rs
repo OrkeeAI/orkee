@@ -23,18 +23,15 @@ impl TemplateManager {
 
     /// Get templates filtered by category (quickstart or output)
     pub async fn get_templates_by_category(&self, category: &str) -> Result<Vec<PRDTemplate>> {
-        let table_name = match category {
-            "output" => "prd_output_templates",
-            _ => "prd_quickstart_templates",
+        let query_str = match category {
+            "output" => "SELECT id, name, description, created_at
+                         FROM prd_output_templates
+                         ORDER BY name ASC".to_string(),
+            _ => "SELECT id, name, description, project_type, one_liner_prompts, default_features,
+                         default_dependencies, is_system, created_at
+                  FROM prd_quickstart_templates
+                  ORDER BY is_system DESC, name ASC".to_string(),
         };
-
-        let query_str = format!(
-            "SELECT id, name, description, project_type, one_liner_prompts, default_features,
-                    default_dependencies, is_system, created_at
-             FROM {}
-             ORDER BY is_system DESC, name ASC",
-            table_name
-        );
 
         let templates = sqlx::query(&query_str)
             .fetch_all(&self.db)
@@ -43,21 +40,50 @@ impl TemplateManager {
         templates
             .into_iter()
             .map(|row| {
+                // For output templates, we only have id, name, description, created_at
+                // For quickstart templates, we have all fields
+                let project_type = if category == "output" {
+                    None
+                } else {
+                    row.get::<Option<String>, _>("project_type")
+                };
+
+                let one_liner_prompts = if category == "output" {
+                    None
+                } else {
+                    row.get::<Option<String>, _>("one_liner_prompts")
+                        .and_then(|s| serde_json::from_str(&s).ok())
+                };
+
+                let default_features = if category == "output" {
+                    None
+                } else {
+                    row.get::<Option<String>, _>("default_features")
+                        .and_then(|s| serde_json::from_str(&s).ok())
+                };
+
+                let default_dependencies = if category == "output" {
+                    None
+                } else {
+                    row.get::<Option<String>, _>("default_dependencies")
+                        .and_then(|s| serde_json::from_str(&s).ok())
+                };
+
+                let is_system = if category == "output" {
+                    false
+                } else {
+                    row.get::<i32, _>("is_system") == 1
+                };
+
                 Ok(PRDTemplate {
                     id: row.get("id"),
                     name: row.get("name"),
                     description: row.get("description"),
-                    project_type: row.get("project_type"),
-                    one_liner_prompts: row
-                        .get::<Option<String>, _>("one_liner_prompts")
-                        .and_then(|s| serde_json::from_str(&s).ok()),
-                    default_features: row
-                        .get::<Option<String>, _>("default_features")
-                        .and_then(|s| serde_json::from_str(&s).ok()),
-                    default_dependencies: row
-                        .get::<Option<String>, _>("default_dependencies")
-                        .and_then(|s| serde_json::from_str(&s).ok()),
-                    is_system: row.get::<i32, _>("is_system") == 1,
+                    project_type,
+                    one_liner_prompts,
+                    default_features,
+                    default_dependencies,
+                    is_system,
                     created_at: row.get("created_at"),
                 })
             })
