@@ -14,6 +14,31 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 import { PRD_SECTIONS } from './SectionSelector';
 
+/**
+ * Convert section data to displayable string
+ * Handles both string and object section formats from database
+ */
+function sectionDataToString(data: string | object | undefined): string {
+  if (!data) return '';
+
+  // If it's already a string, use it
+  if (typeof data === 'string') {
+    // If it looks like JSON, try to pretty-print it
+    if (data.trim().startsWith('{') || data.trim().startsWith('[')) {
+      try {
+        const parsed = JSON.parse(data);
+        return JSON.stringify(parsed, null, 2);
+      } catch {
+        return data;
+      }
+    }
+    return data;
+  }
+
+  // If it's an object, convert to pretty JSON
+  return JSON.stringify(data, null, 2);
+}
+
 interface PRDEditorProps {
   prdContent: string;
   sections: Record<string, string>;
@@ -53,7 +78,7 @@ export function PRDEditor({
     setEditingSection(sectionId);
     setEditedContent((prev) => ({
       ...prev,
-      [sectionId]: sections[sectionId] || '',
+      [sectionId]: sectionDataToString(sections[sectionId]),
     }));
   };
 
@@ -115,7 +140,7 @@ export function PRDEditor({
           {PRD_SECTIONS.map((section) => {
             const isOpen = openSections.has(section.id);
             const isEditing = editingSection === section.id;
-            const content = sections[section.id] || '';
+            const content = sectionDataToString(sections[section.id]);
             const isRegeneratingThis = isRegenerating[section.id] || false;
 
             return (
