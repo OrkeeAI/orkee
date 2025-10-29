@@ -10,8 +10,28 @@ use tracing::{error, info};
 
 const ANTHROPIC_API_URL: &str = "https://api.anthropic.com/v1/messages";
 const DEFAULT_MODEL: &str = "claude-sonnet-4-20250514"; // Claude Sonnet 4 (May 2025)
-const DEFAULT_MAX_TOKENS: u32 = 64000;
+const DEFAULT_MAX_TOKENS: u32 = 4096;
 const DEFAULT_TEMPERATURE: f32 = 0.7;
+
+/// Calculate appropriate max_tokens for a given model
+fn get_max_tokens_for_model(model: &str) -> u32 {
+    // Claude 3 family (Opus, Sonnet, Haiku)
+    if model.contains("claude-3-opus") || model.contains("claude-3-sonnet") {
+        4096
+    } else if model.contains("claude-3-haiku") {
+        1024
+    }
+    // Claude Sonnet/Haiku 4/5
+    else if model.contains("claude-sonnet") {
+        4096
+    } else if model.contains("claude-haiku") {
+        1024
+    }
+    // Default to safe value for unknown models
+    else {
+        4096
+    }
+}
 
 #[derive(Debug, Error)]
 pub enum AIServiceError {
@@ -156,9 +176,10 @@ impl AIService {
     ) -> AIServiceResult<AIResponse<T>> {
         let api_key = self.api_key.as_ref().ok_or(AIServiceError::NoApiKey)?;
 
+        let max_tokens = get_max_tokens_for_model(&self.model);
         let request = AnthropicRequest {
             model: self.model.clone(),
-            max_tokens: DEFAULT_MAX_TOKENS,
+            max_tokens,
             temperature: DEFAULT_TEMPERATURE,
             messages: vec![Message {
                 role: "user".to_string(),
