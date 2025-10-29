@@ -31,6 +31,7 @@ import { ValidationPanel } from './ValidationPanel';
 import { ExportDialog } from './ExportDialog';
 import { GenerationHistory } from './GenerationHistory';
 import { SectionFillDialog } from './SectionFillDialog';
+import { RegenerateTemplateDialog } from './RegenerateTemplateDialog';
 import type { IdeateSession } from '@/services/ideate';
 
 interface PRDGeneratorFlowProps {
@@ -40,6 +41,7 @@ interface PRDGeneratorFlowProps {
 export function PRDGeneratorFlow({ session }: PRDGeneratorFlowProps) {
   const [showExportDialog, setShowExportDialog] = useState(false);
   const [showFillDialog, setShowFillDialog] = useState(false);
+  const [showRegenerateDialog, setShowRegenerateDialog] = useState(false);
   const [activeTab, setActiveTab] = useState('preview');
 
   // React Query hooks
@@ -156,6 +158,16 @@ export function PRDGeneratorFlow({ session }: PRDGeneratorFlowProps) {
 
             <Button
               variant="outline"
+              onClick={() => setShowRegenerateDialog(true)}
+              disabled={!preview}
+              className="gap-2"
+            >
+              <RefreshCw className="h-4 w-4" />
+              Regenerate with Template
+            </Button>
+
+            <Button
+              variant="outline"
               onClick={() => setShowExportDialog(true)}
               disabled={!preview}
               className="gap-2"
@@ -262,6 +274,16 @@ export function PRDGeneratorFlow({ session }: PRDGeneratorFlowProps) {
       </Tabs>
 
       {/* Dialogs */}
+      {showRegenerateDialog && preview && (
+        <RegenerateTemplateDialog
+          sessionId={session.id}
+          onSuccess={() => {
+            // Preview will auto-refresh via React Query
+          }}
+          onClose={() => setShowRegenerateDialog(false)}
+        />
+      )}
+
       {showExportDialog && preview && (
         <ExportDialog
           sessionId={session.id}
