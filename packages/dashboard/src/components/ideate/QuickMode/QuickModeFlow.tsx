@@ -12,7 +12,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { OneLineInput } from './OneLineInput';
-import { GeneratingState } from './GeneratingState';
+import { GenerationStatus } from './GenerationStatus';
 import { PRDEditor } from './PRDEditor';
 import { SavePreview } from './SavePreview';
 import { ModelSelectionDialog } from '@/components/ModelSelectionDialog';
@@ -287,17 +287,10 @@ export function QuickModeFlow({
 
             {/* Step: Generating */}
             {step === 'generating' && (
-              <div className="space-y-4">
-                <GeneratingState message="Generating your comprehensive PRD..." />
-                {partialPRD && (
-                  <div className="mt-4 p-4 border rounded-lg bg-muted/30">
-                    <h3 className="text-sm font-medium mb-2">Streaming Progress:</h3>
-                    <pre className="text-xs overflow-auto max-h-96 whitespace-pre-wrap">
-                      {JSON.stringify(partialPRD, null, 2)}
-                    </pre>
-                  </div>
-                )}
-              </div>
+              <GenerationStatus 
+                partialPRD={partialPRD}
+                message="Generating your comprehensive PRD..."
+              />
             )}
 
             {/* Step: Edit */}
