@@ -270,10 +270,9 @@ export function SessionsList({ projectId, onResumeSession }: SessionsListProps) 
                     size="sm"
                     className="flex-1 gap-2"
                     onClick={() => onResumeSession?.(session)}
-                    disabled={session.status === 'completed'}
                   >
                     <Play className="h-4 w-4" />
-                    {session.status === 'completed' ? 'Completed' : 'Resume'}
+                    Resume
                   </Button>
                   <Button
                     variant="outline"
