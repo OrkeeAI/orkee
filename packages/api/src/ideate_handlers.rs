@@ -901,11 +901,15 @@ pub async fn navigate_to(
 // Template Endpoints
 // ===================================
 
-/// Get all available templates
-pub async fn list_templates(State(db): State<DbState>) -> impl IntoResponse {
-    info!("Listing all PRD templates");
+/// Get all available templates (optionally filtered by category)
+pub async fn list_templates(
+    State(db): State<DbState>,
+    axum::extract::Query(params): axum::extract::Query<std::collections::HashMap<String, String>>,
+) -> impl IntoResponse {
+    let category = params.get("category").map(|s| s.as_str()).unwrap_or("quickstart");
+    info!("Listing PRD templates for category: {}", category);
     let manager = TemplateManager::new(db.pool.clone());
-    let result = manager.get_templates().await;
+    let result = manager.get_templates_by_category(category).await;
     ok_or_internal_error(result, "Failed to list templates")
 }
 

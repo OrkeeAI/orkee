@@ -16,16 +16,29 @@ impl TemplateManager {
         Self { db }
     }
 
-    /// Get all available templates
+    /// Get all available templates (default: quickstart templates)
     pub async fn get_templates(&self) -> Result<Vec<PRDTemplate>> {
-        let templates = sqlx::query(
+        self.get_templates_by_category("quickstart").await
+    }
+
+    /// Get templates filtered by category (quickstart or output)
+    pub async fn get_templates_by_category(&self, category: &str) -> Result<Vec<PRDTemplate>> {
+        let table_name = match category {
+            "output" => "prd_output_templates",
+            _ => "prd_quickstart_templates",
+        };
+
+        let query_str = format!(
             "SELECT id, name, description, project_type, one_liner_prompts, default_features,
                     default_dependencies, is_system, created_at
-             FROM prd_quickstart_templates
+             FROM {}
              ORDER BY is_system DESC, name ASC",
-        )
-        .fetch_all(&self.db)
-        .await?;
+            table_name
+        );
+
+        let templates = sqlx::query(&query_str)
+            .fetch_all(&self.db)
+            .await?;
 
         templates
             .into_iter()
