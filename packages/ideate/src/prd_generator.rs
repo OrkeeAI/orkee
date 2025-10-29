@@ -795,9 +795,9 @@ impl PRDGenerator {
         let aggregator = PRDAggregator::new(self.pool.clone());
         let aggregated = aggregator.aggregate_session_data(session_id).await?;
 
-        // Fetch template details
+        // Fetch template details from output templates (formatting templates)
         let template = sqlx::query_as::<_, (String, String)>(
-            "SELECT id, name FROM prd_quickstart_templates WHERE id = ?",
+            "SELECT id, name FROM prd_output_templates WHERE id = ?",
         )
         .bind(template_id)
         .fetch_optional(&self.pool)
