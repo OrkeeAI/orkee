@@ -11,7 +11,6 @@ use tracing::info;
 
 use super::response::{ok_or_internal_error, ok_or_not_found};
 use ideate::{ExportFormat, ExportOptions, PRDAggregator, PRDGenerator};
-use ideate::prd_generator::GeneratedPRD;
 use orkee_projects::DbState;
 
 // TODO: Replace with proper user authentication
@@ -379,6 +378,10 @@ pub async fn validate_prd(
 pub struct RegeneratePRDWithTemplateRequest {
     #[serde(rename = "templateId")]
     pub template_id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub provider: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub model: Option<String>,
 }
 
 /// Regenerate PRD with a different template's style/format
@@ -388,20 +391,76 @@ pub async fn regenerate_prd_with_template(
     Json(request): Json<RegeneratePRDWithTemplateRequest>,
 ) -> impl IntoResponse {
     info!(
-        "Regenerating PRD for session: {} with template: {}",
-        session_id, request.template_id
+        "Regenerating PRD for session: {} with template: {} (provider: {:?}, model: {:?})",
+        session_id, request.template_id, request.provider, request.model
     );
 
     let generator = PRDGenerator::new(db.pool.clone());
     let result = generator
-        .regenerate_with_template(DEFAULT_USER_ID, &session_id, &request.template_id)
+        .regenerate_with_template(
+            DEFAULT_USER_ID,
+            &session_id,
+            &request.template_id,
+            request.provider.as_deref(),
+            request.model.as_deref(),
+        )
         .await;
 
-    match result {
-        Ok(prd) => ok_or_internal_error::<GeneratedPRD, String>(Ok(prd), ""),
-        Err(e) => ok_or_internal_error::<GeneratedPRD, _>(
-            Err(e),
-            "Failed to regenerate PRD with template",
-        ),
-    }
+    let markdown = match result {
+        Ok(md) => md,
+        Err(e) => {
+            return ok_or_internal_error::<serde_json::Value, _>(
+                Err(e),
+                "Failed to regenerate PRD with template",
+            )
+        }
+    };
+
+    // Get the session to retrieve project_id and title
+    use ideate::IdeateManager;
+    let manager = IdeateManager::new(db.pool.clone());
+    let session = match manager.get_session(&session_id).await {
+        Ok(s) => s,
+        Err(e) => {
+            return ok_or_internal_error::<serde_json::Value, _>(Err(e), "Ideate session not found")
+        }
+    };
+
+    // Create PRD in OpenSpec system
+    use openspec::db::create_prd;
+    use openspec::types::{PRDSource, PRDStatus};
+
+    // Generate a title based on the template and current timestamp
+    let title = format!("{} ({})", session_id, request.template_id);
+
+    let prd = match create_prd(
+        &db.pool,
+        &session.project_id,
+        &title,
+        &markdown,
+        PRDStatus::Draft,
+        PRDSource::Generated,
+        Some(DEFAULT_USER_ID),
+    )
+    .await
+    {
+        Ok(p) => p,
+        Err(e) => {
+            return ok_or_internal_error::<serde_json::Value, _>(
+                Err(ideate::IdeateError::AIService(e.to_string())),
+                "Failed to save regenerated PRD",
+            )
+        }
+    };
+
+    // Link the PRD back to the ideate session by setting ideate_session_id
+    let _ = sqlx::query("UPDATE prds SET ideate_session_id = ? WHERE id = ?")
+        .bind(&session_id)
+        .bind(&prd.id)
+        .execute(&db.pool)
+        .await;
+
+    // Return the created PRD
+    let response = serde_json::to_value(&prd).unwrap_or_else(|_| serde_json::json!({}));
+    ok_or_internal_error::<_, String>(Ok(response), "Failed to save regenerated PRD")
 }
