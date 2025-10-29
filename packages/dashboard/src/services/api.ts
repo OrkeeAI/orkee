@@ -86,7 +86,7 @@ export class ApiClient {
       }
 
       const json = await response.json();
-      return { data: json.data, error: json.error };
+      return { data: json, error: json.error };
     } catch (error) {
       console.error(`API GET error for ${endpoint}:`, error);
       return {
@@ -123,7 +123,7 @@ export class ApiClient {
       }
 
       const json = await response.json();
-      return { data: json.data, error: json.error };
+      return { data: json, error: json.error };
     } catch (error) {
       console.error(`API POST error for ${endpoint}:`, error);
       return {
@@ -160,7 +160,7 @@ export class ApiClient {
       }
 
       const json = await response.json();
-      return { data: json.data, error: json.error };
+      return { data: json, error: json.error };
     } catch (error) {
       console.error(`API PUT error for ${endpoint}:`, error);
       return {
@@ -196,7 +196,7 @@ export class ApiClient {
       }
 
       const json = await response.json();
-      return { data: json.data, error: json.error };
+      return { data: json, error: json.error };
     } catch (error) {
       console.error(`API DELETE error for ${endpoint}:`, error);
       return {
