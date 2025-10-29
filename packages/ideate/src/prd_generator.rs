@@ -785,10 +785,12 @@ impl PRDGenerator {
         user_id: &str,
         session_id: &str,
         template_id: &str,
-    ) -> Result<GeneratedPRD> {
+        provider: Option<&str>,
+        model: Option<&str>,
+    ) -> Result<String> {
         info!(
-            "Regenerating PRD for session {} with template {}",
-            session_id, template_id
+            "Regenerating PRD for session {} with template {} (provider: {:?}, model: {:?})",
+            session_id, template_id, provider, model
         );
 
         // Fetch existing session data
@@ -813,10 +815,18 @@ impl PRDGenerator {
 
         let template_name = template.1;
 
-        // Get AI settings and API key
-        let settings = self.get_ai_settings().await?;
+        // Get API key and determine model to use
         let api_key = self.get_user_api_key(user_id).await?;
-        let ai_service = AIService::with_api_key_and_model(api_key, settings.model.clone());
+
+        // Use provided model or fall back to settings
+        let model_to_use = if let Some(m) = model {
+            m.to_string()
+        } else {
+            let settings = self.get_ai_settings().await?;
+            settings.model
+        };
+
+        let ai_service = AIService::with_api_key_and_model(api_key, model_to_use);
 
         // Build context from current sections
         let context = self.build_context_from_aggregated(&aggregated);
@@ -825,20 +835,14 @@ impl PRDGenerator {
         let prompt = self.build_template_regeneration_prompt(&aggregated, &context, &template_name);
         let system_prompt = Some(prompts::SYSTEM_PROMPT.to_string());
 
-        // Call Claude to intelligently reformat the data
-        let response: AIResponse<serde_json::Value> = ai_service
-            .generate_structured(prompt, system_prompt)
+        // Call Claude to intelligently reformat the data as markdown
+        let response = ai_service
+            .generate_text(prompt, system_prompt)
             .await
             .map_err(|e| {
                 error!("AI generation failed for template regeneration: {}", e);
                 IdeateError::AIService(format!("Failed to regenerate for template: {}", e))
             })?;
-
-        // Parse the response into GeneratedPRD
-        let regenerated_prd: GeneratedPRD = serde_json::from_value(response.data).map_err(|e| {
-            error!("Failed to parse regenerated PRD: {}", e);
-            IdeateError::AIService(format!("Failed to parse regenerated PRD: {}", e))
-        })?;
 
         info!(
             "Successfully regenerated PRD for template {} (tokens: {})",
@@ -846,7 +850,7 @@ impl PRDGenerator {
             response.usage.total_tokens()
         );
 
-        Ok(regenerated_prd)
+        Ok(response.data)
     }
 
     /// Build prompt for intelligent template regeneration
@@ -875,7 +879,7 @@ impl PRDGenerator {
         prompt.push_str("5. Ensure consistency across all sections\n");
         prompt.push_str("6. Preserve all technical accuracy and feature details\n\n");
 
-        prompt.push_str("Generate the reformatted PRD in the standard GeneratedPRD JSON format.\n");
+        prompt.push_str("Output the reformatted PRD as markdown with clear section headers and formatting. Return only the markdown content without any code blocks or JSON wrapper.\n");
 
         prompt
     }

@@ -1834,10 +1834,19 @@ class IdeateService {
   /**
    * Regenerate PRD with different template
    */
-  async regenerateWithTemplate(sessionId: string, templateId: string): Promise<unknown> {
+  async regenerateWithTemplate(
+    sessionId: string,
+    templateId: string,
+    provider?: string,
+    model?: string
+  ): Promise<unknown> {
     const response = await apiClient.post<{ success: boolean; data: unknown }>(
       `/api/ideate/${sessionId}/prd/regenerate-template`,
-      { templateId }
+      {
+        templateId,
+        ...(provider && { provider }),
+        ...(model && { model }),
+      }
     );
 
     if (response.error || !response.data.success) {
