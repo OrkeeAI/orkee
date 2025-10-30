@@ -431,6 +431,10 @@ System tray menu shows all servers with source indicators:
 - `RATE_LIMIT_BROWSE_RPM`: Directory browsing limit (default: 20/min)
 - `RATE_LIMIT_PROJECTS_RPM`: Projects API limit (default: 30/min)
 - `RATE_LIMIT_PREVIEW_RPM`: Preview operations limit (default: 10/min)
+- `RATE_LIMIT_TELEMETRY_RPM`: Telemetry tracking limit (default: 15/min)
+- `RATE_LIMIT_AI_RPM`: AI-powered operations limit (default: 10/min) - applies to `/ai/*` and `/ideate/*` endpoints
+- `RATE_LIMIT_USERS_RPM`: User management operations limit (default: 10/min)
+- `RATE_LIMIT_SECURITY_RPM`: Security operations limit (default: 10/min)
 - `RATE_LIMIT_GLOBAL_RPM`: Default limit for other endpoints (default: 30/min)
 - `RATE_LIMIT_BURST_SIZE`: Burst multiplier (default: 5)
 
