@@ -582,7 +582,7 @@ export interface PRDTemplate {
   project_type?: string;
   one_liner_prompts?: string[];
   default_features?: string[];
-  default_dependencies?: Record<string, any>;
+  default_dependencies?: Record<string, unknown>;
   default_problem_statement?: string;
   default_target_audience?: string;
   default_value_proposition?: string;
@@ -604,7 +604,7 @@ export interface CreateTemplateInput {
   project_type?: string;
   one_liner_prompts?: string[];
   default_features?: string[];
-  default_dependencies?: Record<string, any>;
+  default_dependencies?: Record<string, unknown>;
   default_problem_statement?: string;
   default_target_audience?: string;
   default_value_proposition?: string;
@@ -726,7 +726,7 @@ class IdeateService {
    */
   async quickGenerateStreaming(
     sessionId: string,
-    onPartialUpdate?: (partial: any) => void,
+    onPartialUpdate?: (partial: Record<string, unknown>) => void,
     input?: QuickGenerateInput
   ): Promise<GeneratedPRD> {
     // Fetch API key from backend
@@ -2162,7 +2162,7 @@ function formatSectionData(section: string, jsonData: string): string {
       case 'features': {
         const lines: string[] = [];
         if (data.features && Array.isArray(data.features)) {
-          data.features.forEach((feature: any) => {
+          data.features.forEach((feature: Record<string, unknown>) => {
             lines.push(`### ${feature.name || 'Feature'}`);
             if (feature.description) {
               lines.push(feature.description);
@@ -2182,7 +2182,7 @@ function formatSectionData(section: string, jsonData: string): string {
         const lines: string[] = [];
         if (data.personas && Array.isArray(data.personas)) {
           lines.push('### Personas');
-          data.personas.forEach((persona: any) => {
+          data.personas.forEach((persona: Record<string, unknown>) => {
             lines.push(`\n**${persona.name}** - ${persona.role}`);
             if (persona.goals && Array.isArray(persona.goals)) {
               lines.push('\nGoals:');
@@ -2200,10 +2200,10 @@ function formatSectionData(section: string, jsonData: string): string {
         }
         if (data.user_flows && Array.isArray(data.user_flows)) {
           lines.push('\n\n### User Flows');
-          data.user_flows.forEach((flow: any) => {
+          data.user_flows.forEach((flow: Record<string, unknown>) => {
             lines.push(`\n**${flow.name}**`);
             if (flow.steps && Array.isArray(flow.steps)) {
-              flow.steps.forEach((step: any) => {
+              flow.steps.forEach((step: Record<string, unknown>) => {
                 lines.push(`- ${step.action} → ${step.screen}`);
               });
             }
@@ -2222,7 +2222,7 @@ function formatSectionData(section: string, jsonData: string): string {
         }
         if (data.components && Array.isArray(data.components)) {
           lines.push('\n### Components');
-          data.components.forEach((comp: any) => {
+          data.components.forEach((comp: Record<string, unknown>) => {
             lines.push(`\n**${comp.name}** (${comp.technology || 'TBD'})`);
             if (comp.purpose) {
               lines.push(`Purpose: ${comp.purpose}`);
@@ -2254,7 +2254,7 @@ function formatSectionData(section: string, jsonData: string): string {
         }
         if (data.future_phases && Array.isArray(data.future_phases)) {
           lines.push('\n### Future Phases');
-          data.future_phases.forEach((phase: any) => {
+          data.future_phases.forEach((phase: Record<string, unknown>) => {
             lines.push(`\n**${phase.name}**`);
             if (phase.features && Array.isArray(phase.features)) {
               phase.features.forEach((feature: string) => {
@@ -2293,14 +2293,14 @@ function formatSectionData(section: string, jsonData: string): string {
         const lines: string[] = [];
         if (data.technical_risks && Array.isArray(data.technical_risks)) {
           lines.push('### Technical Risks');
-          data.technical_risks.forEach((risk: any) => {
+          data.technical_risks.forEach((risk: Record<string, unknown>) => {
             lines.push(`\n**${risk.description}** (${risk.severity})`);
             lines.push(`Probability: ${risk.probability}`);
           });
         }
         if (data.mitigations && Array.isArray(data.mitigations)) {
           lines.push('\n### Mitigations');
-          data.mitigations.forEach((mitigation: any) => {
+          data.mitigations.forEach((mitigation: Record<string, unknown>) => {
             lines.push(`\n**Risk**: ${mitigation.risk}`);
             lines.push(`**Strategy**: ${mitigation.strategy}`);
           });
@@ -2315,7 +2315,7 @@ function formatSectionData(section: string, jsonData: string): string {
         }
         if (data.competitors && Array.isArray(data.competitors)) {
           lines.push('\n### Competitors');
-          data.competitors.forEach((competitor: any) => {
+          data.competitors.forEach((competitor: Record<string, unknown>) => {
             lines.push(`\n**${competitor.name}** - ${competitor.url}`);
             if (competitor.strengths && Array.isArray(competitor.strengths)) {
               lines.push('\nStrengths:');
@@ -2366,95 +2366,5 @@ function applyTemplateToSections(
   return formattedContent;
 }
 
-  /**
-   * Get all quickstart templates
-   */
-  async getTemplates(): Promise<PRDTemplate[]> {
-    const response = await apiClient.get<{ success: boolean; data: PRDTemplate[] }>(
-      '/api/ideate/templates'
-    );
-
-    if (response.error || !response.data.success) {
-      throw new Error(response.error || 'Failed to get templates');
-    }
-
-    return response.data.data;
-  }
-
-  /**
-   * Get templates by project type
-   */
-  async getTemplatesByType(projectType: string): Promise<PRDTemplate[]> {
-    const response = await apiClient.get<{ success: boolean; data: PRDTemplate[] }>(
-      `/api/ideate/templates/by-type/${projectType}`
-    );
-
-    if (response.error || !response.data.success) {
-      throw new Error(response.error || 'Failed to get templates by type');
-    }
-
-    return response.data.data;
-  }
-
-  /**
-   * Get single template
-   */
-  async getTemplate(templateId: string): Promise<PRDTemplate> {
-    const response = await apiClient.get<{ success: boolean; data: PRDTemplate }>(
-      `/api/ideate/templates/${templateId}`
-    );
-
-    if (response.error || !response.data.success) {
-      throw new Error(response.error || 'Failed to get template');
-    }
-
-    return response.data.data;
-  }
-
-  /**
-   * Create new template
-   */
-  async createTemplate(input: CreateTemplateInput): Promise<PRDTemplate> {
-    const response = await apiClient.post<{ success: boolean; data: PRDTemplate }>(
-      '/api/ideate/templates',
-      input
-    );
-
-    if (response.error || !response.data.success) {
-      throw new Error(response.error || 'Failed to create template');
-    }
-
-    return response.data.data;
-  }
-
-  /**
-   * Update template
-   */
-  async updateTemplate(templateId: string, input: CreateTemplateInput): Promise<PRDTemplate> {
-    const response = await apiClient.put<{ success: boolean; data: PRDTemplate }>(
-      `/api/ideate/templates/${templateId}`,
-      input
-    );
-
-    if (response.error || !response.data.success) {
-      throw new Error(response.error || 'Failed to update template');
-    }
-
-    return response.data.data;
-  }
-
-  /**
-   * Delete template
-   */
-  async deleteTemplate(templateId: string): Promise<void> {
-    const response = await apiClient.delete<{ success: boolean }>(
-      `/api/ideate/templates/${templateId}`
-    );
-
-    if (response.error || !response.data.success) {
-      throw new Error(response.error || 'Failed to delete template');
-    }
-  }
-}
 
 export const ideateService = new IdeateService();

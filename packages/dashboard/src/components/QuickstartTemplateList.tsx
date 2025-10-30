@@ -3,7 +3,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Edit, Trash2, Copy, Lock } from 'lucide-react';
-import { toast } from 'sonner';
 
 interface QuickstartTemplateListProps {
   templates: PRDTemplate[];

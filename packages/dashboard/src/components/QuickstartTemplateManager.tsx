@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { PRDTemplate } from '@/services/ideate';
+import { PRDTemplate, CreateTemplateInput } from '@/services/ideate';
 import { useQuickstartTemplates, useCreateTemplate, useUpdateTemplate, useDeleteTemplate } from '@/hooks/useQuickstartTemplates';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -20,7 +20,7 @@ export function QuickstartTemplateManager() {
   // Initialize updateMutation with selected template ID when available
   const updateMutation = useUpdateTemplate(selectedTemplate?.id || '');
 
-  const handleCreate = async (data: any) => {
+  const handleCreate = async (data: CreateTemplateInput) => {
     try {
       await createMutation.mutateAsync(data);
       setShowCreateDialog(false);
@@ -36,7 +36,7 @@ export function QuickstartTemplateManager() {
     setShowEditDialog(true);
   };
 
-  const handleUpdate = async (data: any) => {
+  const handleUpdate = async (data: CreateTemplateInput) => {
     if (!selectedTemplate) return;
     try {
       await updateMutation.mutateAsync(data);

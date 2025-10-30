@@ -19,7 +19,7 @@ const PRD_SECTIONS = [
 ];
 
 interface GenerationStatusProps {
-  partialPRD: any;
+  partialPRD: Record<string, unknown>;
   message?: string;
 }
 

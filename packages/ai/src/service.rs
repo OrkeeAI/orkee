@@ -401,51 +401,43 @@ impl AIService {
             )));
         }
 
-        // Create a stream from the response bytes
+        // Get response text and parse as SSE stream
+        let text = response.text().await?;
+
+        // Create a stream from the response text
         let stream = async_stream::stream! {
-            use futures::StreamExt;
-            let mut byte_stream = response.bytes_stream();
-            let mut buffer = String::new();
+            let mut buffer = text.as_str();
 
-            while let Some(chunk_result) = byte_stream.next().await {
-                match chunk_result {
-                    Ok(bytes) => {
-                        let chunk_str = String::from_utf8_lossy(&bytes);
-                        buffer.push_str(&chunk_str);
+            while !buffer.is_empty() {
+                // Find next event boundary
+                if let Some(event_end) = buffer.find("\n\n") {
+                    let event = &buffer[..event_end];
+                    buffer = &buffer[event_end + 2..];
 
-                        // Process complete SSE events
-                        while let Some(event_end) = buffer.find("\n\n") {
-                            let event = buffer[..event_end].to_string();
-                            buffer = buffer[event_end + 2..].to_string();
-
-                            // Parse SSE event
-                            for line in event.lines() {
-                                if let Some(data) = line.strip_prefix("data: ") {
-                                    // Parse the JSON event
-                                    if let Ok(event_json) = serde_json::from_str::<serde_json::Value>(data) {
-                                        // Extract text delta from content_block_delta events
-                                        if event_json["type"] == "content_block_delta" {
-                                            if let Some(text) = event_json["delta"]["text"].as_str() {
-                                                yield Ok(text.to_string());
-                                            }
-                                        }
-                                        // Handle errors
-                                        else if event_json["type"] == "error" {
-                                            let error_msg = event_json["error"]["message"]
-                                                .as_str()
-                                                .unwrap_or("Unknown streaming error");
-                                            yield Err(AIServiceError::ApiError(error_msg.to_string()));
-                                            return;
-                                        }
+                    // Parse SSE event
+                    for line in event.lines() {
+                        if let Some(data) = line.strip_prefix("data: ") {
+                            // Parse the JSON event
+                            if let Ok(event_json) = serde_json::from_str::<serde_json::Value>(data) {
+                                // Extract text delta from content_block_delta events
+                                if event_json["type"] == "content_block_delta" {
+                                    if let Some(text) = event_json["delta"]["text"].as_str() {
+                                        yield Ok(text.to_string());
                                     }
+                                }
+                                // Handle errors
+                                else if event_json["type"] == "error" {
+                                    let error_msg = event_json["error"]["message"]
+                                        .as_str()
+                                        .unwrap_or("Unknown streaming error");
+                                    yield Err(AIServiceError::ApiError(error_msg.to_string()));
+                                    return;
                                 }
                             }
                         }
                     }
-                    Err(e) => {
-                        yield Err(AIServiceError::RequestFailed(e));
-                        return;
-                    }
+                } else {
+                    break;
                 }
             }
         };

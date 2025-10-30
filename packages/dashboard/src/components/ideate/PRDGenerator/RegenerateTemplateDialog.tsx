@@ -22,7 +22,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { AlertCircle, Loader2, RefreshCw, Sparkles, DollarSign, Zap, AlertTriangle, FileText, CheckCircle2 } from 'lucide-react';
+import { AlertCircle, Loader2, RefreshCw, Sparkles, DollarSign, Zap, FileText, CheckCircle2 } from 'lucide-react';
 import { ideateService } from '@/services/ideate';
 import { useCurrentUser } from '@/hooks/useUsers';
 import { useModels } from '@/hooks/useModels';

@@ -10,7 +10,6 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Alert, AlertDescription } from '@/components/ui/alert';
 import { OneLineInput } from './OneLineInput';
 import { GenerationStatus } from './GenerationStatus';
 import { PRDEditor } from './PRDEditor';
@@ -44,7 +43,7 @@ export function QuickModeFlow({
   const [step, setStep] = useState<FlowStep>('input');
   const [description, setDescription] = useState('');
   const [generatedPRD, setGeneratedPRD] = useState<GeneratedPRD | null>(null);
-  const [partialPRD, setPartialPRD] = useState<any>(null);
+  const [partialPRD, setPartialPRD] = useState<Record<string, unknown> | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isRegenerating, setIsRegenerating] = useState<Record<string, boolean>>({});
   const [showModelSelection, setShowModelSelection] = useState(skipToGenerate);

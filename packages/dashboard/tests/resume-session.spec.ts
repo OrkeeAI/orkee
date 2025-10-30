@@ -61,7 +61,7 @@ test.describe('Quick Mode Resume Session', () => {
     await page.waitForLoadState('networkidle');
 
     // Monitor API calls
-    const apiCalls: Array<{ url: string; status?: number; responseBody?: any }> = [];
+    const apiCalls: Array<{ url: string; status?: number; responseBody?: Record<string, unknown> }> = [];
 
     page.on('response', async response => {
       if (response.url().includes('/api/ideate') || response.url().includes('/preview')) {
@@ -76,7 +76,7 @@ test.describe('Quick Mode Resume Session', () => {
           if (body) {
             console.log('[API Response]', JSON.stringify(body).substring(0, 500));
           }
-        } catch (e) {
+        } catch {
           apiCalls.push({
             url: response.url(),
             status: response.status()
@@ -105,7 +105,7 @@ test.describe('Quick Mode Resume Session', () => {
     const reactState = await page.evaluate(() => {
       // Try to access React DevTools or window.__REACT_DEVTOOLS_GLOBAL_HOOK__
       return {
-        hasReactDevTools: typeof (window as any).__REACT_DEVTOOLS_GLOBAL_HOOK__ !== 'undefined',
+        hasReactDevTools: typeof (window as Record<string, unknown>).__REACT_DEVTOOLS_GLOBAL_HOOK__ !== 'undefined',
         userAgent: navigator.userAgent
       };
     });
