@@ -179,6 +179,10 @@ impl ResearchAnalyzer {
 
     /// Store competitor in cache
     async fn cache_competitor(&self, session_id: &str, competitor: &Competitor) -> Result<()> {
+        let strengths_json = serde_json::to_string(&competitor.strengths)?;
+        let gaps_json = serde_json::to_string(&competitor.gaps)?;
+        let features_json = serde_json::to_string(&competitor.features)?;
+
         sqlx::query(
             "INSERT INTO competitor_analysis_cache
              (session_id, url, name, strengths, gaps, features, created_at)
@@ -193,9 +197,9 @@ impl ResearchAnalyzer {
         .bind(session_id)
         .bind(&competitor.url)
         .bind(&competitor.name)
-        .bind(serde_json::to_string(&competitor.strengths).unwrap_or_default())
-        .bind(serde_json::to_string(&competitor.gaps).unwrap_or_default())
-        .bind(serde_json::to_string(&competitor.features).unwrap_or_default())
+        .bind(&strengths_json)
+        .bind(&gaps_json)
+        .bind(&features_json)
         .execute(&self.db)
         .await?;
 
@@ -272,11 +276,12 @@ impl ResearchAnalyzer {
         }
 
         // Update database
+        let competitors_json = serde_json::to_string(&competitors)?;
         sqlx::query(
             "UPDATE ideate_research SET competitors = ?, updated_at = datetime('now')
              WHERE session_id = ?",
         )
-        .bind(serde_json::to_string(&competitors).unwrap_or_default())
+        .bind(&competitors_json)
         .bind(session_id)
         .execute(&self.db)
         .await?;
@@ -417,11 +422,12 @@ impl ResearchAnalyzer {
         }
 
         // Update database
+        let projects_json = serde_json::to_string(&projects)?;
         sqlx::query(
             "UPDATE ideate_research SET similar_projects = ?, updated_at = datetime('now')
              WHERE session_id = ?",
         )
-        .bind(serde_json::to_string(&projects).unwrap_or_default())
+        .bind(&projects_json)
         .bind(session_id)
         .execute(&self.db)
         .await?;

@@ -1291,11 +1291,13 @@ impl IdeateManager {
             let competitors_json = template
                 .default_competitors
                 .as_ref()
-                .map(|c| serde_json::to_string(c).unwrap_or_default());
+                .map(|c| serde_json::to_string(c))
+                .transpose()?;
             let similar_projects_json = template
                 .default_similar_projects
                 .as_ref()
-                .map(|p| serde_json::to_string(p).unwrap_or_default());
+                .map(|p| serde_json::to_string(p))
+                .transpose()?;
 
             sqlx::query(
                 "INSERT INTO ideate_research (id, session_id, research_findings, technical_specs, competitors, similar_projects, reference_links, ai_generated, created_at)
@@ -1318,7 +1320,8 @@ impl IdeateManager {
             let deps_json = template
                 .default_dependencies
                 .as_ref()
-                .map(|d| serde_json::to_string(d).unwrap_or_default());
+                .map(|d| serde_json::to_string(d))
+                .transpose()?;
 
             sqlx::query(
                 "INSERT INTO ideate_dependencies (id, session_id, foundation_features, visible_features, enhancement_features, dependency_graph, ai_generated, created_at)
