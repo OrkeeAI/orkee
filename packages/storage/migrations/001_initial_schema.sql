@@ -2259,9 +2259,12 @@ CREATE INDEX idx_ideate_sessions_template ON ideate_sessions(template_id);
 -- PRD IDEATE SESSION LINK
 -- ============================================================================
 
-ALTER TABLE prds ADD COLUMN ideate_session_id TEXT;
+-- Extend prds table (created above at line 267) with ideate_session_id
+-- For initial migration, we rebuild the table to:
+-- 1. Place ideate_session_id in logical column position
+-- 2. Add foreign key constraint to ideate_sessions
+-- Note: Pattern supports future migration splitting if needed
 
--- Add foreign key constraint
 CREATE TABLE prds_new (
     id TEXT PRIMARY KEY CHECK(length(id) >= 8),
     project_id TEXT NOT NULL,
@@ -2279,24 +2282,36 @@ CREATE TABLE prds_new (
     FOREIGN KEY (ideate_session_id) REFERENCES ideate_sessions(id) ON DELETE CASCADE
 );
 
--- Migrate existing data
-INSERT INTO prds_new SELECT * FROM prds;
+-- Migrate existing data (explicitly list columns to match new table structure)
+INSERT INTO prds_new (id, project_id, ideate_session_id, title, content_markdown, version, status, source, deleted_at, created_at, updated_at, created_by)
+SELECT id, project_id, NULL, title, content_markdown, version, status, source, deleted_at, created_at, updated_at, created_by FROM prds;
 
 -- Drop old table and rename new one
 DROP TABLE prds;
 ALTER TABLE prds_new RENAME TO prds;
 
--- Recreate the index
+-- Recreate all indexes from original table (lines 282-285)
 CREATE INDEX idx_prds_project ON prds(project_id);
+CREATE INDEX idx_prds_status ON prds(status);
+CREATE INDEX idx_prds_not_deleted ON prds(id) WHERE deleted_at IS NULL;
+CREATE INDEX idx_prds_project_not_deleted ON prds(project_id, status) WHERE deleted_at IS NULL;
 
--- Add index on ideate_session_id for faster lookups
+-- Add new index on ideate_session_id for faster lookups
 CREATE INDEX idx_prds_ideate_session ON prds(ideate_session_id);
+
+-- Recreate trigger from original table (lines 287-291)
+CREATE TRIGGER prds_updated_at AFTER UPDATE ON prds
+FOR EACH ROW WHEN NEW.updated_at = OLD.updated_at
+BEGIN
+    UPDATE prds SET updated_at = datetime('now', 'utc') WHERE id = NEW.id;
+END;
 
 
 -- ============================================================================
 -- EXTEND TEMPLATES SCHEMA
 -- ============================================================================
 
+-- Extend existing prd_quickstart_templates table (created above at line 1374) with default field values
 ALTER TABLE prd_quickstart_templates ADD COLUMN default_problem_statement TEXT;
 ALTER TABLE prd_quickstart_templates ADD COLUMN default_target_audience TEXT;
 ALTER TABLE prd_quickstart_templates ADD COLUMN default_value_proposition TEXT;
