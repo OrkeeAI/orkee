@@ -41,7 +41,7 @@
     },
     "packages/dashboard": {
       "name": "@orkee/dashboard",
-      "version": "0.0.3",
+      "version": "0.0.9",
       "dependencies": {
         "@ai-sdk/anthropic": "^2.0.34",
         "@ai-sdk/openai": "^2.0.53",
@@ -74,6 +74,7 @@
         "@tauri-apps/api": "^2.8.0",
         "@tauri-apps/plugin-http": "^2.5.2",
         "@tauri-apps/plugin-shell": "^2.3.1",
+        "@xyflow/react": "^12.9.2",
         "ai": "^5.0.76",
         "class-variance-authority": "^0.7.1",
         "clsx": "^2.1.1",
@@ -129,22 +130,19 @@
     },
     "packages/ideate": {
       "name": "@orkee/ideate",
-      "version": "0.0.1",
-      "dependencies": {
-        "@xyflow/react": "^12.9.0",
-      },
+      "version": "0.0.9",
     },
     "packages/mcp-server": {
       "name": "@orkee/mcp-server",
-      "version": "0.0.1",
+      "version": "0.0.9",
     },
     "packages/projects": {
       "name": "@orkee/projects",
-      "version": "0.0.1",
+      "version": "0.0.9",
     },
     "packages/tasks": {
       "name": "@orkee/tasks",
-      "version": "0.0.1",
+      "version": "0.0.9",
       "dependencies": {
         "@ai-sdk/anthropic": "^2.0.33",
         "@ai-sdk/openai": "^2.0.53",
@@ -180,7 +178,7 @@
     },
     "packages/tui": {
       "name": "@orkee/tui",
-      "version": "0.0.1",
+      "version": "0.0.9",
     },
   },
   "packages": {
@@ -1248,9 +1246,9 @@
 
     "@xtuc/long": ["@xtuc/long@4.2.2", "", {}, "sha512-NuHqBY1PB/D8xU6s/thBgOAiAP7HOYDQ32+BFZILJ8ivkUkAHQnWfn6WhL79Owj1qmUnoN/YPhktdIoucipkAQ=="],
 
-    "@xyflow/react": ["@xyflow/react@12.9.0", "", { "dependencies": { "@xyflow/system": "0.0.71", "classcat": "^5.0.3", "zustand": "^4.4.0" }, "peerDependencies": { "react": ">=17", "react-dom": ">=17" } }, "sha512-bt37E8Wf2HQ7hHQaMSnOw4UEWQqWlNwzfgF9tjix5Fu9Pn/ph3wbexSS/wbWnTkv0vhgMVyphQLfFWIuCe59hQ=="],
+    "@xyflow/react": ["@xyflow/react@12.9.2", "", { "dependencies": { "@xyflow/system": "0.0.72", "classcat": "^5.0.3", "zustand": "^4.4.0" }, "peerDependencies": { "react": ">=17", "react-dom": ">=17" } }, "sha512-Xr+LFcysHCCoc5KRHaw+FwbqbWYxp9tWtk1mshNcqy25OAPuaKzXSdqIMNOA82TIXF/gFKo0Wgpa6PU7wUUVqw=="],
 
-    "@xyflow/system": ["@xyflow/system@0.0.71", "", { "dependencies": { "@types/d3-drag": "^3.0.7", "@types/d3-interpolate": "^3.0.4", "@types/d3-selection": "^3.0.10", "@types/d3-transition": "^3.0.8", "@types/d3-zoom": "^3.0.8", "d3-drag": "^3.0.0", "d3-interpolate": "^3.0.1", "d3-selection": "^3.0.0", "d3-zoom": "^3.0.0" } }, "sha512-O2xIK84Uv1hH8qzeY94SKsj0R1n2jXHLsX6RZnM4x1Uc4oWiVbXDFucnkbFwhnQm3IIdAxkbgd2rEDp5oTRhhQ=="],
+    "@xyflow/system": ["@xyflow/system@0.0.72", "", { "dependencies": { "@types/d3-drag": "^3.0.7", "@types/d3-interpolate": "^3.0.4", "@types/d3-selection": "^3.0.10", "@types/d3-transition": "^3.0.8", "@types/d3-zoom": "^3.0.8", "d3-drag": "^3.0.0", "d3-interpolate": "^3.0.1", "d3-selection": "^3.0.0", "d3-zoom": "^3.0.0" } }, "sha512-WBI5Aau0fXTXwxHPzceLNS6QdXggSWnGjDtj/gG669crApN8+SCmEtkBth1m7r6pStNo/5fI9McEi7Dk0ymCLA=="],
 
     "accepts": ["accepts@1.3.8", "", { "dependencies": { "mime-types": "~2.1.34", "negotiator": "0.6.3" } }, "sha512-PYAthTa2m2VKxuvSD3DPC/Gy+U+sOA1LAuT8mkmRuvw+NACSaeXEQ+NHcVF7rONl6qcaxV3Uuemwawk+7+SJLw=="],
 
