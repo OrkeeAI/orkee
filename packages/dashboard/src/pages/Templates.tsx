@@ -5,6 +5,8 @@ import { FileText, Plus, Edit, Trash2, Eye, Download, Star } from 'lucide-react'
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { QuickstartTemplateManager } from '@/components/QuickstartTemplateManager';
 import {
   Dialog,
   DialogContent,
@@ -191,18 +193,38 @@ export function Templates() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">PRD Templates</h1>
-          <p className="text-muted-foreground">
-            Manage your Product Requirement Document templates
-          </p>
-        </div>
-        <Button onClick={handleCreate}>
-          <Plus className="mr-2 h-4 w-4" />
-          Create Template
-        </Button>
+      <div>
+        <h1 className="text-3xl font-bold tracking-tight">Templates</h1>
+        <p className="text-muted-foreground">
+          Manage PRD output templates and quickstart templates for ideation
+        </p>
       </div>
+
+      <Tabs defaultValue="quickstart" className="w-full">
+        <TabsList>
+          <TabsTrigger value="quickstart">Quickstart Templates</TabsTrigger>
+          <TabsTrigger value="output">Output Templates</TabsTrigger>
+        </TabsList>
+
+        {/* Quickstart Templates Tab */}
+        <TabsContent value="quickstart" className="space-y-6">
+          <QuickstartTemplateManager />
+        </TabsContent>
+
+        {/* Output Templates Tab */}
+        <TabsContent value="output" className="space-y-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-2xl font-bold tracking-tight">Output Templates</h2>
+              <p className="text-muted-foreground">
+                Manage your Product Requirement Document output templates
+              </p>
+            </div>
+            <Button onClick={handleCreate}>
+              <Plus className="mr-2 h-4 w-4" />
+              Create Template
+            </Button>
+          </div>
 
       {isLoading ? (
         <div className="text-center py-12 text-muted-foreground">Loading templates...</div>
@@ -417,6 +439,8 @@ export function Templates() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
