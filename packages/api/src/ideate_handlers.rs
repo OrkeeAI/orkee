@@ -14,6 +14,7 @@ use ideate::{
     CreateIdeateSessionInput, IdeateManager, IdeateMode, IdeateStatus, PRDGenerator,
     SkipSectionRequest, TemplateManager, UpdateIdeateSessionInput, IdeateOverview,
     IdeateUX, IdeateTechnical, IdeateRoadmap, IdeateDependencies, IdeateRisks, IdeateResearch,
+    CreateTemplateInput,
 };
 use ideate::prd_generator::GeneratedPRD;
 use openspec;
@@ -1242,4 +1243,49 @@ pub async fn save_sections(
     });
 
     ok_or_internal_error::<_, String>(Ok(response), "Failed to save sections")
+}
+
+/// Create a new template
+pub async fn create_template(
+    State(db): State<DbState>,
+    Json(input): Json<CreateTemplateInput>,
+) -> impl IntoResponse {
+    info!("Creating new template: {}", input.name);
+    let manager = TemplateManager::new(db.pool.clone());
+    let result = manager.create_template(input).await;
+    created_or_internal_error(result, "Failed to create template")
+}
+
+/// Update an existing template
+pub async fn update_template(
+    State(db): State<DbState>,
+    Path(template_id): Path<String>,
+    Json(input): Json<CreateTemplateInput>,
+) -> impl IntoResponse {
+    info!("Updating template: {}", template_id);
+    let manager = TemplateManager::new(db.pool.clone());
+    let result = manager.update_template(&template_id, input).await;
+    ok_or_internal_error(result, "Failed to update template")
+}
+
+/// Delete a template (only user-created templates can be deleted)
+pub async fn delete_template(
+    State(db): State<DbState>,
+    Path(template_id): Path<String>,
+) -> impl IntoResponse {
+    info!("Deleting template: {}", template_id);
+    let manager = TemplateManager::new(db.pool.clone());
+    let result = manager.delete_template(&template_id).await;
+    ok_or_internal_error(result, "Failed to delete template")
+}
+
+/// Get a single template by ID
+pub async fn get_template(
+    State(db): State<DbState>,
+    Path(template_id): Path<String>,
+) -> impl IntoResponse {
+    info!("Getting template: {}", template_id);
+    let manager = TemplateManager::new(db.pool.clone());
+    let result = manager.get_template(&template_id).await;
+    ok_or_not_found(result, "Template not found")
 }

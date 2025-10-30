@@ -484,9 +484,18 @@ pub fn create_ideate_router() -> Router<DbState> {
         )
         // Phase 8: Templates routes
         .route("/ideate/templates", get(ideate_handlers::list_templates))
+        .route("/ideate/templates", post(ideate_handlers::create_template))
         .route(
             "/ideate/templates/{template_id}",
             get(ideate_handlers::get_template),
+        )
+        .route(
+            "/ideate/templates/{template_id}",
+            put(ideate_handlers::update_template),
+        )
+        .route(
+            "/ideate/templates/{template_id}",
+            delete(ideate_handlers::delete_template),
         )
         .route(
             "/ideate/templates/by-type/{project_type}",

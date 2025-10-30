@@ -28,7 +28,11 @@ impl TemplateManager {
                          FROM prd_output_templates
                          ORDER BY name ASC".to_string(),
             _ => "SELECT id, name, description, project_type, one_liner_prompts, default_features,
-                         default_dependencies, is_system, created_at
+                         default_dependencies, default_problem_statement, default_target_audience,
+                         default_value_proposition, default_ui_considerations, default_ux_principles,
+                         default_tech_stack_quick, default_mvp_scope, default_research_findings,
+                         default_technical_specs, default_competitors, default_similar_projects,
+                         is_system, created_at
                   FROM prd_quickstart_templates
                   ORDER BY is_system DESC, name ASC".to_string(),
         };
@@ -75,6 +79,27 @@ impl TemplateManager {
                     row.get::<i32, _>("is_system") == 1
                 };
 
+                let default_mvp_scope = if category == "output" {
+                    None
+                } else {
+                    row.get::<Option<String>, _>("default_mvp_scope")
+                        .and_then(|s| serde_json::from_str(&s).ok())
+                };
+
+                let default_competitors = if category == "output" {
+                    None
+                } else {
+                    row.get::<Option<String>, _>("default_competitors")
+                        .and_then(|s| serde_json::from_str(&s).ok())
+                };
+
+                let default_similar_projects = if category == "output" {
+                    None
+                } else {
+                    row.get::<Option<String>, _>("default_similar_projects")
+                        .and_then(|s| serde_json::from_str(&s).ok())
+                };
+
                 Ok(PRDTemplate {
                     id: row.get("id"),
                     name: row.get("name"),
@@ -83,6 +108,17 @@ impl TemplateManager {
                     one_liner_prompts,
                     default_features,
                     default_dependencies,
+                    default_problem_statement: if category == "output" { None } else { row.get("default_problem_statement") },
+                    default_target_audience: if category == "output" { None } else { row.get("default_target_audience") },
+                    default_value_proposition: if category == "output" { None } else { row.get("default_value_proposition") },
+                    default_ui_considerations: if category == "output" { None } else { row.get("default_ui_considerations") },
+                    default_ux_principles: if category == "output" { None } else { row.get("default_ux_principles") },
+                    default_tech_stack_quick: if category == "output" { None } else { row.get("default_tech_stack_quick") },
+                    default_mvp_scope,
+                    default_research_findings: if category == "output" { None } else { row.get("default_research_findings") },
+                    default_technical_specs: if category == "output" { None } else { row.get("default_technical_specs") },
+                    default_competitors,
+                    default_similar_projects,
                     is_system,
                     created_at: row.get("created_at"),
                 })
@@ -94,7 +130,11 @@ impl TemplateManager {
     pub async fn get_template(&self, template_id: &str) -> Result<PRDTemplate> {
         let template = sqlx::query(
             "SELECT id, name, description, project_type, one_liner_prompts, default_features,
-                    default_dependencies, is_system, created_at
+                    default_dependencies, default_problem_statement, default_target_audience,
+                    default_value_proposition, default_ui_considerations, default_ux_principles,
+                    default_tech_stack_quick, default_mvp_scope, default_research_findings,
+                    default_technical_specs, default_competitors, default_similar_projects,
+                    is_system, created_at
              FROM prd_quickstart_templates
              WHERE id = $1",
         )
@@ -116,6 +156,23 @@ impl TemplateManager {
                 .and_then(|s| serde_json::from_str(&s).ok()),
             default_dependencies: template
                 .get::<Option<String>, _>("default_dependencies")
+                .and_then(|s| serde_json::from_str(&s).ok()),
+            default_problem_statement: template.get("default_problem_statement"),
+            default_target_audience: template.get("default_target_audience"),
+            default_value_proposition: template.get("default_value_proposition"),
+            default_ui_considerations: template.get("default_ui_considerations"),
+            default_ux_principles: template.get("default_ux_principles"),
+            default_tech_stack_quick: template.get("default_tech_stack_quick"),
+            default_mvp_scope: template
+                .get::<Option<String>, _>("default_mvp_scope")
+                .and_then(|s| serde_json::from_str(&s).ok()),
+            default_research_findings: template.get("default_research_findings"),
+            default_technical_specs: template.get("default_technical_specs"),
+            default_competitors: template
+                .get::<Option<String>, _>("default_competitors")
+                .and_then(|s| serde_json::from_str(&s).ok()),
+            default_similar_projects: template
+                .get::<Option<String>, _>("default_similar_projects")
                 .and_then(|s| serde_json::from_str(&s).ok()),
             is_system: template.get::<i32, _>("is_system") == 1,
             created_at: template.get("created_at"),
@@ -139,14 +196,34 @@ impl TemplateManager {
             .default_dependencies
             .as_ref()
             .map(|v| serde_json::to_string(v).unwrap());
+        let default_mvp_scope_json = input
+            .default_mvp_scope
+            .as_ref()
+            .map(|v| serde_json::to_string(v).unwrap());
+        let default_competitors_json = input
+            .default_competitors
+            .as_ref()
+            .map(|v| serde_json::to_string(v).unwrap());
+        let default_similar_projects_json = input
+            .default_similar_projects
+            .as_ref()
+            .map(|v| serde_json::to_string(v).unwrap());
 
         let template = sqlx::query(
             "INSERT INTO prd_quickstart_templates
              (id, name, description, project_type, one_liner_prompts, default_features,
-              default_dependencies, is_system, created_at)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, 0, $8)
+              default_dependencies, default_problem_statement, default_target_audience,
+              default_value_proposition, default_ui_considerations, default_ux_principles,
+              default_tech_stack_quick, default_mvp_scope, default_research_findings,
+              default_technical_specs, default_competitors, default_similar_projects,
+              is_system, created_at)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, 0, $19)
              RETURNING id, name, description, project_type, one_liner_prompts, default_features,
-                       default_dependencies, is_system, created_at",
+                       default_dependencies, default_problem_statement, default_target_audience,
+                       default_value_proposition, default_ui_considerations, default_ux_principles,
+                       default_tech_stack_quick, default_mvp_scope, default_research_findings,
+                       default_technical_specs, default_competitors, default_similar_projects,
+                       is_system, created_at",
         )
         .bind(&id)
         .bind(&input.name)
@@ -155,6 +232,17 @@ impl TemplateManager {
         .bind(&one_liner_prompts_json)
         .bind(&default_features_json)
         .bind(&default_dependencies_json)
+        .bind(&input.default_problem_statement)
+        .bind(&input.default_target_audience)
+        .bind(&input.default_value_proposition)
+        .bind(&input.default_ui_considerations)
+        .bind(&input.default_ux_principles)
+        .bind(&input.default_tech_stack_quick)
+        .bind(&default_mvp_scope_json)
+        .bind(&input.default_research_findings)
+        .bind(&input.default_technical_specs)
+        .bind(&default_competitors_json)
+        .bind(&default_similar_projects_json)
         .bind(now)
         .fetch_one(&self.db)
         .await?;
@@ -172,6 +260,137 @@ impl TemplateManager {
                 .and_then(|s| serde_json::from_str(&s).ok()),
             default_dependencies: template
                 .get::<Option<String>, _>("default_dependencies")
+                .and_then(|s| serde_json::from_str(&s).ok()),
+            default_problem_statement: template.get("default_problem_statement"),
+            default_target_audience: template.get("default_target_audience"),
+            default_value_proposition: template.get("default_value_proposition"),
+            default_ui_considerations: template.get("default_ui_considerations"),
+            default_ux_principles: template.get("default_ux_principles"),
+            default_tech_stack_quick: template.get("default_tech_stack_quick"),
+            default_mvp_scope: template
+                .get::<Option<String>, _>("default_mvp_scope")
+                .and_then(|s| serde_json::from_str(&s).ok()),
+            default_research_findings: template.get("default_research_findings"),
+            default_technical_specs: template.get("default_technical_specs"),
+            default_competitors: template
+                .get::<Option<String>, _>("default_competitors")
+                .and_then(|s| serde_json::from_str(&s).ok()),
+            default_similar_projects: template
+                .get::<Option<String>, _>("default_similar_projects")
+                .and_then(|s| serde_json::from_str(&s).ok()),
+            is_system: template.get::<i32, _>("is_system") == 1,
+            created_at: template.get("created_at"),
+        })
+    }
+
+    /// Update a template (only user-created templates can be updated)
+    pub async fn update_template(&self, template_id: &str, input: CreateTemplateInput) -> Result<PRDTemplate> {
+        // Check if template exists and is not a system template
+        let existing = sqlx::query("SELECT is_system FROM prd_quickstart_templates WHERE id = $1")
+            .bind(template_id)
+            .fetch_optional(&self.db)
+            .await?
+            .ok_or_else(|| IdeateError::TemplateNotFound(template_id.to_string()))?;
+
+        if existing.get::<i32, _>("is_system") == 1 {
+            return Err(IdeateError::Forbidden(
+                "Cannot update system template".to_string(),
+            ));
+        }
+
+        let one_liner_prompts_json = input
+            .one_liner_prompts
+            .as_ref()
+            .map(|v| serde_json::to_string(v).unwrap());
+        let default_features_json = input
+            .default_features
+            .as_ref()
+            .map(|v| serde_json::to_string(v).unwrap());
+        let default_dependencies_json = input
+            .default_dependencies
+            .as_ref()
+            .map(|v| serde_json::to_string(v).unwrap());
+        let default_mvp_scope_json = input
+            .default_mvp_scope
+            .as_ref()
+            .map(|v| serde_json::to_string(v).unwrap());
+        let default_competitors_json = input
+            .default_competitors
+            .as_ref()
+            .map(|v| serde_json::to_string(v).unwrap());
+        let default_similar_projects_json = input
+            .default_similar_projects
+            .as_ref()
+            .map(|v| serde_json::to_string(v).unwrap());
+
+        let template = sqlx::query(
+            "UPDATE prd_quickstart_templates
+             SET name = $1, description = $2, project_type = $3, one_liner_prompts = $4,
+                 default_features = $5, default_dependencies = $6, default_problem_statement = $7,
+                 default_target_audience = $8, default_value_proposition = $9,
+                 default_ui_considerations = $10, default_ux_principles = $11,
+                 default_tech_stack_quick = $12, default_mvp_scope = $13,
+                 default_research_findings = $14, default_technical_specs = $15,
+                 default_competitors = $16, default_similar_projects = $17
+             WHERE id = $18
+             RETURNING id, name, description, project_type, one_liner_prompts, default_features,
+                       default_dependencies, default_problem_statement, default_target_audience,
+                       default_value_proposition, default_ui_considerations, default_ux_principles,
+                       default_tech_stack_quick, default_mvp_scope, default_research_findings,
+                       default_technical_specs, default_competitors, default_similar_projects,
+                       is_system, created_at",
+        )
+        .bind(&input.name)
+        .bind(&input.description)
+        .bind(&input.project_type)
+        .bind(&one_liner_prompts_json)
+        .bind(&default_features_json)
+        .bind(&default_dependencies_json)
+        .bind(&input.default_problem_statement)
+        .bind(&input.default_target_audience)
+        .bind(&input.default_value_proposition)
+        .bind(&input.default_ui_considerations)
+        .bind(&input.default_ux_principles)
+        .bind(&input.default_tech_stack_quick)
+        .bind(&default_mvp_scope_json)
+        .bind(&input.default_research_findings)
+        .bind(&input.default_technical_specs)
+        .bind(&default_competitors_json)
+        .bind(&default_similar_projects_json)
+        .bind(template_id)
+        .fetch_one(&self.db)
+        .await?;
+
+        Ok(PRDTemplate {
+            id: template.get("id"),
+            name: template.get("name"),
+            description: template.get("description"),
+            project_type: template.get("project_type"),
+            one_liner_prompts: template
+                .get::<Option<String>, _>("one_liner_prompts")
+                .and_then(|s| serde_json::from_str(&s).ok()),
+            default_features: template
+                .get::<Option<String>, _>("default_features")
+                .and_then(|s| serde_json::from_str(&s).ok()),
+            default_dependencies: template
+                .get::<Option<String>, _>("default_dependencies")
+                .and_then(|s| serde_json::from_str(&s).ok()),
+            default_problem_statement: template.get("default_problem_statement"),
+            default_target_audience: template.get("default_target_audience"),
+            default_value_proposition: template.get("default_value_proposition"),
+            default_ui_considerations: template.get("default_ui_considerations"),
+            default_ux_principles: template.get("default_ux_principles"),
+            default_tech_stack_quick: template.get("default_tech_stack_quick"),
+            default_mvp_scope: template
+                .get::<Option<String>, _>("default_mvp_scope")
+                .and_then(|s| serde_json::from_str(&s).ok()),
+            default_research_findings: template.get("default_research_findings"),
+            default_technical_specs: template.get("default_technical_specs"),
+            default_competitors: template
+                .get::<Option<String>, _>("default_competitors")
+                .and_then(|s| serde_json::from_str(&s).ok()),
+            default_similar_projects: template
+                .get::<Option<String>, _>("default_similar_projects")
                 .and_then(|s| serde_json::from_str(&s).ok()),
             is_system: template.get::<i32, _>("is_system") == 1,
             created_at: template.get("created_at"),

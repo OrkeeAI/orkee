@@ -1209,4 +1209,125 @@ impl IdeateManager {
                 .await?;
         Ok(count > 0)
     }
+
+    /// Apply template defaults to a session, creating sections with template data
+    pub async fn apply_template_to_session(&self, session_id: &str, template: &PRDTemplate) -> Result<()> {
+        let now = Utc::now();
+
+        // Overview section
+        if template.default_problem_statement.is_some()
+            || template.default_target_audience.is_some()
+            || template.default_value_proposition.is_some()
+        {
+            sqlx::query(
+                "INSERT INTO ideate_overview (id, session_id, problem_statement, target_audience, value_proposition, one_line_pitch, ai_generated, created_at)
+                 VALUES ($1, $2, $3, $4, $5, NULL, 1, $6)"
+            )
+            .bind(nanoid::nanoid!(8))
+            .bind(session_id)
+            .bind(&template.default_problem_statement)
+            .bind(&template.default_target_audience)
+            .bind(&template.default_value_proposition)
+            .bind(now)
+            .execute(&self.db)
+            .await?;
+        }
+
+        // UX section
+        if template.default_ui_considerations.is_some() || template.default_ux_principles.is_some() {
+            sqlx::query(
+                "INSERT INTO ideate_ux (id, session_id, ui_considerations, ux_principles, personas, user_flows, ai_generated, created_at)
+                 VALUES ($1, $2, $3, $4, NULL, NULL, 1, $5)"
+            )
+            .bind(nanoid::nanoid!(8))
+            .bind(session_id)
+            .bind(&template.default_ui_considerations)
+            .bind(&template.default_ux_principles)
+            .bind(now)
+            .execute(&self.db)
+            .await?;
+        }
+
+        // Technical section
+        if template.default_tech_stack_quick.is_some() {
+            sqlx::query(
+                "INSERT INTO ideate_technical (id, session_id, tech_stack_quick, components, data_models, apis, infrastructure, ai_generated, created_at)
+                 VALUES ($1, $2, $3, NULL, NULL, NULL, NULL, 1, $4)"
+            )
+            .bind(nanoid::nanoid!(8))
+            .bind(session_id)
+            .bind(&template.default_tech_stack_quick)
+            .bind(now)
+            .execute(&self.db)
+            .await?;
+        }
+
+        // Roadmap section
+        if let Some(mvp_scope) = &template.default_mvp_scope {
+            let mvp_scope_json = serde_json::to_string(mvp_scope)?;
+            sqlx::query(
+                "INSERT INTO ideate_roadmap (id, session_id, mvp_scope, future_phases, ai_generated, created_at)
+                 VALUES ($1, $2, $3, NULL, 1, $4)"
+            )
+            .bind(nanoid::nanoid!(8))
+            .bind(session_id)
+            .bind(&mvp_scope_json)
+            .bind(now)
+            .execute(&self.db)
+            .await?;
+        }
+
+        // Research section
+        if template.default_research_findings.is_some()
+            || template.default_technical_specs.is_some()
+            || template.default_competitors.is_some()
+            || template.default_similar_projects.is_some()
+        {
+            let competitors_json = template
+                .default_competitors
+                .as_ref()
+                .map(|c| serde_json::to_string(c).unwrap_or_default());
+            let similar_projects_json = template
+                .default_similar_projects
+                .as_ref()
+                .map(|p| serde_json::to_string(p).unwrap_or_default());
+
+            sqlx::query(
+                "INSERT INTO ideate_research (id, session_id, research_findings, technical_specs, competitors, similar_projects, reference_links, ai_generated, created_at)
+                 VALUES ($1, $2, $3, $4, $5, $6, NULL, 1, $7)"
+            )
+            .bind(nanoid::nanoid!(8))
+            .bind(session_id)
+            .bind(&template.default_research_findings)
+            .bind(&template.default_technical_specs)
+            .bind(&competitors_json)
+            .bind(&similar_projects_json)
+            .bind(now)
+            .execute(&self.db)
+            .await?;
+        }
+
+        // Dependencies section (existing logic for features)
+        if let Some(features) = &template.default_features {
+            let features_json = serde_json::to_string(features)?;
+            let deps_json = template
+                .default_dependencies
+                .as_ref()
+                .map(|d| serde_json::to_string(d).unwrap_or_default());
+
+            sqlx::query(
+                "INSERT INTO ideate_dependencies (id, session_id, foundation_features, visible_features, enhancement_features, dependency_graph, ai_generated, created_at)
+                 VALUES ($1, $2, $3, NULL, NULL, $4, 1, $5)"
+            )
+            .bind(nanoid::nanoid!(8))
+            .bind(session_id)
+            .bind(&features_json)
+            .bind(&deps_json)
+            .bind(now)
+            .execute(&self.db)
+            .await?;
+        }
+
+        Ok(())
+    }
 }

@@ -365,6 +365,22 @@ pub struct PRDTemplate {
     pub one_liner_prompts: Option<Vec<String>>,
     pub default_features: Option<Vec<String>>,
     pub default_dependencies: Option<serde_json::Value>,
+    // Overview section defaults
+    pub default_problem_statement: Option<String>,
+    pub default_target_audience: Option<String>,
+    pub default_value_proposition: Option<String>,
+    // UX section defaults
+    pub default_ui_considerations: Option<String>,
+    pub default_ux_principles: Option<String>,
+    // Technical section defaults
+    pub default_tech_stack_quick: Option<String>,
+    // Roadmap section defaults
+    pub default_mvp_scope: Option<Vec<String>>,
+    // Research section defaults
+    pub default_research_findings: Option<String>,
+    pub default_technical_specs: Option<String>,
+    pub default_competitors: Option<Vec<String>>,
+    pub default_similar_projects: Option<Vec<String>>,
     pub is_system: bool,
     pub created_at: DateTime<Utc>,
 }
@@ -378,4 +394,20 @@ pub struct CreateTemplateInput {
     pub one_liner_prompts: Option<Vec<String>>,
     pub default_features: Option<Vec<String>>,
     pub default_dependencies: Option<serde_json::Value>,
+    // Overview section defaults
+    pub default_problem_statement: Option<String>,
+    pub default_target_audience: Option<String>,
+    pub default_value_proposition: Option<String>,
+    // UX section defaults
+    pub default_ui_considerations: Option<String>,
+    pub default_ux_principles: Option<String>,
+    // Technical section defaults
+    pub default_tech_stack_quick: Option<String>,
+    // Roadmap section defaults
+    pub default_mvp_scope: Option<Vec<String>>,
+    // Research section defaults
+    pub default_research_findings: Option<String>,
+    pub default_technical_specs: Option<String>,
+    pub default_competitors: Option<Vec<String>>,
+    pub default_similar_projects: Option<Vec<String>>,
 }
