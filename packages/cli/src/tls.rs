@@ -6,8 +6,8 @@ use std::time::Duration;
 
 use axum_server::tls_rustls::RustlsConfig;
 use rcgen::{Certificate as RcgenCertificate, CertificateParams, DistinguishedName};
-use rustls::ServerConfig;
 use rustls::pki_types::{CertificateDer, PrivateKeyDer};
+use rustls::ServerConfig;
 use rustls_pemfile::{certs, pkcs8_private_keys};
 use thiserror::Error;
 use tracing::{debug, error, info, warn};
@@ -224,8 +224,8 @@ impl TlsManager {
         let cert_file = fs::File::open(&self.config.cert_path)?;
         let mut cert_reader = BufReader::new(cert_file);
         let cert_results: Result<Vec<_>, _> = certs(&mut cert_reader).collect();
-        let cert_chain: Vec<CertificateDer> = cert_results
-            .map_err(|e| TlsError::InvalidCertificate(e.to_string()))?;
+        let cert_chain: Vec<CertificateDer> =
+            cert_results.map_err(|e| TlsError::InvalidCertificate(e.to_string()))?;
 
         if cert_chain.is_empty() {
             return Err(TlsError::InvalidCertificate(
