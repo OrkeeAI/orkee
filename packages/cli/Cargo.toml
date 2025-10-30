@@ -15,7 +15,7 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 futures = "0.3"
 reqwest = { version = "0.12", features = ["json", "native-tls-vendored"] }
-tower = { version = "0.4", features = ["limit", "util", "timeout"] }
+tower = { version = "0.5", features = ["limit", "util", "timeout"] }
 governor = "0.6"
 dotenvy = "0.15"
 tracing = "0.1"
@@ -48,9 +48,9 @@ indicatif = "0.17"
 dirs = "5.0"
 sha2 = "0.10"
 # TLS dependencies
-axum-server = { version = "0.6", features = ["tls-rustls"] }
-rustls = "0.21"
-rustls-pemfile = "1.0"
+axum-server = { version = "0.7", features = ["tls-rustls"] }
+rustls = "0.23"
+rustls-pemfile = "2.1"
 rcgen = "0.12"
 # Port discovery
 portpicker = "0.1"

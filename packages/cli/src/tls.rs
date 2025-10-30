@@ -6,7 +6,8 @@ use std::time::Duration;
 
 use axum_server::tls_rustls::RustlsConfig;
 use rcgen::{Certificate as RcgenCertificate, CertificateParams, DistinguishedName};
-use rustls::{Certificate, PrivateKey, ServerConfig};
+use rustls::ServerConfig;
+use rustls::pki_types::{CertificateDer, PrivateKeyDer};
 use rustls_pemfile::{certs, pkcs8_private_keys};
 use thiserror::Error;
 use tracing::{debug, error, info, warn};
@@ -131,7 +132,8 @@ impl TlsManager {
 
         // Parse the certificate to check expiry
         let mut cursor = std::io::Cursor::new(cert_data);
-        let certs = certs(&mut cursor).map_err(|e| TlsError::InvalidCertificate(e.to_string()))?;
+        let cert_results: Result<Vec<_>, _> = certs(&mut cursor).collect();
+        let certs = cert_results.map_err(|e| TlsError::InvalidCertificate(e.to_string()))?;
 
         if certs.is_empty() {
             return Err(TlsError::InvalidCertificate(
@@ -221,9 +223,9 @@ impl TlsManager {
         // Load certificate file
         let cert_file = fs::File::open(&self.config.cert_path)?;
         let mut cert_reader = BufReader::new(cert_file);
-        let cert_data =
-            certs(&mut cert_reader).map_err(|e| TlsError::InvalidCertificate(e.to_string()))?;
-        let cert_chain: Vec<Certificate> = cert_data.into_iter().map(Certificate).collect();
+        let cert_results: Result<Vec<_>, _> = certs(&mut cert_reader).collect();
+        let cert_chain: Vec<CertificateDer> = cert_results
+            .map_err(|e| TlsError::InvalidCertificate(e.to_string()))?;
 
         if cert_chain.is_empty() {
             return Err(TlsError::InvalidCertificate(
@@ -234,9 +236,12 @@ impl TlsManager {
         // Load private key file
         let key_file = fs::File::open(&self.config.key_path)?;
         let mut key_reader = BufReader::new(key_file);
-        let key_data = pkcs8_private_keys(&mut key_reader)
-            .map_err(|e| TlsError::InvalidPrivateKey(e.to_string()))?;
-        let mut keys: Vec<PrivateKey> = key_data.into_iter().map(PrivateKey).collect();
+        let key_results: Result<Vec<_>, _> = pkcs8_private_keys(&mut key_reader).collect();
+        let mut keys: Vec<PrivateKeyDer> = key_results
+            .map_err(|e| TlsError::InvalidPrivateKey(e.to_string()))?
+            .into_iter()
+            .map(PrivateKeyDer::from)
+            .collect();
 
         if keys.is_empty() {
             return Err(TlsError::InvalidPrivateKey(
@@ -247,9 +252,8 @@ impl TlsManager {
         // Use the first key
         let private_key = keys.remove(0);
 
-        // Create Rustls configuration with rustls 0.21 API
+        // Create Rustls configuration with rustls 0.23 API
         let config = ServerConfig::builder()
-            .with_safe_defaults()
             .with_no_client_auth()
             .with_single_cert(cert_chain, private_key)
             .map_err(|e| TlsError::ConfigError(e.to_string()))?;
