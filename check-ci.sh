@@ -50,7 +50,8 @@ done
 
 echo -e "${BLUE}╔════════════════════════════════════════╗${NC}"
 echo -e "${BLUE}║   Orkee Pre-CI Check                  ║${NC}"
-echo -e "${BLUE}╔════════════════════════════════════════╗${NC}"
+echo -e "${BLUE}║   (Mirrors GitHub test-web + test-rust)║${NC}"
+echo -e "${BLUE}╚════════════════════════════════════════╝${NC}"
 echo ""
 
 if [ "$FIX_MODE" = true ]; then
@@ -67,7 +68,7 @@ echo ""
 # 1. Rust Formatting
 #####################################
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-echo -e "${BLUE}1/6 Checking Rust formatting...${NC}"
+echo -e "${BLUE}1/5 Checking Rust formatting...${NC}"
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 
 if [ "$FIX_MODE" = true ]; then
@@ -88,7 +89,7 @@ echo ""
 # 2. Rust Clippy
 #####################################
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-echo -e "${BLUE}2/6 Running Clippy (Rust linter)...${NC}"
+echo -e "${BLUE}2/5 Running Clippy (Rust linter)...${NC}"
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 
 CLIPPY_PACKAGES=(
@@ -134,7 +135,7 @@ echo ""
 #####################################
 if [ "$SKIP_TESTS" = false ]; then
   echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-  echo -e "${BLUE}3/6 Running Rust tests...${NC}"
+  echo -e "${BLUE}3/5 Running Rust tests...${NC}"
   echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 
   for package in "${CLIPPY_PACKAGES[@]}"; do
@@ -155,7 +156,7 @@ fi
 # 4. Frontend Lint
 #####################################
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-echo -e "${BLUE}4/6 Linting dashboard (ESLint)...${NC}"
+echo -e "${BLUE}4/5 Linting dashboard (ESLint)...${NC}"
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 
 cd packages/dashboard
@@ -182,7 +183,7 @@ echo ""
 # 5. Frontend Build
 #####################################
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-echo -e "${BLUE}5/6 Building dashboard...${NC}"
+echo -e "${BLUE}5/5 Building dashboard...${NC}"
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 
 cd packages/dashboard
@@ -198,25 +199,6 @@ du -sh dist
 
 cd ../..
 echo ""
-
-#####################################
-# 6. Frontend Tests
-#####################################
-if [ "$SKIP_TESTS" = false ]; then
-  echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-  echo -e "${BLUE}6/6 Running frontend tests...${NC}"
-  echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-
-  turbo test || {
-    echo -e "${RED}✗ Frontend tests failed${NC}"
-    exit 1
-  }
-  echo -e "${GREEN}✓ All frontend tests passed${NC}"
-  echo ""
-else
-  echo -e "${YELLOW}⏭️  Skipping frontend tests${NC}"
-  echo ""
-fi
 
 #####################################
 # Summary
