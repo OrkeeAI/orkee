@@ -1,9 +1,10 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { AlertCircle } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { previewService, DevServerInstance } from '@/services/preview';
 import { PreviewFrame } from './PreviewFrame';
 import { PreviewTerminalDrawer } from './PreviewTerminalDrawer';
+import { useServerEvents } from '@/hooks/useServerEvents';
 
 interface PreviewPanelProps {
   projectId: string;
@@ -17,7 +18,9 @@ export function PreviewPanel({ projectId, projectName }: PreviewPanelProps) {
   const [showTerminalModal, setShowTerminalModal] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
   const [terminalAutoOpened, setTerminalAutoOpened] = useState(false);
-  const isAggressivePollingRef = useRef(false);
+
+  // Use SSE for real-time server state updates
+  const { activeServers, serverErrors } = useServerEvents();
 
   // Poll for server status
   const checkServerStatus = useCallback(async () => {
@@ -42,44 +45,17 @@ export function PreviewPanel({ projectId, projectName }: PreviewPanelProps) {
     try {
       setIsLoading(true);
       setError(null);
-      
+
       // Auto-open terminal to show startup logs
       setShowTerminalModal(true);
       setTerminalAutoOpened(true);
-      
+
       const instance = await previewService.startServer(projectId, customPort);
       setServerInstance(instance);
-      
-      // Start polling more aggressively after server start (only if not already polling)
-      if (!isAggressivePollingRef.current) {
-        isAggressivePollingRef.current = true;
-        console.log(`[PreviewPanel] Starting aggressive polling for project ${projectId}`);
-        
-        const pollInterval = setInterval(async () => {
-          try {
-            console.log(`[PreviewPanel] Aggressive poll check for project ${projectId}`);
-            const updatedInstance = await previewService.getServerStatus(projectId);
-            console.log(`[PreviewPanel] Aggressive poll response:`, updatedInstance);
-            setServerInstance(updatedInstance);
-            
-            // Stop aggressive polling once server is running
-            if (updatedInstance?.status === 'running') {
-              console.log(`[PreviewPanel] Server running detected, stopping aggressive polling`);
-              clearInterval(pollInterval);
-              isAggressivePollingRef.current = false;
-            }
-          } catch (error) {
-            console.error('[PreviewPanel] Failed to poll server status:', error);
-          }
-        }, 1000); // Poll every 1 second until running
-        
-        // Cleanup aggressive polling after 30 seconds max
-        setTimeout(() => {
-          clearInterval(pollInterval);
-          isAggressivePollingRef.current = false;
-        }, 30000);
-      }
-      
+
+      // SSE will automatically notify us when the server reaches 'running' state
+      console.log(`[PreviewPanel] Server start initiated, waiting for SSE 'server_started' event`);
+
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to start server';
       setError(errorMessage);
@@ -120,9 +96,20 @@ export function PreviewPanel({ projectId, projectName }: PreviewPanelProps) {
 
     // Poll for status updates every 5 seconds
     const interval = setInterval(checkServerStatus, 5000);
-    
+
     return () => clearInterval(interval);
   }, [checkServerStatus]);
+
+  // Listen for SSE updates and refresh server status when this project's state changes
+  useEffect(() => {
+    const isActiveNow = activeServers.has(projectId);
+    const hasError = serverErrors.has(projectId);
+
+    if (isActiveNow || hasError) {
+      console.log(`[PreviewPanel] SSE detected state change for project ${projectId}, refreshing status`);
+      checkServerStatus();
+    }
+  }, [activeServers, serverErrors, projectId, checkServerStatus]);
 
   // Auto-close terminal when server finishes starting (only if auto-opened)
   useEffect(() => {
