@@ -571,6 +571,53 @@ export interface ValidationResponse {
   warnings: ValidationIssue[];
 }
 
+// =============================================================================
+// Quickstart Templates Types
+// =============================================================================
+
+export interface PRDTemplate {
+  id: string;
+  name: string;
+  description?: string;
+  project_type?: string;
+  one_liner_prompts?: string[];
+  default_features?: string[];
+  default_dependencies?: Record<string, any>;
+  default_problem_statement?: string;
+  default_target_audience?: string;
+  default_value_proposition?: string;
+  default_ui_considerations?: string;
+  default_ux_principles?: string;
+  default_tech_stack_quick?: string;
+  default_mvp_scope?: string[];
+  default_research_findings?: string;
+  default_technical_specs?: string;
+  default_competitors?: string[];
+  default_similar_projects?: string[];
+  is_system: boolean;
+  created_at: string;
+}
+
+export interface CreateTemplateInput {
+  name: string;
+  description?: string;
+  project_type?: string;
+  one_liner_prompts?: string[];
+  default_features?: string[];
+  default_dependencies?: Record<string, any>;
+  default_problem_statement?: string;
+  default_target_audience?: string;
+  default_value_proposition?: string;
+  default_ui_considerations?: string;
+  default_ux_principles?: string;
+  default_tech_stack_quick?: string;
+  default_mvp_scope?: string[];
+  default_research_findings?: string;
+  default_technical_specs?: string;
+  default_competitors?: string[];
+  default_similar_projects?: string[];
+}
+
 class IdeateService {
   /**
    * Create a new ideate session
@@ -2317,6 +2364,97 @@ function applyTemplateToSections(
   }
 
   return formattedContent;
+}
+
+  /**
+   * Get all quickstart templates
+   */
+  async getTemplates(): Promise<PRDTemplate[]> {
+    const response = await apiClient.get<{ success: boolean; data: PRDTemplate[] }>(
+      '/api/ideate/templates'
+    );
+
+    if (response.error || !response.data.success) {
+      throw new Error(response.error || 'Failed to get templates');
+    }
+
+    return response.data.data;
+  }
+
+  /**
+   * Get templates by project type
+   */
+  async getTemplatesByType(projectType: string): Promise<PRDTemplate[]> {
+    const response = await apiClient.get<{ success: boolean; data: PRDTemplate[] }>(
+      `/api/ideate/templates/by-type/${projectType}`
+    );
+
+    if (response.error || !response.data.success) {
+      throw new Error(response.error || 'Failed to get templates by type');
+    }
+
+    return response.data.data;
+  }
+
+  /**
+   * Get single template
+   */
+  async getTemplate(templateId: string): Promise<PRDTemplate> {
+    const response = await apiClient.get<{ success: boolean; data: PRDTemplate }>(
+      `/api/ideate/templates/${templateId}`
+    );
+
+    if (response.error || !response.data.success) {
+      throw new Error(response.error || 'Failed to get template');
+    }
+
+    return response.data.data;
+  }
+
+  /**
+   * Create new template
+   */
+  async createTemplate(input: CreateTemplateInput): Promise<PRDTemplate> {
+    const response = await apiClient.post<{ success: boolean; data: PRDTemplate }>(
+      '/api/ideate/templates',
+      input
+    );
+
+    if (response.error || !response.data.success) {
+      throw new Error(response.error || 'Failed to create template');
+    }
+
+    return response.data.data;
+  }
+
+  /**
+   * Update template
+   */
+  async updateTemplate(templateId: string, input: CreateTemplateInput): Promise<PRDTemplate> {
+    const response = await apiClient.put<{ success: boolean; data: PRDTemplate }>(
+      `/api/ideate/templates/${templateId}`,
+      input
+    );
+
+    if (response.error || !response.data.success) {
+      throw new Error(response.error || 'Failed to update template');
+    }
+
+    return response.data.data;
+  }
+
+  /**
+   * Delete template
+   */
+  async deleteTemplate(templateId: string): Promise<void> {
+    const response = await apiClient.delete<{ success: boolean }>(
+      `/api/ideate/templates/${templateId}`
+    );
+
+    if (response.error || !response.data.success) {
+      throw new Error(response.error || 'Failed to delete template');
+    }
+  }
 }
 
 export const ideateService = new IdeateService();

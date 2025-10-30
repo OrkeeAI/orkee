@@ -215,7 +215,9 @@ All 5 system templates (SaaS, Mobile, API, Marketplace, Internal Tool) seeded wi
 **Objective:** Create full CRUD UI for template management
 
 **Checklist:**
-- [ ] Create `useTemplates.ts` hooks (create, update, delete, list)
+- [x] Create `useQuickstartTemplates.ts` hooks (create, update, delete, list)
+- [x] Add template methods to ideateService
+- [x] Add PRDTemplate and CreateTemplateInput types to ideateService
 - [ ] Create `TemplateList.tsx` component
 - [ ] Create `TemplateEditor.tsx` form component with tabs
 - [ ] Create `TemplateManager.tsx` main component
