@@ -1,0 +1,7 @@
+# Cargo configuration for Orkee
+
+# Enable sqlx offline mode by default
+# This allows builds without requiring a live database connection
+# The .sqlx/ directory contains cached query metadata
+[env]
+SQLX_OFFLINE = "true"
