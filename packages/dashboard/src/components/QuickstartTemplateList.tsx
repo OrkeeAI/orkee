@@ -114,15 +114,17 @@ export function QuickstartTemplateList({
                 </>
               )}
               {template.is_system && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="flex-1"
-                  onClick={() => onDuplicate(template)}
-                >
-                  <Copy className="w-4 h-4 mr-1" />
-                  Duplicate
-                </Button>
+                <>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="flex-1"
+                    onClick={() => onDuplicate(template)}
+                  >
+                    <Copy className="w-4 h-4 mr-1" />
+                    Duplicate
+                  </Button>
+                </>
               )}
             </div>
           </CardContent>
