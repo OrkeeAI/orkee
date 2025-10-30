@@ -1291,12 +1291,12 @@ impl IdeateManager {
             let competitors_json = template
                 .default_competitors
                 .as_ref()
-                .map(|c| serde_json::to_string(c))
+                .map(serde_json::to_string)
                 .transpose()?;
             let similar_projects_json = template
                 .default_similar_projects
                 .as_ref()
-                .map(|p| serde_json::to_string(p))
+                .map(serde_json::to_string)
                 .transpose()?;
 
             sqlx::query(
@@ -1320,7 +1320,7 @@ impl IdeateManager {
             let deps_json = template
                 .default_dependencies
                 .as_ref()
-                .map(|d| serde_json::to_string(d))
+                .map(serde_json::to_string)
                 .transpose()?;
 
             sqlx::query(

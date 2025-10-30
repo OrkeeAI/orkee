@@ -217,32 +217,32 @@ impl TemplateManager {
         let one_liner_prompts_json = input
             .one_liner_prompts
             .as_ref()
-            .map(|v| serde_json::to_string(v))
+            .map(serde_json::to_string)
             .transpose()?;
         let default_features_json = input
             .default_features
             .as_ref()
-            .map(|v| serde_json::to_string(v))
+            .map(serde_json::to_string)
             .transpose()?;
         let default_dependencies_json = input
             .default_dependencies
             .as_ref()
-            .map(|v| serde_json::to_string(v))
+            .map(serde_json::to_string)
             .transpose()?;
         let default_mvp_scope_json = input
             .default_mvp_scope
             .as_ref()
-            .map(|v| serde_json::to_string(v))
+            .map(serde_json::to_string)
             .transpose()?;
         let default_competitors_json = input
             .default_competitors
             .as_ref()
-            .map(|v| serde_json::to_string(v))
+            .map(serde_json::to_string)
             .transpose()?;
         let default_similar_projects_json = input
             .default_similar_projects
             .as_ref()
-            .map(|v| serde_json::to_string(v))
+            .map(serde_json::to_string)
             .transpose()?;
 
         let template = sqlx::query(
@@ -341,32 +341,32 @@ impl TemplateManager {
         let one_liner_prompts_json = input
             .one_liner_prompts
             .as_ref()
-            .map(|v| serde_json::to_string(v))
+            .map(serde_json::to_string)
             .transpose()?;
         let default_features_json = input
             .default_features
             .as_ref()
-            .map(|v| serde_json::to_string(v))
+            .map(serde_json::to_string)
             .transpose()?;
         let default_dependencies_json = input
             .default_dependencies
             .as_ref()
-            .map(|v| serde_json::to_string(v))
+            .map(serde_json::to_string)
             .transpose()?;
         let default_mvp_scope_json = input
             .default_mvp_scope
             .as_ref()
-            .map(|v| serde_json::to_string(v))
+            .map(serde_json::to_string)
             .transpose()?;
         let default_competitors_json = input
             .default_competitors
             .as_ref()
-            .map(|v| serde_json::to_string(v))
+            .map(serde_json::to_string)
             .transpose()?;
         let default_similar_projects_json = input
             .default_similar_projects
             .as_ref()
-            .map(|v| serde_json::to_string(v))
+            .map(serde_json::to_string)
             .transpose()?;
 
         let template = sqlx::query(
