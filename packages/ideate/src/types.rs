@@ -231,7 +231,7 @@ pub struct GraphNode {
     pub id: String,
     pub label: String,
     pub phase: i32,
-    #[serde(rename = "type", skip_serializing_if = "Option::is_none")]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub node_type: Option<String>,
 }
 
@@ -239,7 +239,7 @@ pub struct GraphNode {
 pub struct GraphEdge {
     pub from: String,
     pub to: String,
-    #[serde(rename = "type", skip_serializing_if = "Option::is_none")]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub edge_type: Option<String>,
 }
 
