@@ -315,6 +315,18 @@ mod tests {
     use super::*;
     use tempfile::tempdir;
 
+    // ABOUTME: Initialize CryptoProvider once for all tests in this module
+    // ABOUTME: This prevents rustls from panicking when it can't auto-detect the provider
+    fn init_crypto_provider() {
+        use std::sync::Once;
+        static INIT: Once = Once::new();
+
+        INIT.call_once(|| {
+            // Install aws-lc-rs as the default crypto provider
+            let _ = rustls::crypto::aws_lc_rs::default_provider().install_default();
+        });
+    }
+
     #[test]
     fn test_default_cert_dir() {
         let cert_dir = TlsManager::default_cert_dir();
@@ -379,6 +391,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_certificate_loading() {
+        init_crypto_provider();
+
         let temp_dir = tempdir().unwrap();
         let cert_path = temp_dir.path().join("cert.pem");
         let key_path = temp_dir.path().join("key.pem");
@@ -403,6 +417,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_tls_initialization_workflow() {
+        init_crypto_provider();
+
         let temp_dir = tempdir().unwrap();
         let cert_path = temp_dir.path().join("cert.pem");
         let key_path = temp_dir.path().join("key.pem");
