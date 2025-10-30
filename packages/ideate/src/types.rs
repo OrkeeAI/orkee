@@ -4,7 +4,7 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-/// Ideateing session mode
+/// Ideating session mode
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, sqlx::Type)]
 #[sqlx(type_name = "TEXT", rename_all = "lowercase")]
 #[serde(rename_all = "lowercase")]
@@ -17,7 +17,7 @@ pub enum IdeateMode {
     Comprehensive,
 }
 
-/// Ideateing session status
+/// Ideating session status
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, sqlx::Type)]
 #[sqlx(type_name = "TEXT", rename_all = "snake_case")]
 #[serde(rename_all = "snake_case")]
