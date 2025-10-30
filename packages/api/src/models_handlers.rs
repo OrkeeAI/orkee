@@ -18,8 +18,8 @@ use orkee_projects::pagination::{PaginatedResponse, PaginationParams};
 pub struct ModelDTO {
     pub id: String,
     pub provider: String,
-    pub model: String,  // model_identifier from config
-    pub display_name: String,  // name from config
+    pub model: String,        // model_identifier from config
+    pub display_name: String, // name from config
     pub description: String,
     pub cost_per_1k_input_tokens: f64,
     pub cost_per_1k_output_tokens: f64,

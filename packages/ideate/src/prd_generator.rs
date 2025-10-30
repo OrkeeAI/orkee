@@ -148,7 +148,11 @@ impl PRDGenerator {
             })?;
 
         // Parse the response into GeneratedPRD
-        info!("AI response JSON: {}", serde_json::to_string_pretty(&response.data).unwrap_or_else(|_| "Failed to serialize".to_string()));
+        info!(
+            "AI response JSON: {}",
+            serde_json::to_string_pretty(&response.data)
+                .unwrap_or_else(|_| "Failed to serialize".to_string())
+        );
         let generated_prd: GeneratedPRD = serde_json::from_value(response.data).map_err(|e| {
             error!("Failed to parse AI response: {}", e);
             IdeateError::AIService(format!("Failed to parse AI response: {}", e))
@@ -349,7 +353,10 @@ impl PRDGenerator {
             if let Some(foundation) = &deps.foundation_features {
                 markdown.push_str("### Foundation Features (Build First)\n\n");
                 for item in foundation {
-                    markdown.push_str(&format!("- {} ({}): {}\n", item.id, item.name, item.rationale));
+                    markdown.push_str(&format!(
+                        "- {} ({}): {}\n",
+                        item.id, item.name, item.rationale
+                    ));
                 }
                 markdown.push('\n');
             }
@@ -357,7 +364,10 @@ impl PRDGenerator {
             if let Some(visible) = &deps.visible_features {
                 markdown.push_str("### Visible Features (Quick Wins)\n\n");
                 for item in visible {
-                    markdown.push_str(&format!("- {} ({}): {}\n", item.id, item.name, item.rationale));
+                    markdown.push_str(&format!(
+                        "- {} ({}): {}\n",
+                        item.id, item.name, item.rationale
+                    ));
                 }
                 markdown.push('\n');
             }
@@ -945,7 +955,9 @@ impl PRDGenerator {
         prompt.push_str("## Current PRD Data\n");
         prompt.push_str(context);
         prompt.push_str("\n## Task\n");
-        prompt.push_str("Reformat and restructure the PRD data to match the target template's style:\n");
+        prompt.push_str(
+            "Reformat and restructure the PRD data to match the target template's style:\n",
+        );
         prompt.push_str("1. Maintain all essential information from the original PRD\n");
         prompt.push_str("2. Reorganize content to fit the template's structure\n");
         prompt.push_str("3. Adjust tone and emphasis to match the template's approach\n");

@@ -10,7 +10,9 @@ use serde::{Deserialize, Serialize};
 use sqlx::SqlitePool;
 use tracing::info;
 
-use super::response::{bad_request, created_or_internal_error, ok_or_internal_error, ok_or_not_found};
+use super::response::{
+    bad_request, created_or_internal_error, ok_or_internal_error, ok_or_not_found,
+};
 use orkee_projects::DbState;
 
 /// PRD output template structure

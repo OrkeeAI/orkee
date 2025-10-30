@@ -312,7 +312,10 @@ async fn proxy_ai_request(
     }
 
     // Build the request to the AI provider
-    info!("Building proxy request - body size: {} bytes", body_bytes.len());
+    info!(
+        "Building proxy request - body size: {} bytes",
+        body_bytes.len()
+    );
     let mut proxy_req = client
         .request(method, &target_url)
         .body(body_bytes.to_vec());
@@ -338,12 +341,15 @@ async fn proxy_ai_request(
     info!("Adding provider-specific headers for: {}", provider);
     proxy_req = match provider {
         "anthropic" => {
-            info!("  Adding x-api-key: {}...", &api_key[..8.min(api_key.len())]);
+            info!(
+                "  Adding x-api-key: {}...",
+                &api_key[..8.min(api_key.len())]
+            );
             info!("  Adding anthropic-version: 2023-06-01");
             proxy_req
                 .header("x-api-key", api_key)
                 .header("anthropic-version", "2023-06-01")
-        },
+        }
         "openai" => proxy_req.header("Authorization", format!("Bearer {}", api_key)),
         "google" => proxy_req.header("x-goog-api-key", api_key),
         "xai" => proxy_req.header("Authorization", format!("Bearer {}", api_key)),
@@ -356,7 +362,7 @@ async fn proxy_ai_request(
         Ok(resp) => {
             info!("Request sent successfully");
             resp
-        },
+        }
         Err(e) => {
             error!("Failed to proxy request to {}: {}", provider, e);
             error!("Error details: {:?}", e);
@@ -387,7 +393,7 @@ async fn proxy_ai_request(
         Ok(bytes) => {
             info!("Successfully read {} bytes from response", bytes.len());
             bytes
-        },
+        }
         Err(e) => {
             error!("Failed to read response body: {}", e);
             error!("Error details: {:?}", e);
@@ -422,9 +428,15 @@ async fn proxy_ai_request(
         let key_str = key.as_str().to_lowercase();
         if !matches!(
             key_str.as_str(),
-            "transfer-encoding" | "content-encoding" | "connection"
-            | "keep-alive" | "proxy-authenticate" | "proxy-authorization"
-            | "te" | "trailer" | "upgrade"
+            "transfer-encoding"
+                | "content-encoding"
+                | "connection"
+                | "keep-alive"
+                | "proxy-authenticate"
+                | "proxy-authorization"
+                | "te"
+                | "trailer"
+                | "upgrade"
         ) {
             builder = builder.header(key, value);
         } else {
@@ -432,7 +444,10 @@ async fn proxy_ai_request(
         }
     }
 
-    info!("Proxy request completed successfully - returning {} bytes", body_bytes.len());
+    info!(
+        "Proxy request completed successfully - returning {} bytes",
+        body_bytes.len()
+    );
     builder.body(Body::from(body_bytes)).unwrap_or_else(|e| {
         error!("Failed to build final response: {}", e);
         build_error_response(

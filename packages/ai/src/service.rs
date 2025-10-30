@@ -219,7 +219,10 @@ impl AIService {
                 }
             })?;
 
-        info!("Received response from Anthropic API: status={}", response.status());
+        info!(
+            "Received response from Anthropic API: status={}",
+            response.status()
+        );
 
         if !response.status().is_success() {
             let status = response.status();
@@ -263,12 +266,18 @@ impl AIService {
         };
 
         // Parse the JSON response
-        info!("Raw JSON response (first 5000 chars): {}", &json_text[..json_text.len().min(5000)]);
-        let data: T = serde_json::from_str(json_text)
-            .map_err(|e| {
-                error!("JSON parsing failed: {}. JSON snippet: {}", e, &json_text[..json_text.len().min(500)]);
-                AIServiceError::ParseError(format!("Failed to parse JSON: {}", e))
-            })?;
+        info!(
+            "Raw JSON response (first 5000 chars): {}",
+            &json_text[..json_text.len().min(5000)]
+        );
+        let data: T = serde_json::from_str(json_text).map_err(|e| {
+            error!(
+                "JSON parsing failed: {}. JSON snippet: {}",
+                e,
+                &json_text[..json_text.len().min(500)]
+            );
+            AIServiceError::ParseError(format!("Failed to parse JSON: {}", e))
+        })?;
 
         Ok(AIResponse {
             data,

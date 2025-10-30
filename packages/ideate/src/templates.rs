@@ -37,9 +37,7 @@ impl TemplateManager {
                   ORDER BY is_system DESC, name ASC".to_string(),
         };
 
-        let templates = sqlx::query(&query_str)
-            .fetch_all(&self.db)
-            .await?;
+        let templates = sqlx::query(&query_str).fetch_all(&self.db).await?;
 
         templates
             .into_iter()
@@ -108,15 +106,47 @@ impl TemplateManager {
                     one_liner_prompts,
                     default_features,
                     default_dependencies,
-                    default_problem_statement: if category == "output" { None } else { row.get("default_problem_statement") },
-                    default_target_audience: if category == "output" { None } else { row.get("default_target_audience") },
-                    default_value_proposition: if category == "output" { None } else { row.get("default_value_proposition") },
-                    default_ui_considerations: if category == "output" { None } else { row.get("default_ui_considerations") },
-                    default_ux_principles: if category == "output" { None } else { row.get("default_ux_principles") },
-                    default_tech_stack_quick: if category == "output" { None } else { row.get("default_tech_stack_quick") },
+                    default_problem_statement: if category == "output" {
+                        None
+                    } else {
+                        row.get("default_problem_statement")
+                    },
+                    default_target_audience: if category == "output" {
+                        None
+                    } else {
+                        row.get("default_target_audience")
+                    },
+                    default_value_proposition: if category == "output" {
+                        None
+                    } else {
+                        row.get("default_value_proposition")
+                    },
+                    default_ui_considerations: if category == "output" {
+                        None
+                    } else {
+                        row.get("default_ui_considerations")
+                    },
+                    default_ux_principles: if category == "output" {
+                        None
+                    } else {
+                        row.get("default_ux_principles")
+                    },
+                    default_tech_stack_quick: if category == "output" {
+                        None
+                    } else {
+                        row.get("default_tech_stack_quick")
+                    },
                     default_mvp_scope,
-                    default_research_findings: if category == "output" { None } else { row.get("default_research_findings") },
-                    default_technical_specs: if category == "output" { None } else { row.get("default_technical_specs") },
+                    default_research_findings: if category == "output" {
+                        None
+                    } else {
+                        row.get("default_research_findings")
+                    },
+                    default_technical_specs: if category == "output" {
+                        None
+                    } else {
+                        row.get("default_technical_specs")
+                    },
                     default_competitors,
                     default_similar_projects,
                     is_system,
@@ -284,7 +314,11 @@ impl TemplateManager {
     }
 
     /// Update a template (only user-created templates can be updated)
-    pub async fn update_template(&self, template_id: &str, input: CreateTemplateInput) -> Result<PRDTemplate> {
+    pub async fn update_template(
+        &self,
+        template_id: &str,
+        input: CreateTemplateInput,
+    ) -> Result<PRDTemplate> {
         // Check if template exists and is not a system template
         let existing = sqlx::query("SELECT is_system FROM prd_quickstart_templates WHERE id = $1")
             .bind(template_id)

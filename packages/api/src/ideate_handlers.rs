@@ -10,13 +10,12 @@ use serde::Deserialize;
 use tracing::info;
 
 use super::response::{created_or_internal_error, ok_or_internal_error, ok_or_not_found};
-use ideate::{
-    CreateIdeateSessionInput, IdeateManager, IdeateMode, IdeateStatus, PRDGenerator,
-    SkipSectionRequest, TemplateManager, UpdateIdeateSessionInput, IdeateOverview,
-    IdeateUX, IdeateTechnical, IdeateRoadmap, IdeateDependencies, IdeateRisks, IdeateResearch,
-    CreateTemplateInput,
-};
 use ideate::prd_generator::GeneratedPRD;
+use ideate::{
+    CreateIdeateSessionInput, CreateTemplateInput, IdeateDependencies, IdeateManager, IdeateMode,
+    IdeateOverview, IdeateResearch, IdeateRisks, IdeateRoadmap, IdeateStatus, IdeateTechnical,
+    IdeateUX, PRDGenerator, SkipSectionRequest, TemplateManager, UpdateIdeateSessionInput,
+};
 use openspec;
 use orkee_projects::DbState;
 
@@ -170,8 +169,10 @@ pub async fn quick_generate(
     Path(session_id): Path<String>,
     Json(request): Json<QuickGenerateRequest>,
 ) -> impl IntoResponse {
-    info!("Generating complete PRD for session: {} with provider: {:?}, model: {:?}",
-        session_id, request.provider, request.model);
+    info!(
+        "Generating complete PRD for session: {} with provider: {:?}, model: {:?}",
+        session_id, request.provider, request.model
+    );
 
     // Get the session to retrieve the description
     let manager = IdeateManager::new(db.pool.clone());
@@ -189,7 +190,7 @@ pub async fn quick_generate(
             DEFAULT_USER_ID,
             &session.initial_description,
             request.provider,
-            request.model
+            request.model,
         )
         .await;
 
@@ -229,15 +230,21 @@ async fn persist_generated_prd(
             ai_generated: true,
             created_at: Utc::now(),
         };
-        manager.save_overview(session_id, ideate_overview).await
+        manager
+            .save_overview(session_id, ideate_overview)
+            .await
             .map_err(|e| format!("Failed to save overview: {}", e))?;
     }
 
     // Persist UX section - convert prd_generator types to ideate types using serde
     if let Some(ux) = &prd.ux {
-        let personas = ux.personas.as_ref()
+        let personas = ux
+            .personas
+            .as_ref()
             .and_then(|p| serde_json::from_value(serde_json::to_value(p).ok()?).ok());
-        let user_flows = ux.user_flows.as_ref()
+        let user_flows = ux
+            .user_flows
+            .as_ref()
             .and_then(|f| serde_json::from_value(serde_json::to_value(f).ok()?).ok());
 
         let ideate_ux = IdeateUX {
@@ -250,19 +257,29 @@ async fn persist_generated_prd(
             ai_generated: true,
             created_at: Utc::now(),
         };
-        manager.save_ux(session_id, ideate_ux).await
+        manager
+            .save_ux(session_id, ideate_ux)
+            .await
             .map_err(|e| format!("Failed to save UX: {}", e))?;
     }
 
     // Persist Technical section - convert prd_generator types to ideate types using serde
     if let Some(technical) = &prd.technical {
-        let components = technical.components.as_ref()
+        let components = technical
+            .components
+            .as_ref()
             .and_then(|c| serde_json::from_value(serde_json::to_value(c).ok()?).ok());
-        let data_models = technical.data_models.as_ref()
+        let data_models = technical
+            .data_models
+            .as_ref()
             .and_then(|d| serde_json::from_value(serde_json::to_value(d).ok()?).ok());
-        let apis = technical.apis.as_ref()
+        let apis = technical
+            .apis
+            .as_ref()
             .and_then(|a| serde_json::from_value(serde_json::to_value(a).ok()?).ok());
-        let infrastructure = technical.infrastructure.as_ref()
+        let infrastructure = technical
+            .infrastructure
+            .as_ref()
             .and_then(|i| serde_json::from_value(serde_json::to_value(i).ok()?).ok());
 
         let ideate_technical = IdeateTechnical {
@@ -276,13 +293,17 @@ async fn persist_generated_prd(
             ai_generated: true,
             created_at: Utc::now(),
         };
-        manager.save_technical(session_id, ideate_technical).await
+        manager
+            .save_technical(session_id, ideate_technical)
+            .await
             .map_err(|e| format!("Failed to save technical: {}", e))?;
     }
 
     // Persist Roadmap section - convert prd_generator types to ideate types using serde
     if let Some(roadmap) = &prd.roadmap {
-        let future_phases = roadmap.future_phases.as_ref()
+        let future_phases = roadmap
+            .future_phases
+            .as_ref()
             .and_then(|p| serde_json::from_value(serde_json::to_value(p).ok()?).ok());
 
         let ideate_roadmap = IdeateRoadmap {
@@ -293,32 +314,51 @@ async fn persist_generated_prd(
             ai_generated: true,
             created_at: Utc::now(),
         };
-        manager.save_roadmap(session_id, ideate_roadmap).await
+        manager
+            .save_roadmap(session_id, ideate_roadmap)
+            .await
             .map_err(|e| format!("Failed to save roadmap: {}", e))?;
     }
 
     // Persist Dependencies section - preserve full DependencyFeature data as JSON strings
     if let Some(dependencies) = &prd.dependencies {
-        let dependency_graph = dependencies.dependency_graph.as_ref()
+        let dependency_graph = dependencies
+            .dependency_graph
+            .as_ref()
             .and_then(|g| serde_json::from_value(serde_json::to_value(g).ok()?).ok());
 
         // Convert DependencyFeature objects to JSON strings to preserve full data
-        let foundation_features = dependencies.foundation_features.as_ref()
-            .map(|features| features.iter()
-                .filter_map(|f| serde_json::to_string(f).ok())
-                .collect::<Vec<String>>())
+        let foundation_features = dependencies
+            .foundation_features
+            .as_ref()
+            .map(|features| {
+                features
+                    .iter()
+                    .filter_map(|f| serde_json::to_string(f).ok())
+                    .collect::<Vec<String>>()
+            })
             .and_then(|v| if v.is_empty() { None } else { Some(v) });
 
-        let visible_features = dependencies.visible_features.as_ref()
-            .map(|features| features.iter()
-                .filter_map(|f| serde_json::to_string(f).ok())
-                .collect::<Vec<String>>())
+        let visible_features = dependencies
+            .visible_features
+            .as_ref()
+            .map(|features| {
+                features
+                    .iter()
+                    .filter_map(|f| serde_json::to_string(f).ok())
+                    .collect::<Vec<String>>()
+            })
             .and_then(|v| if v.is_empty() { None } else { Some(v) });
 
-        let enhancement_features = dependencies.enhancement_features.as_ref()
-            .map(|features| features.iter()
-                .filter_map(|f| serde_json::to_string(f).ok())
-                .collect::<Vec<String>>())
+        let enhancement_features = dependencies
+            .enhancement_features
+            .as_ref()
+            .map(|features| {
+                features
+                    .iter()
+                    .filter_map(|f| serde_json::to_string(f).ok())
+                    .collect::<Vec<String>>()
+            })
             .and_then(|v| if v.is_empty() { None } else { Some(v) });
 
         let ideate_dependencies = IdeateDependencies {
@@ -331,19 +371,29 @@ async fn persist_generated_prd(
             ai_generated: true,
             created_at: Utc::now(),
         };
-        manager.save_dependencies(session_id, ideate_dependencies).await
+        manager
+            .save_dependencies(session_id, ideate_dependencies)
+            .await
             .map_err(|e| format!("Failed to save dependencies: {}", e))?;
     }
 
     // Persist Risks section - convert prd_generator types to ideate types using serde
     if let Some(risks) = &prd.risks {
-        let technical_risks = risks.technical_risks.as_ref()
+        let technical_risks = risks
+            .technical_risks
+            .as_ref()
             .and_then(|t| serde_json::from_value(serde_json::to_value(t).ok()?).ok());
-        let mvp_scoping_risks = risks.mvp_scoping_risks.as_ref()
+        let mvp_scoping_risks = risks
+            .mvp_scoping_risks
+            .as_ref()
             .and_then(|m| serde_json::from_value(serde_json::to_value(m).ok()?).ok());
-        let resource_risks = risks.resource_risks.as_ref()
+        let resource_risks = risks
+            .resource_risks
+            .as_ref()
             .and_then(|r| serde_json::from_value(serde_json::to_value(r).ok()?).ok());
-        let mitigations = risks.mitigations.as_ref()
+        let mitigations = risks
+            .mitigations
+            .as_ref()
             .and_then(|m| serde_json::from_value(serde_json::to_value(m).ok()?).ok());
 
         let ideate_risks = IdeateRisks {
@@ -356,17 +406,25 @@ async fn persist_generated_prd(
             ai_generated: true,
             created_at: Utc::now(),
         };
-        manager.save_risks(session_id, ideate_risks).await
+        manager
+            .save_risks(session_id, ideate_risks)
+            .await
             .map_err(|e| format!("Failed to save risks: {}", e))?;
     }
 
     // Persist Research section - convert prd_generator types to ideate types using serde
     if let Some(research) = &prd.research {
-        let competitors = research.competitors.as_ref()
+        let competitors = research
+            .competitors
+            .as_ref()
             .and_then(|c| serde_json::from_value(serde_json::to_value(c).ok()?).ok());
-        let similar_projects = research.similar_projects.as_ref()
+        let similar_projects = research
+            .similar_projects
+            .as_ref()
             .and_then(|s| serde_json::from_value(serde_json::to_value(s).ok()?).ok());
-        let reference_links = research.reference_links.as_ref()
+        let reference_links = research
+            .reference_links
+            .as_ref()
             .and_then(|r| serde_json::from_value(serde_json::to_value(r).ok()?).ok());
 
         let ideate_research = IdeateResearch {
@@ -380,7 +438,9 @@ async fn persist_generated_prd(
             ai_generated: true,
             created_at: Utc::now(),
         };
-        manager.save_research(session_id, ideate_research).await
+        manager
+            .save_research(session_id, ideate_research)
+            .await
             .map_err(|e| format!("Failed to save research: {}", e))?;
     }
 
@@ -457,31 +517,52 @@ pub async fn get_preview(
 
                 // Load each section from the database
                 if let Ok(Some(overview)) = manager.get_overview(&session_id).await {
-                    sections.insert("overview".to_string(), serde_json::to_value(overview).unwrap_or(serde_json::Value::Null));
+                    sections.insert(
+                        "overview".to_string(),
+                        serde_json::to_value(overview).unwrap_or(serde_json::Value::Null),
+                    );
                 }
 
                 if let Ok(Some(ux)) = manager.get_ux(&session_id).await {
-                    sections.insert("ux".to_string(), serde_json::to_value(ux).unwrap_or(serde_json::Value::Null));
+                    sections.insert(
+                        "ux".to_string(),
+                        serde_json::to_value(ux).unwrap_or(serde_json::Value::Null),
+                    );
                 }
 
                 if let Ok(Some(technical)) = manager.get_technical(&session_id).await {
-                    sections.insert("technical".to_string(), serde_json::to_value(technical).unwrap_or(serde_json::Value::Null));
+                    sections.insert(
+                        "technical".to_string(),
+                        serde_json::to_value(technical).unwrap_or(serde_json::Value::Null),
+                    );
                 }
 
                 if let Ok(Some(roadmap)) = manager.get_roadmap(&session_id).await {
-                    sections.insert("roadmap".to_string(), serde_json::to_value(roadmap).unwrap_or(serde_json::Value::Null));
+                    sections.insert(
+                        "roadmap".to_string(),
+                        serde_json::to_value(roadmap).unwrap_or(serde_json::Value::Null),
+                    );
                 }
 
                 if let Ok(Some(dependencies)) = manager.get_dependencies(&session_id).await {
-                    sections.insert("dependencies".to_string(), serde_json::to_value(dependencies).unwrap_or(serde_json::Value::Null));
+                    sections.insert(
+                        "dependencies".to_string(),
+                        serde_json::to_value(dependencies).unwrap_or(serde_json::Value::Null),
+                    );
                 }
 
                 if let Ok(Some(risks)) = manager.get_risks(&session_id).await {
-                    sections.insert("risks".to_string(), serde_json::to_value(risks).unwrap_or(serde_json::Value::Null));
+                    sections.insert(
+                        "risks".to_string(),
+                        serde_json::to_value(risks).unwrap_or(serde_json::Value::Null),
+                    );
                 }
 
                 if let Ok(Some(research)) = manager.get_research(&session_id).await {
-                    sections.insert("appendix".to_string(), serde_json::to_value(research).unwrap_or(serde_json::Value::Null));
+                    sections.insert(
+                        "appendix".to_string(),
+                        serde_json::to_value(research).unwrap_or(serde_json::Value::Null),
+                    );
                 }
 
                 let response = serde_json::json!({
@@ -498,60 +579,89 @@ pub async fn get_preview(
     }
 
     // Check if session has generated sections (Quick Mode stores sections in ideate tables)
-    info!("Checking for existing sections in ideate tables for session: {}", session_id);
-    
+    info!(
+        "Checking for existing sections in ideate tables for session: {}",
+        session_id
+    );
+
     let mut sections = serde_json::Map::new();
     let mut has_sections = false;
 
     // Load each section from the database
     if let Ok(Some(overview)) = manager.get_overview(&session_id).await {
         info!("Found overview section for session: {}", session_id);
-        sections.insert("overview".to_string(), serde_json::to_value(overview).unwrap_or(serde_json::Value::Null));
+        sections.insert(
+            "overview".to_string(),
+            serde_json::to_value(overview).unwrap_or(serde_json::Value::Null),
+        );
         has_sections = true;
     }
 
     if let Ok(Some(ux)) = manager.get_ux(&session_id).await {
         info!("Found ux section for session: {}", session_id);
-        sections.insert("ux".to_string(), serde_json::to_value(ux).unwrap_or(serde_json::Value::Null));
+        sections.insert(
+            "ux".to_string(),
+            serde_json::to_value(ux).unwrap_or(serde_json::Value::Null),
+        );
         has_sections = true;
     }
 
     if let Ok(Some(technical)) = manager.get_technical(&session_id).await {
         info!("Found technical section for session: {}", session_id);
-        sections.insert("technical".to_string(), serde_json::to_value(technical).unwrap_or(serde_json::Value::Null));
+        sections.insert(
+            "technical".to_string(),
+            serde_json::to_value(technical).unwrap_or(serde_json::Value::Null),
+        );
         has_sections = true;
     }
 
     if let Ok(Some(roadmap)) = manager.get_roadmap(&session_id).await {
         info!("Found roadmap section for session: {}", session_id);
-        sections.insert("roadmap".to_string(), serde_json::to_value(roadmap).unwrap_or(serde_json::Value::Null));
+        sections.insert(
+            "roadmap".to_string(),
+            serde_json::to_value(roadmap).unwrap_or(serde_json::Value::Null),
+        );
         has_sections = true;
     }
 
     if let Ok(Some(dependencies)) = manager.get_dependencies(&session_id).await {
         info!("Found dependencies section for session: {}", session_id);
-        sections.insert("dependencies".to_string(), serde_json::to_value(dependencies).unwrap_or(serde_json::Value::Null));
+        sections.insert(
+            "dependencies".to_string(),
+            serde_json::to_value(dependencies).unwrap_or(serde_json::Value::Null),
+        );
         has_sections = true;
     }
 
     if let Ok(Some(risks)) = manager.get_risks(&session_id).await {
         info!("Found risks section for session: {}", session_id);
-        sections.insert("risks".to_string(), serde_json::to_value(risks).unwrap_or(serde_json::Value::Null));
+        sections.insert(
+            "risks".to_string(),
+            serde_json::to_value(risks).unwrap_or(serde_json::Value::Null),
+        );
         has_sections = true;
     }
 
     if let Ok(Some(research)) = manager.get_research(&session_id).await {
         info!("Found research section for session: {}", session_id);
-        sections.insert("appendix".to_string(), serde_json::to_value(research).unwrap_or(serde_json::Value::Null));
+        sections.insert(
+            "appendix".to_string(),
+            serde_json::to_value(research).unwrap_or(serde_json::Value::Null),
+        );
         has_sections = true;
     }
 
-    info!("Section check complete for session {}: has_sections={}, section_count={}", session_id, has_sections, sections.len());
+    info!(
+        "Section check complete for session {}: has_sections={}, section_count={}",
+        session_id,
+        has_sections,
+        sections.len()
+    );
 
     // If we have sections, return them
     if has_sections {
         info!("Found existing sections for session, returning them");
-        
+
         // Generate markdown from sections
         let mut markdown_parts = Vec::new();
         if let Some(overview) = sections.get("overview") {
@@ -575,9 +685,9 @@ pub async fn get_preview(
         if let Some(appendix) = sections.get("appendix") {
             markdown_parts.push(format!("## Appendix\n\n{}", appendix));
         }
-        
+
         let markdown = markdown_parts.join("\n\n");
-        
+
         let response = serde_json::json!({
             "markdown": markdown,
             "content": markdown,
@@ -585,11 +695,17 @@ pub async fn get_preview(
         });
         return ok_or_internal_error::<_, String>(Ok(response), "Failed to get preview");
     }
-    
-    info!("No sections found for session {}, will attempt to generate or retrieve saved PRD", session_id);
+
+    info!(
+        "No sections found for session {}, will attempt to generate or retrieve saved PRD",
+        session_id
+    );
 
     // No saved PRD and no sections, generate on-demand
-    info!("No saved PRD or sections, generating new one for session: {}", session_id);
+    info!(
+        "No saved PRD or sections, generating new one for session: {}",
+        session_id
+    );
     let generator = PRDGenerator::new(db.pool.clone());
     let prd = match generator
         .generate_complete_prd(DEFAULT_USER_ID, &session.initial_description)
@@ -954,7 +1070,10 @@ pub async fn list_templates(
     State(db): State<DbState>,
     axum::extract::Query(params): axum::extract::Query<std::collections::HashMap<String, String>>,
 ) -> impl IntoResponse {
-    let category = params.get("category").map(|s| s.as_str()).unwrap_or("quickstart");
+    let category = params
+        .get("category")
+        .map(|s| s.as_str())
+        .unwrap_or("quickstart");
     info!("Listing PRD templates for category: {}", category);
     let manager = TemplateManager::new(db.pool.clone());
     let result = manager.get_templates_by_category(category).await;
@@ -1120,7 +1239,9 @@ pub async fn save_sections(
             id: nanoid!(),
             session_id: session_id.clone(),
             personas: input.personas.and_then(|v| serde_json::from_value(v).ok()),
-            user_flows: input.user_flows.and_then(|v| serde_json::from_value(v).ok()),
+            user_flows: input
+                .user_flows
+                .and_then(|v| serde_json::from_value(v).ok()),
             ui_considerations: input.ui_considerations,
             ux_principles: input.ux_principles,
             ai_generated: true,
@@ -1136,10 +1257,16 @@ pub async fn save_sections(
         let entity = ideate::IdeateTechnical {
             id: nanoid!(),
             session_id: session_id.clone(),
-            components: input.components.and_then(|v| serde_json::from_value(v).ok()),
-            data_models: input.data_models.and_then(|v| serde_json::from_value(v).ok()),
+            components: input
+                .components
+                .and_then(|v| serde_json::from_value(v).ok()),
+            data_models: input
+                .data_models
+                .and_then(|v| serde_json::from_value(v).ok()),
             apis: input.apis.and_then(|v| serde_json::from_value(v).ok()),
-            infrastructure: input.infrastructure.and_then(|v| serde_json::from_value(v).ok()),
+            infrastructure: input
+                .infrastructure
+                .and_then(|v| serde_json::from_value(v).ok()),
             tech_stack_quick: input.tech_stack_quick,
             ai_generated: true,
             created_at: Utc::now(),
@@ -1155,7 +1282,9 @@ pub async fn save_sections(
             id: nanoid!(),
             session_id: session_id.clone(),
             mvp_scope: input.mvp_scope,
-            future_phases: input.future_phases.and_then(|v| serde_json::from_value(v).ok()),
+            future_phases: input
+                .future_phases
+                .and_then(|v| serde_json::from_value(v).ok()),
             ai_generated: true,
             created_at: Utc::now(),
         };
@@ -1172,7 +1301,9 @@ pub async fn save_sections(
             foundation_features: input.foundation_features,
             visible_features: input.visible_features,
             enhancement_features: input.enhancement_features,
-            dependency_graph: input.dependency_graph.and_then(|v| serde_json::from_value(v).ok()),
+            dependency_graph: input
+                .dependency_graph
+                .and_then(|v| serde_json::from_value(v).ok()),
             ai_generated: true,
             created_at: Utc::now(),
         };
@@ -1186,10 +1317,18 @@ pub async fn save_sections(
         let entity = ideate::IdeateRisks {
             id: nanoid!(),
             session_id: session_id.clone(),
-            technical_risks: input.technical_risks.and_then(|v| serde_json::from_value(v).ok()),
-            mvp_scoping_risks: input.mvp_scoping_risks.and_then(|v| serde_json::from_value(v).ok()),
-            resource_risks: input.resource_risks.and_then(|v| serde_json::from_value(v).ok()),
-            mitigations: input.mitigations.and_then(|v| serde_json::from_value(v).ok()),
+            technical_risks: input
+                .technical_risks
+                .and_then(|v| serde_json::from_value(v).ok()),
+            mvp_scoping_risks: input
+                .mvp_scoping_risks
+                .and_then(|v| serde_json::from_value(v).ok()),
+            resource_risks: input
+                .resource_risks
+                .and_then(|v| serde_json::from_value(v).ok()),
+            mitigations: input
+                .mitigations
+                .and_then(|v| serde_json::from_value(v).ok()),
             ai_generated: true,
             created_at: Utc::now(),
         };
@@ -1203,11 +1342,17 @@ pub async fn save_sections(
         let entity = ideate::IdeateResearch {
             id: nanoid!(),
             session_id: session_id.clone(),
-            competitors: input.competitors.and_then(|v| serde_json::from_value(v).ok()),
-            similar_projects: input.similar_projects.and_then(|v| serde_json::from_value(v).ok()),
+            competitors: input
+                .competitors
+                .and_then(|v| serde_json::from_value(v).ok()),
+            similar_projects: input
+                .similar_projects
+                .and_then(|v| serde_json::from_value(v).ok()),
             research_findings: input.research_findings,
             technical_specs: input.technical_specs,
-            reference_links: input.reference_links.and_then(|v| serde_json::from_value(v).ok()),
+            reference_links: input
+                .reference_links
+                .and_then(|v| serde_json::from_value(v).ok()),
             ai_generated: true,
             created_at: Utc::now(),
         };
@@ -1226,7 +1371,10 @@ pub async fn save_sections(
             .await
         {
             Ok(_) => {
-                info!("Updated session {} with template_id: {}", session_id, template_id);
+                info!(
+                    "Updated session {} with template_id: {}",
+                    session_id, template_id
+                );
             }
             Err(e) => {
                 tracing::warn!("Failed to update session template_id: {}", e);

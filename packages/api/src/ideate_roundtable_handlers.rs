@@ -12,9 +12,8 @@ use axum::{
 };
 use futures::stream::{self, Stream};
 use ideate::{
-    CreateExpertPersonaInput, ExpertModerator, RoundtableEvent,
-    RoundtableManager, StartRoundtableRequest, SuggestExpertsRequest,
-    UserInterjectionInput,
+    CreateExpertPersonaInput, ExpertModerator, RoundtableEvent, RoundtableManager,
+    StartRoundtableRequest, SuggestExpertsRequest, UserInterjectionInput,
 };
 use orkee_projects::DbState;
 use serde::{Deserialize, Serialize};

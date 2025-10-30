@@ -29,9 +29,9 @@ pub mod response;
 pub mod security_handlers;
 pub mod spec_handlers;
 pub mod tags_handlers;
-pub mod template_handlers;
 pub mod task_spec_handlers;
 pub mod tasks_handlers;
+pub mod template_handlers;
 pub mod users_handlers;
 pub mod validation;
 
@@ -89,7 +89,10 @@ pub fn create_models_router() -> Router<DbState> {
     Router::new()
         .route("/", get(models_handlers::list_models))
         .route("/{model_id}", get(models_handlers::get_model))
-        .route("/provider/{provider}", get(models_handlers::list_models_by_provider))
+        .route(
+            "/provider/{provider}",
+            get(models_handlers::list_models_by_provider),
+        )
 }
 
 /// Creates the users API router

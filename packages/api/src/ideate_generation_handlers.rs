@@ -484,7 +484,7 @@ pub async fn regenerate_prd_with_template_stream(
 
     let stream = async_stream::stream! {
         let generator = PRDGenerator::new(db.pool.clone());
-        
+
         // Get the streaming text from AI
         let text_stream_result = generator
             .regenerate_with_template_stream(
@@ -513,21 +513,21 @@ pub async fn regenerate_prd_with_template_stream(
 
         // Stream the markdown chunks as they arrive from AI
         let mut accumulated_markdown = String::new();
-        
+
         use futures::StreamExt;
         tokio::pin!(text_stream);
         while let Some(chunk_result) = text_stream.next().await {
             match chunk_result {
                 Ok(chunk) => {
                     accumulated_markdown.push_str(&chunk);
-                    
+
                     let event = Event::default()
                         .json_data(json!({
                             "type": "chunk",
                             "content": chunk
                         }))
                         .unwrap();
-                    
+
                     yield Ok(event);
                 }
                 Err(e) => {

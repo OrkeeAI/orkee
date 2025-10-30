@@ -1211,7 +1211,11 @@ impl IdeateManager {
     }
 
     /// Apply template defaults to a session, creating sections with template data
-    pub async fn apply_template_to_session(&self, session_id: &str, template: &PRDTemplate) -> Result<()> {
+    pub async fn apply_template_to_session(
+        &self,
+        session_id: &str,
+        template: &PRDTemplate,
+    ) -> Result<()> {
         let now = Utc::now();
 
         // Overview section
@@ -1234,7 +1238,8 @@ impl IdeateManager {
         }
 
         // UX section
-        if template.default_ui_considerations.is_some() || template.default_ux_principles.is_some() {
+        if template.default_ui_considerations.is_some() || template.default_ux_principles.is_some()
+        {
             sqlx::query(
                 "INSERT INTO ideate_ux (id, session_id, ui_considerations, ux_principles, personas, user_flows, ai_generated, created_at)
                  VALUES ($1, $2, $3, $4, NULL, NULL, 1, $5)"
