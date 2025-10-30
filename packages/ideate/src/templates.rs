@@ -420,7 +420,11 @@ impl TemplateManager {
     pub async fn get_templates_by_type(&self, project_type: &str) -> Result<Vec<PRDTemplate>> {
         let templates = sqlx::query(
             "SELECT id, name, description, project_type, one_liner_prompts, default_features,
-                    default_dependencies, is_system, created_at
+                    default_dependencies, default_problem_statement, default_target_audience,
+                    default_value_proposition, default_ui_considerations, default_ux_principles,
+                    default_tech_stack_quick, default_mvp_scope, default_research_findings,
+                    default_technical_specs, default_competitors, default_similar_projects,
+                    is_system, created_at
              FROM prd_quickstart_templates
              WHERE project_type = $1
              ORDER BY is_system DESC, name ASC",
@@ -432,6 +436,18 @@ impl TemplateManager {
         templates
             .into_iter()
             .map(|row| {
+                let default_mvp_scope = row
+                    .get::<Option<String>, _>("default_mvp_scope")
+                    .and_then(|s| serde_json::from_str(&s).ok());
+
+                let default_competitors = row
+                    .get::<Option<String>, _>("default_competitors")
+                    .and_then(|s| serde_json::from_str(&s).ok());
+
+                let default_similar_projects = row
+                    .get::<Option<String>, _>("default_similar_projects")
+                    .and_then(|s| serde_json::from_str(&s).ok());
+
                 Ok(PRDTemplate {
                     id: row.get("id"),
                     name: row.get("name"),
@@ -446,6 +462,17 @@ impl TemplateManager {
                     default_dependencies: row
                         .get::<Option<String>, _>("default_dependencies")
                         .and_then(|s| serde_json::from_str(&s).ok()),
+                    default_problem_statement: row.get("default_problem_statement"),
+                    default_target_audience: row.get("default_target_audience"),
+                    default_value_proposition: row.get("default_value_proposition"),
+                    default_ui_considerations: row.get("default_ui_considerations"),
+                    default_ux_principles: row.get("default_ux_principles"),
+                    default_tech_stack_quick: row.get("default_tech_stack_quick"),
+                    default_mvp_scope,
+                    default_research_findings: row.get("default_research_findings"),
+                    default_technical_specs: row.get("default_technical_specs"),
+                    default_competitors,
+                    default_similar_projects,
                     is_system: row.get::<i32, _>("is_system") == 1,
                     created_at: row.get("created_at"),
                 })
