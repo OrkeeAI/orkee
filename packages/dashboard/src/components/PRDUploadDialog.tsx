@@ -1,11 +1,7 @@
 // ABOUTME: Dialog for uploading and analyzing PRD documents with markdown preview
 // ABOUTME: Supports file upload, paste, markdown rendering, and AI capability extraction
 import React, { useState, useRef } from 'react';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
-import rehypeHighlight from 'rehype-highlight';
-import rehypeSanitize from 'rehype-sanitize';
-import 'highlight.js/styles/github-dark.css';
+import { MarkdownRenderer } from '@/components/MarkdownRenderer';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { ModelSelectionDialog } from '@/components/ModelSelectionDialog';
@@ -286,13 +282,8 @@ export function PRDUploadDialog({ projectId, open, onOpenChange, onComplete = ()
           </TabsContent>
 
           <TabsContent value="preview" className="py-4">
-            <div className="rounded-md border p-6 max-h-[500px] overflow-y-auto prose prose-sm dark:prose-invert max-w-none">
-              <ReactMarkdown
-                remarkPlugins={[remarkGfm]}
-                rehypePlugins={[rehypeHighlight, rehypeSanitize]}
-              >
-                {contentMarkdown}
-              </ReactMarkdown>
+            <div className="rounded-md border p-6 max-h-[500px] overflow-y-auto">
+              <MarkdownRenderer content={contentMarkdown} />
             </div>
           </TabsContent>
 

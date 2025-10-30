@@ -7,10 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Separator } from '@/components/ui/separator';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
-import rehypeHighlight from 'rehype-highlight';
-import rehypeSanitize from 'rehype-sanitize';
+import { MarkdownRenderer } from '@/components/MarkdownRenderer';
 import { usePRDs, useDeletePRD, useTriggerPRDAnalysis } from '@/hooks/usePRDs';
 import { useSpecs } from '@/hooks/useSpecs';
 import { PRDUploadDialog } from '@/components/PRDUploadDialog';
@@ -301,14 +298,7 @@ export function PRDView({ projectId, onViewSpecs }: PRDViewProps) {
 
                 <Separator />
                 <CardContent className="pt-6">
-                  <div className="prose prose-sm dark:prose-invert max-w-none">
-                    <ReactMarkdown
-                      remarkPlugins={[remarkGfm]}
-                      rehypePlugins={[rehypeHighlight, rehypeSanitize]}
-                    >
-                      {selectedPRD.contentMarkdown}
-                    </ReactMarkdown>
-                  </div>
+                  <MarkdownRenderer content={selectedPRD.contentMarkdown} />
                 </CardContent>
               </Card>
             ) : (
