@@ -46,6 +46,24 @@ When you add new SQLx queries (e.g., `sqlx::query!`, `sqlx::query_as!`):
    git commit -m "Update sqlx query cache"
    ```
 
+### Safety Considerations
+
+**Query Validation in Offline Mode**
+- Queries are validated when `cargo sqlx prepare` is run (not during build)
+- The `.sqlx/` cache contains validated schema information
+- Offline mode uses cached validation instead of re-checking against database
+- **This is safe** - validation still happens, just at prepare time
+
+**Preventing Stale Cache Issues**
+- A pre-commit hook warns if Rust files change without updating `.sqlx/`
+- Always run `cargo sqlx prepare --workspace` after adding new queries
+- The hook can be bypassed with `git commit --no-verify` if needed
+
+**Database Schema Changes**
+- If database schema changes, `cargo sqlx prepare` will fail
+- This forces developers to update queries before committing
+- Prevents silent failures from schema mismatches
+
 ### Troubleshooting
 
 **Build fails with "unable to open database file"**
@@ -56,6 +74,11 @@ When you add new SQLx queries (e.g., `sqlx::query!`, `sqlx::query_as!`):
 **New queries not recognized**
 - Run `cargo sqlx prepare --workspace` after adding new queries
 - Commit the updated `.sqlx/` directory
+- Pre-commit hook will warn if you forget
+
+**Pre-commit hook not working**
+- Ensure git hooks are configured: `git config core.hooksPath .githooks`
+- Make hook executable: `chmod +x .githooks/pre-commit`
 
 ### CI/CD Integration
 
