@@ -11,12 +11,14 @@ import { QuickstartTemplateEditor } from './QuickstartTemplateEditor';
 export function QuickstartTemplateManager() {
   const { data: templates = [], isLoading } = useQuickstartTemplates();
   const createMutation = useCreateTemplate();
-  const updateMutation = useUpdateTemplate('');
   const deleteMutation = useDeleteTemplate();
 
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState<PRDTemplate | null>(null);
+  
+  // Initialize updateMutation with selected template ID when available
+  const updateMutation = useUpdateTemplate(selectedTemplate?.id || '');
 
   const handleCreate = async (data: any) => {
     try {

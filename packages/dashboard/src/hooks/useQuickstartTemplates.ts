@@ -1,6 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { ideateService } from '@/services/ideate';
-import { PRDTemplate, CreateTemplateInput } from '@/types/ideate';
+import { ideateService, PRDTemplate, CreateTemplateInput } from '@/services/ideate';
 
 const queryKeys = {
   all: ['quickstart-templates'] as const,
