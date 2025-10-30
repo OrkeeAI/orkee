@@ -444,3 +444,4 @@ export function Templates() {
     </div>
   );
 }
+export default Templates;
