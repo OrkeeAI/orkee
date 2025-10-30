@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "\n            DELETE FROM context_snapshots\n            WHERE id IN (\n                SELECT id FROM context_snapshots\n                WHERE project_id = ?\n                ORDER BY created_at DESC\n                LIMIT -1 OFFSET ?\n            )\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": []
+  },
+  "hash": "a3ce36b6a402814fc1a28fac15bee582996eeee576380d23e930dc235f2bd563"
+}

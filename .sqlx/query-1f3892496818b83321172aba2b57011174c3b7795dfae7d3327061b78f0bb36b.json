@@ -1,0 +1,20 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT CAST(COUNT(*) AS INTEGER) as \"count!: i32\" FROM context_snapshots WHERE project_id = ?",
+  "describe": {
+    "columns": [
+      {
+        "name": "count!: i32",
+        "ordinal": 0,
+        "type_info": "Integer"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "1f3892496818b83321172aba2b57011174c3b7795dfae7d3327061b78f0bb36b"
+}

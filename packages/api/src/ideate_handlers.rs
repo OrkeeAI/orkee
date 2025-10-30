@@ -1278,14 +1278,3 @@ pub async fn delete_template(
     let result = manager.delete_template(&template_id).await;
     ok_or_internal_error(result, "Failed to delete template")
 }
-
-/// Get a single template by ID
-pub async fn get_template(
-    State(db): State<DbState>,
-    Path(template_id): Path<String>,
-) -> impl IntoResponse {
-    info!("Getting template: {}", template_id);
-    let manager = TemplateManager::new(db.pool.clone());
-    let result = manager.get_template(&template_id).await;
-    ok_or_not_found(result, "Template not found")
-}

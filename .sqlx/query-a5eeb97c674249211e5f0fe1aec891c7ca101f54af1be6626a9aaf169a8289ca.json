@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO context_snapshots (id, project_id, content, file_count, total_tokens, metadata)\n         VALUES (?, ?, ?, ?, ?, ?)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 6
+    },
+    "nullable": []
+  },
+  "hash": "a5eeb97c674249211e5f0fe1aec891c7ca101f54af1be6626a9aaf169a8289ca"
+}
