@@ -18,8 +18,9 @@ pub use registry::{is_process_running_validated, start_periodic_cleanup};
 pub use types::{
     ApiResponse, DevServerConfig, DevServerInstance, DevServerLog, DevServerStatus, Framework,
     LogType, PackageManager, PreviewError, PreviewResult, ProjectDetectionResult, ProjectType,
-    ServerLockData, ServerLogsRequest, ServerLogsResponse, ServerSource, ServerStatusResponse,
-    StartServerRequest, StartServerResponse,
+    ServerEvent, ServerLockData, ServerLogsRequest, ServerLogsResponse, ServerSource,
+    ServerStatusInfo, ServerStatusResponse, ServersResponse, StartServerRequest,
+    StartServerResponse,
 };
 
 /// Initialize the preview service with a crash-resistant manager.
