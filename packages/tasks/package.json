@@ -1,6 +1,6 @@
 {
   "name": "@orkee/tasks",
-  "version": "0.0.1",
+  "version": "0.0.9",
   "description": "Task management provider abstraction for Orkee - supports multiple task sources",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",

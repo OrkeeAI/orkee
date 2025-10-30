@@ -1,32 +1,9 @@
--- ABOUTME: Down migration for initial schema - drops all tables in reverse dependency order
--- ABOUTME: Used for development resets and integration test cleanup
-
--- ============================================================================
--- PRE-DROP VERIFICATION
--- ============================================================================
--- Check for user data that will be lost (development safety check)
--- Note: These queries don't prevent the drop, they're for logging/verification
--- In production, you should backup data before running down migrations
-
--- Count records that will be deleted
--- SELECT 'Projects to delete: ' || COUNT(*) FROM projects WHERE 1=1;
--- SELECT 'Users to delete: ' || COUNT(*) FROM users WHERE id != 'default-user';
--- SELECT 'Tasks to delete: ' || COUNT(*) FROM tasks WHERE 1=1;
-
--- Check for orphaned data (data without proper FK relationships)
--- This helps identify data integrity issues before cleanup
--- SELECT 'Orphaned tasks (no project): ' || COUNT(*) FROM tasks
---   WHERE project_id NOT IN (SELECT id FROM projects);
--- SELECT 'Orphaned user_agents (no user): ' || COUNT(*) FROM user_agents
---   WHERE user_id NOT IN (SELECT id FROM users);
+-- ABOUTME: Down migration for consolidated initial schema
+-- ABOUTME: Drops all tables, views, triggers, and indexes in reverse dependency order
 
 -- ============================================================================
 -- DROP TRIGGERS FIRST (before any tables)
 -- ============================================================================
--- Must drop triggers before dropping tables to avoid errors from trigger execution
--- Triggers may reference other tables that will be dropped
-
--- Drop all triggers (comprehensive list from up migration)
 DROP TRIGGER IF EXISTS projects_updated_at;
 DROP TRIGGER IF EXISTS projects_fts_insert;
 DROP TRIGGER IF EXISTS projects_fts_delete;
@@ -57,6 +34,13 @@ DROP TRIGGER IF EXISTS context_usage_patterns_updated_at;
 DROP TRIGGER IF EXISTS ast_spec_mappings_updated_at;
 DROP TRIGGER IF EXISTS context_templates_updated_at;
 DROP TRIGGER IF EXISTS api_tokens_updated_at;
+DROP TRIGGER IF EXISTS update_task_completion_stats;
+DROP TRIGGER IF EXISTS update_task_completion_stats_insert;
+DROP TRIGGER IF EXISTS update_task_completion_stats_delete;
+DROP TRIGGER IF EXISTS update_task_actual_hours;
+DROP TRIGGER IF EXISTS update_task_on_pr_merge;
+DROP TRIGGER IF EXISTS ideate_sessions_updated_at;
+DROP TRIGGER IF EXISTS prd_output_templates_updated_at;
 
 -- ============================================================================
 -- DROP VIEWS (after triggers)
@@ -130,6 +114,52 @@ DROP TABLE IF EXISTS spec_requirements;
 DROP TABLE IF EXISTS spec_capabilities_history;
 DROP TABLE IF EXISTS spec_capabilities;
 DROP TABLE IF EXISTS spec_changes;
+
+-- ============================================================================
+-- DROP IDEATE TABLES
+-- ============================================================================
+-- PRD Generation tables
+DROP TABLE IF EXISTS ideate_generation_stats;
+DROP TABLE IF EXISTS ideate_generations;
+DROP TABLE IF EXISTS ideate_validation_rules;
+DROP TABLE IF EXISTS ideate_section_generations;
+DROP TABLE IF EXISTS ideate_exports;
+DROP TABLE IF EXISTS ideate_prd_generations;
+
+-- PRD Output Templates
+DROP TABLE IF EXISTS prd_output_templates;
+
+-- Dependency Intelligence tables
+DROP TABLE IF EXISTS circular_dependencies;
+DROP TABLE IF EXISTS quick_win_features;
+DROP TABLE IF EXISTS build_order_optimization;
+DROP TABLE IF EXISTS dependency_analysis_cache;
+DROP TABLE IF EXISTS feature_dependencies;
+
+-- Expert Roundtable tables
+DROP TABLE IF EXISTS roundtable_insights;
+DROP TABLE IF EXISTS expert_suggestions;
+DROP TABLE IF EXISTS roundtable_messages;
+DROP TABLE IF EXISTS roundtable_participants;
+DROP TABLE IF EXISTS roundtable_sessions;
+DROP TABLE IF EXISTS expert_personas;
+
+-- Research Analysis Cache
+DROP TABLE IF EXISTS competitor_analysis_cache;
+
+-- Ideate core tables
+DROP TABLE IF EXISTS prd_quickstart_templates;
+DROP TABLE IF EXISTS ideate_research;
+DROP TABLE IF EXISTS ideate_risks;
+DROP TABLE IF EXISTS ideate_dependencies;
+DROP TABLE IF EXISTS ideate_roadmap;
+DROP TABLE IF EXISTS ideate_technical;
+DROP TABLE IF EXISTS ideate_ux;
+DROP TABLE IF EXISTS ideate_features;
+DROP TABLE IF EXISTS ideate_overview;
+DROP TABLE IF EXISTS ideate_sessions;
+
+-- PRDs table (must be dropped after ideate_sessions due to FK)
 DROP TABLE IF EXISTS prds;
 
 -- ============================================================================
@@ -137,7 +167,6 @@ DROP TABLE IF EXISTS prds;
 -- ============================================================================
 DROP TABLE IF EXISTS user_agents;
 DROP TABLE IF EXISTS tags;
-DROP TABLE IF EXISTS agents;
 DROP TABLE IF EXISTS users;
 
 -- ============================================================================
@@ -145,41 +174,3 @@ DROP TABLE IF EXISTS users;
 -- ============================================================================
 DROP TABLE IF EXISTS projects_fts;
 DROP TABLE IF EXISTS projects;
-
--- ============================================================================
--- CLEAN STATE VERIFICATION
--- ============================================================================
--- Verify all tables have been dropped (except SQLx migration tracking)
--- Uncomment these queries to verify clean state during development:
-
--- List remaining tables (should only show _sqlx_migrations and sqlite_* tables)
--- SELECT name FROM sqlite_master
---   WHERE type='table'
---   AND name NOT LIKE 'sqlite_%'
---   AND name != '_sqlx_migrations'
---   ORDER BY name;
-
--- List remaining views (should be empty)
--- SELECT name FROM sqlite_master WHERE type='view' ORDER BY name;
-
--- List remaining triggers (should be empty)
--- SELECT name FROM sqlite_master WHERE type='trigger' ORDER BY name;
-
--- List remaining indexes (should only show indexes on _sqlx_migrations and sqlite_* tables)
--- SELECT name FROM sqlite_master
---   WHERE type='index'
---   AND name NOT LIKE 'sqlite_%'
---   AND tbl_name != '_sqlx_migrations'
---   ORDER BY name;
-
--- ============================================================================
--- MIGRATION METADATA CLEANUP (OPTIONAL)
--- ============================================================================
--- WARNING: Deleting from _sqlx_migrations will cause SQLx to re-run all migrations
--- Only uncomment this if you want to completely reset the migration state
--- This is useful for development but NEVER do this in production
-
--- DELETE FROM _sqlx_migrations WHERE version = 1;
-
--- To completely remove migration tracking (use with extreme caution):
--- DROP TABLE IF EXISTS _sqlx_migrations;

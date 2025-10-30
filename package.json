@@ -1,5 +1,6 @@
 {
   "name": "orkee",
+  "version": "0.0.9",
   "private": true,
   "packageManager": "bun@1.2.23",
   "workspaces": [
@@ -15,7 +16,8 @@
     "test": "turbo test",
     "check": "./check-ci.sh",
     "check:fix": "./check-ci.sh --fix",
-    "check:quick": "./check-ci.sh --no-tests"
+    "check:quick": "./check-ci.sh --no-tests",
+    "version:sync": "node scripts/sync-versions.js"
   },
   "devDependencies": {
     "turbo": "^2.5.8"

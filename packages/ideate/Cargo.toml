@@ -1,0 +1,63 @@
+[package]
+name = "orkee-ideate"
+version.workspace = true
+edition.workspace = true
+description = "Brainstorming and PRD ideation library for Orkee"
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+# Core package
+orkee_core = { path = "../core" }
+
+# AI package for intelligent suggestions
+ai = { path = "../ai" }
+
+# Settings for configuration
+settings = { path = "../settings" }
+
+# Security for user API keys
+security = { path = "../security" }
+
+# Database
+sqlx = { version = "0.8.1", default-features = false, features = ["runtime-tokio-rustls", "sqlite", "uuid", "chrono", "migrate", "macros", "json"] }
+
+# Async
+async-trait = "0.1"
+tokio = { version = "1.0", features = ["fs", "time", "rt"] }
+futures = "0.3"
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# Date/time
+chrono = { version = "0.4", features = ["serde"] }
+
+# HTTP framework
+axum = "0.8"
+tower = { version = "0.5", features = ["util"] }
+
+# Logging
+tracing = "0.1"
+
+# Error handling
+thiserror = "2.0"
+
+# Utilities
+uuid = { version = "1.0", features = ["v4", "serde"] }
+nanoid = "0.4.0"
+
+# Graph algorithms for dependency analysis
+petgraph = { version = "0.6", features = ["serde-1"] }
+
+# Web scraping for competitor analysis
+scraper = "0.19"
+html5ever = "0.26"
+url = "2.5"
+reqwest = { version = "0.12", features = ["json"] }
+
+[dev-dependencies]
+tempfile = "3.0"
+tokio-test = "0.4"
