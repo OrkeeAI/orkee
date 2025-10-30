@@ -17,7 +17,7 @@ import { PRDEditor } from './PRDEditor';
 import { SavePreview } from './SavePreview';
 import { ModelSelectionDialog } from '@/components/ModelSelectionDialog';
 import { RegenerateTemplateDialog } from '../PRDGenerator/RegenerateTemplateDialog';
-import { useQuickExpand, useSaveAsPRD, useIdeateSession } from '@/hooks/useIdeate';
+import { useQuickExpand, useSaveAsPRD, useIdeateSession, useUpdateIdeateSession } from '@/hooks/useIdeate';
 import { ideateService } from '@/services/ideate';
 import type { GeneratedPRD } from '@/services/ideate';
 import { toast } from 'sonner';
@@ -55,6 +55,7 @@ export function QuickModeFlow({
   const { data: session } = useIdeateSession(sessionId);
   const expandMutation = useQuickExpand(projectId, sessionId);
   const saveMutation = useSaveAsPRD(projectId, sessionId);
+  const updateSessionMutation = useUpdateIdeateSession(projectId, sessionId);
 
   // Initialize from session: load description and check for existing PRD
   useEffect(() => {
@@ -135,6 +136,11 @@ export function QuickModeFlow({
       setGeneratedPRD(result);
       setStep('edit');
       setIsGenerating(false);
+
+      // Update session status to 'completed' after successful PRD generation
+      await updateSessionMutation.mutateAsync({
+        status: 'completed'
+      });
 
       toast.success('PRD generated successfully!');
     } catch (error) {
