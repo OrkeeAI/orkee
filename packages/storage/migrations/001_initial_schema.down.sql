@@ -116,9 +116,9 @@ DROP TABLE IF EXISTS spec_capabilities;
 DROP TABLE IF EXISTS spec_changes;
 
 -- ============================================================================
--- DROP IDEATE TABLES (from migrations 002-012)
+-- DROP IDEATE TABLES
 -- ============================================================================
--- PRD Generation tables (migration 007)
+-- PRD Generation tables
 DROP TABLE IF EXISTS ideate_generation_stats;
 DROP TABLE IF EXISTS ideate_generations;
 DROP TABLE IF EXISTS ideate_validation_rules;
@@ -126,17 +126,17 @@ DROP TABLE IF EXISTS ideate_section_generations;
 DROP TABLE IF EXISTS ideate_exports;
 DROP TABLE IF EXISTS ideate_prd_generations;
 
--- PRD Output Templates (migration 009)
+-- PRD Output Templates
 DROP TABLE IF EXISTS prd_output_templates;
 
--- Dependency Intelligence tables (migration 004)
+-- Dependency Intelligence tables
 DROP TABLE IF EXISTS circular_dependencies;
 DROP TABLE IF EXISTS quick_win_features;
 DROP TABLE IF EXISTS build_order_optimization;
 DROP TABLE IF EXISTS dependency_analysis_cache;
 DROP TABLE IF EXISTS feature_dependencies;
 
--- Expert Roundtable tables (migration 006)
+-- Expert Roundtable tables
 DROP TABLE IF EXISTS roundtable_insights;
 DROP TABLE IF EXISTS expert_suggestions;
 DROP TABLE IF EXISTS roundtable_messages;
@@ -144,10 +144,10 @@ DROP TABLE IF EXISTS roundtable_participants;
 DROP TABLE IF EXISTS roundtable_sessions;
 DROP TABLE IF EXISTS expert_personas;
 
--- Research Analysis Cache (migration 005)
+-- Research Analysis Cache
 DROP TABLE IF EXISTS competitor_analysis_cache;
 
--- Ideate core tables (migration 002)
+-- Ideate core tables
 DROP TABLE IF EXISTS prd_quickstart_templates;
 DROP TABLE IF EXISTS ideate_research;
 DROP TABLE IF EXISTS ideate_risks;

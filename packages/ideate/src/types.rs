@@ -4,7 +4,7 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-/// Ideateing session mode
+/// Ideating session mode
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, sqlx::Type)]
 #[sqlx(type_name = "TEXT", rename_all = "lowercase")]
 #[serde(rename_all = "lowercase")]
@@ -17,7 +17,7 @@ pub enum IdeateMode {
     Comprehensive,
 }
 
-/// Ideateing session status
+/// Ideating session status
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, sqlx::Type)]
 #[sqlx(type_name = "TEXT", rename_all = "snake_case")]
 #[serde(rename_all = "snake_case")]
@@ -231,7 +231,7 @@ pub struct GraphNode {
     pub id: String,
     pub label: String,
     pub phase: i32,
-    #[serde(rename = "type", skip_serializing_if = "Option::is_none")]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub node_type: Option<String>,
 }
 
@@ -239,7 +239,7 @@ pub struct GraphNode {
 pub struct GraphEdge {
     pub from: String,
     pub to: String,
-    #[serde(rename = "type", skip_serializing_if = "Option::is_none")]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub edge_type: Option<String>,
 }
 
@@ -256,12 +256,31 @@ pub struct IdeateRisks {
     pub created_at: DateTime<Utc>,
 }
 
+/// Risk severity levels
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum RiskSeverity {
+    Low,
+    Medium,
+    High,
+    Critical,
+}
+
+/// Risk probability levels
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum RiskProbability {
+    Low,
+    Medium,
+    High,
+}
+
 /// Risk definition
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Risk {
     pub description: String,
-    pub severity: String,    // "low", "medium", "high", "critical"
-    pub probability: String, // "low", "medium", "high"
+    pub severity: RiskSeverity,
+    pub probability: RiskProbability,
 }
 
 /// Mitigation strategy

@@ -11,23 +11,34 @@ Orkee has two separate release tracks:
 
 ## Version Synchronization
 
-Both releases should maintain the same version number, but are tagged separately:
+All packages (Rust and npm) maintain the same version number for consistency:
 - CLI: `v0.0.4`
 - Desktop: `desktop-v0.0.4`
+- All workspace packages: `0.0.4`
+
+Version numbers are synchronized across:
+- **Rust packages**: Via `Cargo.toml` workspace inheritance
+- **npm packages**: Via `bun run version:sync` script from root `package.json`
 
 ## Release Checklist
 
 ### 1. Update Version Numbers
 
-Update version in the following files:
+Update version numbers for both Rust and npm packages:
 
 ```bash
-# Workspace version (inherited by all Rust packages)
-Cargo.toml                                    # [workspace.package] version
+# 1. Update Rust workspace version (inherited by all Rust packages)
+# Edit Cargo.toml [workspace.package] version field
 
-# Desktop-specific versions
-packages/dashboard/src-tauri/Cargo.toml       # [package] version
-packages/dashboard/src-tauri/tauri.conf.json  # version field
+# 2. Update npm root version (source of truth for all npm packages)
+# Edit package.json version field
+
+# 3. Sync all npm workspace packages
+bun run version:sync
+
+# 4. Update Desktop-specific versions
+# Edit packages/dashboard/src-tauri/Cargo.toml [package] version
+# Edit packages/dashboard/src-tauri/tauri.conf.json version field
 ```
 
 ### 2. Update Lock Files
@@ -55,7 +66,13 @@ bun run tauri:build
 ### 4. Commit Changes
 
 ```bash
+# Stage Rust version changes
 git add Cargo.toml packages/dashboard/src-tauri/Cargo.toml packages/dashboard/src-tauri/tauri.conf.json Cargo.lock
+
+# Stage npm version changes
+git add package.json packages/*/package.json
+
+# Commit and push
 git commit -m "chore: bump version to X.Y.Z"
 git push origin main
 ```
@@ -112,25 +129,31 @@ This triggers:
 
 ```bash
 # 1. Update versions
-# Edit Cargo.toml, packages/dashboard/src-tauri/Cargo.toml, packages/dashboard/src-tauri/tauri.conf.json
+# Edit Cargo.toml [workspace.package] version
+# Edit package.json version
+# Edit packages/dashboard/src-tauri/Cargo.toml [package] version
+# Edit packages/dashboard/src-tauri/tauri.conf.json version
 
-# 2. Update lock files
+# 2. Sync npm packages
+bun run version:sync
+
+# 3. Update lock files
 cargo update --workspace
 
-# 3. Test
+# 4. Test
 cargo test
 bun lint
 
-# 4. Commit
-git add Cargo.toml packages/dashboard/src-tauri/Cargo.toml packages/dashboard/src-tauri/tauri.conf.json Cargo.lock
+# 5. Commit
+git add Cargo.toml package.json packages/*/package.json packages/dashboard/src-tauri/Cargo.toml packages/dashboard/src-tauri/tauri.conf.json Cargo.lock
 git commit -m "chore: bump version to 0.0.4"
 git push origin main
 
-# 5. CLI release
+# 6. CLI release
 git tag v0.0.4
 git push origin v0.0.4
 
-# 6. Desktop release
+# 7. Desktop release
 git tag desktop-v0.0.4
 git push origin desktop-v0.0.4
 ```
@@ -169,6 +192,8 @@ Both workflows support manual triggering via `workflow_dispatch` in the GitHub A
 - Check platform-specific dependencies (see workflow for details)
 
 ### Version mismatch
-- Ensure all version fields are updated (4 files total)
+- Ensure all Rust version fields are updated (Cargo.toml, src-tauri/Cargo.toml, tauri.conf.json)
+- Ensure npm root version is updated (package.json)
+- Run `bun run version:sync` to sync all npm workspace packages
 - Run `cargo update --workspace` after version changes
-- Verify `Cargo.lock` is committed
+- Verify both `Cargo.lock` and updated `package.json` files are committed

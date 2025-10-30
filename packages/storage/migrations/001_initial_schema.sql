@@ -1,6 +1,24 @@
 -- ABOUTME: Initial Orkee database schema with project management, task tracking, OpenSpec, and telemetry
 -- ABOUTME: Includes security, context management, API tokens, and comprehensive indexing for performance
 
+-- ============================================================================
+-- PRE-1.0 SCHEMA CONSOLIDATION
+-- ============================================================================
+-- This migration represents the complete initial schema for Orkee, including
+-- the ideate feature. During pre-release development, this schema was built
+-- incrementally across multiple development iterations, but has been
+-- consolidated into a single initial migration since no production instances
+-- exist yet.
+--
+-- This consolidation approach is valid because:
+-- - No users are running Orkee in production
+-- - No existing databases need migration
+-- - Simpler initial setup for new installations
+-- - Easier to test as a single atomic schema
+--
+-- Post-1.0: All schema changes will be separate, incremental migrations.
+-- ============================================================================
+
 -- Enable foreign keys
 PRAGMA foreign_keys = ON;
 
@@ -53,8 +71,8 @@ CREATE TABLE projects (
     git_repository TEXT, -- JSON object with repo info
 
     -- Timestamps
-    created_at TEXT NOT NULL DEFAULT (datetime('now', 'utc')),
-    updated_at TEXT NOT NULL DEFAULT (datetime('now', 'utc')),
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+    updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
 
     -- Constraints
     CHECK (json_valid(tags) OR tags IS NULL),
@@ -112,7 +130,7 @@ END;
 CREATE TRIGGER projects_updated_at AFTER UPDATE ON projects
 FOR EACH ROW WHEN NEW.updated_at = OLD.updated_at
 BEGIN
-    UPDATE projects SET updated_at = datetime('now', 'utc') WHERE id = NEW.id;
+    UPDATE projects SET updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE id = NEW.id;
 END;
 
 -- Project views
@@ -180,7 +198,7 @@ CREATE TABLE users (
 CREATE TRIGGER users_updated_at AFTER UPDATE ON users
 FOR EACH ROW WHEN NEW.updated_at = OLD.updated_at
 BEGIN
-    UPDATE users SET updated_at = datetime('now', 'utc') WHERE id = NEW.id;
+    UPDATE users SET updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE id = NEW.id;
 END;
 
 -- Agents table
@@ -222,7 +240,7 @@ CREATE INDEX idx_user_agents_agent_id ON user_agents(agent_id);
 CREATE TRIGGER user_agents_updated_at AFTER UPDATE ON user_agents
 FOR EACH ROW WHEN NEW.updated_at = OLD.updated_at
 BEGIN
-    UPDATE user_agents SET updated_at = datetime('now', 'utc') WHERE id = NEW.id;
+    UPDATE user_agents SET updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE id = NEW.id;
 END;
 
 -- ============================================================================
@@ -249,19 +267,22 @@ CREATE INDEX idx_tags_archived_at ON tags(archived_at);
 CREATE TABLE prds (
     id TEXT PRIMARY KEY CHECK(length(id) >= 8),
     project_id TEXT NOT NULL,
+    ideate_session_id TEXT,
     title TEXT NOT NULL,
     content_markdown TEXT NOT NULL,
     version INTEGER DEFAULT 1,
     status TEXT DEFAULT 'draft' CHECK(status IN ('draft', 'approved', 'superseded')),
     source TEXT DEFAULT 'manual' CHECK(source IN ('manual', 'generated', 'synced')),
     deleted_at TEXT,
-    created_at TEXT NOT NULL DEFAULT (datetime('now', 'utc')),
-    updated_at TEXT NOT NULL DEFAULT (datetime('now', 'utc')),
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+    updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
     created_by TEXT,
-    FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
+    FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+    FOREIGN KEY (ideate_session_id) REFERENCES ideate_sessions(id) ON DELETE SET NULL
 );
 
 CREATE INDEX idx_prds_project ON prds(project_id);
+CREATE INDEX idx_prds_ideate_session ON prds(ideate_session_id);
 CREATE INDEX idx_prds_status ON prds(status);
 CREATE INDEX idx_prds_not_deleted ON prds(id) WHERE deleted_at IS NULL;
 CREATE INDEX idx_prds_project_not_deleted ON prds(project_id, status) WHERE deleted_at IS NULL;
@@ -269,7 +290,7 @@ CREATE INDEX idx_prds_project_not_deleted ON prds(project_id, status) WHERE dele
 CREATE TRIGGER prds_updated_at AFTER UPDATE ON prds
 FOR EACH ROW WHEN NEW.updated_at = OLD.updated_at
 BEGIN
-    UPDATE prds SET updated_at = datetime('now', 'utc') WHERE id = NEW.id;
+    UPDATE prds SET updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE id = NEW.id;
 END;
 
 -- Spec Changes
@@ -294,8 +315,8 @@ CREATE TABLE spec_changes (
     tasks_parsed_at TEXT,
     tasks_total_count INTEGER DEFAULT 0,
     tasks_completed_count INTEGER DEFAULT 0,
-    created_at TEXT NOT NULL DEFAULT (datetime('now', 'utc')),
-    updated_at TEXT NOT NULL DEFAULT (datetime('now', 'utc')),
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+    updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
     FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
     FOREIGN KEY (prd_id) REFERENCES prds(id) ON DELETE SET NULL
 );
@@ -320,7 +341,7 @@ CREATE UNIQUE INDEX idx_spec_changes_unique_change_number
 CREATE TRIGGER spec_changes_updated_at AFTER UPDATE ON spec_changes
 FOR EACH ROW WHEN NEW.updated_at = OLD.updated_at
 BEGIN
-    UPDATE spec_changes SET updated_at = datetime('now', 'utc') WHERE id = NEW.id;
+    UPDATE spec_changes SET updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE id = NEW.id;
 END;
 
 -- Spec Capabilities
@@ -338,8 +359,8 @@ CREATE TABLE spec_capabilities (
     change_id TEXT REFERENCES spec_changes(id) ON DELETE SET NULL,
     is_openspec_compliant BOOLEAN DEFAULT FALSE,
     deleted_at TEXT,
-    created_at TEXT NOT NULL DEFAULT (datetime('now', 'utc')),
-    updated_at TEXT NOT NULL DEFAULT (datetime('now', 'utc')),
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+    updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
     FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
     FOREIGN KEY (prd_id) REFERENCES prds(id) ON DELETE SET NULL
 );
@@ -361,7 +382,7 @@ CREATE INDEX idx_spec_capabilities_prd_not_deleted ON spec_capabilities(prd_id) 
 CREATE TRIGGER spec_capabilities_updated_at AFTER UPDATE ON spec_capabilities
 FOR EACH ROW WHEN NEW.updated_at = OLD.updated_at
 BEGIN
-    UPDATE spec_capabilities SET updated_at = datetime('now', 'utc') WHERE id = NEW.id;
+    UPDATE spec_capabilities SET updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE id = NEW.id;
 END;
 
 -- Spec Capabilities History
@@ -372,7 +393,7 @@ CREATE TABLE spec_capabilities_history (
     spec_markdown TEXT NOT NULL,
     design_markdown TEXT,
     purpose_markdown TEXT,
-    created_at TEXT NOT NULL DEFAULT (datetime('now', 'utc')),
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
     FOREIGN KEY (capability_id) REFERENCES spec_capabilities(id) ON DELETE CASCADE,
     UNIQUE (capability_id, version)
 );
@@ -386,8 +407,8 @@ CREATE TABLE spec_requirements (
     name TEXT NOT NULL,
     content_markdown TEXT NOT NULL,
     position INTEGER DEFAULT 0,
-    created_at TEXT NOT NULL DEFAULT (datetime('now', 'utc')),
-    updated_at TEXT NOT NULL DEFAULT (datetime('now', 'utc')),
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+    updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
     FOREIGN KEY (capability_id) REFERENCES spec_capabilities(id) ON DELETE CASCADE
 );
 
@@ -396,7 +417,7 @@ CREATE INDEX idx_spec_requirements_capability ON spec_requirements(capability_id
 CREATE TRIGGER spec_requirements_updated_at AFTER UPDATE ON spec_requirements
 FOR EACH ROW WHEN NEW.updated_at = OLD.updated_at
 BEGIN
-    UPDATE spec_requirements SET updated_at = datetime('now', 'utc') WHERE id = NEW.id;
+    UPDATE spec_requirements SET updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE id = NEW.id;
 END;
 
 -- Spec Scenarios
@@ -408,7 +429,7 @@ CREATE TABLE spec_scenarios (
     then_clause TEXT NOT NULL,
     and_clauses TEXT,
     position INTEGER DEFAULT 0,
-    created_at TEXT NOT NULL DEFAULT (datetime('now', 'utc')),
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
     FOREIGN KEY (requirement_id) REFERENCES spec_requirements(id) ON DELETE CASCADE
 );
 
@@ -425,8 +446,8 @@ CREATE TABLE spec_change_tasks (
     completed_at TEXT,
     display_order INTEGER NOT NULL,
     parent_number TEXT,
-    created_at TEXT NOT NULL DEFAULT (datetime('now', 'utc')),
-    updated_at TEXT NOT NULL DEFAULT (datetime('now', 'utc')),
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+    updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
     FOREIGN KEY (change_id) REFERENCES spec_changes(id) ON DELETE CASCADE
 );
 
@@ -437,7 +458,7 @@ CREATE INDEX idx_spec_change_tasks_parent ON spec_change_tasks(change_id, parent
 CREATE TRIGGER spec_change_tasks_updated_at AFTER UPDATE ON spec_change_tasks
 FOR EACH ROW WHEN NEW.updated_at = OLD.updated_at
 BEGIN
-    UPDATE spec_change_tasks SET updated_at = datetime('now', 'utc') WHERE id = NEW.id;
+    UPDATE spec_change_tasks SET updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE id = NEW.id;
 END;
 
 -- Spec change task triggers
@@ -459,7 +480,7 @@ BEGIN
             FROM spec_change_tasks
             WHERE change_id = NEW.change_id
         ),
-        updated_at = datetime('now', 'utc')
+        updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now')
     WHERE id = NEW.change_id;
 END;
 
@@ -477,7 +498,7 @@ BEGIN
             FROM spec_change_tasks
             WHERE change_id = NEW.change_id
         ),
-        updated_at = datetime('now', 'utc')
+        updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now')
     WHERE id = NEW.change_id;
 END;
 
@@ -499,7 +520,7 @@ BEGIN
             FROM spec_change_tasks
             WHERE change_id = OLD.change_id
         ),
-        updated_at = datetime('now', 'utc')
+        updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now')
     WHERE id = OLD.change_id;
 END;
 
@@ -512,7 +533,7 @@ CREATE TABLE spec_deltas (
     delta_type TEXT NOT NULL CHECK(delta_type IN ('added', 'modified', 'removed')),
     delta_markdown TEXT NOT NULL,
     position INTEGER DEFAULT 0,
-    created_at TEXT NOT NULL DEFAULT (datetime('now', 'utc')),
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
     FOREIGN KEY (change_id) REFERENCES spec_changes(id) ON DELETE CASCADE,
     FOREIGN KEY (capability_id) REFERENCES spec_capabilities(id) ON DELETE SET NULL
 );
@@ -584,7 +605,7 @@ CREATE INDEX idx_tasks_project_priority ON tasks(project_id, priority);
 CREATE TRIGGER tasks_updated_at AFTER UPDATE ON tasks
 FOR EACH ROW WHEN NEW.updated_at = OLD.updated_at
 BEGIN
-    UPDATE tasks SET updated_at = datetime('now', 'utc') WHERE id = NEW.id;
+    UPDATE tasks SET updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE id = NEW.id;
 END;
 
 -- Task full-text search
@@ -670,7 +691,7 @@ CREATE INDEX idx_agent_executions_pr_number ON agent_executions(pr_number);
 CREATE TRIGGER agent_executions_updated_at
 AFTER UPDATE ON agent_executions
 BEGIN
-    UPDATE agent_executions SET updated_at = datetime('now', 'utc')
+    UPDATE agent_executions SET updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now')
     WHERE id = NEW.id;
 END;
 
@@ -720,7 +741,7 @@ CREATE INDEX idx_pr_reviews_status ON pr_reviews(review_status);
 CREATE TRIGGER pr_reviews_updated_at
 AFTER UPDATE ON pr_reviews
 BEGIN
-    UPDATE pr_reviews SET updated_at = datetime('now', 'utc')
+    UPDATE pr_reviews SET updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now')
     WHERE id = NEW.id;
 END;
 
@@ -731,8 +752,8 @@ CREATE TABLE task_spec_links (
     scenario_id TEXT,
     validation_status TEXT DEFAULT 'pending' CHECK(validation_status IN ('pending', 'passed', 'failed')),
     validation_result TEXT,
-    created_at TEXT NOT NULL DEFAULT (datetime('now', 'utc')),
-    updated_at TEXT NOT NULL DEFAULT (datetime('now', 'utc')),
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+    updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
     PRIMARY KEY (task_id, requirement_id),
     FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE,
     FOREIGN KEY (requirement_id) REFERENCES spec_requirements(id) ON DELETE CASCADE,
@@ -747,7 +768,7 @@ CREATE INDEX idx_task_spec_links_scenario ON task_spec_links(scenario_id);
 CREATE TRIGGER task_spec_links_updated_at AFTER UPDATE ON task_spec_links
 FOR EACH ROW WHEN NEW.updated_at = OLD.updated_at
 BEGIN
-    UPDATE task_spec_links SET updated_at = datetime('now', 'utc')
+    UPDATE task_spec_links SET updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now')
     WHERE task_id = NEW.task_id AND requirement_id = NEW.requirement_id;
 END;
 
@@ -758,7 +779,7 @@ CREATE TABLE prd_spec_sync_history (
     direction TEXT NOT NULL CHECK(direction IN ('prd_to_spec', 'spec_to_prd', 'task_to_spec')),
     changes_json TEXT NOT NULL,
     performed_by TEXT,
-    performed_at TEXT NOT NULL DEFAULT (datetime('now', 'utc')),
+    performed_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
     FOREIGN KEY (prd_id) REFERENCES prds(id) ON DELETE CASCADE
 );
 
@@ -769,7 +790,7 @@ CREATE TABLE spec_materializations (
     id TEXT PRIMARY KEY CHECK(length(id) >= 8),
     project_id TEXT NOT NULL,
     path TEXT NOT NULL,
-    materialized_at TEXT NOT NULL DEFAULT (datetime('now', 'utc')),
+    materialized_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
     sha256_hash TEXT NOT NULL,
     FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
 );
@@ -791,8 +812,8 @@ CREATE TABLE context_configurations (
     exclude_patterns TEXT NOT NULL DEFAULT '[]',
     max_tokens INTEGER NOT NULL DEFAULT 100000,
     spec_capability_id TEXT REFERENCES spec_capabilities(id) ON DELETE SET NULL,
-    created_at TEXT NOT NULL DEFAULT (datetime('now', 'utc')),
-    updated_at TEXT NOT NULL DEFAULT (datetime('now', 'utc'))
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+    updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
 );
 
 CREATE INDEX idx_context_configs_project ON context_configurations(project_id);
@@ -806,7 +827,7 @@ CREATE TABLE context_snapshots (
     file_count INTEGER NOT NULL DEFAULT 0,
     total_tokens INTEGER NOT NULL DEFAULT 0,
     metadata TEXT NOT NULL DEFAULT '{}',
-    created_at TEXT NOT NULL DEFAULT (datetime('now', 'utc'))
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
 );
 
 CREATE INDEX idx_context_snapshots_project ON context_snapshots(project_id);
@@ -818,7 +839,7 @@ CREATE TABLE context_usage_patterns (
     project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
     file_path TEXT NOT NULL,
     inclusion_count INTEGER NOT NULL DEFAULT 0,
-    last_used TEXT NOT NULL DEFAULT (datetime('now', 'utc')),
+    last_used TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
     UNIQUE(project_id, file_path) ON CONFLICT REPLACE
 );
 
@@ -836,7 +857,7 @@ CREATE TABLE ast_spec_mappings (
     requirement_id TEXT REFERENCES spec_requirements(id),
     confidence REAL DEFAULT 0.0,
     verified BOOLEAN DEFAULT FALSE,
-    created_at TEXT DEFAULT (datetime('now', 'utc')),
+    created_at TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
     FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
 );
 
@@ -852,7 +873,7 @@ CREATE TABLE context_templates (
     include_patterns TEXT DEFAULT '[]',
     exclude_patterns TEXT DEFAULT '[]',
     ast_filters TEXT,
-    created_at TEXT DEFAULT (datetime('now', 'utc'))
+    created_at TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
 );
 
 -- AI Usage Tracking
@@ -870,7 +891,7 @@ CREATE TABLE ai_usage_logs (
     duration_ms INTEGER,
     error TEXT,
     context_snapshot_id TEXT REFERENCES context_snapshots(id),
-    created_at TEXT NOT NULL DEFAULT (datetime('now', 'utc')),
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
     FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
 );
 
@@ -895,8 +916,8 @@ CREATE TABLE encryption_settings (
     encryption_mode TEXT NOT NULL DEFAULT 'machine' CHECK (encryption_mode IN ('machine', 'password')),
     password_salt BLOB,
     password_hash BLOB,
-    created_at TEXT NOT NULL DEFAULT (datetime('now', 'utc')),
-    updated_at TEXT NOT NULL DEFAULT (datetime('now', 'utc'))
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+    updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
 );
 
 CREATE INDEX idx_encryption_settings_mode ON encryption_settings(encryption_mode);
@@ -907,8 +928,8 @@ CREATE TABLE password_attempts (
     attempt_count INTEGER NOT NULL DEFAULT 0,
     locked_until TEXT,
     last_attempt_at TEXT,
-    created_at TEXT NOT NULL DEFAULT (datetime('now', 'utc')),
-    updated_at TEXT NOT NULL DEFAULT (datetime('now', 'utc'))
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+    updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
 );
 
 CREATE INDEX idx_password_attempts_lockout
@@ -919,7 +940,7 @@ CREATE TABLE api_tokens (
     id TEXT PRIMARY KEY CHECK(length(id) >= 8),
     token_hash TEXT NOT NULL,  -- SHA-256 hash of token (see api_tokens/storage.rs)
     name TEXT NOT NULL,
-    created_at TEXT NOT NULL DEFAULT (datetime('now', 'utc')),
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
     last_used_at TEXT,
     is_active BOOLEAN NOT NULL DEFAULT TRUE
 );
@@ -935,7 +956,7 @@ CREATE INDEX idx_api_tokens_hash ON api_tokens(token_hash);
 CREATE TABLE storage_metadata (
     key TEXT PRIMARY KEY,
     value TEXT NOT NULL,
-    updated_at TEXT NOT NULL DEFAULT (datetime('now', 'utc'))
+    updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
 );
 
 -- System Settings
@@ -948,7 +969,7 @@ CREATE TABLE system_settings (
     is_secret BOOLEAN DEFAULT FALSE,
     requires_restart BOOLEAN DEFAULT FALSE,
     is_env_only BOOLEAN DEFAULT FALSE,
-    updated_at TEXT NOT NULL DEFAULT (datetime('now', 'utc')),
+    updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
     updated_by TEXT DEFAULT 'system'
 );
 
@@ -957,7 +978,7 @@ CREATE INDEX idx_system_settings_category ON system_settings(category);
 CREATE TRIGGER system_settings_updated_at AFTER UPDATE ON system_settings
 FOR EACH ROW WHEN NEW.updated_at = OLD.updated_at
 BEGIN
-    UPDATE system_settings SET updated_at = datetime('now', 'utc') WHERE key = NEW.key;
+    UPDATE system_settings SET updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE key = NEW.key;
 END;
 
 -- ============================================================================
@@ -974,15 +995,15 @@ CREATE TABLE telemetry_settings (
     non_anonymous_metrics BOOLEAN NOT NULL DEFAULT FALSE,
     machine_id TEXT,
     user_id TEXT,
-    created_at TEXT NOT NULL DEFAULT (datetime('now', 'utc')),
-    updated_at TEXT NOT NULL DEFAULT (datetime('now', 'utc'))
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+    updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
 );
 
 CREATE TRIGGER update_telemetry_settings_timestamp
 AFTER UPDATE ON telemetry_settings
 BEGIN
     UPDATE telemetry_settings
-    SET updated_at = datetime('now', 'utc')
+    SET updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now')
     WHERE id = NEW.id;
 END;
 
@@ -994,7 +1015,7 @@ CREATE TABLE telemetry_events (
     event_data TEXT,
     anonymous BOOLEAN NOT NULL DEFAULT TRUE,
     session_id TEXT,
-    created_at TEXT NOT NULL DEFAULT (datetime('now', 'utc')),
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
     sent_at TEXT,
     retry_count INTEGER DEFAULT 0
 );
@@ -1016,7 +1037,7 @@ CREATE TABLE telemetry_stats (
     performance_events INTEGER DEFAULT 0,
     events_sent INTEGER DEFAULT 0,
     events_pending INTEGER DEFAULT 0,
-    created_at TEXT NOT NULL DEFAULT (datetime('now', 'utc')),
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
     UNIQUE(stat_date)
 );
 
@@ -1027,7 +1048,7 @@ CREATE TABLE telemetry_stats (
 -- Sync Snapshots
 CREATE TABLE sync_snapshots (
     id TEXT PRIMARY KEY CHECK(length(id) >= 8),
-    created_at TEXT NOT NULL DEFAULT (datetime('now', 'utc')),
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
     compressed_data BLOB NOT NULL,
     checksum TEXT NOT NULL,
     size_bytes INTEGER NOT NULL,
@@ -1046,8 +1067,8 @@ CREATE TABLE sync_state (
     last_sync_at TEXT,
     last_snapshot_id TEXT,
     conflict_resolution TEXT DEFAULT 'manual' CHECK (conflict_resolution IN ('manual', 'local_wins', 'remote_wins', 'merge')),
-    created_at TEXT NOT NULL DEFAULT (datetime('now', 'utc')),
-    updated_at TEXT NOT NULL DEFAULT (datetime('now', 'utc')),
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+    updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
 
     FOREIGN KEY (last_snapshot_id) REFERENCES sync_snapshots(id)
 );
@@ -1063,16 +1084,16 @@ CREATE INDEX idx_sync_state_last_sync ON sync_state(last_sync_at);
 -- Note: Schema version is managed by SQLx via _sqlx_migrations table
 -- Do not add schema_version here - it creates two sources of truth
 INSERT OR IGNORE INTO storage_metadata (key, value) VALUES
-    ('created_at', datetime('now', 'utc')),
+    ('created_at', strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
     ('storage_type', 'sqlite');
 
 -- Default user (required for FK dependency)
 INSERT OR IGNORE INTO users (id, email, name, created_at, updated_at)
-VALUES ('default-user', 'user@localhost', 'Default User', datetime('now', 'utc'), datetime('now', 'utc'));
+VALUES ('default-user', 'user@localhost', 'Default User', strftime('%Y-%m-%dT%H:%M:%SZ', 'now'), strftime('%Y-%m-%dT%H:%M:%SZ', 'now'));
 
 -- Default tag (required for task FK dependency)
 INSERT OR IGNORE INTO tags (id, name, color, description, created_at)
-VALUES ('tag-main', 'main', '#3b82f6', 'Default main tag for tasks', datetime('now', 'utc'));
+VALUES ('tag-main', 'main', '#3b82f6', 'Default main tag for tasks', strftime('%Y-%m-%dT%H:%M:%SZ', 'now'));
 
 -- Note: Agents and models are now loaded from packages/agents/config/agents.json and packages/models/config/models.json
 -- No seed data needed here. See src/models/mod.rs for ModelRegistry
@@ -1136,7 +1157,7 @@ INSERT OR IGNORE INTO system_settings (key, value, category, description, data_t
 
 
 -- ============================================================================
--- IDEATE SCHEMA (from migration 002)
+-- IDEATE SCHEMA
 -- ============================================================================
 
 CREATE TABLE ideate_sessions (
@@ -1149,17 +1170,20 @@ CREATE TABLE ideate_sessions (
     -- Session metadata
     mode TEXT NOT NULL CHECK(mode IN ('quick', 'guided', 'comprehensive')),
     status TEXT NOT NULL DEFAULT 'draft' CHECK(status IN ('draft', 'in_progress', 'ready_for_prd', 'completed')),
+    current_section TEXT,
 
     -- Track what user chose to skip (JSON array of section names)
     skipped_sections TEXT,
 
-    -- Link to generated PRD (if completed)
+    -- Link to template and generated PRD
+    template_id TEXT,
     generated_prd_id TEXT,
 
-    created_at TEXT NOT NULL DEFAULT (datetime('now', 'utc')),
-    updated_at TEXT NOT NULL DEFAULT (datetime('now', 'utc')),
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+    updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
 
     FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+    FOREIGN KEY (template_id) REFERENCES prd_output_templates(id) ON DELETE SET NULL,
     FOREIGN KEY (generated_prd_id) REFERENCES prds(id) ON DELETE SET NULL,
     CHECK (json_valid(skipped_sections) OR skipped_sections IS NULL)
 );
@@ -1167,11 +1191,13 @@ CREATE TABLE ideate_sessions (
 CREATE INDEX idx_ideate_sessions_project ON ideate_sessions(project_id);
 CREATE INDEX idx_ideate_sessions_status ON ideate_sessions(status);
 CREATE INDEX idx_ideate_sessions_mode ON ideate_sessions(mode);
+CREATE INDEX idx_ideate_sessions_current_section ON ideate_sessions(current_section);
+CREATE INDEX idx_ideate_sessions_template ON ideate_sessions(template_id);
 
 CREATE TRIGGER ideate_sessions_updated_at AFTER UPDATE ON ideate_sessions
 FOR EACH ROW WHEN NEW.updated_at = OLD.updated_at
 BEGIN
-    UPDATE ideate_sessions SET updated_at = datetime('now', 'utc') WHERE id = NEW.id;
+    UPDATE ideate_sessions SET updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE id = NEW.id;
 END;
 
 -- ============================================================================
@@ -1186,7 +1212,8 @@ CREATE TABLE ideate_overview (
     target_audience TEXT,
     value_proposition TEXT,
     one_line_pitch TEXT,
-    created_at TEXT NOT NULL DEFAULT (datetime('now', 'utc')),
+    ai_generated INTEGER DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
     FOREIGN KEY (session_id) REFERENCES ideate_sessions(id) ON DELETE CASCADE
 );
 
@@ -1207,12 +1234,14 @@ CREATE TABLE ideate_features (
     build_phase INTEGER DEFAULT 1, -- 1=foundation, 2=visible, 3=enhancement
     is_visible INTEGER DEFAULT 0, -- Boolean: does this give user something to see/use?
 
-    created_at TEXT NOT NULL DEFAULT (datetime('now', 'utc')),
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
 
     FOREIGN KEY (session_id) REFERENCES ideate_sessions(id) ON DELETE CASCADE,
     CHECK (json_valid(depends_on) OR depends_on IS NULL),
     CHECK (json_valid(enables) OR enables IS NULL),
-    CHECK (build_phase IN (1, 2, 3))
+    CHECK (build_phase IN (1, 2, 3)),
+    CHECK (depends_on IS NULL OR json_array_length(depends_on) <= 100),
+    CHECK (enables IS NULL OR json_array_length(enables) <= 100)
 );
 
 CREATE INDEX idx_ideate_features_session ON ideate_features(session_id);
@@ -1227,7 +1256,8 @@ CREATE TABLE ideate_ux (
     user_flows TEXT, -- JSON array of user flows
     ui_considerations TEXT,
     ux_principles TEXT,
-    created_at TEXT NOT NULL DEFAULT (datetime('now', 'utc')),
+    ai_generated INTEGER DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
     FOREIGN KEY (session_id) REFERENCES ideate_sessions(id) ON DELETE CASCADE,
     CHECK (json_valid(personas) OR personas IS NULL),
     CHECK (json_valid(user_flows) OR user_flows IS NULL)
@@ -1244,7 +1274,8 @@ CREATE TABLE ideate_technical (
     apis TEXT, -- JSON array
     infrastructure TEXT, -- JSON object
     tech_stack_quick TEXT, -- For quick mode: "React + Node + PostgreSQL"
-    created_at TEXT NOT NULL DEFAULT (datetime('now', 'utc')),
+    ai_generated INTEGER DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
     FOREIGN KEY (session_id) REFERENCES ideate_sessions(id) ON DELETE CASCADE,
     CHECK (json_valid(components) OR components IS NULL),
     CHECK (json_valid(data_models) OR data_models IS NULL),
@@ -1260,7 +1291,8 @@ CREATE TABLE ideate_roadmap (
     session_id TEXT NOT NULL,
     mvp_scope TEXT, -- JSON array of features in MVP
     future_phases TEXT, -- JSON array of post-MVP phases
-    created_at TEXT NOT NULL DEFAULT (datetime('now', 'utc')),
+    ai_generated INTEGER DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
     FOREIGN KEY (session_id) REFERENCES ideate_sessions(id) ON DELETE CASCADE,
     CHECK (json_valid(mvp_scope) OR mvp_scope IS NULL),
     CHECK (json_valid(future_phases) OR future_phases IS NULL)
@@ -1276,7 +1308,8 @@ CREATE TABLE ideate_dependencies (
     visible_features TEXT, -- JSON array of feature IDs: get something usable quickly
     enhancement_features TEXT, -- JSON array of feature IDs: build upon foundation
     dependency_graph TEXT, -- JSON object for visual representation
-    created_at TEXT NOT NULL DEFAULT (datetime('now', 'utc')),
+    ai_generated INTEGER DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
     FOREIGN KEY (session_id) REFERENCES ideate_sessions(id) ON DELETE CASCADE,
     CHECK (json_valid(foundation_features) OR foundation_features IS NULL),
     CHECK (json_valid(visible_features) OR visible_features IS NULL),
@@ -1294,7 +1327,8 @@ CREATE TABLE ideate_risks (
     mvp_scoping_risks TEXT, -- JSON array
     resource_risks TEXT, -- JSON array
     mitigations TEXT, -- JSON array
-    created_at TEXT NOT NULL DEFAULT (datetime('now', 'utc')),
+    ai_generated INTEGER DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
     FOREIGN KEY (session_id) REFERENCES ideate_sessions(id) ON DELETE CASCADE,
     CHECK (json_valid(technical_risks) OR technical_risks IS NULL),
     CHECK (json_valid(mvp_scoping_risks) OR mvp_scoping_risks IS NULL),
@@ -1313,7 +1347,8 @@ CREATE TABLE ideate_research (
     research_findings TEXT,
     technical_specs TEXT,
     reference_links TEXT, -- JSON array (renamed from 'references' to avoid SQL keyword)
-    created_at TEXT NOT NULL DEFAULT (datetime('now', 'utc')),
+    ai_generated INTEGER DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
     FOREIGN KEY (session_id) REFERENCES ideate_sessions(id) ON DELETE CASCADE,
     CHECK (json_valid(competitors) OR competitors IS NULL),
     CHECK (json_valid(similar_projects) OR similar_projects IS NULL),
@@ -1325,7 +1360,6 @@ CREATE INDEX idx_ideate_research_session ON ideate_research(session_id);
 -- ============================================================================
 -- COMPREHENSIVE MODE FEATURES
 -- ============================================================================
--- Note: Roundtable system now implemented in migration 006_expert_roundtable_system.sql
 
 -- ============================================================================
 -- GENERATION TRACKING (Quick Mode)
@@ -1341,7 +1375,7 @@ CREATE TABLE ideate_generations (
     error_message TEXT,
     started_at TEXT,
     completed_at TEXT,
-    created_at TEXT NOT NULL DEFAULT (datetime('now', 'utc')),
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
     FOREIGN KEY (session_id) REFERENCES ideate_sessions(id) ON DELETE CASCADE,
     CHECK (json_valid(generated_sections) OR generated_sections IS NULL)
 );
@@ -1362,11 +1396,25 @@ CREATE TABLE prd_quickstart_templates (
     one_liner_prompts TEXT, -- JSON array of prompts to expand one-liner
     default_features TEXT, -- JSON array of common features for this type
     default_dependencies TEXT, -- JSON object with typical dependency chains
+    default_problem_statement TEXT,
+    default_target_audience TEXT,
+    default_value_proposition TEXT,
+    default_ui_considerations TEXT,
+    default_ux_principles TEXT,
+    default_tech_stack_quick TEXT,
+    default_mvp_scope TEXT,
+    default_research_findings TEXT,
+    default_technical_specs TEXT,
+    default_competitors TEXT,
+    default_similar_projects TEXT,
     is_system INTEGER DEFAULT 0, -- Boolean: system template vs user-created
-    created_at TEXT NOT NULL DEFAULT (datetime('now', 'utc')),
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
     CHECK (json_valid(one_liner_prompts) OR one_liner_prompts IS NULL),
     CHECK (json_valid(default_features) OR default_features IS NULL),
-    CHECK (json_valid(default_dependencies) OR default_dependencies IS NULL)
+    CHECK (json_valid(default_dependencies) OR default_dependencies IS NULL),
+    CHECK (json_valid(default_mvp_scope) OR default_mvp_scope IS NULL),
+    CHECK (json_valid(default_competitors) OR default_competitors IS NULL),
+    CHECK (json_valid(default_similar_projects) OR default_similar_projects IS NULL)
 );
 
 CREATE INDEX idx_prd_quickstart_templates_type ON prd_quickstart_templates(project_type);
@@ -1374,33 +1422,7 @@ CREATE INDEX idx_prd_quickstart_templates_system ON prd_quickstart_templates(is_
 
 
 -- ============================================================================
--- GUIDED MODE SUPPORT (from migration 003)
--- ============================================================================
-
-ALTER TABLE ideate_sessions ADD COLUMN current_section TEXT;
-
--- Create index for quick lookups
-CREATE INDEX idx_ideate_sessions_current_section ON ideate_sessions(current_section);
-
--- ============================================================================
--- AI-GENERATED CONTENT MARKERS
--- ============================================================================
-
--- Mark AI-generated content in each section table
-ALTER TABLE ideate_overview ADD COLUMN ai_generated INTEGER DEFAULT 0;
-ALTER TABLE ideate_ux ADD COLUMN ai_generated INTEGER DEFAULT 0;
-ALTER TABLE ideate_technical ADD COLUMN ai_generated INTEGER DEFAULT 0;
-ALTER TABLE ideate_roadmap ADD COLUMN ai_generated INTEGER DEFAULT 0;
-ALTER TABLE ideate_dependencies ADD COLUMN ai_generated INTEGER DEFAULT 0;
-ALTER TABLE ideate_risks ADD COLUMN ai_generated INTEGER DEFAULT 0;
-ALTER TABLE ideate_research ADD COLUMN ai_generated INTEGER DEFAULT 0;
-
--- Note: ideate_features table doesn't need ai_generated since features are
--- created individually (not as a whole section)
-
-
--- ============================================================================
--- DEPENDENCY INTELLIGENCE (from migration 004)
+-- DEPENDENCY INTELLIGENCE
 -- ============================================================================
 
 CREATE TABLE feature_dependencies (
@@ -1412,7 +1434,7 @@ CREATE TABLE feature_dependencies (
     strength TEXT DEFAULT 'required' CHECK(strength IN ('required', 'recommended', 'optional')),
     reason TEXT, -- Why this dependency exists
     auto_detected INTEGER DEFAULT 0, -- Boolean: was this detected by AI or manually added?
-    created_at TEXT NOT NULL DEFAULT (datetime('now', 'utc')),
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
 
     FOREIGN KEY (session_id) REFERENCES ideate_sessions(id) ON DELETE CASCADE,
     FOREIGN KEY (from_feature_id) REFERENCES ideate_features(id) ON DELETE CASCADE,
@@ -1444,9 +1466,9 @@ CREATE TABLE dependency_analysis_cache (
     analysis_result TEXT NOT NULL, -- JSON object with analysis results
     confidence_score REAL, -- 0.0-1.0 confidence in analysis
     model_version TEXT, -- Which AI model was used
-    analyzed_at TEXT NOT NULL DEFAULT (datetime('now', 'utc')),
+    analyzed_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
     expires_at TEXT, -- Optional cache expiration
-    created_at TEXT NOT NULL DEFAULT (datetime('now', 'utc')),
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
 
     FOREIGN KEY (session_id) REFERENCES ideate_sessions(id) ON DELETE CASCADE,
     CHECK (json_valid(analysis_result)),
@@ -1471,9 +1493,9 @@ CREATE TABLE build_order_optimization (
     critical_path TEXT, -- JSON array of feature IDs on critical path
     estimated_phases INTEGER, -- Number of sequential phases needed
     optimization_strategy TEXT CHECK(optimization_strategy IN ('fastest', 'balanced', 'safest')),
-    computed_at TEXT NOT NULL DEFAULT (datetime('now', 'utc')),
+    computed_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
     is_valid INTEGER DEFAULT 1, -- Boolean: becomes invalid when features/dependencies change
-    created_at TEXT NOT NULL DEFAULT (datetime('now', 'utc')),
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
 
     FOREIGN KEY (session_id) REFERENCES ideate_sessions(id) ON DELETE CASCADE,
     CHECK (json_valid(build_sequence)),
@@ -1500,8 +1522,8 @@ CREATE TABLE quick_win_features (
     value_score REAL, -- User value score (0.0-1.0, higher is better)
     overall_score REAL, -- Combined quick-win score
     reasoning TEXT, -- Why this is a quick win
-    analyzed_at TEXT NOT NULL DEFAULT (datetime('now', 'utc')),
-    created_at TEXT NOT NULL DEFAULT (datetime('now', 'utc')),
+    analyzed_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
 
     FOREIGN KEY (session_id) REFERENCES ideate_sessions(id) ON DELETE CASCADE,
     FOREIGN KEY (feature_id) REFERENCES ideate_features(id) ON DELETE CASCADE,
@@ -1528,10 +1550,10 @@ CREATE TABLE circular_dependencies (
     session_id TEXT NOT NULL,
     cycle_path TEXT NOT NULL, -- JSON array of feature IDs forming the cycle
     severity TEXT DEFAULT 'error' CHECK(severity IN ('warning', 'error', 'critical')),
-    detected_at TEXT NOT NULL DEFAULT (datetime('now', 'utc')),
+    detected_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
     resolved INTEGER DEFAULT 0, -- Boolean: has this cycle been resolved?
     resolution_note TEXT,
-    created_at TEXT NOT NULL DEFAULT (datetime('now', 'utc')),
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
 
     FOREIGN KEY (session_id) REFERENCES ideate_sessions(id) ON DELETE CASCADE,
     CHECK (json_valid(cycle_path))
@@ -1541,11 +1563,9 @@ CREATE INDEX idx_circular_dependencies_session ON circular_dependencies(session_
 CREATE INDEX idx_circular_dependencies_resolved ON circular_dependencies(resolved);
 CREATE INDEX idx_circular_dependencies_severity ON circular_dependencies(severity);
 
--- Note: current_section tracking for guided mode is handled by migration 003
-
 
 -- ============================================================================
--- RESEARCH ANALYSIS CACHE (from migration 005)
+-- RESEARCH ANALYSIS CACHE
 -- ============================================================================
 
 CREATE TABLE IF NOT EXISTS competitor_analysis_cache (
@@ -1571,7 +1591,7 @@ ON competitor_analysis_cache(session_id);
 
 
 -- ============================================================================
--- EXPERT ROUNDTABLE SYSTEM (from migration 006)
+-- EXPERT ROUNDTABLE SYSTEM
 -- ============================================================================
 
 CREATE TABLE IF NOT EXISTS expert_personas (
@@ -1834,7 +1854,7 @@ INSERT OR IGNORE INTO expert_personas (id, name, role, expertise, system_prompt,
 
 
 -- ============================================================================
--- PRD GENERATION (from migration 007)
+-- PRD GENERATION
 -- ============================================================================
 
 CREATE TABLE ideate_prd_generations (
@@ -1855,8 +1875,8 @@ CREATE TABLE ideate_prd_generations (
     validation_details TEXT, -- JSON validation results
 
     -- Timestamps
-    created_at TEXT NOT NULL DEFAULT (datetime('now', 'utc')),
-    updated_at TEXT NOT NULL DEFAULT (datetime('now', 'utc')),
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+    updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
 
     FOREIGN KEY (session_id) REFERENCES ideate_sessions(id) ON DELETE CASCADE,
     CHECK (json_valid(generated_content) OR generated_content IS NULL),
@@ -1872,7 +1892,7 @@ CREATE INDEX idx_prd_generations_method ON ideate_prd_generations(generation_met
 CREATE TRIGGER ideate_prd_generations_updated_at AFTER UPDATE ON ideate_prd_generations
 FOR EACH ROW WHEN NEW.updated_at = OLD.updated_at
 BEGIN
-    UPDATE ideate_prd_generations SET updated_at = datetime('now', 'utc') WHERE id = NEW.id;
+    UPDATE ideate_prd_generations SET updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE id = NEW.id;
 END;
 
 -- ============================================================================
@@ -1894,7 +1914,7 @@ CREATE TABLE ideate_exports (
     export_options TEXT, -- JSON of ExportOptions
 
     -- Timestamps
-    exported_at TEXT NOT NULL DEFAULT (datetime('now', 'utc')),
+    exported_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
 
     FOREIGN KEY (session_id) REFERENCES ideate_sessions(id) ON DELETE CASCADE,
     FOREIGN KEY (generation_id) REFERENCES ideate_prd_generations(id) ON DELETE SET NULL,
@@ -1930,7 +1950,7 @@ CREATE TABLE ideate_section_generations (
     model TEXT, -- AI model used
 
     -- Timestamps
-    generated_at TEXT NOT NULL DEFAULT (datetime('now', 'utc')),
+    generated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
 
     FOREIGN KEY (session_id) REFERENCES ideate_sessions(id) ON DELETE CASCADE,
     FOREIGN KEY (generation_id) REFERENCES ideate_prd_generations(id) ON DELETE SET NULL,
@@ -1965,7 +1985,7 @@ CREATE TABLE ideate_validation_rules (
     error_message TEXT NOT NULL,
     is_active INTEGER NOT NULL DEFAULT 1, -- Boolean: is this rule currently enforced?
 
-    created_at TEXT NOT NULL DEFAULT (datetime('now', 'utc')),
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
 
     CHECK (json_valid(rule_params) OR rule_params IS NULL)
 );
@@ -2013,7 +2033,7 @@ CREATE TABLE ideate_generation_stats (
     completeness_score REAL, -- 0.0 to 1.0
     validation_score REAL, -- 0.0 to 1.0
 
-    created_at TEXT NOT NULL DEFAULT (datetime('now', 'utc')),
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
 
     FOREIGN KEY (session_id) REFERENCES ideate_sessions(id) ON DELETE CASCADE,
     FOREIGN KEY (generation_id) REFERENCES ideate_prd_generations(id) ON DELETE CASCADE
@@ -2026,7 +2046,7 @@ CREATE INDEX idx_generation_stats_completeness ON ideate_generation_stats(comple
 
 
 -- ============================================================================
--- IDEATE TEMPLATES (from migration 008)
+-- IDEATE TEMPLATES
 -- ============================================================================
 
 INSERT INTO prd_quickstart_templates (
@@ -2048,7 +2068,7 @@ INSERT INTO prd_quickstart_templates (
     '["User authentication and authorization", "Subscription billing and payments", "Team/workspace management", "Admin dashboard", "User settings and profiles", "Email notifications", "API access", "Activity logging and audit trails"]',
     '{"authentication": ["billing", "teams"], "billing": ["dashboard", "user-profiles"], "teams": ["workspace-management", "permissions"], "dashboard": ["analytics", "reporting"]}',
     1,
-    datetime('now', 'utc')
+    strftime('%Y-%m-%dT%H:%M:%SZ', 'now')
 );
 
 -- Template 2: Mobile App
@@ -2071,7 +2091,7 @@ INSERT INTO prd_quickstart_templates (
     '["User onboarding flow", "Push notifications", "Offline mode and sync", "Device permissions handling", "In-app purchases (optional)", "Social sharing", "User profiles", "Settings and preferences", "Pull-to-refresh", "Deep linking"]',
     '{"onboarding": ["auth", "user-profile"], "auth": ["user-profile", "settings"], "offline-mode": ["sync-engine", "local-storage"], "push-notifications": ["user-settings", "notification-center"], "in-app-purchases": ["billing-system"]}',
     1,
-    datetime('now', 'utc')
+    strftime('%Y-%m-%dT%H:%M:%SZ', 'now')
 );
 
 -- Template 3: API/Backend Service
@@ -2094,7 +2114,7 @@ INSERT INTO prd_quickstart_templates (
     '["RESTful endpoints or GraphQL schema", "Authentication and authorization (JWT, OAuth)", "Rate limiting and throttling", "API documentation (Swagger/OpenAPI)", "Versioning strategy", "Error handling and logging", "Database integration", "Caching layer", "Webhooks", "Monitoring and health checks"]',
     '{"auth": ["endpoints", "middleware"], "rate-limiting": ["auth", "middleware"], "database": ["models", "migrations"], "caching": ["database"], "monitoring": ["logging", "health-checks"], "documentation": ["endpoints"]}',
     1,
-    datetime('now', 'utc')
+    strftime('%Y-%m-%dT%H:%M:%SZ', 'now')
 );
 
 -- Template 4: Marketplace/Platform
@@ -2117,7 +2137,7 @@ INSERT INTO prd_quickstart_templates (
     '["User profiles (buyer and seller)", "Listing creation and management", "Search and filtering", "Messaging between users", "Payment processing and escrow", "Reviews and ratings system", "Dispute resolution workflow", "Commission/fee structure", "Trust and safety features", "Analytics dashboard for sellers"]',
     '{"user-profiles": ["authentication", "verification"], "listings": ["user-profiles", "search"], "search": ["listings", "filters"], "messaging": ["user-profiles"], "payments": ["listings", "escrow"], "reviews": ["payments", "user-profiles"], "dispute-resolution": ["messaging", "admin-tools"], "analytics": ["payments", "listings"]}',
     1,
-    datetime('now', 'utc')
+    strftime('%Y-%m-%dT%H:%M:%SZ', 'now')
 );
 
 -- Template 5: Internal Tool / Dashboard
@@ -2140,12 +2160,12 @@ INSERT INTO prd_quickstart_templates (
     '["Role-based access control (RBAC)", "Data visualization and charts", "Reporting and exports", "Bulk data operations", "Audit logs", "Search and filtering", "Data import/export", "Notifications and alerts", "Workflow automation", "Integration with existing systems"]',
     '{"rbac": ["authentication", "permissions"], "data-viz": ["data-access", "charting-library"], "reporting": ["data-access", "export-engine"], "bulk-operations": ["data-validation", "queuing"], "audit-logs": ["user-actions", "logging"], "automation": ["triggers", "actions"], "integrations": ["api-client", "webhooks"]}',
     1,
-    datetime('now', 'utc')
+    strftime('%Y-%m-%dT%H:%M:%SZ', 'now')
 );
 
 
 -- ============================================================================
--- PRD OUTPUT TEMPLATES (from migration 009)
+-- PRD OUTPUT TEMPLATES
 -- ============================================================================
 
 CREATE TABLE prd_output_templates (
@@ -2162,8 +2182,8 @@ CREATE TABLE prd_output_templates (
     is_default INTEGER NOT NULL DEFAULT 0, -- Boolean: is this the default template?
 
     -- Timestamps
-    created_at TEXT NOT NULL DEFAULT (datetime('now', 'utc')),
-    updated_at TEXT NOT NULL DEFAULT (datetime('now', 'utc'))
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+    updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
 );
 
 -- Indexes for performance
@@ -2175,7 +2195,7 @@ CREATE INDEX idx_prd_output_templates_created ON prd_output_templates(created_at
 CREATE TRIGGER prd_output_templates_updated_at AFTER UPDATE ON prd_output_templates
 FOR EACH ROW WHEN NEW.updated_at = OLD.updated_at
 BEGIN
-    UPDATE prd_output_templates SET updated_at = datetime('now', 'utc') WHERE id = NEW.id;
+    UPDATE prd_output_templates SET updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE id = NEW.id;
 END;
 
 -- ============================================================================
@@ -2225,83 +2245,6 @@ VALUES (
     1
 );
 
-
--- ============================================================================
--- TEMPLATE ID TO SESSIONS (from migration 010)
--- ============================================================================
-
-ALTER TABLE ideate_sessions ADD COLUMN template_id TEXT;
-
--- Add foreign key constraint (SQLite doesn't allow adding constraints to existing tables,
--- but we can still document it and enforce it in the application layer)
--- FOREIGN KEY (template_id) REFERENCES prd_output_templates(id) ON DELETE SET NULL
-
--- Add index for performance
-CREATE INDEX idx_ideate_sessions_template ON ideate_sessions(template_id);
-
-
--- ============================================================================
--- PRD IDEATE SESSION LINK (from migration 011)
--- ============================================================================
-
-ALTER TABLE prds ADD COLUMN ideate_session_id TEXT;
-
--- Add foreign key constraint
-CREATE TABLE prds_new (
-    id TEXT PRIMARY KEY CHECK(length(id) >= 8),
-    project_id TEXT NOT NULL,
-    ideate_session_id TEXT,
-    title TEXT NOT NULL,
-    content_markdown TEXT NOT NULL,
-    version INTEGER DEFAULT 1,
-    status TEXT DEFAULT 'draft' CHECK(status IN ('draft', 'approved', 'superseded')),
-    source TEXT DEFAULT 'manual' CHECK(source IN ('manual', 'generated', 'synced')),
-    deleted_at TEXT,
-    created_at TEXT NOT NULL DEFAULT (datetime('now', 'utc')),
-    updated_at TEXT NOT NULL DEFAULT (datetime('now', 'utc')),
-    created_by TEXT,
-    FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
-    FOREIGN KEY (ideate_session_id) REFERENCES ideate_sessions(id) ON DELETE CASCADE
-);
-
--- Migrate existing data
-INSERT INTO prds_new SELECT * FROM prds;
-
--- Drop old table and rename new one
-DROP TABLE prds;
-ALTER TABLE prds_new RENAME TO prds;
-
--- Recreate the index
-CREATE INDEX idx_prds_project ON prds(project_id);
-
--- Add index on ideate_session_id for faster lookups
-CREATE INDEX idx_prds_ideate_session ON prds(ideate_session_id);
-
-
--- ============================================================================
--- EXTEND TEMPLATES SCHEMA (from migration 012)
--- ============================================================================
-
-ALTER TABLE prd_quickstart_templates ADD COLUMN default_problem_statement TEXT;
-ALTER TABLE prd_quickstart_templates ADD COLUMN default_target_audience TEXT;
-ALTER TABLE prd_quickstart_templates ADD COLUMN default_value_proposition TEXT;
-
-ALTER TABLE prd_quickstart_templates ADD COLUMN default_ui_considerations TEXT;
-ALTER TABLE prd_quickstart_templates ADD COLUMN default_ux_principles TEXT;
-
-ALTER TABLE prd_quickstart_templates ADD COLUMN default_tech_stack_quick TEXT;
-
-ALTER TABLE prd_quickstart_templates ADD COLUMN default_mvp_scope TEXT
-  CHECK (json_valid(default_mvp_scope) OR default_mvp_scope IS NULL);
-
-ALTER TABLE prd_quickstart_templates ADD COLUMN default_research_findings TEXT;
-ALTER TABLE prd_quickstart_templates ADD COLUMN default_technical_specs TEXT;
-
-ALTER TABLE prd_quickstart_templates ADD COLUMN default_competitors TEXT
-  CHECK (json_valid(default_competitors) OR default_competitors IS NULL);
-
-ALTER TABLE prd_quickstart_templates ADD COLUMN default_similar_projects TEXT
-  CHECK (json_valid(default_similar_projects) OR default_similar_projects IS NULL);
 
 -- ============================================================================
 -- Populate defaults for existing system templates
