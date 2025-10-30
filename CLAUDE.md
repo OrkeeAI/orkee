@@ -108,6 +108,51 @@ Orkee is an AI agent orchestration platform consisting of a Rust CLI server and 
 - **State Management**: AppState struct managing projects and screen navigation
 - **Data Access**: Direct integration with orkee-projects library (no HTTP client)
 
+### SQLx Query Strategy
+
+Orkee uses two different SQLx query patterns based on the use case:
+
+**Runtime Queries (`sqlx::query()`)** - Used in most packages:
+- **Packages**: `ideate`, `projects`, `storage`, and most other Rust packages
+- **Use Case**: Dynamic query construction where query structure is determined at runtime
+- **Examples**:
+  - Conditional column selection based on template category (`packages/ideate/src/templates.rs:26-40`)
+  - Dynamic UPDATE queries that only modify provided fields (`packages/ideate/src/manager.rs:152-159`)
+  - Flexible query building based on business logic
+- **Trade-offs**:
+  - ✅ Maximum flexibility for complex query patterns
+  - ✅ Cleaner code when handling optional parameters
+  - ✅ Reduced code duplication
+  - ⚠️ Schema validation happens at runtime (caught by tests)
+  - ⚠️ No compile-time query verification
+
+**Compile-Time Queries (`sqlx::query!()`)** - Used selectively:
+- **Packages**: `api` package (specifically `context_handlers.rs`)
+- **Use Case**: Simple, static queries with fixed structure known at compile time
+- **Examples**:
+  - Basic SELECT queries with fixed columns (`packages/api/src/context_handlers.rs:36-38`)
+  - Simple INSERT statements with known fields
+- **Trade-offs**:
+  - ✅ Compile-time SQL verification against database schema
+  - ✅ Automatic type inference for result rows
+  - ✅ Schema changes trigger compile errors
+  - ❌ Cannot be used with dynamic query construction
+  - ❌ Requires `.sqlx/` query cache for offline compilation
+
+**Query Cache (`.sqlx/` directory)**:
+- Contains 27 cached queries from the `api` package's compile-time macros
+- Generated via `cargo sqlx prepare --workspace`
+- Not needed for packages using runtime queries (ideate, projects, etc.)
+- Only required for CI/offline builds when using `query!()` macros
+
+**Why This Hybrid Approach**:
+1. Runtime queries provide necessary flexibility for the ideate feature's dynamic templates and conditional updates
+2. Compile-time queries add safety for simple, static queries in API handlers
+3. Integration tests verify query correctness for both patterns
+4. Type safety is maintained through Rust's type system and SQLx's Row trait regardless of query pattern
+
+This is a deliberate architectural decision balancing flexibility, type safety, and maintainability.
+
 ## Development Commands
 
 ```bash
