@@ -496,8 +496,99 @@ pub async fn get_preview(
         }
     }
 
-    // No saved PRD, generate on-demand
-    info!("No saved PRD, generating new one for session: {}", session_id);
+    // Check if session has generated sections (Quick Mode stores sections in ideate tables)
+    info!("Checking for existing sections in ideate tables for session: {}", session_id);
+    
+    let mut sections = serde_json::Map::new();
+    let mut has_sections = false;
+
+    // Load each section from the database
+    if let Ok(Some(overview)) = manager.get_overview(&session_id).await {
+        info!("Found overview section for session: {}", session_id);
+        sections.insert("overview".to_string(), serde_json::to_value(overview).unwrap_or(serde_json::Value::Null));
+        has_sections = true;
+    }
+
+    if let Ok(Some(ux)) = manager.get_ux(&session_id).await {
+        info!("Found ux section for session: {}", session_id);
+        sections.insert("ux".to_string(), serde_json::to_value(ux).unwrap_or(serde_json::Value::Null));
+        has_sections = true;
+    }
+
+    if let Ok(Some(technical)) = manager.get_technical(&session_id).await {
+        info!("Found technical section for session: {}", session_id);
+        sections.insert("technical".to_string(), serde_json::to_value(technical).unwrap_or(serde_json::Value::Null));
+        has_sections = true;
+    }
+
+    if let Ok(Some(roadmap)) = manager.get_roadmap(&session_id).await {
+        info!("Found roadmap section for session: {}", session_id);
+        sections.insert("roadmap".to_string(), serde_json::to_value(roadmap).unwrap_or(serde_json::Value::Null));
+        has_sections = true;
+    }
+
+    if let Ok(Some(dependencies)) = manager.get_dependencies(&session_id).await {
+        info!("Found dependencies section for session: {}", session_id);
+        sections.insert("dependencies".to_string(), serde_json::to_value(dependencies).unwrap_or(serde_json::Value::Null));
+        has_sections = true;
+    }
+
+    if let Ok(Some(risks)) = manager.get_risks(&session_id).await {
+        info!("Found risks section for session: {}", session_id);
+        sections.insert("risks".to_string(), serde_json::to_value(risks).unwrap_or(serde_json::Value::Null));
+        has_sections = true;
+    }
+
+    if let Ok(Some(research)) = manager.get_research(&session_id).await {
+        info!("Found research section for session: {}", session_id);
+        sections.insert("appendix".to_string(), serde_json::to_value(research).unwrap_or(serde_json::Value::Null));
+        has_sections = true;
+    }
+
+    info!("Section check complete for session {}: has_sections={}, section_count={}", session_id, has_sections, sections.len());
+
+    // If we have sections, return them
+    if has_sections {
+        info!("Found existing sections for session, returning them");
+        
+        // Generate markdown from sections
+        let mut markdown_parts = Vec::new();
+        if let Some(overview) = sections.get("overview") {
+            markdown_parts.push(format!("## Overview\n\n{}", overview));
+        }
+        if let Some(ux) = sections.get("ux") {
+            markdown_parts.push(format!("## UX\n\n{}", ux));
+        }
+        if let Some(technical) = sections.get("technical") {
+            markdown_parts.push(format!("## Technical\n\n{}", technical));
+        }
+        if let Some(roadmap) = sections.get("roadmap") {
+            markdown_parts.push(format!("## Roadmap\n\n{}", roadmap));
+        }
+        if let Some(dependencies) = sections.get("dependencies") {
+            markdown_parts.push(format!("## Dependencies\n\n{}", dependencies));
+        }
+        if let Some(risks) = sections.get("risks") {
+            markdown_parts.push(format!("## Risks\n\n{}", risks));
+        }
+        if let Some(appendix) = sections.get("appendix") {
+            markdown_parts.push(format!("## Appendix\n\n{}", appendix));
+        }
+        
+        let markdown = markdown_parts.join("\n\n");
+        
+        let response = serde_json::json!({
+            "markdown": markdown,
+            "content": markdown,
+            "sections": sections
+        });
+        return ok_or_internal_error::<_, String>(Ok(response), "Failed to get preview");
+    }
+    
+    info!("No sections found for session {}, will attempt to generate or retrieve saved PRD", session_id);
+
+    // No saved PRD and no sections, generate on-demand
+    info!("No saved PRD or sections, generating new one for session: {}", session_id);
     let generator = PRDGenerator::new(db.pool.clone());
     let prd = match generator
         .generate_complete_prd(DEFAULT_USER_ID, &session.initial_description)

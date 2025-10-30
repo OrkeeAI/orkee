@@ -20,6 +20,7 @@ export function IdeateTab({ projectId }: IdeateTabProps) {
   const [showGuidedModeFlow, setShowGuidedModeFlow] = useState(false);
   const [showComprehensiveModeFlow, setShowComprehensiveModeFlow] = useState(false);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
+  const [skipToGenerateQuick, setSkipToGenerateQuick] = useState(false);
 
   const handleResumeSession = (session: IdeateSession) => {
     setActiveSessionId(session.id);
@@ -35,6 +36,7 @@ export function IdeateTab({ projectId }: IdeateTabProps) {
   const handleSessionCreated = (sessionId: string, mode: 'quick' | 'guided' | 'comprehensive') => {
     setActiveSessionId(sessionId);
     if (mode === 'quick') {
+      setSkipToGenerateQuick(true);
       setShowQuickModeFlow(true);
     } else if (mode === 'guided') {
       setShowGuidedModeFlow(true);
@@ -46,6 +48,7 @@ export function IdeateTab({ projectId }: IdeateTabProps) {
   const handleQuickModeComplete = () => {
     setShowQuickModeFlow(false);
     setActiveSessionId(null);
+    setSkipToGenerateQuick(false);
   };
 
   const handleGuidedModeComplete = () => {
@@ -90,6 +93,7 @@ export function IdeateTab({ projectId }: IdeateTabProps) {
             open={showQuickModeFlow}
             onOpenChange={setShowQuickModeFlow}
             onComplete={handleQuickModeComplete}
+            skipToGenerate={skipToGenerateQuick}
           />
 
           <GuidedModeFlow

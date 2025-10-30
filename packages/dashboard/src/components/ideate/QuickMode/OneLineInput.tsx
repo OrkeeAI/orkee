@@ -11,7 +11,10 @@ interface OneLineInputProps {
   value: string;
   onChange: (value: string) => void;
   onGenerate: () => void;
+  onSaveDraft?: () => void;
+  onCancel?: () => void;
   isGenerating?: boolean;
+  isSavingDraft?: boolean;
   error?: string;
 }
 
@@ -22,7 +25,10 @@ export function OneLineInput({
   value,
   onChange,
   onGenerate,
+  onSaveDraft,
+  onCancel,
   isGenerating = false,
+  isSavingDraft = false,
   error,
 }: OneLineInputProps) {
   const [isFocused, setIsFocused] = useState(false);
@@ -103,10 +109,32 @@ export function OneLineInput({
       </div>
 
       <div className="flex gap-2">
-        <Button onClick={onGenerate} disabled={!isValid || isGenerating} className="flex-1">
+        <Button onClick={onGenerate} disabled={!isValid || isGenerating || isSavingDraft} className="flex-1">
           {isGenerating ? 'Generating Details...' : 'Generate PRD Details'}
         </Button>
-        {value && !isGenerating && (
+        {value && !isGenerating && onSaveDraft && (
+          <>
+            <Button 
+              type="button" 
+              variant="outline" 
+              onClick={onSaveDraft}
+              disabled={isSavingDraft}
+            >
+              {isSavingDraft ? 'Saving...' : 'Save Draft'}
+            </Button>
+            {onCancel && (
+              <Button 
+                type="button" 
+                variant="outline" 
+                onClick={onCancel}
+                disabled={isSavingDraft}
+              >
+                Cancel
+              </Button>
+            )}
+          </>
+        )}
+        {value && !isGenerating && !onSaveDraft && (
           <Button type="button" variant="outline" onClick={handleClear}>
             Clear
           </Button>

@@ -70,7 +70,7 @@ export function PRDUploadDialog({ projectId, open, onOpenChange, onComplete = ()
     setShowModelSelection(true);
   };
 
-  const handleAnalyze = async (provider: string, model: string, templateId: string) => {
+  const handleAnalyze = async (provider: string, model: string) => {
     if (!contentMarkdown.trim()) return;
 
     setIsAnalyzing(true);
@@ -89,7 +89,7 @@ export function PRDUploadDialog({ projectId, open, onOpenChange, onComplete = ()
 
       // TODO: Update analyze API to accept provider and model
       // For now, the backend will use environment variable or default
-      console.log(`Analyzing with ${provider}/${model}, template: ${templateId}`);
+      console.log(`Analyzing with ${provider}/${model}`);
 
       const result = await analyzePRDMutation.mutateAsync(tempPRD.id);
       setAnalysisResult(result);

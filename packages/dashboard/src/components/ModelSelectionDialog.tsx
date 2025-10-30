@@ -19,18 +19,16 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Sparkles, DollarSign, Zap, AlertTriangle, FileText } from 'lucide-react';
+import { Sparkles, DollarSign, Zap, AlertTriangle } from 'lucide-react';
 import { useCurrentUser } from '@/hooks/useUsers';
 import { useModels } from '@/hooks/useModels';
-import { usePRDTemplates } from '@/hooks/usePRDTemplates';
 
 interface ModelSelectionDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onConfirm: (provider: string, model: string, templateId: string) => void;
+  onConfirm: (provider: string, model: string) => void;
   defaultProvider?: string;
   defaultModel?: string;
-  defaultTemplateId?: string;
 }
 
 interface Model {
@@ -51,15 +49,12 @@ export function ModelSelectionDialog({
   onConfirm,
   defaultProvider = 'anthropic',
   defaultModel = 'claude-3-5-sonnet-20241022',
-  defaultTemplateId,
 }: ModelSelectionDialogProps) {
   const [selectedProvider, setSelectedProvider] = useState(defaultProvider);
   const [selectedModel, setSelectedModel] = useState(defaultModel);
-  const [selectedTemplateId, setSelectedTemplateId] = useState<string>(defaultTemplateId || '');
 
   const { data: currentUser, isLoading: userLoading } = useCurrentUser();
   const { data: models, isLoading: modelsLoading } = useModels();
-  const { data: templates, isLoading: templatesLoading } = usePRDTemplates();
 
   // Get available providers (those with API keys configured)
   const availableProviders = React.useMemo(() => {
@@ -111,7 +106,7 @@ export function ModelSelectionDialog({
     return availableModels.find((m) => m.value === selectedModel);
   }, [availableModels, selectedModel]);
 
-  // Reset to first available provider/model/template when opening
+  // Reset to first available provider/model when opening
   useEffect(() => {
     if (open && availableProviders.length > 0) {
       const provider = availableProviders[0].value;
@@ -122,14 +117,8 @@ export function ModelSelectionDialog({
       if (providerModels.length > 0) {
         setSelectedModel(providerModels[0].model);
       }
-
-      // Set default template (the one marked as default)
-      if (templates && templates.length > 0 && !selectedTemplateId) {
-        const defaultTemplate = templates.find((t) => t.is_default);
-        setSelectedTemplateId(defaultTemplate?.id || templates[0].id);
-      }
     }
-  }, [open, availableProviders, models, templates, selectedTemplateId]);
+  }, [open, availableProviders, models]);
 
   // Update model when provider changes
   useEffect(() => {
@@ -142,15 +131,11 @@ export function ModelSelectionDialog({
   }, [selectedProvider, availableModels, selectedModel]);
 
   const handleConfirm = () => {
-    if (!selectedTemplateId || selectedTemplateId === '') {
-      // Template must be selected before confirming
-      return;
-    }
-    onConfirm(selectedProvider, selectedModel, selectedTemplateId);
+    onConfirm(selectedProvider, selectedModel);
     onOpenChange(false);
   };
 
-  if (userLoading || modelsLoading || templatesLoading) {
+  if (userLoading || modelsLoading) {
     return (
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className="sm:max-w-[500px]">
@@ -261,35 +246,6 @@ export function ModelSelectionDialog({
             </Select>
           </div>
 
-          {/* PRD Template Selection */}
-          <div className="space-y-2">
-            <Label htmlFor="template" className="flex items-center gap-2">
-              <FileText className="h-3.5 w-3.5" />
-              PRD Template
-            </Label>
-            <Select value={selectedTemplateId} onValueChange={setSelectedTemplateId}>
-              <SelectTrigger id="template">
-                <SelectValue placeholder="Select template" />
-              </SelectTrigger>
-              <SelectContent>
-                {templates?.map((template) => (
-                  <SelectItem key={template.id} value={template.id}>
-                    <div className="flex items-center justify-between w-full">
-                      <span>{template.name}</span>
-                      {template.is_default && (
-                        <span className="text-xs text-muted-foreground ml-2">(Default)</span>
-                      )}
-                    </div>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {templates?.find(t => t.id === selectedTemplateId)?.description && (
-              <p className="text-xs text-muted-foreground">
-                {templates.find(t => t.id === selectedTemplateId)?.description}
-              </p>
-            )}
-          </div>
 
           {/* Model Details */}
           {selectedModelDetails && (

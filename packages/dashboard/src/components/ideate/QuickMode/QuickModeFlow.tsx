@@ -1,6 +1,6 @@
 // ABOUTME: Main orchestrator for Quick Mode PRD generation flow
 // ABOUTME: Manages 4-step process: Input → Generating → Review/Edit → Save
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { ArrowLeft, Lightbulb } from 'lucide-react';
 import {
   Dialog,
@@ -30,6 +30,7 @@ interface QuickModeFlowProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onComplete?: (prdId: string) => void;
+  skipToGenerate?: boolean;
 }
 
 export function QuickModeFlow({
@@ -38,6 +39,7 @@ export function QuickModeFlow({
   open,
   onOpenChange,
   onComplete,
+  skipToGenerate = false,
 }: QuickModeFlowProps) {
   const [step, setStep] = useState<FlowStep>('input');
   const [description, setDescription] = useState('');
@@ -45,8 +47,10 @@ export function QuickModeFlow({
   const [partialPRD, setPartialPRD] = useState<any>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isRegenerating, setIsRegenerating] = useState<Record<string, boolean>>({});
-  const [showModelSelection, setShowModelSelection] = useState(false);
+  const [showModelSelection, setShowModelSelection] = useState(skipToGenerate);
   const [showRegenerateDialog, setShowRegenerateDialog] = useState(false);
+  const [isSavingDraft, setIsSavingDraft] = useState(false);
+  const justSavedDraftRef = useRef(false);
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [selectedProvider, setSelectedProvider] = useState<string>('');
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -61,6 +65,12 @@ export function QuickModeFlow({
   useEffect(() => {
     if (session?.initial_description) {
       setDescription(session.initial_description);
+    }
+
+    // Skip PRD loading if we just saved a draft
+    if (justSavedDraftRef.current) {
+      console.log('[QuickModeFlow] Just saved draft, skipping PRD load');
+      return;
     }
 
     // Try to load existing PRD (for resumed sessions)
@@ -96,7 +106,9 @@ export function QuickModeFlow({
         }
       } catch (error) {
         // No existing PRD, stay on input step
-        console.log('[QuickModeFlow] Error loading PRD (will stay on input):', error instanceof Error ? error.message : error);
+        const errorMsg = error instanceof Error ? error.message : String(error);
+        console.error('[QuickModeFlow] Error loading PRD (will stay on input):', errorMsg);
+        console.log('[QuickModeFlow] Session status:', session?.status);
       }
     };
 
@@ -105,14 +117,34 @@ export function QuickModeFlow({
       console.log('[QuickModeFlow] Session loaded with description, attempting to load PRD');
       loadPRD();
     }
-  }, [session, sessionId]);
+  }, [session, sessionId, skipToGenerate]);
 
   const handleGenerate = () => {
     // Show model selection dialog instead of directly generating
     setShowModelSelection(true);
   };
 
-  const handleModelConfirm = async (provider: string, model: string, templateId: string) => {
+  const handleSaveDraft = async () => {
+    if (!description.trim()) return;
+    
+    try {
+      setIsSavingDraft(true);
+      justSavedDraftRef.current = true;
+      await updateSessionMutation.mutateAsync({
+        initialDescription: description.trim(),
+      });
+      toast.success('Draft saved successfully!');
+    } catch (error) {
+      toast.error('Failed to save draft', {
+        description: error instanceof Error ? error.message : 'Unknown error',
+      });
+    } finally {
+      setIsSavingDraft(false);
+      justSavedDraftRef.current = false;
+    }
+  };
+
+  const handleModelConfirm = async (provider: string, model: string) => {
     setSelectedProvider(provider);
     setSelectedModel(model);
 
@@ -129,7 +161,7 @@ export function QuickModeFlow({
           console.log('[Stream Update]', partial);
           setPartialPRD(partial);
         },
-        { provider, model, templateId }
+        { provider, model }
       );
 
       // Final result received and saved to database
@@ -272,6 +304,10 @@ export function QuickModeFlow({
     setSelectedModel('');
   };
 
+  const handleCancel = () => {
+    onOpenChange(false);
+  };
+
   const handleClose = () => {
     if (step !== 'generating') {
       onOpenChange(false);
@@ -299,12 +335,15 @@ export function QuickModeFlow({
 
           <div className="flex-1 overflow-auto">
             {/* Step: Input */}
-            {step === 'input' && (
+            {step === 'input' && !showModelSelection && (
               <OneLineInput
                 value={description}
                 onChange={setDescription}
                 onGenerate={handleGenerate}
+                onSaveDraft={handleSaveDraft}
+                onCancel={handleCancel}
                 isGenerating={isGenerating}
+                isSavingDraft={isSavingDraft}
                 error={undefined}
               />
             )}
