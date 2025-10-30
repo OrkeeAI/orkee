@@ -21,7 +21,8 @@ members = [
     "packages/cloud",
     "packages/preview",
     "packages/tui",
-    "packages/mcp-server"
+    "packages/mcp-server",
+    "packages/ideate"
 ]
 resolver = "2"
 
