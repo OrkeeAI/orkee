@@ -278,7 +278,7 @@ CREATE TABLE prds (
     updated_at TEXT NOT NULL DEFAULT (datetime('now', 'utc')),
     created_by TEXT,
     FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
-    FOREIGN KEY (ideate_session_id) REFERENCES ideate_sessions(id) ON DELETE CASCADE
+    FOREIGN KEY (ideate_session_id) REFERENCES ideate_sessions(id) ON DELETE SET NULL
 );
 
 CREATE INDEX idx_prds_project ON prds(project_id);
@@ -1239,7 +1239,9 @@ CREATE TABLE ideate_features (
     FOREIGN KEY (session_id) REFERENCES ideate_sessions(id) ON DELETE CASCADE,
     CHECK (json_valid(depends_on) OR depends_on IS NULL),
     CHECK (json_valid(enables) OR enables IS NULL),
-    CHECK (build_phase IN (1, 2, 3))
+    CHECK (build_phase IN (1, 2, 3)),
+    CHECK (depends_on IS NULL OR json_array_length(depends_on) <= 100),
+    CHECK (enables IS NULL OR json_array_length(enables) <= 100)
 );
 
 CREATE INDEX idx_ideate_features_session ON ideate_features(session_id);

@@ -256,12 +256,31 @@ pub struct IdeateRisks {
     pub created_at: DateTime<Utc>,
 }
 
+/// Risk severity levels
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum RiskSeverity {
+    Low,
+    Medium,
+    High,
+    Critical,
+}
+
+/// Risk probability levels
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum RiskProbability {
+    Low,
+    Medium,
+    High,
+}
+
 /// Risk definition
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Risk {
     pub description: String,
-    pub severity: String,    // "low", "medium", "high", "critical"
-    pub probability: String, // "low", "medium", "high"
+    pub severity: RiskSeverity,
+    pub probability: RiskProbability,
 }
 
 /// Mitigation strategy
