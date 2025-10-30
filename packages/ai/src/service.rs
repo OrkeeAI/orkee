@@ -3,6 +3,7 @@
 
 use std::env;
 
+use futures::stream::Stream;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -10,8 +11,28 @@ use tracing::{error, info};
 
 const ANTHROPIC_API_URL: &str = "https://api.anthropic.com/v1/messages";
 const DEFAULT_MODEL: &str = "claude-sonnet-4-20250514"; // Claude Sonnet 4 (May 2025)
-const DEFAULT_MAX_TOKENS: u32 = 8000;
+const DEFAULT_MAX_TOKENS: u32 = 4096;
 const DEFAULT_TEMPERATURE: f32 = 0.7;
+
+/// Calculate appropriate max_tokens for a given model
+fn get_max_tokens_for_model(model: &str) -> u32 {
+    // Claude 3 family (Opus, Sonnet, Haiku)
+    if model.contains("claude-3-opus") || model.contains("claude-3-sonnet") {
+        4096
+    } else if model.contains("claude-3-haiku") {
+        1024
+    }
+    // Claude Sonnet/Haiku 4/5
+    else if model.contains("claude-sonnet") {
+        4096
+    } else if model.contains("claude-haiku") {
+        1024
+    }
+    // Default to safe value for unknown models
+    else {
+        4096
+    }
+}
 
 #[derive(Debug, Error)]
 pub enum AIServiceError {
@@ -41,6 +62,8 @@ struct AnthropicRequest {
     messages: Vec<Message>,
     #[serde(skip_serializing_if = "Option::is_none")]
     system: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    stream: Option<bool>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -91,6 +114,15 @@ pub struct AIService {
 }
 
 impl AIService {
+    /// Create HTTP client with timeout configuration
+    fn create_client() -> Client {
+        Client::builder()
+            .timeout(std::time::Duration::from_secs(600))
+            .connect_timeout(std::time::Duration::from_secs(10))
+            .build()
+            .expect("Failed to build HTTP client")
+    }
+
     /// Creates a new AI service instance
     /// API key is fetched from ANTHROPIC_API_KEY environment variable
     /// Model can be overridden with ANTHROPIC_MODEL environment variable
@@ -107,7 +139,7 @@ impl AIService {
         }
 
         Self {
-            client: Client::new(),
+            client: Self::create_client(),
             api_key,
             model,
         }
@@ -118,7 +150,7 @@ impl AIService {
         let model = env::var("ANTHROPIC_MODEL").unwrap_or_else(|_| DEFAULT_MODEL.to_string());
 
         Self {
-            client: Client::new(),
+            client: Self::create_client(),
             api_key: Some(api_key),
             model,
         }
@@ -127,7 +159,7 @@ impl AIService {
     /// Creates a new AI service instance with a specific API key and model
     pub fn with_api_key_and_model(api_key: String, model: String) -> Self {
         Self {
-            client: Client::new(),
+            client: Self::create_client(),
             api_key: Some(api_key),
             model,
         }
@@ -147,19 +179,21 @@ impl AIService {
     ) -> AIServiceResult<AIResponse<T>> {
         let api_key = self.api_key.as_ref().ok_or(AIServiceError::NoApiKey)?;
 
+        let max_tokens = get_max_tokens_for_model(&self.model);
         let request = AnthropicRequest {
             model: self.model.clone(),
-            max_tokens: DEFAULT_MAX_TOKENS,
+            max_tokens,
             temperature: DEFAULT_TEMPERATURE,
             messages: vec![Message {
                 role: "user".to_string(),
                 content: prompt,
             }],
             system: system_prompt,
+            stream: None,
         };
 
         info!(
-            "Making Anthropic API request: model={}, max_tokens={}",
+            "Making Anthropic API request: model={}, max_tokens={}, timeout=600s",
             request.model, request.max_tokens
         );
 
@@ -171,7 +205,24 @@ impl AIService {
             .header("content-type", "application/json")
             .json(&request)
             .send()
-            .await?;
+            .await
+            .map_err(|e| {
+                if e.is_timeout() {
+                    error!("Anthropic API request timed out after 600 seconds");
+                    AIServiceError::ApiError("Request timed out after 600 seconds. The AI service may be overloaded or unavailable.".to_string())
+                } else if e.is_connect() {
+                    error!("Failed to connect to Anthropic API: {}", e);
+                    AIServiceError::ApiError(format!("Connection failed: {}. Please check your internet connection.", e))
+                } else {
+                    error!("Anthropic API request failed: {}", e);
+                    AIServiceError::RequestFailed(e)
+                }
+            })?;
+
+        info!(
+            "Received response from Anthropic API: status={}",
+            response.status()
+        );
 
         if !response.status().is_success() {
             let status = response.status();
@@ -199,9 +250,34 @@ impl AIService {
             .text
             .clone();
 
+        // Strip markdown code fences if present (```json ... ``` or ````json ... ````)
+        let cleaned_text = text.trim();
+        let json_text = if cleaned_text.starts_with("```") {
+            // Find the first newline after opening fence
+            let start = cleaned_text.find('\n').map(|i| i + 1).unwrap_or(0);
+            // Find the closing fence (search from start position to avoid finding opening fence)
+            let end = cleaned_text[start..]
+                .rfind("```")
+                .map(|i| i + start)
+                .unwrap_or(cleaned_text.len());
+            cleaned_text[start..end].trim()
+        } else {
+            cleaned_text
+        };
+
         // Parse the JSON response
-        let data: T = serde_json::from_str(&text)
-            .map_err(|e| AIServiceError::ParseError(format!("Failed to parse JSON: {}", e)))?;
+        info!(
+            "Raw JSON response (first 5000 chars): {}",
+            &json_text[..json_text.len().min(5000)]
+        );
+        let data: T = serde_json::from_str(json_text).map_err(|e| {
+            error!(
+                "JSON parsing failed: {}. JSON snippet: {}",
+                e,
+                &json_text[..json_text.len().min(500)]
+            );
+            AIServiceError::ParseError(format!("Failed to parse JSON: {}", e))
+        })?;
 
         Ok(AIResponse {
             data,
@@ -226,6 +302,7 @@ impl AIService {
                 content: prompt,
             }],
             system: system_prompt,
+            stream: None,
         };
 
         info!(
@@ -273,6 +350,99 @@ impl AIService {
             data: text,
             usage: anthropic_response.usage,
         })
+    }
+
+    /// Makes a streaming text generation call to Claude
+    /// Returns a stream of text chunks as they arrive
+    pub async fn generate_text_stream(
+        &self,
+        prompt: String,
+        system_prompt: Option<String>,
+    ) -> AIServiceResult<impl Stream<Item = Result<String, AIServiceError>>> {
+        let api_key = self.api_key.as_ref().ok_or(AIServiceError::NoApiKey)?;
+
+        let request = AnthropicRequest {
+            model: self.model.clone(),
+            max_tokens: get_max_tokens_for_model(&self.model),
+            temperature: DEFAULT_TEMPERATURE,
+            messages: vec![Message {
+                role: "user".to_string(),
+                content: prompt,
+            }],
+            system: system_prompt,
+            stream: Some(true),
+        };
+
+        info!(
+            "Making Anthropic API streaming text generation request: model={}",
+            request.model
+        );
+
+        let response = self
+            .client
+            .post(ANTHROPIC_API_URL)
+            .header("x-api-key", api_key)
+            .header("anthropic-version", "2023-06-01")
+            .header("content-type", "application/json")
+            .json(&request)
+            .send()
+            .await?;
+
+        if !response.status().is_success() {
+            let status = response.status();
+            let error_text = response
+                .text()
+                .await
+                .unwrap_or_else(|_| "Unknown error".to_string());
+            error!("Anthropic API error: {} - {}", status, error_text);
+            return Err(AIServiceError::ApiError(format!(
+                "API returned {}: {}",
+                status, error_text
+            )));
+        }
+
+        // Get response text and parse as SSE stream
+        let text = response.text().await?;
+
+        // Create a stream from the response text
+        let stream = async_stream::stream! {
+            let mut buffer = text.as_str();
+
+            while !buffer.is_empty() {
+                // Find next event boundary
+                if let Some(event_end) = buffer.find("\n\n") {
+                    let event = &buffer[..event_end];
+                    buffer = &buffer[event_end + 2..];
+
+                    // Parse SSE event
+                    for line in event.lines() {
+                        if let Some(data) = line.strip_prefix("data: ") {
+                            // Parse the JSON event
+                            if let Ok(event_json) = serde_json::from_str::<serde_json::Value>(data) {
+                                // Extract text delta from content_block_delta events
+                                if event_json["type"] == "content_block_delta" {
+                                    if let Some(text) = event_json["delta"]["text"].as_str() {
+                                        yield Ok(text.to_string());
+                                    }
+                                }
+                                // Handle errors
+                                else if event_json["type"] == "error" {
+                                    let error_msg = event_json["error"]["message"]
+                                        .as_str()
+                                        .unwrap_or("Unknown streaming error");
+                                    yield Err(AIServiceError::ApiError(error_msg.to_string()));
+                                    return;
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    break;
+                }
+            }
+        };
+
+        Ok(stream)
     }
 }
 

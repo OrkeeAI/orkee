@@ -185,3 +185,30 @@ pub async fn update_credentials(
 
     ok_or_internal_error(result, "Failed to update credentials")
 }
+
+/// Get user's Anthropic API key (decrypted)
+/// This endpoint returns the actual API key for use in the frontend AI service.
+/// Security: Only accessible from localhost (Tauri/web dashboard), protected by same auth as other endpoints.
+pub async fn get_anthropic_key(
+    State(db): State<DbState>,
+    current_user: CurrentUser,
+) -> impl IntoResponse {
+    info!("Getting Anthropic API key for user {}", current_user.id);
+
+    let result = db
+        .user_storage
+        .get_user(&current_user.id)
+        .await
+        .map(|user| {
+            // Return the API key if present, otherwise return error message
+            match user.anthropic_api_key {
+                Some(key) => serde_json::json!({"apiKey": key}),
+                None => serde_json::json!({
+                    "apiKey": null,
+                    "error": "No Anthropic API key configured. Please add your API key in Settings."
+                }),
+            }
+        });
+
+    ok_or_internal_error(result, "Failed to get Anthropic API key")
+}

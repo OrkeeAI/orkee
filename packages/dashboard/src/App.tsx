@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, lazy, Suspense } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
@@ -10,13 +10,25 @@ import { CloudProvider } from '@/contexts/CloudContext'
 import { ThemeProvider } from '@/contexts/ThemeContext'
 import { TelemetryProvider, useTelemetry } from '@/contexts/TelemetryContext'
 import { queryClient } from '@/lib/queryClient'
-import { Projects } from '@/pages/Projects'
-import { ProjectDetail } from '@/pages/ProjectDetail'
-import { Settings } from '@/pages/Settings'
-import OAuthCallback from '@/pages/OAuthCallback'
 import { PopupCloseHandler } from '@/components/PopupCloseHandler'
 import { CliSetupDialog } from '@/components/CliSetupDialog'
 import { TelemetryOnboardingDialog } from '@/components/TelemetryOnboardingDialog'
+
+// Lazy load page components for code splitting
+const Projects = lazy(() => import('@/pages/Projects'))
+const ProjectDetail = lazy(() => import('@/pages/ProjectDetail'))
+const Settings = lazy(() => import('@/pages/Settings'))
+const Templates = lazy(() => import('@/pages/Templates'))
+const OAuthCallback = lazy(() => import('@/pages/OAuthCallback'))
+
+// Loading fallback component
+function PageLoader() {
+  return (
+    <div className="flex items-center justify-center h-screen">
+      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+    </div>
+  )
+}
 
 // Inner app component that can use telemetry hooks
 function AppWithTelemetry() {
@@ -75,22 +87,27 @@ function AppWithTelemetry() {
         open={showCliDialog}
         onOpenChange={setShowCliDialog}
       />
-      <Routes>
-        {/* OAuth callback route - outside Layout */}
-        <Route path="/oauth/callback" element={<OAuthCallback />} />
+      <Suspense fallback={<PageLoader />}>
+        <Routes>
+          {/* OAuth callback route - outside Layout */}
+          <Route path="/oauth/callback" element={<OAuthCallback />} />
 
-        {/* Main app routes - inside Layout */}
-        <Route path="/*" element={
-          <Layout>
-            <Routes>
-              <Route path="/" element={<Navigate to="/projects" replace />} />
-              <Route path="/projects" element={<Projects />} />
-              <Route path="/projects/:id" element={<ProjectDetail />} />
-              <Route path="/settings" element={<Settings />} />
-            </Routes>
-          </Layout>
-        } />
-      </Routes>
+          {/* Main app routes - inside Layout */}
+          <Route path="/*" element={
+            <Layout>
+              <Suspense fallback={<PageLoader />}>
+                <Routes>
+                  <Route path="/" element={<Navigate to="/projects" replace />} />
+                  <Route path="/projects" element={<Projects />} />
+                  <Route path="/projects/:id" element={<ProjectDetail />} />
+                  <Route path="/templates" element={<Templates />} />
+                  <Route path="/settings" element={<Settings />} />
+                </Routes>
+              </Suspense>
+            </Layout>
+          } />
+        </Routes>
+      </Suspense>
     </BrowserRouter>
   );
 }

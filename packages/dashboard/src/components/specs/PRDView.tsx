@@ -7,10 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Separator } from '@/components/ui/separator';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
-import rehypeHighlight from 'rehype-highlight';
-import rehypeSanitize from 'rehype-sanitize';
+import { MarkdownRenderer } from '@/components/MarkdownRenderer';
 import { usePRDs, useDeletePRD, useTriggerPRDAnalysis } from '@/hooks/usePRDs';
 import { useSpecs } from '@/hooks/useSpecs';
 import { PRDUploadDialog } from '@/components/PRDUploadDialog';
@@ -121,37 +118,6 @@ export function PRDView({ projectId, onViewSpecs }: PRDViewProps) {
     );
   }
 
-  if (!prds || prds.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center h-64 space-y-4">
-        <FileText className="h-16 w-16 text-muted-foreground" />
-        <div className="text-center space-y-2">
-          <h3 className="text-lg font-semibold">No PRDs Yet</h3>
-          <p className="text-sm text-muted-foreground max-w-md">
-            Upload a Product Requirements Document to get started with spec-driven development.
-          </p>
-        </div>
-        <Button onClick={() => setShowUploadDialog(true)}>
-          <Upload className="mr-2 h-4 w-4" />
-          Upload PRD
-        </Button>
-
-        <PRDUploadDialog
-          projectId={projectId}
-          open={showUploadDialog}
-          onOpenChange={setShowUploadDialog}
-          onComplete={(prdId) => {
-            // Select the newly created PRD
-            const newPRD = prds?.find(p => p.id === prdId);
-            if (newPRD) {
-              setSelectedPRD(newPRD);
-            }
-          }}
-        />
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-4">
       {/* Header with Upload Button */}
@@ -159,184 +125,195 @@ export function PRDView({ projectId, onViewSpecs }: PRDViewProps) {
         <div>
           <h3 className="text-lg font-semibold">Product Requirements Documents</h3>
           <p className="text-sm text-muted-foreground">
-            {prds.length} {prds.length === 1 ? 'PRD' : 'PRDs'} in this project
+            {prds?.length || 0} {prds?.length === 1 ? 'PRD' : 'PRDs'} in this project
           </p>
         </div>
-        <Button onClick={() => setShowUploadDialog(true)} size="sm">
-          <Upload className="mr-2 h-4 w-4" />
-          Upload PRD
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setShowUploadDialog(true)} size="sm">
+            <Upload className="mr-2 h-4 w-4" />
+            Upload PRD
+          </Button>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {/* PRD List */}
-        <div className="space-y-2">
-          {prds.map((prd) => (
-            <Card
-              key={prd.id}
-              className={`cursor-pointer transition-colors ${
-                selectedPRD?.id === prd.id ? 'border-primary' : ''
-              }`}
-              onClick={() => setSelectedPRD(prd)}
-            >
-              <CardHeader className="pb-3">
-                <div className="flex items-start justify-between">
-                  <CardTitle className="text-sm font-medium line-clamp-1">{prd.title}</CardTitle>
-                  {getStatusBadge(prd.status)}
-                </div>
-                <CardDescription className="text-xs">
-                  <div className="flex items-center gap-2 mt-1">
-                    {getSourceBadge(prd.source)}
-                    <span>v{prd.version}</span>
+      {(!prds || prds.length === 0) ? (
+        <div className="flex flex-col items-center justify-center h-64 space-y-4">
+          <FileText className="h-16 w-16 text-muted-foreground" />
+          <div className="text-center space-y-2">
+            <h3 className="text-lg font-semibold">No PRDs Yet</h3>
+            <p className="text-sm text-muted-foreground max-w-md">
+              Upload a PRD or create one through the Ideate tab.
+            </p>
+          </div>
+          <Button variant="outline" onClick={() => setShowUploadDialog(true)}>
+            <Upload className="mr-2 h-4 w-4" />
+            Upload PRD
+          </Button>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          {/* PRD List */}
+          <div className="space-y-2">
+            {prds.map((prd) => (
+              <Card
+                key={prd.id}
+                className={`cursor-pointer transition-colors ${
+                  selectedPRD?.id === prd.id ? 'border-primary' : ''
+                }`}
+                onClick={() => setSelectedPRD(prd)}
+              >
+                <CardHeader className="pb-3">
+                  <div className="flex items-start justify-between">
+                    <CardTitle className="text-sm font-medium line-clamp-1">{prd.title}</CardTitle>
+                    {getStatusBadge(prd.status)}
                   </div>
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="pb-3">
-                <div className="space-y-1 text-xs text-muted-foreground">
-                  <div className="flex items-center gap-1">
-                    <Calendar className="h-3 w-3" />
-                    <span>{formatDate(prd.createdAt)}</span>
-                  </div>
-                  {prd.createdBy && (
-                    <div className="flex items-center gap-1">
-                      <User className="h-3 w-3" />
-                      <span>{prd.createdBy}</span>
+                  <CardDescription className="text-xs">
+                    <div className="flex items-center gap-2 mt-1">
+                      {getSourceBadge(prd.source)}
+                      <span>v{prd.version}</span>
                     </div>
-                  )}
-                  <div className="flex items-center gap-1 pt-1">
-                    <Layers className="h-3 w-3" />
-                    <span>{getSpecCountForPRD(prd.id)} {getSpecCountForPRD(prd.id) === 1 ? 'spec' : 'specs'}</span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-
-        {/* PRD Content Viewer */}
-        <div className="lg:col-span-2">
-          {selectedPRD ? (
-            <Card>
-              <CardHeader>
-                <div className="flex items-start justify-between">
-                  <div className="space-y-1">
-                    <CardTitle>{selectedPRD.title}</CardTitle>
-                    <CardDescription>
-                      Version {selectedPRD.version} • {formatDate(selectedPRD.updatedAt)}
-                    </CardDescription>
-                  </div>
-                  <div className="flex gap-2">
-                    {getSpecCountForPRD(selectedPRD.id) > 0 && onViewSpecs && (
-                      <Button
-                        variant="default"
-                        size="sm"
-                        onClick={() => onViewSpecs(selectedPRD.id)}
-                      >
-                        <Layers className="mr-2 h-4 w-4" />
-                        View Specs ({getSpecCountForPRD(selectedPRD.id)})
-                      </Button>
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="pb-3">
+                  <div className="space-y-1 text-xs text-muted-foreground">
+                    <div className="flex items-center gap-1">
+                      <Calendar className="h-3 w-3" />
+                      <span>{formatDate(prd.createdAt)}</span>
+                    </div>
+                    {prd.createdBy && (
+                      <div className="flex items-center gap-1">
+                        <User className="h-3 w-3" />
+                        <span>{prd.createdBy}</span>
+                      </div>
                     )}
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleAnalyzeClick(selectedPRD.id)}
-                      disabled={analyzePRDMutation.isPending}
-                    >
-                      {analyzePRDMutation.isPending ? (
-                        <>
-                          <div className="mr-2 h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                          Analyzing...
-                        </>
-                      ) : (
-                        <>
-                          <Sparkles className="mr-2 h-4 w-4" />
-                          Analyze
-                        </>
-                      )}
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleDelete(selectedPRD.id)}
-                      disabled={deletePRDMutation.isPending}
-                    >
-                      <Trash2 className="mr-2 h-4 w-4" />
-                      Delete
-                    </Button>
+                    <div className="flex items-center gap-1 pt-1">
+                      <Layers className="h-3 w-3" />
+                      <span>{getSpecCountForPRD(prd.id)} {getSpecCountForPRD(prd.id) === 1 ? 'spec' : 'specs'}</span>
+                    </div>
                   </div>
-                </div>
-              </CardHeader>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
 
-              {/* Display change information if available */}
-              {analysisResult?.changeId && selectedPRD && (
-                <CardContent className="pt-4 pb-0">
-                  <Alert>
-                    <FileText className="h-4 w-4" />
-                    <AlertTitle>Change Proposal Created</AlertTitle>
-                    <AlertDescription className="flex items-center justify-between">
-                      <span>
-                        Change proposal created: <code className="text-xs">{analysisResult.changeId}</code>
-                      </span>
+          {/* PRD Content Viewer */}
+          <div className="lg:col-span-2">
+            {selectedPRD ? (
+              <Card>
+                <CardHeader>
+                  <div className="flex items-start justify-between">
+                    <div className="space-y-1">
+                      <CardTitle>{selectedPRD.title}</CardTitle>
+                      <CardDescription>
+                        Version {selectedPRD.version} • {formatDate(selectedPRD.updatedAt)}
+                      </CardDescription>
+                    </div>
+                    <div className="flex gap-2">
+                      {getSpecCountForPRD(selectedPRD.id) > 0 && onViewSpecs && (
+                        <Button
+                          variant="default"
+                          size="sm"
+                          onClick={() => onViewSpecs(selectedPRD.id)}
+                        >
+                          <Layers className="mr-2 h-4 w-4" />
+                          View Specs ({getSpecCountForPRD(selectedPRD.id)})
+                        </Button>
+                      )}
                       <Button
-                        variant="link"
+                        variant="outline"
                         size="sm"
-                        className="h-auto p-0"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          window.location.href = `#/projects/${projectId}/changes/${analysisResult.changeId}`;
-                        }}
+                        onClick={() => handleAnalyzeClick(selectedPRD.id)}
+                        disabled={analyzePRDMutation.isPending}
                       >
-                        View Change <ExternalLink className="ml-1 h-3 w-3" />
+                        {analyzePRDMutation.isPending ? (
+                          <>
+                            <div className="mr-2 h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                            Analyzing...
+                          </>
+                        ) : (
+                          <>
+                            <Sparkles className="mr-2 h-4 w-4" />
+                            Analyze
+                          </>
+                        )}
                       </Button>
-                    </AlertDescription>
-                  </Alert>
-                </CardContent>
-              )}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleDelete(selectedPRD.id)}
+                        disabled={deletePRDMutation.isPending}
+                      >
+                        <Trash2 className="mr-2 h-4 w-4" />
+                        Delete
+                      </Button>
+                    </div>
+                  </div>
+                </CardHeader>
 
-              {/* Display validation errors */}
-              {analysisResult?.validationStatus === 'invalid' && analysisResult.validationErrors && (
-                <CardContent className="pt-4 pb-0">
-                  <Alert variant="destructive">
-                    <AlertTriangle className="h-4 w-4" />
-                    <AlertTitle>Validation Errors</AlertTitle>
-                    <AlertDescription>
-                      <ul className="list-disc list-inside mt-2">
-                        {analysisResult.validationErrors.map((error, i) => (
-                          <li key={i}>
-                            {error.line && <span className="font-mono text-xs">Line {error.line}: </span>}
-                            {error.message}
-                          </li>
-                        ))}
-                      </ul>
-                    </AlertDescription>
-                  </Alert>
-                </CardContent>
-              )}
+                {/* Display change information if available */}
+                {analysisResult?.changeId && selectedPRD && (
+                  <CardContent className="pt-4 pb-0">
+                    <Alert>
+                      <FileText className="h-4 w-4" />
+                      <AlertTitle>Change Proposal Created</AlertTitle>
+                      <AlertDescription className="flex items-center justify-between">
+                        <span>
+                          Change proposal created: <code className="text-xs">{analysisResult.changeId}</code>
+                        </span>
+                        <Button
+                          variant="link"
+                          size="sm"
+                          className="h-auto p-0"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            window.location.href = `#/projects/${projectId}/changes/${analysisResult.changeId}`;
+                          }}
+                        >
+                          View Change <ExternalLink className="ml-1 h-3 w-3" />
+                        </Button>
+                      </AlertDescription>
+                    </Alert>
+                  </CardContent>
+                )}
 
-              <Separator />
-              <CardContent className="pt-6">
-                <div className="prose prose-sm dark:prose-invert max-w-none">
-                  <ReactMarkdown
-                    remarkPlugins={[remarkGfm]}
-                    rehypePlugins={[rehypeHighlight, rehypeSanitize]}
-                  >
-                    {selectedPRD.contentMarkdown}
-                  </ReactMarkdown>
-                </div>
-              </CardContent>
-            </Card>
-          ) : (
-            <Card className="h-full flex items-center justify-center">
-              <CardContent>
-                <div className="text-center text-muted-foreground">
-                  <FileText className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                  <p>Select a PRD to view its content</p>
-                </div>
-              </CardContent>
-            </Card>
-          )}
+                {/* Display validation errors */}
+                {analysisResult?.validationStatus === 'invalid' && analysisResult.validationErrors && (
+                  <CardContent className="pt-4 pb-0">
+                    <Alert variant="destructive">
+                      <AlertTriangle className="h-4 w-4" />
+                      <AlertTitle>Validation Errors</AlertTitle>
+                      <AlertDescription>
+                        <ul className="list-disc list-inside mt-2">
+                          {analysisResult.validationErrors.map((error, i) => (
+                            <li key={i}>
+                              {error.line && <span className="font-mono text-xs">Line {error.line}: </span>}
+                              {error.message}
+                            </li>
+                          ))}
+                        </ul>
+                      </AlertDescription>
+                    </Alert>
+                  </CardContent>
+                )}
+
+                <Separator />
+                <CardContent className="pt-6">
+                  <MarkdownRenderer content={selectedPRD.contentMarkdown} />
+                </CardContent>
+              </Card>
+            ) : (
+              <Card className="h-full flex items-center justify-center">
+                <CardContent>
+                  <div className="text-center text-muted-foreground">
+                    <FileText className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                    <p>Select a PRD to view its content</p>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </div>
         </div>
-      </div>
+      )}
 
       <PRDUploadDialog
         projectId={projectId}

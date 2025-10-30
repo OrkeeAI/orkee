@@ -13,6 +13,7 @@ orkee-projects = { path = "../projects" }
 
 # Core packages
 orkee_core = { path = "../core" }
+orkee-config = { path = "../config" }
 storage = { path = "../storage" }
 security = { path = "../security" }
 openspec = { path = "../openspec" }
@@ -24,6 +25,7 @@ agents = { path = "../agents" }
 executions = { path = "../executions" }
 ai = { path = "../ai" }
 models = { path = "../models" }
+ideate = { path = "../ideate", package = "orkee-ideate" }
 
 # Database
 sqlx = { version = "0.8", features = ["runtime-tokio", "sqlite", "macros"] }
@@ -39,6 +41,9 @@ serde_json = "1.0"
 
 # Async runtime
 tokio = { version = "1.0", features = ["full"] }
+tokio-stream = "0.1"
+futures = "0.3"
+async-stream = "0.3"
 
 # Tracing
 tracing = "0.1"
@@ -47,7 +52,7 @@ tracing = "0.1"
 chrono = { version = "0.4", features = ["serde"] }
 
 # HTTP client
-reqwest = { version = "0.12", features = ["json", "stream"] }
+reqwest = { version = "0.12", features = ["json", "stream", "gzip", "brotli", "deflate"] }
 url = "2.5"
 
 # ID generation

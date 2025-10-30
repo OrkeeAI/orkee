@@ -5,6 +5,7 @@ import {
   FolderOpen,
   Settings,
   Bot,
+  FileText,
 } from "lucide-react"
 
 import { NavMain } from "@/components/nav-main"
@@ -36,9 +37,14 @@ const data = {
   ],
   navMain: [
     {
-      title: "Projects", 
+      title: "Projects",
       url: "/projects",
       icon: FolderOpen,
+    },
+    {
+      title: "Templates",
+      url: "/templates",
+      icon: FileText,
     },
     {
       title: "Settings",

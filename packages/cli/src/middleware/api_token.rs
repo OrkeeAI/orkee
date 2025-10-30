@@ -18,11 +18,13 @@ pub const API_TOKEN_HEADER: &str = "X-API-Token";
 /// Paths that don't require authentication via header
 /// Note: /api/preview/events performs its own token validation via query parameter
 /// because the EventSource API does not support custom headers
+/// Note: /api/ai/ proxy endpoints handle authentication by fetching user's API key from database
 const WHITELISTED_PATHS: &[&str] = &[
     "/api/health",
     "/api/status",
     "/api/csrf-token",
     "/api/preview/events",
+    "/api/ai/",
 ];
 
 /// Extension key for storing authentication status in request

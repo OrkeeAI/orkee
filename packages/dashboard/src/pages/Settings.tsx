@@ -2001,4 +2001,4 @@ function TlsConfigSection() {
       ))}
     </div>
   );
-}
+}export default Settings;

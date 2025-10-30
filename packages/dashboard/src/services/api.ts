@@ -85,8 +85,8 @@ export class ApiClient {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      const data = await response.json();
-      return { data };
+      const json = await response.json();
+      return { data: json, error: json.error };
     } catch (error) {
       console.error(`API GET error for ${endpoint}:`, error);
       return {
@@ -122,10 +122,83 @@ export class ApiClient {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      const data = await response.json();
-      return { data };
+      const json = await response.json();
+      return { data: json, error: json.error };
     } catch (error) {
       console.error(`API POST error for ${endpoint}:`, error);
+      return {
+        data: null as unknown as T,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      };
+    }
+  }
+
+  async put<T>(endpoint: string, body: unknown): Promise<ApiResponse<T>> {
+    try {
+      const baseUrl = await this.baseURL;
+      const token = await getApiToken();
+
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
+
+      if (token) {
+        headers['X-API-Token'] = token;
+      }
+
+      const response = await platformFetch(`${baseUrl}${endpoint}`, {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify(body),
+      });
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error('Authentication failed. Please restart the Orkee server.');
+        }
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const json = await response.json();
+      return { data: json, error: json.error };
+    } catch (error) {
+      console.error(`API PUT error for ${endpoint}:`, error);
+      return {
+        data: null as unknown as T,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      };
+    }
+  }
+
+  async delete<T>(endpoint: string): Promise<ApiResponse<T>> {
+    try {
+      const baseUrl = await this.baseURL;
+      const token = await getApiToken();
+
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
+
+      if (token) {
+        headers['X-API-Token'] = token;
+      }
+
+      const response = await platformFetch(`${baseUrl}${endpoint}`, {
+        method: 'DELETE',
+        headers,
+      });
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error('Authentication failed. Please restart the Orkee server.');
+        }
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const json = await response.json();
+      return { data: json, error: json.error };
+    } catch (error) {
+      console.error(`API DELETE error for ${endpoint}:`, error);
       return {
         data: null as unknown as T,
         error: error instanceof Error ? error.message : 'Unknown error',

@@ -12,9 +12,7 @@ import {
   AlertCircle,
 } from 'lucide-react';
 import { useSpec, useSpecRequirements } from '@/hooks/useSpecs';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
-import rehypeSanitize from 'rehype-sanitize';
+import { MarkdownRenderer } from '@/components/MarkdownRenderer';
 
 interface SpecDetailsViewProps {
   projectId: string;
@@ -143,11 +141,7 @@ export function SpecDetailsView({ projectId, specId, onEdit }: SpecDetailsViewPr
               <CardTitle>Purpose</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="prose prose-sm max-w-none">
-                <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeSanitize]}>
-                  {spec.purpose || 'No purpose specified'}
-                </ReactMarkdown>
-              </div>
+              <MarkdownRenderer content={spec.purpose || 'No purpose specified'} />
             </CardContent>
           </Card>
 
@@ -157,11 +151,7 @@ export function SpecDetailsView({ projectId, specId, onEdit }: SpecDetailsViewPr
                 <CardTitle>Specification</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="prose prose-sm max-w-none">
-                  <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeSanitize]}>
-                    {spec.specMarkdown}
-                  </ReactMarkdown>
-                </div>
+                <MarkdownRenderer content={spec.specMarkdown} />
               </CardContent>
             </Card>
           )}
@@ -187,11 +177,7 @@ export function SpecDetailsView({ projectId, specId, onEdit }: SpecDetailsViewPr
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="prose prose-sm max-w-none">
-                    <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeSanitize]}>
-                      {req.content}
-                    </ReactMarkdown>
-                  </div>
+                  <MarkdownRenderer content={req.content} />
 
                   {req.scenarios && req.scenarios.length > 0 && (
                     <>
@@ -245,11 +231,7 @@ export function SpecDetailsView({ projectId, specId, onEdit }: SpecDetailsViewPr
                 <CardTitle>Design Documentation</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="prose prose-sm max-w-none">
-                  <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeSanitize]}>
-                    {spec.designMarkdown}
-                  </ReactMarkdown>
-                </div>
+                <MarkdownRenderer content={spec.designMarkdown} />
               </CardContent>
             </Card>
           </TabsContent>

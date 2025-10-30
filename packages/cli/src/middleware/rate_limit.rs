@@ -184,7 +184,9 @@ fn categorize_endpoint(path: &str) -> EndpointCategory {
         EndpointCategory::Telemetry
     } else if path.contains("/users") {
         EndpointCategory::Users
-    } else if path.contains("/ai") {
+    } else if path.contains("/ai") || path.contains("/ideate") {
+        // AI-powered endpoints include both /ai/ and /ideate/ routes
+        // These are expensive operations that use LLM APIs
         EndpointCategory::AI
     } else {
         EndpointCategory::Other
@@ -310,6 +312,27 @@ mod tests {
         ));
         assert!(matches!(
             categorize_endpoint("/api/ai/chat"),
+            EndpointCategory::AI
+        ));
+        // Ideate endpoints should be categorized as AI
+        assert!(matches!(
+            categorize_endpoint("/api/ideate/start"),
+            EndpointCategory::AI
+        ));
+        assert!(matches!(
+            categorize_endpoint("/api/ideate/123/quick-generate"),
+            EndpointCategory::AI
+        ));
+        assert!(matches!(
+            categorize_endpoint("/api/ideate/roundtable/456/start"),
+            EndpointCategory::AI
+        ));
+        assert!(matches!(
+            categorize_endpoint("/api/ideate/123/fill-skipped-sections"),
+            EndpointCategory::AI
+        ));
+        assert!(matches!(
+            categorize_endpoint("/api/ideate/roundtable/789/insights/extract"),
             EndpointCategory::AI
         ));
         assert!(matches!(

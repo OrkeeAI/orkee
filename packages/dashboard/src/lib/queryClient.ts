@@ -42,6 +42,7 @@ export const queryKeys = {
   health: ['health'] as const,
   prds: ['prds'] as const,
   agents: ['agents'] as const,
+  models: ['models'] as const,
   currentUser: ['current-user'] as const,
 
   // Project-specific keys
@@ -58,6 +59,35 @@ export const queryKeys = {
   prdsList: (projectId: string) => [...queryKeys.prds, 'list', projectId] as const,
   prdDetail: (projectId: string, prdId: string) => [...queryKeys.prds, 'detail', projectId, prdId] as const,
   prdAnalysis: (projectId: string, prdId: string) => [...queryKeys.prds, 'analysis', projectId, prdId] as const,
+
+  // Ideate keys
+  ideate: ['ideate'] as const,
+  ideateList: (projectId: string) => [...queryKeys.ideate, 'list', projectId] as const,
+  ideateDetail: (sessionId: string) => [...queryKeys.ideate, 'detail', sessionId] as const,
+  ideateStatus: (sessionId: string) => [...queryKeys.ideate, 'status', sessionId] as const,
+  ideateOverview: (sessionId: string) => [...queryKeys.ideate, 'overview', sessionId] as const,
+  ideateUX: (sessionId: string) => [...queryKeys.ideate, 'ux', sessionId] as const,
+  ideateTechnical: (sessionId: string) => [...queryKeys.ideate, 'technical', sessionId] as const,
+  ideateRoadmap: (sessionId: string) => [...queryKeys.ideate, 'roadmap', sessionId] as const,
+  ideateDependencies: (sessionId: string) => [...queryKeys.ideate, 'dependencies', sessionId] as const,
+  ideateRisks: (sessionId: string) => [...queryKeys.ideate, 'risks', sessionId] as const,
+  ideateResearch: (sessionId: string) => [...queryKeys.ideate, 'research', sessionId] as const,
+  // Phase 4: Dependency Intelligence keys
+  ideateFeatureDependencies: (sessionId: string) => [...queryKeys.ideate, 'feature-dependencies', sessionId] as const,
+  ideateBuildOrder: (sessionId: string) => [...queryKeys.ideate, 'build-order', sessionId] as const,
+  ideateCircularDeps: (sessionId: string) => [...queryKeys.ideate, 'circular-deps', sessionId] as const,
+  ideateQuickWins: (sessionId: string) => [...queryKeys.ideate, 'quick-wins', sessionId] as const,
+  // Phase 5: Research Analysis keys
+  ideateCompetitors: (sessionId: string) => [...queryKeys.ideate, 'competitors', sessionId] as const,
+  ideateSimilarProjects: (sessionId: string) => [...queryKeys.ideate, 'similar-projects', sessionId] as const,
+  // Phase 6: Expert Roundtable keys
+  ideateExperts: (sessionId: string) => [...queryKeys.ideate, 'experts', sessionId] as const,
+  ideateRoundtables: (sessionId: string) => [...queryKeys.ideate, 'roundtables', sessionId] as const,
+  ideateRoundtableDetail: (roundtableId: string) => [...queryKeys.ideate, 'roundtable-detail', roundtableId] as const,
+  ideateRoundtableParticipants: (roundtableId: string) => [...queryKeys.ideate, 'roundtable-participants', roundtableId] as const,
+  ideateRoundtableMessages: (roundtableId: string) => [...queryKeys.ideate, 'roundtable-messages', roundtableId] as const,
+  ideateRoundtableInsights: (roundtableId: string) => [...queryKeys.ideate, 'roundtable-insights', roundtableId] as const,
+  ideateRoundtableStatistics: (roundtableId: string) => [...queryKeys.ideate, 'roundtable-statistics', roundtableId] as const,
 
   // Spec keys
   specs: ['specs'] as const,

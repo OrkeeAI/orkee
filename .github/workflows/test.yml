@@ -66,6 +66,17 @@ jobs:
     steps:
     - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
 
+    - name: Free up disk space
+      run: |
+        echo "Disk space before cleanup:"
+        df -h
+        sudo rm -rf /usr/share/dotnet
+        sudo rm -rf /opt/ghc
+        sudo rm -rf /usr/local/share/boost
+        sudo rm -rf "$AGENT_TOOLSDIRECTORY"
+        echo "Disk space after cleanup:"
+        df -h
+
     - name: Setup Rust
       uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # stable
       with:
@@ -73,14 +84,9 @@ jobs:
         components: rustfmt, clippy
 
     - name: Cache Rust dependencies
-      uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+      uses: Swatinem/rust-cache@82a92a6e8fbeee089604da2575dc567ae9ddeaab # v2.7.7
       with:
-        path: |
-          ~/.cargo/registry
-          ~/.cargo/git
-          target
-        key: ${{ runner.os }}-rust-${{ hashFiles('**/Cargo.lock') }}
-        restore-keys: ${{ runner.os }}-rust-
+        workspaces: "packages/cli -> target"
 
     - name: Check Rust formatting
       run: cargo fmt --all -- --check

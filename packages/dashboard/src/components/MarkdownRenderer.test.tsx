@@ -4,20 +4,12 @@
 import React from 'react';
 import { describe, it, expect } from 'vitest';
 import { render } from '@testing-library/react';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
-import rehypeHighlight from 'rehype-highlight';
-import rehypeSanitize from 'rehype-sanitize';
+import { MarkdownRenderer } from './MarkdownRenderer';
 
 describe('Markdown XSS Protection', () => {
   const renderMarkdown = (content: string) => {
     return render(
-      <ReactMarkdown
-        remarkPlugins={[remarkGfm]}
-        rehypePlugins={[rehypeHighlight, rehypeSanitize]}
-      >
-        {content}
-      </ReactMarkdown>
+      <MarkdownRenderer content={content} />
     );
   };
 

@@ -1,0 +1,31 @@
+#!/bin/bash
+# Pre-commit hook to ensure sqlx cache is up-to-date
+
+set -e
+
+# Check if any Rust files were modified
+if ! git diff --cached --name-only | grep -q '\.rs$'; then
+    exit 0
+fi
+
+# Check if .sqlx directory was modified
+if git diff --cached --name-only | grep -q '^\.sqlx/'; then
+    exit 0
+fi
+
+# If Rust files changed but .sqlx wasn't updated, warn the developer
+if git diff --cached --name-only | grep -q '\.rs$'; then
+    echo "⚠️  WARNING: Rust files modified but .sqlx/ cache not updated"
+    echo ""
+    echo "If you added new sqlx queries, please run:"
+    echo "  cargo sqlx prepare --workspace"
+    echo ""
+    echo "Then stage the .sqlx/ changes:"
+    echo "  git add .sqlx/"
+    echo ""
+    echo "To bypass this warning (not recommended):"
+    echo "  git commit --no-verify"
+    echo ""
+fi
+
+exit 0

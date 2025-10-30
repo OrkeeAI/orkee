@@ -13,6 +13,7 @@ vi.mock('@/lib/platform', () => ({
     return global.fetch(url, options);
   }),
   getApiPort: vi.fn(async () => 4001),
+  getApiToken: vi.fn(async () => null),
   onDesktop: vi.fn(),
   onWeb: vi.fn((callback: () => void) => callback()),
   platformFeatures: {

@@ -18,6 +18,12 @@ pub mod context_handlers;
 pub mod executions_handlers;
 pub mod graph_handlers;
 pub mod handlers;
+pub mod ideate_dependency_handlers;
+pub mod ideate_generation_handlers;
+pub mod ideate_handlers;
+pub mod ideate_research_handlers;
+pub mod ideate_roundtable_handlers;
+pub mod models_handlers;
 pub mod prd_handlers;
 pub mod response;
 pub mod security_handlers;
@@ -25,6 +31,7 @@ pub mod spec_handlers;
 pub mod tags_handlers;
 pub mod task_spec_handlers;
 pub mod tasks_handlers;
+pub mod template_handlers;
 pub mod users_handlers;
 pub mod validation;
 
@@ -77,6 +84,17 @@ pub fn create_agents_router() -> Router<DbState> {
         )
 }
 
+/// Creates the models API router
+pub fn create_models_router() -> Router<DbState> {
+    Router::new()
+        .route("/", get(models_handlers::list_models))
+        .route("/{model_id}", get(models_handlers::get_model))
+        .route(
+            "/provider/{provider}",
+            get(models_handlers::list_models_by_provider),
+        )
+}
+
 /// Creates the users API router
 pub fn create_users_router() -> Router<DbState> {
     Router::new()
@@ -88,6 +106,7 @@ pub fn create_users_router() -> Router<DbState> {
         )
         .route("/{user_id}/theme", put(users_handlers::update_theme))
         .route("/credentials", put(users_handlers::update_credentials))
+        .route("/anthropic-key", get(users_handlers::get_anthropic_key))
 }
 
 /// Creates the tags API router
@@ -152,6 +171,342 @@ pub fn create_prds_router() -> Router<DbState> {
         .route(
             "/{project_id}/prds/{prd_id}/capabilities",
             get(prd_handlers::get_prd_capabilities),
+        )
+}
+
+/// Creates the Brainstorm API router for PRD ideation and ideateing
+pub fn create_ideate_router() -> Router<DbState> {
+    Router::new()
+        .route("/ideate/start", post(ideate_handlers::start_ideate))
+        .route("/ideate/{session_id}", get(ideate_handlers::get_ideate))
+        .route("/ideate/{session_id}", put(ideate_handlers::update_ideate))
+        .route(
+            "/ideate/{session_id}",
+            delete(ideate_handlers::delete_ideate),
+        )
+        .route(
+            "/ideate/{session_id}/skip-section",
+            post(ideate_handlers::skip_section),
+        )
+        .route(
+            "/ideate/{session_id}/status",
+            get(ideate_handlers::get_status),
+        )
+        .route(
+            "/{project_id}/ideate/sessions",
+            get(ideate_handlers::list_ideates),
+        )
+        // Quick Mode routes
+        .route(
+            "/ideate/{session_id}/quick-generate",
+            post(ideate_handlers::quick_generate),
+        )
+        .route(
+            "/ideate/{session_id}/quick-expand",
+            post(ideate_handlers::quick_expand),
+        )
+        .route(
+            "/ideate/{session_id}/preview",
+            get(ideate_handlers::get_preview),
+        )
+        .route(
+            "/ideate/{session_id}/save-as-prd",
+            post(ideate_handlers::save_as_prd),
+        )
+        .route(
+            "/ideate/{session_id}/save-sections",
+            post(ideate_handlers::save_sections),
+        )
+        // Guided Mode - Section routes
+        // Overview
+        .route(
+            "/ideate/{session_id}/overview",
+            post(ideate_handlers::save_overview),
+        )
+        .route(
+            "/ideate/{session_id}/overview",
+            get(ideate_handlers::get_overview),
+        )
+        .route(
+            "/ideate/{session_id}/overview",
+            delete(ideate_handlers::delete_overview),
+        )
+        // UX
+        .route("/ideate/{session_id}/ux", post(ideate_handlers::save_ux))
+        .route("/ideate/{session_id}/ux", get(ideate_handlers::get_ux))
+        .route(
+            "/ideate/{session_id}/ux",
+            delete(ideate_handlers::delete_ux),
+        )
+        // Technical
+        .route(
+            "/ideate/{session_id}/technical",
+            post(ideate_handlers::save_technical),
+        )
+        .route(
+            "/ideate/{session_id}/technical",
+            get(ideate_handlers::get_technical),
+        )
+        .route(
+            "/ideate/{session_id}/technical",
+            delete(ideate_handlers::delete_technical),
+        )
+        // Roadmap
+        .route(
+            "/ideate/{session_id}/roadmap",
+            post(ideate_handlers::save_roadmap),
+        )
+        .route(
+            "/ideate/{session_id}/roadmap",
+            get(ideate_handlers::get_roadmap),
+        )
+        .route(
+            "/ideate/{session_id}/roadmap",
+            delete(ideate_handlers::delete_roadmap),
+        )
+        // Dependencies
+        .route(
+            "/ideate/{session_id}/dependencies",
+            post(ideate_handlers::save_dependencies),
+        )
+        .route(
+            "/ideate/{session_id}/dependencies",
+            get(ideate_handlers::get_dependencies),
+        )
+        .route(
+            "/ideate/{session_id}/dependencies",
+            delete(ideate_handlers::delete_dependencies),
+        )
+        // Risks
+        .route(
+            "/ideate/{session_id}/risks",
+            post(ideate_handlers::save_risks),
+        )
+        .route(
+            "/ideate/{session_id}/risks",
+            get(ideate_handlers::get_risks),
+        )
+        .route(
+            "/ideate/{session_id}/risks",
+            delete(ideate_handlers::delete_risks),
+        )
+        // Research
+        .route(
+            "/ideate/{session_id}/research",
+            post(ideate_handlers::save_research),
+        )
+        .route(
+            "/ideate/{session_id}/research",
+            get(ideate_handlers::get_research),
+        )
+        .route(
+            "/ideate/{session_id}/research",
+            delete(ideate_handlers::delete_research),
+        )
+        // Navigation
+        .route(
+            "/ideate/{session_id}/next-section",
+            get(ideate_handlers::get_next_section),
+        )
+        .route(
+            "/ideate/{session_id}/navigate",
+            post(ideate_handlers::navigate_to),
+        )
+        // Phase 4: Dependency Intelligence routes
+        .route(
+            "/ideate/{session_id}/features/dependencies",
+            get(ideate_dependency_handlers::get_dependencies),
+        )
+        .route(
+            "/ideate/{session_id}/features/dependencies",
+            post(ideate_dependency_handlers::create_dependency),
+        )
+        .route(
+            "/ideate/{session_id}/features/dependencies/{dependency_id}",
+            delete(ideate_dependency_handlers::delete_dependency),
+        )
+        .route(
+            "/ideate/{session_id}/dependencies/analyze",
+            post(ideate_dependency_handlers::analyze_dependencies),
+        )
+        .route(
+            "/ideate/{session_id}/dependencies/optimize",
+            post(ideate_dependency_handlers::optimize_build_order),
+        )
+        .route(
+            "/ideate/{session_id}/dependencies/build-order",
+            get(ideate_dependency_handlers::get_build_order),
+        )
+        .route(
+            "/ideate/{session_id}/dependencies/circular",
+            get(ideate_dependency_handlers::get_circular_dependencies),
+        )
+        .route(
+            "/ideate/{session_id}/features/suggest-visible",
+            get(ideate_dependency_handlers::suggest_quick_wins),
+        )
+        // Phase 5: Comprehensive Mode - Research & Competitor Analysis routes
+        .route(
+            "/ideate/{session_id}/research/competitors/analyze",
+            post(ideate_research_handlers::analyze_competitor),
+        )
+        .route(
+            "/ideate/{session_id}/research/competitors",
+            get(ideate_research_handlers::get_competitors),
+        )
+        .route(
+            "/ideate/{session_id}/research/gaps/analyze",
+            post(ideate_research_handlers::analyze_gaps),
+        )
+        .route(
+            "/ideate/{session_id}/research/patterns/extract",
+            post(ideate_research_handlers::extract_patterns),
+        )
+        .route(
+            "/ideate/{session_id}/research/similar-projects",
+            post(ideate_research_handlers::add_similar_project),
+        )
+        .route(
+            "/ideate/{session_id}/research/similar-projects",
+            get(ideate_research_handlers::get_similar_projects),
+        )
+        .route(
+            "/ideate/{session_id}/research/lessons/extract",
+            post(ideate_research_handlers::extract_lessons),
+        )
+        .route(
+            "/ideate/{session_id}/research/synthesize",
+            post(ideate_research_handlers::synthesize_research),
+        )
+        // Phase 6: Comprehensive Mode - Expert Roundtable routes
+        // Expert management
+        .route(
+            "/ideate/{session_id}/experts",
+            get(ideate_roundtable_handlers::list_experts),
+        )
+        .route(
+            "/ideate/{session_id}/experts",
+            post(ideate_roundtable_handlers::create_expert),
+        )
+        .route(
+            "/ideate/{session_id}/experts/suggest",
+            post(ideate_roundtable_handlers::suggest_experts),
+        )
+        // Roundtable session management
+        .route(
+            "/ideate/{session_id}/roundtable",
+            post(ideate_roundtable_handlers::create_roundtable),
+        )
+        .route(
+            "/ideate/{session_id}/roundtables",
+            get(ideate_roundtable_handlers::list_roundtables),
+        )
+        .route(
+            "/ideate/roundtable/{roundtable_id}",
+            get(ideate_roundtable_handlers::get_roundtable),
+        )
+        .route(
+            "/ideate/roundtable/{roundtable_id}/participants",
+            post(ideate_roundtable_handlers::add_participants),
+        )
+        .route(
+            "/ideate/roundtable/{roundtable_id}/participants",
+            get(ideate_roundtable_handlers::get_participants),
+        )
+        // Discussion operations
+        .route(
+            "/ideate/roundtable/{roundtable_id}/start",
+            post(ideate_roundtable_handlers::start_discussion),
+        )
+        .route(
+            "/ideate/roundtable/{roundtable_id}/stream",
+            get(ideate_roundtable_handlers::stream_discussion),
+        )
+        .route(
+            "/ideate/roundtable/{roundtable_id}/interjection",
+            post(ideate_roundtable_handlers::send_interjection),
+        )
+        .route(
+            "/ideate/roundtable/{roundtable_id}/messages",
+            get(ideate_roundtable_handlers::get_messages),
+        )
+        // Insight extraction
+        .route(
+            "/ideate/roundtable/{roundtable_id}/insights/extract",
+            post(ideate_roundtable_handlers::extract_insights),
+        )
+        .route(
+            "/ideate/roundtable/{roundtable_id}/insights",
+            get(ideate_roundtable_handlers::get_insights),
+        )
+        // Statistics
+        .route(
+            "/ideate/roundtable/{roundtable_id}/statistics",
+            get(ideate_roundtable_handlers::get_statistics),
+        )
+        // Phase 7: PRD Generation & Export routes
+        .route(
+            "/ideate/{session_id}/prd/generate",
+            post(ideate_generation_handlers::generate_prd),
+        )
+        .route(
+            "/ideate/{session_id}/prd/fill-sections",
+            post(ideate_generation_handlers::fill_skipped_sections),
+        )
+        .route(
+            "/ideate/{session_id}/prd/regenerate-section",
+            post(ideate_generation_handlers::regenerate_section),
+        )
+        .route(
+            "/ideate/{session_id}/prd/regenerate-template",
+            post(ideate_generation_handlers::regenerate_prd_with_template),
+        )
+        .route(
+            "/ideate/{session_id}/prd/regenerate-template-stream",
+            post(ideate_generation_handlers::regenerate_prd_with_template_stream),
+        )
+        .route(
+            "/ideate/{session_id}/prd/preview",
+            get(ideate_generation_handlers::get_prd_preview),
+        )
+        .route(
+            "/ideate/{session_id}/prd/export",
+            post(ideate_generation_handlers::export_prd),
+        )
+        .route(
+            "/ideate/{session_id}/prd/completeness",
+            get(ideate_generation_handlers::get_completeness),
+        )
+        .route(
+            "/ideate/{session_id}/prd/history",
+            get(ideate_generation_handlers::get_generation_history),
+        )
+        .route(
+            "/ideate/{session_id}/prd/validation",
+            get(ideate_generation_handlers::validate_prd),
+        )
+        // Phase 8: Templates routes
+        .route("/ideate/templates", get(ideate_handlers::list_templates))
+        .route("/ideate/templates", post(ideate_handlers::create_template))
+        .route(
+            "/ideate/templates/{template_id}",
+            get(ideate_handlers::get_template),
+        )
+        .route(
+            "/ideate/templates/{template_id}",
+            put(ideate_handlers::update_template),
+        )
+        .route(
+            "/ideate/templates/{template_id}",
+            delete(ideate_handlers::delete_template),
+        )
+        .route(
+            "/ideate/templates/by-type/{project_type}",
+            get(ideate_handlers::get_templates_by_type),
+        )
+        .route(
+            "/ideate/templates/suggest",
+            post(ideate_handlers::suggest_template),
         )
 }
 
@@ -385,5 +740,24 @@ pub fn create_graph_router() -> Router<DbState> {
         .route(
             "/{project_id}/graph/spec-mapping",
             get(graph_handlers::get_spec_mapping_graph),
+        )
+}
+
+/// Creates the templates API router for PRD output template management
+pub fn create_templates_router() -> Router<DbState> {
+    Router::new()
+        .route("/templates", get(template_handlers::list_templates))
+        .route("/templates", post(template_handlers::create_template))
+        .route(
+            "/templates/{template_id}",
+            get(template_handlers::get_template),
+        )
+        .route(
+            "/templates/{template_id}",
+            put(template_handlers::update_template),
+        )
+        .route(
+            "/templates/{template_id}",
+            delete(template_handlers::delete_template),
         )
 }

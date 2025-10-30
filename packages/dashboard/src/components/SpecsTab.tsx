@@ -1,8 +1,9 @@
 // ABOUTME: Container component for Specs tab with OpenSpec workflow sections
-// ABOUTME: Integrates PRDView, ChangesView, SpecificationsView, ArchiveView, and CoverageView with nested tabs
+// ABOUTME: Integrates IdeateTab, PRDView, ChangesView, SpecificationsView, ArchiveView, and CoverageView
 import { useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { FileText, Layers, BarChart, GitBranch, Archive } from 'lucide-react';
+import { FileText, Layers, BarChart, GitBranch, Archive, Lightbulb } from 'lucide-react';
+import { IdeateTab } from '@/components/specs/IdeateTab';
 import { PRDView } from '@/components/specs/PRDView';
 import { ChangesView } from '@/components/specs/ChangesView';
 import { SpecificationsView } from '@/components/specs/SpecificationsView';
@@ -14,7 +15,7 @@ interface SpecsTabProps {
 }
 
 export function SpecsTab({ projectId }: SpecsTabProps) {
-  const [activeTab, setActiveTab] = useState('prds');
+  const [activeTab, setActiveTab] = useState('ideate');
   const [filterPrdId, setFilterPrdId] = useState<string | null>(null);
 
   const handleViewSpecs = (prdId: string) => {
@@ -25,6 +26,10 @@ export function SpecsTab({ projectId }: SpecsTabProps) {
   return (
     <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
       <TabsList>
+        <TabsTrigger value="ideate" className="flex items-center gap-2">
+          <Lightbulb className="h-4 w-4" />
+          Ideate
+        </TabsTrigger>
         <TabsTrigger value="prds" className="flex items-center gap-2">
           <FileText className="h-4 w-4" />
           PRDs
@@ -46,6 +51,10 @@ export function SpecsTab({ projectId }: SpecsTabProps) {
           Coverage
         </TabsTrigger>
       </TabsList>
+
+      <TabsContent value="ideate" className="space-y-4">
+        <IdeateTab projectId={projectId} />
+      </TabsContent>
 
       <TabsContent value="prds" className="space-y-4">
         <PRDView projectId={projectId} onViewSpecs={handleViewSpecs} />

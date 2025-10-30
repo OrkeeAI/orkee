@@ -224,8 +224,9 @@ async fn proxy_ai_request(
         .map(|q| format!("?{}", q))
         .unwrap_or_default();
 
-    // Remove the /api/ai/{provider} prefix from the path
-    let provider_prefix = format!("/api/ai/{}", provider);
+    // Remove the /ai/{provider} prefix from the path
+    // Note: /api prefix is already handled by Axum router
+    let provider_prefix = format!("/ai/{}", provider);
     let target_path = path.strip_prefix(&provider_prefix).unwrap_or(path);
 
     // Validate the API path against provider whitelist
@@ -254,6 +255,8 @@ async fn proxy_ai_request(
     info!("Forwarding to: {}", target_url);
 
     // Create HTTP client
+    // With the gzip, brotli, and deflate Cargo features enabled,
+    // reqwest automatically decompresses response bodies
     let client = Client::new();
 
     // Build the proxied request
@@ -309,21 +312,44 @@ async fn proxy_ai_request(
     }
 
     // Build the request to the AI provider
+    info!(
+        "Building proxy request - body size: {} bytes",
+        body_bytes.len()
+    );
     let mut proxy_req = client
         .request(method, &target_url)
         .body(body_bytes.to_vec());
 
     // Copy relevant headers (exclude host, connection, etc.)
+    info!("Copying request headers (excluding auth headers)");
     for (key, value) in headers.iter() {
         let key_str = key.as_str().to_lowercase();
-        if !matches!(key_str.as_str(), "host" | "connection" | "content-length") {
+        if !matches!(
+            key_str.as_str(),
+            "host" | "connection" | "content-length" | "x-api-key" | "authorization"
+        ) {
+            if let Ok(val_str) = value.to_str() {
+                info!("  Copying header: {} = {}", key_str, val_str);
+            }
             proxy_req = proxy_req.header(key, value);
+        } else {
+            info!("  Excluding header: {}", key_str);
         }
     }
 
-    // Add the API key header based on provider
+    // Add the API key header and provider-specific headers
+    info!("Adding provider-specific headers for: {}", provider);
     proxy_req = match provider {
-        "anthropic" => proxy_req.header("x-api-key", api_key),
+        "anthropic" => {
+            info!(
+                "  Adding x-api-key: {}...",
+                &api_key[..8.min(api_key.len())]
+            );
+            info!("  Adding anthropic-version: 2023-06-01");
+            proxy_req
+                .header("x-api-key", api_key)
+                .header("anthropic-version", "2023-06-01")
+        }
         "openai" => proxy_req.header("Authorization", format!("Bearer {}", api_key)),
         "google" => proxy_req.header("x-goog-api-key", api_key),
         "xai" => proxy_req.header("Authorization", format!("Bearer {}", api_key)),
@@ -331,10 +357,15 @@ async fn proxy_ai_request(
     };
 
     // Send the request
+    info!("Sending request to {}", target_url);
     let response = match proxy_req.send().await {
-        Ok(resp) => resp,
+        Ok(resp) => {
+            info!("Request sent successfully");
+            resp
+        }
         Err(e) => {
             error!("Failed to proxy request to {}: {}", provider, e);
+            error!("Error details: {:?}", e);
             return build_error_response(
                 StatusCode::BAD_GATEWAY,
                 format!(
@@ -348,12 +379,24 @@ async fn proxy_ai_request(
     // Build response
     let status = response.status();
     let headers = response.headers().clone();
+    info!("Received response with status: {}", status);
+    info!("Response headers:");
+    for (key, value) in headers.iter() {
+        if let Ok(val_str) = value.to_str() {
+            info!("  {} = {}", key, val_str);
+        }
+    }
 
     // Read response with size limit
+    info!("Reading response body...");
     let body_bytes = match response.bytes().await {
-        Ok(bytes) => bytes,
+        Ok(bytes) => {
+            info!("Successfully read {} bytes from response", bytes.len());
+            bytes
+        }
         Err(e) => {
             error!("Failed to read response body: {}", e);
+            error!("Error details: {:?}", e);
             return build_error_response(
                 StatusCode::BAD_GATEWAY,
                 "Failed to read AI provider response".to_string(),
@@ -375,13 +418,36 @@ async fn proxy_ai_request(
     }
 
     // Build the final response
+    info!("Building final response with status: {}", status);
     let mut builder = Response::builder().status(status);
 
-    // Copy response headers
+    // Copy response headers (excluding hop-by-hop headers)
+    // We've already read and decoded the full body, so we shouldn't copy
+    // transfer-encoding, content-encoding, or other hop-by-hop headers
     for (key, value) in headers.iter() {
-        builder = builder.header(key, value);
+        let key_str = key.as_str().to_lowercase();
+        if !matches!(
+            key_str.as_str(),
+            "transfer-encoding"
+                | "content-encoding"
+                | "connection"
+                | "keep-alive"
+                | "proxy-authenticate"
+                | "proxy-authorization"
+                | "te"
+                | "trailer"
+                | "upgrade"
+        ) {
+            builder = builder.header(key, value);
+        } else {
+            info!("  Excluding hop-by-hop header: {}", key_str);
+        }
     }
 
+    info!(
+        "Proxy request completed successfully - returning {} bytes",
+        body_bytes.len()
+    );
     builder.body(Body::from(body_bytes)).unwrap_or_else(|e| {
         error!("Failed to build final response: {}", e);
         build_error_response(
