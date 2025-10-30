@@ -7,7 +7,7 @@ use axum::{
     Json,
 };
 use serde::Deserialize;
-use tracing::info;
+use tracing::{info, warn};
 
 use super::response::{created_or_internal_error, ok_or_internal_error, ok_or_not_found};
 use ideate::prd_generator::GeneratedPRD;
@@ -198,8 +198,14 @@ pub async fn quick_generate(
         Ok(prd) => {
             // Persist section data to ideate_ tables
             if let Err(e) = persist_generated_prd(&manager, &session_id, &prd).await {
-                info!("Warning: Failed to persist PRD sections: {}", e);
-                // Don't fail the response, just log the warning
+                warn!(
+                    "Failed to persist PRD sections for session {}: {}",
+                    session_id, e
+                );
+                return ok_or_internal_error::<serde_json::Value, _>(
+                    Err(format!("PRD generated but failed to persist: {}", e)),
+                    "Failed to persist PRD",
+                );
             }
 
             // Convert to JSON for response

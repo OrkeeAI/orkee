@@ -13,6 +13,7 @@ orkee-projects = { path = "../projects" }
 
 # Core packages
 orkee_core = { path = "../core" }
+orkee-config = { path = "../config" }
 storage = { path = "../storage" }
 security = { path = "../security" }
 openspec = { path = "../openspec" }

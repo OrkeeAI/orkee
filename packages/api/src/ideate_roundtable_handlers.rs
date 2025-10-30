@@ -15,13 +15,43 @@ use ideate::{
     CreateExpertPersonaInput, ExpertModerator, RoundtableEvent, RoundtableManager,
     StartRoundtableRequest, SuggestExpertsRequest, UserInterjectionInput,
 };
+use orkee_config::constants;
 use orkee_projects::DbState;
 use serde::{Deserialize, Serialize};
 use std::convert::Infallible;
-use std::time::Duration;
+use std::sync::Arc;
+use std::time::{Duration, Instant};
+use tokio::sync::Mutex;
 use tracing::{info, warn};
 
 use super::response::{created_or_internal_error, ok_or_internal_error, ok_or_not_found};
+
+// ============================================================================
+// CONFIGURATION & CONSTANTS
+// ============================================================================
+
+const DEFAULT_SSE_MAX_DURATION_MINUTES: u64 = 30;
+const DEFAULT_SSE_POLL_INTERVAL_SECS: u64 = 1;
+const MIN_SSE_MAX_DURATION_MINUTES: u64 = 5;
+const MAX_SSE_MAX_DURATION_MINUTES: u64 = 120;
+const MIN_SSE_POLL_INTERVAL_SECS: u64 = 1;
+const MAX_SSE_POLL_INTERVAL_SECS: u64 = 10;
+
+fn parse_sse_max_duration() -> u64 {
+    std::env::var(constants::ORKEE_SSE_MAX_DURATION_MINUTES)
+        .ok()
+        .and_then(|s| s.parse::<u64>().ok())
+        .map(|v: u64| v.clamp(MIN_SSE_MAX_DURATION_MINUTES, MAX_SSE_MAX_DURATION_MINUTES))
+        .unwrap_or(DEFAULT_SSE_MAX_DURATION_MINUTES)
+}
+
+fn parse_sse_poll_interval() -> u64 {
+    std::env::var(constants::ORKEE_SSE_POLL_INTERVAL_SECS)
+        .ok()
+        .and_then(|s| s.parse::<u64>().ok())
+        .map(|v: u64| v.clamp(MIN_SSE_POLL_INTERVAL_SECS, MAX_SSE_POLL_INTERVAL_SECS))
+        .unwrap_or(DEFAULT_SSE_POLL_INTERVAL_SECS)
+}
 
 // ============================================================================
 // REQUEST/RESPONSE TYPES
@@ -229,6 +259,17 @@ pub async fn start_discussion(
     .into_response()
 }
 
+/// Stream state tracking for resource management
+struct StreamState {
+    manager: RoundtableManager,
+    roundtable_id: String,
+    last_order: i32,
+    start_time: Instant,
+    max_duration: Duration,
+    poll_interval: Duration,
+    is_client_connected: Arc<Mutex<bool>>,
+}
+
 /// GET /api/ideate/roundtable/:roundtable_id/stream - SSE stream of messages
 pub async fn stream_discussion(
     State(db): State<DbState>,
@@ -236,68 +277,112 @@ pub async fn stream_discussion(
 ) -> Sse<impl Stream<Item = Result<Event, Infallible>>> {
     info!("Starting SSE stream for roundtable: {}", roundtable_id);
 
+    let max_duration_minutes = parse_sse_max_duration();
+    let poll_interval_secs = parse_sse_poll_interval();
+
+    info!(
+        "SSE stream configured: max_duration={}min, poll_interval={}s",
+        max_duration_minutes, poll_interval_secs
+    );
+
     let manager = RoundtableManager::new(db.pool.clone());
+    let is_client_connected = Arc::new(Mutex::new(true));
 
-    // Create stream that polls for new messages
-    let stream = stream::unfold(
-        (manager, roundtable_id, 0i32),
-        |(manager, roundtable_id, last_order)| async move {
-            // Poll for new messages
-            match manager.get_messages_after(&roundtable_id, last_order).await {
-                Ok(messages) => {
-                    if messages.is_empty() {
-                        // No new messages, send heartbeat
-                        tokio::time::sleep(Duration::from_secs(1)).await;
-                        let event = RoundtableEvent::Heartbeat;
-                        let data = serde_json::to_string(&event).unwrap();
-                        Some((
-                            Ok(Event::default().data(data)),
-                            (manager, roundtable_id, last_order),
-                        ))
+    let state = StreamState {
+        manager,
+        roundtable_id: roundtable_id.clone(),
+        last_order: 0i32,
+        start_time: Instant::now(),
+        max_duration: Duration::from_secs(max_duration_minutes * 60),
+        poll_interval: Duration::from_secs(poll_interval_secs),
+        is_client_connected: is_client_connected.clone(),
+    };
+
+    // Create stream with timeout and disconnection detection
+    let stream = stream::unfold(state, |mut state| async move {
+        // Check if stream has exceeded maximum duration
+        let elapsed = state.start_time.elapsed();
+        if elapsed >= state.max_duration {
+            warn!(
+                "SSE stream for roundtable {} exceeded max duration of {}min, terminating",
+                state.roundtable_id,
+                elapsed.as_secs() / 60
+            );
+            let event = RoundtableEvent::Error {
+                error: format!(
+                    "Stream exceeded maximum duration of {} minutes",
+                    state.max_duration.as_secs() / 60
+                ),
+            };
+            let data = serde_json::to_string(&event).unwrap_or_default();
+            return Some((Ok(Event::default().data(data)), state));
+        }
+
+        // Check client connection status
+        let connected = *state.is_client_connected.lock().await;
+        if !connected {
+            info!(
+                "Client disconnected from roundtable {} stream, terminating",
+                state.roundtable_id
+            );
+            return None;
+        }
+
+        // Poll for new messages
+        match state
+            .manager
+            .get_messages_after(&state.roundtable_id, state.last_order)
+            .await
+        {
+            Ok(messages) => {
+                if messages.is_empty() {
+                    // No new messages, send heartbeat
+                    tokio::time::sleep(state.poll_interval).await;
+                    let event = RoundtableEvent::Heartbeat;
+                    let data = serde_json::to_string(&event).unwrap_or_default();
+                    Some((Ok(Event::default().data(data)), state))
+                } else {
+                    // Update last order with new messages
+                    state.last_order = messages
+                        .last()
+                        .map(|m| m.message_order)
+                        .unwrap_or(state.last_order);
+
+                    // Send first message and queue the rest
+                    if let Some(first_message) = messages.into_iter().next() {
+                        let event = RoundtableEvent::Message {
+                            message: first_message,
+                        };
+                        let data = serde_json::to_string(&event).unwrap_or_default();
+                        Some((Ok(Event::default().data(data)), state))
                     } else {
-                        // Send new messages
-                        let new_last_order = messages
-                            .last()
-                            .map(|m| m.message_order)
-                            .unwrap_or(last_order);
-
-                        let events: Vec<_> = messages
-                            .into_iter()
-                            .map(|message| {
-                                let event = RoundtableEvent::Message { message };
-                                let data = serde_json::to_string(&event).unwrap();
-                                Ok(Event::default().data(data))
-                            })
-                            .collect();
-
-                        // Return first event and continue with rest
-                        if let Some(first) = events.into_iter().next() {
-                            Some((first, (manager, roundtable_id, new_last_order)))
-                        } else {
-                            tokio::time::sleep(Duration::from_secs(1)).await;
-                            let event = RoundtableEvent::Heartbeat;
-                            let data = serde_json::to_string(&event).unwrap();
-                            Some((
-                                Ok(Event::default().data(data)),
-                                (manager, roundtable_id, last_order),
-                            ))
-                        }
+                        // Fallback to heartbeat if no messages after all
+                        tokio::time::sleep(state.poll_interval).await;
+                        let event = RoundtableEvent::Heartbeat;
+                        let data = serde_json::to_string(&event).unwrap_or_default();
+                        Some((Ok(Event::default().data(data)), state))
                     }
                 }
-                Err(e) => {
-                    warn!("Error fetching messages: {}", e);
-                    let event = RoundtableEvent::Error {
-                        error: e.to_string(),
-                    };
-                    let data = serde_json::to_string(&event).unwrap();
-                    Some((
-                        Ok(Event::default().data(data)),
-                        (manager, roundtable_id, last_order),
-                    ))
-                }
             }
-        },
-    );
+            Err(e) => {
+                warn!(
+                    "Error fetching messages for roundtable {}: {}",
+                    state.roundtable_id, e
+                );
+                let event = RoundtableEvent::Error {
+                    error: e.to_string(),
+                };
+                let data = serde_json::to_string(&event).unwrap_or_default();
+
+                // On database errors, terminate stream to release connection
+                info!(
+                    "Terminating stream for roundtable {} due to error",
+                    state.roundtable_id
+                );
+                Some((Ok(Event::default().data(data)), state))
+            }
+        }
+    });
 
     Sse::new(stream).keep_alive(KeepAlive::default())
 }

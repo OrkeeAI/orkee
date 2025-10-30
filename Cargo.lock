@@ -168,6 +168,7 @@ dependencies = [
  "models",
  "nanoid",
  "openspec",
+ "orkee-config",
  "orkee-ideate",
  "orkee-projects",
  "orkee_core",

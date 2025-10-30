@@ -237,7 +237,15 @@ impl BuildOptimizer {
                 Self::find_cycles_dfs(graph, neighbor, visited, rec_stack, cycles, reverse_map)?;
             } else if rec_stack.contains(&neighbor) {
                 // Found a cycle
-                let cycle_start = rec_stack.iter().position(|&n| n == neighbor).unwrap();
+                let cycle_start = rec_stack
+                    .iter()
+                    .position(|&n| n == neighbor)
+                    .ok_or_else(|| {
+                        IdeateError::ValidationError(
+                            "Cycle detection failed: neighbor not found in recursion stack"
+                                .to_string(),
+                        )
+                    })?;
                 let cycle: Vec<String> = rec_stack[cycle_start..]
                     .iter()
                     .filter_map(|idx| reverse_map.get(idx).cloned())
