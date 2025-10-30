@@ -329,6 +329,7 @@ async fn start_server_with_options(
     api_port: u16,
     cors_origin: String,
     dashboard_path: Option<PathBuf>,
+    dev_mode: bool,
 ) -> Result<(), Box<dyn std::error::Error>> {
     println!("{}", "🚀 Starting Orkee CLI server...".green().bold());
     println!(
@@ -342,6 +343,11 @@ async fn start_server_with_options(
     std::env::set_var("ORKEE_API_PORT", api_port.to_string());
     std::env::set_var("PORT", api_port.to_string()); // Backwards compatibility
     std::env::set_var("CORS_ORIGIN", cors_origin);
+
+    // Set dev mode to bypass API token authentication in development
+    if dev_mode {
+        std::env::set_var("ORKEE_DEV_MODE", "true");
+    }
 
     // Call the server with optional dashboard path
     orkee_cli::run_server_with_options(dashboard_path).await
@@ -454,10 +460,11 @@ async fn start_full_dashboard(
         } else {
             None
         };
+        let dev_mode = dev;
 
         tokio::spawn(async move {
             if let Err(e) =
-                start_server_with_options(api_port, cors_origin_clone, dashboard_path_for_server)
+                start_server_with_options(api_port, cors_origin_clone, dashboard_path_for_server, dev_mode)
                     .await
             {
                 eprintln!("{} Failed to start backend: {}", "Error:".red().bold(), e);
