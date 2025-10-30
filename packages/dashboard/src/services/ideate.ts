@@ -2135,6 +2135,51 @@ class IdeateService {
 
     return response.data.data;
   }
+
+  /**
+   * Create a new template
+   */
+  async createTemplate(input: CreateTemplateInput): Promise<PRDTemplate> {
+    const response = await apiClient.post<{ success: boolean; data: PRDTemplate }>(
+      '/api/ideate/templates',
+      input
+    );
+
+    if (response.error || !response.data.success) {
+      throw new Error(response.error || 'Failed to create template');
+    }
+
+    return response.data.data;
+  }
+
+  /**
+   * Update an existing template
+   */
+  async updateTemplate(templateId: string, input: CreateTemplateInput): Promise<PRDTemplate> {
+    const response = await apiClient.put<{ success: boolean; data: PRDTemplate }>(
+      `/api/ideate/templates/${templateId}`,
+      input
+    );
+
+    if (response.error || !response.data.success) {
+      throw new Error(response.error || 'Failed to update template');
+    }
+
+    return response.data.data;
+  }
+
+  /**
+   * Delete a template
+   */
+  async deleteTemplate(templateId: string): Promise<void> {
+    const response = await apiClient.delete<{ success: boolean }>(
+      `/api/ideate/templates/${templateId}`
+    );
+
+    if (response.error || !response.data.success) {
+      throw new Error(response.error || 'Failed to delete template');
+    }
+  }
 }
 
 /**
