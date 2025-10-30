@@ -267,6 +267,7 @@ CREATE INDEX idx_tags_archived_at ON tags(archived_at);
 CREATE TABLE prds (
     id TEXT PRIMARY KEY CHECK(length(id) >= 8),
     project_id TEXT NOT NULL,
+    ideate_session_id TEXT,
     title TEXT NOT NULL,
     content_markdown TEXT NOT NULL,
     version INTEGER DEFAULT 1,
@@ -276,10 +277,12 @@ CREATE TABLE prds (
     created_at TEXT NOT NULL DEFAULT (datetime('now', 'utc')),
     updated_at TEXT NOT NULL DEFAULT (datetime('now', 'utc')),
     created_by TEXT,
-    FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
+    FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+    FOREIGN KEY (ideate_session_id) REFERENCES ideate_sessions(id) ON DELETE CASCADE
 );
 
 CREATE INDEX idx_prds_project ON prds(project_id);
+CREATE INDEX idx_prds_ideate_session ON prds(ideate_session_id);
 CREATE INDEX idx_prds_status ON prds(status);
 CREATE INDEX idx_prds_not_deleted ON prds(id) WHERE deleted_at IS NULL;
 CREATE INDEX idx_prds_project_not_deleted ON prds(project_id, status) WHERE deleted_at IS NULL;
@@ -1167,17 +1170,20 @@ CREATE TABLE ideate_sessions (
     -- Session metadata
     mode TEXT NOT NULL CHECK(mode IN ('quick', 'guided', 'comprehensive')),
     status TEXT NOT NULL DEFAULT 'draft' CHECK(status IN ('draft', 'in_progress', 'ready_for_prd', 'completed')),
+    current_section TEXT,
 
     -- Track what user chose to skip (JSON array of section names)
     skipped_sections TEXT,
 
-    -- Link to generated PRD (if completed)
+    -- Link to template and generated PRD
+    template_id TEXT,
     generated_prd_id TEXT,
 
     created_at TEXT NOT NULL DEFAULT (datetime('now', 'utc')),
     updated_at TEXT NOT NULL DEFAULT (datetime('now', 'utc')),
 
     FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+    FOREIGN KEY (template_id) REFERENCES prd_output_templates(id) ON DELETE SET NULL,
     FOREIGN KEY (generated_prd_id) REFERENCES prds(id) ON DELETE SET NULL,
     CHECK (json_valid(skipped_sections) OR skipped_sections IS NULL)
 );
@@ -1185,6 +1191,8 @@ CREATE TABLE ideate_sessions (
 CREATE INDEX idx_ideate_sessions_project ON ideate_sessions(project_id);
 CREATE INDEX idx_ideate_sessions_status ON ideate_sessions(status);
 CREATE INDEX idx_ideate_sessions_mode ON ideate_sessions(mode);
+CREATE INDEX idx_ideate_sessions_current_section ON ideate_sessions(current_section);
+CREATE INDEX idx_ideate_sessions_template ON ideate_sessions(template_id);
 
 CREATE TRIGGER ideate_sessions_updated_at AFTER UPDATE ON ideate_sessions
 FOR EACH ROW WHEN NEW.updated_at = OLD.updated_at
@@ -1204,6 +1212,7 @@ CREATE TABLE ideate_overview (
     target_audience TEXT,
     value_proposition TEXT,
     one_line_pitch TEXT,
+    ai_generated INTEGER DEFAULT 0,
     created_at TEXT NOT NULL DEFAULT (datetime('now', 'utc')),
     FOREIGN KEY (session_id) REFERENCES ideate_sessions(id) ON DELETE CASCADE
 );
@@ -1245,6 +1254,7 @@ CREATE TABLE ideate_ux (
     user_flows TEXT, -- JSON array of user flows
     ui_considerations TEXT,
     ux_principles TEXT,
+    ai_generated INTEGER DEFAULT 0,
     created_at TEXT NOT NULL DEFAULT (datetime('now', 'utc')),
     FOREIGN KEY (session_id) REFERENCES ideate_sessions(id) ON DELETE CASCADE,
     CHECK (json_valid(personas) OR personas IS NULL),
@@ -1262,6 +1272,7 @@ CREATE TABLE ideate_technical (
     apis TEXT, -- JSON array
     infrastructure TEXT, -- JSON object
     tech_stack_quick TEXT, -- For quick mode: "React + Node + PostgreSQL"
+    ai_generated INTEGER DEFAULT 0,
     created_at TEXT NOT NULL DEFAULT (datetime('now', 'utc')),
     FOREIGN KEY (session_id) REFERENCES ideate_sessions(id) ON DELETE CASCADE,
     CHECK (json_valid(components) OR components IS NULL),
@@ -1278,6 +1289,7 @@ CREATE TABLE ideate_roadmap (
     session_id TEXT NOT NULL,
     mvp_scope TEXT, -- JSON array of features in MVP
     future_phases TEXT, -- JSON array of post-MVP phases
+    ai_generated INTEGER DEFAULT 0,
     created_at TEXT NOT NULL DEFAULT (datetime('now', 'utc')),
     FOREIGN KEY (session_id) REFERENCES ideate_sessions(id) ON DELETE CASCADE,
     CHECK (json_valid(mvp_scope) OR mvp_scope IS NULL),
@@ -1294,6 +1306,7 @@ CREATE TABLE ideate_dependencies (
     visible_features TEXT, -- JSON array of feature IDs: get something usable quickly
     enhancement_features TEXT, -- JSON array of feature IDs: build upon foundation
     dependency_graph TEXT, -- JSON object for visual representation
+    ai_generated INTEGER DEFAULT 0,
     created_at TEXT NOT NULL DEFAULT (datetime('now', 'utc')),
     FOREIGN KEY (session_id) REFERENCES ideate_sessions(id) ON DELETE CASCADE,
     CHECK (json_valid(foundation_features) OR foundation_features IS NULL),
@@ -1312,6 +1325,7 @@ CREATE TABLE ideate_risks (
     mvp_scoping_risks TEXT, -- JSON array
     resource_risks TEXT, -- JSON array
     mitigations TEXT, -- JSON array
+    ai_generated INTEGER DEFAULT 0,
     created_at TEXT NOT NULL DEFAULT (datetime('now', 'utc')),
     FOREIGN KEY (session_id) REFERENCES ideate_sessions(id) ON DELETE CASCADE,
     CHECK (json_valid(technical_risks) OR technical_risks IS NULL),
@@ -1331,6 +1345,7 @@ CREATE TABLE ideate_research (
     research_findings TEXT,
     technical_specs TEXT,
     reference_links TEXT, -- JSON array (renamed from 'references' to avoid SQL keyword)
+    ai_generated INTEGER DEFAULT 0,
     created_at TEXT NOT NULL DEFAULT (datetime('now', 'utc')),
     FOREIGN KEY (session_id) REFERENCES ideate_sessions(id) ON DELETE CASCADE,
     CHECK (json_valid(competitors) OR competitors IS NULL),
@@ -1379,41 +1394,29 @@ CREATE TABLE prd_quickstart_templates (
     one_liner_prompts TEXT, -- JSON array of prompts to expand one-liner
     default_features TEXT, -- JSON array of common features for this type
     default_dependencies TEXT, -- JSON object with typical dependency chains
+    default_problem_statement TEXT,
+    default_target_audience TEXT,
+    default_value_proposition TEXT,
+    default_ui_considerations TEXT,
+    default_ux_principles TEXT,
+    default_tech_stack_quick TEXT,
+    default_mvp_scope TEXT,
+    default_research_findings TEXT,
+    default_technical_specs TEXT,
+    default_competitors TEXT,
+    default_similar_projects TEXT,
     is_system INTEGER DEFAULT 0, -- Boolean: system template vs user-created
     created_at TEXT NOT NULL DEFAULT (datetime('now', 'utc')),
     CHECK (json_valid(one_liner_prompts) OR one_liner_prompts IS NULL),
     CHECK (json_valid(default_features) OR default_features IS NULL),
-    CHECK (json_valid(default_dependencies) OR default_dependencies IS NULL)
+    CHECK (json_valid(default_dependencies) OR default_dependencies IS NULL),
+    CHECK (json_valid(default_mvp_scope) OR default_mvp_scope IS NULL),
+    CHECK (json_valid(default_competitors) OR default_competitors IS NULL),
+    CHECK (json_valid(default_similar_projects) OR default_similar_projects IS NULL)
 );
 
 CREATE INDEX idx_prd_quickstart_templates_type ON prd_quickstart_templates(project_type);
 CREATE INDEX idx_prd_quickstart_templates_system ON prd_quickstart_templates(is_system);
-
-
--- ============================================================================
--- GUIDED MODE SUPPORT
--- ============================================================================
-
-ALTER TABLE ideate_sessions ADD COLUMN current_section TEXT;
-
--- Create index for quick lookups
-CREATE INDEX idx_ideate_sessions_current_section ON ideate_sessions(current_section);
-
--- ============================================================================
--- AI-GENERATED CONTENT MARKERS
--- ============================================================================
-
--- Mark AI-generated content in each section table
-ALTER TABLE ideate_overview ADD COLUMN ai_generated INTEGER DEFAULT 0;
-ALTER TABLE ideate_ux ADD COLUMN ai_generated INTEGER DEFAULT 0;
-ALTER TABLE ideate_technical ADD COLUMN ai_generated INTEGER DEFAULT 0;
-ALTER TABLE ideate_roadmap ADD COLUMN ai_generated INTEGER DEFAULT 0;
-ALTER TABLE ideate_dependencies ADD COLUMN ai_generated INTEGER DEFAULT 0;
-ALTER TABLE ideate_risks ADD COLUMN ai_generated INTEGER DEFAULT 0;
-ALTER TABLE ideate_research ADD COLUMN ai_generated INTEGER DEFAULT 0;
-
--- Note: ideate_features table doesn't need ai_generated since features are
--- created individually (not as a whole section)
 
 
 -- ============================================================================
@@ -2240,98 +2243,6 @@ VALUES (
     1
 );
 
-
--- ============================================================================
--- TEMPLATE ID TO SESSIONS
--- ============================================================================
-
-ALTER TABLE ideate_sessions ADD COLUMN template_id TEXT;
-
--- Add foreign key constraint (SQLite doesn't allow adding constraints to existing tables,
--- but we can still document it and enforce it in the application layer)
--- FOREIGN KEY (template_id) REFERENCES prd_output_templates(id) ON DELETE SET NULL
-
--- Add index for performance
-CREATE INDEX idx_ideate_sessions_template ON ideate_sessions(template_id);
-
-
--- ============================================================================
--- PRD IDEATE SESSION LINK
--- ============================================================================
-
--- Extend prds table (created above at line 267) with ideate_session_id
--- For initial migration, we rebuild the table to:
--- 1. Place ideate_session_id in logical column position
--- 2. Add foreign key constraint to ideate_sessions
--- Note: Pattern supports future migration splitting if needed
-
-CREATE TABLE prds_new (
-    id TEXT PRIMARY KEY CHECK(length(id) >= 8),
-    project_id TEXT NOT NULL,
-    ideate_session_id TEXT,
-    title TEXT NOT NULL,
-    content_markdown TEXT NOT NULL,
-    version INTEGER DEFAULT 1,
-    status TEXT DEFAULT 'draft' CHECK(status IN ('draft', 'approved', 'superseded')),
-    source TEXT DEFAULT 'manual' CHECK(source IN ('manual', 'generated', 'synced')),
-    deleted_at TEXT,
-    created_at TEXT NOT NULL DEFAULT (datetime('now', 'utc')),
-    updated_at TEXT NOT NULL DEFAULT (datetime('now', 'utc')),
-    created_by TEXT,
-    FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
-    FOREIGN KEY (ideate_session_id) REFERENCES ideate_sessions(id) ON DELETE CASCADE
-);
-
--- Migrate existing data (explicitly list columns to match new table structure)
-INSERT INTO prds_new (id, project_id, ideate_session_id, title, content_markdown, version, status, source, deleted_at, created_at, updated_at, created_by)
-SELECT id, project_id, NULL, title, content_markdown, version, status, source, deleted_at, created_at, updated_at, created_by FROM prds;
-
--- Drop old table and rename new one
-DROP TABLE prds;
-ALTER TABLE prds_new RENAME TO prds;
-
--- Recreate all indexes from original table (lines 282-285)
-CREATE INDEX idx_prds_project ON prds(project_id);
-CREATE INDEX idx_prds_status ON prds(status);
-CREATE INDEX idx_prds_not_deleted ON prds(id) WHERE deleted_at IS NULL;
-CREATE INDEX idx_prds_project_not_deleted ON prds(project_id, status) WHERE deleted_at IS NULL;
-
--- Add new index on ideate_session_id for faster lookups
-CREATE INDEX idx_prds_ideate_session ON prds(ideate_session_id);
-
--- Recreate trigger from original table (lines 287-291)
-CREATE TRIGGER prds_updated_at AFTER UPDATE ON prds
-FOR EACH ROW WHEN NEW.updated_at = OLD.updated_at
-BEGIN
-    UPDATE prds SET updated_at = datetime('now', 'utc') WHERE id = NEW.id;
-END;
-
-
--- ============================================================================
--- EXTEND TEMPLATES SCHEMA
--- ============================================================================
-
--- Extend existing prd_quickstart_templates table (created above at line 1374) with default field values
-ALTER TABLE prd_quickstart_templates ADD COLUMN default_problem_statement TEXT;
-ALTER TABLE prd_quickstart_templates ADD COLUMN default_target_audience TEXT;
-ALTER TABLE prd_quickstart_templates ADD COLUMN default_value_proposition TEXT;
-
-ALTER TABLE prd_quickstart_templates ADD COLUMN default_ui_considerations TEXT;
-ALTER TABLE prd_quickstart_templates ADD COLUMN default_ux_principles TEXT;
-
-ALTER TABLE prd_quickstart_templates ADD COLUMN default_tech_stack_quick TEXT;
-
-ALTER TABLE prd_quickstart_templates ADD COLUMN default_mvp_scope TEXT
-  CHECK (json_valid(default_mvp_scope) OR default_mvp_scope IS NULL);
-
-ALTER TABLE prd_quickstart_templates ADD COLUMN default_research_findings TEXT;
-ALTER TABLE prd_quickstart_templates ADD COLUMN default_technical_specs TEXT;
-
-ALTER TABLE prd_quickstart_templates ADD COLUMN default_competitors TEXT
-  CHECK (json_valid(default_competitors) OR default_competitors IS NULL);
-
-ALTER TABLE prd_quickstart_templates ADD COLUMN default_similar_projects TEXT
-  CHECK (json_valid(default_similar_projects) OR default_similar_projects IS NULL);
 
 -- ============================================================================
 -- Populate defaults for existing system templates
