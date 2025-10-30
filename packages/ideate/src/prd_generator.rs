@@ -779,6 +779,80 @@ impl PRDGenerator {
         merged
     }
 
+    /// Regenerate PRD sections to match a different template's style/format (streaming version)
+    pub async fn regenerate_with_template_stream(
+        &self,
+        user_id: &str,
+        session_id: &str,
+        template_id: &str,
+        provider: Option<&str>,
+        model: Option<&str>,
+    ) -> Result<impl futures::stream::Stream<Item = Result<String>>> {
+        info!(
+            "Streaming PRD regeneration for session {} with template {} (provider: {:?}, model: {:?})",
+            session_id, template_id, provider, model
+        );
+
+        // Fetch existing session data
+        let aggregator = PRDAggregator::new(self.pool.clone());
+        let aggregated = aggregator.aggregate_session_data(session_id).await?;
+
+        // Fetch template details
+        let template = sqlx::query_as::<_, (String, String)>(
+            "SELECT id, name FROM prd_output_templates WHERE id = ?",
+        )
+        .bind(template_id)
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(|e| {
+            error!("Failed to fetch template: {}", e);
+            IdeateError::Database(e)
+        })?
+        .ok_or_else(|| {
+            warn!("Template {} not found", template_id);
+            IdeateError::InvalidInput(format!("Template not found: {}", template_id))
+        })?;
+
+        let template_name = template.1;
+
+        // Get API key and determine model to use
+        let api_key = self.get_user_api_key(user_id).await?;
+
+        // Use provided model or fall back to settings
+        let model_to_use = if let Some(m) = model {
+            m.to_string()
+        } else {
+            let settings = self.get_ai_settings().await?;
+            settings.model
+        };
+
+        let ai_service = AIService::with_api_key_and_model(api_key, model_to_use);
+
+        // Build context from current sections
+        let context = self.build_context_from_aggregated(&aggregated);
+
+        // Build prompt for intelligent template reformatting
+        let prompt = self.build_template_regeneration_prompt(&aggregated, &context, &template_name);
+        let system_prompt = Some(prompts::SYSTEM_PROMPT.to_string());
+
+        // Call Claude with streaming
+        let text_stream = ai_service
+            .generate_text_stream(prompt, system_prompt)
+            .await
+            .map_err(|e| {
+                error!("AI streaming failed for template regeneration: {}", e);
+                IdeateError::AIService(format!("Failed to stream regeneration: {}", e))
+            })?;
+
+        // Map AIServiceError to IdeateError in the stream
+        use futures::stream::StreamExt;
+        let mapped_stream = text_stream.map(|result| {
+            result.map_err(|e| IdeateError::AIService(format!("Stream error: {}", e)))
+        });
+
+        Ok(mapped_stream)
+    }
+
     /// Regenerate PRD sections to match a different template's style/format
     pub async fn regenerate_with_template(
         &self,

@@ -93,7 +93,7 @@ export function OneLineInput({
         )}
 
         <p className="text-xs text-muted-foreground">
-          Be specific! The more detail you provide, the better the AI-generated PRD will be.
+          Be specific! The more detail you provide, the better the AI-generated PRD details will be.
           Press{' '}
           <kbd className="px-1.5 py-0.5 text-xs font-semibold bg-muted rounded">
             {navigator.platform.includes('Mac') ? '⌘' : 'Ctrl'}+Enter
@@ -104,7 +104,7 @@ export function OneLineInput({
 
       <div className="flex gap-2">
         <Button onClick={onGenerate} disabled={!isValid || isGenerating} className="flex-1">
-          {isGenerating ? 'Generating PRD...' : 'Generate PRD'}
+          {isGenerating ? 'Generating Details...' : 'Generate PRD Details'}
         </Button>
         {value && !isGenerating && (
           <Button type="button" variant="outline" onClick={handleClear}>

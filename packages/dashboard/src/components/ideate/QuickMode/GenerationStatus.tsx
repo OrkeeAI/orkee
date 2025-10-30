@@ -23,7 +23,7 @@ interface GenerationStatusProps {
   message?: string;
 }
 
-export function GenerationStatus({ partialPRD, message = 'Generating your PRD...' }: GenerationStatusProps) {
+export function GenerationStatus({ partialPRD, message = 'Generating your PRD details...' }: GenerationStatusProps) {
   // Calculate progress based on completed sections
   // The streaming data has top-level keys for each section (overview, features, ux, etc.)
   const completedSections = partialPRD ? Object.keys(partialPRD).filter(key => 

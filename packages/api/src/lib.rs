@@ -459,6 +459,10 @@ pub fn create_ideate_router() -> Router<DbState> {
             post(ideate_generation_handlers::regenerate_prd_with_template),
         )
         .route(
+            "/ideate/{session_id}/prd/regenerate-template-stream",
+            post(ideate_generation_handlers::regenerate_prd_with_template_stream),
+        )
+        .route(
             "/ideate/{session_id}/prd/preview",
             get(ideate_generation_handlers::get_prd_preview),
         )

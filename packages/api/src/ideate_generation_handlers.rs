@@ -3,11 +3,17 @@
 
 use axum::{
     extract::{Path, State},
-    response::IntoResponse,
+    response::{
+        sse::{Event, KeepAlive},
+        IntoResponse, Sse,
+    },
     Json,
 };
+use futures::stream::Stream;
 use serde::{Deserialize, Serialize};
-use tracing::info;
+use serde_json::json;
+use std::convert::Infallible;
+use tracing::{error, info};
 
 use super::response::{ok_or_internal_error, ok_or_not_found};
 use ideate::{ExportFormat, ExportOptions, PRDAggregator, PRDGenerator};
@@ -463,4 +469,153 @@ pub async fn regenerate_prd_with_template(
     // Return the created PRD
     let response = serde_json::to_value(&prd).unwrap_or_else(|_| serde_json::json!({}));
     ok_or_internal_error::<_, String>(Ok(response), "Failed to save regenerated PRD")
+}
+
+/// Regenerate PRD with a different template's style/format (streaming version)
+pub async fn regenerate_prd_with_template_stream(
+    State(db): State<DbState>,
+    Path(session_id): Path<String>,
+    Json(request): Json<RegeneratePRDWithTemplateRequest>,
+) -> Sse<impl Stream<Item = Result<Event, Infallible>>> {
+    info!(
+        "Streaming PRD regeneration for session: {} with template: {} (provider: {:?}, model: {:?})",
+        session_id, request.template_id, request.provider, request.model
+    );
+
+    let stream = async_stream::stream! {
+        let generator = PRDGenerator::new(db.pool.clone());
+        
+        // Get the streaming text from AI
+        let text_stream_result = generator
+            .regenerate_with_template_stream(
+                DEFAULT_USER_ID,
+                &session_id,
+                &request.template_id,
+                request.provider.as_deref(),
+                request.model.as_deref(),
+            )
+            .await;
+
+        let text_stream = match text_stream_result {
+            Ok(stream) => stream,
+            Err(e) => {
+                error!("Failed to start PRD regeneration stream: {:?}", e);
+                let error_event = Event::default()
+                    .json_data(json!({
+                        "type": "error",
+                        "message": format!("Failed to regenerate PRD: {}", e)
+                    }))
+                    .unwrap();
+                yield Ok(error_event);
+                return;
+            }
+        };
+
+        // Stream the markdown chunks as they arrive from AI
+        let mut accumulated_markdown = String::new();
+        
+        use futures::StreamExt;
+        tokio::pin!(text_stream);
+        while let Some(chunk_result) = text_stream.next().await {
+            match chunk_result {
+                Ok(chunk) => {
+                    accumulated_markdown.push_str(&chunk);
+                    
+                    let event = Event::default()
+                        .json_data(json!({
+                            "type": "chunk",
+                            "content": chunk
+                        }))
+                        .unwrap();
+                    
+                    yield Ok(event);
+                }
+                Err(e) => {
+                    error!("Error in stream: {:?}", e);
+                    let error_event = Event::default()
+                        .json_data(json!({
+                            "type": "error",
+                            "message": format!("Streaming error: {}", e)
+                        }))
+                        .unwrap();
+                    yield Ok(error_event);
+                    return;
+                }
+            }
+        }
+
+        let markdown = accumulated_markdown;
+
+        // Get the session to retrieve project_id and title
+        use ideate::IdeateManager;
+        let manager = IdeateManager::new(db.pool.clone());
+        let session = match manager.get_session(&session_id).await {
+            Ok(s) => s,
+            Err(e) => {
+                error!("Failed to get session: {:?}", e);
+                let error_event = Event::default()
+                    .json_data(json!({
+                        "type": "error",
+                        "message": format!("Failed to get session: {}", e)
+                    }))
+                    .unwrap();
+                yield Ok(error_event);
+                return;
+            }
+        };
+
+        // Create PRD in OpenSpec system
+        use openspec::db::create_prd;
+        use openspec::types::{PRDSource, PRDStatus};
+
+        let title = format!("{} ({})", session_id, request.template_id);
+
+        let prd = match create_prd(
+            &db.pool,
+            &session.project_id,
+            &title,
+            &markdown,
+            PRDStatus::Draft,
+            PRDSource::Generated,
+            Some(DEFAULT_USER_ID),
+        )
+        .await
+        {
+            Ok(p) => p,
+            Err(e) => {
+                error!("Failed to save PRD: {:?}", e);
+                let error_event = Event::default()
+                    .json_data(json!({
+                        "type": "error",
+                        "message": format!("Failed to save PRD: {}", e)
+                    }))
+                    .unwrap();
+                yield Ok(error_event);
+                return;
+            }
+        };
+
+        // Link the PRD back to the ideate session
+        let _ = sqlx::query("UPDATE prds SET ideate_session_id = ? WHERE id = ?")
+            .bind(&session_id)
+            .bind(&prd.id)
+            .execute(&db.pool)
+            .await;
+
+        // Send completion event
+        let complete_event = Event::default()
+            .json_data(json!({
+                "type": "complete",
+                "prd_id": prd.id,
+                "markdown": markdown
+            }))
+            .unwrap();
+        yield Ok(complete_event);
+
+        // Send done marker
+        let done_event = Event::default().data("[DONE]");
+        yield Ok(done_event);
+    };
+
+    Sse::new(stream).keep_alive(KeepAlive::default())
 }

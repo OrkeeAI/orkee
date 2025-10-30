@@ -1832,7 +1832,7 @@ class IdeateService {
   }
 
   /**
-   * Regenerate PRD with different template
+   * Regenerate PRD with different template (non-streaming)
    */
   async regenerateWithTemplate(
     sessionId: string,
@@ -1854,6 +1854,99 @@ class IdeateService {
     }
 
     return response.data.data;
+  }
+
+  /**
+   * Regenerate PRD with different template (streaming version)
+   */
+  async regenerateWithTemplateStreaming(
+    sessionId: string,
+    templateId: string,
+    onChunk: (markdown: string) => void,
+    options?: { provider?: string; model?: string }
+  ): Promise<{ prd_id: string; markdown: string }> {
+    const { getApiBaseUrl } = await import('./api');
+    const { platformFetch, getApiToken } = await import('@/lib/platform');
+    
+    const baseUrl = await getApiBaseUrl();
+    const token = await getApiToken();
+    
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+
+    if (token) {
+      headers['X-API-Token'] = token;
+    }
+    
+    const response = await platformFetch(
+      `${baseUrl}/api/ideate/${sessionId}/prd/regenerate-template-stream`,
+      {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          templateId,
+          provider: options?.provider,
+          model: options?.model,
+        }),
+      }
+    );
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Failed to regenerate with template: ${errorText}`);
+    }
+
+    const reader = response.body?.getReader();
+    if (!reader) {
+      throw new Error('No response body reader available');
+    }
+
+    const decoder = new TextDecoder();
+    let accumulatedMarkdown = '';
+    let prdId = '';
+
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value, { stream: true });
+        const lines = chunk.split('\n');
+
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            const data = line.slice(6);
+            if (data === '[DONE]') {
+              continue;
+            }
+
+            try {
+              const parsed = JSON.parse(data);
+              
+              if (parsed.type === 'chunk' && parsed.content) {
+                accumulatedMarkdown += parsed.content;
+                onChunk(accumulatedMarkdown);
+              } else if (parsed.type === 'complete' && parsed.prd_id) {
+                prdId = parsed.prd_id;
+                if (parsed.markdown) {
+                  accumulatedMarkdown = parsed.markdown;
+                  onChunk(accumulatedMarkdown);
+                }
+              } else if (parsed.type === 'error') {
+                throw new Error(parsed.message || 'Streaming error');
+              }
+            } catch (e) {
+              console.warn('Failed to parse SSE data:', data, e);
+            }
+          }
+        }
+      }
+    } finally {
+      reader.releaseLock();
+    }
+
+    return { prd_id: prdId, markdown: accumulatedMarkdown };
   }
 
   /**

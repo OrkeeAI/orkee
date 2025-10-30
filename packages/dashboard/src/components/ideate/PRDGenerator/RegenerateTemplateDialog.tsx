@@ -3,6 +3,7 @@
 
 import { useEffect, useState } from 'react';
 import React from 'react';
+import { MarkdownGenerationStatus } from './MarkdownGenerationStatus';
 import {
   Dialog,
   DialogContent,
@@ -21,7 +22,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { AlertCircle, Loader2, RefreshCw, Sparkles, DollarSign, Zap, AlertTriangle, FileText } from 'lucide-react';
+import { AlertCircle, Loader2, RefreshCw, Sparkles, DollarSign, Zap, AlertTriangle, FileText, CheckCircle2 } from 'lucide-react';
 import { ideateService } from '@/services/ideate';
 import { useCurrentUser } from '@/hooks/useUsers';
 import { useModels } from '@/hooks/useModels';
@@ -57,6 +58,9 @@ export function RegenerateTemplateDialog({
   const [isLoading, setIsLoading] = useState(true);
   const [isRegenerating, setIsRegenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [streamingMarkdown, setStreamingMarkdown] = useState<string>('');
+  const [isGenerationComplete, setIsGenerationComplete] = useState(false);
+  const [showGenerationStatus, setShowGenerationStatus] = useState(false);
 
   const { data: currentUser, isLoading: userLoading } = useCurrentUser();
   const { data: models, isLoading: modelsLoading } = useModels();
@@ -166,41 +170,73 @@ export function RegenerateTemplateDialog({
     try {
       setIsRegenerating(true);
       setError(null);
-      await ideateService.regenerateWithTemplate(
+      setStreamingMarkdown('');
+      setIsGenerationComplete(false);
+      setShowGenerationStatus(true);
+
+      // Use real streaming version
+      await ideateService.regenerateWithTemplateStreaming(
         sessionId,
         selectedTemplateId,
-        selectedProvider,
-        selectedModel
+        (markdown) => {
+          setStreamingMarkdown(markdown);
+        },
+        { provider: selectedProvider, model: selectedModel }
       );
+      setIsGenerationComplete(true);
+      
       // Give user feedback that regeneration succeeded
       onSuccess?.();
-      onClose();
+      
+      // Don't close immediately - let user review the generated content
+      // They can close manually or we can add a "Done" button
     } catch (err) {
       setError(
         err instanceof Error
           ? err.message
           : 'Failed to regenerate with template'
       );
+      setShowGenerationStatus(false);
     } finally {
       setIsRegenerating(false);
     }
   };
 
+  const handleClose = () => {
+    // Reset state when closing
+    setShowGenerationStatus(false);
+    setStreamingMarkdown('');
+    setIsGenerationComplete(false);
+    setError(null);
+    onClose();
+  };
+
+  const selectedTemplate = templates.find(t => t.id === selectedTemplateId);
+
   return (
-    <Dialog open onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+    <Dialog open onOpenChange={handleClose}>
+      <DialogContent className={showGenerationStatus ? "sm:max-w-5xl max-h-[90vh] overflow-y-auto" : "sm:max-w-2xl max-h-[90vh] overflow-y-auto"}>
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <RefreshCw className="h-5 w-5" />
-            Regenerate with Template
+            {showGenerationStatus ? 'Generating PRD' : 'Regenerate with Template'}
           </DialogTitle>
           <DialogDescription>
-            Select a template, AI provider, and model to regenerate your PRD with a
-            different structure and style. AI will intelligently reformat your existing content.
+            {showGenerationStatus 
+              ? 'Your PRD is being generated in real-time. Watch as the content appears below.'
+              : 'Select a template, AI provider, and model to regenerate your PRD with a different structure and style. AI will intelligently reformat your existing content.'
+            }
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4">
+        {showGenerationStatus ? (
+          <MarkdownGenerationStatus 
+            markdown={streamingMarkdown}
+            isComplete={isGenerationComplete}
+            templateName={selectedTemplate?.name}
+          />
+        ) : (
+          <div className="space-y-4">
           {/* Template Selection */}
           {isLoading ? (
             <div className="flex items-center justify-center py-8">
@@ -330,38 +366,52 @@ export function RegenerateTemplateDialog({
             </>
           )}
         </div>
+        )}
 
         <DialogFooter className="gap-2 sm:gap-0">
-          <Button
-            variant="outline"
-            onClick={onClose}
-            disabled={isRegenerating}
-          >
-            Cancel
-          </Button>
-          <Button
-            onClick={handleRegenerate}
-            disabled={
-              isRegenerating ||
-              isLoading ||
-              !selectedTemplateId ||
-              templates.length === 0 ||
-              availableProviders.length === 0
-            }
-            className="gap-2"
-          >
-            {isRegenerating ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Regenerating...
-              </>
-            ) : (
-              <>
-                <RefreshCw className="h-4 w-4" />
-                Regenerate
-              </>
-            )}
-          </Button>
+          {showGenerationStatus ? (
+            <>
+              {isGenerationComplete && (
+                <Button onClick={handleClose} className="gap-2">
+                  <CheckCircle2 className="h-4 w-4" />
+                  Done
+                </Button>
+              )}
+            </>
+          ) : (
+            <>
+              <Button
+                variant="outline"
+                onClick={handleClose}
+                disabled={isRegenerating}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleRegenerate}
+                disabled={
+                  isRegenerating ||
+                  isLoading ||
+                  !selectedTemplateId ||
+                  templates.length === 0 ||
+                  availableProviders.length === 0
+                }
+                className="gap-2"
+              >
+                {isRegenerating ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Regenerating...
+                  </>
+                ) : (
+                  <>
+                    <RefreshCw className="h-4 w-4" />
+                    Regenerate
+                  </>
+                )}
+              </Button>
+            </>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>

@@ -3,6 +3,7 @@
 
 use std::env;
 
+use futures::stream::Stream;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -61,6 +62,8 @@ struct AnthropicRequest {
     messages: Vec<Message>,
     #[serde(skip_serializing_if = "Option::is_none")]
     system: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    stream: Option<bool>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -186,6 +189,7 @@ impl AIService {
                 content: prompt,
             }],
             system: system_prompt,
+            stream: None,
         };
 
         info!(
@@ -289,6 +293,7 @@ impl AIService {
                 content: prompt,
             }],
             system: system_prompt,
+            stream: None,
         };
 
         info!(
@@ -336,6 +341,107 @@ impl AIService {
             data: text,
             usage: anthropic_response.usage,
         })
+    }
+
+    /// Makes a streaming text generation call to Claude
+    /// Returns a stream of text chunks as they arrive
+    pub async fn generate_text_stream(
+        &self,
+        prompt: String,
+        system_prompt: Option<String>,
+    ) -> AIServiceResult<impl Stream<Item = Result<String, AIServiceError>>> {
+        let api_key = self.api_key.as_ref().ok_or(AIServiceError::NoApiKey)?;
+
+        let request = AnthropicRequest {
+            model: self.model.clone(),
+            max_tokens: get_max_tokens_for_model(&self.model),
+            temperature: DEFAULT_TEMPERATURE,
+            messages: vec![Message {
+                role: "user".to_string(),
+                content: prompt,
+            }],
+            system: system_prompt,
+            stream: Some(true),
+        };
+
+        info!(
+            "Making Anthropic API streaming text generation request: model={}",
+            request.model
+        );
+
+        let response = self
+            .client
+            .post(ANTHROPIC_API_URL)
+            .header("x-api-key", api_key)
+            .header("anthropic-version", "2023-06-01")
+            .header("content-type", "application/json")
+            .json(&request)
+            .send()
+            .await?;
+
+        if !response.status().is_success() {
+            let status = response.status();
+            let error_text = response
+                .text()
+                .await
+                .unwrap_or_else(|_| "Unknown error".to_string());
+            error!("Anthropic API error: {} - {}", status, error_text);
+            return Err(AIServiceError::ApiError(format!(
+                "API returned {}: {}",
+                status, error_text
+            )));
+        }
+
+        // Create a stream from the response bytes
+        let stream = async_stream::stream! {
+            use futures::StreamExt;
+            let mut byte_stream = response.bytes_stream();
+            let mut buffer = String::new();
+
+            while let Some(chunk_result) = byte_stream.next().await {
+                match chunk_result {
+                    Ok(bytes) => {
+                        let chunk_str = String::from_utf8_lossy(&bytes);
+                        buffer.push_str(&chunk_str);
+
+                        // Process complete SSE events
+                        while let Some(event_end) = buffer.find("\n\n") {
+                            let event = buffer[..event_end].to_string();
+                            buffer = buffer[event_end + 2..].to_string();
+
+                            // Parse SSE event
+                            for line in event.lines() {
+                                if let Some(data) = line.strip_prefix("data: ") {
+                                    // Parse the JSON event
+                                    if let Ok(event_json) = serde_json::from_str::<serde_json::Value>(data) {
+                                        // Extract text delta from content_block_delta events
+                                        if event_json["type"] == "content_block_delta" {
+                                            if let Some(text) = event_json["delta"]["text"].as_str() {
+                                                yield Ok(text.to_string());
+                                            }
+                                        }
+                                        // Handle errors
+                                        else if event_json["type"] == "error" {
+                                            let error_msg = event_json["error"]["message"]
+                                                .as_str()
+                                                .unwrap_or("Unknown streaming error");
+                                            yield Err(AIServiceError::ApiError(error_msg.to_string()));
+                                            return;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        yield Err(AIServiceError::RequestFailed(e));
+                        return;
+                    }
+                }
+            }
+        };
+
+        Ok(stream)
     }
 }
 

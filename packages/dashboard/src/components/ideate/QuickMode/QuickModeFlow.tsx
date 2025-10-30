@@ -67,17 +67,35 @@ export function QuickModeFlow({
       try {
         console.log('[QuickModeFlow] Attempting to load PRD for session:', sessionId);
         const prd = await ideateService.previewPRD(sessionId);
-        console.log('[QuickModeFlow] PRD loaded:', { hasPRD: !!prd, hasContent: !!prd?.content, hasSections: !!prd?.sections });
-        if (prd && prd.content && prd.sections) {
-          console.log('[QuickModeFlow] Setting PRD and jumping to edit step');
+        console.log('[QuickModeFlow] PRD loaded:', { 
+          hasPRD: !!prd, 
+          hasContent: !!prd?.content, 
+          hasSections: !!prd?.sections,
+          sectionKeys: prd?.sections ? Object.keys(prd.sections) : [],
+          sectionCount: prd?.sections ? Object.keys(prd.sections).length : 0,
+          fullPRD: prd
+        });
+        
+        // Check if we have either content or sections (Quick Mode stores sections)
+        if (prd && (prd.content || (prd.sections && Object.keys(prd.sections).length > 0))) {
+          console.log('[QuickModeFlow] Found existing PRD data, jumping to edit step');
+          
+          // If we have sections but no content, generate content from sections
+          if (!prd.content && prd.sections) {
+            console.log('[QuickModeFlow] Generating content from sections');
+            prd.content = Object.entries(prd.sections)
+              .map(([section, data]) => `## ${section}\n\n${typeof data === 'string' ? data : JSON.stringify(data, null, 2)}\n\n`)
+              .join('');
+          }
+          
           setGeneratedPRD(prd);
           setStep('edit');
         } else {
-          console.log('[QuickModeFlow] PRD incomplete - missing content or sections');
+          console.log('[QuickModeFlow] PRD incomplete - missing content and sections. Staying on input step.');
         }
       } catch (error) {
         // No existing PRD, stay on input step
-        console.debug('[QuickModeFlow] No existing PRD found:', error instanceof Error ? error.message : error);
+        console.log('[QuickModeFlow] Error loading PRD (will stay on input):', error instanceof Error ? error.message : error);
       }
     };
 
@@ -263,12 +281,12 @@ export function QuickModeFlow({
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Lightbulb className="h-5 w-5" />
-              Quick Mode - Generate PRD
+              Quick Mode - Generate PRD Details
             </DialogTitle>
             <DialogDescription>
-              {step === 'input' && 'Provide a description of your project to generate a complete PRD'}
-              {step === 'generating' && 'Generating your PRD with AI...'}
-              {step === 'edit' && 'Review and edit your generated PRD'}
+              {step === 'input' && 'Provide a description of your project to generate detailed PRD sections'}
+              {step === 'generating' && 'Generating your PRD details with AI...'}
+              {step === 'edit' && 'Review and edit your generated PRD details'}
               {step === 'save' && 'Preview and save your PRD'}
             </DialogDescription>
           </DialogHeader>
@@ -289,7 +307,7 @@ export function QuickModeFlow({
             {step === 'generating' && (
               <GenerationStatus 
                 partialPRD={partialPRD}
-                message="Generating your comprehensive PRD..."
+                message="Generating your comprehensive PRD details..."
               />
             )}
 
