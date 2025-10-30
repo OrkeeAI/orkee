@@ -1,6 +1,24 @@
 -- ABOUTME: Initial Orkee database schema with project management, task tracking, OpenSpec, and telemetry
 -- ABOUTME: Includes security, context management, API tokens, and comprehensive indexing for performance
 
+-- ============================================================================
+-- PRE-1.0 SCHEMA CONSOLIDATION
+-- ============================================================================
+-- This migration represents the complete initial schema for Orkee, including
+-- the ideate feature. During pre-release development, this schema was built
+-- incrementally across multiple development iterations, but has been
+-- consolidated into a single initial migration since no production instances
+-- exist yet.
+--
+-- This consolidation approach is valid because:
+-- - No users are running Orkee in production
+-- - No existing databases need migration
+-- - Simpler initial setup for new installations
+-- - Easier to test as a single atomic schema
+--
+-- Post-1.0: All schema changes will be separate, incremental migrations.
+-- ============================================================================
+
 -- Enable foreign keys
 PRAGMA foreign_keys = ON;
 
@@ -1136,7 +1154,7 @@ INSERT OR IGNORE INTO system_settings (key, value, category, description, data_t
 
 
 -- ============================================================================
--- IDEATE SCHEMA (from migration 002)
+-- IDEATE SCHEMA
 -- ============================================================================
 
 CREATE TABLE ideate_sessions (
@@ -1325,7 +1343,6 @@ CREATE INDEX idx_ideate_research_session ON ideate_research(session_id);
 -- ============================================================================
 -- COMPREHENSIVE MODE FEATURES
 -- ============================================================================
--- Note: Roundtable system now implemented in migration 006_expert_roundtable_system.sql
 
 -- ============================================================================
 -- GENERATION TRACKING (Quick Mode)
@@ -1374,7 +1391,7 @@ CREATE INDEX idx_prd_quickstart_templates_system ON prd_quickstart_templates(is_
 
 
 -- ============================================================================
--- GUIDED MODE SUPPORT (from migration 003)
+-- GUIDED MODE SUPPORT
 -- ============================================================================
 
 ALTER TABLE ideate_sessions ADD COLUMN current_section TEXT;
@@ -1400,7 +1417,7 @@ ALTER TABLE ideate_research ADD COLUMN ai_generated INTEGER DEFAULT 0;
 
 
 -- ============================================================================
--- DEPENDENCY INTELLIGENCE (from migration 004)
+-- DEPENDENCY INTELLIGENCE
 -- ============================================================================
 
 CREATE TABLE feature_dependencies (
@@ -1541,11 +1558,9 @@ CREATE INDEX idx_circular_dependencies_session ON circular_dependencies(session_
 CREATE INDEX idx_circular_dependencies_resolved ON circular_dependencies(resolved);
 CREATE INDEX idx_circular_dependencies_severity ON circular_dependencies(severity);
 
--- Note: current_section tracking for guided mode is handled by migration 003
-
 
 -- ============================================================================
--- RESEARCH ANALYSIS CACHE (from migration 005)
+-- RESEARCH ANALYSIS CACHE
 -- ============================================================================
 
 CREATE TABLE IF NOT EXISTS competitor_analysis_cache (
@@ -1571,7 +1586,7 @@ ON competitor_analysis_cache(session_id);
 
 
 -- ============================================================================
--- EXPERT ROUNDTABLE SYSTEM (from migration 006)
+-- EXPERT ROUNDTABLE SYSTEM
 -- ============================================================================
 
 CREATE TABLE IF NOT EXISTS expert_personas (
@@ -1834,7 +1849,7 @@ INSERT OR IGNORE INTO expert_personas (id, name, role, expertise, system_prompt,
 
 
 -- ============================================================================
--- PRD GENERATION (from migration 007)
+-- PRD GENERATION
 -- ============================================================================
 
 CREATE TABLE ideate_prd_generations (
@@ -2026,7 +2041,7 @@ CREATE INDEX idx_generation_stats_completeness ON ideate_generation_stats(comple
 
 
 -- ============================================================================
--- IDEATE TEMPLATES (from migration 008)
+-- IDEATE TEMPLATES
 -- ============================================================================
 
 INSERT INTO prd_quickstart_templates (
@@ -2145,7 +2160,7 @@ INSERT INTO prd_quickstart_templates (
 
 
 -- ============================================================================
--- PRD OUTPUT TEMPLATES (from migration 009)
+-- PRD OUTPUT TEMPLATES
 -- ============================================================================
 
 CREATE TABLE prd_output_templates (
@@ -2227,7 +2242,7 @@ VALUES (
 
 
 -- ============================================================================
--- TEMPLATE ID TO SESSIONS (from migration 010)
+-- TEMPLATE ID TO SESSIONS
 -- ============================================================================
 
 ALTER TABLE ideate_sessions ADD COLUMN template_id TEXT;
@@ -2241,7 +2256,7 @@ CREATE INDEX idx_ideate_sessions_template ON ideate_sessions(template_id);
 
 
 -- ============================================================================
--- PRD IDEATE SESSION LINK (from migration 011)
+-- PRD IDEATE SESSION LINK
 -- ============================================================================
 
 ALTER TABLE prds ADD COLUMN ideate_session_id TEXT;
@@ -2279,7 +2294,7 @@ CREATE INDEX idx_prds_ideate_session ON prds(ideate_session_id);
 
 
 -- ============================================================================
--- EXTEND TEMPLATES SCHEMA (from migration 012)
+-- EXTEND TEMPLATES SCHEMA
 -- ============================================================================
 
 ALTER TABLE prd_quickstart_templates ADD COLUMN default_problem_statement TEXT;
