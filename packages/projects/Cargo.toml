@@ -17,9 +17,6 @@ storage = { path = "../storage" }
 # Security package
 security = { path = "../security" }
 
-# OpenSpec package
-openspec = { path = "../openspec" }
-
 # Formatter package
 formatter = { path = "../formatter" }
 

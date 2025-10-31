@@ -432,9 +432,8 @@ pub async fn regenerate_prd_with_template(
         }
     };
 
-    // Create PRD in OpenSpec system
-    use openspec::db::create_prd;
-    use openspec::types::{PRDSource, PRDStatus};
+    // Create PRD in projects system
+    use orkee_projects::{create_prd, PRDSource, PRDStatus};
 
     // Generate a title based on the template and current timestamp
     let title = format!("{} ({})", session_id, request.template_id);
@@ -564,9 +563,8 @@ pub async fn regenerate_prd_with_template_stream(
             }
         };
 
-        // Create PRD in OpenSpec system
-        use openspec::db::create_prd;
-        use openspec::types::{PRDSource, PRDStatus};
+        // Create PRD in projects system
+        use orkee_projects::{create_prd, PRDSource, PRDStatus};
 
         let title = format!("{} ({})", session_id, request.template_id);
 

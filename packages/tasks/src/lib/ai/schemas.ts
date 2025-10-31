@@ -1,4 +1,4 @@
-// ABOUTME: Zod schemas for type-safe AI-generated OpenSpec structures
+// ABOUTME: Zod schemas for type-safe AI-generated structures
 // ABOUTME: Ensures AI outputs match database schema and provides validation
 
 import { z } from 'zod';

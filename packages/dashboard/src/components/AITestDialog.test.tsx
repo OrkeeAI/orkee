@@ -138,7 +138,7 @@ describe('AITestDialog', () => {
       render(<AITestDialog {...defaultProps} />);
 
       expect(
-        screen.getByText('Test OpenSpec AI integration with PRD analysis and spec generation.')
+        screen.getByText('Test AI integration with PRD analysis and spec generation.')
       ).toBeInTheDocument();
     });
 

@@ -75,7 +75,7 @@ Build a secure authentication system for web applications.
         <DialogHeader>
           <DialogTitle>AI Integration Test</DialogTitle>
           <DialogDescription>
-            Test OpenSpec AI integration with PRD analysis and spec generation.
+            Test AI integration with PRD analysis and spec generation.
           </DialogDescription>
         </DialogHeader>
 

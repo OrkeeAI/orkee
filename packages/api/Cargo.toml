@@ -16,7 +16,6 @@ orkee_core = { path = "../core" }
 orkee-config = { path = "../config" }
 storage = { path = "../storage" }
 security = { path = "../security" }
-openspec = { path = "../openspec" }
 context = { path = "../context" }
 tasks = { path = "../tasks" }
 tags = { path = "../tags" }

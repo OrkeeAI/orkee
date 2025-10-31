@@ -6,6 +6,7 @@
 pub mod db;
 pub mod manager;
 pub mod pagination;
+pub mod prd;
 
 #[cfg(any(test, feature = "test-utils"))]
 pub mod test_utils;
@@ -78,8 +79,12 @@ pub use security::{
     UserStorage, UserUpdateInput,
 };
 
-// Re-export openspec module (used by API handlers)
-pub use openspec;
+// Re-export PRD types (used by API handlers and CCPM)
+pub use prd::{
+    create_prd, delete_prd, get_prd, get_prds_by_project, get_prds_by_project_paginated,
+    hard_delete_prd, restore_prd, update_prd, DbError as PrdDbError, DbResult as PrdDbResult,
+    PRDSource, PRDStatus, PRD,
+};
 
 // Re-export storage module (used by API handlers)
 pub use storage;

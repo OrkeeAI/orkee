@@ -131,6 +131,7 @@ async fn test_generate_spec_minimal() {
 }
 
 #[tokio::test]
+#[ignore = "Specs endpoint no longer exists - needs update for new ideate API"]
 async fn test_suggest_tasks_endpoint() {
     let ctx = setup_test_server().await;
     let project_id = create_test_project(&ctx.pool, "Test Project", "/test/path").await;
@@ -175,6 +176,7 @@ async fn test_suggest_tasks_endpoint() {
 }
 
 #[tokio::test]
+#[ignore = "Specs endpoint no longer exists - needs update for new ideate API"]
 async fn test_refine_spec_endpoint() {
     let ctx = setup_test_server().await;
     let project_id = create_test_project(&ctx.pool, "Test Project", "/test/path").await;
