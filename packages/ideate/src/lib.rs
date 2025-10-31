@@ -39,18 +39,18 @@ pub use dependency_analyzer::{
     DependencyType, FeatureDependency,
 };
 pub use epic::{
-    ArchitectureDecision, ConflictAnalysis, CreateEpicInput, DependencyGraph, Epic,
-    EpicComplexity, EpicStatus, EstimatedEffort, ExternalDependency, GraphEdge, GraphNode,
-    SuccessCriterion, TaskConflict, UpdateEpicInput, WorkAnalysis, WorkStream,
+    ArchitectureDecision, ConflictAnalysis, CreateEpicInput, DependencyGraph, Epic, EpicComplexity,
+    EpicStatus, EstimatedEffort, ExternalDependency, GraphEdge, GraphNode, SuccessCriterion,
+    TaskConflict, UpdateEpicInput, WorkAnalysis, WorkStream,
 };
 pub use epic_manager::EpicManager;
+pub use error::{IdeateError, Result};
+pub use expert_moderator::ExpertModerator;
+pub use export_service::{ExportFormat, ExportOptions, ExportResult, ExportService};
 pub use github_sync::{
     EntityType, GitHubConfig, GitHubSync, GitHubSyncError, GitHubSyncService, SyncDirection,
     SyncMethod, SyncResult, SyncStatus,
 };
-pub use error::{IdeateError, Result};
-pub use expert_moderator::ExpertModerator;
-pub use export_service::{ExportFormat, ExportOptions, ExportResult, ExportService};
 pub use manager::IdeateManager;
 pub use prd_aggregator::{AggregatedPRDData, CompletenessMetrics, PRDAggregator};
 pub use prd_generator::PRDGenerator;
@@ -59,11 +59,10 @@ pub use research_analyzer::{
 };
 pub use roundtable::{
     CreateExpertPersonaInput, ExpertPersona, ExpertSuggestion, ExtractInsightsRequest,
-    ExtractInsightsResponse, InsightPriority, InsightsByCategory, MessageMetadata,
-    RoundtableEvent, RoundtableInsight, RoundtableMessage, RoundtableParticipant,
-    RoundtableSession, RoundtableStatistics, RoundtableStatus, RoundtableWithParticipants,
-    StartRoundtableRequest, SuggestExpertsRequest, SuggestExpertsResponse, UserInterjectionInput,
-    UserInterjectionResponse,
+    ExtractInsightsResponse, InsightPriority, InsightsByCategory, MessageMetadata, RoundtableEvent,
+    RoundtableInsight, RoundtableMessage, RoundtableParticipant, RoundtableSession,
+    RoundtableStatistics, RoundtableStatus, RoundtableWithParticipants, StartRoundtableRequest,
+    SuggestExpertsRequest, SuggestExpertsResponse, UserInterjectionInput, UserInterjectionResponse,
 };
 pub use roundtable_manager::RoundtableManager;
 pub use task_decomposer::{

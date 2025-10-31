@@ -72,10 +72,9 @@ async fn test_gh_cli_create_issue_integration() {
     };
 
     // Replace with your test repository
-    let test_owner = std::env::var("TEST_GITHUB_OWNER")
-        .unwrap_or_else(|_| "orkee-test".to_string());
-    let test_repo = std::env::var("TEST_GITHUB_REPO")
-        .unwrap_or_else(|_| "test-repo".to_string());
+    let test_owner =
+        std::env::var("TEST_GITHUB_OWNER").unwrap_or_else(|_| "orkee-test".to_string());
+    let test_repo = std::env::var("TEST_GITHUB_REPO").unwrap_or_else(|_| "test-repo".to_string());
 
     let result = cli
         .create_issue(
@@ -113,10 +112,9 @@ async fn test_gh_cli_update_issue_integration() {
         }
     };
 
-    let test_owner = std::env::var("TEST_GITHUB_OWNER")
-        .unwrap_or_else(|_| "orkee-test".to_string());
-    let test_repo = std::env::var("TEST_GITHUB_REPO")
-        .unwrap_or_else(|_| "test-repo".to_string());
+    let test_owner =
+        std::env::var("TEST_GITHUB_OWNER").unwrap_or_else(|_| "orkee-test".to_string());
+    let test_repo = std::env::var("TEST_GITHUB_REPO").unwrap_or_else(|_| "test-repo".to_string());
 
     // First create an issue to update
     let create_result = cli

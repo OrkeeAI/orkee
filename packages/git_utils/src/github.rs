@@ -119,9 +119,7 @@ impl GitHubCli {
             }
         }
 
-        let output = Command::new(&self.gh_path)
-            .args(&args)
-            .output()?;
+        let output = Command::new(&self.gh_path).args(&args).output()?;
 
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr);
@@ -183,9 +181,7 @@ impl GitHubCli {
         }
 
         // Execute edit command
-        let output = Command::new(&self.gh_path)
-            .args(&args)
-            .output()?;
+        let output = Command::new(&self.gh_path).args(&args).output()?;
 
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr);
@@ -194,7 +190,11 @@ impl GitHubCli {
 
         // Handle state change separately (gh issue edit doesn't support --state)
         if let Some(new_state) = state {
-            let state_cmd = if new_state == "closed" { "close" } else { "reopen" };
+            let state_cmd = if new_state == "closed" {
+                "close"
+            } else {
+                "reopen"
+            };
             let state_output = Command::new(&self.gh_path)
                 .args([
                     "issue",

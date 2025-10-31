@@ -2,8 +2,8 @@
 // ABOUTME: Handles CRUD operations, progress tracking, and work analysis for Epics
 
 use crate::epic::{
-    ArchitectureDecision, CreateEpicInput, Epic, EpicStatus,
-    ExternalDependency, SuccessCriterion, UpdateEpicInput,
+    ArchitectureDecision, CreateEpicInput, Epic, EpicStatus, ExternalDependency, SuccessCriterion,
+    UpdateEpicInput,
 };
 use crate::error::{IdeateError, Result};
 use sqlx::{Row, SqlitePool};
@@ -18,11 +18,7 @@ impl EpicManager {
     }
 
     /// Create a new Epic
-    pub async fn create_epic(
-        &self,
-        project_id: &str,
-        input: CreateEpicInput,
-    ) -> Result<Epic> {
+    pub async fn create_epic(&self, project_id: &str, input: CreateEpicInput) -> Result<Epic> {
         let id = nanoid::nanoid!(12);
 
         // Serialize JSON fields
@@ -137,9 +133,7 @@ impl EpicManager {
         .await
         .map_err(|e| IdeateError::DatabaseError(e.to_string()))?;
 
-        rows.iter()
-            .map(|row| self.row_to_epic(row))
-            .collect()
+        rows.iter().map(|row| self.row_to_epic(row)).collect()
     }
 
     /// List Epics for a specific PRD
@@ -164,9 +158,7 @@ impl EpicManager {
         .await
         .map_err(|e| IdeateError::DatabaseError(e.to_string()))?;
 
-        rows.iter()
-            .map(|row| self.row_to_epic(row))
-            .collect()
+        rows.iter().map(|row| self.row_to_epic(row)).collect()
     }
 
     /// Update an Epic
@@ -297,10 +289,7 @@ impl EpicManager {
         .map_err(|e| IdeateError::DatabaseError(e.to_string()))?;
 
         if result.rows_affected() == 0 {
-            return Err(IdeateError::NotFound(format!(
-                "Epic {} not found",
-                epic_id
-            )));
+            return Err(IdeateError::NotFound(format!("Epic {} not found", epic_id)));
         }
 
         Ok(())

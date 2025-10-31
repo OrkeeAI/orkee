@@ -42,7 +42,7 @@ async fn get_github_config(
     let project = sqlx::query(
         "SELECT github_owner, github_repo, github_token_encrypted,
                github_labels_config, github_default_assignee, github_sync_enabled
-        FROM projects WHERE id = ?"
+        FROM projects WHERE id = ?",
     )
     .bind(project_id)
     .fetch_optional(pool)
@@ -64,24 +64,23 @@ async fn get_github_config(
     }
 
     // Validate required fields
-    let owner = github_owner
-        .ok_or_else(|| "GitHub owner not configured".to_string())?;
-    let repo = github_repo
-        .ok_or_else(|| "GitHub repo not configured".to_string())?;
+    let owner = github_owner.ok_or_else(|| "GitHub owner not configured".to_string())?;
+    let repo = github_repo.ok_or_else(|| "GitHub repo not configured".to_string())?;
 
-    let encrypted_token = github_token_encrypted
-        .ok_or_else(|| "GitHub token not configured".to_string())?;
+    let encrypted_token =
+        github_token_encrypted.ok_or_else(|| "GitHub token not configured".to_string())?;
 
     // Decrypt token using security package
     let encryption = security::ApiKeyEncryption::new()
         .map_err(|e| format!("Failed to initialize encryption: {}", e))?;
-    let token = encryption.decrypt(&encrypted_token)
+    let token = encryption
+        .decrypt(&encrypted_token)
         .map_err(|e| format!("Failed to decrypt GitHub token: {}", e))?;
 
     // Parse labels config if present
-    let labels_config = github_labels_config
-        .as_ref()
-        .and_then(|config_str| serde_json::from_str::<std::collections::HashMap<String, String>>(config_str).ok());
+    let labels_config = github_labels_config.as_ref().and_then(|config_str| {
+        serde_json::from_str::<std::collections::HashMap<String, String>>(config_str).ok()
+    });
 
     Ok(GitHubConfig {
         owner,
@@ -113,7 +112,12 @@ pub async fn sync_epic(
 
     let project_id: String = match project_id_result {
         Ok(Some(row)) => row.get("project_id"),
-        Ok(None) => return ok_or_internal_error::<SyncResult, String>(Err("Epic not found".to_string()), "Epic not found"),
+        Ok(None) => {
+            return ok_or_internal_error::<SyncResult, String>(
+                Err("Epic not found".to_string()),
+                "Epic not found",
+            )
+        }
         Err(e) => {
             return ok_or_internal_error::<SyncResult, String>(
                 Err(format!("Database error: {}", e)),
@@ -125,13 +129,23 @@ pub async fn sync_epic(
     // Get GitHub config first
     let config = match get_github_config(&db.pool, &project_id).await {
         Ok(cfg) => cfg,
-        Err(e) => return ok_or_internal_error::<SyncResult, String>(Err(e), "Failed to get GitHub configuration"),
+        Err(e) => {
+            return ok_or_internal_error::<SyncResult, String>(
+                Err(e),
+                "Failed to get GitHub configuration",
+            )
+        }
     };
 
     // Now get the full Epic using EpicManager
     let epic = match epic_manager.get_epic(&project_id, &epic_id).await {
         Ok(Some(e)) => e,
-        Ok(None) => return ok_or_internal_error::<SyncResult, String>(Err("Epic not found".to_string()), "Epic not found"),
+        Ok(None) => {
+            return ok_or_internal_error::<SyncResult, String>(
+                Err("Epic not found".to_string()),
+                "Epic not found",
+            )
+        }
         Err(e) => {
             return ok_or_internal_error::<SyncResult, String>(
                 Err(e.to_string()),
@@ -158,7 +172,10 @@ pub async fn sync_epic(
             );
             ok_or_internal_error::<SyncResult, String>(Ok(sync_result), "")
         }
-        Err(e) => ok_or_internal_error::<SyncResult, String>(Err(e.to_string()), "Failed to sync Epic to GitHub"),
+        Err(e) => ok_or_internal_error::<SyncResult, String>(
+            Err(e.to_string()),
+            "Failed to sync Epic to GitHub",
+        ),
     }
 }
 
@@ -179,7 +196,12 @@ pub async fn sync_tasks(
 
     let project_id: String = match epic_result {
         Ok(Some(row)) => row.get("project_id"),
-        Ok(None) => return ok_or_internal_error::<SyncResponse, String>(Err("Epic not found".to_string()), "Epic not found"),
+        Ok(None) => {
+            return ok_or_internal_error::<SyncResponse, String>(
+                Err("Epic not found".to_string()),
+                "Epic not found",
+            )
+        }
         Err(e) => {
             return ok_or_internal_error::<SyncResponse, String>(
                 Err(format!("Database error: {}", e)),
@@ -191,7 +213,12 @@ pub async fn sync_tasks(
     // Get GitHub config
     let config = match get_github_config(&db.pool, &project_id).await {
         Ok(cfg) => cfg,
-        Err(e) => return ok_or_internal_error::<SyncResponse, String>(Err(e), "Failed to get GitHub configuration"),
+        Err(e) => {
+            return ok_or_internal_error::<SyncResponse, String>(
+                Err(e),
+                "Failed to get GitHub configuration",
+            )
+        }
     };
 
     // Create GitHub service
@@ -207,7 +234,10 @@ pub async fn sync_tasks(
             info!("Successfully synced {} tasks to GitHub", results.len());
             ok_or_internal_error::<SyncResponse, String>(Ok(SyncResponse { results }), "")
         }
-        Err(e) => ok_or_internal_error::<SyncResponse, String>(Err(e.to_string()), "Failed to sync tasks to GitHub"),
+        Err(e) => ok_or_internal_error::<SyncResponse, String>(
+            Err(e.to_string()),
+            "Failed to sync tasks to GitHub",
+        ),
     }
 }
 
@@ -224,7 +254,12 @@ pub async fn get_sync_status(
 
     let syncs = match service.get_sync_status(&db.pool, &project_id).await {
         Ok(s) => s,
-        Err(e) => return ok_or_internal_error::<SyncStatusResponse, String>(Err(e.to_string()), "Failed to get sync status"),
+        Err(e) => {
+            return ok_or_internal_error::<SyncStatusResponse, String>(
+                Err(e.to_string()),
+                "Failed to get sync status",
+            )
+        }
     };
 
     ok_or_internal_error::<SyncStatusResponse, String>(Ok(SyncStatusResponse { syncs }), "")

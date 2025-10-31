@@ -35,7 +35,7 @@ impl ConversationalManager {
             FROM prd_conversations
             WHERE session_id = ?
             ORDER BY message_order ASC
-            "#
+            "#,
         )
         .bind(session_id)
         .fetch_all(&self.pool)
@@ -74,7 +74,10 @@ impl ConversationalManager {
         message_type: Option<MessageType>,
         metadata: Option<serde_json::Value>,
     ) -> Result<ConversationMessage> {
-        info!("Adding message to session: {} (role: {:?})", session_id, role);
+        info!(
+            "Adding message to session: {} (role: {:?})",
+            session_id, role
+        );
 
         let id = nanoid!(12);
 
@@ -98,7 +101,7 @@ impl ConversationalManager {
             INSERT INTO prd_conversations (
                 id, session_id, message_order, role, content, message_type, metadata, created_at
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            "#
+            "#,
         )
         .bind(&id)
         .bind(session_id)
@@ -136,7 +139,10 @@ impl ConversationalManager {
         info!("Getting discovery questions (category: {:?})", category);
 
         let rows = if let Some(cat) = category {
-            let cat_str = serde_json::to_string(&cat).unwrap().trim_matches('"').to_string();
+            let cat_str = serde_json::to_string(&cat)
+                .unwrap()
+                .trim_matches('"')
+                .to_string();
             sqlx::query(
                 r#"
                 SELECT
@@ -153,7 +159,7 @@ impl ConversationalManager {
                 FROM discovery_questions
                 WHERE category = ? AND is_active = TRUE
                 ORDER BY priority DESC, display_order ASC
-                "#
+                "#,
             )
             .bind(cat_str)
             .fetch_all(&self.pool)
@@ -175,7 +181,7 @@ impl ConversationalManager {
                 FROM discovery_questions
                 WHERE is_active = TRUE
                 ORDER BY priority DESC, display_order ASC
-                "#
+                "#,
             )
             .fetch_all(&self.pool)
             .await
@@ -227,7 +233,7 @@ impl ConversationalManager {
             FROM conversation_insights
             WHERE session_id = ?
             ORDER BY created_at DESC
-            "#
+            "#,
         )
         .bind(session_id)
         .fetch_all(&self.pool)
@@ -262,12 +268,16 @@ impl ConversationalManager {
         session_id: &str,
         input: CreateInsightInput,
     ) -> Result<ConversationInsight> {
-        info!("Creating insight for session: {} (type: {:?})", session_id, input.insight_type);
+        info!(
+            "Creating insight for session: {} (type: {:?})",
+            session_id, input.insight_type
+        );
 
         let id = nanoid!(12);
         let created_at = chrono::Utc::now().to_rfc3339();
 
-        let source_message_ids_json = input.source_message_ids
+        let source_message_ids_json = input
+            .source_message_ids
             .as_ref()
             .map(|ids| serde_json::to_value(ids).unwrap());
 
@@ -277,7 +287,7 @@ impl ConversationalManager {
                 id, session_id, insight_type, insight_text, confidence_score,
                 source_message_ids, applied_to_prd, created_at
             ) VALUES (?, ?, ?, ?, ?, ?, FALSE, ?)
-            "#
+            "#,
         )
         .bind(&id)
         .bind(session_id)
@@ -311,14 +321,17 @@ impl ConversationalManager {
         session_id: &str,
         status: DiscoveryStatus,
     ) -> Result<()> {
-        info!("Updating discovery status for session: {} to {:?}", session_id, status);
+        info!(
+            "Updating discovery status for session: {} to {:?}",
+            session_id, status
+        );
 
         sqlx::query(
             r#"
             UPDATE ideate_sessions
             SET discovery_status = ?
             WHERE id = ?
-            "#
+            "#,
         )
         .bind(&status)
         .bind(session_id)

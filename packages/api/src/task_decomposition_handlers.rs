@@ -19,10 +19,7 @@ pub async fn decompose_epic(
     Path((project_id, epic_id)): Path<(String, String)>,
     Json(input): Json<DecomposeEpicInput>,
 ) -> impl IntoResponse {
-    info!(
-        "Decomposing epic {} for project {}",
-        epic_id, project_id
-    );
+    info!("Decomposing epic {} for project {}", epic_id, project_id);
 
     // Validate epic_id matches
     if input.epic_id != epic_id {
@@ -41,10 +38,7 @@ pub async fn decompose_epic(
     // Get current user (placeholder - you'd get this from auth)
     let user_id = "default_user"; // TODO: Get from auth context
 
-    match decomposer
-        .decompose_epic(&project_id, user_id, input)
-        .await
-    {
+    match decomposer.decompose_epic(&project_id, user_id, input).await {
         Ok(result) => (
             StatusCode::OK,
             Json(serde_json::json!({
@@ -95,10 +89,12 @@ pub async fn get_epic_tasks(
 ) -> impl IntoResponse {
     info!("Fetching tasks for epic {}", epic_id);
 
-    let rows = match sqlx::query("SELECT * FROM tasks WHERE epic_id = ? ORDER BY position, created_at")
-        .bind(&epic_id)
-        .fetch_all(&db.pool)
-        .await
+    let rows = match sqlx::query(
+        "SELECT * FROM tasks WHERE epic_id = ? ORDER BY position, created_at",
+    )
+    .bind(&epic_id)
+    .fetch_all(&db.pool)
+    .await
     {
         Ok(rows) => rows,
         Err(e) => {

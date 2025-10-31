@@ -1,11 +1,13 @@
 // ABOUTME: Task decomposition service for breaking down Epics into actionable tasks
 // ABOUTME: Handles dependency detection, parallel group assignment, and size estimation
 
-use crate::epic::{ConflictAnalysis, DependencyGraph, GraphEdge, GraphNode, TaskConflict, WorkAnalysis, WorkStream};
+use crate::epic::{
+    ConflictAnalysis, DependencyGraph, GraphEdge, GraphNode, TaskConflict, WorkAnalysis, WorkStream,
+};
+use ::storage::StorageError as StoreError;
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use sqlx::SqlitePool;
-use ::storage::StorageError as StoreError;
 use tasks::types::{SizeEstimate, Task, TaskCreateInput, TaskPriority, TaskStatus, TaskType};
 
 /// Input for task decomposition
@@ -142,7 +144,9 @@ impl TaskDecomposer {
         }
 
         // 5. Assign parallel groups
-        let parallel_groups = self.assign_parallel_groups(&all_tasks, &dependency_graph).await?;
+        let parallel_groups = self
+            .assign_parallel_groups(&all_tasks, &dependency_graph)
+            .await?;
 
         // 6. Detect conflicts
         let conflicts = self.detect_conflicts(&all_tasks)?;
@@ -202,7 +206,8 @@ impl TaskDecomposer {
         dependency_graph: &DependencyGraph,
     ) -> Result<Vec<ParallelGroup>, StoreError> {
         let mut parallel_groups = Vec::new();
-        let mut task_to_group: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
+        let mut task_to_group: std::collections::HashMap<String, usize> =
+            std::collections::HashMap::new();
 
         // Build dependency map
         let mut dependencies: std::collections::HashMap<String, Vec<String>> =
@@ -228,7 +233,8 @@ impl TaskDecomposer {
 
                 // Check if all dependencies are processed
                 let deps = dependencies.get(&task.id);
-                let can_process = deps.map_or(true, |d| d.iter().all(|dep| processed.contains(dep)));
+                let can_process =
+                    deps.map_or(true, |d| d.iter().all(|dep| processed.contains(dep)));
 
                 if can_process {
                     current_level_tasks.push(task.id.clone());
@@ -370,10 +376,7 @@ impl TaskDecomposer {
     }
 
     /// Analyze work streams for parallel execution
-    pub async fn analyze_work_streams(
-        &self,
-        epic_id: &str,
-    ) -> Result<WorkAnalysis, StoreError> {
+    pub async fn analyze_work_streams(&self, epic_id: &str) -> Result<WorkAnalysis, StoreError> {
         // Get all tasks for the epic
         let tasks = self.get_epic_tasks(epic_id).await?;
 
@@ -533,16 +536,10 @@ impl TaskDecomposer {
             .filter(|t| t.depends_on.is_some() && !t.depends_on.as_ref().unwrap().is_empty())
             .count() as f64;
 
-        let tasks_with_estimates = tasks
-            .iter()
-            .filter(|t| t.size_estimate.is_some())
-            .count() as f64;
+        let tasks_with_estimates =
+            tasks.iter().filter(|t| t.size_estimate.is_some()).count() as f64;
 
-        let stream_distribution = if streams.len() > 1 {
-            1.0
-        } else {
-            0.5
-        };
+        let stream_distribution = if streams.len() > 1 { 1.0 } else { 0.5 };
 
         let confidence = ((tasks_with_deps / total_tasks * 0.4)
             + (tasks_with_estimates / total_tasks * 0.4)
@@ -553,11 +550,12 @@ impl TaskDecomposer {
     }
 
     async fn get_epic_tasks(&self, epic_id: &str) -> Result<Vec<Task>, StoreError> {
-        let rows = sqlx::query("SELECT * FROM tasks WHERE epic_id = ? ORDER BY position, created_at")
-            .bind(epic_id)
-            .fetch_all(&self.pool)
-            .await
-            .map_err(StoreError::Sqlx)?;
+        let rows =
+            sqlx::query("SELECT * FROM tasks WHERE epic_id = ? ORDER BY position, created_at")
+                .bind(epic_id)
+                .fetch_all(&self.pool)
+                .await
+                .map_err(StoreError::Sqlx)?;
 
         let _storage = tasks::storage::TaskStorage::new(self.pool.clone());
         rows.iter()

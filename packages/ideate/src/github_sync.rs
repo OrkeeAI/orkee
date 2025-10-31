@@ -229,7 +229,10 @@ impl GitHubSyncService {
         }
 
         // Add status label
-        labels.push(format!("status:{}", self.epic_status_to_label(&epic.status)));
+        labels.push(format!(
+            "status:{}",
+            self.epic_status_to_label(&epic.status)
+        ));
 
         // Create issue request
         let request = CreateIssueRequest {
@@ -240,7 +243,9 @@ impl GitHubSyncService {
         };
 
         // Call GitHub API
-        let issue = self.create_github_issue(&config.owner, &config.repo, &config.token, &request).await?;
+        let issue = self
+            .create_github_issue(&config.owner, &config.repo, &config.token, &request)
+            .await?;
 
         // Update Epic with GitHub info
         sqlx::query(
@@ -261,7 +266,8 @@ impl GitHubSyncService {
             &epic.id,
             issue.number,
             &issue.html_url,
-        ).await?;
+        )
+        .await?;
 
         Ok(SyncResult {
             issue_number: issue.number,
@@ -277,15 +283,19 @@ impl GitHubSyncService {
         config: &GitHubConfig,
         pool: &sqlx::SqlitePool,
     ) -> Result<SyncResult> {
-        let issue_number = epic.github_issue_number
-            .ok_or_else(|| GitHubSyncError::InvalidConfig("Epic not synced to GitHub".to_string()))?;
+        let issue_number = epic.github_issue_number.ok_or_else(|| {
+            GitHubSyncError::InvalidConfig("Epic not synced to GitHub".to_string())
+        })?;
 
         // Format Epic body
         let body = self.format_epic_body(epic);
 
         // Get labels
         let mut labels = vec!["epic".to_string()];
-        labels.push(format!("status:{}", self.epic_status_to_label(&epic.status)));
+        labels.push(format!(
+            "status:{}",
+            self.epic_status_to_label(&epic.status)
+        ));
 
         // Determine GitHub state
         let state = match epic.status {
@@ -302,19 +312,26 @@ impl GitHubSyncService {
         };
 
         // Call GitHub API
-        let issue = self.update_github_issue(&config.owner, &config.repo, &config.token, issue_number, &request).await?;
+        let issue = self
+            .update_github_issue(
+                &config.owner,
+                &config.repo,
+                &config.token,
+                issue_number,
+                &request,
+            )
+            .await?;
 
         // Update Epic sync timestamp
-        sqlx::query(
-            "UPDATE epics SET github_synced_at = ? WHERE id = ?"
-        )
-        .bind(Utc::now().to_rfc3339())
-        .bind(&epic.id)
-        .execute(pool)
-        .await?;
+        sqlx::query("UPDATE epics SET github_synced_at = ? WHERE id = ?")
+            .bind(Utc::now().to_rfc3339())
+            .bind(&epic.id)
+            .execute(pool)
+            .await?;
 
         // Update sync record
-        self.update_sync_record(pool, EntityType::Epic, &epic.id).await?;
+        self.update_sync_record(pool, EntityType::Epic, &epic.id)
+            .await?;
 
         Ok(SyncResult {
             issue_number: issue.number,
@@ -333,12 +350,15 @@ impl GitHubSyncService {
     ) -> Result<Vec<SyncResult>> {
         // Get Epic issue number using EpicManager
         let epic_manager = crate::epic_manager::EpicManager::new(pool.clone());
-        let epic = epic_manager.get_epic(project_id, epic_id).await
+        let epic = epic_manager
+            .get_epic(project_id, epic_id)
+            .await
             .map_err(|_| GitHubSyncError::InvalidConfig("Failed to fetch Epic".to_string()))?
             .ok_or_else(|| GitHubSyncError::InvalidConfig("Epic not found".to_string()))?;
 
-        let epic_issue_number = epic.github_issue_number
-            .ok_or_else(|| GitHubSyncError::InvalidConfig("Epic must be synced to GitHub first".to_string()))?;
+        let epic_issue_number = epic.github_issue_number.ok_or_else(|| {
+            GitHubSyncError::InvalidConfig("Epic must be synced to GitHub first".to_string())
+        })?;
 
         // Get tasks for Epic
         let tasks = sqlx::query(
@@ -379,11 +399,13 @@ impl GitHubSyncService {
                 assignees: config.default_assignee.as_ref().map(|a| vec![a.clone()]),
             };
 
-            let issue = self.create_github_issue(&config.owner, &config.repo, &config.token, &request).await?;
+            let issue = self
+                .create_github_issue(&config.owner, &config.repo, &config.token, &request)
+                .await?;
 
             // Update task with GitHub info
             sqlx::query(
-                "UPDATE tasks SET github_issue_number = ?, github_issue_url = ? WHERE id = ?"
+                "UPDATE tasks SET github_issue_number = ?, github_issue_url = ? WHERE id = ?",
             )
             .bind(issue.number)
             .bind(&issue.html_url)
@@ -399,7 +421,8 @@ impl GitHubSyncService {
                 &task_id,
                 issue.number,
                 &issue.html_url,
-            ).await?;
+            )
+            .await?;
 
             // Add to task list
             task_list.push_str(&format!("- [ ] #{} {}\n", issue.number, task_name));
@@ -423,7 +446,14 @@ impl GitHubSyncService {
                 labels: None,
             };
 
-            self.update_github_issue(&config.owner, &config.repo, &config.token, epic_issue_number, &request).await?;
+            self.update_github_issue(
+                &config.owner,
+                &config.repo,
+                &config.token,
+                epic_issue_number,
+                &request,
+            )
+            .await?;
         }
 
         Ok(results)
@@ -478,8 +508,15 @@ impl GitHubSyncService {
             if !deps.is_empty() {
                 body.push_str("## Dependencies\n\n");
                 for dep in deps {
-                    let version_str = dep.version.as_ref().map(|v| format!(" ({})", v)).unwrap_or_default();
-                    body.push_str(&format!("- **{}**{} - {} - {}\n", dep.name, version_str, dep.dep_type, dep.reason));
+                    let version_str = dep
+                        .version
+                        .as_ref()
+                        .map(|v| format!(" ({})", v))
+                        .unwrap_or_default();
+                    body.push_str(&format!(
+                        "- **{}**{} - {} - {}\n",
+                        dep.name, version_str, dep.dep_type, dep.reason
+                    ));
                 }
                 body.push_str("\n");
             }
@@ -490,9 +527,16 @@ impl GitHubSyncService {
             if !criteria.is_empty() {
                 body.push_str("## Success Criteria\n\n");
                 for criterion in criteria {
-                    let target_str = criterion.target.as_ref().map(|t| format!(" (Target: {})", t)).unwrap_or_default();
+                    let target_str = criterion
+                        .target
+                        .as_ref()
+                        .map(|t| format!(" (Target: {})", t))
+                        .unwrap_or_default();
                     let measurable = if criterion.measurable { "📊" } else { "📝" };
-                    body.push_str(&format!("- {} {}{}\n", measurable, criterion.criterion, target_str));
+                    body.push_str(&format!(
+                        "- {} {}{}\n",
+                        measurable, criterion.criterion, target_str
+                    ));
                 }
                 body.push_str("\n");
             }
@@ -521,7 +565,8 @@ impl GitHubSyncService {
             EpicStatus::Blocked => "blocked",
             EpicStatus::Completed => "completed",
             EpicStatus::Cancelled => "cancelled",
-        }.to_string()
+        }
+        .to_string()
     }
 
     /// Create GitHub issue (uses gh CLI if available, falls back to REST API)
@@ -678,7 +723,7 @@ impl GitHubSyncService {
                 id, project_id, entity_type, entity_id,
                 github_issue_number, github_issue_url,
                 sync_status, sync_direction, last_synced_at
-            ) VALUES (?, ?, ?, ?, ?, ?, 'synced', 'local_to_github', ?)"
+            ) VALUES (?, ?, ?, ?, ?, ?, 'synced', 'local_to_github', ?)",
         )
         .bind(id)
         .bind(project_id)
@@ -734,61 +779,66 @@ impl GitHubSyncService {
                     last_synced_at, last_sync_hash, last_sync_error, retry_count,
                     created_at, updated_at
             FROM github_sync WHERE project_id = ?
-            ORDER BY created_at DESC"
+            ORDER BY created_at DESC",
         )
         .bind(project_id)
         .fetch_all(pool)
         .await?;
 
-        let syncs = records.into_iter().map(|r| {
-            let entity_type_str: String = r.get("entity_type");
-            let entity_type = match entity_type_str.as_str() {
-                "epic" => EntityType::Epic,
-                "task" => EntityType::Task,
-                "comment" => EntityType::Comment,
-                _ => EntityType::Status,
-            };
+        let syncs = records
+            .into_iter()
+            .map(|r| {
+                let entity_type_str: String = r.get("entity_type");
+                let entity_type = match entity_type_str.as_str() {
+                    "epic" => EntityType::Epic,
+                    "task" => EntityType::Task,
+                    "comment" => EntityType::Comment,
+                    _ => EntityType::Status,
+                };
 
-            let sync_status_str: String = r.get("sync_status");
-            let sync_status = match sync_status_str.as_str() {
-                "pending" => SyncStatus::Pending,
-                "syncing" => SyncStatus::Syncing,
-                "synced" => SyncStatus::Synced,
-                "failed" => SyncStatus::Failed,
-                _ => SyncStatus::Conflict,
-            };
+                let sync_status_str: String = r.get("sync_status");
+                let sync_status = match sync_status_str.as_str() {
+                    "pending" => SyncStatus::Pending,
+                    "syncing" => SyncStatus::Syncing,
+                    "synced" => SyncStatus::Synced,
+                    "failed" => SyncStatus::Failed,
+                    _ => SyncStatus::Conflict,
+                };
 
-            let sync_direction_str: Option<String> = r.get("sync_direction");
-            let sync_direction = sync_direction_str.and_then(|d| {
-                match d.as_str() {
+                let sync_direction_str: Option<String> = r.get("sync_direction");
+                let sync_direction = sync_direction_str.and_then(|d| match d.as_str() {
                     "local_to_github" => Some(SyncDirection::LocalToGithub),
                     "github_to_local" => Some(SyncDirection::GithubToLocal),
                     "bidirectional" => Some(SyncDirection::Bidirectional),
                     _ => None,
+                });
+
+                let last_synced_str: Option<String> = r.get("last_synced_at");
+                let created_str: String = r.get("created_at");
+                let updated_str: String = r.get("updated_at");
+
+                GitHubSync {
+                    id: r.get("id"),
+                    project_id: r.get("project_id"),
+                    entity_type,
+                    entity_id: r.get("entity_id"),
+                    github_issue_number: r.get("github_issue_number"),
+                    github_issue_url: r.get("github_issue_url"),
+                    sync_status,
+                    sync_direction,
+                    last_synced_at: last_synced_str.and_then(|s| s.parse::<DateTime<Utc>>().ok()),
+                    last_sync_hash: r.get("last_sync_hash"),
+                    last_sync_error: r.get("last_sync_error"),
+                    retry_count: r.get("retry_count"),
+                    created_at: created_str
+                        .parse::<DateTime<Utc>>()
+                        .unwrap_or_else(|_| Utc::now()),
+                    updated_at: updated_str
+                        .parse::<DateTime<Utc>>()
+                        .unwrap_or_else(|_| Utc::now()),
                 }
-            });
-
-            let last_synced_str: Option<String> = r.get("last_synced_at");
-            let created_str: String = r.get("created_at");
-            let updated_str: String = r.get("updated_at");
-
-            GitHubSync {
-                id: r.get("id"),
-                project_id: r.get("project_id"),
-                entity_type,
-                entity_id: r.get("entity_id"),
-                github_issue_number: r.get("github_issue_number"),
-                github_issue_url: r.get("github_issue_url"),
-                sync_status,
-                sync_direction,
-                last_synced_at: last_synced_str.and_then(|s| s.parse::<DateTime<Utc>>().ok()),
-                last_sync_hash: r.get("last_sync_hash"),
-                last_sync_error: r.get("last_sync_error"),
-                retry_count: r.get("retry_count"),
-                created_at: created_str.parse::<DateTime<Utc>>().unwrap_or_else(|_| Utc::now()),
-                updated_at: updated_str.parse::<DateTime<Utc>>().unwrap_or_else(|_| Utc::now()),
-            }
-        }).collect();
+            })
+            .collect();
 
         Ok(syncs)
     }

@@ -12,9 +12,8 @@ use tracing::{error, info, warn};
 use super::response::ok_or_internal_error;
 use ideate::{
     ConversationalManager, CreateInsightInput, DiscoveryQuestion, DiscoveryStatus,
-    GeneratePRDFromConversationInput, GeneratePRDFromConversationResult, MessageRole,
-    MessageType, QualityMetrics, QuestionCategory, SendMessageInput, TopicCoverage,
-    ValidationResult,
+    GeneratePRDFromConversationInput, GeneratePRDFromConversationResult, MessageRole, MessageType,
+    QualityMetrics, QuestionCategory, SendMessageInput, TopicCoverage, ValidationResult,
 };
 use orkee_projects::DbState;
 
@@ -69,7 +68,10 @@ pub async fn get_discovery_questions(
     State(db): State<DbState>,
     Query(query): Query<QuestionsQuery>,
 ) -> impl IntoResponse {
-    info!("Getting discovery questions (category: {:?})", query.category);
+    info!(
+        "Getting discovery questions (category: {:?})",
+        query.category
+    );
 
     let category = if let Some(cat_str) = query.category {
         match cat_str.to_lowercase().as_str() {
@@ -122,7 +124,10 @@ pub async fn get_suggested_questions(
         Ok(q) => q,
         Err(e) => {
             error!("Failed to get discovery questions: {}", e);
-            return ok_or_internal_error(Err::<Vec<DiscoveryQuestion>, _>(e), "Failed to get discovery questions");
+            return ok_or_internal_error(
+                Err::<Vec<DiscoveryQuestion>, _>(e),
+                "Failed to get discovery questions",
+            );
         }
     };
 
@@ -133,7 +138,10 @@ pub async fn get_suggested_questions(
         .take(3)
         .collect();
 
-    ok_or_internal_error(Ok::<_, ideate::IdeateError>(suggested), "Failed to get suggested questions")
+    ok_or_internal_error(
+        Ok::<_, ideate::IdeateError>(suggested),
+        "Failed to get suggested questions",
+    )
 }
 
 /// Get insights extracted from the conversation
@@ -254,7 +262,10 @@ pub async fn get_quality_metrics(
         is_ready_for_prd,
     };
 
-    ok_or_internal_error(Ok::<_, ideate::IdeateError>(metrics), "Failed to calculate quality metrics")
+    ok_or_internal_error(
+        Ok::<_, ideate::IdeateError>(metrics),
+        "Failed to calculate quality metrics",
+    )
 }
 
 /// Update discovery status
@@ -349,7 +360,10 @@ pub async fn generate_prd(
         quality_score: 75,
     };
 
-    ok_or_internal_error(Ok::<_, ideate::IdeateError>(result), "Failed to generate PRD")
+    ok_or_internal_error(
+        Ok::<_, ideate::IdeateError>(result),
+        "Failed to generate PRD",
+    )
 }
 
 /// Validate conversation readiness for PRD generation
@@ -412,5 +426,8 @@ pub async fn validate_for_prd(
         warnings,
     };
 
-    ok_or_internal_error(Ok::<_, ideate::IdeateError>(validation), "Failed to validate conversation")
+    ok_or_internal_error(
+        Ok::<_, ideate::IdeateError>(validation),
+        "Failed to validate conversation",
+    )
 }
