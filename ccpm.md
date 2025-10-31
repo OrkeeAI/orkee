@@ -504,50 +504,103 @@ interface ConversationalState {
 
 ## Phase 3: Epic Management System
 
-**Status**: ✅ COMPLETED (Backend)
+**Status**: ✅ COMPLETED
 
-### 3.1 Backend Implementation
+### 3.1 Backend Implementation (Completed)
 
 - [x] Epic types and data structures (`packages/ideate/src/epic.rs`)
 - [x] Epic manager with CRUD operations (`packages/ideate/src/epic_manager.rs`)
 - [x] Epic API handlers (`packages/api/src/epic_handlers.rs`)
-- [x] Epic API router integration (`packages/api/src/lib.rs`)
+- [x] Epic API router integration (`packages/api/src/lib.rs`, `packages/cli/src/api/mod.rs`)
 - [x] TypeScript types and service layer (`packages/dashboard/src/services/epics.ts`)
 
 **Endpoints Implemented**:
 - `GET /api/projects/{project_id}/epics` - List all epics
 - `POST /api/projects/{project_id}/epics` - Create epic
-- `POST /api/projects/{project_id}/epics/generate` - Generate from PRD (placeholder)
+- `POST /api/projects/{project_id}/epics/generate` - Generate from PRD (placeholder for AI)
 - `GET /api/projects/{project_id}/epics/{epic_id}` - Get epic details
 - `PUT /api/projects/{project_id}/epics/{epic_id}` - Update epic
 - `DELETE /api/projects/{project_id}/epics/{epic_id}` - Delete epic
 - `GET /api/projects/{project_id}/epics/{epic_id}/tasks` - Get epic tasks
 - `GET /api/projects/{project_id}/epics/{epic_id}/progress` - Calculate progress
-- `POST /api/projects/{project_id}/epics/{epic_id}/analyze-work` - Work stream analysis (placeholder)
+- `POST /api/projects/{project_id}/epics/{epic_id}/analyze-work` - Work stream analysis (placeholder for Phase 4)
 - `GET /api/projects/{project_id}/prds/{prd_id}/epics` - List epics by PRD
 
 **Data Models**:
-- Epic with status tracking (draft → ready → in_progress → completed)
-- Architecture decisions with rationale
-- External dependencies tracking
+- Epic with status tracking (draft → ready → in_progress → blocked → completed → cancelled)
+- Architecture decisions with rationale, alternatives, and trade-offs
+- External dependencies tracking (name, type, version, reason)
 - Success criteria with measurable targets
-- Complexity and effort estimation
+- Complexity estimation (low/medium/high/very_high)
+- Effort estimation (days/weeks/months)
+- Task categories for decomposition organization
 - GitHub integration fields (issue number, URL, sync timestamp)
+- Progress percentage tracking
 
-### 3.2 Frontend UI Components (Not Yet Implemented)
+### 3.2 Frontend Implementation (Completed)
 
-The following UI components are defined in the plan but not yet implemented:
+- [x] **EpicList.tsx** - List view component with:
+  - Epic cards with status badges, progress bars, metadata
+  - Complexity and effort indicators
+  - Task category tags
+  - Success criteria counts
+  - Delete confirmation dialogs
+  - Loading and empty states
 
-- [ ] EpicsTab.tsx - Main Epics management interface
-- [ ] EpicList.tsx - List view with filtering and status
-- [ ] EpicDetail.tsx - Detailed Epic view with markdown rendering
-- [ ] EpicGenerator.tsx - AI-powered Epic generation from PRDs
-- [ ] TaskBreakdown.tsx - Task decomposition view
-- [ ] DependencyView.tsx - Dependency graph visualization
-- [ ] WorkStreamAnalysis.tsx - Parallel work stream analysis
-- [ ] GitHubSyncStatus.tsx - GitHub synchronization status
+- [x] **EpicDetail.tsx** - Detailed view component with:
+  - Tabbed interface (Overview, Architecture, Dependencies, Success Criteria)
+  - Markdown rendering for overview, technical approach, implementation strategy
+  - Architecture decisions display with rationale, alternatives, and trade-offs
+  - External dependencies list with type and version badges
+  - Success criteria with measurable/qualitative indicators
+  - Progress visualization
+  - GitHub issue integration
+  - Edit and task generation action buttons
 
-**Note**: UI implementation deferred to focus on backend completion. The service layer and API are fully functional and ready for frontend integration.
+- [x] **EpicGenerator.tsx** - Creation dialog with:
+  - AI vs Manual creation mode toggle
+  - Epic name input
+  - Manual mode fields (overview, technical approach)
+  - Task breakdown option (disabled - Phase 4)
+  - Form validation and error handling
+  - Placeholder messages for AI generation
+
+- [x] **EpicsTab.tsx** - Main container with:
+  - Epic list and detail views in two-column layout
+  - Filtering by PRD and status
+  - Empty state handling
+  - Create/Edit/Delete operations
+  - Integration with EpicGenerator dialog
+
+- [x] **useEpics.ts** - React Query hooks:
+  - `useEpics()` - Fetch all epics
+  - `useEpicsByPRD()` - Fetch epics by PRD
+  - `useEpic()` - Fetch single epic
+  - `useCreateEpic()` - Create mutation
+  - `useUpdateEpic()` - Update mutation
+  - `useDeleteEpic()` - Delete mutation
+  - `useEpicProgress()` - Progress calculation
+  - Toast notifications for success/error states
+  - Query cache invalidation
+
+- [x] **Navigation Integration**:
+  - Added "Epics" tab to SpecsTab component
+  - Positioned between "PRDs" and "OpenSpec" tabs
+  - Uses Layers icon for visual consistency
+  - Full integration with existing workflow
+
+### 3.3 Deferred Components (Phase 4+)
+
+The following specialized components are deferred to later phases:
+
+- [ ] TaskBreakdown.tsx - Task decomposition view (Phase 4)
+- [ ] DependencyView.tsx - Dependency graph visualization (Phase 4)
+- [ ] WorkStreamAnalysis.tsx - Parallel work stream analysis (Phase 4)
+- [ ] GitHubSyncStatus.tsx - GitHub synchronization status (Phase 5)
+- [ ] AI-powered Epic generation from PRD content (Future enhancement)
+- [ ] Epic editing dialog (Future enhancement)
+
+**Summary**: Core Epic management system is fully functional with complete CRUD operations, rich UI, and backend-frontend integration. Advanced features (task decomposition, GitHub sync, AI generation) planned for subsequent phases.
 
 ---
 

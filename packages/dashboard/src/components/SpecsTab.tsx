@@ -1,10 +1,11 @@
-// ABOUTME: Container component for Specs tab with ideation, PRDs, OpenSpec, and coverage
-// ABOUTME: Integrates IdeateTab, PRDView, OpenSpecTab (nested Changes/Specs/Archive), and CoverageView
+// ABOUTME: Container component for Specs tab with ideation, PRDs, Epics, OpenSpec, and coverage
+// ABOUTME: Integrates IdeateTab, PRDView, EpicsTab, OpenSpecTab (nested Changes/Specs/Archive), and CoverageView
 import { useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { FileText, BarChart, Lightbulb, GitBranch } from 'lucide-react';
+import { FileText, BarChart, Lightbulb, GitBranch, Layers } from 'lucide-react';
 import { IdeateTab } from '@/components/specs/IdeateTab';
 import { PRDView } from '@/components/specs/PRDView';
+import { EpicsTab } from '@/components/epics/EpicsTab';
 import { OpenSpecTab } from '@/components/specs/OpenSpecTab';
 import { CoverageView } from '@/components/specs/CoverageView';
 
@@ -26,6 +27,10 @@ export function SpecsTab({ projectId }: SpecsTabProps) {
           <FileText className="h-4 w-4" />
           PRDs
         </TabsTrigger>
+        <TabsTrigger value="epics" className="flex items-center gap-2">
+          <Layers className="h-4 w-4" />
+          Epics
+        </TabsTrigger>
         <TabsTrigger value="openspec" className="flex items-center gap-2">
           <GitBranch className="h-4 w-4" />
           OpenSpec
@@ -42,6 +47,10 @@ export function SpecsTab({ projectId }: SpecsTabProps) {
 
       <TabsContent value="prds" className="space-y-4">
         <PRDView projectId={projectId} />
+      </TabsContent>
+
+      <TabsContent value="epics" className="space-y-4">
+        <EpicsTab projectId={projectId} />
       </TabsContent>
 
       <TabsContent value="openspec" className="space-y-4">
