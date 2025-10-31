@@ -15,6 +15,7 @@ pub mod ai_usage_log_handlers;
 pub mod auth;
 pub mod change_handlers;
 pub mod context_handlers;
+pub mod epic_handlers;
 pub mod executions_handlers;
 pub mod graph_handlers;
 pub mod handlers;
@@ -171,6 +172,45 @@ pub fn create_prds_router() -> Router<DbState> {
         .route(
             "/{project_id}/prds/{prd_id}/capabilities",
             get(prd_handlers::get_prd_capabilities),
+        )
+        .route(
+            "/{project_id}/prds/{prd_id}/epics",
+            get(epic_handlers::list_epics_by_prd),
+        )
+}
+
+/// Creates the Epic API router for Epic management (CCPM workflow)
+pub fn create_epics_router() -> Router<DbState> {
+    Router::new()
+        .route("/{project_id}/epics", get(epic_handlers::list_epics))
+        .route("/{project_id}/epics", post(epic_handlers::create_epic))
+        .route(
+            "/{project_id}/epics/generate",
+            post(epic_handlers::generate_epic_from_prd),
+        )
+        .route(
+            "/{project_id}/epics/{epic_id}",
+            get(epic_handlers::get_epic),
+        )
+        .route(
+            "/{project_id}/epics/{epic_id}",
+            put(epic_handlers::update_epic),
+        )
+        .route(
+            "/{project_id}/epics/{epic_id}",
+            delete(epic_handlers::delete_epic),
+        )
+        .route(
+            "/{project_id}/epics/{epic_id}/tasks",
+            get(epic_handlers::get_epic_tasks),
+        )
+        .route(
+            "/{project_id}/epics/{epic_id}/progress",
+            get(epic_handlers::calculate_epic_progress),
+        )
+        .route(
+            "/{project_id}/epics/{epic_id}/analyze-work",
+            post(epic_handlers::analyze_work_streams),
         )
 }
 

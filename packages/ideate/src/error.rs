@@ -46,6 +46,18 @@ pub enum IdeateError {
 
     #[error("Forbidden: {0}")]
     Forbidden(String),
+
+    #[error("Not found: {0}")]
+    NotFound(String),
+
+    #[error("Not implemented: {0}")]
+    NotImplemented(String),
+
+    #[error("Database error: {0}")]
+    DatabaseError(String),
+
+    #[error("Serialization error: {0}")]
+    SerializationError(String),
 }
 
 pub type Result<T> = std::result::Result<T, IdeateError>;

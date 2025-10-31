@@ -3,6 +3,8 @@
 
 pub mod build_optimizer;
 pub mod dependency_analyzer;
+pub mod epic;
+pub mod epic_manager;
 pub mod error;
 pub mod expert_moderator;
 pub mod export_service;
@@ -25,6 +27,12 @@ pub use dependency_analyzer::{
     CreateDependencyInput, DependencyAnalysis, DependencyAnalyzer, DependencyStrength,
     DependencyType, FeatureDependency,
 };
+pub use epic::{
+    ArchitectureDecision, ConflictAnalysis, CreateEpicInput, DependencyGraph, Epic,
+    EpicComplexity, EpicStatus, EstimatedEffort, ExternalDependency, GraphEdge, GraphNode,
+    SuccessCriterion, TaskConflict, UpdateEpicInput, WorkAnalysis, WorkStream,
+};
+pub use epic_manager::EpicManager;
 pub use error::{IdeateError, Result};
 pub use expert_moderator::ExpertModerator;
 pub use export_service::{ExportFormat, ExportOptions, ExportResult, ExportService};
