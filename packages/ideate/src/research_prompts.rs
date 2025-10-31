@@ -30,10 +30,6 @@ pub fn get_research_system_prompt() -> String {
         .expect("Failed to load research system prompt")
 }
 
-/// System prompt for all research analysis tasks
-/// DEPRECATED: Use get_research_system_prompt() instead
-pub const RESEARCH_SYSTEM_PROMPT: &str = "Use get_research_system_prompt() function instead";
-
 /// Analyze competitor from scraped HTML content
 pub fn competitor_analysis_prompt(
     project_description: &str,

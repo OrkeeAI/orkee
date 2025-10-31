@@ -30,10 +30,6 @@ pub fn get_system_prompt() -> String {
         .expect("Failed to load PRD system prompt")
 }
 
-/// System prompt for all PRD generation tasks
-/// DEPRECATED: Use get_system_prompt() instead
-pub const SYSTEM_PROMPT: &str = "Use get_system_prompt() function instead";
-
 /// Generate the overview section (Problem, Target, Value)
 pub fn overview_prompt(description: &str) -> String {
     PROMPT_MANAGER
