@@ -1,0 +1,18 @@
+{
+  "id": "overview",
+  "name": "Project Overview",
+  "category": "prd",
+  "template": "Based on this project description:\n\n{{description}}\n\nGenerate a comprehensive project overview with the following structure:\n\n{\n  \"problemStatement\": \"Clear description of the problem being solved\",\n  \"targetAudience\": \"Who are the primary users? Be specific about demographics, roles, or use cases\",\n  \"valueProposition\": \"What unique value does this solution provide? Why is it better than alternatives?\",\n  \"oneLinePitch\": \"A single sentence that captures the essence of the project\"\n}\n\nMake the overview compelling and specific to this project.",
+  "parameters": ["description"],
+  "outputSchema": {
+    "problemStatement": "string",
+    "targetAudience": "string",
+    "valueProposition": "string",
+    "oneLinePitch": "string"
+  },
+  "metadata": {
+    "version": "1.0.0",
+    "lastModified": "2025-10-30",
+    "description": "Generate the overview section (Problem, Target, Value)"
+  }
+}

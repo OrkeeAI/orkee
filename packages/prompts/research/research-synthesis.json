@@ -1,0 +1,19 @@
+{
+  "id": "research-synthesis",
+  "name": "Research Synthesis",
+  "category": "research",
+  "template": "Synthesize research findings for this project:\n\nProject Description:\n{{projectDescription}}\n\nAnalyzed Competitors:\n{{competitorSummary}}\n\nSimilar Projects Reviewed: {{similarProjectsCount}}\n\nGenerate a research summary in this JSON format:\n\n{\n  \"keyFindings\": [\n    \"3-5 most important discoveries from research\"\n  ],\n  \"marketPosition\": \"How this project fits in the competitive landscape\",\n  \"differentiators\": [\n    \"3-5 ways this project can stand out\"\n  ],\n  \"risks\": [\n    \"3-4 competitive or market risks to be aware of\"\n  ],\n  \"recommendations\": [\n    \"4-6 actionable recommendations based on research\"\n  ]\n}\n\nProvide strategic, actionable insights.",
+  "parameters": ["projectDescription", "competitorSummary", "similarProjectsCount"],
+  "outputSchema": {
+    "keyFindings": ["string"],
+    "marketPosition": "string",
+    "differentiators": ["string"],
+    "risks": ["string"],
+    "recommendations": ["string"]
+  },
+  "metadata": {
+    "version": "1.0.0",
+    "lastModified": "2025-10-30",
+    "description": "Synthesize research findings"
+  }
+}

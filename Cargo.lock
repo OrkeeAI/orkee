@@ -3075,7 +3075,9 @@ dependencies = [
  "chrono",
  "futures",
  "html5ever 0.26.0",
+ "lazy_static",
  "nanoid",
+ "orkee-prompts",
  "orkee_core",
  "petgraph",
  "reqwest 0.12.24",
@@ -3211,6 +3213,16 @@ dependencies = [
  "uuid",
  "walkdir",
  "wiremock",
+]
+
+[[package]]
+name = "orkee-prompts"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror 2.0.17",
+ "tokio",
 ]
 
 [[package]]

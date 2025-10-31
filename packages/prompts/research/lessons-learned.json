@@ -1,0 +1,22 @@
+{
+  "id": "lessons-learned",
+  "name": "Lessons from Similar Projects",
+  "category": "research",
+  "template": "Extract actionable lessons from a similar project for this project:\n\nYour Project:\n{{projectDescription}}\n\nSimilar Project: {{similarProjectName}}\n\nPositive Aspects Observed:\n{{positiveAspects}}\n\nNegative Aspects Observed:\n{{negativeAspects}}\n\nGenerate insights in this JSON format:\n\n{\n  \"lessons\": [\n    {\n      \"category\": \"design|implementation|feature|ux|technical\",\n      \"insight\": \"What we learned\",\n      \"application\": \"How to apply this to our project\",\n      \"priority\": \"high|medium|low\"\n    }\n  ]\n}\n\nFocus on:\n1. What to adopt from their successes\n2. What to avoid from their mistakes\n3. How to adapt their patterns for your context\n4. Priority of implementation\n\nIdentify 4-6 actionable lessons.",
+  "parameters": ["projectDescription", "similarProjectName", "positiveAspects", "negativeAspects"],
+  "outputSchema": {
+    "lessons": [
+      {
+        "category": "string",
+        "insight": "string",
+        "application": "string",
+        "priority": "string"
+      }
+    ]
+  },
+  "metadata": {
+    "version": "1.0.0",
+    "lastModified": "2025-10-30",
+    "description": "Extract lessons from similar projects"
+  }
+}

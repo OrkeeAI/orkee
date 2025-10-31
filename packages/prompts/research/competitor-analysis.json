@@ -1,0 +1,19 @@
+{
+  "id": "competitor-analysis",
+  "name": "Competitor Analysis",
+  "category": "research",
+  "template": "You are analyzing a competitor for this project:\n\nProject Description:\n{{projectDescription}}\n\nCompetitor URL: {{url}}\n\nScraped HTML Content (truncated to first 10000 chars):\n{{htmlContent}}\n\nBased on the content, extract competitor information in this JSON format:\n\n{\n  \"name\": \"Competitor name (extract from content or infer)\",\n  \"url\": \"{{url}}\",\n  \"strengths\": [\"List of 3-5 key strengths or standout features\"],\n  \"gaps\": [\"List of 3-5 areas where they could improve\"],\n  \"features\": [\"List of 5-10 main features or capabilities\"]\n}\n\nFocus on:\n1. Core functionality and features\n2. Value propositions mentioned\n3. User experience observations\n4. Technical capabilities evident from the page\n5. Gaps that the user's project could fill\n\nBe specific and actionable.",
+  "parameters": ["projectDescription", "htmlContent", "url"],
+  "outputSchema": {
+    "name": "string",
+    "url": "string",
+    "strengths": ["string"],
+    "gaps": ["string"],
+    "features": ["string"]
+  },
+  "metadata": {
+    "version": "1.0.0",
+    "lastModified": "2025-10-30",
+    "description": "Analyze competitor from scraped HTML content"
+  }
+}

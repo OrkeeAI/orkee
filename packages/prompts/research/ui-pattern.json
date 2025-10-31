@@ -1,0 +1,23 @@
+{
+  "id": "ui-pattern",
+  "name": "UI/UX Pattern Extraction",
+  "category": "research",
+  "template": "You are analyzing UI/UX patterns for this project:\n\n{{projectDescription}}\n\nHTML Structure Summary:\n{{htmlStructure}}\n\nExtract observable UI/UX patterns in this JSON format:\n\n{\n  \"patterns\": [\n    {\n      \"type\": \"layout|navigation|interaction|visual|content\",\n      \"name\": \"Pattern name\",\n      \"description\": \"What this pattern does\",\n      \"benefits\": \"Why this pattern might be effective\",\n      \"adoptionNotes\": \"How this could be adapted for our project\"\n    }\n  ]\n}\n\nFocus on:\n1. Layout and information architecture\n2. Navigation patterns\n3. Interactive elements\n4. Visual design choices\n5. Content organization\n6. User flow patterns\n\nIdentify 5-8 notable patterns.",
+  "parameters": ["projectDescription", "htmlStructure"],
+  "outputSchema": {
+    "patterns": [
+      {
+        "type": "string",
+        "name": "string",
+        "description": "string",
+        "benefits": "string",
+        "adoptionNotes": "string"
+      }
+    ]
+  },
+  "metadata": {
+    "version": "1.0.0",
+    "lastModified": "2025-10-30",
+    "description": "Extract UI/UX patterns from content and structure"
+  }
+}

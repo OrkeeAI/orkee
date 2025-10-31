@@ -1,0 +1,15 @@
+{
+  "id": "feature-extraction",
+  "name": "Feature Extraction",
+  "category": "research",
+  "template": "Extract the main features and capabilities from this webpage content:\n\n{{htmlContent}}\n\nReturn JSON in this format:\n\n{\n  \"features\": [\"List of 5-15 distinct features or capabilities mentioned\"]\n}\n\nLook for:\n- Feature lists or sections\n- Capability descriptions\n- Benefits or value propositions\n- Technical specifications\n- User-facing functionality\n\nBe concise and specific.",
+  "parameters": ["htmlContent"],
+  "outputSchema": {
+    "features": ["string"]
+  },
+  "metadata": {
+    "version": "1.0.0",
+    "lastModified": "2025-10-30",
+    "description": "Extract features from HTML content"
+  }
+}

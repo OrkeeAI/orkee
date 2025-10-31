@@ -1,0 +1,41 @@
+{
+  "id": "research",
+  "name": "Research and Appendix",
+  "category": "prd",
+  "template": "Based on this project description:\n\n{{description}}\n\nGenerate research notes and references:\n\n{\n  \"competitors\": [\n    {\n      \"name\": \"Competitor name\",\n      \"url\": \"URL if known, or 'N/A'\",\n      \"strengths\": [\"What they do well\"],\n      \"gaps\": [\"Opportunities they're missing\"],\n      \"features\": [\"Key features to be aware of\"]\n    }\n  ],\n  \"similarProjects\": [\n    {\n      \"name\": \"Similar project name\",\n      \"url\": \"URL or 'N/A'\",\n      \"positiveAspects\": [\"What to learn from\"],\n      \"negativeAspects\": [\"What to avoid\"],\n      \"patternsToAdopt\": [\"Useful patterns or approaches\"]\n    }\n  ],\n  \"researchFindings\": \"Key research insights that informed this PRD\",\n  \"technicalSpecs\": \"Technical specifications or standards to follow\",\n  \"referenceLinks\": [\n    {\n      \"title\": \"Reference title\",\n      \"url\": \"URL\",\n      \"notes\": \"Why this is relevant\"\n    }\n  ]\n}\n\nSuggest 2-3 competitors and similar projects based on the description.\nThese can be real products or hypothetical ones in the same space.",
+  "parameters": ["description"],
+  "outputSchema": {
+    "competitors": [
+      {
+        "name": "string",
+        "url": "string",
+        "strengths": ["string"],
+        "gaps": ["string"],
+        "features": ["string"]
+      }
+    ],
+    "similarProjects": [
+      {
+        "name": "string",
+        "url": "string",
+        "positiveAspects": ["string"],
+        "negativeAspects": ["string"],
+        "patternsToAdopt": ["string"]
+      }
+    ],
+    "researchFindings": "string",
+    "technicalSpecs": "string",
+    "referenceLinks": [
+      {
+        "title": "string",
+        "url": "string",
+        "notes": "string"
+      }
+    ]
+  },
+  "metadata": {
+    "version": "1.0.0",
+    "lastModified": "2025-10-30",
+    "description": "Generate research/appendix section"
+  }
+}

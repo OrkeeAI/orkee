@@ -1,0 +1,42 @@
+{
+  "id": "risks",
+  "name": "Risks and Mitigations",
+  "category": "prd",
+  "template": "Based on this project description:\n\n{{description}}\n\nIdentify potential risks and mitigation strategies:\n\n{\n  \"technicalRisks\": [\n    {\n      \"description\": \"Technical risk\",\n      \"severity\": \"low/medium/high/critical\",\n      \"probability\": \"low/medium/high\"\n    }\n  ],\n  \"mvpScopingRisks\": [\n    {\n      \"description\": \"Scope-related risk\",\n      \"severity\": \"low/medium/high/critical\",\n      \"probability\": \"low/medium/high\"\n    }\n  ],\n  \"resourceRisks\": [\n    {\n      \"description\": \"Resource or capability risk\",\n      \"severity\": \"low/medium/high/critical\",\n      \"probability\": \"low/medium/high\"\n    }\n  ],\n  \"mitigations\": [\n    {\n      \"risk\": \"Risk being mitigated\",\n      \"strategy\": \"How to mitigate this risk\",\n      \"owner\": \"Who should handle this (can be role)\"\n    }\n  ]\n}\n\nBe realistic but not alarmist. Focus on actionable mitigations.",
+  "parameters": ["description"],
+  "outputSchema": {
+    "technicalRisks": [
+      {
+        "description": "string",
+        "severity": "string",
+        "probability": "string"
+      }
+    ],
+    "mvpScopingRisks": [
+      {
+        "description": "string",
+        "severity": "string",
+        "probability": "string"
+      }
+    ],
+    "resourceRisks": [
+      {
+        "description": "string",
+        "severity": "string",
+        "probability": "string"
+      }
+    ],
+    "mitigations": [
+      {
+        "risk": "string",
+        "strategy": "string",
+        "owner": "string"
+      }
+    ]
+  },
+  "metadata": {
+    "version": "1.0.0",
+    "lastModified": "2025-10-30",
+    "description": "Generate risks and mitigations section"
+  }
+}
