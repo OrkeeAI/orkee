@@ -37,18 +37,18 @@ pub async fn list_prds(
     .await
     .map(|(prds, total)| PaginatedResponse::new(prds, &pagination, total));
 
-    ok_or_internal_error(result, "Failed to list PRDs")
+    ok_or_internal_error(result, &format!("Failed to list PRDs for project {}", project_id))
 }
 
 /// Get a single PRD by ID
 pub async fn get_prd(
     State(db): State<DbState>,
-    Path((_project_id, prd_id)): Path<(String, String)>,
+    Path((project_id, prd_id)): Path<(String, String)>,
 ) -> impl IntoResponse {
-    info!("Getting PRD: {}", prd_id);
+    info!("Getting PRD: {} for project: {}", prd_id, project_id);
 
     let result = projects::get_prd(&db.pool, &prd_id).await;
-    ok_or_not_found(result, "PRD not found")
+    ok_or_not_found(result, &format!("PRD {} not found in project {}", prd_id, project_id))
 }
 
 /// Request body for creating a PRD
@@ -88,7 +88,7 @@ pub async fn create_prd(
     )
     .await;
 
-    created_or_internal_error(result, "Failed to create PRD")
+    created_or_internal_error(result, &format!("Failed to create PRD '{}' for project {}", request.title, project_id))
 }
 
 /// Request body for updating a PRD
@@ -103,10 +103,10 @@ pub struct UpdatePRDRequest {
 /// Update an existing PRD
 pub async fn update_prd(
     State(db): State<DbState>,
-    Path((_project_id, prd_id)): Path<(String, String)>,
+    Path((project_id, prd_id)): Path<(String, String)>,
     Json(request): Json<UpdatePRDRequest>,
 ) -> impl IntoResponse {
-    info!("Updating PRD: {}", prd_id);
+    info!("Updating PRD: {} for project: {}", prd_id, project_id);
 
     let result = projects::update_prd(
         &db.pool,
@@ -117,16 +117,16 @@ pub async fn update_prd(
     )
     .await;
 
-    ok_or_internal_error(result, "Failed to update PRD")
+    ok_or_internal_error(result, &format!("Failed to update PRD {} in project {}", prd_id, project_id))
 }
 
 /// Delete a PRD
 pub async fn delete_prd(
     State(db): State<DbState>,
-    Path((_project_id, prd_id)): Path<(String, String)>,
+    Path((project_id, prd_id)): Path<(String, String)>,
 ) -> impl IntoResponse {
-    info!("Deleting PRD: {}", prd_id);
+    info!("Deleting PRD: {} from project: {}", prd_id, project_id);
 
     let result = projects::delete_prd(&db.pool, &prd_id).await;
-    ok_or_internal_error(result, "Failed to delete PRD")
+    ok_or_internal_error(result, &format!("Failed to delete PRD {} from project {}", prd_id, project_id))
 }

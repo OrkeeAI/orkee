@@ -1,5 +1,5 @@
-// ABOUTME: AI service layer for OpenSpec spec generation and analysis
-// ABOUTME: Handles PRD analysis, task generation, spec suggestions, and validation
+// ABOUTME: AI service layer for spec generation and analysis
+// ABOUTME: Handles PRD analysis, task generation, and spec suggestions
 
 import { generateObject, generateText } from 'ai';
 import { getPreferredModel } from './providers';

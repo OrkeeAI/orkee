@@ -1,4 +1,4 @@
-// ABOUTME: OpenSpec archive view showing archived/completed changes
+// ABOUTME: Archive view showing archived/completed changes
 // ABOUTME: Historical view of changes that have been implemented and archived
 
 import { useState } from 'react';

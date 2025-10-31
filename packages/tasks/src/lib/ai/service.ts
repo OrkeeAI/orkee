@@ -1,4 +1,4 @@
-// ABOUTME: AI service layer using Vercel AI SDK for structured OpenSpec generation
+// ABOUTME: AI service layer using Vercel AI SDK for structured generation
 // ABOUTME: Handles AI provider calls, streaming, cost tracking, and error handling
 
 import { generateObject, streamObject } from 'ai';

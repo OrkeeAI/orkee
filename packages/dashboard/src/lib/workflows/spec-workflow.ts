@@ -1,5 +1,5 @@
-// ABOUTME: Workflow orchestration for OpenSpec PRD-to-Task and Task-to-PRD flows
-// ABOUTME: Coordinates AI service calls with database operations for complete workflows
+// ABOUTME: Workflow orchestration for PRD-to-Task and Task-to-PRD flows
+// ABOUTME: Coordinates AI service calls with database operations
 
 import { aiSpecService, type AIResult } from '../ai/services';
 import type {

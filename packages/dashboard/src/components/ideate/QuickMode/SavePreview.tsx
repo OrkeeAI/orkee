@@ -1,4 +1,4 @@
-// ABOUTME: Final PRD preview and confirmation dialog before saving to OpenSpec
+// ABOUTME: Final PRD preview and confirmation dialog before saving
 // ABOUTME: Displays read-only markdown view with project name editing
 import { useState } from 'react';
 import ReactMarkdown from 'react-markdown';
@@ -50,11 +50,10 @@ export function SavePreview({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <FileText className="h-5 w-5" />
-            Save PRD to OpenSpec
+            Save PRD
           </DialogTitle>
           <DialogDescription>
-            Review your PRD before saving it to the OpenSpec system. You can edit the PRD name
-            below.
+            Review your PRD before saving it. You can edit the PRD name below.
           </DialogDescription>
         </DialogHeader>
 

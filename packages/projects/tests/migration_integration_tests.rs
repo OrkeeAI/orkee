@@ -46,7 +46,7 @@ async fn test_all_core_tables_created() {
 
     // Core tables that must exist
     // Note: agents table removed - now loaded from packages/agents/config/agents.json
-    // Note: OpenSpec tables removed - replaced by CCPM/ideate system
+    // Note: Spec tables replaced by CCPM/ideate system
     let required_tables = vec![
         "_sqlx_migrations",
         "agent_executions",
@@ -252,7 +252,7 @@ async fn test_tasks_foreign_keys_configured() {
         "tasks should have FK to users (created_by_user_id)"
     );
     // Note: FK to agents removed - agent_id fields now reference packages/agents/config/agents.json (no FK enforcement)
-    // Note: FK to spec_changes removed - OpenSpec replaced by CCPM/ideate system
+    // Note: FK to spec_changes removed - replaced by CCPM/ideate system
     assert!(
         fk_tables.contains(&"prds".to_string()),
         "tasks should have FK to prds"

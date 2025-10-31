@@ -18,7 +18,7 @@ pub struct TestContext {
     pub _temp_dir: TempDir,
 }
 
-/// Create a test server with isolated database for OpenSpec endpoints
+/// Create a test server with isolated database
 pub async fn setup_test_server() -> TestContext {
     let _guard = TEST_MUTEX.lock().await;
 

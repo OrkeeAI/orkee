@@ -172,7 +172,7 @@ fn test_sse_connection_tracker_max_validation() {
 /// Test SSE endpoint returns 429 when connection limit is exceeded
 #[tokio::test]
 #[serial]
-#[ignore = "Migration checksum issue after OpenSpec removal"]
+#[ignore = "Migration checksum issue after spec removal"]
 async fn test_sse_endpoint_rate_limiting() {
     let app = api::create_router().await;
 
@@ -200,7 +200,7 @@ async fn test_sse_endpoint_rate_limiting() {
 /// Test SSE endpoint basic connectivity
 #[tokio::test]
 #[serial]
-#[ignore = "Migration checksum issue after OpenSpec removal"]
+#[ignore = "Migration checksum issue after spec removal"]
 async fn test_sse_endpoint_exists() {
     let app = api::create_router().await;
 
@@ -224,7 +224,7 @@ async fn test_sse_endpoint_exists() {
 /// Test preview health check endpoint
 #[tokio::test]
 #[serial]
-#[ignore = "Migration checksum issue after OpenSpec removal"]
+#[ignore = "Migration checksum issue after spec removal"]
 async fn test_preview_health_endpoint() {
     let app = api::create_router().await;
 
@@ -246,7 +246,7 @@ async fn test_preview_health_endpoint() {
 /// Test list active servers endpoint
 #[tokio::test]
 #[serial]
-#[ignore = "Migration checksum issue after OpenSpec removal"]
+#[ignore = "Migration checksum issue after spec removal"]
 async fn test_list_active_servers_endpoint() {
     let app = api::create_router().await;
 
@@ -269,7 +269,7 @@ async fn test_list_active_servers_endpoint() {
 /// Test discover servers endpoint
 #[tokio::test]
 #[serial]
-#[ignore = "Migration checksum issue after OpenSpec removal"]
+#[ignore = "Migration checksum issue after spec removal"]
 async fn test_discover_servers_endpoint() {
     let app = api::create_router().await;
 
@@ -292,7 +292,7 @@ async fn test_discover_servers_endpoint() {
 /// Test SSE endpoint requires authentication via query parameter
 #[tokio::test]
 #[serial]
-#[ignore = "Migration checksum issue after OpenSpec removal"]
+#[ignore = "Migration checksum issue after spec removal"]
 async fn test_sse_endpoint_requires_auth_token() {
     let app = api::create_router().await;
 
@@ -339,7 +339,7 @@ async fn test_sse_endpoint_requires_auth_token() {
 /// Test stop all servers endpoint
 #[tokio::test]
 #[serial]
-#[ignore = "Migration checksum issue after OpenSpec removal"]
+#[ignore = "Migration checksum issue after spec removal"]
 async fn test_stop_all_servers_endpoint() {
     let app = api::create_router().await;
 

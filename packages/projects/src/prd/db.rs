@@ -155,16 +155,16 @@ pub async fn get_prds_by_project_paginated(
             .await?;
 
     // Build query with optional pagination
-    let mut query_str = String::from(
-        "SELECT * FROM prds WHERE project_id = ? AND deleted_at IS NULL ORDER BY created_at DESC",
-    );
-
-    if let Some(lim) = limit {
-        query_str.push_str(&format!(" LIMIT {}", lim));
-    }
-    if let Some(off) = offset {
-        query_str.push_str(&format!(" OFFSET {}", off));
-    }
+    // Note: LIMIT/OFFSET must be literals in SQLite, not bound parameters
+    // Safety: validate_pagination() ensures these are non-negative integers
+    let base_query =
+        "SELECT * FROM prds WHERE project_id = ? AND deleted_at IS NULL ORDER BY created_at DESC";
+    let query_str = match (limit, offset) {
+        (Some(lim), Some(off)) => format!("{} LIMIT {} OFFSET {}", base_query, lim, off),
+        (Some(lim), None) => format!("{} LIMIT {}", base_query, lim),
+        (None, Some(off)) => format!("{} OFFSET {}", base_query, off),
+        (None, None) => base_query.to_string(),
+    };
 
     let prds = sqlx::query_as::<_, PRD>(&query_str)
         .bind(project_id)

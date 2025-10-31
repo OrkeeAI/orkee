@@ -266,7 +266,7 @@ Respond with ONLY valid JSON matching this exact structure (no markdown, no code
     );
 
     let system_prompt = Some(
-        r#"You are an expert software architect creating OpenSpec change proposals from PRDs.
+        r#"You are an expert software architect creating change proposals from PRDs.
 
 CRITICAL FORMAT REQUIREMENTS:
 1. Every requirement MUST use: ### Requirement: [Name]
