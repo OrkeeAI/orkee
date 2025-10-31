@@ -37,6 +37,15 @@ pub struct GhIssue {
     pub updated_at: String,
 }
 
+/// Parameters for updating a GitHub issue
+#[derive(Debug, Default)]
+pub struct UpdateIssueParams {
+    pub title: Option<String>,
+    pub body: Option<String>,
+    pub state: Option<String>,
+    pub labels: Option<Vec<String>>,
+}
+
 /// GitHub CLI wrapper
 pub struct GitHubCli {
     gh_path: String,
@@ -137,19 +146,13 @@ impl GitHubCli {
     /// * `owner` - Repository owner
     /// * `repo` - Repository name
     /// * `issue_number` - Issue number to update
-    /// * `title` - Optional new title
-    /// * `body` - Optional new body
-    /// * `state` - Optional new state ("open" or "closed")
-    /// * `labels` - Optional labels (replaces existing)
+    /// * `params` - Update parameters (title, body, state, labels)
     pub async fn update_issue(
         &self,
         owner: &str,
         repo: &str,
         issue_number: i32,
-        title: Option<String>,
-        body: Option<String>,
-        state: Option<String>,
-        labels: Option<Vec<String>>,
+        params: UpdateIssueParams,
     ) -> Result<GhIssue> {
         let mut args = vec![
             "issue".to_string(),
@@ -160,19 +163,19 @@ impl GitHubCli {
         ];
 
         // Add title if provided
-        if let Some(t) = title {
+        if let Some(t) = params.title {
             args.push("--title".to_string());
             args.push(t);
         }
 
         // Add body if provided
-        if let Some(b) = body {
+        if let Some(b) = params.body {
             args.push("--body".to_string());
             args.push(b);
         }
 
         // Add labels if provided
-        if let Some(label_vec) = labels {
+        if let Some(label_vec) = params.labels {
             // gh CLI replaces all labels when using --label
             for label in label_vec {
                 args.push("--label".to_string());
@@ -189,7 +192,7 @@ impl GitHubCli {
         }
 
         // Handle state change separately (gh issue edit doesn't support --state)
-        if let Some(new_state) = state {
+        if let Some(new_state) = params.state {
             let state_cmd = if new_state == "closed" {
                 "close"
             } else {

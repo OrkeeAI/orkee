@@ -8,7 +8,7 @@ use std::collections::HashMap;
 use thiserror::Error;
 
 use crate::epic::{Epic, EpicStatus};
-use git_utils::GitHubCli;
+use git_utils::{GitHubCli, UpdateIssueParams};
 
 #[derive(Debug, Error)]
 pub enum GitHubSyncError {
@@ -643,18 +643,14 @@ impl GitHubSyncService {
     ) -> Result<GitHubIssue> {
         // Try gh CLI first if available
         if let Some(gh) = &self.gh_cli {
-            match gh
-                .update_issue(
-                    owner,
-                    repo,
-                    issue_number,
-                    request.title.clone(),
-                    request.body.clone(),
-                    request.state.clone(),
-                    request.labels.clone(),
-                )
-                .await
-            {
+            let params = UpdateIssueParams {
+                title: request.title.clone(),
+                body: request.body.clone(),
+                state: request.state.clone(),
+                labels: request.labels.clone(),
+            };
+
+            match gh.update_issue(owner, repo, issue_number, params).await {
                 Ok(gh_issue) => {
                     // Convert gh CLI issue to GitHubIssue
                     return Ok(GitHubIssue {

@@ -1,7 +1,7 @@
 // ABOUTME: Unit tests for GitHub CLI wrapper
 // ABOUTME: Tests authentication detection, issue operations, and error handling
 
-use git_utils::{GhIssue, GitHubCli, GitHubCliError};
+use git_utils::{GhIssue, GitHubCli, GitHubCliError, UpdateIssueParams};
 
 #[test]
 fn test_gh_cli_availability_detection() {
@@ -132,16 +132,15 @@ async fn test_gh_cli_update_issue_integration() {
         println!("Created issue #{} for update test", issue.number);
 
         // Now update it
+        let params = UpdateIssueParams {
+            title: Some("Updated Test Issue".to_string()),
+            body: Some("Updated body content".to_string()),
+            state: None,
+            labels: Some(vec!["test".to_string(), "updated".to_string()]),
+        };
+
         let update_result = cli
-            .update_issue(
-                &test_owner,
-                &test_repo,
-                issue.number,
-                Some("Updated Test Issue".to_string()),
-                Some("Updated body content".to_string()),
-                None,
-                Some(vec!["test".to_string(), "updated".to_string()]),
-            )
+            .update_issue(&test_owner, &test_repo, issue.number, params)
             .await;
 
         match update_result {

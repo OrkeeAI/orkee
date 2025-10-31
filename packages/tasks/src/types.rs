@@ -27,18 +27,13 @@ pub enum TaskPriority {
     Critical,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, sqlx::Type)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, sqlx::Type)]
 #[sqlx(type_name = "TEXT", rename_all = "lowercase")]
 #[serde(rename_all = "lowercase")]
 pub enum TaskType {
+    #[default]
     Task,
     Subtask,
-}
-
-impl Default for TaskType {
-    fn default() -> Self {
-        TaskType::Task
-    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, sqlx::Type)]

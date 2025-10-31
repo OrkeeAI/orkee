@@ -8,7 +8,7 @@ use orkee_core::types::GitRepositoryInfo;
 use tracing::debug;
 
 // Re-export GitHub CLI types
-pub use github::{GhIssue, GitHubCli, GitHubCliError};
+pub use github::{GhIssue, GitHubCli, GitHubCliError, UpdateIssueParams};
 
 pub fn get_git_repository_info(project_path: &str) -> Option<GitRepositoryInfo> {
     debug!("Getting git repository info for path: {}", project_path);
