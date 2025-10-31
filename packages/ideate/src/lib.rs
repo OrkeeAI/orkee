@@ -8,6 +8,7 @@ pub mod epic_manager;
 pub mod error;
 pub mod expert_moderator;
 pub mod export_service;
+pub mod github_sync;
 pub mod manager;
 pub mod prd_aggregator;
 pub mod prd_generator;
@@ -34,6 +35,10 @@ pub use epic::{
     SuccessCriterion, TaskConflict, UpdateEpicInput, WorkAnalysis, WorkStream,
 };
 pub use epic_manager::EpicManager;
+pub use github_sync::{
+    EntityType, GitHubConfig, GitHubSync, GitHubSyncError, GitHubSyncService, SyncDirection,
+    SyncResult, SyncStatus,
+};
 pub use error::{IdeateError, Result};
 pub use expert_moderator::ExpertModerator;
 pub use export_service::{ExportFormat, ExportOptions, ExportResult, ExportService};

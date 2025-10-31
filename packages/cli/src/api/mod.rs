@@ -282,6 +282,10 @@ pub async fn create_router_with_options(
         )
         .nest(
             "/api",
+            api::create_github_sync_router().with_state(db_state.clone()),
+        )
+        .nest(
+            "/api",
             api::create_ideate_router().with_state(db_state.clone()),
         )
         .nest(

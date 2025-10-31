@@ -17,6 +17,7 @@ pub mod change_handlers;
 pub mod context_handlers;
 pub mod epic_handlers;
 pub mod executions_handlers;
+pub mod github_sync_handlers;
 pub mod graph_handlers;
 pub mod handlers;
 pub mod ideate_dependency_handlers;
@@ -804,5 +805,22 @@ pub fn create_templates_router() -> Router<DbState> {
         .route(
             "/templates/{template_id}",
             delete(template_handlers::delete_template),
+        )
+}
+
+/// Creates the GitHub sync API router for syncing Epics and Tasks to GitHub
+pub fn create_github_sync_router() -> Router<DbState> {
+    Router::new()
+        .route(
+            "/github/sync/epic/{epic_id}",
+            post(github_sync_handlers::sync_epic),
+        )
+        .route(
+            "/github/sync/tasks/{epic_id}",
+            post(github_sync_handlers::sync_tasks),
+        )
+        .route(
+            "/github/sync/status/{project_id}",
+            get(github_sync_handlers::get_sync_status),
         )
 }
