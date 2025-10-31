@@ -10,15 +10,20 @@ import { Progress } from '@/components/ui/progress';
 import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { MarkdownRenderer } from '@/components/MarkdownRenderer';
-import type { Epic, EpicStatus, EpicComplexity } from '@/services/epics';
+import type { Epic, EpicStatus, EpicComplexity, DecompositionResult, WorkAnalysis } from '@/services/epics';
+import { TaskBreakdown } from './TaskBreakdown';
+import { DependencyView } from './DependencyView';
+import { WorkStreamAnalysis } from './WorkStreamAnalysis';
 
 interface EpicDetailProps {
   epic: Epic;
   onEdit?: () => void;
   onGenerateTasks?: () => void;
+  decompositionResult?: DecompositionResult | null;
+  workAnalysis?: WorkAnalysis | null;
 }
 
-export function EpicDetail({ epic, onEdit, onGenerateTasks }: EpicDetailProps) {
+export function EpicDetail({ epic, onEdit, onGenerateTasks, decompositionResult, workAnalysis }: EpicDetailProps) {
   const [activeTab, setActiveTab] = useState('overview');
 
   const formatDate = (dateString: string) => {
@@ -138,11 +143,14 @@ export function EpicDetail({ epic, onEdit, onGenerateTasks }: EpicDetailProps) {
 
       {/* Main Content Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-7">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="architecture">Architecture</TabsTrigger>
           <TabsTrigger value="dependencies">Dependencies</TabsTrigger>
           <TabsTrigger value="success">Success Criteria</TabsTrigger>
+          <TabsTrigger value="tasks">Task Breakdown</TabsTrigger>
+          <TabsTrigger value="deps">Dependencies</TabsTrigger>
+          <TabsTrigger value="streams">Work Streams</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-6">
@@ -333,6 +341,24 @@ export function EpicDetail({ epic, onEdit, onGenerateTasks }: EpicDetailProps) {
               </CardContent>
             </Card>
           )}
+        </TabsContent>
+
+        {/* Task Breakdown Tab */}
+        <TabsContent value="tasks" className="space-y-6">
+          <TaskBreakdown
+            epicId={epic.id}
+            decompositionResult={decompositionResult || null}
+          />
+        </TabsContent>
+
+        {/* Dependency Graph Tab */}
+        <TabsContent value="deps" className="space-y-6">
+          <DependencyView decompositionResult={decompositionResult || null} />
+        </TabsContent>
+
+        {/* Work Streams Tab */}
+        <TabsContent value="streams" className="space-y-6">
+          <WorkStreamAnalysis workAnalysis={workAnalysis || null} />
         </TabsContent>
       </Tabs>
     </div>

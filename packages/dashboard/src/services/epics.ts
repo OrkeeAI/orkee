@@ -127,6 +127,47 @@ export interface WorkAnalysis {
   confidenceScore?: number;
 }
 
+export type SizeEstimate = 'XS' | 'S' | 'M' | 'L' | 'XL';
+export type TaskType = 'task' | 'subtask';
+
+export interface TaskTemplate {
+  title: string;
+  description?: string;
+  technicalDetails?: string;
+  sizeEstimate?: SizeEstimate;
+  effortHours?: number;
+  dependsOnTitles?: string[];
+  acceptanceCriteria?: string;
+  testStrategy?: string;
+}
+
+export interface TaskCategory {
+  name: string;
+  description: string;
+  tasks: TaskTemplate[];
+}
+
+export interface DecomposeEpicInput {
+  epicId: string;
+  taskCategories: TaskCategory[];
+}
+
+export interface ParallelGroup {
+  id: string;
+  name: string;
+  taskIds: string[];
+}
+
+export interface DecompositionResult {
+  tasks: any[]; // Task type from tasks service
+  dependencyGraph: {
+    nodes: Array<{ id: string; label: string }>;
+    edges: Array<{ from: string; to: string; type?: string }>;
+  };
+  parallelGroups: ParallelGroup[];
+  conflicts: Array<{ task1: string; task2: string; reason: string }>;
+}
+
 interface ApiResponse<T> {
   success: boolean;
   data: T | null;
@@ -287,6 +328,23 @@ export class EpicsService {
     }
 
     return response.data.data?.progress || 0;
+  }
+
+  async decomposeEpic(projectId: string, epicId: string, input: DecomposeEpicInput): Promise<DecompositionResult> {
+    const response = await apiClient.post<ApiResponse<DecompositionResult>>(
+      `/api/projects/${projectId}/epics/${epicId}/decompose`,
+      input
+    );
+
+    if (response.error || !response.data?.success) {
+      throw new Error(response.data?.error || response.error || 'Failed to decompose epic');
+    }
+
+    if (!response.data.data) {
+      throw new Error('No decomposition result returned');
+    }
+
+    return response.data.data;
   }
 }
 
