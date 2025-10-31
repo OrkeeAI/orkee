@@ -33,23 +33,18 @@ fn get_max_tokens_for_model(model: &str) -> u32 {
     else if model.contains("claude-3-5-haiku") || model.contains("claude-haiku-3-5") {
         8000
     }
-    // Claude 3.x Opus/Sonnet (legacy) - 4K output tokens
-    else if model.contains("claude-3-opus") || model.contains("claude-3-sonnet") {
-        4096
-    }
-    // Claude 3.x Haiku (legacy) - 4K output tokens
-    else if model.contains("claude-3-haiku") {
+    // Claude 3.x Opus/Sonnet/Haiku (legacy) - 4K output tokens
+    else if model.contains("claude-3-opus")
+        || model.contains("claude-3-sonnet")
+        || model.contains("claude-3-haiku")
+    {
         4096
     }
     // Generic Claude (assume modern Sonnet) - 64K
     else if model.contains("claude-sonnet") {
         64000
     }
-    // Generic Claude Haiku - 8K
-    else if model.contains("claude-haiku") {
-        8000
-    }
-    // Default to safe value for unknown models
+    // Generic Claude Haiku and unknown models - 8K (safe default)
     else {
         8000
     }
