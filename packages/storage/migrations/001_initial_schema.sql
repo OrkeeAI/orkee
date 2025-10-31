@@ -70,6 +70,14 @@ CREATE TABLE projects (
     mcp_servers TEXT, -- JSON array of MCP server configs
     git_repository TEXT, -- JSON object with repo info
 
+    -- GitHub integration
+    github_owner TEXT,
+    github_repo TEXT,
+    github_sync_enabled BOOLEAN DEFAULT FALSE,
+    github_token_encrypted TEXT CHECK(github_token_encrypted IS NULL OR length(github_token_encrypted) >= 38),
+    github_labels_config TEXT,
+    github_default_assignee TEXT,
+
     -- Timestamps
     created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
     updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
@@ -78,7 +86,8 @@ CREATE TABLE projects (
     CHECK (json_valid(tags) OR tags IS NULL),
     CHECK (json_valid(manual_tasks) OR manual_tasks IS NULL),
     CHECK (json_valid(mcp_servers) OR mcp_servers IS NULL),
-    CHECK (json_valid(git_repository) OR git_repository IS NULL)
+    CHECK (json_valid(git_repository) OR git_repository IS NULL),
+    CHECK (json_valid(github_labels_config) OR github_labels_config IS NULL)
 );
 
 -- Project indexes
@@ -273,6 +282,11 @@ CREATE TABLE prds (
     version INTEGER DEFAULT 1,
     status TEXT DEFAULT 'draft' CHECK(status IN ('draft', 'approved', 'superseded')),
     source TEXT DEFAULT 'manual' CHECK(source IN ('manual', 'generated', 'synced')),
+    conversation_id TEXT,
+    github_epic_url TEXT,
+    discovery_status TEXT DEFAULT 'draft' CHECK(discovery_status IN ('draft', 'brainstorming', 'refining', 'validating', 'finalized')),
+    discovery_completed_at TEXT,
+    quality_score INTEGER CHECK(quality_score >= 0 AND quality_score <= 100),
     deleted_at TEXT,
     created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
     updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
@@ -583,6 +597,17 @@ CREATE TABLE tasks (
     spec_driven BOOLEAN DEFAULT FALSE,
     change_id TEXT REFERENCES spec_changes(id) ON DELETE SET NULL,
     from_prd_id TEXT REFERENCES prds(id) ON DELETE SET NULL,
+    epic_id TEXT,
+    github_issue_number INTEGER,
+    github_issue_url TEXT,
+    parallel_group TEXT,
+    depends_on TEXT,
+    conflicts_with TEXT,
+    task_type TEXT DEFAULT 'task' CHECK(task_type IN ('task', 'subtask')),
+    size_estimate TEXT CHECK(size_estimate IN ('XS', 'S', 'M', 'L', 'XL')),
+    technical_details TEXT,
+    effort_hours INTEGER CHECK(effort_hours > 0),
+    can_parallel BOOLEAN DEFAULT FALSE,
     spec_validation_status TEXT,
     spec_validation_result TEXT,
     created_at TEXT NOT NULL,
@@ -1168,7 +1193,7 @@ CREATE TABLE ideate_sessions (
     initial_description TEXT NOT NULL,
 
     -- Session metadata
-    mode TEXT NOT NULL CHECK(mode IN ('quick', 'guided', 'comprehensive')),
+    mode TEXT NOT NULL CHECK(mode IN ('quick', 'guided', 'comprehensive', 'conversational')),
     status TEXT NOT NULL DEFAULT 'draft' CHECK(status IN ('draft', 'in_progress', 'ready_for_prd', 'completed')),
     current_section TEXT,
 
@@ -2324,3 +2349,214 @@ UPDATE prd_quickstart_templates SET
   default_competitors = '["Commercial tool 1 - features and cost", "Commercial tool 2 - features and cost"]',
   default_similar_projects = '["Internal tool 1 - architecture", "Internal tool 2 - lessons learned"]'
 WHERE id = 'tpl_internal';
+
+
+-- ============================================================================
+-- CONVERSATIONAL MODE (CCPM) TABLES
+-- ============================================================================
+
+-- PRD Conversation History
+CREATE TABLE prd_conversations (
+    id TEXT PRIMARY KEY CHECK(length(id) >= 8),
+    session_id TEXT NOT NULL,
+    prd_id TEXT,
+    message_order INTEGER NOT NULL,
+    role TEXT NOT NULL CHECK(role IN ('user', 'assistant', 'system')),
+    content TEXT NOT NULL,
+    message_type TEXT CHECK(message_type IN ('discovery', 'refinement', 'validation', 'general')),
+    metadata TEXT,
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+
+    FOREIGN KEY (session_id) REFERENCES ideate_sessions(id) ON DELETE CASCADE,
+    FOREIGN KEY (prd_id) REFERENCES prds(id) ON DELETE CASCADE,
+    UNIQUE(session_id, message_order),
+    CHECK (json_valid(metadata) OR metadata IS NULL)
+);
+
+CREATE INDEX idx_prd_conversations_session ON prd_conversations(session_id);
+CREATE INDEX idx_prd_conversations_prd ON prd_conversations(prd_id);
+CREATE INDEX idx_prd_conversations_order ON prd_conversations(session_id, message_order);
+CREATE INDEX idx_prd_conversations_type ON prd_conversations(message_type);
+
+-- Epic Management
+CREATE TABLE epics (
+    id TEXT PRIMARY KEY CHECK(length(id) >= 8),
+    project_id TEXT NOT NULL,
+    prd_id TEXT NOT NULL,
+    name TEXT NOT NULL,
+
+    -- Epic content (markdown stored in DB)
+    overview_markdown TEXT NOT NULL,
+    architecture_decisions TEXT,
+    technical_approach TEXT NOT NULL,
+    implementation_strategy TEXT,
+    dependencies TEXT,
+    success_criteria TEXT,
+
+    -- Task breakdown metadata
+    task_categories TEXT,
+    estimated_effort TEXT CHECK(estimated_effort IN ('days', 'weeks', 'months')),
+    complexity TEXT CHECK(complexity IN ('low', 'medium', 'high', 'very_high')),
+
+    -- Status tracking
+    status TEXT DEFAULT 'draft' CHECK(status IN ('draft', 'ready', 'in_progress', 'blocked', 'completed', 'cancelled')),
+    progress_percentage INTEGER DEFAULT 0 CHECK(progress_percentage >= 0 AND progress_percentage <= 100),
+
+    -- GitHub integration
+    github_issue_number INTEGER,
+    github_issue_url TEXT,
+    github_synced_at TEXT,
+
+    -- Timestamps
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+    updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+    started_at TEXT,
+    completed_at TEXT,
+
+    FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+    FOREIGN KEY (prd_id) REFERENCES prds(id) ON DELETE CASCADE,
+    CHECK (json_valid(architecture_decisions) OR architecture_decisions IS NULL),
+    CHECK (json_valid(dependencies) OR dependencies IS NULL),
+    CHECK (json_valid(success_criteria) OR success_criteria IS NULL),
+    CHECK (json_valid(task_categories) OR task_categories IS NULL)
+);
+
+CREATE INDEX idx_epics_project ON epics(project_id);
+CREATE INDEX idx_epics_prd ON epics(prd_id);
+CREATE INDEX idx_epics_status ON epics(status);
+CREATE INDEX idx_epics_progress ON epics(progress_percentage);
+CREATE INDEX idx_epics_github ON epics(github_issue_number);
+
+-- Epic update trigger
+CREATE TRIGGER epics_updated_at AFTER UPDATE ON epics
+FOR EACH ROW WHEN NEW.updated_at = OLD.updated_at
+BEGIN
+    UPDATE epics SET updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE id = NEW.id;
+END;
+
+-- GitHub Synchronization Tracking
+CREATE TABLE github_sync (
+    id TEXT PRIMARY KEY CHECK(length(id) >= 8),
+    project_id TEXT NOT NULL,
+    entity_type TEXT NOT NULL CHECK(entity_type IN ('epic', 'task', 'comment', 'status')),
+    entity_id TEXT NOT NULL,
+    github_issue_number INTEGER,
+    github_issue_url TEXT,
+    sync_status TEXT DEFAULT 'pending' CHECK(sync_status IN ('pending', 'syncing', 'synced', 'failed', 'conflict')),
+    sync_direction TEXT CHECK(sync_direction IN ('local_to_github', 'github_to_local', 'bidirectional')),
+    last_synced_at TEXT,
+    last_sync_hash TEXT,
+    last_sync_error TEXT,
+    retry_count INTEGER DEFAULT 0,
+
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+    updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+
+    FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+    UNIQUE(entity_type, entity_id)
+);
+
+CREATE INDEX idx_github_sync_project ON github_sync(project_id);
+CREATE INDEX idx_github_sync_entity ON github_sync(entity_type, entity_id);
+CREATE INDEX idx_github_sync_status ON github_sync(sync_status);
+CREATE INDEX idx_github_sync_issue ON github_sync(github_issue_number);
+CREATE INDEX idx_github_sync_pending ON github_sync(sync_status) WHERE sync_status = 'pending';
+
+-- GitHub sync update trigger
+CREATE TRIGGER github_sync_updated_at AFTER UPDATE ON github_sync
+FOR EACH ROW WHEN NEW.updated_at = OLD.updated_at
+BEGIN
+    UPDATE github_sync SET updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE id = NEW.id;
+END;
+
+-- Work Stream Analysis for Parallel Execution
+CREATE TABLE work_analysis (
+    id TEXT PRIMARY KEY CHECK(length(id) >= 8),
+    epic_id TEXT NOT NULL,
+
+    -- Analysis results (all JSON)
+    parallel_streams TEXT NOT NULL,
+    file_patterns TEXT,
+    dependency_graph TEXT NOT NULL,
+    conflict_analysis TEXT,
+    parallelization_strategy TEXT,
+
+    -- Metadata
+    analyzed_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+    is_current BOOLEAN DEFAULT TRUE,
+    analysis_version INTEGER DEFAULT 1,
+    confidence_score REAL CHECK(confidence_score >= 0.0 AND confidence_score <= 1.0),
+
+    FOREIGN KEY (epic_id) REFERENCES epics(id) ON DELETE CASCADE,
+    CHECK (json_valid(parallel_streams)),
+    CHECK (json_valid(file_patterns) OR file_patterns IS NULL),
+    CHECK (json_valid(dependency_graph)),
+    CHECK (json_valid(conflict_analysis) OR conflict_analysis IS NULL),
+    CHECK (json_valid(parallelization_strategy) OR parallelization_strategy IS NULL)
+);
+
+CREATE INDEX idx_work_analysis_epic ON work_analysis(epic_id);
+CREATE INDEX idx_work_analysis_current ON work_analysis(epic_id, is_current);
+
+-- Reusable Discovery Questions for Conversational Mode
+CREATE TABLE discovery_questions (
+    id TEXT PRIMARY KEY CHECK(length(id) >= 8),
+    category TEXT NOT NULL CHECK(category IN ('problem', 'users', 'features', 'technical', 'risks', 'constraints', 'success')),
+    question_text TEXT NOT NULL,
+    follow_up_prompts TEXT,
+    context_keywords TEXT,
+    priority INTEGER DEFAULT 5 CHECK(priority >= 1 AND priority <= 10),
+    is_required BOOLEAN DEFAULT FALSE,
+    display_order INTEGER,
+    is_active BOOLEAN DEFAULT TRUE,
+
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
+);
+
+CREATE INDEX idx_discovery_questions_category ON discovery_questions(category, display_order);
+CREATE INDEX idx_discovery_questions_active ON discovery_questions(is_active, priority DESC);
+CREATE INDEX idx_discovery_questions_required ON discovery_questions(is_required) WHERE is_required = TRUE;
+
+-- Extracted Insights from Conversations
+CREATE TABLE conversation_insights (
+    id TEXT PRIMARY KEY CHECK(length(id) >= 8),
+    session_id TEXT NOT NULL,
+    insight_type TEXT NOT NULL CHECK(insight_type IN ('requirement', 'constraint', 'risk', 'assumption', 'decision')),
+    insight_text TEXT NOT NULL,
+    confidence_score REAL CHECK(confidence_score >= 0.0 AND confidence_score <= 1.0),
+    source_message_ids TEXT,
+    applied_to_prd BOOLEAN DEFAULT FALSE,
+
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+
+    FOREIGN KEY (session_id) REFERENCES ideate_sessions(id) ON DELETE CASCADE,
+    CHECK (json_valid(source_message_ids) OR source_message_ids IS NULL)
+);
+
+CREATE INDEX idx_conversation_insights_session ON conversation_insights(session_id);
+CREATE INDEX idx_conversation_insights_type ON conversation_insights(insight_type);
+CREATE INDEX idx_conversation_insights_applied ON conversation_insights(applied_to_prd);
+
+-- ============================================================================
+-- SEED DATA: Default Discovery Questions for Conversational Mode
+-- ============================================================================
+
+INSERT OR IGNORE INTO discovery_questions (id, category, question_text, priority, is_required, display_order) VALUES
+('dq-prob-1', 'problem', 'What specific problem are you trying to solve?', 10, TRUE, 1),
+('dq-prob-2', 'problem', 'Who experiences this problem most acutely?', 9, TRUE, 2),
+('dq-prob-3', 'problem', 'What happens if this problem isn''t solved?', 7, FALSE, 3),
+('dq-user-1', 'users', 'Who are your primary users or customers?', 10, TRUE, 1),
+('dq-user-2', 'users', 'What are their main goals and pain points?', 9, TRUE, 2),
+('dq-user-3', 'users', 'How do they currently solve this problem?', 8, FALSE, 3),
+('dq-feat-1', 'features', 'What are the must-have features for MVP?', 10, TRUE, 1),
+('dq-feat-2', 'features', 'What features would delight users but aren''t essential?', 6, FALSE, 2),
+('dq-feat-3', 'features', 'Are there features you explicitly want to avoid?', 5, FALSE, 3),
+('dq-tech-1', 'technical', 'Do you have any technical constraints or requirements?', 8, FALSE, 1),
+('dq-tech-2', 'technical', 'What existing systems need to integrate with this?', 7, FALSE, 2),
+('dq-tech-3', 'technical', 'Are there performance or scalability requirements?', 6, FALSE, 3),
+('dq-risk-1', 'risks', 'What are the biggest risks to this project?', 8, FALSE, 1),
+('dq-risk-2', 'risks', 'What would cause this project to fail?', 7, FALSE, 2),
+('dq-cons-1', 'constraints', 'What is your timeline for this project?', 9, TRUE, 1),
+('dq-cons-2', 'constraints', 'Do you have budget or resource constraints?', 7, FALSE, 2),
+('dq-succ-1', 'success', 'How will you measure success?', 9, TRUE, 1),
+('dq-succ-2', 'success', 'What does "done" look like for the MVP?', 8, TRUE, 2);
