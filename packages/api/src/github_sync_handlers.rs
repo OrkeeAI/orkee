@@ -85,7 +85,7 @@ async fn get_github_config(
     Ok(GitHubConfig {
         owner,
         repo,
-        token,
+        token: zeroize::Zeroizing::new(token),
         labels_config,
         default_assignee: github_default_assignee,
     })

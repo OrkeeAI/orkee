@@ -164,7 +164,7 @@ fn test_github_config_creation() {
     let config = GitHubConfig {
         owner: "orkee-test".to_string(),
         repo: "test-repo".to_string(),
-        token: "test-token".to_string(),
+        token: zeroize::Zeroizing::new("test-token".to_string()),
         labels_config: Some(HashMap::from([
             ("epic".to_string(), "type:epic".to_string()),
             ("task".to_string(), "type:task".to_string()),
@@ -266,7 +266,7 @@ async fn test_epic_sync_integration() {
     let config = GitHubConfig {
         owner,
         repo,
-        token,
+        token: zeroize::Zeroizing::new(token),
         labels_config: None,
         default_assignee: None,
     };

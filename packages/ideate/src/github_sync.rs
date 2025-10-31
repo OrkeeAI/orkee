@@ -85,7 +85,7 @@ struct GitHubErrorResponse {
 pub struct GitHubConfig {
     pub owner: String,
     pub repo: String,
-    pub token: String,
+    pub token: zeroize::Zeroizing<String>,
     pub labels_config: Option<HashMap<String, String>>,
     pub default_assignee: Option<String>,
 }
