@@ -14,7 +14,7 @@ use super::auth::CurrentUser;
 use super::response::ApiResponse;
 use ai::service::{AIService, AIServiceError};
 use ai::usage_logs::AiUsageLog;
-use orkee_projects::{DbState, get_prd};
+use orkee_projects::{get_prd, DbState};
 use tasks::{TaskCreateInput, TaskPriority};
 
 // ============================================================================
@@ -335,10 +335,7 @@ RESPOND WITH ONLY VALID JSON."#
             };
 
             let project_id = &prd.project_id;
-            info!(
-                "Successfully analyzed PRD for project: {}",
-                project_id
-            );
+            info!("Successfully analyzed PRD for project: {}", project_id);
 
             // Save suggested tasks to database
             info!(
@@ -365,7 +362,7 @@ RESPOND WITH ONLY VALID JSON."#
                     dependencies: None,
                     due_date: None,
                     estimated_hours: task_suggestion.estimated_hours.map(|h| h as f64),
-                    complexity_score: Some(task_suggestion.complexity as i32),
+                    complexity_score: Some(task_suggestion.complexity),
                     details: None,
                     test_strategy: None,
                     acceptance_criteria: None,

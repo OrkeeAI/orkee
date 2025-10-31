@@ -11,8 +11,9 @@ use tracing::info;
 
 use super::response::{created_or_internal_error, ok_or_internal_error, ok_or_not_found};
 use orkee_projects::{
-    self as projects, pagination::{PaginatedResponse, PaginationParams}, DbState, PRDSource,
-    PRDStatus,
+    self as projects,
+    pagination::{PaginatedResponse, PaginationParams},
+    DbState, PRDSource, PRDStatus,
 };
 
 /// List all PRDs for a project

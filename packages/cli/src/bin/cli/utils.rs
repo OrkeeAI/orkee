@@ -1,6 +1,8 @@
 // ABOUTME: CLI utility functions for project context detection
 // ABOUTME: Helps automatically detect project from current working directory
 
+#![allow(dead_code)]
+
 use sqlx::SqlitePool;
 use std::env;
 use std::path::Path;

@@ -8,11 +8,9 @@ use std::fs;
 use std::path::PathBuf;
 use tracing::{error, info};
 
-use context::{
-    types::{
-        ContextConfiguration, ContextGenerationRequest, ContextMetadata, FileInfo,
-        GeneratedContext, ListFilesResponse,
-    },
+use context::types::{
+    ContextConfiguration, ContextGenerationRequest, ContextMetadata, FileInfo, GeneratedContext,
+    ListFilesResponse,
 };
 use orkee_projects::DbState;
 
