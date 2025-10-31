@@ -37,7 +37,10 @@ pub async fn list_prds(
     .await
     .map(|(prds, total)| PaginatedResponse::new(prds, &pagination, total));
 
-    ok_or_internal_error(result, &format!("Failed to list PRDs for project {}", project_id))
+    ok_or_internal_error(
+        result,
+        &format!("Failed to list PRDs for project {}", project_id),
+    )
 }
 
 /// Get a single PRD by ID
@@ -48,7 +51,10 @@ pub async fn get_prd(
     info!("Getting PRD: {} for project: {}", prd_id, project_id);
 
     let result = projects::get_prd(&db.pool, &prd_id).await;
-    ok_or_not_found(result, &format!("PRD {} not found in project {}", prd_id, project_id))
+    ok_or_not_found(
+        result,
+        &format!("PRD {} not found in project {}", prd_id, project_id),
+    )
 }
 
 /// Request body for creating a PRD
@@ -88,7 +94,13 @@ pub async fn create_prd(
     )
     .await;
 
-    created_or_internal_error(result, &format!("Failed to create PRD '{}' for project {}", request.title, project_id))
+    created_or_internal_error(
+        result,
+        &format!(
+            "Failed to create PRD '{}' for project {}",
+            request.title, project_id
+        ),
+    )
 }
 
 /// Request body for updating a PRD
@@ -117,7 +129,10 @@ pub async fn update_prd(
     )
     .await;
 
-    ok_or_internal_error(result, &format!("Failed to update PRD {} in project {}", prd_id, project_id))
+    ok_or_internal_error(
+        result,
+        &format!("Failed to update PRD {} in project {}", prd_id, project_id),
+    )
 }
 
 /// Delete a PRD
@@ -128,5 +143,11 @@ pub async fn delete_prd(
     info!("Deleting PRD: {} from project: {}", prd_id, project_id);
 
     let result = projects::delete_prd(&db.pool, &prd_id).await;
-    ok_or_internal_error(result, &format!("Failed to delete PRD {} from project {}", prd_id, project_id))
+    ok_or_internal_error(
+        result,
+        &format!(
+            "Failed to delete PRD {} from project {}",
+            prd_id, project_id
+        ),
+    )
 }
