@@ -46,37 +46,23 @@ async fn test_all_core_tables_created() {
 
     // Core tables that must exist
     // Note: agents table removed - now loaded from packages/agents/config/agents.json
+    // Note: OpenSpec tables removed - replaced by CCPM/ideate system
     let required_tables = vec![
         "_sqlx_migrations",
         "agent_executions",
         "ai_usage_logs",
         "api_tokens",
-        "ast_spec_mappings",
-        "context_configurations",
-        "context_snapshots",
-        "context_templates",
-        "context_usage_patterns",
         "encryption_settings",
         "password_attempts",
         "pr_reviews",
-        "prd_spec_sync_history",
         "prds",
         "projects",
         "projects_fts",
-        "spec_capabilities",
-        "spec_capabilities_history",
-        "spec_change_tasks",
-        "spec_changes",
-        "spec_deltas",
-        "spec_materializations",
-        "spec_requirements",
-        "spec_scenarios",
         "storage_metadata",
         "sync_snapshots",
         "sync_state",
         "system_settings",
         "tags",
-        "task_spec_links",
         "tasks",
         "tasks_fts",
         "telemetry_events",
@@ -225,13 +211,8 @@ async fn test_critical_indexes_created() {
         "idx_tasks_project_id",
         "idx_tasks_status",
         "idx_tasks_created_by_user_id",
-        "idx_tasks_change_id",
         "idx_tasks_from_prd_id",
         "idx_tasks_user_status",
-        "idx_spec_changes_project",
-        "idx_spec_changes_created_at",
-        // idx_spec_capabilities_project removed - redundant with idx_spec_capabilities_project_status
-        "idx_spec_capabilities_project_status",
         "idx_prds_project",
         "idx_ai_usage_logs_project",
     ];
@@ -271,10 +252,7 @@ async fn test_tasks_foreign_keys_configured() {
         "tasks should have FK to users (created_by_user_id)"
     );
     // Note: FK to agents removed - agent_id fields now reference packages/agents/config/agents.json (no FK enforcement)
-    assert!(
-        fk_tables.contains(&"spec_changes".to_string()),
-        "tasks should have FK to spec_changes"
-    );
+    // Note: FK to spec_changes removed - OpenSpec replaced by CCPM/ideate system
     assert!(
         fk_tables.contains(&"prds".to_string()),
         "tasks should have FK to prds"
@@ -295,33 +273,6 @@ async fn test_tasks_foreign_keys_configured() {
     assert_eq!(
         on_delete, "RESTRICT",
         "created_by_user_id should have ON DELETE RESTRICT"
-    );
-}
-
-#[tokio::test]
-async fn test_spec_changes_foreign_keys_configured() {
-    let pool = setup_migrated_db().await;
-
-    // Get foreign key definitions for spec_changes table
-    // PRAGMA foreign_key_list returns: id, seq, table, from, to, on_update, on_delete, match
-    let fk_rows: Vec<ForeignKeyRow> = sqlx::query_as("PRAGMA foreign_key_list(spec_changes)")
-        .fetch_all(&pool)
-        .await
-        .unwrap();
-
-    // Verify foreign keys
-    let fk_tables: Vec<String> = fk_rows
-        .iter()
-        .map(|(_, _, table, _, _, _, _, _)| table.clone())
-        .collect();
-
-    assert!(
-        fk_tables.contains(&"projects".to_string()),
-        "spec_changes should have FK to projects"
-    );
-    assert!(
-        fk_tables.contains(&"prds".to_string()),
-        "spec_changes should have FK to prds"
     );
 }
 

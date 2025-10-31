@@ -540,7 +540,6 @@ CREATE TABLE ai_usage_logs (
     estimated_cost REAL,
     duration_ms INTEGER,
     error TEXT,
-    context_snapshot_id TEXT REFERENCES context_snapshots(id),
     created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
     FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
 );
@@ -550,7 +549,6 @@ CREATE INDEX idx_ai_usage_logs_created ON ai_usage_logs(created_at);
 CREATE INDEX idx_ai_usage_logs_operation ON ai_usage_logs(operation);
 CREATE INDEX idx_ai_usage_logs_provider_model ON ai_usage_logs(provider, model);
 CREATE INDEX idx_ai_usage_logs_provider_model_created ON ai_usage_logs(provider, model, created_at);
-CREATE INDEX idx_ai_usage_logs_context ON ai_usage_logs(context_snapshot_id);
 
 -- Note: AI usage logs should be cleaned up via external scheduled job or cron task
 -- Recommended retention: 30-90 days depending on usage patterns
