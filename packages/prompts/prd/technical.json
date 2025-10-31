@@ -1,0 +1,47 @@
+{
+  "id": "technical",
+  "name": "Technical Architecture",
+  "category": "prd",
+  "template": "Based on this project description:\n\n{{description}}\n\nGenerate a technical architecture plan:\n\n{\n  \"components\": [\n    {\n      \"name\": \"Component name\",\n      \"purpose\": \"What this component does\",\n      \"technology\": \"Suggested technology/framework\"\n    }\n  ],\n  \"dataModels\": [\n    {\n      \"name\": \"Model name\",\n      \"fields\": [\n        {\n          \"name\": \"Field name\",\n          \"type\": \"Data type\",\n          \"required\": true/false\n        }\n      ]\n    }\n  ],\n  \"apis\": [\n    {\n      \"name\": \"API name\",\n      \"purpose\": \"What this API does\",\n      \"endpoints\": [\"List of endpoint patterns\"]\n    }\n  ],\n  \"infrastructure\": {\n    \"hosting\": \"Recommended hosting approach\",\n    \"database\": \"Database technology and why\",\n    \"caching\": \"Caching strategy if needed\",\n    \"fileStorage\": \"File storage approach if needed\"\n  },\n  \"techStackQuick\": \"One-line summary of the tech stack\"\n}\n\nBe practical and consider:\n- Scalability needs\n- Development complexity\n- Maintenance requirements\n- Cost efficiency",
+  "parameters": ["description"],
+  "outputSchema": {
+    "components": [
+      {
+        "name": "string",
+        "purpose": "string",
+        "technology": "string"
+      }
+    ],
+    "dataModels": [
+      {
+        "name": "string",
+        "fields": [
+          {
+            "name": "string",
+            "type": "string",
+            "required": "boolean"
+          }
+        ]
+      }
+    ],
+    "apis": [
+      {
+        "name": "string",
+        "purpose": "string",
+        "endpoints": ["string"]
+      }
+    ],
+    "infrastructure": {
+      "hosting": "string",
+      "database": "string",
+      "caching": "string",
+      "fileStorage": "string"
+    },
+    "techStackQuick": "string"
+  },
+  "metadata": {
+    "version": "1.0.0",
+    "lastModified": "2025-10-30",
+    "description": "Generate technical architecture section"
+  }
+}

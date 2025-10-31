@@ -1,0 +1,56 @@
+{
+  "id": "dependencies",
+  "name": "Dependency Chain",
+  "category": "prd",
+  "template": "Based on this project description:\n\n{{description}}\n\nAnd these features:\n{{features}}\n\nGenerate a logical dependency chain:\n\n{\n  \"foundationFeatures\": [\n    {\n      \"id\": \"feature-id\",\n      \"name\": \"Feature name\",\n      \"rationale\": \"Why this must be built first\",\n      \"blocks\": [\"feature-ids that depend on this\"],\n      \"dependsOn\": [\"feature-ids this depends on\"]\n    }\n  ],\n  \"visibleFeatures\": [\n    {\n      \"id\": \"feature-id\",\n      \"name\": \"Feature name\",\n      \"rationale\": \"Why this gives quick user value\",\n      \"blocks\": [\"feature-ids that depend on this\"],\n      \"dependsOn\": [\"feature-ids this depends on\"]\n    }\n  ],\n  \"enhancementFeatures\": [\n    {\n      \"id\": \"feature-id\",\n      \"name\": \"Feature name\",\n      \"rationale\": \"Why this enhances the experience\",\n      \"blocks\": [\"feature-ids that depend on this\"],\n      \"dependsOn\": [\"feature-ids this depends on\"]\n    }\n  ],\n  \"dependencyGraph\": {\n    \"nodes\": [\n      {\n        \"id\": \"feature-id\",\n        \"label\": \"Feature name\",\n        \"phase\": 1-3\n      }\n    ],\n    \"edges\": [\n      {\n        \"from\": \"dependency-id\",\n        \"to\": \"dependent-id\"\n      }\n    ]\n  }\n}\n\nFocus on:\n1. What MUST be built first (foundation)\n2. What gets users to a usable state quickly (visible)\n3. What enhances the experience (enhancement)\n\nCreate a clear path from \"nothing\" to \"working product\" to \"polished product\".",
+  "parameters": ["description", "features"],
+  "outputSchema": {
+    "foundationFeatures": [
+      {
+        "id": "string",
+        "name": "string",
+        "rationale": "string",
+        "blocks": ["string"],
+        "dependsOn": ["string"]
+      }
+    ],
+    "visibleFeatures": [
+      {
+        "id": "string",
+        "name": "string",
+        "rationale": "string",
+        "blocks": ["string"],
+        "dependsOn": ["string"]
+      }
+    ],
+    "enhancementFeatures": [
+      {
+        "id": "string",
+        "name": "string",
+        "rationale": "string",
+        "blocks": ["string"],
+        "dependsOn": ["string"]
+      }
+    ],
+    "dependencyGraph": {
+      "nodes": [
+        {
+          "id": "string",
+          "label": "string",
+          "phase": "number"
+        }
+      ],
+      "edges": [
+        {
+          "from": "string",
+          "to": "string"
+        }
+      ]
+    }
+  },
+  "metadata": {
+    "version": "1.0.0",
+    "lastModified": "2025-10-30",
+    "description": "Generate dependency chain section with detailed rationale"
+  }
+}

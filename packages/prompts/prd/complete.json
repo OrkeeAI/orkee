@@ -1,0 +1,22 @@
+{
+  "id": "complete",
+  "name": "Complete PRD Generation",
+  "category": "prd",
+  "template": "Generate a complete, comprehensive PRD for this project:\n\n{{description}}\n\nProvide a structured JSON response with ALL sections:\n\n{\n  \"overview\": {\n    \"problemStatement\": \"...\",\n    \"targetAudience\": \"...\",\n    \"valueProposition\": \"...\",\n    \"oneLinePitch\": \"...\"\n  },\n  \"features\": [...],\n  \"ux\": {\n    \"personas\": [...],\n    \"userFlows\": [...],\n    \"uiConsiderations\": \"...\",\n    \"uxPrinciples\": \"...\"\n  },\n  \"technical\": {\n    \"components\": [...],\n    \"dataModels\": [...],\n    \"apis\": [...],\n    \"infrastructure\": {...},\n    \"techStackQuick\": \"...\"\n  },\n  \"roadmap\": {\n    \"mvpScope\": [...],\n    \"futurePhases\": [...]\n  },\n  \"dependencies\": {\n    \"foundationFeatures\": [\n      {\n        \"id\": \"feature-id\",\n        \"name\": \"Feature name\",\n        \"rationale\": \"Why this must be built first\",\n        \"blocks\": [\"feature-ids that depend on this\"],\n        \"dependsOn\": [\"feature-ids this depends on\"]\n      }\n    ],\n    \"visibleFeatures\": [\n      {\n        \"id\": \"feature-id\",\n        \"name\": \"Feature name\",\n        \"rationale\": \"Why this gives quick user value\",\n        \"blocks\": [\"feature-ids that depend on this\"],\n        \"dependsOn\": [\"feature-ids this depends on\"]\n      }\n    ],\n    \"enhancementFeatures\": [\n      {\n        \"id\": \"feature-id\",\n        \"name\": \"Feature name\",\n        \"rationale\": \"Why this enhances the experience\",\n        \"blocks\": [\"feature-ids that depend on this\"],\n        \"dependsOn\": [\"feature-ids this depends on\"]\n      }\n    ],\n    \"dependencyGraph\": {\n      \"nodes\": [\n        {\n          \"id\": \"feature-id\",\n          \"label\": \"Feature name\",\n          \"phase\": 1-3\n        }\n      ],\n      \"edges\": [\n        {\n          \"from\": \"dependency-id\",\n          \"to\": \"dependent-id\"\n        }\n      ]\n    }\n  },\n  \"risks\": {\n    \"technicalRisks\": [...],\n    \"mvpScopingRisks\": [...],\n    \"resourceRisks\": [...],\n    \"mitigations\": [...]\n  },\n  \"research\": {\n    \"competitors\": [...],\n    \"similarProjects\": [...],\n    \"researchFindings\": \"...\",\n    \"technicalSpecs\": \"...\",\n    \"referenceLinks\": [...]\n  }\n}\n\nMake this PRD:\n1. Comprehensive and detailed\n2. Actionable and specific\n3. Focused on MVP scope\n4. Free of timeline commitments\n5. Emphasizing logical build order",
+  "parameters": ["description"],
+  "outputSchema": {
+    "overview": "object",
+    "features": "array",
+    "ux": "object",
+    "technical": "object",
+    "roadmap": "object",
+    "dependencies": "object",
+    "risks": "object",
+    "research": "object"
+  },
+  "metadata": {
+    "version": "1.0.0",
+    "lastModified": "2025-10-30",
+    "description": "Generate a complete PRD from a one-liner description (all sections in one call)"
+  }
+}

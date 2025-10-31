@@ -1,0 +1,52 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Orkee Prompt Schema",
+  "description": "Schema for AI prompt templates used throughout Orkee",
+  "type": "object",
+  "required": ["id", "name", "category", "template", "parameters"],
+  "properties": {
+    "id": {
+      "type": "string",
+      "description": "Unique identifier for this prompt (e.g., 'overview', 'features')"
+    },
+    "name": {
+      "type": "string",
+      "description": "Human-readable name for this prompt"
+    },
+    "category": {
+      "type": "string",
+      "enum": ["prd", "research", "expert", "system"],
+      "description": "Category of prompt"
+    },
+    "template": {
+      "type": "string",
+      "description": "The prompt template with {{placeholder}} syntax for parameters"
+    },
+    "parameters": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "List of parameter names required by this template"
+    },
+    "outputSchema": {
+      "type": "object",
+      "description": "Expected JSON structure of the AI response (optional, for documentation)"
+    },
+    "metadata": {
+      "type": "object",
+      "properties": {
+        "version": {
+          "type": "string"
+        },
+        "lastModified": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "description": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

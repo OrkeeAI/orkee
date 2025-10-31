@@ -1,0 +1,37 @@
+{
+  "id": "ux",
+  "name": "UX Design",
+  "category": "prd",
+  "template": "Based on this project description:\n\n{{description}}\n\nGenerate a UX analysis including personas and user flows:\n\n{\n  \"personas\": [\n    {\n      \"name\": \"Persona name\",\n      \"role\": \"Their role or job title\",\n      \"goals\": [\"What they want to accomplish\"],\n      \"painPoints\": [\"Current frustrations or challenges\"]\n    }\n  ],\n  \"userFlows\": [\n    {\n      \"name\": \"Flow name (e.g., 'User onboarding')\",\n      \"steps\": [\n        {\n          \"action\": \"User action\",\n          \"screen\": \"Screen or interface\",\n          \"notes\": \"Optional context or variations\"\n        }\n      ],\n      \"touchpoints\": [\"Key interactions or decision points\"]\n    }\n  ],\n  \"uiConsiderations\": \"Key UI design considerations\",\n  \"uxPrinciples\": \"Core UX principles to follow\"\n}\n\nCreate 2-3 personas and 3-5 critical user flows.",
+  "parameters": ["description"],
+  "outputSchema": {
+    "personas": [
+      {
+        "name": "string",
+        "role": "string",
+        "goals": ["string"],
+        "painPoints": ["string"]
+      }
+    ],
+    "userFlows": [
+      {
+        "name": "string",
+        "steps": [
+          {
+            "action": "string",
+            "screen": "string",
+            "notes": "string"
+          }
+        ],
+        "touchpoints": ["string"]
+      }
+    ],
+    "uiConsiderations": "string",
+    "uxPrinciples": "string"
+  },
+  "metadata": {
+    "version": "1.0.0",
+    "lastModified": "2025-10-30",
+    "description": "Generate UX section (Personas, Flows)"
+  }
+}

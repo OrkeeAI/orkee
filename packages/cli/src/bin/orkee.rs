@@ -463,9 +463,13 @@ async fn start_full_dashboard(
         let dev_mode = dev;
 
         tokio::spawn(async move {
-            if let Err(e) =
-                start_server_with_options(api_port, cors_origin_clone, dashboard_path_for_server, dev_mode)
-                    .await
+            if let Err(e) = start_server_with_options(
+                api_port,
+                cors_origin_clone,
+                dashboard_path_for_server,
+                dev_mode,
+            )
+            .await
             {
                 eprintln!("{} Failed to start backend: {}", "Error:".red().bold(), e);
             }

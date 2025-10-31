@@ -11,6 +11,9 @@ repository.workspace = true
 # Core package
 orkee_core = { path = "../core" }
 
+# Prompts package for centralized prompt management
+orkee-prompts = { path = "../prompts", package = "orkee-prompts" }
+
 # AI package for intelligent suggestions
 ai = { path = "../ai" }
 
@@ -48,6 +51,7 @@ thiserror = "2.0"
 # Utilities
 uuid = { version = "1.0", features = ["v4", "serde"] }
 nanoid = "0.4.0"
+lazy_static = "1.4"
 
 # Graph algorithms for dependency analysis
 petgraph = { version = "0.6", features = ["serde-1"] }

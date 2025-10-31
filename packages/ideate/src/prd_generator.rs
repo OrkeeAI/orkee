@@ -137,7 +137,7 @@ impl PRDGenerator {
 
         // Generate complete PRD using the AI
         let prompt = prompts::complete_prd_prompt(description);
-        let system_prompt = Some(prompts::SYSTEM_PROMPT.to_string());
+        let system_prompt = Some(prompts::get_system_prompt());
 
         let response: AIResponse<serde_json::Value> = ai_service
             .generate_structured(prompt, system_prompt)
@@ -201,7 +201,7 @@ impl PRDGenerator {
             }
         };
 
-        let system_prompt = Some(prompts::SYSTEM_PROMPT.to_string());
+        let system_prompt = Some(prompts::get_system_prompt());
 
         let response: AIResponse<serde_json::Value> = ai_service
             .generate_structured(prompt, system_prompt)
@@ -426,7 +426,7 @@ impl PRDGenerator {
 
         // Generate PRD using AI with full context
         let prompt = self.build_session_prd_prompt(&aggregated, &context);
-        let system_prompt = Some(prompts::SYSTEM_PROMPT.to_string());
+        let system_prompt = Some(prompts::get_system_prompt());
 
         let response: AIResponse<serde_json::Value> = ai_service
             .generate_structured(prompt, system_prompt)
@@ -504,7 +504,7 @@ impl PRDGenerator {
 
         // Build enhanced prompt with context
         let prompt = self.build_section_prompt_with_context(section, description, context)?;
-        let system_prompt = Some(prompts::SYSTEM_PROMPT.to_string());
+        let system_prompt = Some(prompts::get_system_prompt());
 
         let response: AIResponse<serde_json::Value> = ai_service
             .generate_structured(prompt, system_prompt)
@@ -843,7 +843,7 @@ impl PRDGenerator {
 
         // Build prompt for intelligent template reformatting
         let prompt = self.build_template_regeneration_prompt(&aggregated, &context, &template_name);
-        let system_prompt = Some(prompts::SYSTEM_PROMPT.to_string());
+        let system_prompt = Some(prompts::get_system_prompt());
 
         // Call Claude with streaming
         let text_stream = ai_service
@@ -917,7 +917,7 @@ impl PRDGenerator {
 
         // Build prompt for intelligent template reformatting
         let prompt = self.build_template_regeneration_prompt(&aggregated, &context, &template_name);
-        let system_prompt = Some(prompts::SYSTEM_PROMPT.to_string());
+        let system_prompt = Some(prompts::get_system_prompt());
 
         // Call Claude to intelligently reformat the data as markdown
         let response = ai_service

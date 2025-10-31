@@ -1,0 +1,22 @@
+{
+  "id": "roadmap",
+  "name": "Development Roadmap",
+  "category": "prd",
+  "template": "Based on this project description:\n\n{{description}}\n\nAnd these features:\n{{features}}\n\nGenerate a development roadmap focused on SCOPE, not timelines:\n\n{\n  \"mvpScope\": [\n    \"Feature or capability to include in MVP\",\n    \"Another MVP feature\"\n  ],\n  \"futurePhases\": [\n    {\n      \"name\": \"Phase name (e.g., 'Phase 2: Advanced Analytics')\",\n      \"features\": [\"Features to add in this phase\"],\n      \"goals\": [\"What this phase achieves\"]\n    }\n  ]\n}\n\nThe MVP should be the minimum viable version that provides real value.\nFuture phases should be logical extensions, not arbitrary chunks.\nNO dates, NO timelines - focus on what to build and why.",
+  "parameters": ["description", "features"],
+  "outputSchema": {
+    "mvpScope": ["string"],
+    "futurePhases": [
+      {
+        "name": "string",
+        "features": ["string"],
+        "goals": ["string"]
+      }
+    ]
+  },
+  "metadata": {
+    "version": "1.0.0",
+    "lastModified": "2025-10-30",
+    "description": "Generate development roadmap (scope only, NO timelines)"
+  }
+}

@@ -1,0 +1,24 @@
+{
+  "id": "gap-analysis",
+  "name": "Competitive Gap Analysis",
+  "category": "research",
+  "template": "Perform a competitive gap analysis for this project:\n\nProject Description:\n{{projectDescription}}\n\nYour Planned Features:\n{{yourFeatures}}\n\nCompetitor Features:\n{{competitorFeatures}}\n\nIdentify opportunities in this JSON format:\n\n{\n  \"opportunities\": [\n    {\n      \"type\": \"differentiation|improvement|gap\",\n      \"title\": \"Opportunity title\",\n      \"description\": \"What makes this a valuable opportunity\",\n      \"competitorContext\": \"What competitors are doing (or not doing)\",\n      \"recommendation\": \"How to capitalize on this opportunity\"\n    }\n  ],\n  \"summary\": \"2-3 sentence strategic summary\"\n}\n\nLook for:\n1. Features competitors have that you're missing (gaps)\n2. Features you have that competitors lack (differentiation)\n3. Common patterns to improve upon (improvements)\n4. Unmet user needs evident from competitor limitations\n\nIdentify 4-6 key opportunities.",
+  "parameters": ["projectDescription", "yourFeatures", "competitorFeatures"],
+  "outputSchema": {
+    "opportunities": [
+      {
+        "type": "string",
+        "title": "string",
+        "description": "string",
+        "competitorContext": "string",
+        "recommendation": "string"
+      }
+    ],
+    "summary": "string"
+  },
+  "metadata": {
+    "version": "1.0.0",
+    "lastModified": "2025-10-30",
+    "description": "Compare features across competitors"
+  }
+}

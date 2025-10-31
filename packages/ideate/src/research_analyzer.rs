@@ -233,7 +233,7 @@ impl ResearchAnalyzer {
         let response = ai_service
             .generate_structured::<Competitor>(
                 prompt,
-                Some(research_prompts::RESEARCH_SYSTEM_PROMPT.to_string()),
+                Some(research_prompts::get_research_system_prompt()),
             )
             .await
             .map_err(|e| {
@@ -342,7 +342,7 @@ impl ResearchAnalyzer {
         let response = ai_service
             .generate_structured::<GapAnalysis>(
                 prompt,
-                Some(research_prompts::RESEARCH_SYSTEM_PROMPT.to_string()),
+                Some(research_prompts::get_research_system_prompt()),
             )
             .await
             .map_err(|e| {
@@ -378,7 +378,7 @@ impl ResearchAnalyzer {
         let response = ai_service
             .generate_structured::<PatternResponse>(
                 prompt,
-                Some(research_prompts::RESEARCH_SYSTEM_PROMPT.to_string()),
+                Some(research_prompts::get_research_system_prompt()),
             )
             .await
             .map_err(|e| {
@@ -477,7 +477,7 @@ impl ResearchAnalyzer {
         let response = ai_service
             .generate_structured::<LessonResponse>(
                 prompt,
-                Some(research_prompts::RESEARCH_SYSTEM_PROMPT.to_string()),
+                Some(research_prompts::get_research_system_prompt()),
             )
             .await
             .map_err(|e| {
@@ -514,7 +514,7 @@ impl ResearchAnalyzer {
         let response = ai_service
             .generate_structured::<ResearchSynthesis>(
                 prompt,
-                Some(research_prompts::RESEARCH_SYSTEM_PROMPT.to_string()),
+                Some(research_prompts::get_research_system_prompt()),
             )
             .await
             .map_err(|e| {

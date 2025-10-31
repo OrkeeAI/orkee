@@ -4,6 +4,7 @@
 import { createAnthropic } from '@ai-sdk/anthropic';
 import { generateObject, streamObject } from 'ai';
 import type { ZodSchema } from 'zod';
+import { PromptManager } from '@orkee/prompts';
 import {
   CompletePRDSchema,
   IdeateOverviewSchema,
@@ -24,18 +25,6 @@ import {
   type IdeateRisks,
   type IdeateResearch,
 } from './schemas';
-import {
-  SYSTEM_PROMPT,
-  completePRDPrompt,
-  overviewPrompt,
-  featuresPrompt,
-  uxPrompt,
-  technicalPrompt,
-  roadmapPrompt,
-  dependenciesPrompt,
-  risksPrompt,
-  researchPrompt,
-} from './prompts';
 
 /**
  * Configuration for AI generation
@@ -109,8 +98,13 @@ async function generateStructured<T>(
   config: AIGenerationConfig,
   prompt: string,
   schema: ZodSchema<T>,
-  systemPrompt: string = SYSTEM_PROMPT
+  systemPrompt?: string
 ): Promise<AIGenerationResult<T>> {
+  // Load system prompt if not provided
+  if (!systemPrompt) {
+    const promptManager = new PromptManager();
+    systemPrompt = await promptManager.getSystemPrompt('prd');
+  }
   if (!config.apiKey) {
     throw new AIGenerationError(
       'API key is required. Please add your Anthropic API key in Settings.',
@@ -198,8 +192,13 @@ async function generateStreamedStructured<T>(
   config: AIGenerationConfig,
   prompt: string,
   schema: ZodSchema<T>,
-  systemPrompt: string = SYSTEM_PROMPT
+  systemPrompt?: string
 ): Promise<AIStreamingResult<T>> {
+  // Load system prompt if not provided
+  if (!systemPrompt) {
+    const promptManager = new PromptManager();
+    systemPrompt = await promptManager.getSystemPrompt('prd');
+  }
   if (!config.apiKey) {
     throw new AIGenerationError(
       'API key is required. Please add your Anthropic API key in Settings.',
@@ -284,16 +283,18 @@ async function generateStreamedStructured<T>(
  */
 export class AIService {
   private config: AIGenerationConfig;
+  private promptManager: PromptManager;
 
   constructor(config: AIGenerationConfig) {
     this.config = config;
+    this.promptManager = new PromptManager();
   }
 
   /**
    * Generate complete PRD from description
    */
   async generateCompletePRD(description: string): Promise<AIGenerationResult<CompletePRD>> {
-    const prompt = completePRDPrompt(description);
+    const prompt = await this.promptManager.getPrompt('complete', { description });
     return generateStructured(this.config, prompt, CompletePRDSchema);
   }
 
@@ -301,7 +302,7 @@ export class AIService {
    * Generate overview section
    */
   async generateOverview(description: string): Promise<AIGenerationResult<IdeateOverview>> {
-    const prompt = overviewPrompt(description);
+    const prompt = await this.promptManager.getPrompt('overview', { description });
     return generateStructured(this.config, prompt, IdeateOverviewSchema);
   }
 
@@ -309,7 +310,7 @@ export class AIService {
    * Generate features section
    */
   async generateFeatures(description: string): Promise<AIGenerationResult<IdeateFeature[]>> {
-    const prompt = featuresPrompt(description);
+    const prompt = await this.promptManager.getPrompt('features', { description });
     const result = await generateStructured(this.config, prompt, FeaturesResponseSchema);
     return {
       data: result.data.features,
@@ -321,7 +322,7 @@ export class AIService {
    * Generate UX section
    */
   async generateUX(description: string): Promise<AIGenerationResult<IdeateUX>> {
-    const prompt = uxPrompt(description);
+    const prompt = await this.promptManager.getPrompt('ux', { description });
     return generateStructured(this.config, prompt, IdeateUXSchema);
   }
 
@@ -329,7 +330,7 @@ export class AIService {
    * Generate technical architecture section
    */
   async generateTechnical(description: string): Promise<AIGenerationResult<IdeateTechnical>> {
-    const prompt = technicalPrompt(description);
+    const prompt = await this.promptManager.getPrompt('technical', { description });
     return generateStructured(this.config, prompt, IdeateTechnicalSchema);
   }
 
@@ -340,7 +341,7 @@ export class AIService {
     description: string,
     features: string
   ): Promise<AIGenerationResult<IdeateRoadmap>> {
-    const prompt = roadmapPrompt(description, features);
+    const prompt = await this.promptManager.getPrompt('roadmap', { description, features });
     return generateStructured(this.config, prompt, IdeateRoadmapSchema);
   }
 
@@ -351,7 +352,7 @@ export class AIService {
     description: string,
     features: string
   ): Promise<AIGenerationResult<IdeateDependencies>> {
-    const prompt = dependenciesPrompt(description, features);
+    const prompt = await this.promptManager.getPrompt('dependencies', { description, features });
     return generateStructured(this.config, prompt, IdeateDependenciesSchema);
   }
 
@@ -359,7 +360,7 @@ export class AIService {
    * Generate risks section
    */
   async generateRisks(description: string): Promise<AIGenerationResult<IdeateRisks>> {
-    const prompt = risksPrompt(description);
+    const prompt = await this.promptManager.getPrompt('risks', { description });
     return generateStructured(this.config, prompt, IdeateRisksSchema);
   }
 
@@ -367,7 +368,7 @@ export class AIService {
    * Generate research section
    */
   async generateResearch(description: string): Promise<AIGenerationResult<IdeateResearch>> {
-    const prompt = researchPrompt(description);
+    const prompt = await this.promptManager.getPrompt('research', { description });
     return generateStructured(this.config, prompt, IdeateResearchSchema);
   }
 
@@ -377,7 +378,7 @@ export class AIService {
    * Generate complete PRD from description (streaming)
    */
   async generateCompletePRDStreaming(description: string): Promise<AIStreamingResult<CompletePRD>> {
-    const prompt = completePRDPrompt(description);
+    const prompt = await this.promptManager.getPrompt('complete', { description });
     return generateStreamedStructured(this.config, prompt, CompletePRDSchema);
   }
 
@@ -385,7 +386,7 @@ export class AIService {
    * Generate overview section (streaming)
    */
   async generateOverviewStreaming(description: string): Promise<AIStreamingResult<IdeateOverview>> {
-    const prompt = overviewPrompt(description);
+    const prompt = await this.promptManager.getPrompt('overview', { description });
     return generateStreamedStructured(this.config, prompt, IdeateOverviewSchema);
   }
 
@@ -393,7 +394,7 @@ export class AIService {
    * Generate features section (streaming)
    */
   async generateFeaturesStreaming(description: string): Promise<AIStreamingResult<IdeateFeature[]>> {
-    const prompt = featuresPrompt(description);
+    const prompt = await this.promptManager.getPrompt('features', { description });
     const result = await generateStreamedStructured(this.config, prompt, FeaturesResponseSchema);
 
     // Transform the stream to extract just the features array
@@ -414,7 +415,7 @@ export class AIService {
    * Generate UX section (streaming)
    */
   async generateUXStreaming(description: string): Promise<AIStreamingResult<IdeateUX>> {
-    const prompt = uxPrompt(description);
+    const prompt = await this.promptManager.getPrompt('ux', { description });
     return generateStreamedStructured(this.config, prompt, IdeateUXSchema);
   }
 
@@ -422,7 +423,7 @@ export class AIService {
    * Generate technical architecture section (streaming)
    */
   async generateTechnicalStreaming(description: string): Promise<AIStreamingResult<IdeateTechnical>> {
-    const prompt = technicalPrompt(description);
+    const prompt = await this.promptManager.getPrompt('technical', { description });
     return generateStreamedStructured(this.config, prompt, IdeateTechnicalSchema);
   }
 
@@ -433,7 +434,7 @@ export class AIService {
     description: string,
     features: string
   ): Promise<AIStreamingResult<IdeateRoadmap>> {
-    const prompt = roadmapPrompt(description, features);
+    const prompt = await this.promptManager.getPrompt('roadmap', { description, features });
     return generateStreamedStructured(this.config, prompt, IdeateRoadmapSchema);
   }
 
@@ -444,7 +445,7 @@ export class AIService {
     description: string,
     features: string
   ): Promise<AIStreamingResult<IdeateDependencies>> {
-    const prompt = dependenciesPrompt(description, features);
+    const prompt = await this.promptManager.getPrompt('dependencies', { description, features });
     return generateStreamedStructured(this.config, prompt, IdeateDependenciesSchema);
   }
 
@@ -452,7 +453,7 @@ export class AIService {
    * Generate risks section (streaming)
    */
   async generateRisksStreaming(description: string): Promise<AIStreamingResult<IdeateRisks>> {
-    const prompt = risksPrompt(description);
+    const prompt = await this.promptManager.getPrompt('risks', { description });
     return generateStreamedStructured(this.config, prompt, IdeateRisksSchema);
   }
 
@@ -460,7 +461,7 @@ export class AIService {
    * Generate research section (streaming)
    */
   async generateResearchStreaming(description: string): Promise<AIStreamingResult<IdeateResearch>> {
-    const prompt = researchPrompt(description);
+    const prompt = await this.promptManager.getPrompt('research', { description });
     return generateStreamedStructured(this.config, prompt, IdeateResearchSchema);
   }
 

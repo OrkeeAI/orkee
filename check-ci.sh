@@ -68,7 +68,7 @@ echo ""
 # 1. Rust Formatting
 #####################################
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-echo -e "${BLUE}1/5 Checking Rust formatting...${NC}"
+echo -e "${BLUE}1/6 Checking Rust formatting...${NC}"
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 
 if [ "$FIX_MODE" = true ]; then
@@ -89,24 +89,21 @@ echo ""
 # 2. Rust Clippy
 #####################################
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-echo -e "${BLUE}2/5 Running Clippy (Rust linter)...${NC}"
+echo -e "${BLUE}2/6 Running Clippy (Rust linter)...${NC}"
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 
 CLIPPY_PACKAGES=(
+  "orkee-cli"
+  "orkee-projects"
   "orkee-config"
+  "orkee-prompts"
+  "ai"
 )
-
-# Note: orkee-projects and orkee-cli require database setup for sqlx macros
-# Run manually with: DATABASE_URL=sqlite:orkee.db cargo test --package orkee-projects
-# Run manually with: DATABASE_URL=sqlite:orkee.db cargo test --package orkee-cli
 
 # Set DATABASE_URL for sqlx macros if not already set
 if [ -z "$DATABASE_URL" ]; then
   export DATABASE_URL="sqlite::memory:"
 fi
-
-# SQLX_OFFLINE requires .sqlx directory with prepared queries
-# For now, orkee-projects is excluded from CI checks
 
 if [ "$FIX_MODE" = true ]; then
   for package in "${CLIPPY_PACKAGES[@]}"; do
@@ -135,7 +132,7 @@ echo ""
 #####################################
 if [ "$SKIP_TESTS" = false ]; then
   echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-  echo -e "${BLUE}3/5 Running Rust tests...${NC}"
+  echo -e "${BLUE}3/6 Running Rust tests...${NC}"
   echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 
   for package in "${CLIPPY_PACKAGES[@]}"; do
@@ -153,10 +150,31 @@ else
 fi
 
 #####################################
-# 4. Frontend Lint
+# 4. Prompts Package Tests (TypeScript)
+#####################################
+if [ "$SKIP_TESTS" = false ]; then
+  echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+  echo -e "${BLUE}4/6 Testing prompts package (TypeScript)...${NC}"
+  echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+
+  cd packages/prompts
+  bun test || {
+    echo -e "${RED}✗ Prompts package tests failed${NC}"
+    exit 1
+  }
+  echo -e "${GREEN}✓ Prompts package tests passed (19 tests including 6 security tests)${NC}"
+  cd ../..
+  echo ""
+else
+  echo -e "${YELLOW}⏭️  Skipping prompts package tests${NC}"
+  echo ""
+fi
+
+#####################################
+# 5. Frontend Lint
 #####################################
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-echo -e "${BLUE}4/5 Linting dashboard (ESLint)...${NC}"
+echo -e "${BLUE}5/6 Linting dashboard (ESLint)...${NC}"
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 
 cd packages/dashboard
@@ -180,10 +198,10 @@ cd ../..
 echo ""
 
 #####################################
-# 5. Frontend Build
+# 6. Frontend Build
 #####################################
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-echo -e "${BLUE}5/5 Building dashboard...${NC}"
+echo -e "${BLUE}6/6 Building dashboard...${NC}"
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 
 cd packages/dashboard

@@ -34,18 +34,19 @@ jobs:
         key: ${{ runner.os }}-bun-${{ hashFiles('**/bun.lockb') }}
         restore-keys: ${{ runner.os }}-bun-
 
-    - name: Install dashboard dependencies
-      run: |
-        cd packages/dashboard
-        bun install
+    - name: Install dependencies
+      run: bun install
 
     - name: Lint dashboard
-      run: bun run lint
-      working-directory: packages/dashboard
+      run: bun run lint --filter=@orkee/dashboard
+
+    - name: Test prompts package
+      run: |
+        cd packages/prompts
+        bun test
 
     - name: Build dashboard
-      run: bun run build
-      working-directory: packages/dashboard
+      run: bun run build --filter=@orkee/dashboard
 
     - name: Check bundle size
       run: |
@@ -96,6 +97,8 @@ jobs:
         cargo clippy --package orkee-cli -- -D warnings
         cargo clippy --package orkee-projects -- -D warnings
         cargo clippy --package orkee-config -- -D warnings
+        cargo clippy --package orkee-prompts -- -D warnings
+        cargo clippy --package ai -- -D warnings
 
     - name: Run Rust tests (CLI & Server)
       # Note: SQLx compile-time query verification happens automatically during tests
@@ -104,6 +107,8 @@ jobs:
         cargo test --package orkee-cli
         cargo test --package orkee-projects
         cargo test --package orkee-config
+        cargo test --package orkee-prompts
+        cargo test --package ai
 
   # Tauri tests - Desktop app with system dependencies
   # Longer running due to Tauri framework overhead
