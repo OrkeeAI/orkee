@@ -2,12 +2,11 @@
 // ABOUTME: Handles CRUD operations, progress tracking, and work analysis for Epics
 
 use crate::epic::{
-    ArchitectureDecision, ConflictAnalysis, CreateEpicInput, DependencyGraph, Epic, EpicStatus,
-    ExternalDependency, GraphEdge, GraphNode, SuccessCriterion, UpdateEpicInput, WorkAnalysis,
-    WorkStream,
+    ArchitectureDecision, CreateEpicInput, Epic, EpicStatus,
+    ExternalDependency, SuccessCriterion, UpdateEpicInput,
 };
 use crate::error::{IdeateError, Result};
-use sqlx::SqlitePool;
+use sqlx::{Row, SqlitePool};
 
 pub struct EpicManager {
     pool: SqlitePool,
