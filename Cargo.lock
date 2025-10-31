@@ -3087,6 +3087,8 @@ dependencies = [
  "serde_json",
  "settings",
  "sqlx",
+ "storage",
+ "tasks",
  "tempfile",
  "thiserror 2.0.17",
  "tokio",

@@ -414,6 +414,15 @@ RESPOND WITH ONLY VALID JSON."#
                     tag_id: None,
                     tags: None,
                     category: Some(task_suggestion.capability_id.clone()),
+                    epic_id: None,
+                    parallel_group: None,
+                    depends_on: None,
+                    conflicts_with: None,
+                    task_type: None,
+                    size_estimate: None,
+                    technical_details: None,
+                    effort_hours: None,
+                    can_parallel: None,
                 };
 
                 match db

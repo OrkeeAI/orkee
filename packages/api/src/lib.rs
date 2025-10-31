@@ -30,6 +30,7 @@ pub mod response;
 pub mod security_handlers;
 pub mod spec_handlers;
 pub mod tags_handlers;
+pub mod task_decomposition_handlers;
 pub mod task_spec_handlers;
 pub mod tasks_handlers;
 pub mod template_handlers;
@@ -202,7 +203,7 @@ pub fn create_epics_router() -> Router<DbState> {
         )
         .route(
             "/{project_id}/epics/{epic_id}/tasks",
-            get(epic_handlers::get_epic_tasks),
+            get(task_decomposition_handlers::get_epic_tasks),
         )
         .route(
             "/{project_id}/epics/{epic_id}/progress",
@@ -210,7 +211,11 @@ pub fn create_epics_router() -> Router<DbState> {
         )
         .route(
             "/{project_id}/epics/{epic_id}/analyze-work",
-            post(epic_handlers::analyze_work_streams),
+            post(task_decomposition_handlers::analyze_work_streams),
+        )
+        .route(
+            "/{project_id}/epics/{epic_id}/decompose",
+            post(task_decomposition_handlers::decompose_epic),
         )
 }
 

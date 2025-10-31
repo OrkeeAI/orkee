@@ -109,7 +109,7 @@ impl EpicManager {
 
         match row {
             Some(row) => {
-                let epic = self.row_to_epic(row)?;
+                let epic = self.row_to_epic(&row)?;
                 Ok(Some(epic))
             }
             None => Ok(None),
@@ -137,7 +137,7 @@ impl EpicManager {
         .await
         .map_err(|e| IdeateError::DatabaseError(e.to_string()))?;
 
-        rows.into_iter()
+        rows.iter()
             .map(|row| self.row_to_epic(row))
             .collect()
     }
@@ -164,7 +164,7 @@ impl EpicManager {
         .await
         .map_err(|e| IdeateError::DatabaseError(e.to_string()))?;
 
-        rows.into_iter()
+        rows.iter()
             .map(|row| self.row_to_epic(row))
             .collect()
     }
@@ -334,7 +334,7 @@ impl EpicManager {
     }
 
     /// Helper to convert SQLite row to Epic
-    fn row_to_epic(&self, row: sqlx::sqlite::SqliteRow) -> Result<Epic> {
+    pub fn row_to_epic(&self, row: &sqlx::sqlite::SqliteRow) -> Result<Epic> {
         use sqlx::Row;
 
         let architecture_decisions: Option<Vec<ArchitectureDecision>> = row

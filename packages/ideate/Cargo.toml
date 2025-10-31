@@ -23,6 +23,12 @@ settings = { path = "../settings" }
 # Security for user API keys
 security = { path = "../security" }
 
+# Storage for database access
+storage = { path = "../storage" }
+
+# Tasks for task management
+tasks = { path = "../tasks" }
+
 # Database
 sqlx = { version = "0.8.1", default-features = false, features = ["runtime-tokio-rustls", "sqlite", "uuid", "chrono", "migrate", "macros", "json"] }
 

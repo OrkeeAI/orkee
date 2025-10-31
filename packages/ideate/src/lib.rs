@@ -16,6 +16,7 @@ pub mod research_analyzer;
 pub mod research_prompts;
 pub mod roundtable;
 pub mod roundtable_manager;
+pub mod task_decomposer;
 pub mod templates;
 pub mod types;
 
@@ -51,6 +52,10 @@ pub use roundtable::{
     UserInterjectionResponse,
 };
 pub use roundtable_manager::RoundtableManager;
+pub use task_decomposer::{
+    DecomposeEpicInput, DecompositionResult, ParallelGroup, TaskCategory, TaskDecomposer,
+    TaskTemplate,
+};
 pub use templates::TemplateManager;
 pub use types::*;
 
