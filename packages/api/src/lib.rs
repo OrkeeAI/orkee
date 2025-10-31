@@ -20,6 +20,7 @@ pub mod executions_handlers;
 pub mod github_sync_handlers;
 pub mod graph_handlers;
 pub mod handlers;
+pub mod ideate_conversational_handlers;
 pub mod ideate_dependency_handlers;
 pub mod ideate_generation_handlers;
 pub mod ideate_handlers;
@@ -553,6 +554,47 @@ pub fn create_ideate_router() -> Router<DbState> {
         .route(
             "/ideate/templates/suggest",
             post(ideate_handlers::suggest_template),
+        )
+        // Conversational Mode routes (CCPM)
+        .route(
+            "/ideate/conversational/{session_id}/history",
+            get(ideate_conversational_handlers::get_history),
+        )
+        .route(
+            "/ideate/conversational/{session_id}/message",
+            post(ideate_conversational_handlers::send_message),
+        )
+        .route(
+            "/ideate/conversational/questions",
+            get(ideate_conversational_handlers::get_discovery_questions),
+        )
+        .route(
+            "/ideate/conversational/{session_id}/suggested-questions",
+            get(ideate_conversational_handlers::get_suggested_questions),
+        )
+        .route(
+            "/ideate/conversational/{session_id}/insights",
+            get(ideate_conversational_handlers::get_insights),
+        )
+        .route(
+            "/ideate/conversational/{session_id}/insights",
+            post(ideate_conversational_handlers::create_insight),
+        )
+        .route(
+            "/ideate/conversational/{session_id}/quality",
+            get(ideate_conversational_handlers::get_quality_metrics),
+        )
+        .route(
+            "/ideate/conversational/{session_id}/status",
+            put(ideate_conversational_handlers::update_status),
+        )
+        .route(
+            "/ideate/conversational/{session_id}/generate-prd",
+            post(ideate_conversational_handlers::generate_prd),
+        )
+        .route(
+            "/ideate/conversational/{session_id}/validate",
+            get(ideate_conversational_handlers::validate_for_prd),
         )
 }
 

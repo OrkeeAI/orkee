@@ -1,8 +1,9 @@
-// ABOUTME: React hook for handling Server-Sent Events (SSE) streaming responses
-// ABOUTME: Manages real-time AI assistant responses in conversational mode
+// ABOUTME: React hook for handling AI streaming responses
+// ABOUTME: Manages real-time AI assistant responses in conversational mode using AI SDK
 
-import { useState, useEffect, useCallback, useRef } from 'react';
-import { conversationalService, ConversationMessage } from '@/services/conversational';
+import { useState, useCallback } from 'react';
+import { streamConversationalResponse } from '@/services/conversational-ai';
+import type { ConversationMessage } from '@/services/conversational';
 
 export interface StreamingMessage {
   id: string;
@@ -13,31 +14,22 @@ export interface StreamingMessage {
 
 export interface UseStreamingResponseOptions {
   sessionId: string;
-  onMessageComplete?: (message: ConversationMessage) => void;
+  conversationHistory: ConversationMessage[];
+  onMessageComplete?: (content: string) => void;
   onError?: (error: Error) => void;
 }
 
 export function useStreamingResponse({
   sessionId,
+  conversationHistory,
   onMessageComplete,
   onError,
 }: UseStreamingResponseOptions) {
   const [streamingMessage, setStreamingMessage] = useState<StreamingMessage | null>(null);
   const [isStreaming, setIsStreaming] = useState(false);
-  const eventSourceRef = useRef<EventSource | null>(null);
 
-  const closeConnection = useCallback(() => {
-    if (eventSourceRef.current) {
-      eventSourceRef.current.close();
-      eventSourceRef.current = null;
-    }
-    setIsStreaming(false);
-  }, []);
-
-  const startStreaming = useCallback(() => {
-    closeConnection();
-
-    try {
+  const startStreaming = useCallback(
+    async (userMessage: string) => {
       setIsStreaming(true);
       setStreamingMessage({
         id: `streaming-${Date.now()}`,
@@ -46,77 +38,57 @@ export function useStreamingResponse({
         isComplete: false,
       });
 
-      const streamUrl = conversationalService.getStreamUrl(sessionId);
-      const eventSource = new EventSource(streamUrl);
-      eventSourceRef.current = eventSource;
-
-      eventSource.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data);
-
-          if (data.type === 'chunk') {
-            setStreamingMessage((prev) => {
-              if (!prev) return null;
-              return {
-                ...prev,
-                content: prev.content + data.content,
-              };
-            });
-          } else if (data.type === 'complete') {
-            setStreamingMessage((prev) => {
-              if (!prev) return null;
-              return {
-                ...prev,
-                id: data.message_id,
-                content: data.content,
-                isComplete: true,
-              };
-            });
-
-            if (onMessageComplete && data.message) {
-              onMessageComplete(data.message as ConversationMessage);
-            }
-
-            closeConnection();
-          } else if (data.type === 'error') {
-            const error = new Error(data.message || 'Streaming error');
-            if (onError) {
-              onError(error);
-            }
-            closeConnection();
+      await streamConversationalResponse(
+        sessionId,
+        userMessage,
+        conversationHistory,
+        // onChunk
+        (chunk: string) => {
+          setStreamingMessage((prev) => {
+            if (!prev) return null;
+            return {
+              ...prev,
+              content: prev.content + chunk,
+            };
+          });
+        },
+        // onComplete
+        (fullText: string) => {
+          setStreamingMessage((prev) => {
+            if (!prev) return null;
+            return {
+              ...prev,
+              content: fullText,
+              isComplete: true,
+            };
+          });
+          setIsStreaming(false);
+          if (onMessageComplete) {
+            onMessageComplete(fullText);
           }
-        } catch (err) {
-          console.error('Failed to parse SSE data:', err);
+        },
+        // onError
+        (error: Error) => {
+          setIsStreaming(false);
+          setStreamingMessage(null);
+          if (onError) {
+            onError(error);
+          }
         }
-      };
+      );
+    },
+    [sessionId, conversationHistory, onMessageComplete, onError]
+  );
 
-      eventSource.onerror = (err) => {
-        console.error('SSE connection error:', err);
-        const error = new Error('Connection to server lost');
-        if (onError) {
-          onError(error);
-        }
-        closeConnection();
-      };
-    } catch (err) {
-      const error = err instanceof Error ? err : new Error('Failed to start streaming');
-      if (onError) {
-        onError(error);
-      }
-      closeConnection();
-    }
-  }, [sessionId, onMessageComplete, onError, closeConnection]);
-
-  useEffect(() => {
-    return () => {
-      closeConnection();
-    };
-  }, [closeConnection]);
+  const stopStreaming = useCallback(() => {
+    setIsStreaming(false);
+    setStreamingMessage(null);
+  }, []);
 
   return {
     streamingMessage,
     isStreaming,
     startStreaming,
-    stopStreaming: closeConnection,
+    stopStreaming,
   };
 }

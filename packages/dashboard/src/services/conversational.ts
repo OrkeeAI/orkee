@@ -23,6 +23,7 @@ export interface ConversationMessage {
 export interface SendMessageInput {
   content: string;
   message_type?: MessageType;
+  role?: MessageRole;
 }
 
 export interface DiscoveryQuestion {
@@ -106,12 +107,6 @@ class ConversationalService {
     return response.data.data;
   }
 
-  /**
-   * Get streaming SSE URL for conversational responses
-   */
-  getStreamUrl(sessionId: string): string {
-    return `/api/ideate/conversational/${sessionId}/stream`;
-  }
 
   /**
    * Get discovery questions (optionally filtered by category)
@@ -223,6 +218,30 @@ class ConversationalService {
 
     if (response.error || !response.data.success) {
       throw new Error(response.error || 'Failed to validate conversation');
+    }
+
+    return response.data.data;
+  }
+
+  /**
+   * Create a new insight
+   */
+  async createInsight(
+    sessionId: string,
+    input: {
+      insight_type: InsightType;
+      insight_text: string;
+      confidence_score?: number;
+      source_message_ids?: string[];
+    }
+  ): Promise<ConversationInsight> {
+    const response = await apiClient.post<{ success: boolean; data: ConversationInsight }>(
+      `/api/ideate/conversational/${sessionId}/insights`,
+      input
+    );
+
+    if (response.error || !response.data.success) {
+      throw new Error(response.error || 'Failed to create insight');
     }
 
     return response.data.data;

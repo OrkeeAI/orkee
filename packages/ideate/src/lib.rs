@@ -2,6 +2,8 @@
 // ABOUTME: Provides session management, section handling, and PRD generation support
 
 pub mod build_optimizer;
+pub mod conversational;
+pub mod conversational_manager;
 pub mod dependency_analyzer;
 pub mod epic;
 pub mod epic_manager;
@@ -25,6 +27,13 @@ pub use build_optimizer::{
     BuildOptimizer, BuildOrderResult, CircularDependency, CircularDependencySeverity,
     OptimizationStrategy,
 };
+pub use conversational::{
+    ConversationInsight, ConversationMessage, CreateInsightInput, DiscoveryQuestion,
+    DiscoveryStatus, GeneratePRDFromConversationInput, GeneratePRDFromConversationResult,
+    InsightType, MessageRole, MessageType, QualityMetrics, QuestionCategory, SendMessageInput,
+    TopicCoverage, ValidationResult,
+};
+pub use conversational_manager::ConversationalManager;
 pub use dependency_analyzer::{
     CreateDependencyInput, DependencyAnalysis, DependencyAnalyzer, DependencyStrength,
     DependencyType, FeatureDependency,
@@ -50,7 +59,7 @@ pub use research_analyzer::{
 };
 pub use roundtable::{
     CreateExpertPersonaInput, ExpertPersona, ExpertSuggestion, ExtractInsightsRequest,
-    ExtractInsightsResponse, InsightPriority, InsightsByCategory, MessageMetadata, MessageRole,
+    ExtractInsightsResponse, InsightPriority, InsightsByCategory, MessageMetadata,
     RoundtableEvent, RoundtableInsight, RoundtableMessage, RoundtableParticipant,
     RoundtableSession, RoundtableStatistics, RoundtableStatus, RoundtableWithParticipants,
     StartRoundtableRequest, SuggestExpertsRequest, SuggestExpertsResponse, UserInterjectionInput,

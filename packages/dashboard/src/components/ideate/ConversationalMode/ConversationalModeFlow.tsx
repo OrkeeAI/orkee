@@ -48,9 +48,20 @@ export function ConversationalModeFlow({
 
   const { streamingMessage, isStreaming, startStreaming } = useStreamingResponse({
     sessionId,
-    onMessageComplete: async () => {
-      await refresh();
-      await loadInsights();
+    conversationHistory: messages,
+    onMessageComplete: async (content: string) => {
+      // Save assistant message to backend
+      try {
+        await conversationalService.sendMessage(sessionId, {
+          content,
+          message_type: 'discovery',
+          role: 'assistant',
+        });
+        await refresh();
+        await loadInsights();
+      } catch (err) {
+        console.error('Failed to save assistant message:', err);
+      }
     },
     onError: (error) => {
       console.error('Streaming error:', error);
@@ -73,8 +84,10 @@ export function ConversationalModeFlow({
   const handleSendMessage = useCallback(
     async (content: string) => {
       try {
+        // Save user message to backend
         await sendMessage(content, 'discovery');
-        startStreaming();
+        // Start AI streaming response
+        await startStreaming(content);
       } catch (err) {
         console.error('Failed to send message:', err);
       }
