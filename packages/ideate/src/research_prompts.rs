@@ -69,7 +69,10 @@ pub fn feature_extraction_prompt(html_content: &str) -> Result<String, String> {
 }
 
 /// Extract UI/UX patterns from content and structure
-pub fn ui_pattern_prompt(project_description: &str, html_structure: &str) -> Result<String, String> {
+pub fn ui_pattern_prompt(
+    project_description: &str,
+    html_structure: &str,
+) -> Result<String, String> {
     // Truncate to first 8000 chars to match original behavior
     let truncated_structure = html_structure.chars().take(8000).collect::<String>();
 

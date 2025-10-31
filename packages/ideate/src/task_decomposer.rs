@@ -233,8 +233,7 @@ impl TaskDecomposer {
 
                 // Check if all dependencies are processed
                 let deps = dependencies.get(&task.id);
-                let can_process =
-                    deps.is_none_or(|d| d.iter().all(|dep| processed.contains(dep)));
+                let can_process = deps.is_none_or(|d| d.iter().all(|dep| processed.contains(dep)));
 
                 if can_process {
                     current_level_tasks.push(task.id.clone());

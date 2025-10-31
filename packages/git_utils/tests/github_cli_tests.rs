@@ -250,6 +250,9 @@ fn test_gh_cli_construction() {
     // Test that construction properly returns Result instead of panicking
     match GitHubCli::new() {
         Ok(_) => println!("✓ GitHubCli construction succeeded (gh available and authenticated)"),
-        Err(e) => println!("✓ GitHubCli construction failed gracefully: {} (expected if gh not available)", e),
+        Err(e) => println!(
+            "✓ GitHubCli construction failed gracefully: {} (expected if gh not available)",
+            e
+        ),
     }
 }

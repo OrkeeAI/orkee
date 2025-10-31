@@ -33,6 +33,7 @@ where
 }
 
 /// Unwrap helper that logs errors - used for backwards compatibility during migration
+#[allow(dead_code)]
 fn unwrap_or_log<T>(result: Result<T, String>, context: &str) -> T {
     result.unwrap_or_else(|e| {
         tracing::error!("{}: {}", context, e);
@@ -68,14 +69,20 @@ pub fn technical_prompt(description: &str) -> Result<String, String> {
 /// Generate development roadmap (scope only, NO timelines)
 pub fn roadmap_prompt(description: &str, features: &str) -> Result<String, String> {
     with_prompt_manager(|manager| {
-        manager.get_prompt("roadmap", &[("description", description), ("features", features)])
+        manager.get_prompt(
+            "roadmap",
+            &[("description", description), ("features", features)],
+        )
     })
 }
 
 /// Generate dependency chain section
 pub fn dependencies_prompt(description: &str, features: &str) -> Result<String, String> {
     with_prompt_manager(|manager| {
-        manager.get_prompt("dependencies", &[("description", description), ("features", features)])
+        manager.get_prompt(
+            "dependencies",
+            &[("description", description), ("features", features)],
+        )
     })
 }
 

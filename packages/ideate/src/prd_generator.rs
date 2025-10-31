@@ -136,10 +136,8 @@ impl PRDGenerator {
         let ai_service = AIService::with_api_key_and_model(api_key, model_to_use);
 
         // Generate complete PRD using the AI
-        let prompt = prompts::complete_prd_prompt(description)
-            .map_err(|e| IdeateError::PromptError(e))?;
-        let system_prompt = Some(prompts::get_system_prompt()
-            .map_err(|e| IdeateError::PromptError(e))?);
+        let prompt = prompts::complete_prd_prompt(description).map_err(IdeateError::PromptError)?;
+        let system_prompt = Some(prompts::get_system_prompt().map_err(IdeateError::PromptError)?);
 
         let response: AIResponse<serde_json::Value> = ai_service
             .generate_structured(prompt, system_prompt)
@@ -201,9 +199,16 @@ impl PRDGenerator {
                     section
                 )))
             }
-        };
+        }
+        .map_err(|e| {
+            error!("Failed to load prompt for section '{}': {}", section, e);
+            IdeateError::InvalidSection(format!("Failed to load prompt: {}", e))
+        })?;
 
-        let system_prompt = Some(prompts::get_system_prompt());
+        let system_prompt = Some(prompts::get_system_prompt().map_err(|e| {
+            error!("Failed to load system prompt: {}", e);
+            IdeateError::InvalidSection(format!("Failed to load system prompt: {}", e))
+        })?);
 
         let response: AIResponse<serde_json::Value> = ai_service
             .generate_structured(prompt, system_prompt)
@@ -428,7 +433,10 @@ impl PRDGenerator {
 
         // Generate PRD using AI with full context
         let prompt = self.build_session_prd_prompt(&aggregated, &context);
-        let system_prompt = Some(prompts::get_system_prompt());
+        let system_prompt = Some(prompts::get_system_prompt().map_err(|e| {
+            error!("Failed to load system prompt: {}", e);
+            IdeateError::InvalidSection(format!("Failed to load system prompt: {}", e))
+        })?);
 
         let response: AIResponse<serde_json::Value> = ai_service
             .generate_structured(prompt, system_prompt)
@@ -506,7 +514,10 @@ impl PRDGenerator {
 
         // Build enhanced prompt with context
         let prompt = self.build_section_prompt_with_context(section, description, context)?;
-        let system_prompt = Some(prompts::get_system_prompt());
+        let system_prompt = Some(prompts::get_system_prompt().map_err(|e| {
+            error!("Failed to load system prompt: {}", e);
+            IdeateError::InvalidSection(format!("Failed to load system prompt: {}", e))
+        })?);
 
         let response: AIResponse<serde_json::Value> = ai_service
             .generate_structured(prompt, system_prompt)
@@ -845,7 +856,10 @@ impl PRDGenerator {
 
         // Build prompt for intelligent template reformatting
         let prompt = self.build_template_regeneration_prompt(&aggregated, &context, &template_name);
-        let system_prompt = Some(prompts::get_system_prompt());
+        let system_prompt = Some(prompts::get_system_prompt().map_err(|e| {
+            error!("Failed to load system prompt: {}", e);
+            IdeateError::InvalidSection(format!("Failed to load system prompt: {}", e))
+        })?);
 
         // Call Claude with streaming
         let text_stream = ai_service
@@ -919,7 +933,10 @@ impl PRDGenerator {
 
         // Build prompt for intelligent template reformatting
         let prompt = self.build_template_regeneration_prompt(&aggregated, &context, &template_name);
-        let system_prompt = Some(prompts::get_system_prompt());
+        let system_prompt = Some(prompts::get_system_prompt().map_err(|e| {
+            error!("Failed to load system prompt: {}", e);
+            IdeateError::InvalidSection(format!("Failed to load system prompt: {}", e))
+        })?);
 
         // Call Claude to intelligently reformat the data as markdown
         let response = ai_service
