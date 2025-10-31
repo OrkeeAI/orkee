@@ -110,12 +110,3 @@ Templates use `{{parameterName}}` syntax. The PromptManager automatically replac
 3. **Type Safety**: JSON schema validation + TypeScript interfaces
 4. **Easy Editing**: Standard JSON format, no code changes needed
 5. **Flexibility**: Database-backed expert personas remain customizable
-
-## Migration Notes
-
-This package eliminates the previous duplication where prompts were defined in:
-- `packages/dashboard/src/services/ai/prompts.ts` (TypeScript)
-- `packages/ideate/src/prompts.rs` (Rust)
-- `packages/ideate/src/research_prompts.rs` (Rust)
-
-Now both TypeScript and Rust read from the same JSON source files.
