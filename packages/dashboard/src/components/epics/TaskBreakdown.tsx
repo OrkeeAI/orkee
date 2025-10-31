@@ -3,13 +3,13 @@ import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Separator } from '@/components/ui/separator';
+
 import {
   DecompositionResult,
   TaskCategory,
   SizeEstimate,
 } from '@/services/epics';
-import { CheckCircle2, Circle, ArrowRight } from 'lucide-react';
+import { Circle, ArrowRight } from 'lucide-react';
 
 interface TaskBreakdownProps {
   epicId: string;
@@ -60,17 +60,7 @@ export function TaskBreakdown({
     }
     acc[category].push(task);
     return acc;
-  }, {} as Record<string, any[]>);
-
-  // Group tasks by parallel group
-  const tasksByParallelGroup = decompositionResult.tasks.reduce((acc, task) => {
-    const group = task.parallelGroup || 'No Group';
-    if (!acc[group]) {
-      acc[group] = [];
-    }
-    acc[group].push(task);
-    return acc;
-  }, {} as Record<string, any[]>);
+  }, {} as Record<string, Array<{ id: string; name: string; category: string; sizeEstimate?: string; effortHours?: number; parallelGroup?: string; conflictsWith?: string[]; dependsOn?: string[] }>>);
 
   return (
     <div className="space-y-6">

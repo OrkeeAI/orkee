@@ -232,7 +232,7 @@ export class ProjectsService {
   // GitHub Configuration
   async updateGitHubConfig(projectId: string, config: Partial<GitHubConfig>): Promise<Project> {
     // Convert camelCase to snake_case for API
-    const updates: Record<string, any> = {};
+    const updates: Record<string, string | boolean | null> = {};
     if (config.githubOwner !== undefined) updates.github_owner = config.githubOwner;
     if (config.githubRepo !== undefined) updates.github_repo = config.githubRepo;
     if (config.githubSyncEnabled !== undefined) updates.github_sync_enabled = config.githubSyncEnabled;

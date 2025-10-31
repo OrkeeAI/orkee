@@ -2,12 +2,12 @@
 // ABOUTME: Displays sync status, manual sync buttons, and error messages
 
 import { useState } from 'react';
-import { Github, RefreshCw, AlertCircle, CheckCircle2, Clock, XCircle } from 'lucide-react';
+import { Github, RefreshCw, AlertCircle, CheckCircle2, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { epicsService, type Epic, type GitHubSyncStatus as SyncStatus } from '@/services/epics';
+import { epicsService, type Epic } from '@/services/epics';
 import { useToast } from '@/hooks/use-toast';
 
 interface GitHubSyncStatusProps {
@@ -20,7 +20,7 @@ export function GitHubSyncStatus({ epic, onSyncSuccess }: GitHubSyncStatusProps)
   const [isSyncingTasks, setIsSyncingTasks] = useState(false);
   const { toast } = useToast();
 
-  const getSyncStatusBadge = (status?: SyncStatus) => {
+  const getSyncStatusBadge = () => {
     if (!epic.githubIssueNumber) {
       return (
         <Badge variant="outline" className="gap-1">

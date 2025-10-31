@@ -2,7 +2,7 @@
 // ABOUTME: Provides filtering by PRD and status, with create/edit/delete operations
 
 import { useState } from 'react';
-import { Plus, FileText, Loader2, Filter } from 'lucide-react';
+import { Plus, FileText, Filter } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import {
@@ -61,14 +61,9 @@ export function EpicsTab({ projectId }: EpicsTabProps) {
     }
   };
 
-  const handleGenerateEpic = async (input: CreateEpicInput, _generateTasks: boolean) => {
+  const handleGenerateEpic = async (input: CreateEpicInput) => {
     const newEpic = await createEpicMutation.mutateAsync(input);
     setSelectedEpic(newEpic);
-  };
-
-  const handleCreateFromPRD = (prdId: string) => {
-    setSelectedPRDId(prdId);
-    setShowGenerator(true);
   };
 
   // Get PRD title for selected PRD

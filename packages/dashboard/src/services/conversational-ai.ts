@@ -1,7 +1,7 @@
 // ABOUTME: AI-powered conversational mode services using AI SDK
 // ABOUTME: Handles streaming conversations, insight extraction, quality metrics, and PRD generation
 
-import { streamText, streamObject, generateObject } from 'ai';
+import { streamText, generateObject } from 'ai';
 import { getPreferredModel } from '@/lib/ai/providers';
 import { z } from 'zod';
 import { conversationalService, type ConversationMessage, type ConversationInsight } from './conversational';
@@ -339,17 +339,3 @@ ${prd.timeline ? `## Timeline\n${prd.timeline}` : ''}
 /**
  * Create insight from extracted data
  */
-async function createInsight(
-  sessionId: string,
-  type: 'requirement' | 'constraint' | 'risk' | 'assumption' | 'decision',
-  text: string,
-  confidence: number,
-  sourceMessageIds: string[]
-): Promise<void> {
-  await conversationalService.createInsight(sessionId, {
-    insight_type: type,
-    insight_text: text,
-    confidence_score: confidence,
-    source_message_ids: sourceMessageIds,
-  });
-}

@@ -159,7 +159,17 @@ export interface ParallelGroup {
 }
 
 export interface DecompositionResult {
-  tasks: any[]; // Task type from tasks service
+  tasks: Array<{
+    id: string;
+    name: string;
+    category: string;
+    sizeEstimate?: string;
+    effortHours?: number;
+    parallelGroup?: string;
+    conflictsWith?: string[];
+    dependsOn?: string[];
+    technicalDetails?: string;
+  }>;
   dependencyGraph: {
     nodes: Array<{ id: string; label: string }>;
     edges: Array<{ from: string; to: string; type?: string }>;
@@ -319,8 +329,8 @@ export class EpicsService {
     return response.data.data;
   }
 
-  async getEpicTasks(projectId: string, epicId: string): Promise<any[]> {
-    const response = await apiClient.get<ApiResponse<any[]>>(`/api/projects/${projectId}/epics/${epicId}/tasks`);
+  async getEpicTasks(projectId: string, epicId: string): Promise<unknown[]> {
+    const response = await apiClient.get<ApiResponse<unknown[]>>(`/api/projects/${projectId}/epics/${epicId}/tasks`);
 
     if (response.error || !response.data?.success) {
       throw new Error(response.data?.error || response.error || 'Failed to fetch epic tasks');

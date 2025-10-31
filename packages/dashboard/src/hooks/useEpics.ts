@@ -1,8 +1,8 @@
 // ABOUTME: React hooks for Epic data fetching and mutations
-// ABOUTME: Provides useEpics, useEpicsByPRD, useCreateEpic, useUpdateEpic, useDeleteEpic hooks
+// ABOUTME: Provides useEpics, useEpicsByPRD, useCreateuseUpdateEpic, useDeleteEpic hooks
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { epicsService, type Epic, type CreateEpicInput, type UpdateEpicInput } from '@/services/epics';
+import { epicsService, type CreateEpicInput, type UpdateEpicInput } from '@/services/epics';
 import { useToast } from '@/hooks/use-toast';
 
 // Query keys
