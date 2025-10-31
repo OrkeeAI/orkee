@@ -75,7 +75,10 @@ pub fn roadmap_prompt(description: &str, features: &str) -> String {
     PROMPT_MANAGER
         .lock()
         .unwrap()
-        .get_prompt("roadmap", &[("description", description), ("features", features)])
+        .get_prompt(
+            "roadmap",
+            &[("description", description), ("features", features)],
+        )
         .expect("Failed to load roadmap prompt")
 }
 
@@ -84,7 +87,10 @@ pub fn dependencies_prompt(description: &str, features: &str) -> String {
     PROMPT_MANAGER
         .lock()
         .unwrap()
-        .get_prompt("dependencies", &[("description", description), ("features", features)])
+        .get_prompt(
+            "dependencies",
+            &[("description", description), ("features", features)],
+        )
         .expect("Failed to load dependencies prompt")
 }
 

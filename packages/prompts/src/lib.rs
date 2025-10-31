@@ -73,7 +73,8 @@ impl PromptManager {
                         dir.join("../../../packages/prompts"),
                     ];
 
-                    candidates.into_iter()
+                    candidates
+                        .into_iter()
                         .find(|p| p.exists())
                         .unwrap_or_else(|| PathBuf::from("./packages/prompts"))
                 } else {
@@ -89,7 +90,11 @@ impl PromptManager {
     }
 
     /// Get a prompt by ID with parameter substitution
-    pub fn get_prompt(&mut self, prompt_id: &str, parameters: &[(&str, &str)]) -> Result<String, PromptError> {
+    pub fn get_prompt(
+        &mut self,
+        prompt_id: &str,
+        parameters: &[(&str, &str)],
+    ) -> Result<String, PromptError> {
         let prompt = self.load_prompt(prompt_id)?;
 
         // Always validate required parameters, even if empty list provided
@@ -98,7 +103,10 @@ impl PromptManager {
 
     /// Get a system prompt by category
     pub fn get_system_prompt(&mut self, category: &str) -> Result<String, PromptError> {
-        let path = self.prompts_dir.join("system").join(format!("{}.json", category));
+        let path = self
+            .prompts_dir
+            .join("system")
+            .join(format!("{}.json", category));
         let prompt = self.load_prompt_from_path(&path)?;
         Ok(prompt.template)
     }
@@ -171,9 +179,15 @@ impl PromptManager {
 
         // Try to find the prompt in standard locations
         let possible_paths = vec![
-            self.prompts_dir.join("prd").join(format!("{}.json", prompt_id)),
-            self.prompts_dir.join("research").join(format!("{}.json", prompt_id)),
-            self.prompts_dir.join("system").join(format!("{}.json", prompt_id)),
+            self.prompts_dir
+                .join("prd")
+                .join(format!("{}.json", prompt_id)),
+            self.prompts_dir
+                .join("research")
+                .join(format!("{}.json", prompt_id)),
+            self.prompts_dir
+                .join("system")
+                .join(format!("{}.json", prompt_id)),
         ];
 
         for path in possible_paths {
@@ -193,9 +207,10 @@ impl PromptManager {
 
         // Basic validation
         if prompt.id.is_empty() || prompt.template.is_empty() || prompt.category.is_empty() {
-            return Err(PromptError::InvalidFormat(
-                format!("Invalid prompt format in {}", path.display())
-            ));
+            return Err(PromptError::InvalidFormat(format!(
+                "Invalid prompt format in {}",
+                path.display()
+            )));
         }
 
         Ok(prompt)
@@ -222,7 +237,9 @@ mod tests {
     #[test]
     fn test_load_prompt_with_parameters() {
         let mut manager = PromptManager::new(Some(get_test_prompts_dir())).unwrap();
-        let prompt = manager.get_prompt("overview", &[("description", "A mobile app")]).unwrap();
+        let prompt = manager
+            .get_prompt("overview", &[("description", "A mobile app")])
+            .unwrap();
         assert!(prompt.contains("A mobile app"));
         assert!(prompt.contains("problemStatement"));
     }
@@ -254,7 +271,9 @@ mod tests {
         let mut manager = PromptManager::new(Some(get_test_prompts_dir())).unwrap();
 
         // Load once
-        manager.get_prompt("overview", &[("description", "Test")]).unwrap();
+        manager
+            .get_prompt("overview", &[("description", "Test")])
+            .unwrap();
 
         // Should be cached now
         let metadata = manager.get_prompt_metadata("overview").unwrap();
@@ -264,7 +283,9 @@ mod tests {
         manager.clear_cache();
 
         // Should still work after cache clear
-        let prompt = manager.get_prompt("overview", &[("description", "Test2")]).unwrap();
+        let prompt = manager
+            .get_prompt("overview", &[("description", "Test2")])
+            .unwrap();
         assert!(prompt.contains("Test2"));
     }
 }
