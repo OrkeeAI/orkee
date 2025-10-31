@@ -326,10 +326,6 @@ pub async fn create_router_with_options(
             "/api/executions",
             api::create_executions_router().with_state(db_state.clone()),
         )
-        .nest(
-            "/api",
-            api::create_prds_router().with_state(db_state.clone()),
-        )
         .nest("/api", api::create_ai_router().with_state(db_state.clone()))
         .nest(
             "/api/ai-usage",
