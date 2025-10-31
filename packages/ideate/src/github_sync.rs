@@ -518,7 +518,7 @@ impl GitHubSyncService {
                         dep.name, version_str, dep.dep_type, dep.reason
                     ));
                 }
-                body.push_str("\n");
+                body.push('\n');
             }
         }
 
@@ -538,7 +538,7 @@ impl GitHubSyncService {
                         measurable, criterion.criterion, target_str
                     ));
                 }
-                body.push_str("\n");
+                body.push('\n');
             }
         }
 

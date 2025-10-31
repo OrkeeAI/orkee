@@ -538,8 +538,6 @@ Attribute insights to the experts who mentioned them.";
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-
     #[test]
     fn test_expert_selection_round_robin() {
         // Test that experts are selected fairly in round-robin fashion

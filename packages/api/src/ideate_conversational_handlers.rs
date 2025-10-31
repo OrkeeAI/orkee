@@ -12,13 +12,10 @@ use tracing::{error, info, warn};
 use super::response::ok_or_internal_error;
 use ideate::{
     ConversationalManager, CreateInsightInput, DiscoveryQuestion, DiscoveryStatus,
-    GeneratePRDFromConversationInput, GeneratePRDFromConversationResult, MessageRole, MessageType,
+    GeneratePRDFromConversationInput, GeneratePRDFromConversationResult, MessageRole,
     QualityMetrics, QuestionCategory, SendMessageInput, TopicCoverage, ValidationResult,
 };
 use orkee_projects::DbState;
-
-// TODO: Replace with proper user authentication
-const DEFAULT_USER_ID: &str = "default-user";
 
 /// Get conversation history for a session
 pub async fn get_history(
@@ -107,7 +104,7 @@ pub async fn get_suggested_questions(
     let manager = ConversationalManager::new(db.pool.clone());
 
     // Get conversation history to analyze context
-    let history = match manager.get_history(&session_id).await {
+    let _history = match manager.get_history(&session_id).await {
         Ok(h) => h,
         Err(e) => {
             error!("Failed to get conversation history: {}", e);
@@ -399,7 +396,7 @@ pub async fn validate_for_prd(
     let has_requirement = insights
         .iter()
         .any(|i| matches!(i.insight_type, ideate::InsightType::Requirement));
-    let has_constraint = insights
+    let _has_constraint = insights
         .iter()
         .any(|i| matches!(i.insight_type, ideate::InsightType::Constraint));
 

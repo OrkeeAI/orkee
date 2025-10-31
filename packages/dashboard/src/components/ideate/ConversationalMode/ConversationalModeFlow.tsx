@@ -21,7 +21,7 @@ export interface ConversationalModeFlowProps {
 
 export function ConversationalModeFlow({
   sessionId,
-  projectId,
+  // projectId,
   onPRDGenerated,
 }: ConversationalModeFlowProps) {
   const [insights, setInsights] = useState<ConversationInsight[]>([]);

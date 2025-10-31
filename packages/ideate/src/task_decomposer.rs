@@ -215,7 +215,7 @@ impl TaskDecomposer {
         for edge in &dependency_graph.edges {
             dependencies
                 .entry(edge.to.clone())
-                .or_insert_with(Vec::new)
+                .or_default()
                 .push(edge.from.clone());
         }
 
@@ -234,7 +234,7 @@ impl TaskDecomposer {
                 // Check if all dependencies are processed
                 let deps = dependencies.get(&task.id);
                 let can_process =
-                    deps.map_or(true, |d| d.iter().all(|dep| processed.contains(dep)));
+                    deps.is_none_or(|d| d.iter().all(|dep| processed.contains(dep)));
 
                 if can_process {
                     current_level_tasks.push(task.id.clone());
@@ -285,7 +285,7 @@ impl TaskDecomposer {
             if let Some(category) = &task.category {
                 category_tasks
                     .entry(category.clone())
-                    .or_insert_with(Vec::new)
+                    .or_default()
                     .push(task.id.clone());
             }
         }
@@ -431,7 +431,7 @@ impl TaskDecomposer {
             if let Some(category) = &task.category {
                 category_tasks
                     .entry(category.clone())
-                    .or_insert_with(Vec::new)
+                    .or_default()
                     .push(task.id.clone());
             }
         }
@@ -559,7 +559,7 @@ impl TaskDecomposer {
 
         let _storage = tasks::storage::TaskStorage::new(self.pool.clone());
         rows.iter()
-            .map(|row| storage::row_to_task_result(row))
+            .map(storage::row_to_task_result)
             .collect::<Result<Vec<Task>, StoreError>>()
     }
 

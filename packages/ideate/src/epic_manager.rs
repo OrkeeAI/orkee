@@ -25,28 +25,28 @@ impl EpicManager {
         let architecture_decisions_json = input
             .architecture_decisions
             .as_ref()
-            .map(|d| serde_json::to_string(d))
+            .map(serde_json::to_string)
             .transpose()
             .map_err(|e| IdeateError::SerializationError(e.to_string()))?;
 
         let dependencies_json = input
             .dependencies
             .as_ref()
-            .map(|d| serde_json::to_string(d))
+            .map(serde_json::to_string)
             .transpose()
             .map_err(|e| IdeateError::SerializationError(e.to_string()))?;
 
         let success_criteria_json = input
             .success_criteria
             .as_ref()
-            .map(|s| serde_json::to_string(s))
+            .map(serde_json::to_string)
             .transpose()
             .map_err(|e| IdeateError::SerializationError(e.to_string()))?;
 
         let task_categories_json = input
             .task_categories
             .as_ref()
-            .map(|t| serde_json::to_string(t))
+            .map(serde_json::to_string)
             .transpose()
             .map_err(|e| IdeateError::SerializationError(e.to_string()))?;
 
@@ -71,8 +71,8 @@ impl EpicManager {
         .bind(dependencies_json)
         .bind(success_criteria_json)
         .bind(task_categories_json)
-        .bind(&input.estimated_effort)
-        .bind(&input.complexity)
+        .bind(input.estimated_effort)
+        .bind(input.complexity)
         .execute(&self.pool)
         .await
         .map_err(|e| IdeateError::DatabaseError(e.to_string()))?;
