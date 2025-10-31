@@ -463,39 +463,51 @@ interface ConversationalState {
 
 ### Phase 2 Implementation Summary
 
-**Completed**: All Phase 2 components and integrations
+**Completed**: All Phase 2 components, integrations, and AI SDK integration
 
-**Files Created**:
+**Frontend Files Created**:
 1. `/packages/dashboard/src/services/conversational.ts` - API service
-2. `/packages/dashboard/src/components/ideate/ConversationalMode/hooks/useConversation.ts`
-3. `/packages/dashboard/src/components/ideate/ConversationalMode/hooks/useDiscoveryQuestions.ts`
-4. `/packages/dashboard/src/components/ideate/ConversationalMode/hooks/useStreamingResponse.ts`
-5. `/packages/dashboard/src/components/ideate/ConversationalMode/components/MessageBubble.tsx`
-6. `/packages/dashboard/src/components/ideate/ConversationalMode/components/SuggestedQuestions.tsx`
-7. `/packages/dashboard/src/components/ideate/ConversationalMode/components/QualityIndicator.tsx`
-8. `/packages/dashboard/src/components/ideate/ConversationalMode/components/ConversationView.tsx`
-9. `/packages/dashboard/src/components/ideate/ConversationalMode/components/InsightsSidebar.tsx`
-10. `/packages/dashboard/src/components/ideate/ConversationalMode/ConversationalModeFlow.tsx`
+2. `/packages/dashboard/src/services/conversational-ai.ts` - AI SDK integration service
+3. `/packages/dashboard/src/components/ideate/ConversationalMode/hooks/useConversation.ts`
+4. `/packages/dashboard/src/components/ideate/ConversationalMode/hooks/useDiscoveryQuestions.ts`
+5. `/packages/dashboard/src/components/ideate/ConversationalMode/hooks/useStreamingResponse.ts`
+6. `/packages/dashboard/src/components/ideate/ConversationalMode/components/MessageBubble.tsx`
+7. `/packages/dashboard/src/components/ideate/ConversationalMode/components/SuggestedQuestions.tsx`
+8. `/packages/dashboard/src/components/ideate/ConversationalMode/components/QualityIndicator.tsx`
+9. `/packages/dashboard/src/components/ideate/ConversationalMode/components/ConversationView.tsx`
+10. `/packages/dashboard/src/components/ideate/ConversationalMode/components/InsightsSidebar.tsx`
+11. `/packages/dashboard/src/components/ideate/ConversationalMode/ConversationalModeFlow.tsx`
+
+**Backend Files Created**:
+12. `/packages/ideate/src/conversational.rs` - Type definitions for conversations
+13. `/packages/ideate/src/conversational_manager.rs` - Database operations manager
+14. `/packages/api/src/ideate_conversational_handlers.rs` - REST API handlers
 
 **Files Modified**:
 1. `/packages/dashboard/src/components/ideate/ModeSelector.tsx` - Added conversational mode option
 2. `/packages/dashboard/src/components/ideate/CreatePRDFlow.tsx` - Added conversational mode descriptions
 3. `/packages/dashboard/src/services/ideate.ts` - Updated IdeateMode type
 4. `/packages/dashboard/src/components/specs/IdeateTab.tsx` - Integrated conversational mode flow
+5. `/packages/ideate/src/lib.rs` - Export conversational types and manager
+6. `/packages/api/src/lib.rs` - Wire up conversational API routes
 
 **Features Implemented**:
 - ✅ Chat-based conversation interface with auto-scroll
-- ✅ Real-time streaming responses via SSE
+- ✅ Real-time streaming responses via AI SDK `streamText`
+- ✅ AI-powered insight extraction using `generateObject`
+- ✅ AI-powered quality metrics calculation using `generateObject`
+- ✅ AI-powered PRD generation from conversation using `generateObject`
 - ✅ Discovery question suggestions based on context
 - ✅ Quality metrics and coverage tracking
-- ✅ Insight extraction and categorization
-- ✅ PRD generation from conversation
+- ✅ Message persistence to database
 - ✅ Full integration with existing ideate flow
 - ✅ Mode selector with 4 options (Quick, Guided, Comprehensive, Conversational)
 
 **Architecture Decisions**:
+- Frontend-driven AI (matches Quick Mode pattern)
+- AI SDK calls happen client-side, results persisted to backend
 - Used React hooks for state management (no Redux)
-- Implemented SSE for streaming responses
+- Runtime SQL queries (matches project pattern from CLAUDE.md)
 - Co-located hooks with components in feature folder
 - Followed existing component patterns from QuickMode/GuidedMode
 - Full-screen conversational interface (not dialog-based)
@@ -990,15 +1002,20 @@ test('Complete Conversational Mode workflow', async ({ page }) => {
 
 ## API Endpoints Reference
 
-### Conversational Mode
+### Conversational Mode (✅ Implemented)
 ```
-POST   /api/ideate/conversational/start
-POST   /api/ideate/conversational/{id}/message
-GET    /api/ideate/conversational/{id}/history
-GET    /api/ideate/conversational/{id}/insights
-POST   /api/ideate/conversational/{id}/generate-prd
-POST   /api/ideate/conversational/{id}/validate
-GET    /api/ideate/conversational/{id}/stream (SSE)
+GET    /api/ideate/conversational/{session_id}/history
+POST   /api/ideate/conversational/{session_id}/message
+GET    /api/ideate/conversational/questions
+GET    /api/ideate/conversational/{session_id}/suggested-questions
+GET    /api/ideate/conversational/{session_id}/insights
+POST   /api/ideate/conversational/{session_id}/insights
+GET    /api/ideate/conversational/{session_id}/quality
+PUT    /api/ideate/conversational/{session_id}/status
+POST   /api/ideate/conversational/{session_id}/generate-prd
+GET    /api/ideate/conversational/{session_id}/validate
+
+Note: AI streaming handled by frontend AI SDK (no SSE endpoint needed)
 ```
 
 ### Epic Management
