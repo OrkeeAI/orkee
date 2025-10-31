@@ -14,23 +14,44 @@ const DEFAULT_MODEL: &str = "claude-sonnet-4-20250514"; // Claude Sonnet 4 (May 
 const DEFAULT_MAX_TOKENS: u32 = 4096;
 const DEFAULT_TEMPERATURE: f32 = 0.7;
 
-/// Calculate appropriate max_tokens for a given model
+/// Calculate appropriate max_tokens for a given model based on Anthropic's documented limits
+/// See: https://docs.claude.com/en/docs/about-claude/models/overview
 fn get_max_tokens_for_model(model: &str) -> u32 {
-    // Claude 3 family (Opus, Sonnet, Haiku)
-    if model.contains("claude-3-opus") || model.contains("claude-3-sonnet") {
-        4096
-    } else if model.contains("claude-3-haiku") {
-        1024
+    // Claude 4.5 and 4.x (Sonnet and Haiku) - 64K output tokens
+    if model.contains("claude-sonnet-4") || model.contains("claude-haiku-4") {
+        64000
     }
-    // Claude Sonnet/Haiku 4/5
-    else if model.contains("claude-sonnet") {
+    // Claude Opus 4.1 - 32K output tokens
+    else if model.contains("claude-opus-4") {
+        32000
+    }
+    // Claude 3.7 Sonnet - 64K output tokens
+    else if model.contains("claude-3-7-sonnet") || model.contains("claude-sonnet-3-7") {
+        64000
+    }
+    // Claude 3.5 Haiku - 8K output tokens
+    else if model.contains("claude-3-5-haiku") || model.contains("claude-haiku-3-5") {
+        8000
+    }
+    // Claude 3.x Opus/Sonnet (legacy) - 4K output tokens
+    else if model.contains("claude-3-opus") || model.contains("claude-3-sonnet") {
         4096
-    } else if model.contains("claude-haiku") {
-        1024
+    }
+    // Claude 3.x Haiku (legacy) - 4K output tokens
+    else if model.contains("claude-3-haiku") {
+        4096
+    }
+    // Generic Claude (assume modern Sonnet) - 64K
+    else if model.contains("claude-sonnet") {
+        64000
+    }
+    // Generic Claude Haiku - 8K
+    else if model.contains("claude-haiku") {
+        8000
     }
     // Default to safe value for unknown models
     else {
-        4096
+        8000
     }
 }
 
@@ -78,6 +99,7 @@ struct AnthropicResponse {
     id: String,
     content: Vec<ContentBlock>,
     usage: Usage,
+    stop_reason: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -241,6 +263,22 @@ impl AIService {
             .json()
             .await
             .map_err(|e| AIServiceError::ParseError(e.to_string()))?;
+
+        // Check if response was truncated due to max_tokens limit
+        if let Some(stop_reason) = &anthropic_response.stop_reason {
+            if stop_reason == "max_tokens" {
+                error!(
+                    "Response truncated: hit max_tokens limit ({} tokens used)",
+                    anthropic_response.usage.output_tokens
+                );
+                return Err(AIServiceError::ApiError(
+                    format!(
+                        "Response was truncated because it exceeded the token limit ({} tokens). The PRD may be too large or complex. Consider breaking it into smaller sections.",
+                        anthropic_response.usage.output_tokens
+                    )
+                ));
+            }
+        }
 
         // Extract text from the first content block
         let text = anthropic_response
