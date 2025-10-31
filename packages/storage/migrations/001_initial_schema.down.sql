@@ -79,8 +79,6 @@ DROP TABLE IF EXISTS context_configurations;
 DROP TABLE IF EXISTS ai_usage_logs;
 
 -- ============================================================================
-
--- ============================================================================
 -- DROP AGENT EXECUTION TABLES
 -- ============================================================================
 DROP TABLE IF EXISTS pr_reviews;

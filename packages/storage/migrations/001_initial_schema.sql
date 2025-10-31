@@ -1,4 +1,4 @@
--- ABOUTME: Initial Orkee database schema with project management, task tracking, OpenSpec, and telemetry
+-- ABOUTME: Initial Orkee database schema with project management, task tracking, ideate feature, and telemetry
 -- ABOUTME: Includes security, context management, API tokens, and comprehensive indexing for performance
 
 -- ============================================================================

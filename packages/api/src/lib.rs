@@ -706,10 +706,6 @@ pub fn create_graph_router() -> Router<DbState> {
             "/{project_id}/graph/modules",
             get(graph_handlers::get_module_graph),
         )
-        .route(
-            "/{project_id}/graph/spec-mapping",
-            get(graph_handlers::get_spec_mapping_graph),
-        )
 }
 
 /// Creates the templates API router for PRD output template management
