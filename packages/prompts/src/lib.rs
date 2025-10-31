@@ -344,40 +344,28 @@ mod tests {
     fn test_reject_dotdot_traversal() {
         let mut manager = PromptManager::new(Some(get_test_prompts_dir())).unwrap();
         let result = manager.get_prompt("../../../etc/passwd", &[]);
-        assert!(matches!(
-            result,
-            Err(PromptError::PathTraversalAttempt(_))
-        ));
+        assert!(matches!(result, Err(PromptError::PathTraversalAttempt(_))));
     }
 
     #[test]
     fn test_reject_forward_slash_traversal() {
         let mut manager = PromptManager::new(Some(get_test_prompts_dir())).unwrap();
         let result = manager.get_prompt("system/../../etc/passwd", &[]);
-        assert!(matches!(
-            result,
-            Err(PromptError::PathTraversalAttempt(_))
-        ));
+        assert!(matches!(result, Err(PromptError::PathTraversalAttempt(_))));
     }
 
     #[test]
     fn test_reject_backslash_traversal() {
         let mut manager = PromptManager::new(Some(get_test_prompts_dir())).unwrap();
         let result = manager.get_prompt("..\\..\\..\\etc\\passwd", &[]);
-        assert!(matches!(
-            result,
-            Err(PromptError::PathTraversalAttempt(_))
-        ));
+        assert!(matches!(result, Err(PromptError::PathTraversalAttempt(_))));
     }
 
     #[test]
     fn test_reject_mixed_path_separators() {
         let mut manager = PromptManager::new(Some(get_test_prompts_dir())).unwrap();
         let result = manager.get_prompt("../prd/../system/../../etc/passwd", &[]);
-        assert!(matches!(
-            result,
-            Err(PromptError::PathTraversalAttempt(_))
-        ));
+        assert!(matches!(result, Err(PromptError::PathTraversalAttempt(_))));
     }
 
     #[test]
