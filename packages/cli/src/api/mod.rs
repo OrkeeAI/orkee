@@ -277,6 +277,14 @@ pub async fn create_router_with_options(
             api::create_prds_router().with_state(db_state.clone()),
         )
         .nest(
+            "/api/projects",
+            api::create_epics_router().with_state(db_state.clone()),
+        )
+        .nest(
+            "/api",
+            api::create_github_sync_router().with_state(db_state.clone()),
+        )
+        .nest(
             "/api",
             api::create_ideate_router().with_state(db_state.clone()),
         )

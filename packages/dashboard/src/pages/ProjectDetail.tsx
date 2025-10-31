@@ -39,6 +39,7 @@ import { SpecsTab } from '@/components/SpecsTab';
 import { CostDashboard } from '@/components/CostDashboard';
 import { ContextTab } from '@/components/ContextTab';
 import { GraphTab } from '@/components/graph/GraphTab';
+import { GitHubSettings } from '@/components/settings/GitHubSettings';
 import { useProject } from '@/hooks/useProjects';
 import { useCommitHistory } from '@/services/git';
 
@@ -546,6 +547,9 @@ export function ProjectDetail() {
               )}
             </CardContent>
           </Card>
+
+          {/* GitHub Integration */}
+          <GitHubSettings projectId={project.id} />
 
           {/* Project Location */}
           <Card>

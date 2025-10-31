@@ -125,6 +125,15 @@ pub async fn create_task(
         tag_id: request.tag_id,
         tags: request.tags,
         category: request.category,
+        epic_id: None,
+        parallel_group: None,
+        depends_on: None,
+        conflicts_with: None,
+        task_type: None,
+        size_estimate: None,
+        technical_details: None,
+        effort_hours: None,
+        can_parallel: None,
     };
 
     let result = db
@@ -190,6 +199,15 @@ pub async fn update_task(
         acceptance_criteria: request.acceptance_criteria,
         tags: request.tags,
         category: request.category,
+        epic_id: None,
+        parallel_group: None,
+        depends_on: None,
+        conflicts_with: None,
+        task_type: None,
+        size_estimate: None,
+        technical_details: None,
+        effort_hours: None,
+        can_parallel: None,
     };
 
     let result = db.task_storage.update_task(&task_id, input).await;

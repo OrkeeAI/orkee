@@ -899,7 +899,7 @@ THEN a JWT token is returned
 
         assert_eq!(json["success"], true);
         assert_eq!(json["data"]["valid"], false);
-        assert!(json["data"]["errors"].as_array().unwrap().len() > 0);
+        assert!(!json["data"]["errors"].as_array().unwrap().is_empty());
         assert_eq!(json["data"]["deltasValidated"], 1);
     }
 

@@ -41,6 +41,8 @@ DROP TRIGGER IF EXISTS update_task_actual_hours;
 DROP TRIGGER IF EXISTS update_task_on_pr_merge;
 DROP TRIGGER IF EXISTS ideate_sessions_updated_at;
 DROP TRIGGER IF EXISTS prd_output_templates_updated_at;
+DROP TRIGGER IF EXISTS epics_updated_at;
+DROP TRIGGER IF EXISTS github_sync_updated_at;
 
 -- ============================================================================
 -- DROP VIEWS (after triggers)
@@ -146,6 +148,14 @@ DROP TABLE IF EXISTS expert_personas;
 
 -- Research Analysis Cache
 DROP TABLE IF EXISTS competitor_analysis_cache;
+
+-- Conversational Mode (CCPM) tables
+DROP TABLE IF EXISTS conversation_insights;
+DROP TABLE IF EXISTS discovery_questions;
+DROP TABLE IF EXISTS work_analysis;
+DROP TABLE IF EXISTS github_sync;
+DROP TABLE IF EXISTS epics;
+DROP TABLE IF EXISTS prd_conversations;
 
 -- Ideate core tables
 DROP TABLE IF EXISTS prd_quickstart_templates;

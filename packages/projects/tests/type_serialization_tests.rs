@@ -5,7 +5,6 @@ use chrono::Utc;
 use orkee_core::types::{
     GitRepositoryInfo, ManualSubtask, ManualTask, Priority, ProjectStatus, TaskSource, TaskStatus,
 };
-use serde_json;
 use std::collections::HashMap;
 
 // ==============================================================================

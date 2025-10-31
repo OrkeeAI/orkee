@@ -27,6 +27,26 @@ pub enum TaskPriority {
     Critical,
 }
 
+#[derive(Debug, Clone, Default, Serialize, Deserialize, sqlx::Type)]
+#[sqlx(type_name = "TEXT", rename_all = "lowercase")]
+#[serde(rename_all = "lowercase")]
+pub enum TaskType {
+    #[default]
+    Task,
+    Subtask,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::Type)]
+#[sqlx(type_name = "TEXT")]
+#[serde(rename_all = "UPPERCASE")]
+pub enum SizeEstimate {
+    XS,
+    S,
+    M,
+    L,
+    XL,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Task {
     pub id: String,
@@ -82,6 +102,19 @@ pub struct Task {
     pub metadata: Option<serde_json::Value>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
+
+    // CCPM Epic Integration
+    pub epic_id: Option<String>,
+    pub github_issue_number: Option<i32>,
+    pub github_issue_url: Option<String>,
+    pub parallel_group: Option<String>,
+    pub depends_on: Option<Vec<String>>, // JSON array of task IDs
+    pub conflicts_with: Option<Vec<String>>, // JSON array of task IDs
+    pub task_type: TaskType,
+    pub size_estimate: Option<SizeEstimate>,
+    pub technical_details: Option<String>,
+    pub effort_hours: Option<i32>,
+    pub can_parallel: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -105,6 +138,17 @@ pub struct TaskCreateInput {
     pub tag_id: Option<String>,
     pub tags: Option<Vec<String>>,
     pub category: Option<String>,
+
+    // CCPM Epic Integration
+    pub epic_id: Option<String>,
+    pub parallel_group: Option<String>,
+    pub depends_on: Option<Vec<String>>,
+    pub conflicts_with: Option<Vec<String>>,
+    pub task_type: Option<TaskType>,
+    pub size_estimate: Option<SizeEstimate>,
+    pub technical_details: Option<String>,
+    pub effort_hours: Option<i32>,
+    pub can_parallel: Option<bool>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -125,4 +169,15 @@ pub struct TaskUpdateInput {
     pub acceptance_criteria: Option<String>,
     pub tags: Option<Vec<String>>,
     pub category: Option<String>,
+
+    // CCPM Epic Integration
+    pub epic_id: Option<String>,
+    pub parallel_group: Option<String>,
+    pub depends_on: Option<Vec<String>>,
+    pub conflicts_with: Option<Vec<String>>,
+    pub task_type: Option<TaskType>,
+    pub size_estimate: Option<SizeEstimate>,
+    pub technical_details: Option<String>,
+    pub effort_hours: Option<i32>,
+    pub can_parallel: Option<bool>,
 }

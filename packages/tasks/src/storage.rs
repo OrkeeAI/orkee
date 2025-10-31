@@ -120,6 +120,9 @@ impl TaskStorage {
 
         debug!("Creating task: {} for project: {}", task_id, project_id);
 
+        let task_type = input.task_type.unwrap_or_default();
+        let can_parallel = input.can_parallel.unwrap_or(false);
+
         sqlx::query(
             r#"
             INSERT INTO tasks (
@@ -128,14 +131,18 @@ impl TaskStorage {
                 dependencies, due_date, estimated_hours, complexity_score,
                 details, test_strategy, acceptance_criteria,
                 prompt, context, tags, category,
-                retry_count, created_at, updated_at
+                retry_count, created_at, updated_at,
+                epic_id, parallel_group, depends_on, conflicts_with,
+                task_type, size_estimate, technical_details, effort_hours, can_parallel
             ) VALUES (
                 ?, ?, ?, ?, ?, ?,
                 ?, ?, ?, ?,
                 ?, ?, ?, ?,
                 ?, ?, ?,
                 ?, ?, ?, ?,
-                0, ?, ?
+                0, ?, ?,
+                ?, ?, ?, ?,
+                ?, ?, ?, ?, ?
             )
             "#,
         )
@@ -172,6 +179,26 @@ impl TaskStorage {
         .bind(&input.category)
         .bind(now)
         .bind(now)
+        // CCPM fields
+        .bind(&input.epic_id)
+        .bind(&input.parallel_group)
+        .bind(
+            input
+                .depends_on
+                .as_ref()
+                .map(|d| serde_json::to_string(d).unwrap()),
+        )
+        .bind(
+            input
+                .conflicts_with
+                .as_ref()
+                .map(|c| serde_json::to_string(c).unwrap()),
+        )
+        .bind(task_type)
+        .bind(&input.size_estimate)
+        .bind(&input.technical_details)
+        .bind(input.effort_hours)
+        .bind(can_parallel)
         .execute(&self.pool)
         .await
         .map_err(StorageError::Sqlx)?;
@@ -254,6 +281,43 @@ impl TaskStorage {
             query.push_str(", category = ?");
             has_updates = true;
         }
+        // CCPM fields
+        if input.epic_id.is_some() {
+            query.push_str(", epic_id = ?");
+            has_updates = true;
+        }
+        if input.parallel_group.is_some() {
+            query.push_str(", parallel_group = ?");
+            has_updates = true;
+        }
+        if input.depends_on.is_some() {
+            query.push_str(", depends_on = ?");
+            has_updates = true;
+        }
+        if input.conflicts_with.is_some() {
+            query.push_str(", conflicts_with = ?");
+            has_updates = true;
+        }
+        if input.task_type.is_some() {
+            query.push_str(", task_type = ?");
+            has_updates = true;
+        }
+        if input.size_estimate.is_some() {
+            query.push_str(", size_estimate = ?");
+            has_updates = true;
+        }
+        if input.technical_details.is_some() {
+            query.push_str(", technical_details = ?");
+            has_updates = true;
+        }
+        if input.effort_hours.is_some() {
+            query.push_str(", effort_hours = ?");
+            has_updates = true;
+        }
+        if input.can_parallel.is_some() {
+            query.push_str(", can_parallel = ?");
+            has_updates = true;
+        }
 
         query.push_str(" WHERE id = ?");
 
@@ -311,6 +375,34 @@ impl TaskStorage {
         }
         if let Some(category) = &input.category {
             q = q.bind(category);
+        }
+        // CCPM fields
+        if let Some(epic_id) = &input.epic_id {
+            q = q.bind(epic_id);
+        }
+        if let Some(pg) = &input.parallel_group {
+            q = q.bind(pg);
+        }
+        if let Some(deps) = &input.depends_on {
+            q = q.bind(serde_json::to_string(deps).unwrap());
+        }
+        if let Some(conf) = &input.conflicts_with {
+            q = q.bind(serde_json::to_string(conf).unwrap());
+        }
+        if let Some(tt) = &input.task_type {
+            q = q.bind(tt);
+        }
+        if let Some(size) = &input.size_estimate {
+            q = q.bind(size);
+        }
+        if let Some(tech) = &input.technical_details {
+            q = q.bind(tech);
+        }
+        if let Some(hours) = input.effort_hours {
+            q = q.bind(hours);
+        }
+        if let Some(can_par) = input.can_parallel {
+            q = q.bind(can_par);
         }
 
         q = q.bind(task_id);
@@ -412,6 +504,23 @@ impl TaskStorage {
                 .and_then(|s| serde_json::from_str(&s).ok()),
             created_at: row.try_get("created_at")?,
             updated_at: row.try_get("updated_at")?,
+
+            // CCPM Epic Integration
+            epic_id: row.try_get("epic_id")?,
+            github_issue_number: row.try_get("github_issue_number")?,
+            github_issue_url: row.try_get("github_issue_url")?,
+            parallel_group: row.try_get("parallel_group")?,
+            depends_on: row
+                .try_get::<Option<String>, _>("depends_on")?
+                .and_then(|s| serde_json::from_str(&s).ok()),
+            conflicts_with: row
+                .try_get::<Option<String>, _>("conflicts_with")?
+                .and_then(|s| serde_json::from_str(&s).ok()),
+            task_type: row.try_get("task_type")?,
+            size_estimate: row.try_get("size_estimate")?,
+            technical_details: row.try_get("technical_details")?,
+            effort_hours: row.try_get("effort_hours")?,
+            can_parallel: row.try_get("can_parallel")?,
         })
     }
 }

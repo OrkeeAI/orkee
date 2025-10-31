@@ -59,6 +59,9 @@ url = "2.5"
 nanoid = "0.4"
 uuid = { version = "1.0", features = ["v4", "serde"] }
 
+# Security
+zeroize = "1.8"
+
 [dev-dependencies]
 orkee-projects = { path = "../projects", features = ["test-utils"] }
 tokio-test = "0.4"

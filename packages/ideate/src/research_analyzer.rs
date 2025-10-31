@@ -228,13 +228,19 @@ impl ResearchAnalyzer {
 
         // Use AI to analyze
         let prompt =
-            research_prompts::competitor_analysis_prompt(project_description, &text_content, url);
+            research_prompts::competitor_analysis_prompt(project_description, &text_content, url)
+                .map_err(|e| {
+                error!("Failed to load competitor analysis prompt: {}", e);
+                IdeateError::InvalidSection(format!("Failed to load prompt: {}", e))
+            })?;
+
+        let system_prompt = research_prompts::get_research_system_prompt().map_err(|e| {
+            error!("Failed to load research system prompt: {}", e);
+            IdeateError::InvalidSection(format!("Failed to load system prompt: {}", e))
+        })?;
 
         let response = ai_service
-            .generate_structured::<Competitor>(
-                prompt,
-                Some(research_prompts::get_research_system_prompt()),
-            )
+            .generate_structured::<Competitor>(prompt, Some(system_prompt))
             .await
             .map_err(|e| {
                 error!("AI analysis failed: {}", e);
@@ -337,13 +343,19 @@ impl ResearchAnalyzer {
             project_description,
             &your_features,
             &competitor_refs,
-        );
+        )
+        .map_err(|e| {
+            error!("Failed to load gap analysis prompt: {}", e);
+            IdeateError::InvalidSection(format!("Failed to load prompt: {}", e))
+        })?;
+
+        let system_prompt = research_prompts::get_research_system_prompt().map_err(|e| {
+            error!("Failed to load research system prompt: {}", e);
+            IdeateError::InvalidSection(format!("Failed to load system prompt: {}", e))
+        })?;
 
         let response = ai_service
-            .generate_structured::<GapAnalysis>(
-                prompt,
-                Some(research_prompts::get_research_system_prompt()),
-            )
+            .generate_structured::<GapAnalysis>(prompt, Some(system_prompt))
             .await
             .map_err(|e| {
                 error!("Gap analysis failed: {}", e);
@@ -368,7 +380,16 @@ impl ResearchAnalyzer {
         // Extract structural information (simplified - just get text for now)
         let structure = self.extract_text_from_html(&html);
 
-        let prompt = research_prompts::ui_pattern_prompt(project_description, &structure);
+        let prompt =
+            research_prompts::ui_pattern_prompt(project_description, &structure).map_err(|e| {
+                error!("Failed to load UI pattern prompt: {}", e);
+                IdeateError::InvalidSection(format!("Failed to load prompt: {}", e))
+            })?;
+
+        let system_prompt = research_prompts::get_research_system_prompt().map_err(|e| {
+            error!("Failed to load research system prompt: {}", e);
+            IdeateError::InvalidSection(format!("Failed to load system prompt: {}", e))
+        })?;
 
         #[derive(Deserialize)]
         struct PatternResponse {
@@ -376,10 +397,7 @@ impl ResearchAnalyzer {
         }
 
         let response = ai_service
-            .generate_structured::<PatternResponse>(
-                prompt,
-                Some(research_prompts::get_research_system_prompt()),
-            )
+            .generate_structured::<PatternResponse>(prompt, Some(system_prompt))
             .await
             .map_err(|e| {
                 error!("Pattern extraction failed: {}", e);
@@ -467,7 +485,16 @@ impl ResearchAnalyzer {
             &similar_project.name,
             &similar_project.positive_aspects,
             &similar_project.negative_aspects,
-        );
+        )
+        .map_err(|e| {
+            error!("Failed to load lessons learned prompt: {}", e);
+            IdeateError::InvalidSection(format!("Failed to load prompt: {}", e))
+        })?;
+
+        let system_prompt = research_prompts::get_research_system_prompt().map_err(|e| {
+            error!("Failed to load research system prompt: {}", e);
+            IdeateError::InvalidSection(format!("Failed to load system prompt: {}", e))
+        })?;
 
         #[derive(Deserialize)]
         struct LessonResponse {
@@ -475,10 +502,7 @@ impl ResearchAnalyzer {
         }
 
         let response = ai_service
-            .generate_structured::<LessonResponse>(
-                prompt,
-                Some(research_prompts::get_research_system_prompt()),
-            )
+            .generate_structured::<LessonResponse>(prompt, Some(system_prompt))
             .await
             .map_err(|e| {
                 error!("Lesson extraction failed: {}", e);
@@ -509,13 +533,19 @@ impl ResearchAnalyzer {
             project_description,
             &competitor_data,
             similar_projects.len(),
-        );
+        )
+        .map_err(|e| {
+            error!("Failed to load research synthesis prompt: {}", e);
+            IdeateError::InvalidSection(format!("Failed to load prompt: {}", e))
+        })?;
+
+        let system_prompt = research_prompts::get_research_system_prompt().map_err(|e| {
+            error!("Failed to load research system prompt: {}", e);
+            IdeateError::InvalidSection(format!("Failed to load system prompt: {}", e))
+        })?;
 
         let response = ai_service
-            .generate_structured::<ResearchSynthesis>(
-                prompt,
-                Some(research_prompts::get_research_system_prompt()),
-            )
+            .generate_structured::<ResearchSynthesis>(prompt, Some(system_prompt))
             .await
             .map_err(|e| {
                 error!("Research synthesis failed: {}", e);

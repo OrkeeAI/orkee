@@ -15,9 +15,12 @@ pub mod ai_usage_log_handlers;
 pub mod auth;
 pub mod change_handlers;
 pub mod context_handlers;
+pub mod epic_handlers;
 pub mod executions_handlers;
+pub mod github_sync_handlers;
 pub mod graph_handlers;
 pub mod handlers;
+pub mod ideate_conversational_handlers;
 pub mod ideate_dependency_handlers;
 pub mod ideate_generation_handlers;
 pub mod ideate_handlers;
@@ -29,6 +32,7 @@ pub mod response;
 pub mod security_handlers;
 pub mod spec_handlers;
 pub mod tags_handlers;
+pub mod task_decomposition_handlers;
 pub mod task_spec_handlers;
 pub mod tasks_handlers;
 pub mod template_handlers;
@@ -171,6 +175,49 @@ pub fn create_prds_router() -> Router<DbState> {
         .route(
             "/{project_id}/prds/{prd_id}/capabilities",
             get(prd_handlers::get_prd_capabilities),
+        )
+        .route(
+            "/{project_id}/prds/{prd_id}/epics",
+            get(epic_handlers::list_epics_by_prd),
+        )
+}
+
+/// Creates the Epic API router for Epic management (CCPM workflow)
+pub fn create_epics_router() -> Router<DbState> {
+    Router::new()
+        .route("/{project_id}/epics", get(epic_handlers::list_epics))
+        .route("/{project_id}/epics", post(epic_handlers::create_epic))
+        .route(
+            "/{project_id}/epics/generate",
+            post(epic_handlers::generate_epic_from_prd),
+        )
+        .route(
+            "/{project_id}/epics/{epic_id}",
+            get(epic_handlers::get_epic),
+        )
+        .route(
+            "/{project_id}/epics/{epic_id}",
+            put(epic_handlers::update_epic),
+        )
+        .route(
+            "/{project_id}/epics/{epic_id}",
+            delete(epic_handlers::delete_epic),
+        )
+        .route(
+            "/{project_id}/epics/{epic_id}/tasks",
+            get(task_decomposition_handlers::get_epic_tasks),
+        )
+        .route(
+            "/{project_id}/epics/{epic_id}/progress",
+            get(epic_handlers::calculate_epic_progress),
+        )
+        .route(
+            "/{project_id}/epics/{epic_id}/analyze-work",
+            post(task_decomposition_handlers::analyze_work_streams),
+        )
+        .route(
+            "/{project_id}/epics/{epic_id}/decompose",
+            post(task_decomposition_handlers::decompose_epic),
         )
 }
 
@@ -508,6 +555,47 @@ pub fn create_ideate_router() -> Router<DbState> {
             "/ideate/templates/suggest",
             post(ideate_handlers::suggest_template),
         )
+        // Conversational Mode routes (CCPM)
+        .route(
+            "/ideate/conversational/{session_id}/history",
+            get(ideate_conversational_handlers::get_history),
+        )
+        .route(
+            "/ideate/conversational/{session_id}/message",
+            post(ideate_conversational_handlers::send_message),
+        )
+        .route(
+            "/ideate/conversational/questions",
+            get(ideate_conversational_handlers::get_discovery_questions),
+        )
+        .route(
+            "/ideate/conversational/{session_id}/suggested-questions",
+            get(ideate_conversational_handlers::get_suggested_questions),
+        )
+        .route(
+            "/ideate/conversational/{session_id}/insights",
+            get(ideate_conversational_handlers::get_insights),
+        )
+        .route(
+            "/ideate/conversational/{session_id}/insights",
+            post(ideate_conversational_handlers::create_insight),
+        )
+        .route(
+            "/ideate/conversational/{session_id}/quality",
+            get(ideate_conversational_handlers::get_quality_metrics),
+        )
+        .route(
+            "/ideate/conversational/{session_id}/status",
+            put(ideate_conversational_handlers::update_status),
+        )
+        .route(
+            "/ideate/conversational/{session_id}/generate-prd",
+            post(ideate_conversational_handlers::generate_prd),
+        )
+        .route(
+            "/ideate/conversational/{session_id}/validate",
+            get(ideate_conversational_handlers::validate_for_prd),
+        )
 }
 
 /// Creates the specs API router for OpenSpec capabilities
@@ -759,5 +847,22 @@ pub fn create_templates_router() -> Router<DbState> {
         .route(
             "/templates/{template_id}",
             delete(template_handlers::delete_template),
+        )
+}
+
+/// Creates the GitHub sync API router for syncing Epics and Tasks to GitHub
+pub fn create_github_sync_router() -> Router<DbState> {
+    Router::new()
+        .route(
+            "/github/sync/epic/{epic_id}",
+            post(github_sync_handlers::sync_epic),
+        )
+        .route(
+            "/github/sync/tasks/{epic_id}",
+            post(github_sync_handlers::sync_tasks),
+        )
+        .route(
+            "/github/sync/status/{project_id}",
+            get(github_sync_handlers::get_sync_status),
         )
 }
