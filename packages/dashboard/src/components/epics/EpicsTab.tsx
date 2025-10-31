@@ -167,6 +167,12 @@ export function EpicsTab({ projectId }: EpicsTabProps) {
                 // TODO: Implement task generation (Phase 4)
                 alert('Task generation coming in Phase 4');
               }}
+              onSyncSuccess={() => {
+                // Refetch the epic to update sync status
+                if (selectedEpic) {
+                  setSelectedEpic({ ...selectedEpic });
+                }
+              }}
             />
           ) : (
             <div className="h-full flex items-center justify-center">

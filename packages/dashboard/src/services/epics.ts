@@ -168,6 +168,34 @@ export interface DecompositionResult {
   conflicts: Array<{ task1: string; task2: string; reason: string }>;
 }
 
+// GitHub Sync Types
+export type GitHubSyncStatus = 'pending' | 'syncing' | 'synced' | 'failed' | 'conflict';
+export type GitHubSyncDirection = 'local_to_github' | 'github_to_local' | 'bidirectional';
+export type GitHubEntityType = 'epic' | 'task' | 'comment' | 'status';
+
+export interface GitHubSyncResult {
+  issue_number: number;
+  issue_url: string;
+  synced_at: string;
+}
+
+export interface GitHubSyncRecord {
+  id: string;
+  project_id: string;
+  entity_type: GitHubEntityType;
+  entity_id: string;
+  github_issue_number?: number;
+  github_issue_url?: string;
+  sync_status: GitHubSyncStatus;
+  sync_direction?: GitHubSyncDirection;
+  last_synced_at?: string;
+  last_sync_hash?: string;
+  last_sync_error?: string;
+  retry_count: number;
+  created_at: string;
+  updated_at: string;
+}
+
 interface ApiResponse<T> {
   success: boolean;
   data: T | null;
@@ -345,6 +373,53 @@ export class EpicsService {
     }
 
     return response.data.data;
+  }
+
+  // GitHub Sync Operations
+  async syncEpicToGitHub(epicId: string, createNew: boolean = false): Promise<GitHubSyncResult> {
+    const response = await apiClient.post<ApiResponse<GitHubSyncResult>>(
+      `/api/github/sync/epic/${epicId}`,
+      { create_new: createNew }
+    );
+
+    if (response.error || !response.data?.success) {
+      throw new Error(response.data?.error || response.error || 'Failed to sync epic to GitHub');
+    }
+
+    if (!response.data.data) {
+      throw new Error('No sync result returned');
+    }
+
+    return response.data.data;
+  }
+
+  async syncTasksToGitHub(epicId: string): Promise<GitHubSyncResult[]> {
+    const response = await apiClient.post<ApiResponse<{ results: GitHubSyncResult[] }>>(
+      `/api/github/sync/tasks/${epicId}`,
+      {}
+    );
+
+    if (response.error || !response.data?.success) {
+      throw new Error(response.data?.error || response.error || 'Failed to sync tasks to GitHub');
+    }
+
+    if (!response.data.data) {
+      throw new Error('No sync results returned');
+    }
+
+    return response.data.data.results;
+  }
+
+  async getGitHubSyncStatus(projectId: string): Promise<GitHubSyncRecord[]> {
+    const response = await apiClient.get<ApiResponse<{ syncs: GitHubSyncRecord[] }>>(
+      `/api/github/sync/status/${projectId}`
+    );
+
+    if (response.error || !response.data?.success) {
+      throw new Error(response.data?.error || response.error || 'Failed to get sync status');
+    }
+
+    return response.data.data?.syncs || [];
   }
 }
 

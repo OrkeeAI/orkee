@@ -37,6 +37,15 @@ export interface GitRepositoryInfo {
   branch?: string;
 }
 
+export interface GitHubConfig {
+  githubOwner?: string;
+  githubRepo?: string;
+  githubSyncEnabled: boolean;
+  githubTokenEncrypted?: string;
+  githubLabelsConfig?: Record<string, string>;
+  githubDefaultAssignee?: string;
+}
+
 export interface Project {
   id: string;
   name: string;
@@ -55,6 +64,13 @@ export interface Project {
   manualTasks?: ManualTask[];
   mcpServers?: Record<string, boolean>;
   gitRepository?: GitRepositoryInfo;
+  // GitHub integration
+  githubOwner?: string;
+  githubRepo?: string;
+  githubSyncEnabled?: boolean;
+  githubTokenEncrypted?: string;
+  githubLabelsConfig?: Record<string, string>;
+  githubDefaultAssignee?: string;
 }
 
 export interface ProjectCreateInput {
@@ -211,6 +227,34 @@ export class ProjectsService {
     }
 
     return true;
+  }
+
+  // GitHub Configuration
+  async updateGitHubConfig(projectId: string, config: Partial<GitHubConfig>): Promise<Project> {
+    // Convert camelCase to snake_case for API
+    const updates: Record<string, any> = {};
+    if (config.githubOwner !== undefined) updates.github_owner = config.githubOwner;
+    if (config.githubRepo !== undefined) updates.github_repo = config.githubRepo;
+    if (config.githubSyncEnabled !== undefined) updates.github_sync_enabled = config.githubSyncEnabled;
+    if (config.githubTokenEncrypted !== undefined) updates.github_token_encrypted = config.githubTokenEncrypted;
+    if (config.githubLabelsConfig !== undefined) updates.github_labels_config = JSON.stringify(config.githubLabelsConfig);
+    if (config.githubDefaultAssignee !== undefined) updates.github_default_assignee = config.githubDefaultAssignee;
+
+    return this.updateProject(projectId, updates as ProjectUpdateInput);
+  }
+
+  async getGitHubConfig(projectId: string): Promise<GitHubConfig | null> {
+    const project = await this.getProjectById(projectId);
+    if (!project) return null;
+
+    return {
+      githubOwner: project.githubOwner,
+      githubRepo: project.githubRepo,
+      githubSyncEnabled: project.githubSyncEnabled || false,
+      githubTokenEncrypted: project.githubTokenEncrypted,
+      githubLabelsConfig: project.githubLabelsConfig,
+      githubDefaultAssignee: project.githubDefaultAssignee,
+    };
   }
 }
 

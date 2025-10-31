@@ -14,16 +14,18 @@ import type { Epic, EpicStatus, EpicComplexity, DecompositionResult, WorkAnalysi
 import { TaskBreakdown } from './TaskBreakdown';
 import { DependencyView } from './DependencyView';
 import { WorkStreamAnalysis } from './WorkStreamAnalysis';
+import { GitHubSyncStatus } from './GitHubSyncStatus';
 
 interface EpicDetailProps {
   epic: Epic;
   onEdit?: () => void;
   onGenerateTasks?: () => void;
+  onSyncSuccess?: () => void;
   decompositionResult?: DecompositionResult | null;
   workAnalysis?: WorkAnalysis | null;
 }
 
-export function EpicDetail({ epic, onEdit, onGenerateTasks, decompositionResult, workAnalysis }: EpicDetailProps) {
+export function EpicDetail({ epic, onEdit, onGenerateTasks, onSyncSuccess, decompositionResult, workAnalysis }: EpicDetailProps) {
   const [activeTab, setActiveTab] = useState('overview');
 
   const formatDate = (dateString: string) => {
@@ -143,7 +145,7 @@ export function EpicDetail({ epic, onEdit, onGenerateTasks, decompositionResult,
 
       {/* Main Content Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-7">
+        <TabsList className="grid w-full grid-cols-8">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="architecture">Architecture</TabsTrigger>
           <TabsTrigger value="dependencies">Dependencies</TabsTrigger>
@@ -151,6 +153,7 @@ export function EpicDetail({ epic, onEdit, onGenerateTasks, decompositionResult,
           <TabsTrigger value="tasks">Task Breakdown</TabsTrigger>
           <TabsTrigger value="deps">Dependencies</TabsTrigger>
           <TabsTrigger value="streams">Work Streams</TabsTrigger>
+          <TabsTrigger value="github">GitHub Sync</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-6">
@@ -359,6 +362,11 @@ export function EpicDetail({ epic, onEdit, onGenerateTasks, decompositionResult,
         {/* Work Streams Tab */}
         <TabsContent value="streams" className="space-y-6">
           <WorkStreamAnalysis workAnalysis={workAnalysis || null} />
+        </TabsContent>
+
+        {/* GitHub Sync Tab */}
+        <TabsContent value="github" className="space-y-6">
+          <GitHubSyncStatus epic={epic} onSyncSuccess={onSyncSuccess} />
         </TabsContent>
       </Tabs>
     </div>
