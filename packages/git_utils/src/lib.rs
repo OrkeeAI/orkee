@@ -1,9 +1,14 @@
-// ABOUTME: Git integration utilities for extracting repository information from projects.
-// ABOUTME: Handles GitHub URL parsing (SSH/HTTPS formats) and retrieves branch/remote data.
+// ABOUTME: Git and GitHub integration utilities for repository management
+// ABOUTME: Provides git repository introspection and GitHub CLI operations
+
+pub mod github;
 
 use git2::Repository;
 use orkee_core::types::GitRepositoryInfo;
 use tracing::debug;
+
+// Re-export GitHub CLI types
+pub use github::{GhIssue, GitHubCli, GitHubCliError};
 
 pub fn get_git_repository_info(project_path: &str) -> Option<GitRepositoryInfo> {
     debug!("Getting git repository info for path: {}", project_path);

@@ -759,9 +759,10 @@ export class WorkStreamAnalyzer {
   - Default assignee configuration
   - Integrated into Project Detail settings tab
 
-### 5.2 GitHub Service (✅ Backend Complete)
+### 5.2 GitHub Service (✅ Backend Complete with gh CLI Integration)
 
 - [x] GitHub sync service implementation
+- [x] **gh CLI integration with automatic fallback** ⭐ NEW
 - [x] Epic to GitHub issue creation
 - [x] Epic to GitHub issue synchronization
 - [x] Task to GitHub issue creation with Epic linking
@@ -769,14 +770,30 @@ export class WorkStreamAnalyzer {
 - [ ] Bidirectional sync (GitHub → Local) - Deferred
 - [ ] Conflict resolution - Deferred
 
-**Implementation**: `packages/ideate/src/github_sync.rs`
+**Implementation**:
+- `packages/ideate/src/github_sync.rs` - Main sync service with dual-mode support
+- `packages/git_utils/src/github.rs` - GitHub CLI wrapper ⭐ NEW (refactored from ideate to git_utils)
 
 ```rust
+// Dual-mode sync service
 pub struct GitHubSyncService {
-    client: Client,
+    client: Client,           // REST API client
+    gh_cli: Option<GitHubCli>, // gh CLI wrapper (if available)
+    sync_method: SyncMethod,   // Active sync method
+}
+
+pub enum SyncMethod {
+    GhCli,    // Use gh CLI (preferred - leverages user's auth)
+    RestApi,  // Use REST API directly
+    Auto,     // Auto-detect and use gh CLI if available
 }
 
 impl GitHubSyncService {
+    // Constructor with automatic gh CLI detection
+    pub fn new() -> Self; // Auto-detects gh CLI
+    pub fn with_method(method: SyncMethod) -> Self;
+    pub fn has_gh_cli(&self) -> bool;
+
     // Epic operations - ✅ IMPLEMENTED
     pub async fn create_epic_issue(&self, epic: &Epic, config: &GitHubConfig, pool: &SqlitePool) -> Result<SyncResult>;
     pub async fn sync_epic_to_github(&self, epic: &Epic, config: &GitHubConfig, pool: &SqlitePool) -> Result<SyncResult>;
@@ -787,7 +804,25 @@ impl GitHubSyncService {
     // Sync status - ✅ IMPLEMENTED
     pub async fn get_sync_status(&self, pool: &SqlitePool, project_id: &str) -> Result<Vec<GitHubSync>>;
 }
+
+// GitHub CLI wrapper
+pub struct GitHubCli { ... }
+
+impl GitHubCli {
+    pub fn new() -> Result<Self>;  // Checks gh installation and auth
+    pub fn is_authenticated(&self) -> Result<bool>;
+    pub async fn create_issue(...) -> Result<GhIssue>;
+    pub async fn update_issue(...) -> Result<GhIssue>;
+    pub async fn add_comment(...) -> Result<()>;
+    pub fn check_scopes(&self, required: &[&str]) -> Result<bool>;
+}
 ```
+
+**Sync Strategy**:
+1. **Auto-detection on startup** - Checks for `gh` CLI in PATH and authentication status
+2. **Preferred method: gh CLI** - Uses user's existing GitHub authentication (no token storage needed)
+3. **Automatic fallback** - Falls back to REST API if gh CLI unavailable or fails
+4. **Transparent operation** - Same API regardless of method used
 
 **API Endpoints Implemented**: `packages/api/src/github_sync_handlers.rs`
 - `POST /api/github/sync/epic/{epic_id}` - Create or update Epic as GitHub issue
@@ -873,6 +908,14 @@ impl GitHubSyncService {
 - Token encryption handled by security package
 - Frontend uses React Query for data fetching and caching
 - Settings integrated into existing project detail settings tab
+
+**GitHub CLI Integration Benefits** ⭐:
+- **No Token Storage Required**: Uses user's existing `gh` authentication (more secure)
+- **Automatic Fallback**: Seamlessly falls back to REST API if `gh` CLI unavailable
+- **Better Error Messages**: `gh` CLI provides more user-friendly error messages
+- **Rate Limit Sharing**: Uses user's personal rate limits (not shared with other Orkee users)
+- **Reduced Maintenance**: GitHub maintains `gh` CLI, we get updates automatically
+- **Architecture**: Refactored to `packages/git_utils` for reusability across Orkee
 
 ---
 

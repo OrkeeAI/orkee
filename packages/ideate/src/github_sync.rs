@@ -8,6 +8,7 @@ use std::collections::HashMap;
 use thiserror::Error;
 
 use crate::epic::{Epic, EpicStatus};
+use git_utils::GitHubCli;
 
 #[derive(Debug, Error)]
 pub enum GitHubSyncError {
@@ -60,6 +61,7 @@ struct UpdateIssueRequest {
 
 /// GitHub issue response
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 struct GitHubIssue {
     number: i32,
     html_url: String,
@@ -71,6 +73,7 @@ struct GitHubIssue {
 
 /// GitHub API error response
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 struct GitHubErrorResponse {
     message: String,
     #[serde(default)]
@@ -147,16 +150,64 @@ pub struct SyncResult {
     pub synced_at: DateTime<Utc>,
 }
 
+/// Sync method preference
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SyncMethod {
+    /// Use gh CLI when available (preferred)
+    GhCli,
+    /// Use REST API directly
+    RestApi,
+    /// Auto-detect and use gh CLI if available, fallback to REST API
+    Auto,
+}
+
 /// GitHub sync service
 pub struct GitHubSyncService {
     client: Client,
+    gh_cli: Option<GitHubCli>,
+    sync_method: SyncMethod,
 }
 
 impl GitHubSyncService {
+    /// Create new sync service with auto-detection of gh CLI
     pub fn new() -> Self {
+        Self::with_method(SyncMethod::Auto)
+    }
+
+    /// Create sync service with specific method
+    pub fn with_method(method: SyncMethod) -> Self {
+        let gh_cli = if method == SyncMethod::RestApi {
+            None
+        } else {
+            GitHubCli::new().ok()
+        };
+
+        let effective_method = match method {
+            SyncMethod::Auto => {
+                if gh_cli.is_some() {
+                    SyncMethod::GhCli
+                } else {
+                    SyncMethod::RestApi
+                }
+            }
+            other => other,
+        };
+
         Self {
             client: Client::new(),
+            gh_cli,
+            sync_method: effective_method,
         }
+    }
+
+    /// Get the active sync method
+    pub fn sync_method(&self) -> SyncMethod {
+        self.sync_method
+    }
+
+    /// Check if gh CLI is available and authenticated
+    pub fn has_gh_cli(&self) -> bool {
+        self.gh_cli.is_some()
     }
 
     /// Create an Epic issue on GitHub
@@ -473,7 +524,7 @@ impl GitHubSyncService {
         }.to_string()
     }
 
-    /// Create GitHub issue
+    /// Create GitHub issue (uses gh CLI if available, falls back to REST API)
     async fn create_github_issue(
         &self,
         owner: &str,
@@ -481,9 +532,45 @@ impl GitHubSyncService {
         token: &str,
         request: &CreateIssueRequest,
     ) -> Result<GitHubIssue> {
+        // Try gh CLI first if available
+        if let Some(gh) = &self.gh_cli {
+            match gh
+                .create_issue(
+                    owner,
+                    repo,
+                    &request.title,
+                    &request.body,
+                    Some(request.labels.clone()),
+                    request.assignees.clone(),
+                )
+                .await
+            {
+                Ok(gh_issue) => {
+                    // Convert gh CLI issue to GitHubIssue
+                    return Ok(GitHubIssue {
+                        number: gh_issue.number,
+                        html_url: gh_issue.url,
+                        title: gh_issue.title,
+                        body: gh_issue.body,
+                        state: gh_issue.state,
+                        updated_at: gh_issue
+                            .updated_at
+                            .parse::<DateTime<Utc>>()
+                            .unwrap_or_else(|_| Utc::now()),
+                    });
+                }
+                Err(e) => {
+                    // Log gh CLI error and fall back to REST API
+                    eprintln!("gh CLI failed, falling back to REST API: {}", e);
+                }
+            }
+        }
+
+        // Fallback to REST API
         let url = format!("https://api.github.com/repos/{}/{}/issues", owner, repo);
 
-        let response = self.client
+        let response = self
+            .client
             .post(&url)
             .header("Authorization", format!("Bearer {}", token))
             .header("User-Agent", "Orkee-CCPM")
@@ -500,7 +587,7 @@ impl GitHubSyncService {
         Ok(response.json().await?)
     }
 
-    /// Update GitHub issue
+    /// Update GitHub issue (uses gh CLI if available, falls back to REST API)
     async fn update_github_issue(
         &self,
         owner: &str,
@@ -509,9 +596,49 @@ impl GitHubSyncService {
         issue_number: i32,
         request: &UpdateIssueRequest,
     ) -> Result<GitHubIssue> {
-        let url = format!("https://api.github.com/repos/{}/{}/issues/{}", owner, repo, issue_number);
+        // Try gh CLI first if available
+        if let Some(gh) = &self.gh_cli {
+            match gh
+                .update_issue(
+                    owner,
+                    repo,
+                    issue_number,
+                    request.title.clone(),
+                    request.body.clone(),
+                    request.state.clone(),
+                    request.labels.clone(),
+                )
+                .await
+            {
+                Ok(gh_issue) => {
+                    // Convert gh CLI issue to GitHubIssue
+                    return Ok(GitHubIssue {
+                        number: gh_issue.number,
+                        html_url: gh_issue.url,
+                        title: gh_issue.title,
+                        body: gh_issue.body,
+                        state: gh_issue.state,
+                        updated_at: gh_issue
+                            .updated_at
+                            .parse::<DateTime<Utc>>()
+                            .unwrap_or_else(|_| Utc::now()),
+                    });
+                }
+                Err(e) => {
+                    // Log gh CLI error and fall back to REST API
+                    eprintln!("gh CLI failed, falling back to REST API: {}", e);
+                }
+            }
+        }
 
-        let response = self.client
+        // Fallback to REST API
+        let url = format!(
+            "https://api.github.com/repos/{}/{}/issues/{}",
+            owner, repo, issue_number
+        );
+
+        let response = self
+            .client
             .patch(&url)
             .header("Authorization", format!("Bearer {}", token))
             .header("User-Agent", "Orkee-CCPM")

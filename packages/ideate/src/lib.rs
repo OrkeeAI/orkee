@@ -46,7 +46,7 @@ pub use epic::{
 pub use epic_manager::EpicManager;
 pub use github_sync::{
     EntityType, GitHubConfig, GitHubSync, GitHubSyncError, GitHubSyncService, SyncDirection,
-    SyncResult, SyncStatus,
+    SyncMethod, SyncResult, SyncStatus,
 };
 pub use error::{IdeateError, Result};
 pub use expert_moderator::ExpertModerator;
