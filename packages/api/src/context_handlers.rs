@@ -9,7 +9,6 @@ use std::path::PathBuf;
 use tracing::{error, info};
 
 use context::{
-    openspec_bridge::OpenSpecContextBridge,
     types::{
         ContextConfiguration, ContextGenerationRequest, ContextMetadata, FileInfo,
         GeneratedContext, ListFilesResponse,
@@ -428,6 +427,20 @@ pub async fn generate_prd_context(
         project_id, request.prd_id
     );
 
+    // Get PRD from database
+    let prd = match orkee_projects::get_prd(&db.pool, &request.prd_id).await {
+        Ok(prd) => prd,
+        Err(e) => {
+            error!("Failed to fetch PRD {}: {}", request.prd_id, e);
+            return Err((
+                StatusCode::NOT_FOUND,
+                Json(serde_json::json!({
+                    "error": format!("PRD not found: {}", e)
+                })),
+            ));
+        }
+    };
+
     // Get project from database
     let project = sqlx::query!(
         "SELECT id, name, project_root FROM projects WHERE id = ?",
@@ -453,20 +466,11 @@ pub async fn generate_prd_context(
         )
     })?;
 
-    // Create bridge and generate context
-    let bridge = OpenSpecContextBridge::new(db.pool.clone());
-    let context_content = bridge
-        .generate_prd_context(&request.prd_id, &project.project_root)
-        .await
-        .map_err(|e| {
-            error!("Failed to generate PRD context: {}", e);
-            (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(serde_json::json!({
-                    "error": format!("Failed to generate context: {}", e)
-                })),
-            )
-        })?;
+    // Generate simple context from PRD content
+    let context_content = format!(
+        "# PRD Context\n\n## Project: {}\n\n## PRD: {}\n\n{}\n",
+        project.name, prd.title, prd.content_markdown
+    );
 
     let total_tokens = context_content.len() / 4;
 
@@ -496,6 +500,20 @@ pub async fn generate_task_context(
         project_id, request.task_id
     );
 
+    // Get task from database
+    let task = match db.task_storage.get_task(&request.task_id).await {
+        Ok(task) => task,
+        Err(e) => {
+            error!("Failed to fetch task {}: {}", request.task_id, e);
+            return Err((
+                StatusCode::NOT_FOUND,
+                Json(serde_json::json!({
+                    "error": format!("Task not found: {}", e)
+                })),
+            ));
+        }
+    };
+
     // Get project from database
     let project = sqlx::query!(
         "SELECT id, name, project_root FROM projects WHERE id = ?",
@@ -521,20 +539,14 @@ pub async fn generate_task_context(
         )
     })?;
 
-    // Create bridge and generate context
-    let bridge = OpenSpecContextBridge::new(db.pool.clone());
-    let context_content = bridge
-        .generate_task_context(&request.task_id, &project.project_root)
-        .await
-        .map_err(|e| {
-            error!("Failed to generate task context: {}", e);
-            (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(serde_json::json!({
-                    "error": format!("Failed to generate context: {}", e)
-                })),
-            )
-        })?;
+    // Generate simple context from task details
+    let context_content = format!(
+        "# Task Context\n\n## Project: {}\n\n## Task: {}\n\nDescription: {}\n\nStatus: {:?}\n",
+        project.name,
+        task.title,
+        task.description.as_deref().unwrap_or("No description"),
+        task.status
+    );
 
     let total_tokens = context_content.len() / 4;
 
@@ -547,65 +559,8 @@ pub async fn generate_task_context(
     })) as Result<Json<GeneratedContext>, (StatusCode, Json<serde_json::Value>)>
 }
 
-/// Request body for validating spec implementation
-#[derive(Debug, Deserialize)]
-pub struct ValidateSpecRequest {
-    pub capability_id: String,
-}
-
-/// Validate spec implementation
-pub async fn validate_spec(
-    Path(project_id): Path<String>,
-    State(db): State<DbState>,
-    Json(request): Json<ValidateSpecRequest>,
-) -> Result<Json<context::openspec_bridge::SpecValidationReport>, impl IntoResponse> {
-    info!(
-        "Validating spec for project: {}, capability: {}",
-        project_id, request.capability_id
-    );
-
-    // Get project from database
-    let project = sqlx::query!(
-        "SELECT id, name, project_root FROM projects WHERE id = ?",
-        project_id
-    )
-    .fetch_optional(&db.pool)
-    .await
-    .map_err(|e| {
-        error!("Database error: {}", e);
-        (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(serde_json::json!({
-                "error": "Database error"
-            })),
-        )
-    })?
-    .ok_or_else(|| {
-        (
-            StatusCode::NOT_FOUND,
-            Json(serde_json::json!({
-                "error": "Project not found"
-            })),
-        )
-    })?;
-
-    // Create bridge and validate
-    let bridge = OpenSpecContextBridge::new(db.pool.clone());
-    let report = bridge
-        .validate_spec_coverage(&request.capability_id, &project.project_root)
-        .await
-        .map_err(|e| {
-            error!("Failed to validate spec: {}", e);
-            (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(serde_json::json!({
-                    "error": format!("Failed to validate: {}", e)
-                })),
-            )
-        })?;
-
-    Ok::<_, (StatusCode, Json<serde_json::Value>)>(Json(report))
-}
+// Spec validation has been removed as it was part of the OpenSpec functionality
+// which has been deprecated in favor of CCPM (Conversational Mode)
 
 /// Get context history for a project
 pub async fn get_context_history(

@@ -14,18 +14,55 @@ use super::auth::CurrentUser;
 use super::response::ApiResponse;
 use ai::service::{AIService, AIServiceError};
 use ai::usage_logs::AiUsageLog;
-use openspec::db as openspec_db;
-use orkee_projects::DbState;
+use orkee_projects::{DbState, get_prd};
 use tasks::{TaskCreateInput, TaskPriority};
 
 // ============================================================================
-// Shared Types (Re-exported from openspec for backward compatibility)
+// Shared Types (Used for AI analysis)
 // ============================================================================
 
-// Re-export AI analysis types from openspec module
-pub use openspec::ai_types::{
-    PRDAnalysisData, SpecCapability, SpecRequirement, SpecScenario, TaskSuggestion,
-};
+#[derive(Debug, Serialize, Deserialize)]
+pub struct PRDAnalysisData {
+    pub summary: String,
+    pub capabilities: Vec<SpecCapability>,
+    pub suggested_tasks: Vec<TaskSuggestion>,
+    pub dependencies: Vec<String>,
+    pub technical_considerations: Vec<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct SpecCapability {
+    pub id: String,
+    pub name: String,
+    pub purpose: String,
+    pub requirements: Vec<SpecRequirement>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct SpecRequirement {
+    pub name: String,
+    pub content: String,
+    pub scenarios: Vec<SpecScenario>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct SpecScenario {
+    pub name: String,
+    pub when: String,
+    pub then: String,
+    pub and: Option<Vec<String>>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct TaskSuggestion {
+    pub title: String,
+    pub description: String,
+    pub capability_id: String,
+    pub requirement_name: String,
+    pub complexity: i32,
+    pub estimated_hours: Option<f32>,
+    pub priority: String,
+}
 
 // ============================================================================
 // Spec Generation
@@ -285,7 +322,7 @@ RESPOND WITH ONLY VALID JSON."#
             };
 
             // Get the PRD to obtain project_id
-            let prd = match openspec_db::get_prd(&db.pool, &request.prd_id).await {
+            let prd = match get_prd(&db.pool, &request.prd_id).await {
                 Ok(prd) => prd,
                 Err(e) => {
                     error!("Failed to fetch PRD {}: {}", request.prd_id, e);
@@ -299,86 +336,9 @@ RESPOND WITH ONLY VALID JSON."#
 
             let project_id = &prd.project_id;
             info!(
-                "Creating OpenSpec change proposal for project: {}",
+                "Successfully analyzed PRD for project: {}",
                 project_id
             );
-
-            // Create change proposal from analysis using OpenSpec workflow
-            let change = match openspec::create_change_from_analysis(
-                &db.pool,
-                project_id,
-                &request.prd_id,
-                &ai_response.data,
-                &current_user.id,
-            )
-            .await
-            {
-                Ok(change) => {
-                    info!(
-                        "Created change proposal: {} (status: {:?})",
-                        change.id, change.status
-                    );
-                    change
-                }
-                Err(e) => {
-                    error!("Failed to create change proposal: {}", e);
-                    return (
-                        StatusCode::INTERNAL_SERVER_ERROR,
-                        ResponseJson(ApiResponse::<()>::error(format!(
-                            "Failed to create change proposal: {}",
-                            e
-                        ))),
-                    )
-                        .into_response();
-                }
-            };
-
-            // Validate the created change deltas
-            use openspec::OpenSpecMarkdownValidator;
-            let validator = OpenSpecMarkdownValidator::new(false); // Use relaxed mode for now
-
-            let deltas = match openspec_db::get_deltas_by_change(&db.pool, &change.id).await {
-                Ok(deltas) => deltas,
-                Err(e) => {
-                    error!("Failed to fetch deltas for validation: {}", e);
-                    vec![] // Continue without validation if fetch fails
-                }
-            };
-
-            let mut validation_errors = Vec::new();
-            for delta in &deltas {
-                let errors = validator.validate_delta_markdown(&delta.delta_markdown);
-                if !errors.is_empty() {
-                    error!(
-                        "Validation errors in delta for {}: {:?}",
-                        delta.capability_name, errors
-                    );
-                    validation_errors.extend(errors);
-                }
-            }
-
-            // Update change validation status
-            let validation_status = if validation_errors.is_empty() {
-                "valid"
-            } else {
-                "invalid"
-            };
-
-            if let Err(e) = sqlx::query(
-                "UPDATE spec_changes SET validation_status = ?, validation_errors = ? WHERE id = ?",
-            )
-            .bind(validation_status)
-            .bind(if validation_errors.is_empty() {
-                None
-            } else {
-                Some(serde_json::to_string(&validation_errors).unwrap_or_default())
-            })
-            .bind(&change.id)
-            .execute(&db.pool)
-            .await
-            {
-                error!("Failed to update change validation status: {}", e);
-            }
 
             // Save suggested tasks to database
             info!(

@@ -12,16 +12,6 @@ DROP TRIGGER IF EXISTS users_updated_at;
 DROP TRIGGER IF EXISTS user_agents_updated_at;
 DROP TRIGGER IF EXISTS tags_updated_at;
 DROP TRIGGER IF EXISTS prds_updated_at;
-DROP TRIGGER IF EXISTS spec_changes_updated_at;
-DROP TRIGGER IF EXISTS spec_capabilities_updated_at;
-DROP TRIGGER IF EXISTS spec_capabilities_history_updated_at;
-DROP TRIGGER IF EXISTS spec_requirements_updated_at;
-DROP TRIGGER IF EXISTS spec_scenarios_updated_at;
-DROP TRIGGER IF EXISTS spec_change_tasks_updated_at;
-DROP TRIGGER IF EXISTS spec_deltas_updated_at;
-DROP TRIGGER IF EXISTS task_spec_links_updated_at;
-DROP TRIGGER IF EXISTS prd_spec_sync_history_updated_at;
-DROP TRIGGER IF EXISTS spec_materializations_updated_at;
 DROP TRIGGER IF EXISTS tasks_updated_at;
 DROP TRIGGER IF EXISTS tasks_fts_insert;
 DROP TRIGGER IF EXISTS tasks_fts_delete;
@@ -31,7 +21,6 @@ DROP TRIGGER IF EXISTS pr_reviews_updated_at;
 DROP TRIGGER IF EXISTS context_configurations_updated_at;
 DROP TRIGGER IF EXISTS context_snapshots_updated_at;
 DROP TRIGGER IF EXISTS context_usage_patterns_updated_at;
-DROP TRIGGER IF EXISTS ast_spec_mappings_updated_at;
 DROP TRIGGER IF EXISTS context_templates_updated_at;
 DROP TRIGGER IF EXISTS api_tokens_updated_at;
 DROP TRIGGER IF EXISTS update_task_completion_stats;
@@ -77,7 +66,6 @@ DROP TABLE IF EXISTS encryption_settings;
 -- DROP CONTEXT MANAGEMENT TABLES (reverse dependency order)
 -- ============================================================================
 DROP TABLE IF EXISTS context_templates;
-DROP TABLE IF EXISTS ast_spec_mappings;
 DROP TABLE IF EXISTS context_usage_patterns;
 DROP TABLE IF EXISTS context_snapshots;
 DROP TABLE IF EXISTS context_configurations;
@@ -88,11 +76,6 @@ DROP TABLE IF EXISTS context_configurations;
 DROP TABLE IF EXISTS ai_usage_logs;
 
 -- ============================================================================
--- DROP OPENSPEC-TASK LINK TABLES
--- ============================================================================
-DROP TABLE IF EXISTS spec_materializations;
-DROP TABLE IF EXISTS prd_spec_sync_history;
-DROP TABLE IF EXISTS task_spec_links;
 
 -- ============================================================================
 -- DROP AGENT EXECUTION TABLES
@@ -107,15 +90,6 @@ DROP TABLE IF EXISTS tasks_fts;
 DROP TABLE IF EXISTS tasks;
 
 -- ============================================================================
--- DROP OPENSPEC TABLES (reverse dependency order)
--- ============================================================================
-DROP TABLE IF EXISTS spec_deltas;
-DROP TABLE IF EXISTS spec_change_tasks;
-DROP TABLE IF EXISTS spec_scenarios;
-DROP TABLE IF EXISTS spec_requirements;
-DROP TABLE IF EXISTS spec_capabilities_history;
-DROP TABLE IF EXISTS spec_capabilities;
-DROP TABLE IF EXISTS spec_changes;
 
 -- ============================================================================
 -- DROP IDEATE TABLES

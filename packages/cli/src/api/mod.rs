@@ -294,10 +294,6 @@ pub async fn create_router_with_options(
         )
         .nest(
             "/api/projects",
-            api::create_specs_router().with_state(db_state.clone()),
-        )
-        .nest(
-            "/api/projects",
             api::create_graph_router().with_state(db_state.clone()),
         )
         .nest("/api/git", git_router)
@@ -333,18 +329,6 @@ pub async fn create_router_with_options(
         .nest(
             "/api",
             api::create_prds_router().with_state(db_state.clone()),
-        )
-        .nest(
-            "/api",
-            api::create_specs_router().with_state(db_state.clone()),
-        )
-        .nest(
-            "/api/projects",
-            api::create_changes_router().with_state(db_state.clone()),
-        )
-        .nest(
-            "/api",
-            api::create_task_spec_router().with_state(db_state.clone()),
         )
         .nest("/api", api::create_ai_router().with_state(db_state.clone()))
         .nest(

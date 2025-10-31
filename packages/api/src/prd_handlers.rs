@@ -10,10 +10,10 @@ use serde::Deserialize;
 use tracing::info;
 
 use super::response::{created_or_internal_error, ok_or_internal_error, ok_or_not_found};
-use openspec::db as openspec_db;
-use openspec::types::{PRDSource, PRDStatus};
-use orkee_projects::pagination::{PaginatedResponse, PaginationParams};
-use orkee_projects::DbState;
+use orkee_projects::{
+    self as projects, pagination::{PaginatedResponse, PaginationParams}, DbState, PRDSource,
+    PRDStatus,
+};
 
 /// List all PRDs for a project
 pub async fn list_prds(
@@ -27,7 +27,7 @@ pub async fn list_prds(
         pagination.page()
     );
 
-    let result = openspec_db::get_prds_by_project_paginated(
+    let result = projects::get_prds_by_project_paginated(
         &db.pool,
         &project_id,
         Some(pagination.limit()),
@@ -46,7 +46,7 @@ pub async fn get_prd(
 ) -> impl IntoResponse {
     info!("Getting PRD: {}", prd_id);
 
-    let result = openspec_db::get_prd(&db.pool, &prd_id).await;
+    let result = projects::get_prd(&db.pool, &prd_id).await;
     ok_or_not_found(result, "PRD not found")
 }
 
@@ -76,7 +76,7 @@ pub async fn create_prd(
     let status = request.status.unwrap_or(PRDStatus::Draft);
     let source = request.source.unwrap_or(PRDSource::Manual);
 
-    let result = openspec_db::create_prd(
+    let result = projects::create_prd(
         &db.pool,
         &project_id,
         &request.title,
@@ -107,7 +107,7 @@ pub async fn update_prd(
 ) -> impl IntoResponse {
     info!("Updating PRD: {}", prd_id);
 
-    let result = openspec_db::update_prd(
+    let result = projects::update_prd(
         &db.pool,
         &prd_id,
         request.title.as_deref(),
@@ -126,30 +126,6 @@ pub async fn delete_prd(
 ) -> impl IntoResponse {
     info!("Deleting PRD: {}", prd_id);
 
-    let result = openspec_db::delete_prd(&db.pool, &prd_id).await;
+    let result = projects::delete_prd(&db.pool, &prd_id).await;
     ok_or_internal_error(result, "Failed to delete PRD")
-}
-
-/// Get all capabilities associated with a PRD
-pub async fn get_prd_capabilities(
-    State(db): State<DbState>,
-    Path((_project_id, prd_id)): Path<(String, String)>,
-    Query(pagination): Query<PaginationParams>,
-) -> impl IntoResponse {
-    info!(
-        "Getting capabilities for PRD: {} (page: {})",
-        prd_id,
-        pagination.page()
-    );
-
-    let result = openspec_db::get_capabilities_by_prd_paginated(
-        &db.pool,
-        &prd_id,
-        Some(pagination.limit()),
-        Some(pagination.offset()),
-    )
-    .await
-    .map(|(capabilities, total)| PaginatedResponse::new(capabilities, &pagination, total));
-
-    ok_or_internal_error(result, "Failed to get PRD capabilities")
 }
