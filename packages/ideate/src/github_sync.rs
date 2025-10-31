@@ -190,6 +190,14 @@ impl GitHubSyncService {
                     SyncMethod::RestApi
                 }
             }
+            SyncMethod::GhCli => {
+                // Fall back to RestApi if gh CLI is not available
+                if gh_cli.is_some() {
+                    SyncMethod::GhCli
+                } else {
+                    SyncMethod::RestApi
+                }
+            }
             other => other,
         };
 
