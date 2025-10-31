@@ -1,6 +1,9 @@
 -- ABOUTME: Down migration for consolidated initial schema
 -- ABOUTME: Drops all tables, views, triggers, and indexes in reverse dependency order
 
+-- Temporarily disable foreign key constraints for clean down migration
+PRAGMA foreign_keys = OFF;
+
 -- ============================================================================
 -- DROP TRIGGERS FIRST (before any tables)
 -- ============================================================================
@@ -158,3 +161,7 @@ DROP TABLE IF EXISTS users;
 -- ============================================================================
 DROP TABLE IF EXISTS projects_fts;
 DROP TABLE IF EXISTS projects;
+
+
+-- Re-enable foreign key constraints after down migration
+PRAGMA foreign_keys = ON;
