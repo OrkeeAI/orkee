@@ -23,6 +23,9 @@ pub enum PromptError {
 
     #[error("Invalid prompt format: {0}")]
     InvalidFormat(String),
+
+    #[error("Path traversal attempt detected: {0}")]
+    PathTraversalAttempt(String),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -52,6 +55,47 @@ pub struct PromptManager {
 }
 
 impl PromptManager {
+    /// Sanitize prompt ID to prevent path traversal
+    fn sanitize_prompt_id(prompt_id: &str) -> Result<&str, PromptError> {
+        // Block any path traversal characters
+        if prompt_id.contains("..") || prompt_id.contains('/') || prompt_id.contains('\\') {
+            return Err(PromptError::PathTraversalAttempt(format!(
+                "Invalid prompt ID contains path traversal characters: {}",
+                prompt_id
+            )));
+        }
+        Ok(prompt_id)
+    }
+
+    /// Validate that a path is within the prompts directory (prevent path traversal)
+    fn validate_path(&self, path: &Path) -> Result<PathBuf, PromptError> {
+        // Canonicalize both paths to resolve symlinks and .. components
+        let canonical_path = path.canonicalize().map_err(|e| {
+            if e.kind() == std::io::ErrorKind::NotFound {
+                PromptError::NotFound(path.display().to_string())
+            } else {
+                PromptError::IoError(e)
+            }
+        })?;
+
+        let canonical_prompts_dir = self.prompts_dir.canonicalize().map_err(|_e| {
+            PromptError::InvalidFormat(format!(
+                "Prompts directory does not exist: {}",
+                self.prompts_dir.display()
+            ))
+        })?;
+
+        // Verify the canonical path starts with the canonical prompts directory
+        if !canonical_path.starts_with(&canonical_prompts_dir) {
+            return Err(PromptError::PathTraversalAttempt(format!(
+                "Attempted to access file outside prompts directory: {}",
+                path.display()
+            )));
+        }
+
+        Ok(canonical_path)
+    }
+
     /// Create a new PromptManager
     ///
     /// If prompts_dir is None, it will try to find the prompts directory relative to the binary
@@ -172,8 +216,11 @@ impl PromptManager {
 
     /// Load a prompt from disk with caching
     fn load_prompt(&mut self, prompt_id: &str) -> Result<Prompt, PromptError> {
+        // Sanitize prompt ID to prevent path traversal
+        let sanitized_id = Self::sanitize_prompt_id(prompt_id)?;
+
         // Check cache first
-        if let Some(prompt) = self.cache.get(prompt_id) {
+        if let Some(prompt) = self.cache.get(sanitized_id) {
             return Ok(prompt.clone());
         }
 
@@ -181,28 +228,31 @@ impl PromptManager {
         let possible_paths = vec![
             self.prompts_dir
                 .join("prd")
-                .join(format!("{}.json", prompt_id)),
+                .join(format!("{}.json", sanitized_id)),
             self.prompts_dir
                 .join("research")
-                .join(format!("{}.json", prompt_id)),
+                .join(format!("{}.json", sanitized_id)),
             self.prompts_dir
                 .join("system")
-                .join(format!("{}.json", prompt_id)),
+                .join(format!("{}.json", sanitized_id)),
         ];
 
         for path in possible_paths {
             if let Ok(prompt) = self.load_prompt_from_path(&path) {
-                self.cache.insert(prompt_id.to_string(), prompt.clone());
+                self.cache.insert(sanitized_id.to_string(), prompt.clone());
                 return Ok(prompt);
             }
         }
 
-        Err(PromptError::NotFound(prompt_id.to_string()))
+        Err(PromptError::NotFound(sanitized_id.to_string()))
     }
 
     /// Load a prompt from a specific file path
     fn load_prompt_from_path(&self, path: &Path) -> Result<Prompt, PromptError> {
-        let content = fs::read_to_string(path)?;
+        // Validate path to prevent traversal attacks
+        let validated_path = self.validate_path(path)?;
+
+        let content = fs::read_to_string(&validated_path)?;
         let prompt: Prompt = serde_json::from_str(&content)?;
 
         // Basic validation
@@ -287,5 +337,89 @@ mod tests {
             .get_prompt("overview", &[("description", "Test2")])
             .unwrap();
         assert!(prompt.contains("Test2"));
+    }
+
+    // Security tests - path traversal prevention
+    #[test]
+    fn test_reject_dotdot_traversal() {
+        let mut manager = PromptManager::new(Some(get_test_prompts_dir())).unwrap();
+        let result = manager.get_prompt("../../../etc/passwd", &[]);
+        assert!(matches!(
+            result,
+            Err(PromptError::PathTraversalAttempt(_))
+        ));
+    }
+
+    #[test]
+    fn test_reject_forward_slash_traversal() {
+        let mut manager = PromptManager::new(Some(get_test_prompts_dir())).unwrap();
+        let result = manager.get_prompt("system/../../etc/passwd", &[]);
+        assert!(matches!(
+            result,
+            Err(PromptError::PathTraversalAttempt(_))
+        ));
+    }
+
+    #[test]
+    fn test_reject_backslash_traversal() {
+        let mut manager = PromptManager::new(Some(get_test_prompts_dir())).unwrap();
+        let result = manager.get_prompt("..\\..\\..\\etc\\passwd", &[]);
+        assert!(matches!(
+            result,
+            Err(PromptError::PathTraversalAttempt(_))
+        ));
+    }
+
+    #[test]
+    fn test_reject_mixed_path_separators() {
+        let mut manager = PromptManager::new(Some(get_test_prompts_dir())).unwrap();
+        let result = manager.get_prompt("../prd/../system/../../etc/passwd", &[]);
+        assert!(matches!(
+            result,
+            Err(PromptError::PathTraversalAttempt(_))
+        ));
+    }
+
+    #[test]
+    fn test_allow_valid_prompt_ids() {
+        let mut manager = PromptManager::new(Some(get_test_prompts_dir())).unwrap();
+        // Legitimate prompt IDs with hyphens should work
+        let result = manager.get_prompt(
+            "competitor-analysis",
+            &[
+                ("projectDescription", "Test Project"),
+                ("htmlContent", "<html>Test</html>"),
+                ("url", "https://example.com"),
+            ],
+        );
+        match result {
+            Ok(_) => (),
+            Err(e) => panic!("Expected Ok but got error: {:?}", e),
+        }
+    }
+
+    #[test]
+    fn test_sanitize_prompt_id_blocks_dotdot() {
+        let result = PromptManager::sanitize_prompt_id("../etc/passwd");
+        assert!(matches!(result, Err(PromptError::PathTraversalAttempt(_))));
+    }
+
+    #[test]
+    fn test_sanitize_prompt_id_blocks_forward_slash() {
+        let result = PromptManager::sanitize_prompt_id("system/prompt");
+        assert!(matches!(result, Err(PromptError::PathTraversalAttempt(_))));
+    }
+
+    #[test]
+    fn test_sanitize_prompt_id_blocks_backslash() {
+        let result = PromptManager::sanitize_prompt_id("system\\prompt");
+        assert!(matches!(result, Err(PromptError::PathTraversalAttempt(_))));
+    }
+
+    #[test]
+    fn test_sanitize_prompt_id_allows_valid_ids() {
+        let result = PromptManager::sanitize_prompt_id("competitor-analysis");
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), "competitor-analysis");
     }
 }

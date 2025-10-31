@@ -36,3 +36,10 @@ export class PromptParameterError extends Error {
     this.name = 'PromptParameterError';
   }
 }
+
+export class PathTraversalError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'PathTraversalError';
+  }
+}

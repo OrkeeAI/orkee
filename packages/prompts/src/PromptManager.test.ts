@@ -3,7 +3,7 @@
 
 import { describe, it, expect, beforeEach } from 'vitest';
 import { PromptManager } from './PromptManager';
-import { PromptNotFoundError, PromptParameterError } from './types';
+import { PromptNotFoundError, PromptParameterError, PathTraversalError } from './types';
 import * as path from 'path';
 
 describe('PromptManager', () => {
@@ -115,6 +115,49 @@ describe('PromptManager', () => {
       expect(metadata.name).toBe('Project Overview');
       expect(metadata.category).toBe('prd');
       expect(metadata.parameters).toContain('description');
+    });
+  });
+
+  describe('security - path traversal prevention', () => {
+    it('should reject prompt IDs with .. traversal', async () => {
+      await expect(
+        manager.getPrompt('../../../etc/passwd')
+      ).rejects.toThrow(PathTraversalError);
+    });
+
+    it('should reject prompt IDs with forward slashes', async () => {
+      await expect(
+        manager.getPrompt('system/../../etc/passwd')
+      ).rejects.toThrow(PathTraversalError);
+    });
+
+    it('should reject prompt IDs with backslashes', async () => {
+      await expect(
+        manager.getPrompt('..\\..\\..\\etc\\passwd')
+      ).rejects.toThrow(PathTraversalError);
+    });
+
+    it('should reject prompt IDs with mixed path separators', async () => {
+      await expect(
+        manager.getPrompt('../prd/../system/../../etc/passwd')
+      ).rejects.toThrow(PathTraversalError);
+    });
+
+    it('should allow valid prompt IDs with hyphens and underscores', async () => {
+      // This test verifies that legitimate prompt IDs still work
+      const prompt = await manager.getPrompt('competitor-analysis', {
+        projectDescription: 'Test Project',
+        htmlContent: '<html>Test</html>',
+        url: 'https://example.com'
+      });
+      expect(prompt).toBeTruthy();
+    });
+
+    it('should reject symlink-based traversal attempts', async () => {
+      // Even if a symlink exists, validation should prevent escaping prompts dir
+      await expect(
+        manager.getPrompt('../../symlink-to-etc')
+      ).rejects.toThrow(PathTraversalError);
     });
   });
 });

@@ -4,7 +4,7 @@
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import type { Prompt, PromptParameters, PromptCategory } from './types';
-import { PromptNotFoundError, PromptParameterError } from './types';
+import { PromptNotFoundError, PromptParameterError, PathTraversalError } from './types';
 
 // Helper to get the prompts directory - works in both CJS and ESM
 function getDefaultPromptsDir(): string {
@@ -21,6 +21,41 @@ export class PromptManager {
     // Default to the prompts directory relative to this file
     // In development/build time, use relative path from dist folder
     this.promptsDir = promptsDir || getDefaultPromptsDir();
+  }
+
+  /**
+   * Sanitize prompt ID to prevent path traversal
+   */
+  private sanitizePromptId(promptId: string): string {
+    // Block any path traversal characters
+    if (promptId.includes('..') || promptId.includes('/') || promptId.includes('\\')) {
+      throw new PathTraversalError(
+        `Invalid prompt ID contains path traversal characters: ${promptId}`
+      );
+    }
+    return promptId;
+  }
+
+  /**
+   * Validate that a path is within the prompts directory (prevent path traversal)
+   */
+  private async validatePath(filePath: string): Promise<string> {
+    // Resolve both paths to handle symlinks and .. components
+    const resolvedPath = await fs.realpath(filePath).catch(() => {
+      throw new PromptNotFoundError(filePath);
+    });
+    const resolvedPromptsDir = await fs.realpath(this.promptsDir).catch(() => {
+      throw new PathTraversalError(`Prompts directory does not exist: ${this.promptsDir}`);
+    });
+
+    // Verify the resolved path starts with the resolved prompts directory
+    if (!resolvedPath.startsWith(resolvedPromptsDir + path.sep) && resolvedPath !== resolvedPromptsDir) {
+      throw new PathTraversalError(
+        `Attempted to access file outside prompts directory: ${filePath}`
+      );
+    }
+
+    return resolvedPath;
   }
 
   /**
@@ -83,22 +118,25 @@ export class PromptManager {
    * Load a prompt from disk with caching
    */
   private async loadPrompt(promptId: string): Promise<Prompt> {
+    // Sanitize prompt ID to prevent path traversal
+    const sanitizedId = this.sanitizePromptId(promptId);
+
     // Check cache first
-    if (this.promptCache.has(promptId)) {
-      return this.promptCache.get(promptId)!;
+    if (this.promptCache.has(sanitizedId)) {
+      return this.promptCache.get(sanitizedId)!;
     }
 
     // Try to find the prompt in standard locations
     const possiblePaths = [
-      path.join(this.promptsDir, 'prd', `${promptId}.json`),
-      path.join(this.promptsDir, 'research', `${promptId}.json`),
-      path.join(this.promptsDir, 'system', `${promptId}.json`),
+      path.join(this.promptsDir, 'prd', `${sanitizedId}.json`),
+      path.join(this.promptsDir, 'research', `${sanitizedId}.json`),
+      path.join(this.promptsDir, 'system', `${sanitizedId}.json`),
     ];
 
     for (const promptPath of possiblePaths) {
       try {
         const prompt = await this.loadPromptFromPath(promptPath);
-        this.promptCache.set(promptId, prompt);
+        this.promptCache.set(sanitizedId, prompt);
         return prompt;
       } catch (error) {
         // Continue to next path
@@ -106,7 +144,7 @@ export class PromptManager {
       }
     }
 
-    throw new PromptNotFoundError(promptId);
+    throw new PromptNotFoundError(sanitizedId);
   }
 
   /**
@@ -114,7 +152,10 @@ export class PromptManager {
    */
   private async loadPromptFromPath(filePath: string): Promise<Prompt> {
     try {
-      const content = await fs.readFile(filePath, 'utf-8');
+      // Validate path to prevent traversal attacks
+      const validatedPath = await this.validatePath(filePath);
+
+      const content = await fs.readFile(validatedPath, 'utf-8');
       const prompt = JSON.parse(content) as Prompt;
 
       // Basic validation
