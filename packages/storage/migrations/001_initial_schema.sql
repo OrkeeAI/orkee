@@ -298,6 +298,7 @@ CREATE TABLE prds (
 CREATE INDEX idx_prds_project ON prds(project_id);
 CREATE INDEX idx_prds_ideate_session ON prds(ideate_session_id);
 CREATE INDEX idx_prds_status ON prds(status);
+CREATE INDEX idx_prds_created_at ON prds(created_at DESC);
 CREATE INDEX idx_prds_not_deleted ON prds(id) WHERE deleted_at IS NULL;
 CREATE INDEX idx_prds_project_not_deleted ON prds(project_id, status) WHERE deleted_at IS NULL;
 
