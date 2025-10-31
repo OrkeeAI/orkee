@@ -292,12 +292,6 @@ impl GitHubCli {
     }
 }
 
-impl Default for GitHubCli {
-    fn default() -> Self {
-        Self::new().expect("gh CLI not available or not authenticated")
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

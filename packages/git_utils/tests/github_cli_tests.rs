@@ -246,17 +246,10 @@ async fn test_gh_cli_handles_invalid_repo() {
 }
 
 #[test]
-fn test_gh_cli_default_construction() {
-    // Test that Default trait works correctly
-    // This will panic if gh is not available, which is expected behavior
-    let can_construct = std::panic::catch_unwind(|| {
-        let _cli = GitHubCli::default();
-    });
-
-    // We don't assert on the result because it depends on environment
-    // Just verify that the Default implementation exists and behaves consistently
-    match can_construct {
-        Ok(_) => println!("✓ Default construction succeeded (gh available)"),
-        Err(_) => println!("✓ Default construction panicked (gh not available - expected)"),
+fn test_gh_cli_construction() {
+    // Test that construction properly returns Result instead of panicking
+    match GitHubCli::new() {
+        Ok(_) => println!("✓ GitHubCli construction succeeded (gh available and authenticated)"),
+        Err(e) => println!("✓ GitHubCli construction failed gracefully: {} (expected if gh not available)", e),
     }
 }
