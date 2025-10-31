@@ -58,6 +58,9 @@ pub enum IdeateError {
 
     #[error("Serialization error: {0}")]
     SerializationError(String),
+
+    #[error("Prompt loading error: {0}")]
+    PromptError(String),
 }
 
 pub type Result<T> = std::result::Result<T, IdeateError>;

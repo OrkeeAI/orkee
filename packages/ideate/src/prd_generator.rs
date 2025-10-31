@@ -136,8 +136,10 @@ impl PRDGenerator {
         let ai_service = AIService::with_api_key_and_model(api_key, model_to_use);
 
         // Generate complete PRD using the AI
-        let prompt = prompts::complete_prd_prompt(description);
-        let system_prompt = Some(prompts::get_system_prompt());
+        let prompt = prompts::complete_prd_prompt(description)
+            .map_err(|e| IdeateError::PromptError(e))?;
+        let system_prompt = Some(prompts::get_system_prompt()
+            .map_err(|e| IdeateError::PromptError(e))?);
 
         let response: AIResponse<serde_json::Value> = ai_service
             .generate_structured(prompt, system_prompt)
