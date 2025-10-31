@@ -6,13 +6,21 @@ import * as path from 'path';
 import type { Prompt, PromptParameters, PromptCategory } from './types';
 import { PromptNotFoundError, PromptParameterError } from './types';
 
+// Helper to get the prompts directory - works in both CJS and ESM
+function getDefaultPromptsDir(): string {
+  // For the built package, prompts are in the parent directory of dist
+  const currentDir = __dirname || '.';
+  return path.join(currentDir, '..');
+}
+
 export class PromptManager {
   private promptCache: Map<string, Prompt> = new Map();
   private promptsDir: string;
 
   constructor(promptsDir?: string) {
     // Default to the prompts directory relative to this file
-    this.promptsDir = promptsDir || path.join(__dirname, '..');
+    // In development/build time, use relative path from dist folder
+    this.promptsDir = promptsDir || getDefaultPromptsDir();
   }
 
   /**
