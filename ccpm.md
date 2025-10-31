@@ -589,18 +589,18 @@ interface ConversationalState {
   - Uses Layers icon for visual consistency
   - Full integration with existing workflow
 
-### 3.3 Deferred Components (Phase 4+)
+### 3.3 Deferred Components - Status Update
 
-The following specialized components are deferred to later phases:
+Components originally deferred from Phase 3:
 
-- [ ] TaskBreakdown.tsx - Task decomposition view (Phase 4)
-- [ ] DependencyView.tsx - Dependency graph visualization (Phase 4)
-- [ ] WorkStreamAnalysis.tsx - Parallel work stream analysis (Phase 4)
+- [x] TaskBreakdown.tsx - Task decomposition view (✅ Completed in Phase 4)
+- [x] DependencyView.tsx - Dependency graph visualization (✅ Completed in Phase 4)
+- [x] WorkStreamAnalysis.tsx - Parallel work stream analysis (✅ Completed in Phase 4)
 - [ ] GitHubSyncStatus.tsx - GitHub synchronization status (Phase 5)
 - [ ] AI-powered Epic generation from PRD content (Future enhancement)
 - [ ] Epic editing dialog (Future enhancement)
 
-**Summary**: Core Epic management system is fully functional with complete CRUD operations, rich UI, and backend-frontend integration. Advanced features (task decomposition, GitHub sync, AI generation) planned for subsequent phases.
+**Summary**: Core Epic management system is fully functional with complete CRUD operations, rich UI, and backend-frontend integration. Task decomposition features completed in Phase 4. GitHub sync and AI generation planned for subsequent phases.
 
 ---
 
@@ -635,38 +635,26 @@ export class TaskDecomposer {
 }
 ```
 
-### 4.2 Task Breakdown UI (⏭️ Deferred to Phase 6)
+### 4.2 Task Breakdown UI (✅ Completed)
 
-- [ ] TaskBreakdown.tsx (Phase 6 - Frontend integration)
-```typescript
-interface TaskBreakdownProps {
-  epicId: string;
-  onTasksGenerated: (tasks: Task[]) => void;
-}
+- [x] TaskBreakdown.tsx - Fully implemented with:
+  - Task list grouped by category
+  - Parallel group visualization
+  - Size estimate badges (XS, S, M, L, XL)
+  - Effort hours display
+  - Conflict detection display
+  - Expandable category sections
+  - Summary statistics (total tasks, parallel groups, dependencies)
 
-// Features:
-// - Task list grouped by category
-// - Dependency visualization
-// - Parallel group indicators
-// - Size estimates
-// - Edit capabilities
-```
+### 4.3 Dependency Visualization (✅ Completed)
 
-### 4.3 Dependency Visualization (⏭️ Deferred to Phase 6)
-
-- [ ] DependencyView.tsx (Phase 6 - Frontend visualization)
-```typescript
-interface DependencyViewProps {
-  tasks: Task[];
-  dependencies: DependencyEdge[];
-}
-
-// Visualizes:
-// - Task nodes
-// - Dependency arrows
-// - Parallel groups (colored)
-// - Critical path highlighting
-```
+- [x] DependencyView.tsx - Fully implemented with:
+  - Task dependency graph visualization
+  - Incoming dependencies ("Depends on")
+  - Outgoing dependencies ("Required by")
+  - Graph statistics (total tasks, dependencies, start/end points)
+  - Color-coded dependency relationships
+  - Parallel group badges
 
 ### 4.4 Work Stream Analysis (✅ Completed)
 
