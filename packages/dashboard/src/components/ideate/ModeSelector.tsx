@@ -3,7 +3,7 @@
 import React from 'react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Zap, MapPin, Sparkles } from 'lucide-react';
+import { Zap, MapPin, Sparkles, MessageSquare } from 'lucide-react';
 import type { IdeateMode } from '@/services/ideate';
 import { cn } from '@/lib/utils';
 
@@ -58,6 +58,18 @@ const MODE_OPTIONS: ModeOption[] = [
       'In-depth ideation',
     ],
   },
+  {
+    mode: 'conversational',
+    title: 'Conversational Mode',
+    description: 'Chat-based PRD discovery through conversation',
+    icon: <MessageSquare className="h-6 w-6" />,
+    features: [
+      'Natural conversation flow',
+      'AI-guided discovery questions',
+      'Real-time quality feedback',
+      'Insight extraction',
+    ],
+  },
 ];
 
 export function ModeSelector({ selectedMode, onSelectMode, onConfirm }: ModeSelectorProps) {
@@ -70,7 +82,7 @@ export function ModeSelector({ selectedMode, onSelectMode, onConfirm }: ModeSele
         </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {MODE_OPTIONS.map((option) => (
           <Card
             key={option.mode}
