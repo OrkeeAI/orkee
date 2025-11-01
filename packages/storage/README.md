@@ -364,6 +364,53 @@ rm ~/.orkee/orkee.db && cargo run
 sqlx migrate add <migration_name>
 ```
 
+### Migration Checksum Mismatches (Pre-1.0 Only)
+
+**Context**: During pre-1.0 development, we modify the initial migration (`001_initial_schema.sql`) instead of creating new migrations. This is safe because there are no production instances, but it breaks migration checksums for existing dev databases.
+
+**Symptoms**:
+- `sqlx::migrate()` fails with checksum mismatch error
+- Application won't start due to migration verification failure
+- Error message: "migration checksum mismatch"
+
+**Solution** (choose one):
+
+1. **Full Database Reset** (recommended for clean slate):
+   ```bash
+   # Delete database and restart
+   rm ~/.orkee/orkee.db && cargo run
+   ```
+
+2. **Manual Checksum Reset** (if you need to preserve data):
+   ```bash
+   # Backup your data first!
+   cp ~/.orkee/orkee.db ~/.orkee/orkee.db.backup
+
+   # Reset migration tracking table
+   sqlite3 ~/.orkee/orkee.db "DELETE FROM _sqlx_migrations WHERE version = 1"
+
+   # Restart application (will re-run migration with new checksum)
+   cargo run
+   ```
+
+3. **Test Database Reset** (for test failures):
+   ```bash
+   # Tests use in-memory databases - just re-run tests
+   cargo test
+   ```
+
+**Why This Happens**:
+- SQLx tracks migration checksums in `_sqlx_migrations.checksum`
+- Modifying a migration file changes its checksum
+- SQLx detects mismatch between file and database record
+- This prevents accidental schema drift in production
+
+**Post-1.0 Behavior**:
+- We'll use incremental migrations (002, 003, etc.)
+- Never modify existing migrations
+- Checksums will always match
+- This workflow is temporary for pre-release development
+
 ### Testing
 
 ```bash
