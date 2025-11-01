@@ -77,9 +77,8 @@ DROP TABLE IF EXISTS agent_executions;
 -- ============================================================================
 -- DROP TASK TABLES
 -- ============================================================================
+DROP TABLE IF EXISTS tasks_fts;
 DROP TABLE IF EXISTS tasks;
-
--- ============================================================================
 
 -- ============================================================================
 -- DROP IDEATE TABLES
@@ -101,6 +100,17 @@ DROP TABLE IF EXISTS quick_win_features;
 DROP TABLE IF EXISTS build_order_optimization;
 DROP TABLE IF EXISTS dependency_analysis_cache;
 DROP TABLE IF EXISTS feature_dependencies;
+
+-- Expert Roundtable tables
+DROP TABLE IF EXISTS roundtable_insights;
+DROP TABLE IF EXISTS expert_suggestions;
+DROP TABLE IF EXISTS roundtable_messages;
+DROP TABLE IF EXISTS roundtable_participants;
+DROP TABLE IF EXISTS roundtable_sessions;
+DROP TABLE IF EXISTS expert_personas;
+
+-- Research Analysis Cache
+DROP TABLE IF EXISTS competitor_analysis_cache;
 
 -- Conversational Mode (CCPM) tables
 DROP TABLE IF EXISTS conversation_insights;
@@ -135,6 +145,7 @@ DROP TABLE IF EXISTS users;
 -- ============================================================================
 -- DROP PROJECT TABLES
 -- ============================================================================
+DROP TABLE IF EXISTS projects_fts;
 DROP TABLE IF EXISTS projects;
 
 
