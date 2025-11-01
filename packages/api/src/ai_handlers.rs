@@ -175,7 +175,7 @@ pub async fn analyze_prd(
         Ok(Some(key)) => {
             info!(
                 "Using Anthropic API key from database (starts with: {})",
-                &key.chars().take(15).collect::<String>()
+                &key.chars().take(8).collect::<String>()
             );
             key
         }
@@ -550,6 +550,9 @@ Respond with ONLY valid JSON. Do not include markdown formatting, code blocks, o
             .to_string(),
     );
 
+    // Get the model being used for logging
+    let model_name = ai_service.model().to_string();
+
     // Make AI call
     match ai_service
         .generate_structured::<SpecGenerationData>(user_prompt, system_prompt)
@@ -597,7 +600,7 @@ Respond with ONLY valid JSON. Do not include markdown formatting, code blocks, o
                 request_id: None,
                 operation: "generateSpec".to_string(),
                 provider: "anthropic".to_string(),
-                model: "claude-3-5-sonnet-20241022".to_string(),
+                model: model_name,
                 input_tokens: Some(ai_response.usage.input_tokens as i64),
                 output_tokens: Some(ai_response.usage.output_tokens as i64),
                 total_tokens: Some(ai_response.usage.total_tokens() as i64),
@@ -746,6 +749,9 @@ Respond with ONLY valid JSON. Do not include markdown formatting, code blocks, o
             .to_string(),
     );
 
+    // Get the model being used for logging
+    let model_name = ai_service.model().to_string();
+
     // Make AI call
     match ai_service
         .generate_structured::<TaskSuggestionsData>(user_prompt, system_prompt)
@@ -779,7 +785,7 @@ Respond with ONLY valid JSON. Do not include markdown formatting, code blocks, o
                 request_id: None,
                 operation: "suggestTasks".to_string(),
                 provider: "anthropic".to_string(),
-                model: "claude-3-5-sonnet-20241022".to_string(),
+                model: model_name,
                 input_tokens: Some(ai_response.usage.input_tokens as i64),
                 output_tokens: Some(ai_response.usage.output_tokens as i64),
                 total_tokens: Some(ai_response.usage.total_tokens() as i64),
@@ -920,6 +926,9 @@ Respond with ONLY valid JSON. Do not include markdown formatting, code blocks, o
             .to_string(),
     );
 
+    // Get the model being used for logging
+    let model_name = ai_service.model().to_string();
+
     // Make AI call
     match ai_service
         .generate_structured::<SpecRefinementData>(user_prompt, system_prompt)
@@ -939,7 +948,7 @@ Respond with ONLY valid JSON. Do not include markdown formatting, code blocks, o
                 request_id: None,
                 operation: "refineSpec".to_string(),
                 provider: "anthropic".to_string(),
-                model: "claude-3-5-sonnet-20241022".to_string(),
+                model: model_name,
                 input_tokens: Some(ai_response.usage.input_tokens as i64),
                 output_tokens: Some(ai_response.usage.output_tokens as i64),
                 total_tokens: Some(ai_response.usage.total_tokens() as i64),
@@ -1098,6 +1107,9 @@ Respond with ONLY valid JSON. Do not include markdown formatting, code blocks, o
             .to_string(),
     );
 
+    // Get the model being used for logging
+    let model_name = ai_service.model().to_string();
+
     // Make AI call
     match ai_service
         .generate_structured::<CompletionValidationData>(user_prompt, system_prompt)
@@ -1130,7 +1142,7 @@ Respond with ONLY valid JSON. Do not include markdown formatting, code blocks, o
                 request_id: None,
                 operation: "validateCompletion".to_string(),
                 provider: "anthropic".to_string(),
-                model: "claude-3-5-sonnet-20241022".to_string(),
+                model: model_name,
                 input_tokens: Some(ai_response.usage.input_tokens as i64),
                 output_tokens: Some(ai_response.usage.output_tokens as i64),
                 total_tokens: Some(ai_response.usage.total_tokens() as i64),

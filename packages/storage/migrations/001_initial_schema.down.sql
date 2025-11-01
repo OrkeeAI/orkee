@@ -13,7 +13,6 @@ DROP TRIGGER IF EXISTS projects_fts_delete;
 DROP TRIGGER IF EXISTS projects_fts_update;
 DROP TRIGGER IF EXISTS users_updated_at;
 DROP TRIGGER IF EXISTS user_agents_updated_at;
-DROP TRIGGER IF EXISTS tags_updated_at;
 DROP TRIGGER IF EXISTS prds_updated_at;
 DROP TRIGGER IF EXISTS tasks_updated_at;
 DROP TRIGGER IF EXISTS tasks_fts_insert;
@@ -21,20 +20,19 @@ DROP TRIGGER IF EXISTS tasks_fts_delete;
 DROP TRIGGER IF EXISTS tasks_fts_update;
 DROP TRIGGER IF EXISTS agent_executions_updated_at;
 DROP TRIGGER IF EXISTS pr_reviews_updated_at;
-DROP TRIGGER IF EXISTS context_configurations_updated_at;
-DROP TRIGGER IF EXISTS context_snapshots_updated_at;
-DROP TRIGGER IF EXISTS context_usage_patterns_updated_at;
-DROP TRIGGER IF EXISTS context_templates_updated_at;
-DROP TRIGGER IF EXISTS api_tokens_updated_at;
-DROP TRIGGER IF EXISTS update_task_completion_stats;
-DROP TRIGGER IF EXISTS update_task_completion_stats_insert;
-DROP TRIGGER IF EXISTS update_task_completion_stats_delete;
 DROP TRIGGER IF EXISTS update_task_actual_hours;
 DROP TRIGGER IF EXISTS update_task_on_pr_merge;
 DROP TRIGGER IF EXISTS ideate_sessions_updated_at;
 DROP TRIGGER IF EXISTS prd_output_templates_updated_at;
 DROP TRIGGER IF EXISTS epics_updated_at;
 DROP TRIGGER IF EXISTS github_sync_updated_at;
+DROP TRIGGER IF EXISTS encryption_settings_updated_at;
+DROP TRIGGER IF EXISTS password_attempts_updated_at;
+DROP TRIGGER IF EXISTS storage_metadata_updated_at;
+DROP TRIGGER IF EXISTS sync_state_updated_at;
+DROP TRIGGER IF EXISTS system_settings_updated_at;
+DROP TRIGGER IF EXISTS update_telemetry_settings_timestamp;
+DROP TRIGGER IF EXISTS ideate_prd_generations_updated_at;
 
 -- ============================================================================
 -- DROP VIEWS (after triggers)
@@ -66,14 +64,6 @@ DROP TABLE IF EXISTS password_attempts;
 DROP TABLE IF EXISTS encryption_settings;
 
 -- ============================================================================
--- DROP CONTEXT MANAGEMENT TABLES (reverse dependency order)
--- ============================================================================
-DROP TABLE IF EXISTS context_templates;
-DROP TABLE IF EXISTS context_usage_patterns;
-DROP TABLE IF EXISTS context_snapshots;
-DROP TABLE IF EXISTS context_configurations;
-
--- ============================================================================
 -- DROP AI USAGE TABLES
 -- ============================================================================
 DROP TABLE IF EXISTS ai_usage_logs;
@@ -87,7 +77,6 @@ DROP TABLE IF EXISTS agent_executions;
 -- ============================================================================
 -- DROP TASK TABLES
 -- ============================================================================
-DROP TABLE IF EXISTS tasks_fts;
 DROP TABLE IF EXISTS tasks;
 
 -- ============================================================================
@@ -112,17 +101,6 @@ DROP TABLE IF EXISTS quick_win_features;
 DROP TABLE IF EXISTS build_order_optimization;
 DROP TABLE IF EXISTS dependency_analysis_cache;
 DROP TABLE IF EXISTS feature_dependencies;
-
--- Expert Roundtable tables
-DROP TABLE IF EXISTS roundtable_insights;
-DROP TABLE IF EXISTS expert_suggestions;
-DROP TABLE IF EXISTS roundtable_messages;
-DROP TABLE IF EXISTS roundtable_participants;
-DROP TABLE IF EXISTS roundtable_sessions;
-DROP TABLE IF EXISTS expert_personas;
-
--- Research Analysis Cache
-DROP TABLE IF EXISTS competitor_analysis_cache;
 
 -- Conversational Mode (CCPM) tables
 DROP TABLE IF EXISTS conversation_insights;
@@ -157,7 +135,6 @@ DROP TABLE IF EXISTS users;
 -- ============================================================================
 -- DROP PROJECT TABLES
 -- ============================================================================
-DROP TABLE IF EXISTS projects_fts;
 DROP TABLE IF EXISTS projects;
 
 

@@ -571,6 +571,12 @@ CREATE TABLE encryption_settings (
 
 CREATE INDEX idx_encryption_settings_mode ON encryption_settings(encryption_mode);
 
+CREATE TRIGGER encryption_settings_updated_at AFTER UPDATE ON encryption_settings
+FOR EACH ROW WHEN NEW.updated_at = OLD.updated_at
+BEGIN
+    UPDATE encryption_settings SET updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE id = NEW.id;
+END;
+
 -- Password Attempts
 CREATE TABLE password_attempts (
     id INTEGER PRIMARY KEY CHECK (id = 1),
@@ -583,6 +589,12 @@ CREATE TABLE password_attempts (
 
 CREATE INDEX idx_password_attempts_lockout
 ON password_attempts(locked_until) WHERE locked_until IS NOT NULL;
+
+CREATE TRIGGER password_attempts_updated_at AFTER UPDATE ON password_attempts
+FOR EACH ROW WHEN NEW.updated_at = OLD.updated_at
+BEGIN
+    UPDATE password_attempts SET updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE id = NEW.id;
+END;
 
 -- API Tokens
 CREATE TABLE api_tokens (
@@ -607,6 +619,12 @@ CREATE TABLE storage_metadata (
     value TEXT NOT NULL,
     updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
 );
+
+CREATE TRIGGER storage_metadata_updated_at AFTER UPDATE ON storage_metadata
+FOR EACH ROW WHEN NEW.updated_at = OLD.updated_at
+BEGIN
+    UPDATE storage_metadata SET updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE key = NEW.key;
+END;
 
 -- System Settings
 CREATE TABLE system_settings (
@@ -724,6 +742,12 @@ CREATE TABLE sync_state (
 
 CREATE INDEX idx_sync_state_user_device ON sync_state(user_id, device_id);
 CREATE INDEX idx_sync_state_last_sync ON sync_state(last_sync_at);
+
+CREATE TRIGGER sync_state_updated_at AFTER UPDATE ON sync_state
+FOR EACH ROW WHEN NEW.updated_at = OLD.updated_at
+BEGIN
+    UPDATE sync_state SET updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE id = NEW.id;
+END;
 
 -- ============================================================================
 -- SEED DATA
