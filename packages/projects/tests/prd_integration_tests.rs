@@ -1,5 +1,5 @@
 // ABOUTME: Integration tests for PRD (Product Requirements Document) API endpoints
-// ABOUTME: Tests CRUD operations for PRDs including list, create, get, update, delete, and capabilities
+// ABOUTME: Tests CRUD operations for PRDs including list, create, get, update, and delete
 
 mod common;
 
