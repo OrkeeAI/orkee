@@ -154,22 +154,43 @@ pub async fn get_prds_by_project_paginated(
             .fetch_one(pool)
             .await?;
 
-    // Build query with optional pagination
-    // Note: LIMIT/OFFSET must be literals in SQLite, not bound parameters
-    // Safety: validate_pagination() ensures these are non-negative integers
+    // Build query with optional pagination using bound parameters
     let base_query =
         "SELECT * FROM prds WHERE project_id = ? AND deleted_at IS NULL ORDER BY created_at DESC";
-    let query_str = match (limit, offset) {
-        (Some(lim), Some(off)) => format!("{} LIMIT {} OFFSET {}", base_query, lim, off),
-        (Some(lim), None) => format!("{} LIMIT {}", base_query, lim),
-        (None, Some(off)) => format!("{} OFFSET {}", base_query, off),
-        (None, None) => base_query.to_string(),
-    };
 
-    let prds = sqlx::query_as::<_, PRD>(&query_str)
-        .bind(project_id)
-        .fetch_all(pool)
-        .await?;
+    let prds = match (limit, offset) {
+        (Some(lim), Some(off)) => {
+            let query_str = format!("{} LIMIT ? OFFSET ?", base_query);
+            sqlx::query_as::<_, PRD>(&query_str)
+                .bind(project_id)
+                .bind(lim)
+                .bind(off)
+                .fetch_all(pool)
+                .await?
+        }
+        (Some(lim), None) => {
+            let query_str = format!("{} LIMIT ?", base_query);
+            sqlx::query_as::<_, PRD>(&query_str)
+                .bind(project_id)
+                .bind(lim)
+                .fetch_all(pool)
+                .await?
+        }
+        (None, Some(off)) => {
+            let query_str = format!("{} OFFSET ?", base_query);
+            sqlx::query_as::<_, PRD>(&query_str)
+                .bind(project_id)
+                .bind(off)
+                .fetch_all(pool)
+                .await?
+        }
+        (None, None) => {
+            sqlx::query_as::<_, PRD>(base_query)
+                .bind(project_id)
+                .fetch_all(pool)
+                .await?
+        }
+    };
 
     Ok((prds, count))
 }
