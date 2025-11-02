@@ -44,7 +44,7 @@ This document outlines a comprehensive plan to optimize Orkee's ideation → PRD
   - [x] **Phase 6A**: API Endpoint Completion (Priority 1) - COMPLETED
   - [x] **Phase 6B**: Prompt Enhancements (Priority 2) - COMPLETED
   - [x] **Phase 6C**: UI Integration - Chat Mode (Priority 3) - COMPLETED
-  - [ ] **Phase 6D**: UI Integration - Quick & Guided Modes (Priority 4)
+  - [x] **Phase 6D**: UI Integration - Quick & Guided Modes (Priority 4) - COMPLETED
   - [ ] **Phase 6E**: UI Integration - Epic & Task Views (Priority 5)
   - [ ] **Phase 6F**: Testing (Priority 6)
   - [ ] **Phase 6G**: Documentation & Release (Priority 7)
@@ -1037,24 +1037,28 @@ Phase 6C is **FULLY COMPLETE** with all components integrated into ChatModeFlow:
 
 ## Phase 6D: UI Integration - Quick & Guided Modes (Priority 4)
 
-### Status: **NOT STARTED**
+### Status: **COMPLETED** (2025-11-02)
 
 ### Checklist
-- [ ] **6D.1 Quick Mode Review Toggle**
-  - [ ] Add "Review sections before saving" checkbox
-  - [ ] Post-generation section-by-section review
-  - [ ] Allow regeneration of individual sections
-  - [ ] Show quality score
-- [ ] **6D.2 Guided Mode Step Validation**
-  - [ ] Add validation after each wizard step
-  - [ ] Show quality score per section
-  - [ ] Allow section regeneration
-  - [ ] Add "Continue" / "Regenerate" buttons
-- [ ] **6D.3 Alternative Approaches UI**
-  - [ ] Create comparison table component
-  - [ ] Show pros/cons/estimated days
-  - [ ] Highlight recommended approach
-  - [ ] Allow approach selection
+- [x] **6D.1 Quick Mode Review Toggle** - COMPLETED
+  - [x] Add "Review sections before saving" checkbox
+  - [x] Post-generation section-by-section review via SectionReviewModal
+  - [x] Allow regeneration of individual sections
+  - [x] Show quality score via QualityScoreDisplay component
+  - [x] Store validation feedback to backend
+- [x] **6D.2 Guided Mode Step Validation** - COMPLETED
+  - [x] Add validation after each wizard step via SectionValidationPanel
+  - [x] Show quality score per section
+  - [x] Allow section regeneration
+  - [x] Add "Validate & Next" / "Continue Anyway" buttons
+  - [x] Display validation issues and suggestions
+  - [x] Validation toggle checkbox in sidebar (enabled by default)
+- [x] **6D.3 Alternative Approaches UI** - COMPLETED
+  - [x] Create AlternativeApproachesDialog comparison component
+  - [x] Show pros/cons/estimated days/complexity
+  - [x] Highlight recommended approach with badge
+  - [x] Allow approach selection via radio buttons
+  - [x] Add API methods (generateAlternatives, getAlternatives, selectApproach)
 
 ### Locations
 - Quick Mode: `packages/dashboard/src/components/ideate/QuickMode/`
