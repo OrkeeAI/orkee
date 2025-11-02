@@ -12,6 +12,7 @@ import { useConversation } from './hooks/useConversation';
 import { useDiscoveryQuestions } from './hooks/useDiscoveryQuestions';
 import { useStreamingResponse } from './hooks/useStreamingResponse';
 import { conversationalService, ConversationInsight } from '@/services/conversational';
+import { UI_TEXT } from './constants';
 
 export interface ConversationalModeFlowProps {
   sessionId: string;
@@ -174,10 +175,10 @@ export function ConversationalModeFlow({
           <div className="text-sm text-muted-foreground">
             {qualityMetrics?.is_ready_for_prd ? (
               <span className="text-green-600 dark:text-green-400 font-medium">
-                ✓ Ready to generate your PRD
+                {UI_TEXT.READY_FOR_PRD}
               </span>
             ) : (
-              <span>Keep exploring to improve PRD quality</span>
+              <span>{UI_TEXT.KEEP_EXPLORING}</span>
             )}
           </div>
 
@@ -192,12 +193,12 @@ export function ConversationalModeFlow({
             {isGeneratingPRD ? (
               <>
                 <Loader2 className="h-4 w-4 animate-spin" />
-                Generating PRD...
+                {UI_TEXT.GENERATING_PRD}
               </>
             ) : (
               <>
                 <FileText className="h-4 w-4" />
-                Generate PRD
+                {UI_TEXT.GENERATE_PRD}
               </>
             )}
           </Button>

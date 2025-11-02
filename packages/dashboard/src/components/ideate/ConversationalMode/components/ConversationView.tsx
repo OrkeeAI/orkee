@@ -10,6 +10,7 @@ import { MessageBubble } from './MessageBubble';
 import { SuggestedQuestions } from './SuggestedQuestions';
 import type { ConversationMessage, DiscoveryQuestion } from '@/services/conversational';
 import type { StreamingMessage } from '../hooks/useStreamingResponse';
+import { UI_TEXT } from '../constants';
 
 export interface ConversationViewProps {
   messages: ConversationMessage[];
@@ -74,10 +75,8 @@ export function ConversationView({
             </div>
           ) : allMessages.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
-              <p className="text-lg font-medium mb-2">Let's discover your PRD together!</p>
-              <p className="text-sm">
-                Start by describing your idea, or choose a question below.
-              </p>
+              <p className="text-lg font-medium mb-2">{UI_TEXT.EMPTY_STATE_TITLE}</p>
+              <p className="text-sm">{UI_TEXT.EMPTY_STATE_DESCRIPTION}</p>
             </div>
           ) : (
             allMessages.map((message) => (
@@ -106,7 +105,7 @@ export function ConversationView({
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Type your message... (Shift+Enter for new line)"
+            placeholder={UI_TEXT.INPUT_PLACEHOLDER}
             className="resize-none min-h-[60px] max-h-[120px]"
             disabled={isSending}
           />
