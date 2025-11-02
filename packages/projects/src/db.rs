@@ -5,15 +5,15 @@ use sqlx::{sqlite::SqlitePoolOptions, SqlitePool};
 use std::sync::Arc;
 use tracing::{debug, info};
 
-use agents::UserAgentStorage;
-use ai::AiUsageLogStorage;
-use executions::ExecutionStorage;
-use security::api_tokens::TokenStorage;
-use security::users::UserStorage;
-use settings::SettingsStorage;
-use storage::StorageError;
-use tags::TagStorage;
-use tasks::TaskStorage;
+use orkee_agents::UserAgentStorage;
+use orkee_ai::AiUsageLogStorage;
+use orkee_executions::ExecutionStorage;
+use orkee_security::api_tokens::TokenStorage;
+use orkee_security::UserStorage;
+use orkee_settings::SettingsStorage;
+use orkee_storage::StorageError;
+use orkee_tags::TagStorage;
+use orkee_tasks::storage::TaskStorage;
 
 /// Shared database state for API handlers
 #[derive(Clone)]
@@ -117,9 +117,9 @@ impl DbState {
     pub async fn change_encryption_password_atomic(
         &self,
         user_id: &str,
-        old_encryption: &security::encryption::ApiKeyEncryption,
-        new_encryption: &security::encryption::ApiKeyEncryption,
-        mode: security::encryption::EncryptionMode,
+        old_encryption: &orkee_security::encryption::ApiKeyEncryption,
+        new_encryption: &orkee_security::encryption::ApiKeyEncryption,
+        mode: orkee_security::encryption::EncryptionMode,
         new_salt: &[u8],
         new_hash: &[u8],
     ) -> Result<(), StorageError> {
@@ -145,7 +145,7 @@ impl DbState {
             match encrypted_key {
                 Some(value)
                     if !value.is_empty()
-                        && security::encryption::ApiKeyEncryption::is_encrypted(&value) =>
+                        && orkee_security::encryption::ApiKeyEncryption::is_encrypted(&value) =>
                 {
                     // Decrypt with old encryption
                     let plaintext = old_encryption.decrypt(&value).map_err(|e| {

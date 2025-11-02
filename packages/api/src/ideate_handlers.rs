@@ -10,8 +10,8 @@ use serde::Deserialize;
 use tracing::{info, warn};
 
 use super::response::{created_or_internal_error, ok_or_internal_error, ok_or_not_found};
-use ideate::prd_generator::GeneratedPRD;
-use ideate::{
+use orkee_ideate::prd_generator::GeneratedPRD;
+use orkee_ideate::{
     CreateIdeateSessionInput, CreateTemplateInput, IdeateDependencies, IdeateManager, IdeateMode,
     IdeateOverview, IdeateResearch, IdeateRisks, IdeateRoadmap, IdeateStatus, IdeateTechnical,
     IdeateUX, PRDGenerator, SkipSectionRequest, TemplateManager, UpdateIdeateSessionInput,
@@ -776,7 +776,7 @@ pub async fn save_as_prd(
         Ok(p) => p,
         Err(e) => {
             return ok_or_internal_error::<serde_json::Value, _>(
-                Err(ideate::IdeateError::AIService(e.to_string())),
+                Err(orkee_ideate::IdeateError::AIService(e.to_string())),
                 "Failed to save PRD",
             )
         }
@@ -815,7 +815,7 @@ pub async fn save_as_prd(
 pub async fn save_overview(
     State(db): State<DbState>,
     Path(session_id): Path<String>,
-    Json(overview): Json<ideate::IdeateOverview>,
+    Json(overview): Json<orkee_ideate::IdeateOverview>,
 ) -> impl IntoResponse {
     info!("Saving overview section for session: {}", session_id);
     let manager = IdeateManager::new(db.pool.clone());
@@ -847,7 +847,7 @@ pub async fn delete_overview(
 pub async fn save_ux(
     State(db): State<DbState>,
     Path(session_id): Path<String>,
-    Json(ux): Json<ideate::IdeateUX>,
+    Json(ux): Json<orkee_ideate::IdeateUX>,
 ) -> impl IntoResponse {
     info!("Saving UX section for session: {}", session_id);
     let manager = IdeateManager::new(db.pool.clone());
@@ -879,7 +879,7 @@ pub async fn delete_ux(
 pub async fn save_technical(
     State(db): State<DbState>,
     Path(session_id): Path<String>,
-    Json(technical): Json<ideate::IdeateTechnical>,
+    Json(technical): Json<orkee_ideate::IdeateTechnical>,
 ) -> impl IntoResponse {
     info!("Saving technical section for session: {}", session_id);
     let manager = IdeateManager::new(db.pool.clone());
@@ -911,7 +911,7 @@ pub async fn delete_technical(
 pub async fn save_roadmap(
     State(db): State<DbState>,
     Path(session_id): Path<String>,
-    Json(roadmap): Json<ideate::IdeateRoadmap>,
+    Json(roadmap): Json<orkee_ideate::IdeateRoadmap>,
 ) -> impl IntoResponse {
     info!("Saving roadmap section for session: {}", session_id);
     let manager = IdeateManager::new(db.pool.clone());
@@ -943,7 +943,7 @@ pub async fn delete_roadmap(
 pub async fn save_dependencies(
     State(db): State<DbState>,
     Path(session_id): Path<String>,
-    Json(deps): Json<ideate::IdeateDependencies>,
+    Json(deps): Json<orkee_ideate::IdeateDependencies>,
 ) -> impl IntoResponse {
     info!("Saving dependencies section for session: {}", session_id);
     let manager = IdeateManager::new(db.pool.clone());
@@ -975,7 +975,7 @@ pub async fn delete_dependencies(
 pub async fn save_risks(
     State(db): State<DbState>,
     Path(session_id): Path<String>,
-    Json(risks): Json<ideate::IdeateRisks>,
+    Json(risks): Json<orkee_ideate::IdeateRisks>,
 ) -> impl IntoResponse {
     info!("Saving risks section for session: {}", session_id);
     let manager = IdeateManager::new(db.pool.clone());
@@ -1007,7 +1007,7 @@ pub async fn delete_risks(
 pub async fn save_research(
     State(db): State<DbState>,
     Path(session_id): Path<String>,
-    Json(research): Json<ideate::IdeateResearch>,
+    Json(research): Json<orkee_ideate::IdeateResearch>,
 ) -> impl IntoResponse {
     info!("Saving research section for session: {}", session_id);
     let manager = IdeateManager::new(db.pool.clone());
@@ -1222,7 +1222,7 @@ pub async fn save_sections(
 
     // Convert DTOs to full entities and save each section if provided
     if let Some(input) = request.overview {
-        let entity = ideate::IdeateOverview {
+        let entity = orkee_ideate::IdeateOverview {
             id: nanoid!(),
             session_id: session_id.clone(),
             problem_statement: input.problem_statement,
@@ -1239,7 +1239,7 @@ pub async fn save_sections(
     }
 
     if let Some(input) = request.ux {
-        let entity = ideate::IdeateUX {
+        let entity = orkee_ideate::IdeateUX {
             id: nanoid!(),
             session_id: session_id.clone(),
             personas: input.personas.and_then(|v| serde_json::from_value(v).ok()),
@@ -1258,7 +1258,7 @@ pub async fn save_sections(
     }
 
     if let Some(input) = request.technical {
-        let entity = ideate::IdeateTechnical {
+        let entity = orkee_ideate::IdeateTechnical {
             id: nanoid!(),
             session_id: session_id.clone(),
             components: input
@@ -1282,7 +1282,7 @@ pub async fn save_sections(
     }
 
     if let Some(input) = request.roadmap {
-        let entity = ideate::IdeateRoadmap {
+        let entity = orkee_ideate::IdeateRoadmap {
             id: nanoid!(),
             session_id: session_id.clone(),
             mvp_scope: input.mvp_scope,
@@ -1299,7 +1299,7 @@ pub async fn save_sections(
     }
 
     if let Some(input) = request.dependencies {
-        let entity = ideate::IdeateDependencies {
+        let entity = orkee_ideate::IdeateDependencies {
             id: nanoid!(),
             session_id: session_id.clone(),
             foundation_features: input.foundation_features,
@@ -1318,7 +1318,7 @@ pub async fn save_sections(
     }
 
     if let Some(input) = request.risks {
-        let entity = ideate::IdeateRisks {
+        let entity = orkee_ideate::IdeateRisks {
             id: nanoid!(),
             session_id: session_id.clone(),
             technical_risks: input
@@ -1343,7 +1343,7 @@ pub async fn save_sections(
     }
 
     if let Some(input) = request.research {
-        let entity = ideate::IdeateResearch {
+        let entity = orkee_ideate::IdeateResearch {
             id: nanoid!(),
             session_id: session_id.clone(),
             competitors: input

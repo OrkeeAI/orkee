@@ -3,11 +3,11 @@
 
 #[cfg(test)]
 mod tests {
-    use crate::storage::SettingsStorage;
+    use crate::orkee_storage::SettingsStorage;
     use crate::types::{BulkSettingUpdate, SettingUpdate, SettingUpdateItem};
+    use orkee_storage::StorageError;
     use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
     use std::str::FromStr;
-    use storage::StorageError;
 
     async fn setup_test_db() -> SettingsStorage {
         // Create in-memory database

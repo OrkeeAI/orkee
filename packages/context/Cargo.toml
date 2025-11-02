@@ -1,11 +1,14 @@
 [package]
-name = "context"
+name = "orkee-context"
 version.workspace = true
 edition.workspace = true
 description = "Code analysis and context management for Orkee"
 authors.workspace = true
 license.workspace = true
 repository.workspace = true
+
+[lib]
+name = "orkee_context"
 
 [dependencies]
 # Serialization

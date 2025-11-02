@@ -7,7 +7,7 @@ use axum::{
     response::IntoResponse,
     Json,
 };
-use ideate::{DecomposeEpicInput, TaskDecomposer};
+use orkee_ideate::{DecomposeEpicInput, TaskDecomposer};
 use tracing::{error, info};
 
 use orkee_projects::DbState;
@@ -103,7 +103,7 @@ pub async fn get_epic_tasks(
     };
 
     // Use TaskStorage's row conversion helper
-    let storage = tasks::storage::TaskStorage::new(db.pool.clone());
+    let storage = orkee_tasks::storage::TaskStorage::new(db.pool.clone());
     let mut result_tasks = Vec::new();
 
     for row in rows.iter() {

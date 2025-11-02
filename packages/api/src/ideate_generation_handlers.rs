@@ -16,7 +16,7 @@ use std::convert::Infallible;
 use tracing::{error, info};
 
 use super::response::{ok_or_internal_error, ok_or_not_found};
-use ideate::{ExportFormat, ExportOptions, PRDAggregator, PRDGenerator};
+use orkee_ideate::{ExportFormat, ExportOptions, PRDAggregator, PRDGenerator};
 use orkee_projects::DbState;
 
 // TODO: Replace with proper user authentication
@@ -171,7 +171,7 @@ pub async fn export_prd(
     };
 
     // Now export it
-    let export_service = ideate::ExportService::new(db.pool.clone());
+    let export_service = orkee_ideate::ExportService::new(db.pool.clone());
     let options = ExportOptions {
         format: request.format,
         include_toc: request.include_toc,
@@ -211,10 +211,11 @@ pub async fn get_completeness(
     let result = aggregator.aggregate_session_data(&session_id).await;
 
     match result {
-        Ok(data) => {
-            ok_or_internal_error::<ideate::CompletenessMetrics, String>(Ok(data.completeness), "")
-        }
-        Err(e) => ok_or_internal_error::<ideate::CompletenessMetrics, _>(
+        Ok(data) => ok_or_internal_error::<orkee_ideate::CompletenessMetrics, String>(
+            Ok(data.completeness),
+            "",
+        ),
+        Err(e) => ok_or_internal_error::<orkee_ideate::CompletenessMetrics, _>(
             Err(e),
             "Failed to get completeness metrics",
         ),
@@ -268,7 +269,7 @@ pub async fn get_generation_history(
             ok_or_internal_error::<Vec<GenerationHistoryItem>, String>(Ok(history), "")
         }
         Err(e) => ok_or_internal_error::<Vec<GenerationHistoryItem>, _>(
-            Err(ideate::IdeateError::Database(e)),
+            Err(orkee_ideate::IdeateError::Database(e)),
             "Failed to get generation history",
         ),
     }
@@ -323,7 +324,7 @@ pub async fn validate_prd(
         Ok(r) => r,
         Err(e) => {
             return ok_or_internal_error::<ValidationResponse, _>(
-                Err(ideate::IdeateError::Database(e)),
+                Err(orkee_ideate::IdeateError::Database(e)),
                 "Failed to get validation rules",
             );
         }
@@ -423,7 +424,7 @@ pub async fn regenerate_prd_with_template(
     };
 
     // Get the session to retrieve project_id and title
-    use ideate::IdeateManager;
+    use orkee_ideate::IdeateManager;
     let manager = IdeateManager::new(db.pool.clone());
     let session = match manager.get_session(&session_id).await {
         Ok(s) => s,
@@ -452,7 +453,7 @@ pub async fn regenerate_prd_with_template(
         Ok(p) => p,
         Err(e) => {
             return ok_or_internal_error::<serde_json::Value, _>(
-                Err(ideate::IdeateError::AIService(e.to_string())),
+                Err(orkee_ideate::IdeateError::AIService(e.to_string())),
                 "Failed to save regenerated PRD",
             )
         }
@@ -546,7 +547,7 @@ pub async fn regenerate_prd_with_template_stream(
         let markdown = accumulated_markdown;
 
         // Get the session to retrieve project_id and title
-        use ideate::IdeateManager;
+        use orkee_ideate::IdeateManager;
         let manager = IdeateManager::new(db.pool.clone());
         let session = match manager.get_session(&session_id).await {
             Ok(s) => s,

@@ -1,7 +1,7 @@
 // ABOUTME: Unit tests for GitHub CLI wrapper
 // ABOUTME: Tests authentication detection, issue operations, and error handling
 
-use git_utils::{GhIssue, GitHubCli, GitHubCliError, UpdateIssueParams};
+use orkee_git_utils::{GhIssue, GitHubCli, GitHubCliError, UpdateIssueParams};
 
 #[test]
 fn test_gh_cli_availability_detection() {

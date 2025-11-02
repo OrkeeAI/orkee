@@ -364,7 +364,8 @@ async fn create_application_router(
     // Create the router with all middleware layers
     // IMPORTANT: In Axum, layers are applied in REVERSE order (last added = first executed)
     // Execution order: CORS → Security → Tracing → Rate Limit → Auth → CSRF → Handlers
-    let (mut app_builder, db_state) = api::create_router_with_options(dashboard_path, None).await;
+    let (mut app_builder, db_state) =
+        crate::api::create_router_with_options(dashboard_path, None).await;
 
     // Create CSRF layer for CSRF protection
     let csrf_layer = middleware::CsrfLayer::new();

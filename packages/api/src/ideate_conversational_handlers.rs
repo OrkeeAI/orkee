@@ -10,7 +10,7 @@ use serde::Deserialize;
 use tracing::{error, info, warn};
 
 use super::response::ok_or_internal_error;
-use ideate::{
+use orkee_ideate::{
     ConversationalManager, CreateInsightInput, DiscoveryQuestion, DiscoveryStatus,
     GeneratePRDFromConversationInput, GeneratePRDFromConversationResult, MessageRole,
     QualityMetrics, QuestionCategory, SendMessageInput, TopicCoverage, ValidationResult,
@@ -136,7 +136,7 @@ pub async fn get_suggested_questions(
         .collect();
 
     ok_or_internal_error(
-        Ok::<_, ideate::IdeateError>(suggested),
+        Ok::<_, orkee_ideate::IdeateError>(suggested),
         "Failed to get suggested questions",
     )
 }
@@ -194,13 +194,13 @@ pub async fn get_quality_metrics(
 
     let has_requirement = insights
         .iter()
-        .any(|i| matches!(i.insight_type, ideate::InsightType::Requirement));
+        .any(|i| matches!(i.insight_type, orkee_ideate::InsightType::Requirement));
     let has_constraint = insights
         .iter()
-        .any(|i| matches!(i.insight_type, ideate::InsightType::Constraint));
+        .any(|i| matches!(i.insight_type, orkee_ideate::InsightType::Constraint));
     let has_risk = insights
         .iter()
-        .any(|i| matches!(i.insight_type, ideate::InsightType::Risk));
+        .any(|i| matches!(i.insight_type, orkee_ideate::InsightType::Risk));
 
     let coverage = TopicCoverage {
         problem: has_requirement,
@@ -260,7 +260,7 @@ pub async fn get_quality_metrics(
     };
 
     ok_or_internal_error(
-        Ok::<_, ideate::IdeateError>(metrics),
+        Ok::<_, orkee_ideate::IdeateError>(metrics),
         "Failed to calculate quality metrics",
     )
 }
@@ -289,7 +289,7 @@ pub async fn update_status(
         "finalized" => DiscoveryStatus::Finalized,
         _ => {
             return ok_or_internal_error(
-                Err::<(), _>(ideate::IdeateError::InvalidInput(format!(
+                Err::<(), _>(orkee_ideate::IdeateError::InvalidInput(format!(
                     "Invalid discovery status: {}",
                     request.status
                 ))),
@@ -358,7 +358,7 @@ pub async fn generate_prd(
     };
 
     ok_or_internal_error(
-        Ok::<_, ideate::IdeateError>(result),
+        Ok::<_, orkee_ideate::IdeateError>(result),
         "Failed to generate PRD",
     )
 }
@@ -395,10 +395,10 @@ pub async fn validate_for_prd(
 
     let has_requirement = insights
         .iter()
-        .any(|i| matches!(i.insight_type, ideate::InsightType::Requirement));
+        .any(|i| matches!(i.insight_type, orkee_ideate::InsightType::Requirement));
     let _has_constraint = insights
         .iter()
-        .any(|i| matches!(i.insight_type, ideate::InsightType::Constraint));
+        .any(|i| matches!(i.insight_type, orkee_ideate::InsightType::Constraint));
 
     let mut missing_required = Vec::new();
     let mut warnings = Vec::new();
@@ -424,7 +424,7 @@ pub async fn validate_for_prd(
     };
 
     ok_or_internal_error(
-        Ok::<_, ideate::IdeateError>(validation),
+        Ok::<_, orkee_ideate::IdeateError>(validation),
         "Failed to validate conversation",
     )
 }

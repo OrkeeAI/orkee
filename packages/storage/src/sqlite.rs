@@ -219,12 +219,12 @@ impl SqliteStorage {
     /// NOTE: Validation temporarily disabled - this logic should move to projects package
     /// since it depends on application-level models registry, not storage layer
     async fn validate_agent_model_references(&self) -> StorageResult<()> {
-        // TODO: Move this validation to projects package where models::REGISTRY is available
+        // TODO: Move this validation to projects package where orkee_models::REGISTRY is available
         debug!("Agent/model reference validation temporarily disabled");
         Ok(())
 
-        /* DISABLED - needs models::REGISTRY from projects package
-        use crate::models::REGISTRY;
+        /* DISABLED - needs orkee_models::REGISTRY from projects package
+        use crate::orkee_models::REGISTRY;
 
         debug!("Validating agent and model references against config files");
         let mut total_cleaned = 0;

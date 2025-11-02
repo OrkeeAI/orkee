@@ -10,7 +10,7 @@ use std::time::Duration;
 use tokio::time::timeout;
 use tracing::info;
 
-use context::{graph_builder::GraphBuilder, graph_types::CodeGraph};
+use orkee_context::{graph_builder::GraphBuilder, graph_types::CodeGraph};
 use orkee_projects::{get_project as manager_get_project, DbState};
 
 // Timeout configuration
@@ -242,7 +242,7 @@ mod tests {
     #[test]
     fn test_graph_response_success() {
         use chrono::Utc;
-        use context::graph_types::{CodeGraph, GraphMetadata};
+        use orkee_context::graph_types::{CodeGraph, GraphMetadata};
 
         let graph = CodeGraph {
             nodes: vec![],

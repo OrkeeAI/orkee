@@ -11,7 +11,7 @@ pub mod types;
 pub use ast_analyzer::*;
 pub use batch_processor::*;
 pub use dependency_graph::*;
-pub use formatter::*;
+pub use orkee_formatter::*;
 pub use graph_builder::*;
 pub use graph_types::*;
 pub use incremental_parser::*;

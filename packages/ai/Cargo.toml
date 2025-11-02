@@ -1,5 +1,5 @@
 [package]
-name = "ai"
+name = "orkee-ai"
 version.workspace = true
 edition.workspace = true
 description = "AI service integration and usage tracking for Orkee"
@@ -7,9 +7,12 @@ authors.workspace = true
 license.workspace = true
 repository.workspace = true
 
+[lib]
+name = "orkee_ai"
+
 [dependencies]
-orkee_core = { path = "../core" }
-storage = { path = "../storage" }
+orkee-core = { path = "../core" }
+orkee-storage = { path = "../storage" }
 
 sqlx = { version = "0.8.1", default-features = false, features = ["runtime-tokio-rustls", "sqlite", "chrono"] }
 reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "json"] }

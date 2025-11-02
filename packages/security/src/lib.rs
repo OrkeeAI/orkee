@@ -8,4 +8,5 @@ pub mod users;
 // Re-export main types for convenience
 pub use api_tokens::{ApiToken, TokenGeneration, TokenStorage};
 pub use encryption::{ApiKeyEncryption, EncryptionError};
-pub use users::{MaskedUser, User, UserStorage, UserUpdateInput};
+pub use users::storage::UserStorage;
+pub use users::{MaskedUser, User, UserUpdateInput};

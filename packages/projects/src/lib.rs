@@ -28,7 +28,7 @@ pub use manager::{
 pub type ProjectManager = ProjectsManager;
 
 // Re-export storage types and traits
-pub use storage::{
+pub use orkee_storage::{
     // Legacy JSON storage functions for backward compatibility
     ensure_projects_file,
     factory::{ProjectStorageExt, StorageFactory, StorageManager, StorageStats},
@@ -53,10 +53,10 @@ pub use orkee_core::{truncate, validate_project_data, validate_project_update, V
 pub use orkee_core::generate_project_id;
 
 // Re-export formatter functions
-pub use formatter::{format_project_details, format_projects_table};
+pub use orkee_formatter::{format_project_details, format_projects_table};
 
 // Re-export settings types for backward compatibility
-pub use settings::{
+pub use orkee_settings::{
     validate_setting_value, BulkSettingUpdate, SettingCategory, SettingUpdate, SettingUpdateItem,
     SettingsResponse, SettingsStorage, SystemSetting, ValidationError as SettingsValidationError,
 };
@@ -71,10 +71,10 @@ pub use db::DbState;
 pub use pagination::{PaginatedResponse, PaginationMeta, PaginationParams};
 
 // Re-export tags types
-pub use tags::{Tag, TagCreateInput, TagStorage, TagUpdateInput};
+pub use orkee_tags::{Tag, TagCreateInput, TagStorage, TagUpdateInput};
 
 // Re-export security types (API tokens, encryption, users)
-pub use security::{
+pub use orkee_security::{
     ApiKeyEncryption, ApiToken, EncryptionError, MaskedUser, TokenGeneration, TokenStorage, User,
     UserStorage, UserUpdateInput,
 };
@@ -87,13 +87,15 @@ pub use prd::{
 };
 
 // Re-export storage module (used by API handlers)
-pub use storage;
+pub use orkee_storage;
 
 // Re-export security module (used by API handlers)
-pub use security;
+pub use orkee_security;
 
 // Re-export context module (used by API handlers)
-pub use context;
+pub use orkee_context;
 
 // Re-export tasks types (used by API handlers)
-pub use tasks::{Task, TaskCreateInput, TaskPriority, TaskStatus, TaskStorage, TaskUpdateInput};
+pub use orkee_tasks::{
+    storage::TaskStorage, Task, TaskCreateInput, TaskPriority, TaskStatus, TaskUpdateInput,
+};

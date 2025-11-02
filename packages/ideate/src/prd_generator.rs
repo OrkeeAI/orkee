@@ -1,7 +1,7 @@
 // ABOUTME: PRD generator service for Quick Mode AI-powered generation
 // ABOUTME: Fetches settings from DB, uses Claude API to generate comprehensive PRDs
 
-use ai::{AIResponse, AIService};
+use orkee_ai::{AIResponse, AIService};
 use serde::{Deserialize, Serialize};
 use sqlx::{Pool, Sqlite};
 use tracing::{error, info, warn};
@@ -9,8 +9,8 @@ use tracing::{error, info, warn};
 use crate::error::{IdeateError, Result};
 use crate::prd_aggregator::{AggregatedPRDData, PRDAggregator};
 use crate::prompts;
-use security::users::storage::UserStorage;
-use settings::storage::SettingsStorage;
+use orkee_security::UserStorage;
+use orkee_settings::storage::SettingsStorage;
 
 /// AI settings for PRD generation
 #[derive(Debug, Clone)]

@@ -3,7 +3,7 @@
 
 #[cfg(test)]
 mod tests {
-    use super::super::storage::UserStorage;
+    use super::super::orkee_storage::UserStorage;
     use super::super::types::UserUpdateInput;
     use crate::encryption::ApiKeyEncryption;
     use sqlx::SqlitePool;

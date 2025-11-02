@@ -2,8 +2,8 @@
 // ABOUTME: Database CRUD for runtime configuration
 
 use crate::types::{BulkSettingUpdate, SettingUpdate, SystemSetting};
+use orkee_storage::StorageError;
 use sqlx::{Row, SqlitePool};
-use storage::StorageError;
 
 pub struct SettingsStorage {
     pool: SqlitePool,

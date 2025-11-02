@@ -1,11 +1,14 @@
 [package]
-name = "orkee_core"
+name = "orkee-core"
 version.workspace = true
 edition.workspace = true
 description = "Core types and utilities for Orkee"
 authors.workspace = true
 license.workspace = true
 repository.workspace = true
+
+[lib]
+name = "orkee_core"
 
 [dependencies]
 # Serialization

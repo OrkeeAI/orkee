@@ -1,7 +1,9 @@
 // ABOUTME: Common test utilities for integration tests
 // ABOUTME: Provides test server setup, database helpers, and HTTP client utilities
 
-use api::{create_ai_router, create_ai_usage_router, create_ideate_router, create_prds_router};
+use orkee_api::{
+    create_ai_router, create_ai_usage_router, create_ideate_router, create_prds_router,
+};
 use orkee_projects::DbState;
 use sqlx::SqlitePool;
 use tempfile::TempDir;

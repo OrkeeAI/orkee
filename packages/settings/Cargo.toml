@@ -1,11 +1,14 @@
 [package]
-name = "settings"
+name = "orkee-settings"
 version.workspace = true
 edition.workspace = true
 description = "System settings management with database persistence"
 authors.workspace = true
 license.workspace = true
 repository.workspace = true
+
+[lib]
+name = "orkee_settings"
 
 [dependencies]
 serde = { version = "1.0", features = ["derive"] }
@@ -14,7 +17,7 @@ sqlx = { version = "0.8.2", features = ["runtime-tokio-rustls", "sqlite"] }
 tracing = "0.1"
 
 # Orkee packages
-storage = { path = "../storage" }
+orkee-storage = { path = "../storage" }
 
 [dev-dependencies]
 tokio = { version = "1.0", features = ["macros"] }

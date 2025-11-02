@@ -4,14 +4,14 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-use models::Agent;
+use orkee_models::Agent;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UserAgent {
     pub id: String,
     pub user_id: String,
     pub agent_id: String,
-    /// Agent details loaded from models::REGISTRY
+    /// Agent details loaded from orkee_models::REGISTRY
     pub agent: Option<Agent>,
     pub preferred_model_id: Option<String>,
     pub is_active: bool,

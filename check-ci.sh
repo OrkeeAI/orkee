@@ -97,7 +97,7 @@ CLIPPY_PACKAGES=(
   "orkee-projects"
   "orkee-config"
   "orkee-prompts"
-  "ai"
+  "orkee-ai"
 )
 
 # Set DATABASE_URL for sqlx macros if not already set

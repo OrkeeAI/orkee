@@ -10,5 +10,5 @@ mod storage_test;
 #[cfg(test)]
 mod masking_test;
 
-pub use storage::*;
+pub use orkee_storage::*;
 pub use types::*;

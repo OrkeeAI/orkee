@@ -12,10 +12,10 @@ use tracing::{error, info};
 
 use super::auth::CurrentUser;
 use super::response::ApiResponse;
-use ai::service::{AIService, AIServiceError};
-use ai::usage_logs::AiUsageLog;
+use orkee_ai::service::{AIService, AIServiceError};
+use orkee_ai::usage_logs::AiUsageLog;
 use orkee_projects::{get_prd, DbState};
-use tasks::{TaskCreateInput, TaskPriority};
+use orkee_tasks::{TaskCreateInput, TaskPriority};
 
 // ============================================================================
 // Shared Types (Used for AI analysis)

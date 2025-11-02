@@ -96,7 +96,7 @@ async fn test_config_builder() {
 
 #[test]
 fn test_api_response_parsing() {
-    use orkee_cloud::api::{ApiError, ApiResponse};
+    use orkee_cloud::orkee_api::{ApiError, ApiResponse};
 
     // Test successful response
     let success_response: ApiResponse<String> = ApiResponse {
@@ -183,7 +183,7 @@ fn test_callback_server_url_parsing() {
 #[test]
 fn test_cloud_project_conversion() {
     use chrono::Utc;
-    use orkee_cloud::api::CloudProject;
+    use orkee_cloud::orkee_api::CloudProject;
 
     let cloud_project = CloudProject {
         id: "test-123".to_string(),

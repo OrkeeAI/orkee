@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 use tracing::info;
 
 use super::response::{created_or_internal_error, ok_or_internal_error, ok_or_not_found};
-use ideate::{
+use orkee_ideate::{
     CreateEpicInput, Epic, EpicComplexity, EpicManager, EpicStatus, EstimatedEffort,
     UpdateEpicInput,
 };
@@ -65,11 +65,11 @@ pub struct CreateEpicRequest {
     pub prd_id: String,
     pub name: String,
     pub overview_markdown: String,
-    pub architecture_decisions: Option<Vec<ideate::ArchitectureDecision>>,
+    pub architecture_decisions: Option<Vec<orkee_ideate::ArchitectureDecision>>,
     pub technical_approach: String,
     pub implementation_strategy: Option<String>,
-    pub dependencies: Option<Vec<ideate::ExternalDependency>>,
-    pub success_criteria: Option<Vec<ideate::SuccessCriterion>>,
+    pub dependencies: Option<Vec<orkee_ideate::ExternalDependency>>,
+    pub success_criteria: Option<Vec<orkee_ideate::SuccessCriterion>>,
     pub task_categories: Option<Vec<String>>,
     pub estimated_effort: Option<EstimatedEffort>,
     pub complexity: Option<EpicComplexity>,
@@ -112,11 +112,11 @@ pub async fn create_epic(
 pub struct UpdateEpicRequest {
     pub name: Option<String>,
     pub overview_markdown: Option<String>,
-    pub architecture_decisions: Option<Vec<ideate::ArchitectureDecision>>,
+    pub architecture_decisions: Option<Vec<orkee_ideate::ArchitectureDecision>>,
     pub technical_approach: Option<String>,
     pub implementation_strategy: Option<String>,
-    pub dependencies: Option<Vec<ideate::ExternalDependency>>,
-    pub success_criteria: Option<Vec<ideate::SuccessCriterion>>,
+    pub dependencies: Option<Vec<orkee_ideate::ExternalDependency>>,
+    pub success_criteria: Option<Vec<orkee_ideate::SuccessCriterion>>,
     pub task_categories: Option<Vec<String>>,
     pub estimated_effort: Option<EstimatedEffort>,
     pub complexity: Option<EpicComplexity>,
@@ -246,7 +246,7 @@ pub async fn generate_epic_from_prd(
     // 4. Create implementation strategy
     // 5. Optionally decompose to tasks
 
-    let error = ideate::IdeateError::NotImplemented(
+    let error = orkee_ideate::IdeateError::NotImplemented(
         "Epic generation from PRD is not yet implemented".to_string(),
     );
     ok_or_internal_error(Err::<Epic, _>(error), "Epic generation not implemented")
@@ -267,11 +267,11 @@ pub async fn analyze_work_streams(
     // 4. Detect conflicts
     // 5. Generate parallelization strategy
 
-    let error = ideate::IdeateError::NotImplemented(
+    let error = orkee_ideate::IdeateError::NotImplemented(
         "Work stream analysis is not yet implemented".to_string(),
     );
     ok_or_internal_error(
-        Err::<ideate::WorkAnalysis, _>(error),
+        Err::<orkee_ideate::WorkAnalysis, _>(error),
         "Work stream analysis not implemented",
     )
 }

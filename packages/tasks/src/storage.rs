@@ -6,7 +6,7 @@ use sqlx::{Row, SqlitePool};
 use tracing::debug;
 
 use super::types::{Task, TaskCreateInput, TaskPriority, TaskStatus, TaskUpdateInput};
-use storage::StorageError;
+use orkee_storage::StorageError;
 
 pub struct TaskStorage {
     pool: SqlitePool,

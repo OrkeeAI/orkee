@@ -8,8 +8,8 @@ use tracing::{error, info};
 use super::auth::CurrentUser;
 use super::response::{ok_or_internal_error, ApiResponse};
 use orkee_projects::DbState;
-use security::encryption::ApiKeyEncryption;
-use storage::StorageError;
+use orkee_security::encryption::ApiKeyEncryption;
+use orkee_storage::StorageError;
 
 // Password validation constants
 const MIN_PASSWORD_LENGTH: usize = 8;

@@ -20,13 +20,13 @@
 
 use argon2::{Argon2, ParamsBuilder, Version};
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine};
+pub use orkee_storage::EncryptionMode;
 use ring::{
     aead::{self, Nonce, UnboundKey},
     error::Unspecified,
     rand::{SecureRandom, SystemRandom},
 };
 use std::sync::Arc;
-pub use storage::EncryptionMode;
 
 /// Application salt for key derivation (constant, not secret)
 const APP_SALT: &[u8] = b"orkee-api-key-encryption-v1-20250120";

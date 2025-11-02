@@ -9,8 +9,8 @@ use super::types::{
     AgentExecution, AgentExecutionCreateInput, AgentExecutionUpdateInput, ExecutionStatus,
     PrReview, PrReviewCreateInput, PrReviewUpdateInput,
 };
-use models::REGISTRY;
-use storage::StorageError;
+use orkee_models::REGISTRY;
+use orkee_storage::StorageError;
 
 pub struct ExecutionStorage {
     pool: SqlitePool,

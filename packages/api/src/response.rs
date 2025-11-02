@@ -7,7 +7,7 @@ use axum::{
 };
 use serde::Serialize;
 
-use storage::StorageError;
+use orkee_storage::StorageError;
 
 /// Standard API response wrapper
 #[derive(Serialize)]

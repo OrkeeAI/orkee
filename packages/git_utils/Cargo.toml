@@ -1,5 +1,5 @@
 [package]
-name = "git_utils"
+name = "orkee-git-utils"
 version.workspace = true
 edition.workspace = true
 description = "Git integration utilities for Orkee projects"
@@ -7,8 +7,11 @@ authors.workspace = true
 license.workspace = true
 repository.workspace = true
 
+[lib]
+name = "orkee_git_utils"
+
 [dependencies]
-orkee_core = { path = "../core" }
+orkee-core = { path = "../core" }
 git2 = "0.18"
 tracing = "0.1"
 
