@@ -7,7 +7,7 @@ use tower::ServiceExt;
 
 #[tokio::test]
 async fn test_health_endpoint() {
-    let app = orkee_api::create_router().await;
+    let app = api::create_router().await;
 
     let request = Request::builder()
         .method(Method::GET)
@@ -22,7 +22,7 @@ async fn test_health_endpoint() {
 
 #[tokio::test]
 async fn test_status_endpoint() {
-    let app = orkee_api::create_router().await;
+    let app = api::create_router().await;
 
     let request = Request::builder()
         .method(Method::GET)
@@ -52,7 +52,7 @@ async fn test_projects_list_endpoint() {
         .await
         .expect("Failed to initialize storage for test");
 
-    let app = orkee_api::create_router().await;
+    let app = api::create_router().await;
 
     let request = Request::builder()
         .method(Method::GET)
@@ -70,7 +70,7 @@ async fn test_projects_list_endpoint() {
 
 #[tokio::test]
 async fn test_invalid_endpoint() {
-    let app = orkee_api::create_router().await;
+    let app = api::create_router().await;
 
     let request = Request::builder()
         .method(Method::GET)
@@ -85,7 +85,7 @@ async fn test_invalid_endpoint() {
 
 #[tokio::test]
 async fn test_browse_directories_endpoint() {
-    let app = orkee_api::create_router().await;
+    let app = api::create_router().await;
 
     let body = json!({
         "path": "/tmp"
@@ -109,7 +109,7 @@ async fn test_browse_directories_endpoint() {
 
 #[tokio::test]
 async fn test_method_not_allowed() {
-    let app = orkee_api::create_router().await;
+    let app = api::create_router().await;
 
     // Try POST on a GET-only endpoint
     let request = Request::builder()
@@ -140,7 +140,7 @@ async fn test_projects_create_endpoint() {
         .await
         .expect("Failed to initialize storage for test");
 
-    let app = orkee_api::create_router().await;
+    let app = api::create_router().await;
 
     let body = json!({
         "name": "Test Project",
@@ -171,7 +171,7 @@ async fn test_projects_create_endpoint() {
 async fn test_router_cors_preflight() {
     // Note: Full CORS testing requires the middleware to be configured
     // This is a basic test to ensure the router builds correctly
-    let app = orkee_api::create_router().await;
+    let app = api::create_router().await;
 
     let request = Request::builder()
         .method(Method::OPTIONS)
@@ -197,7 +197,7 @@ async fn test_router_cors_preflight() {
 
 #[tokio::test]
 async fn test_delete_telemetry_data_without_confirmation() {
-    let app = orkee_api::create_router().await;
+    let app = api::create_router().await;
 
     // Try to delete without confirmation
     let body = json!({
@@ -224,7 +224,7 @@ async fn test_delete_telemetry_data_without_confirmation() {
 
 #[tokio::test]
 async fn test_delete_telemetry_data_with_confirmation() {
-    let app = orkee_api::create_router().await;
+    let app = api::create_router().await;
 
     // Delete with confirmation
     let body = json!({
@@ -251,7 +251,7 @@ async fn test_delete_telemetry_data_with_confirmation() {
 
 #[tokio::test]
 async fn test_delete_telemetry_data_missing_body() {
-    let app = orkee_api::create_router().await;
+    let app = api::create_router().await;
 
     // Try to delete without body
     let request = Request::builder()
@@ -274,7 +274,7 @@ async fn test_delete_telemetry_data_missing_body() {
 
 #[tokio::test]
 async fn test_track_event_endpoint_with_valid_data() {
-    let app = orkee_api::create_router().await;
+    let app = api::create_router().await;
 
     let body = json!({
         "event_name": "test_event",
@@ -306,7 +306,7 @@ async fn test_track_event_endpoint_with_valid_data() {
 
 #[tokio::test]
 async fn test_track_event_endpoint_without_event_data() {
-    let app = orkee_api::create_router().await;
+    let app = api::create_router().await;
 
     // Event data is optional
     let body = json!({
@@ -335,7 +335,7 @@ async fn test_track_event_endpoint_without_event_data() {
 
 #[tokio::test]
 async fn test_track_event_endpoint_missing_required_fields() {
-    let app = orkee_api::create_router().await;
+    let app = api::create_router().await;
 
     // Missing event_name
     let body = json!({

@@ -174,7 +174,7 @@ fn test_sse_connection_tracker_max_validation() {
 #[serial]
 #[ignore = "Migration checksum issue after spec removal"]
 async fn test_sse_endpoint_rate_limiting() {
-    let app = orkee_api::create_router().await;
+    let app = api::create_router().await;
 
     // Note: This test is limited because we can't easily simulate multiple IPs
     // in unit tests, but we can verify the endpoint exists and is accessible
@@ -202,7 +202,7 @@ async fn test_sse_endpoint_rate_limiting() {
 #[serial]
 #[ignore = "Migration checksum issue after spec removal"]
 async fn test_sse_endpoint_exists() {
-    let app = orkee_api::create_router().await;
+    let app = api::create_router().await;
 
     let request = Request::builder()
         .method(Method::GET)
@@ -226,7 +226,7 @@ async fn test_sse_endpoint_exists() {
 #[serial]
 #[ignore = "Migration checksum issue after spec removal"]
 async fn test_preview_health_endpoint() {
-    let app = orkee_api::create_router().await;
+    let app = api::create_router().await;
 
     let request = Request::builder()
         .method(Method::GET)
@@ -248,7 +248,7 @@ async fn test_preview_health_endpoint() {
 #[serial]
 #[ignore = "Migration checksum issue after spec removal"]
 async fn test_list_active_servers_endpoint() {
-    let app = orkee_api::create_router().await;
+    let app = api::create_router().await;
 
     let request = Request::builder()
         .method(Method::GET)
@@ -271,7 +271,7 @@ async fn test_list_active_servers_endpoint() {
 #[serial]
 #[ignore = "Migration checksum issue after spec removal"]
 async fn test_discover_servers_endpoint() {
-    let app = orkee_api::create_router().await;
+    let app = api::create_router().await;
 
     let request = Request::builder()
         .method(Method::GET)
@@ -294,7 +294,7 @@ async fn test_discover_servers_endpoint() {
 #[serial]
 #[ignore = "Migration checksum issue after spec removal"]
 async fn test_sse_endpoint_requires_auth_token() {
-    let app = orkee_api::create_router().await;
+    let app = api::create_router().await;
 
     // Create a test socket address for ConnectInfo
     let test_addr: SocketAddr = "127.0.0.1:12345".parse().unwrap();
@@ -341,7 +341,7 @@ async fn test_sse_endpoint_requires_auth_token() {
 #[serial]
 #[ignore = "Migration checksum issue after spec removal"]
 async fn test_stop_all_servers_endpoint() {
-    let app = orkee_api::create_router().await;
+    let app = api::create_router().await;
 
     let request = Request::builder()
         .method(Method::POST)
