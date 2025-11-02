@@ -13,8 +13,8 @@ pub enum IdeateMode {
     Quick,
     /// Guided mode: step-by-step with optional sections and advanced research tools
     Guided,
-    /// Conversational mode: chat-based PRD discovery through conversation
-    Conversational,
+    /// Chat mode: chat-based PRD discovery through conversation
+    Chat,
 }
 
 /// Ideating session status

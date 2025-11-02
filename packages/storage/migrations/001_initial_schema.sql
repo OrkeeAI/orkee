@@ -840,7 +840,7 @@ CREATE TABLE ideate_sessions (
     initial_description TEXT NOT NULL,
 
     -- Session metadata
-    mode TEXT NOT NULL CHECK(mode IN ('quick', 'guided', 'conversational')),
+    mode TEXT NOT NULL CHECK(mode IN ('quick', 'guided', 'chat')),
     status TEXT NOT NULL DEFAULT 'draft' CHECK(status IN ('draft', 'in_progress', 'ready_for_prd', 'completed')),
     current_section TEXT,
 
@@ -2140,7 +2140,7 @@ CREATE TABLE work_analysis (
 CREATE INDEX idx_work_analysis_epic ON work_analysis(epic_id);
 CREATE INDEX idx_work_analysis_current ON work_analysis(epic_id, is_current);
 
--- Reusable Discovery Questions for Conversational Mode
+-- Reusable Discovery Questions for Chat Mode
 CREATE TABLE discovery_questions (
     id TEXT PRIMARY KEY CHECK(length(id) >= 8),
     category TEXT NOT NULL CHECK(category IN ('problem', 'users', 'features', 'technical', 'risks', 'constraints', 'success')),
@@ -2180,7 +2180,7 @@ CREATE INDEX idx_conversation_insights_type ON conversation_insights(insight_typ
 CREATE INDEX idx_conversation_insights_applied ON conversation_insights(applied_to_prd);
 
 -- ============================================================================
--- SEED DATA: Default Discovery Questions for Conversational Mode
+-- SEED DATA: Default Discovery Questions for Chat Mode
 -- ============================================================================
 
 INSERT OR IGNORE INTO discovery_questions (id, category, question_text, priority, is_required, display_order) VALUES

@@ -1,4 +1,4 @@
-// ABOUTME: Conversational mode types and data structures for chat-based PRD discovery
+// ABOUTME: Chat mode types and data structures for chat-based PRD discovery
 // ABOUTME: Defines conversation messages, insights, quality metrics, and discovery questions
 
 use serde::{Deserialize, Serialize};

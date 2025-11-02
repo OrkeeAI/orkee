@@ -112,7 +112,7 @@ DROP TABLE IF EXISTS expert_personas;
 -- Research Analysis Cache
 DROP TABLE IF EXISTS competitor_analysis_cache;
 
--- Conversational Mode (CCPM) tables
+-- Chat Mode (CCPM) tables
 DROP TABLE IF EXISTS conversation_insights;
 DROP TABLE IF EXISTS discovery_questions;
 DROP TABLE IF EXISTS work_analysis;

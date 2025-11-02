@@ -1,4 +1,4 @@
-// ABOUTME: HTTP request handlers for conversational mode PRD discovery
+// ABOUTME: HTTP request handlers for chat mode PRD discovery
 // ABOUTME: Handles chat messages, streaming responses, insights, quality metrics, and PRD generation
 
 use axum::{
@@ -11,7 +11,7 @@ use tracing::{error, info, warn};
 
 use super::response::ok_or_internal_error;
 use orkee_ideate::{
-    ConversationalManager, CreateInsightInput, DiscoveryQuestion, DiscoveryStatus,
+    ChatManager, CreateInsightInput, DiscoveryQuestion, DiscoveryStatus,
     GeneratePRDFromConversationInput, GeneratePRDFromConversationResult, MessageRole,
     QualityMetrics, QuestionCategory, SendMessageInput, TopicCoverage, ValidationResult,
 };
@@ -24,7 +24,7 @@ pub async fn get_history(
 ) -> impl IntoResponse {
     info!("Getting conversation history for session: {}", session_id);
 
-    let manager = ConversationalManager::new(db.pool.clone());
+    let manager = ChatManager::new(db.pool.clone());
     let result = manager.get_history(&session_id).await;
 
     ok_or_internal_error(result, "Failed to get conversation history")
@@ -41,7 +41,7 @@ pub async fn send_message(
         session_id, input.message_type
     );
 
-    let manager = ConversationalManager::new(db.pool.clone());
+    let manager = ChatManager::new(db.pool.clone());
 
     // Determine role - if no role specified, default to User
     // Frontend can send Assistant messages after AI streaming
@@ -88,7 +88,7 @@ pub async fn get_discovery_questions(
         None
     };
 
-    let manager = ConversationalManager::new(db.pool.clone());
+    let manager = ChatManager::new(db.pool.clone());
     let result = manager.get_discovery_questions(category).await;
 
     ok_or_internal_error(result, "Failed to get discovery questions")
@@ -101,7 +101,7 @@ pub async fn get_suggested_questions(
 ) -> impl IntoResponse {
     info!("Getting suggested questions for session: {}", session_id);
 
-    let manager = ConversationalManager::new(db.pool.clone());
+    let manager = ChatManager::new(db.pool.clone());
 
     // Get conversation history to analyze context
     let _history = match manager.get_history(&session_id).await {
@@ -148,7 +148,7 @@ pub async fn get_insights(
 ) -> impl IntoResponse {
     info!("Getting insights for session: {}", session_id);
 
-    let manager = ConversationalManager::new(db.pool.clone());
+    let manager = ChatManager::new(db.pool.clone());
     let result = manager.get_insights(&session_id).await;
 
     ok_or_internal_error(result, "Failed to get insights")
@@ -165,7 +165,7 @@ pub async fn create_insight(
         session_id, input.insight_type
     );
 
-    let manager = ConversationalManager::new(db.pool.clone());
+    let manager = ChatManager::new(db.pool.clone());
     let result = manager.create_insight(&session_id, input).await;
 
     ok_or_internal_error(result, "Failed to create insight")
@@ -178,7 +178,7 @@ pub async fn get_quality_metrics(
 ) -> impl IntoResponse {
     info!("Getting quality metrics for session: {}", session_id);
 
-    let manager = ConversationalManager::new(db.pool.clone());
+    let manager = ChatManager::new(db.pool.clone());
 
     // Get insights to calculate coverage
     let insights = match manager.get_insights(&session_id).await {
@@ -298,7 +298,7 @@ pub async fn update_status(
         }
     };
 
-    let manager = ConversationalManager::new(db.pool.clone());
+    let manager = ChatManager::new(db.pool.clone());
     let result = manager.update_discovery_status(&session_id, status).await;
 
     ok_or_internal_error(result, "Failed to update discovery status")
@@ -315,7 +315,7 @@ pub async fn generate_prd(
         session_id, input.title
     );
 
-    let manager = ConversationalManager::new(db.pool.clone());
+    let manager = ChatManager::new(db.pool.clone());
 
     // Get conversation history
     let history = match manager.get_history(&session_id).await {
@@ -370,7 +370,7 @@ pub async fn validate_for_prd(
 ) -> impl IntoResponse {
     info!("Validating conversation for PRD generation: {}", session_id);
 
-    let manager = ConversationalManager::new(db.pool.clone());
+    let manager = ChatManager::new(db.pool.clone());
 
     // Get conversation history
     let history = match manager.get_history(&session_id).await {

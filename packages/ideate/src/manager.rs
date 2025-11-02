@@ -1138,7 +1138,7 @@ impl IdeateManager {
         let is_ready = match session.mode {
             IdeateMode::Quick => true,                  // Quick mode is always ready
             IdeateMode::Guided => completed_count >= 2, // At least 2 sections
-            IdeateMode::Conversational => true,         // Conversational uses quality score instead
+            IdeateMode::Chat => true,                   // Chat uses quality score instead
         };
 
         Ok(SessionCompletionStatus {
