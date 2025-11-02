@@ -1,5 +1,5 @@
 // ABOUTME: HTTP handlers for graph API endpoints providing code visualization data.
-// ABOUTME: Generates dependency, symbol, module, and spec-mapping graphs for projects.
+// ABOUTME: Generates dependency, symbol, and module graphs for projects.
 
 use axum::{
     extract::{Path, State},
@@ -233,19 +233,6 @@ pub async fn get_module_graph(
             timeout_secs
         ))),
     }
-}
-
-/// Get spec-mapping graph for a project (placeholder for future implementation)
-pub async fn get_spec_mapping_graph(
-    Path(project_id): Path<String>,
-    State(_db): State<DbState>,
-) -> Json<GraphResponse> {
-    info!("Generating spec-mapping graph for project: {}", project_id);
-
-    // Placeholder: This will be implemented when OpenSpec integration is ready
-    Json(GraphResponse::error(
-        "Spec-mapping graph not yet implemented".to_string(),
-    ))
 }
 
 #[cfg(test)]

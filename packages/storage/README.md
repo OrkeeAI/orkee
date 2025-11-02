@@ -8,7 +8,7 @@ The storage package provides the database foundation for Orkee, including:
 
 - **SQLite Database**: Local-first architecture with `~/.orkee/orkee.db`
 - **Migration System**: SQLx-managed migrations with comprehensive schema
-- **Schema**: 35+ tables covering projects, users, tasks, OpenSpec, telemetry, and cloud sync
+- **Schema**: 35+ tables covering projects, users, tasks, PRDs, ideation, telemetry, and cloud sync
 - **Test Infrastructure**: 1200+ lines of integration tests with established patterns
 
 ### Key Numbers
@@ -68,17 +68,12 @@ The storage package provides the database foundation for Orkee, including:
 **Task Management**:
 - `tasks` - Task records with FTS support
 - `tasks_fts` - Task full-text search with triggers
-- `task_spec_links` - OpenSpec-task associations
 
-**OpenSpec System**:
-- `spec_changes` - Change proposals and PRDs
-- `spec_deltas` - Incremental specification changes
-- `spec_capabilities` - Capability definitions
-- `spec_requirements` - Requirement specifications
-- `spec_scenarios` - Test scenarios
-- `spec_materializations` - Instance configurations
-- `prds` - Product Requirements Documents
-- `ast_spec_mappings` - AST-based spec mappings
+**PRD & Ideation**:
+- `prds` - Product Requirements Documents with version tracking
+- `ideate_sessions` - PRD ideation sessions (guided and quick modes)
+- `ideate_overview`, `ideate_ux`, `ideate_technical`, etc. - Structured PRD sections
+- `prd_output_templates` - Customizable PRD output templates
 
 **Telemetry & Cloud**:
 - `telemetry_events`, `telemetry_settings`, `telemetry_stats` - Telemetry data
@@ -215,12 +210,10 @@ Test coverage includes:
 - **Quality Checks** (1+ test): Orphaned index detection
 
 **Other Integration Tests**:
-- `spec_integration_tests.rs` - Spec/Capability API tests
-- `change_integration_tests.rs` - Change proposal tests
-- `prd_integration_tests.rs` - PRD tests
-- `task_spec_integration_tests.rs` - Task-spec link tests
+- `prd_integration_tests.rs` - PRD CRUD operation tests
 - `ai_usage_integration_tests.rs` - AI usage tracking tests
 - `ai_proxy_integration_tests.rs` - AI proxy tests
+- `type_serialization_tests.rs` - Type serialization/deserialization tests
 
 **Common Utilities**: `common/mod.rs` - Test helpers and setup functions
 
@@ -364,6 +357,53 @@ rm ~/.orkee/orkee.db && cargo run
 sqlx migrate add <migration_name>
 ```
 
+### Migration Checksum Mismatches (Pre-1.0 Only)
+
+**Context**: During pre-1.0 development, we modify the initial migration (`001_initial_schema.sql`) instead of creating new migrations. This is safe because there are no production instances, but it breaks migration checksums for existing dev databases.
+
+**Symptoms**:
+- `sqlx::migrate()` fails with checksum mismatch error
+- Application won't start due to migration verification failure
+- Error message: "migration checksum mismatch"
+
+**Solution** (choose one):
+
+1. **Full Database Reset** (recommended for clean slate):
+   ```bash
+   # Delete database and restart
+   rm ~/.orkee/orkee.db && cargo run
+   ```
+
+2. **Manual Checksum Reset** (if you need to preserve data):
+   ```bash
+   # Backup your data first!
+   cp ~/.orkee/orkee.db ~/.orkee/orkee.db.backup
+
+   # Reset migration tracking table
+   sqlite3 ~/.orkee/orkee.db "DELETE FROM _sqlx_migrations WHERE version = 1"
+
+   # Restart application (will re-run migration with new checksum)
+   cargo run
+   ```
+
+3. **Test Database Reset** (for test failures):
+   ```bash
+   # Tests use in-memory databases - just re-run tests
+   cargo test
+   ```
+
+**Why This Happens**:
+- SQLx tracks migration checksums in `_sqlx_migrations.checksum`
+- Modifying a migration file changes its checksum
+- SQLx detects mismatch between file and database record
+- This prevents accidental schema drift in production
+
+**Post-1.0 Behavior**:
+- We'll use incremental migrations (002, 003, etc.)
+- Never modify existing migrations
+- Checksums will always match
+- This workflow is temporary for pre-release development
+
 ### Testing
 
 ```bash
@@ -438,12 +478,10 @@ packages/storage/
 
 packages/projects/tests/
 ├── migration_integration_tests.rs    # Main migration tests (1200+ lines)
-├── spec_integration_tests.rs
-├── change_integration_tests.rs
-├── prd_integration_tests.rs
-├── task_spec_integration_tests.rs
-├── ai_usage_integration_tests.rs
-├── ai_proxy_integration_tests.rs
+├── prd_integration_tests.rs          # PRD CRUD operation tests
+├── ai_usage_integration_tests.rs     # AI usage tracking tests
+├── ai_proxy_integration_tests.rs     # AI proxy tests
+├── type_serialization_tests.rs       # Type serialization tests
 └── common/
     └── mod.rs                        # Test utilities and helpers
 
@@ -461,9 +499,8 @@ packages/core/src/
 2. `projects` (no dependencies)
 3. `tasks` (FK: projects.id, users.id)
 4. `prds` (FK: projects.id)
-5. `spec_changes` (FK: projects.id, prds.id)
-6. `spec_capabilities` (FK: projects.id)
-7. `spec_deltas` (FK: spec_changes.id)
+5. `ideate_sessions` (FK: projects.id)
+6. `ideate_overview`, `ideate_ux`, etc. (FK: ideate_sessions.id)
 
 ### Critical Constants
 

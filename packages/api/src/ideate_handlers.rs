@@ -16,8 +16,7 @@ use ideate::{
     IdeateOverview, IdeateResearch, IdeateRisks, IdeateRoadmap, IdeateStatus, IdeateTechnical,
     IdeateUX, PRDGenerator, SkipSectionRequest, TemplateManager, UpdateIdeateSessionInput,
 };
-use openspec;
-use orkee_projects::DbState;
+use orkee_projects::{self as projects, DbState};
 
 // TODO: Replace with proper user authentication
 const DEFAULT_USER_ID: &str = "default-user";
@@ -514,7 +513,7 @@ pub async fn get_preview(
     // If session has a saved PRD, retrieve it instead of regenerating
     if let Some(prd_id) = &session.generated_prd_id {
         info!("Session has saved PRD, retrieving it: {}", prd_id);
-        match openspec::db::get_prd(&db.pool, prd_id).await {
+        match projects::get_prd(&db.pool, prd_id).await {
             Ok(saved_prd) => {
                 info!("Successfully retrieved saved PRD: {}", prd_id);
 
@@ -760,9 +759,8 @@ pub async fn save_as_prd(
         }
     };
 
-    // Create PRD in OpenSpec system
-    use openspec::db::create_prd;
-    use openspec::types::{PRDSource, PRDStatus};
+    // Create PRD in projects system
+    use projects::{create_prd, PRDSource, PRDStatus};
 
     let prd = match create_prd(
         &db.pool,

@@ -1,5 +1,5 @@
 // ABOUTME: Integration tests for PRD (Product Requirements Document) API endpoints
-// ABOUTME: Tests CRUD operations for PRDs including list, create, get, update, delete, and capabilities
+// ABOUTME: Tests CRUD operations for PRDs including list, create, get, update, and delete
 
 mod common;
 
@@ -137,7 +137,6 @@ async fn test_get_nonexistent_prd() {
 }
 
 #[tokio::test]
-#[ignore = "Pre-existing PRD serialization issue - content_markdown returns null"]
 async fn test_update_prd() {
     let ctx = setup_test_server().await;
     let project_id = create_test_project(&ctx.pool, "Test Project", "/test/path").await;
@@ -177,12 +176,11 @@ async fn test_update_prd() {
     let get_response = get(&ctx.base_url, &format!("/{}/prds/{}", project_id, prd_id)).await;
     let get_body: serde_json::Value = get_response.json().await.unwrap();
     assert_eq!(get_body["data"]["title"], "Updated Title");
-    assert_eq!(get_body["data"]["content_markdown"], "# Updated Content");
+    assert_eq!(get_body["data"]["contentMarkdown"], "# Updated Content");
     assert_eq!(get_body["data"]["status"], "approved");
 }
 
 #[tokio::test]
-#[ignore = "Pre-existing PRD serialization issue - content_markdown returns null"]
 async fn test_update_prd_partial() {
     let ctx = setup_test_server().await;
     let project_id = create_test_project(&ctx.pool, "Test Project", "/test/path").await;
@@ -218,7 +216,7 @@ async fn test_update_prd_partial() {
     let get_response = get(&ctx.base_url, &format!("/{}/prds/{}", project_id, prd_id)).await;
     let get_body: serde_json::Value = get_response.json().await.unwrap();
     assert_eq!(get_body["data"]["title"], "New Title Only");
-    assert_eq!(get_body["data"]["content_markdown"], "# Original Content");
+    assert_eq!(get_body["data"]["contentMarkdown"], "# Original Content");
     assert_eq!(get_body["data"]["status"], "draft");
 }
 
@@ -252,39 +250,6 @@ async fn test_delete_prd() {
     // Verify it's deleted
     let get_response = get(&ctx.base_url, &format!("/{}/prds/{}", project_id, prd_id)).await;
     assert_eq!(get_response.status(), 404);
-}
-
-#[tokio::test]
-async fn test_get_prd_capabilities() {
-    let ctx = setup_test_server().await;
-    let project_id = create_test_project(&ctx.pool, "Test Project", "/test/path").await;
-
-    // Create a PRD
-    let create_response = post_json(
-        &ctx.base_url,
-        &format!("/{}/prds", project_id),
-        &json!({
-            "title": "PRD with Capabilities",
-            "contentMarkdown": "# Test PRD",
-        }),
-    )
-    .await;
-
-    let create_body: serde_json::Value = create_response.json().await.unwrap();
-    let prd_id = create_body["data"]["id"].as_str().unwrap();
-
-    // Get capabilities (should be empty initially)
-    let response = get(
-        &ctx.base_url,
-        &format!("/{}/prds/{}/capabilities", project_id, prd_id),
-    )
-    .await;
-
-    assert_eq!(response.status(), 200);
-
-    let body: serde_json::Value = response.json().await.unwrap();
-    assert_eq!(body["success"], true);
-    assert!(body["data"]["data"].is_array());
 }
 
 #[tokio::test]

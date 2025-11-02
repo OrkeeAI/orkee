@@ -1,4 +1,4 @@
-// ABOUTME: AI Gateway and provider configuration for OpenSpec integration
+// ABOUTME: AI Gateway and provider configuration
 // ABOUTME: Manages Vercel AI SDK settings, model selection, and cost tracking
 
 export const AI_CONFIG = {

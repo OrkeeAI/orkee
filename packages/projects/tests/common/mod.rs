@@ -1,10 +1,7 @@
 // ABOUTME: Common test utilities for integration tests
 // ABOUTME: Provides test server setup, database helpers, and HTTP client utilities
 
-use api::{
-    create_ai_router, create_ai_usage_router, create_changes_router, create_prds_router,
-    create_specs_router, create_task_spec_router,
-};
+use api::{create_ai_router, create_ai_usage_router, create_ideate_router, create_prds_router};
 use orkee_projects::DbState;
 use sqlx::SqlitePool;
 use tempfile::TempDir;
@@ -21,7 +18,7 @@ pub struct TestContext {
     pub _temp_dir: TempDir,
 }
 
-/// Create a test server with isolated database for OpenSpec endpoints
+/// Create a test server with isolated database
 pub async fn setup_test_server() -> TestContext {
     let _guard = TEST_MUTEX.lock().await;
 
@@ -59,9 +56,7 @@ pub async fn setup_test_server() -> TestContext {
 
     // Use the same pattern as the main CLI: start with one router, merge others
     let app = create_prds_router()
-        .merge(create_specs_router())
-        .merge(create_changes_router())
-        .merge(create_task_spec_router())
+        .merge(create_ideate_router())
         .merge(create_ai_router())
         .merge(create_ai_usage_router())
         .with_state(db_state);

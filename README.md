@@ -234,26 +234,30 @@ The desktop app is designed to run in the background:
 
 **Note**: The Tauri app bundles the Orkee CLI binary as a sidecar process. It will automatically start the API server on an available port when launched.
 
-## OpenSpec Integration
+## PRD Ideation & CCPM Workflow
 
-Orkee includes comprehensive OpenSpec support for spec-driven development with a 5-tab workflow:
+Orkee provides AI-powered PRD (Product Requirements Document) ideation and Conversational Collaborative Project Management:
 
 ```
-📄 PRDs → 📝 Changes → ✅ Specs → 📦 Archive → 📊 Coverage
+💡 Ideate → 📄 PRD → 📋 Epic → ✅ Tasks
 ```
 
-**Key Features:**
-- 🔄 **Change Management** - Proposal-based workflow with approval (Draft → Review → Approved → Implementing → Completed → Archived)
-- 📝 **Delta Operations** - Add, modify, remove, or rename capabilities with structured proposals
-- ✅ **Task Integration** - Link tasks to requirements with WHEN/THEN scenario validation
-- 🤖 **AI-Powered** - PRD analysis, task generation, spec suggestions, and validation
-- 📊 **Cost Tracking** - Monitor AI usage with detailed analytics
-- 💾 **SQLite-Based** - 9 tables storing PRDs, specs, requirements, scenarios, and change history
+**Ideation Modes:**
+- 🚀 **Quick Mode** - Generate complete PRDs instantly from a description
+- 🎯 **Guided Mode** - Step-by-step section building with AI assistance
+- 📝 **Template-Based** - Use customizable templates for different project types
 
-**Documentation:**
-- **[DOCS.md - OpenSpec Integration](DOCS.md#openspec-integration)** - Complete API reference with mermaid diagrams
-- **[docs/docs/openspec/](docs/docs/openspec/)** - Detailed guides for workflows, changes, PRDs, specs, and tasks
-- **[SPEC_TASK.md](SPEC_TASK.md)** - Technical specifications
+**PRD Features:**
+- 📄 **Structured Sections** - Overview, UX, Technical, Roadmap, Dependencies, Risks, Research
+- 🤖 **AI-Powered Generation** - Complete PRD generation or section-by-section expansion
+- 💾 **Version Tracking** - Full PRD history with soft delete support
+- 🎨 **Custom Templates** - Create and manage reusable PRD templates
+
+**CCPM (Conversational Collaborative Project Management):**
+- 💬 **Epic Generation** - Convert PRDs into actionable epics with AI
+- 🔄 **Iterative Refinement** - Conversational workflow for epic improvement
+- 🎯 **Task Decomposition** - Break down epics into executable tasks
+- 🔍 **Research Tools** - Competitor analysis, similar projects, and technical specs
 
 ## Documentation
 

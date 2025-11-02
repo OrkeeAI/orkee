@@ -268,7 +268,7 @@ export function QuickModeFlow({
       });
 
       toast.success('PRD saved successfully!', {
-        description: 'Your PRD has been saved to the OpenSpec system.',
+        description: 'Your PRD has been saved successfully.',
       });
 
       // Close dialog and notify completion

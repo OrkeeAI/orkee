@@ -1,4 +1,4 @@
--- ABOUTME: Initial Orkee database schema with project management, task tracking, OpenSpec, and telemetry
+-- ABOUTME: Initial Orkee database schema with project management, task tracking, ideate feature, and telemetry
 -- ABOUTME: Includes security, context management, API tokens, and comprehensive indexing for performance
 
 -- ============================================================================
@@ -298,6 +298,7 @@ CREATE TABLE prds (
 CREATE INDEX idx_prds_project ON prds(project_id);
 CREATE INDEX idx_prds_ideate_session ON prds(ideate_session_id);
 CREATE INDEX idx_prds_status ON prds(status);
+CREATE INDEX idx_prds_created_at ON prds(created_at DESC);
 CREATE INDEX idx_prds_not_deleted ON prds(id) WHERE deleted_at IS NULL;
 CREATE INDEX idx_prds_project_not_deleted ON prds(project_id, status) WHERE deleted_at IS NULL;
 
@@ -306,254 +307,6 @@ FOR EACH ROW WHEN NEW.updated_at = OLD.updated_at
 BEGIN
     UPDATE prds SET updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE id = NEW.id;
 END;
-
--- Spec Changes
-CREATE TABLE spec_changes (
-    id TEXT PRIMARY KEY CHECK(length(id) >= 8),
-    project_id TEXT NOT NULL,
-    prd_id TEXT,
-    proposal_markdown TEXT NOT NULL,
-    tasks_markdown TEXT NOT NULL,
-    design_markdown TEXT,
-    status TEXT DEFAULT 'draft' CHECK(status IN ('draft', 'review', 'approved', 'implementing', 'completed', 'archived')),
-    created_by TEXT NOT NULL,
-    approved_by TEXT,
-    approved_at TEXT,
-    archived_at TEXT,
-    deleted_at TEXT,
-    verb_prefix TEXT,
-    change_number INTEGER,
-    validation_status TEXT DEFAULT 'pending' CHECK(validation_status IN ('pending', 'valid', 'invalid')),
-    validation_errors TEXT,
-    tasks_completion_percentage INTEGER DEFAULT 0 CHECK(tasks_completion_percentage >= 0 AND tasks_completion_percentage <= 100),
-    tasks_parsed_at TEXT,
-    tasks_total_count INTEGER DEFAULT 0,
-    tasks_completed_count INTEGER DEFAULT 0,
-    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
-    updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
-    FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
-    FOREIGN KEY (prd_id) REFERENCES prds(id) ON DELETE SET NULL
-);
-
--- Spec change indexes
--- Query patterns:
---   - List changes by project: WHERE project_id = ? (most common)
---   - Change ID generation: WHERE project_id = ? AND verb_prefix = ?
---   - Both indexes needed: standalone for listing, composite for ID generation
-CREATE INDEX idx_spec_changes_project ON spec_changes(project_id);
-CREATE INDEX idx_spec_changes_status ON spec_changes(status);
-CREATE INDEX idx_spec_changes_created_at ON spec_changes(created_at);
-CREATE INDEX idx_spec_changes_project_verb ON spec_changes(project_id, verb_prefix);  -- Supports change ID generation
-CREATE INDEX idx_spec_changes_not_deleted ON spec_changes(id) WHERE deleted_at IS NULL;
-CREATE INDEX idx_spec_changes_project_not_deleted ON spec_changes(project_id, status) WHERE deleted_at IS NULL;
-
--- Unique constraint for change ID generation
-CREATE UNIQUE INDEX idx_spec_changes_unique_change_number
-  ON spec_changes(project_id, verb_prefix, change_number)
-  WHERE deleted_at IS NULL;
-
-CREATE TRIGGER spec_changes_updated_at AFTER UPDATE ON spec_changes
-FOR EACH ROW WHEN NEW.updated_at = OLD.updated_at
-BEGIN
-    UPDATE spec_changes SET updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE id = NEW.id;
-END;
-
--- Spec Capabilities
-CREATE TABLE spec_capabilities (
-    id TEXT PRIMARY KEY CHECK(length(id) >= 8),
-    project_id TEXT NOT NULL,
-    prd_id TEXT,
-    name TEXT NOT NULL,
-    purpose_markdown TEXT,
-    spec_markdown TEXT NOT NULL,
-    design_markdown TEXT,
-    requirement_count INTEGER DEFAULT 0,
-    version INTEGER DEFAULT 1,
-    status TEXT DEFAULT 'active' CHECK(status IN ('active', 'deprecated', 'archived')),
-    change_id TEXT REFERENCES spec_changes(id) ON DELETE SET NULL,
-    is_openspec_compliant BOOLEAN DEFAULT FALSE,
-    deleted_at TEXT,
-    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
-    updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
-    FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
-    FOREIGN KEY (prd_id) REFERENCES prds(id) ON DELETE SET NULL
-);
-
--- Spec capability indexes
--- Query patterns:
---   - List capabilities by project: WHERE project_id = ? (archive queries)
---   - Active capabilities: WHERE project_id = ? AND status = 'active' (common filtering)
---   - Both indexes needed: standalone for listing, composite for filtered queries
-CREATE INDEX idx_spec_capabilities_project ON spec_capabilities(project_id);
-CREATE INDEX idx_spec_capabilities_prd ON spec_capabilities(prd_id);
-CREATE INDEX idx_spec_capabilities_status ON spec_capabilities(status);
-CREATE INDEX idx_spec_capabilities_project_status ON spec_capabilities(project_id, status);  -- Supports active capability queries
-CREATE INDEX idx_spec_capabilities_change ON spec_capabilities(change_id);
-CREATE INDEX idx_spec_capabilities_not_deleted ON spec_capabilities(id) WHERE deleted_at IS NULL;
-CREATE INDEX idx_spec_capabilities_project_not_deleted ON spec_capabilities(project_id, status) WHERE deleted_at IS NULL;
-CREATE INDEX idx_spec_capabilities_prd_not_deleted ON spec_capabilities(prd_id) WHERE deleted_at IS NULL;
-
-CREATE TRIGGER spec_capabilities_updated_at AFTER UPDATE ON spec_capabilities
-FOR EACH ROW WHEN NEW.updated_at = OLD.updated_at
-BEGIN
-    UPDATE spec_capabilities SET updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE id = NEW.id;
-END;
-
--- Spec Capabilities History
-CREATE TABLE spec_capabilities_history (
-    id TEXT PRIMARY KEY CHECK(length(id) >= 8),
-    capability_id TEXT NOT NULL,
-    version INTEGER NOT NULL,
-    spec_markdown TEXT NOT NULL,
-    design_markdown TEXT,
-    purpose_markdown TEXT,
-    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
-    FOREIGN KEY (capability_id) REFERENCES spec_capabilities(id) ON DELETE CASCADE,
-    UNIQUE (capability_id, version)
-);
-
-CREATE INDEX idx_spec_capabilities_history_capability_version ON spec_capabilities_history(capability_id, version);
-
--- Spec Requirements
-CREATE TABLE spec_requirements (
-    id TEXT PRIMARY KEY CHECK(length(id) >= 8),
-    capability_id TEXT NOT NULL,
-    name TEXT NOT NULL,
-    content_markdown TEXT NOT NULL,
-    position INTEGER DEFAULT 0,
-    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
-    updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
-    FOREIGN KEY (capability_id) REFERENCES spec_capabilities(id) ON DELETE CASCADE
-);
-
-CREATE INDEX idx_spec_requirements_capability ON spec_requirements(capability_id);
-
-CREATE TRIGGER spec_requirements_updated_at AFTER UPDATE ON spec_requirements
-FOR EACH ROW WHEN NEW.updated_at = OLD.updated_at
-BEGIN
-    UPDATE spec_requirements SET updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE id = NEW.id;
-END;
-
--- Spec Scenarios
-CREATE TABLE spec_scenarios (
-    id TEXT PRIMARY KEY CHECK(length(id) >= 8),
-    requirement_id TEXT NOT NULL,
-    name TEXT NOT NULL,
-    when_clause TEXT NOT NULL,
-    then_clause TEXT NOT NULL,
-    and_clauses TEXT,
-    position INTEGER DEFAULT 0,
-    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
-    FOREIGN KEY (requirement_id) REFERENCES spec_requirements(id) ON DELETE CASCADE
-);
-
-CREATE INDEX idx_spec_scenarios_requirement ON spec_scenarios(requirement_id);
-
--- Spec Change Tasks
-CREATE TABLE spec_change_tasks (
-    id TEXT PRIMARY KEY CHECK(length(id) >= 8),
-    change_id TEXT NOT NULL,
-    task_number TEXT NOT NULL,
-    task_text TEXT NOT NULL,
-    is_completed BOOLEAN DEFAULT FALSE NOT NULL,
-    completed_by TEXT,
-    completed_at TEXT,
-    display_order INTEGER NOT NULL,
-    parent_number TEXT,
-    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
-    updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
-    FOREIGN KEY (change_id) REFERENCES spec_changes(id) ON DELETE CASCADE
-);
-
-CREATE INDEX idx_spec_change_tasks_change ON spec_change_tasks(change_id, display_order);
-CREATE INDEX idx_spec_change_tasks_completion ON spec_change_tasks(change_id, is_completed);
-CREATE INDEX idx_spec_change_tasks_parent ON spec_change_tasks(change_id, parent_number);
-
-CREATE TRIGGER spec_change_tasks_updated_at AFTER UPDATE ON spec_change_tasks
-FOR EACH ROW WHEN NEW.updated_at = OLD.updated_at
-BEGIN
-    UPDATE spec_change_tasks SET updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE id = NEW.id;
-END;
-
--- Spec change task triggers
-CREATE TRIGGER update_task_completion_stats
-AFTER UPDATE OF is_completed ON spec_change_tasks
-BEGIN
-    UPDATE spec_changes
-    SET
-        tasks_completed_count = (
-            SELECT COUNT(*) FROM spec_change_tasks
-            WHERE change_id = NEW.change_id AND is_completed = TRUE
-        ),
-        tasks_total_count = (
-            SELECT COUNT(*) FROM spec_change_tasks
-            WHERE change_id = NEW.change_id
-        ),
-        tasks_completion_percentage = (
-            SELECT CAST(ROUND((COUNT(CASE WHEN is_completed THEN 1 END) * 100.0) / NULLIF(COUNT(*), 0)) AS INTEGER)
-            FROM spec_change_tasks
-            WHERE change_id = NEW.change_id
-        ),
-        updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now')
-    WHERE id = NEW.change_id;
-END;
-
-CREATE TRIGGER update_task_completion_stats_insert
-AFTER INSERT ON spec_change_tasks
-BEGIN
-    UPDATE spec_changes
-    SET
-        tasks_total_count = (
-            SELECT COUNT(*) FROM spec_change_tasks
-            WHERE change_id = NEW.change_id
-        ),
-        tasks_completion_percentage = (
-            SELECT CAST(ROUND((COUNT(CASE WHEN is_completed THEN 1 END) * 100.0) / NULLIF(COUNT(*), 0)) AS INTEGER)
-            FROM spec_change_tasks
-            WHERE change_id = NEW.change_id
-        ),
-        updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now')
-    WHERE id = NEW.change_id;
-END;
-
-CREATE TRIGGER update_task_completion_stats_delete
-AFTER DELETE ON spec_change_tasks
-BEGIN
-    UPDATE spec_changes
-    SET
-        tasks_total_count = (
-            SELECT COUNT(*) FROM spec_change_tasks
-            WHERE change_id = OLD.change_id
-        ),
-        tasks_completed_count = (
-            SELECT COUNT(*) FROM spec_change_tasks
-            WHERE change_id = OLD.change_id AND is_completed = TRUE
-        ),
-        tasks_completion_percentage = (
-            SELECT CAST(ROUND((COUNT(CASE WHEN is_completed THEN 1 END) * 100.0) / NULLIF(COUNT(*), 0)) AS INTEGER)
-            FROM spec_change_tasks
-            WHERE change_id = OLD.change_id
-        ),
-        updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now')
-    WHERE id = OLD.change_id;
-END;
-
--- Spec Deltas
-CREATE TABLE spec_deltas (
-    id TEXT PRIMARY KEY CHECK(length(id) >= 8),
-    change_id TEXT NOT NULL,
-    capability_id TEXT,
-    capability_name TEXT NOT NULL,
-    delta_type TEXT NOT NULL CHECK(delta_type IN ('added', 'modified', 'removed')),
-    delta_markdown TEXT NOT NULL,
-    position INTEGER DEFAULT 0,
-    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
-    FOREIGN KEY (change_id) REFERENCES spec_changes(id) ON DELETE CASCADE,
-    FOREIGN KEY (capability_id) REFERENCES spec_capabilities(id) ON DELETE SET NULL
-);
-
-CREATE INDEX idx_spec_deltas_change ON spec_deltas(change_id);
-CREATE INDEX idx_spec_deltas_capability ON spec_deltas(capability_id);
 
 -- ============================================================================
 -- TASK MANAGEMENT (CONTINUED - AFTER OPENSPEC)
@@ -595,7 +348,6 @@ CREATE TABLE tasks (
     category TEXT,
     metadata TEXT,
     spec_driven BOOLEAN DEFAULT FALSE,
-    change_id TEXT REFERENCES spec_changes(id) ON DELETE SET NULL,
     from_prd_id TEXT REFERENCES prds(id) ON DELETE SET NULL,
     epic_id TEXT,
     github_issue_number INTEGER,
@@ -621,7 +373,6 @@ CREATE INDEX idx_tasks_status ON tasks(status);
 CREATE INDEX idx_tasks_assigned_agent_id ON tasks(assigned_agent_id);
 CREATE INDEX idx_tasks_created_by_user_id ON tasks(created_by_user_id);
 CREATE INDEX idx_tasks_tag_id ON tasks(tag_id);
-CREATE INDEX idx_tasks_change_id ON tasks(change_id);
 CREATE INDEX idx_tasks_from_prd_id ON tasks(from_prd_id);
 CREATE INDEX idx_tasks_user_status ON tasks(created_by_user_id, status);
 CREATE INDEX idx_tasks_project_status ON tasks(project_id, status);
@@ -771,135 +522,10 @@ BEGIN
 END;
 
 -- Task-Spec Links
-CREATE TABLE task_spec_links (
-    task_id TEXT NOT NULL,
-    requirement_id TEXT NOT NULL,
-    scenario_id TEXT,
-    validation_status TEXT DEFAULT 'pending' CHECK(validation_status IN ('pending', 'passed', 'failed')),
-    validation_result TEXT,
-    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
-    updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
-    PRIMARY KEY (task_id, requirement_id),
-    FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE,
-    FOREIGN KEY (requirement_id) REFERENCES spec_requirements(id) ON DELETE CASCADE,
-    FOREIGN KEY (scenario_id) REFERENCES spec_scenarios(id) ON DELETE SET NULL
-);
 
-CREATE INDEX idx_task_spec_links_task ON task_spec_links(task_id);
-CREATE INDEX idx_task_spec_links_requirement ON task_spec_links(requirement_id);
-CREATE INDEX idx_task_spec_links_status ON task_spec_links(validation_status);
-CREATE INDEX idx_task_spec_links_scenario ON task_spec_links(scenario_id);
-
-CREATE TRIGGER task_spec_links_updated_at AFTER UPDATE ON task_spec_links
-FOR EACH ROW WHEN NEW.updated_at = OLD.updated_at
-BEGIN
-    UPDATE task_spec_links SET updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now')
-    WHERE task_id = NEW.task_id AND requirement_id = NEW.requirement_id;
-END;
 
 -- PRD-Spec Sync History
-CREATE TABLE prd_spec_sync_history (
-    id TEXT PRIMARY KEY CHECK(length(id) >= 8),
-    prd_id TEXT NOT NULL,
-    direction TEXT NOT NULL CHECK(direction IN ('prd_to_spec', 'spec_to_prd', 'task_to_spec')),
-    changes_json TEXT NOT NULL,
-    performed_by TEXT,
-    performed_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
-    FOREIGN KEY (prd_id) REFERENCES prds(id) ON DELETE CASCADE
-);
 
-CREATE INDEX idx_prd_spec_sync_history_prd ON prd_spec_sync_history(prd_id);
-
--- Spec Materializations
-CREATE TABLE spec_materializations (
-    id TEXT PRIMARY KEY CHECK(length(id) >= 8),
-    project_id TEXT NOT NULL,
-    path TEXT NOT NULL,
-    materialized_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
-    sha256_hash TEXT NOT NULL,
-    FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
-);
-
-CREATE INDEX idx_spec_materializations_project ON spec_materializations(project_id);
-CREATE INDEX idx_spec_materializations_path ON spec_materializations(project_id, path);
-
--- ============================================================================
--- CONTEXT MANAGEMENT
--- ============================================================================
-
--- Context Configurations
-CREATE TABLE context_configurations (
-    id TEXT PRIMARY KEY CHECK(length(id) >= 8),
-    project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
-    name TEXT NOT NULL,
-    description TEXT,
-    include_patterns TEXT NOT NULL DEFAULT '[]',
-    exclude_patterns TEXT NOT NULL DEFAULT '[]',
-    max_tokens INTEGER NOT NULL DEFAULT 100000,
-    spec_capability_id TEXT REFERENCES spec_capabilities(id) ON DELETE SET NULL,
-    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
-    updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
-);
-
-CREATE INDEX idx_context_configs_project ON context_configurations(project_id);
-
--- Context Snapshots
-CREATE TABLE context_snapshots (
-    id TEXT PRIMARY KEY CHECK(length(id) >= 8),
-    configuration_id TEXT REFERENCES context_configurations(id) ON DELETE SET NULL,
-    project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
-    content TEXT NOT NULL,
-    file_count INTEGER NOT NULL DEFAULT 0,
-    total_tokens INTEGER NOT NULL DEFAULT 0,
-    metadata TEXT NOT NULL DEFAULT '{}',
-    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
-);
-
-CREATE INDEX idx_context_snapshots_project ON context_snapshots(project_id);
-CREATE INDEX idx_context_snapshots_config ON context_snapshots(configuration_id);
-
--- Context Usage Patterns
-CREATE TABLE context_usage_patterns (
-    id TEXT PRIMARY KEY CHECK(length(id) >= 8),
-    project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
-    file_path TEXT NOT NULL,
-    inclusion_count INTEGER NOT NULL DEFAULT 0,
-    last_used TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
-    UNIQUE(project_id, file_path) ON CONFLICT REPLACE
-);
-
-CREATE INDEX idx_context_patterns_project ON context_usage_patterns(project_id);
-CREATE INDEX idx_context_patterns_last_used ON context_usage_patterns(last_used);
-
--- AST-Spec Mappings
-CREATE TABLE ast_spec_mappings (
-    id TEXT PRIMARY KEY CHECK(length(id) >= 8),
-    project_id TEXT NOT NULL REFERENCES projects(id),
-    file_path TEXT NOT NULL,
-    symbol_name TEXT NOT NULL,
-    symbol_type TEXT NOT NULL,
-    line_number INTEGER,
-    requirement_id TEXT REFERENCES spec_requirements(id),
-    confidence REAL DEFAULT 0.0,
-    verified BOOLEAN DEFAULT FALSE,
-    created_at TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
-    FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
-);
-
-CREATE INDEX idx_ast_spec_mappings_project ON ast_spec_mappings(project_id);
-CREATE INDEX idx_ast_spec_mappings_requirement ON ast_spec_mappings(requirement_id);
-
--- Context Templates
-CREATE TABLE context_templates (
-    id TEXT PRIMARY KEY CHECK(length(id) >= 8),
-    name TEXT NOT NULL,
-    description TEXT,
-    template_type TEXT NOT NULL,
-    include_patterns TEXT DEFAULT '[]',
-    exclude_patterns TEXT DEFAULT '[]',
-    ast_filters TEXT,
-    created_at TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
-);
 
 -- AI Usage Tracking
 CREATE TABLE ai_usage_logs (
@@ -915,7 +541,6 @@ CREATE TABLE ai_usage_logs (
     estimated_cost REAL,
     duration_ms INTEGER,
     error TEXT,
-    context_snapshot_id TEXT REFERENCES context_snapshots(id),
     created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
     FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
 );
@@ -925,7 +550,6 @@ CREATE INDEX idx_ai_usage_logs_created ON ai_usage_logs(created_at);
 CREATE INDEX idx_ai_usage_logs_operation ON ai_usage_logs(operation);
 CREATE INDEX idx_ai_usage_logs_provider_model ON ai_usage_logs(provider, model);
 CREATE INDEX idx_ai_usage_logs_provider_model_created ON ai_usage_logs(provider, model, created_at);
-CREATE INDEX idx_ai_usage_logs_context ON ai_usage_logs(context_snapshot_id);
 
 -- Note: AI usage logs should be cleaned up via external scheduled job or cron task
 -- Recommended retention: 30-90 days depending on usage patterns
@@ -947,6 +571,12 @@ CREATE TABLE encryption_settings (
 
 CREATE INDEX idx_encryption_settings_mode ON encryption_settings(encryption_mode);
 
+CREATE TRIGGER encryption_settings_updated_at AFTER UPDATE ON encryption_settings
+FOR EACH ROW WHEN NEW.updated_at = OLD.updated_at
+BEGIN
+    UPDATE encryption_settings SET updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE id = NEW.id;
+END;
+
 -- Password Attempts
 CREATE TABLE password_attempts (
     id INTEGER PRIMARY KEY CHECK (id = 1),
@@ -959,6 +589,12 @@ CREATE TABLE password_attempts (
 
 CREATE INDEX idx_password_attempts_lockout
 ON password_attempts(locked_until) WHERE locked_until IS NOT NULL;
+
+CREATE TRIGGER password_attempts_updated_at AFTER UPDATE ON password_attempts
+FOR EACH ROW WHEN NEW.updated_at = OLD.updated_at
+BEGIN
+    UPDATE password_attempts SET updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE id = NEW.id;
+END;
 
 -- API Tokens
 CREATE TABLE api_tokens (
@@ -983,6 +619,12 @@ CREATE TABLE storage_metadata (
     value TEXT NOT NULL,
     updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
 );
+
+CREATE TRIGGER storage_metadata_updated_at AFTER UPDATE ON storage_metadata
+FOR EACH ROW WHEN NEW.updated_at = OLD.updated_at
+BEGIN
+    UPDATE storage_metadata SET updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE key = NEW.key;
+END;
 
 -- System Settings
 CREATE TABLE system_settings (
@@ -1101,6 +743,12 @@ CREATE TABLE sync_state (
 CREATE INDEX idx_sync_state_user_device ON sync_state(user_id, device_id);
 CREATE INDEX idx_sync_state_last_sync ON sync_state(last_sync_at);
 
+CREATE TRIGGER sync_state_updated_at AFTER UPDATE ON sync_state
+FOR EACH ROW WHEN NEW.updated_at = OLD.updated_at
+BEGIN
+    UPDATE sync_state SET updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE id = NEW.id;
+END;
+
 -- ============================================================================
 -- SEED DATA
 -- ============================================================================
@@ -1179,7 +827,6 @@ INSERT OR IGNORE INTO system_settings (key, value, category, description, data_t
     ('ideate.model', 'claude-3-opus-20240229', 'ai', 'AI model for PRD generation', 'string', 0, 0),
     ('ideate.timeout_seconds', '120', 'ai', 'Timeout for PRD generation requests', 'integer', 0, 0),
     ('ideate.retry_attempts', '3', 'ai', 'Number of retry attempts on AI API failure', 'integer', 0, 0);
-
 
 -- ============================================================================
 -- IDEATE SCHEMA
@@ -1445,7 +1092,6 @@ CREATE TABLE prd_quickstart_templates (
 CREATE INDEX idx_prd_quickstart_templates_type ON prd_quickstart_templates(project_type);
 CREATE INDEX idx_prd_quickstart_templates_system ON prd_quickstart_templates(is_system);
 
-
 -- ============================================================================
 -- DEPENDENCY INTELLIGENCE
 -- ============================================================================
@@ -1588,7 +1234,6 @@ CREATE INDEX idx_circular_dependencies_session ON circular_dependencies(session_
 CREATE INDEX idx_circular_dependencies_resolved ON circular_dependencies(resolved);
 CREATE INDEX idx_circular_dependencies_severity ON circular_dependencies(severity);
 
-
 -- ============================================================================
 -- RESEARCH ANALYSIS CACHE
 -- ============================================================================
@@ -1613,7 +1258,6 @@ ON competitor_analysis_cache(created_at);
 -- Index for session lookups
 CREATE INDEX IF NOT EXISTS idx_competitor_cache_session
 ON competitor_analysis_cache(session_id);
-
 
 -- ============================================================================
 -- EXPERT ROUNDTABLE SYSTEM
@@ -1877,7 +1521,6 @@ INSERT OR IGNORE INTO expert_personas (id, name, role, expertise, system_prompt,
     1
 );
 
-
 -- ============================================================================
 -- PRD GENERATION
 -- ============================================================================
@@ -2069,7 +1712,6 @@ CREATE INDEX idx_generation_stats_generation ON ideate_generation_stats(generati
 CREATE INDEX idx_generation_stats_date ON ideate_generation_stats(created_at DESC);
 CREATE INDEX idx_generation_stats_completeness ON ideate_generation_stats(completeness_score DESC);
 
-
 -- ============================================================================
 -- IDEATE TEMPLATES
 -- ============================================================================
@@ -2188,7 +1830,6 @@ INSERT INTO prd_quickstart_templates (
     strftime('%Y-%m-%dT%H:%M:%SZ', 'now')
 );
 
-
 -- ============================================================================
 -- PRD OUTPUT TEMPLATES
 -- ============================================================================
@@ -2270,7 +1911,6 @@ VALUES (
     1
 );
 
-
 -- ============================================================================
 -- Populate defaults for existing system templates
 -- ============================================================================
@@ -2349,7 +1989,6 @@ UPDATE prd_quickstart_templates SET
   default_competitors = '["Commercial tool 1 - features and cost", "Commercial tool 2 - features and cost"]',
   default_similar_projects = '["Internal tool 1 - architecture", "Internal tool 2 - lessons learned"]'
 WHERE id = 'tpl_internal';
-
 
 -- ============================================================================
 -- CONVERSATIONAL MODE (CCPM) TABLES
