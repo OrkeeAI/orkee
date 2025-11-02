@@ -6,8 +6,6 @@
  */
 export const STREAMING_CONFIG = {
   TIMEOUT_MS: 60000, // 1 minute timeout for AI responses
-  RETRY_DELAY_MS: 2000, // 2 second delay before retry
-  MAX_RETRIES: 2, // Maximum retry attempts
 } as const;
 
 /**
