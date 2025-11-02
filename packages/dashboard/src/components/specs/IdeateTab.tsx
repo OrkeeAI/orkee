@@ -1,5 +1,5 @@
 // ABOUTME: Ideation session management view for creating and managing PRD generation sessions
-// ABOUTME: Supports quick, guided, comprehensive, and conversational ideation modes with session tracking
+// ABOUTME: Supports quick, guided, and conversational ideation modes with session tracking
 import { useState } from 'react';
 import { Lightbulb } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -7,7 +7,6 @@ import { CreatePRDFlow } from '@/components/ideate/CreatePRDFlow';
 import { SessionsList } from '@/components/ideate/SessionsList';
 import { QuickModeFlow } from '@/components/ideate/QuickMode';
 import { GuidedModeFlow } from '@/components/ideate/GuidedMode';
-import { ComprehensiveModeFlow } from '@/components/ideate/ComprehensiveMode';
 import { ConversationalModeFlow } from '@/components/ideate/ConversationalMode/ConversationalModeFlow';
 import type { IdeateSession, IdeateMode } from '@/services/ideate';
 
@@ -19,7 +18,6 @@ export function IdeateTab({ projectId }: IdeateTabProps) {
   const [showIdeateFlow, setShowIdeateFlow] = useState(false);
   const [showQuickModeFlow, setShowQuickModeFlow] = useState(false);
   const [showGuidedModeFlow, setShowGuidedModeFlow] = useState(false);
-  const [showComprehensiveModeFlow, setShowComprehensiveModeFlow] = useState(false);
   const [showConversationalModeFlow, setShowConversationalModeFlow] = useState(false);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [skipToGenerateQuick, setSkipToGenerateQuick] = useState(false);
@@ -30,8 +28,6 @@ export function IdeateTab({ projectId }: IdeateTabProps) {
       setShowQuickModeFlow(true);
     } else if (session.mode === 'guided') {
       setShowGuidedModeFlow(true);
-    } else if (session.mode === 'comprehensive') {
-      setShowComprehensiveModeFlow(true);
     } else if (session.mode === 'conversational') {
       setShowConversationalModeFlow(true);
     }
@@ -44,8 +40,6 @@ export function IdeateTab({ projectId }: IdeateTabProps) {
       setShowQuickModeFlow(true);
     } else if (mode === 'guided') {
       setShowGuidedModeFlow(true);
-    } else if (mode === 'comprehensive') {
-      setShowComprehensiveModeFlow(true);
     } else if (mode === 'conversational') {
       setShowConversationalModeFlow(true);
     }
@@ -59,11 +53,6 @@ export function IdeateTab({ projectId }: IdeateTabProps) {
 
   const handleGuidedModeComplete = () => {
     setShowGuidedModeFlow(false);
-    setActiveSessionId(null);
-  };
-
-  const handleComprehensiveModeComplete = () => {
-    setShowComprehensiveModeFlow(false);
     setActiveSessionId(null);
   };
 
@@ -114,14 +103,6 @@ export function IdeateTab({ projectId }: IdeateTabProps) {
             open={showGuidedModeFlow}
             onOpenChange={setShowGuidedModeFlow}
             onComplete={handleGuidedModeComplete}
-          />
-
-          <ComprehensiveModeFlow
-            projectId={projectId}
-            sessionId={activeSessionId}
-            open={showComprehensiveModeFlow}
-            onOpenChange={setShowComprehensiveModeFlow}
-            onComplete={handleComprehensiveModeComplete}
           />
 
           {showConversationalModeFlow && (
