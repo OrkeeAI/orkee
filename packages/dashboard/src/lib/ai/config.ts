@@ -66,9 +66,9 @@ export const AI_CONFIG: AIConfig = {
       },
     },
     anthropic: {
-      defaultModel: 'claude-3-5-sonnet-20241022',
+      defaultModel: 'claude-3-5-sonnet-20240620',
       models: {
-        'claude-3-5-sonnet-20241022': {
+        'claude-3-5-sonnet-20240620': {
           maxTokens: 8192,
           contextWindow: 200000,
           costPer1kInput: 0.003,
