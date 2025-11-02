@@ -840,9 +840,12 @@ CREATE TABLE ideate_sessions (
     initial_description TEXT NOT NULL,
 
     -- Session metadata
-    mode TEXT NOT NULL CHECK(mode IN ('quick', 'guided', 'comprehensive', 'conversational')),
+    mode TEXT NOT NULL CHECK(mode IN ('quick', 'guided', 'conversational')),
     status TEXT NOT NULL DEFAULT 'draft' CHECK(status IN ('draft', 'in_progress', 'ready_for_prd', 'completed')),
     current_section TEXT,
+
+    -- Research tools preference (for guided mode)
+    research_tools_enabled INTEGER NOT NULL DEFAULT 0,
 
     -- Track what user chose to skip (JSON array of section names)
     skipped_sections TEXT,
@@ -1030,7 +1033,7 @@ CREATE TABLE ideate_research (
 CREATE INDEX idx_ideate_research_session ON ideate_research(session_id);
 
 -- ============================================================================
--- COMPREHENSIVE MODE FEATURES
+-- ADVANCED IDEATE FEATURES (Research, Generation, Analysis)
 -- ============================================================================
 
 -- ============================================================================
