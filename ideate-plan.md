@@ -890,14 +890,14 @@ impl Task {
 
 ## Phase 6A: API Endpoint Completion (Priority 1)
 
-### Status: **IN PROGRESS** (1 of 6 sections complete)
+### Status: **IN PROGRESS** (2 of 6 sections complete)
 
 ### Checklist
-- [ ] **6A.1 Discovery & Codebase Analysis Endpoints**
-  - [ ] POST `/api/ideate/sessions/{id}/analyze-codebase` - Trigger codebase analysis
-  - [ ] GET `/api/ideate/sessions/{id}/codebase-context` - Get analysis results
-  - [ ] POST `/api/ideate/sessions/{id}/next-question` - Chat mode discovery
-  - [ ] GET `/api/ideate/sessions/{id}/discovery-progress` - Discovery status
+- [x] **6A.1 Discovery & Codebase Analysis Endpoints** (commit b2e0e88)
+  - [x] POST `/api/ideate/sessions/{id}/analyze-codebase` - Trigger codebase analysis
+  - [x] GET `/api/ideate/sessions/{id}/codebase-context` - Get analysis results
+  - [x] POST `/api/ideate/sessions/{id}/next-question` - Chat mode discovery
+  - [x] GET `/api/ideate/sessions/{id}/discovery-progress` - Discovery status
 - [ ] **6A.2 PRD Validation Endpoints**
   - [ ] POST `/api/ideate/sessions/{id}/validate-section/{section}` - Validate individual section
   - [ ] GET `/api/ideate/sessions/{id}/quality-score` - Get overall quality score
