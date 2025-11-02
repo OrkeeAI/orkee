@@ -41,15 +41,13 @@ export function getAnthropicProvider() {
 }
 
 /**
- * Get the preferred model instance
+ * Get the preferred model instance (defaults to Anthropic Sonnet 4.5)
  */
 export function getPreferredModel() {
-  // Use Anthropic via proxy (always available)
-  const provider = getAnthropicProvider();
   const config = AI_CONFIG.providers.anthropic;
   return {
     provider: 'anthropic' as const,
-    model: provider(config.defaultModel),
+    model: getModel('anthropic', config.defaultModel),
     modelName: config.defaultModel,
   };
 }
@@ -74,6 +72,20 @@ export function getModel(provider: 'openai' | 'anthropic', modelName?: string) {
 }
 
 /**
+ * Get model with full info (provider, model instance, model name)
+ */
+export function getModelWithInfo(provider: 'openai' | 'anthropic', modelName?: string) {
+  const config = AI_CONFIG.providers[provider];
+  const selectedModel = modelName || config.defaultModel;
+
+  return {
+    provider,
+    model: getModel(provider, selectedModel),
+    modelName: selectedModel,
+  };
+}
+
+/**
  * Get available models for a provider
  */
 export function getAvailableModels(provider: 'openai' | 'anthropic'): string[] {
@@ -82,8 +94,37 @@ export function getAvailableModels(provider: 'openai' | 'anthropic'): string[] {
 }
 
 /**
+ * Get available models with display names for a provider
+ */
+export function getAvailableModelsWithNames(provider: 'openai' | 'anthropic'): Array<{ id: string; name: string }> {
+  const config = AI_CONFIG.providers[provider];
+  return Object.entries(config.models).map(([id, model]) => ({
+    id,
+    name: model.displayName,
+  }));
+}
+
+/**
+ * Get all available providers
+ */
+export function getAvailableProviders(): Array<{ id: 'openai' | 'anthropic'; name: string }> {
+  return [
+    { id: 'openai', name: AI_CONFIG.providers.openai.displayName },
+    { id: 'anthropic', name: AI_CONFIG.providers.anthropic.displayName },
+  ];
+}
+
+/**
  * Get provider display name
  */
 export function getProviderDisplayName(provider: 'openai' | 'anthropic'): string {
-  return provider === 'openai' ? 'OpenAI' : 'Anthropic';
+  return AI_CONFIG.providers[provider].displayName;
+}
+
+/**
+ * Get model display name
+ */
+export function getModelDisplayName(provider: 'openai' | 'anthropic', modelId: string): string {
+  const config = AI_CONFIG.providers[provider];
+  return config.models[modelId]?.displayName || modelId;
 }

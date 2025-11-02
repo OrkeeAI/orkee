@@ -3,8 +3,10 @@
 
 export interface AIProviderConfig {
   defaultModel: string;
+  displayName: string;
   models: {
     [key: string]: {
+      displayName: string;
       maxTokens: number;
       contextWindow: number;
       costPer1kInput: number;
@@ -43,21 +45,25 @@ export interface AIConfig {
 export const AI_CONFIG: AIConfig = {
   providers: {
     openai: {
+      displayName: 'OpenAI',
       defaultModel: 'gpt-4-turbo',
       models: {
         'gpt-4-turbo': {
+          displayName: 'GPT-4 Turbo',
           maxTokens: 4096,
           contextWindow: 128000,
           costPer1kInput: 0.01,
           costPer1kOutput: 0.03,
         },
         'gpt-4': {
+          displayName: 'GPT-4',
           maxTokens: 4096,
           contextWindow: 8192,
           costPer1kInput: 0.03,
           costPer1kOutput: 0.06,
         },
         'gpt-3.5-turbo': {
+          displayName: 'GPT-3.5 Turbo',
           maxTokens: 4096,
           contextWindow: 16385,
           costPer1kInput: 0.0005,
@@ -66,31 +72,36 @@ export const AI_CONFIG: AIConfig = {
       },
     },
     anthropic: {
-      defaultModel: 'claude-3-5-sonnet-20240620',
+      displayName: 'Anthropic',
+      defaultModel: 'claude-sonnet-4-5-20250514',
       models: {
+        'claude-sonnet-4-5-20250514': {
+          displayName: 'Claude Sonnet 4.5',
+          maxTokens: 8192,
+          contextWindow: 200000,
+          costPer1kInput: 0.003,
+          costPer1kOutput: 0.015,
+        },
         'claude-3-5-sonnet-20240620': {
+          displayName: 'Claude 3.5 Sonnet',
           maxTokens: 8192,
           contextWindow: 200000,
           costPer1kInput: 0.003,
           costPer1kOutput: 0.015,
         },
         'claude-3-opus-20240229': {
+          displayName: 'Claude 3 Opus',
           maxTokens: 4096,
           contextWindow: 200000,
           costPer1kInput: 0.015,
           costPer1kOutput: 0.075,
         },
-        'claude-3-sonnet-20240229': {
-          maxTokens: 4096,
+        'claude-3-5-haiku-20241022': {
+          displayName: 'Claude 3.5 Haiku',
+          maxTokens: 8192,
           contextWindow: 200000,
-          costPer1kInput: 0.003,
-          costPer1kOutput: 0.015,
-        },
-        'claude-3-haiku-20240307': {
-          maxTokens: 4096,
-          contextWindow: 200000,
-          costPer1kInput: 0.00025,
-          costPer1kOutput: 0.00125,
+          costPer1kInput: 0.001,
+          costPer1kOutput: 0.005,
         },
       },
     },
