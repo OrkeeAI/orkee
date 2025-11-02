@@ -7,10 +7,17 @@ use axum::{
     response::IntoResponse,
     Json,
 };
-use orkee_ideate::{DecomposeEpicInput, TaskDecomposer};
+use orkee_ideate::{DecomposeEpicInput, ParentTask, TaskDecomposer};
+use serde::{Deserialize, Serialize};
 use tracing::{error, info};
 
 use orkee_projects::DbState;
+
+/// Request body for updating parent tasks
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UpdateParentTasksRequest {
+    pub parent_tasks: Vec<ParentTask>,
+}
 
 /// POST /api/projects/:project_id/epics/:epic_id/decompose
 pub async fn decompose_epic(
@@ -134,4 +141,206 @@ pub async fn get_epic_tasks(
         })),
     )
         .into_response()
+}
+
+/// POST /api/projects/:project_id/epics/:epic_id/decompose-phase1
+/// Phase 1 of two-phase task generation: Generate high-level parent tasks only
+pub async fn decompose_phase1(
+    State(db): State<DbState>,
+    Path((project_id, epic_id)): Path<(String, String)>,
+) -> impl IntoResponse {
+    info!(
+        "Phase 1: Generating parent tasks for epic {} in project {}",
+        epic_id, project_id
+    );
+
+    let decomposer = TaskDecomposer::new(db.pool.clone());
+
+    // TODO: Get codebase context if available
+    // For now, pass None
+    let codebase_context = None;
+
+    match decomposer
+        .generate_parent_tasks(&epic_id, codebase_context)
+        .await
+    {
+        Ok(parent_tasks) => (
+            StatusCode::OK,
+            Json(serde_json::json!({
+                "success": true,
+                "data": {
+                    "parent_tasks": parent_tasks,
+                    "count": parent_tasks.len()
+                }
+            })),
+        )
+            .into_response(),
+        Err(e) => {
+            error!("Failed to generate parent tasks: {:?}", e);
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(serde_json::json!({
+                    "success": false,
+                    "error": format!("Failed to generate parent tasks: {}", e)
+                })),
+            )
+                .into_response()
+        }
+    }
+}
+
+/// GET /api/projects/:project_id/epics/:epic_id/parent-tasks
+/// Get parent tasks for review (stored in epic)
+pub async fn get_parent_tasks(
+    State(db): State<DbState>,
+    Path((_project_id, epic_id)): Path<(String, String)>,
+) -> impl IntoResponse {
+    info!("Fetching parent tasks for epic {}", epic_id);
+
+    let decomposer = TaskDecomposer::new(db.pool.clone());
+
+    match decomposer.get_stored_parent_tasks(&epic_id).await {
+        Ok(parent_tasks) => (
+            StatusCode::OK,
+            Json(serde_json::json!({
+                "success": true,
+                "data": {
+                    "parent_tasks": parent_tasks,
+                    "count": parent_tasks.len()
+                }
+            })),
+        )
+            .into_response(),
+        Err(e) => {
+            error!("Failed to fetch parent tasks: {:?}", e);
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(serde_json::json!({
+                    "success": false,
+                    "error": format!("Failed to fetch parent tasks: {}", e)
+                })),
+            )
+                .into_response()
+        }
+    }
+}
+
+/// PUT /api/projects/:project_id/epics/:epic_id/parent-tasks
+/// Update parent tasks before expansion (user review/editing)
+pub async fn update_parent_tasks(
+    State(db): State<DbState>,
+    Path((_project_id, epic_id)): Path<(String, String)>,
+    Json(request): Json<UpdateParentTasksRequest>,
+) -> impl IntoResponse {
+    info!(
+        "Updating parent tasks for epic {} ({} tasks)",
+        epic_id,
+        request.parent_tasks.len()
+    );
+
+    let decomposer = TaskDecomposer::new(db.pool.clone());
+
+    match decomposer
+        .save_parent_tasks(&epic_id, &request.parent_tasks)
+        .await
+    {
+        Ok(_) => (
+            StatusCode::OK,
+            Json(serde_json::json!({
+                "success": true,
+                "data": {
+                    "parent_tasks": request.parent_tasks,
+                    "count": request.parent_tasks.len()
+                }
+            })),
+        )
+            .into_response(),
+        Err(e) => {
+            error!("Failed to update parent tasks: {:?}", e);
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(serde_json::json!({
+                    "success": false,
+                    "error": format!("Failed to update parent tasks: {}", e)
+                })),
+            )
+                .into_response()
+        }
+    }
+}
+
+/// POST /api/projects/:project_id/epics/:epic_id/decompose-phase2
+/// Phase 2 of two-phase task generation: Expand parent tasks into detailed subtasks
+pub async fn decompose_phase2(
+    State(db): State<DbState>,
+    Path((project_id, epic_id)): Path<(String, String)>,
+) -> impl IntoResponse {
+    info!(
+        "Phase 2: Expanding parent tasks to subtasks for epic {} in project {}",
+        epic_id, project_id
+    );
+
+    let decomposer = TaskDecomposer::new(db.pool.clone());
+
+    // Get current user (placeholder - you'd get this from auth)
+    let user_id = "default_user"; // TODO: Get from auth context
+
+    // Get stored parent tasks
+    let parent_tasks = match decomposer.get_stored_parent_tasks(&epic_id).await {
+        Ok(tasks) => tasks,
+        Err(e) => {
+            error!("Failed to fetch parent tasks for expansion: {:?}", e);
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(serde_json::json!({
+                    "success": false,
+                    "error": format!("Failed to fetch parent tasks: {}", e)
+                })),
+            )
+                .into_response();
+        }
+    };
+
+    if parent_tasks.is_empty() {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({
+                "success": false,
+                "error": "No parent tasks found. Run decompose-phase1 first."
+            })),
+        )
+            .into_response();
+    }
+
+    // TODO: Get codebase context if available
+    let codebase_context = None;
+
+    match decomposer
+        .expand_to_subtasks(&project_id, user_id, &epic_id, &parent_tasks, codebase_context)
+        .await
+    {
+        Ok(tasks) => (
+            StatusCode::OK,
+            Json(serde_json::json!({
+                "success": true,
+                "data": {
+                    "tasks": tasks,
+                    "count": tasks.len(),
+                    "parent_tasks_count": parent_tasks.len()
+                }
+            })),
+        )
+            .into_response(),
+        Err(e) => {
+            error!("Failed to expand parent tasks to subtasks: {:?}", e);
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(serde_json::json!({
+                    "success": false,
+                    "error": format!("Failed to expand to subtasks: {}", e)
+                })),
+            )
+                .into_response()
+        }
+    }
 }

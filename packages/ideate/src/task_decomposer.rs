@@ -400,7 +400,8 @@ impl TaskDecomposer {
         Ok(())
     }
 
-    async fn save_parent_tasks(&self, epic_id: &str, parent_tasks: &[ParentTask]) -> Result<(), StoreError> {
+    /// Save parent tasks to epic (public API for Phase 1 storage)
+    pub async fn save_parent_tasks(&self, epic_id: &str, parent_tasks: &[ParentTask]) -> Result<(), StoreError> {
         let parent_tasks_json = serde_json::to_string(parent_tasks)?;
 
         sqlx::query(
@@ -415,6 +416,26 @@ impl TaskDecomposer {
         .map_err(StoreError::Sqlx)?;
 
         Ok(())
+    }
+
+    /// Get stored parent tasks from epic (public API for Phase 2 expansion)
+    pub async fn get_stored_parent_tasks(&self, epic_id: &str) -> Result<Vec<ParentTask>, StoreError> {
+        let row = sqlx::query("SELECT parent_tasks FROM epics WHERE id = ?")
+            .bind(epic_id)
+            .fetch_one(&self.pool)
+            .await
+            .map_err(StoreError::Sqlx)?;
+
+        let parent_tasks_json: Option<String> = sqlx::Row::try_get(&row, "parent_tasks")
+            .map_err(StoreError::Sqlx)?;
+
+        match parent_tasks_json {
+            Some(json) => {
+                let parent_tasks: Vec<ParentTask> = serde_json::from_str(&json)?;
+                Ok(parent_tasks)
+            }
+            None => Ok(Vec::new()),
+        }
     }
 
     async fn update_task_parent(&self, task_id: &str, parent_title: &str) -> Result<(), StoreError> {

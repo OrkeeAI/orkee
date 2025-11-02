@@ -210,6 +210,23 @@ pub fn create_epics_router() -> Router<DbState> {
             "/{project_id}/epics/{epic_id}/decompose",
             post(task_decomposition_handlers::decompose_epic),
         )
+        // Two-phase task generation endpoints
+        .route(
+            "/{project_id}/epics/{epic_id}/decompose-phase1",
+            post(task_decomposition_handlers::decompose_phase1),
+        )
+        .route(
+            "/{project_id}/epics/{epic_id}/parent-tasks",
+            get(task_decomposition_handlers::get_parent_tasks),
+        )
+        .route(
+            "/{project_id}/epics/{epic_id}/parent-tasks",
+            put(task_decomposition_handlers::update_parent_tasks),
+        )
+        .route(
+            "/{project_id}/epics/{epic_id}/decompose-phase2",
+            post(task_decomposition_handlers::decompose_phase2),
+        )
 }
 
 /// Creates the Brainstorm API router for PRD ideation and ideateing
