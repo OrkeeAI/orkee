@@ -40,7 +40,14 @@ This document outlines a comprehensive plan to optimize Orkee's ideation → PRD
 - [x] **Phase 3**: PRD Generation Enhancements (Day 4-5) - COMPLETED
 - [x] **Phase 4**: Epic & Task Decomposition (Day 6-8) - COMPLETED (core backend functionality)
 - [x] **Phase 5**: Execution & Progress Tracking (Day 9-10) - COMPLETED (core backend functionality)
-- [ ] **Phase 6**: Integration & Polish (Day 11-12)
+- [ ] **Phase 6**: Integration & Polish - **EXPANDED INTO 7 SUB-PHASES (6A-6G)**
+  - [ ] **Phase 6A**: API Endpoint Completion (Priority 1)
+  - [ ] **Phase 6B**: Prompt Enhancements (Priority 2)
+  - [ ] **Phase 6C**: UI Integration - Chat Mode (Priority 3)
+  - [ ] **Phase 6D**: UI Integration - Quick & Guided Modes (Priority 4)
+  - [ ] **Phase 6E**: UI Integration - Epic & Task Views (Priority 5)
+  - [ ] **Phase 6F**: Testing (Priority 6)
+  - [ ] **Phase 6G**: Documentation & Release (Priority 7)
 
 **Key Question**: How do these improvements integrate with Orkee's existing Quick, Guided, and Chat modes?
 
@@ -875,127 +882,227 @@ impl Task {
 
 ---
 
-## Phase 6: Integration & Polish (Day 11-12)
+## Phase 6: Integration & Polish - EXPANDED INTO SUB-PHASES
 
-### Phase 6 Checklist
-- [ ] **6.1 Prompt Updates**
-  - [ ] Update all ideate prompts
-  - [ ] Add codebase awareness
-  - [ ] Add TDD requirements
-  - [ ] Add simplification pressure
-- [ ] **6.2 UI Enhancements**
-  - [ ] Quick Mode improvements
-  - [ ] Guided Mode new steps
-  - [ ] Chat Mode one-question UI
-  - [ ] Epic view enhancements
-  - [ ] Task view TDD display
-- [ ] **6.3 API Endpoints**
-  - [ ] Implement all new endpoints
-  - [ ] Update API documentation
-  - [ ] Add error handling
-  - [ ] Test all endpoints
-- [ ] **6.4 Testing**
-  - [ ] Unit tests for new functions
-  - [ ] Integration tests for flows
-  - [ ] UI component tests
-  - [ ] End-to-end testing
-- [ ] **6.5 Documentation**
-  - [ ] Update user guides
-  - [ ] API documentation
-  - [ ] Migration guide
-  - [ ] Release notes
+**Discovery (2025-11-02)**: After comprehensive codebase exploration, found that most Phase 1-5 backend functionality is COMPLETE. The following sub-phases focus on integration, new endpoints, UI work, and polish.
 
-### 6.1 Prompt Updates
+---
 
-Update all prompts in `packages/prompts/src/ideate/` to include:
+## Phase 6A: API Endpoint Completion (Priority 1)
 
-```markdown
-## Context Awareness
-Before generating, analyze:
-- Existing codebase patterns
-- Similar features already implemented
-- Reusable components available
-- Architecture style in use
+### Status: **NOT STARTED**
 
-## TDD Approach
-Every task MUST include:
-- Test strategy (how to verify)
-- Test-first implementation steps
-- Acceptance criteria (definition of done)
-- Test commands to run
+### Checklist
+- [ ] **6A.1 Discovery & Codebase Analysis Endpoints**
+  - [ ] POST `/api/ideate/sessions/{id}/analyze-codebase` - Trigger codebase analysis
+  - [ ] GET `/api/ideate/sessions/{id}/codebase-context` - Get analysis results
+  - [ ] POST `/api/ideate/sessions/{id}/next-question` - Chat mode discovery
+  - [ ] GET `/api/ideate/sessions/{id}/discovery-progress` - Discovery status
+- [ ] **6A.2 PRD Validation Endpoints**
+  - [ ] POST `/api/ideate/sessions/{id}/validate-section/{section}` - Validate individual section
+  - [ ] GET `/api/ideate/sessions/{id}/quality-score` - Get overall quality score
+  - [ ] POST `/api/ideate/sessions/{id}/validation-history` - Store validation feedback
+- [ ] **6A.3 Epic Alternative Approaches Endpoints**
+  - [ ] POST `/api/epics/{id}/generate-alternatives` - Generate 2-3 technical approaches
+  - [ ] GET `/api/epics/{id}/alternatives` - Get all alternatives
+  - [ ] PUT `/api/epics/{id}/select-approach` - Select preferred approach
+- [ ] **6A.4 Epic Complexity & Simplification Endpoints**
+  - [ ] POST `/api/epics/{id}/analyze-complexity` - Complexity analysis
+  - [ ] POST `/api/epics/{id}/simplify` - Get simplification suggestions
+  - [ ] GET `/api/epics/{id}/leverage-analysis` - What existing code can be reused
+- [ ] **6A.5 Two-Phase Task Generation Endpoints** (HIGH PRIORITY)
+  - [ ] POST `/api/epics/{id}/decompose-phase1` - Generate parent tasks only
+  - [ ] GET `/api/epics/{id}/parent-tasks` - Get parent tasks for review
+  - [ ] PUT `/api/epics/{id}/parent-tasks` - Update parent tasks before expansion
+  - [ ] POST `/api/epics/{id}/decompose-phase2` - Expand parent tasks to subtasks
+- [ ] **6A.6 Task Execution Tracking Endpoints**
+  - [ ] POST `/api/tasks/{id}/generate-steps` - Generate TDD execution steps
+  - [ ] POST `/api/tasks/{id}/append-progress` - Append-only progress update
+  - [ ] GET `/api/tasks/{id}/validation-history` - Get progress history
+  - [ ] GET `/api/tasks/{id}/checkpoints` - Get execution checkpoints
+  - [ ] POST `/api/epics/{id}/checkpoints` - Generate epic-level checkpoints
 
-## Simplification Pressure
-Ask yourself:
-- Can we leverage existing code?
-- Can we combine multiple requirements?
-- What's the MINIMUM viable approach?
-- Target: ≤20 tasks (user limit: {{task_limit}})
+### Implementation Notes
+- Most backend managers already exist (TaskDecomposer, ComplexityAnalyzer, etc.)
+- Focus on creating thin handler wrappers
+- Follow existing `ok_or_internal_error` pattern from other handlers
+- Add to `packages/api/src/lib.rs` router configuration
 
-## File Specificity
-For each task specify:
-- Exact files to create/modify
-- Similar implementations to reference
-- Test files to create/update
-```
+---
 
-### 6.2 UI Enhancements
+## Phase 6B: Prompt Enhancements (Priority 2)
 
-#### Quick Mode
-- Add "Review Sections" toggle for post-generation validation
-- Display Non-Goals prominently
-- Show codebase context if analyzed
+### Status: **NOT STARTED**
 
-#### Guided Mode
-- New wizard steps for Non-Goals, Open Questions
-- Validation after each step with quality score
-- Alternative approaches in technical section
+### Checklist
+- [ ] **6B.1 Add Context Awareness to All Prompts**
+  - [ ] Update `complete.json` with codebase context instructions
+  - [ ] Update `features.json` to reference similar implementations
+  - [ ] Update `technical.json` to leverage existing patterns
+  - [ ] Add codebase_context parameter to prompt functions
+- [ ] **6B.2 Add TDD Requirements**
+  - [ ] Update all prompts to require test strategies
+  - [ ] Add acceptance criteria requirements
+  - [ ] Include test command examples
+  - [ ] Emphasize test-first approach
+- [ ] **6B.3 Add Simplification Pressure**
+  - [ ] Add "Can we leverage existing code?" questions
+  - [ ] Add "Can we combine requirements?" prompts
+  - [ ] Add target task count reminders
+  - [ ] Emphasize MINIMUM viable approach
+- [ ] **6B.4 Add File Specificity**
+  - [ ] Require exact file paths in all prompts
+  - [ ] Request similar implementation references
+  - [ ] Include "files to create/modify" in responses
 
-#### Chat Mode
-- One question at a time with progress indicator
-- Multiple choice options when possible
-- Incremental summaries every 3-5 questions
-- Natural checkpoints for validation
+### Implementation Notes
+- Prompts are in `packages/prompts/prd/*.json`
+- Update the `template` field with new instructions
+- Increment `version` in metadata
+- Update `lastModified` date
+- Test with `packages/ideate/src/prompts.rs` functions
 
-#### Epic View
-- Alternative approaches comparison table
-- Parent tasks review before expansion
-- Complexity score and reasoning
-- Task count vs. limit indicator
+---
 
-#### Task View
-- TDD steps prominently displayed
-- Test commands copyable
-- File references linked
-- Similar implementations referenced
-- Progress tracking (append-only)
+## Phase 6C: UI Integration - Chat Mode (Priority 3)
 
-### 6.3 API Endpoints
+### Status: **NOT STARTED**
 
-New endpoints needed:
+### Checklist
+- [ ] **6C.1 One-Question-at-a-Time Enhancement**
+  - [ ] Update `ChatModeFlow.tsx` to use discovery_sessions API
+  - [ ] Add progress indicator ("Question 3 of ~10")
+  - [ ] Show question type (open/multiple choice/yes_no)
+  - [ ] Add "Skip" button for non-critical questions
+- [ ] **6C.2 Codebase Context Display**
+  - [ ] Add codebase analysis trigger button
+  - [ ] Display found patterns in sidebar
+  - [ ] Show similar features with links
+  - [ ] Display reusable components
+- [ ] **6C.3 Natural Validation Checkpoints**
+  - [ ] Add summary modal every 3-5 questions
+  - [ ] Show "Does this look right?" prompts
+  - [ ] Allow inline editing of captured info
+  - [ ] Store validation feedback
 
-```rust
-// Discovery & Ideation
-POST /api/ideate/sessions/{id}/analyze-codebase
-POST /api/ideate/sessions/{id}/next-question        // Chat mode
-POST /api/ideate/sessions/{id}/validate-section/{section}
-GET  /api/ideate/sessions/{id}/quality-score
+### Location
+`packages/dashboard/src/components/ideate/ChatMode/`
 
-// Epic Management
-POST /api/ideate/epics/{id}/generate-alternatives
-POST /api/ideate/epics/{id}/analyze-complexity
-POST /api/ideate/epics/{id}/simplify               // Leverage analysis
+---
 
-// Two-Phase Task Generation
-POST /api/ideate/epics/{id}/decompose-phase1       // Parent tasks only
-GET  /api/ideate/epics/{id}/parent-tasks
-POST /api/ideate/epics/{id}/decompose-phase2       // Expand to subtasks
+## Phase 6D: UI Integration - Quick & Guided Modes (Priority 4)
 
-// Task Management
-POST /api/ideate/tasks/{id}/generate-steps         // TDD steps
-POST /api/ideate/tasks/{id}/append-progress        // Append-only update
-GET  /api/ideate/tasks/{id}/validation-history
-POST /api/ideate/tasks/{id}/check-dependencies
-```
+### Status: **NOT STARTED**
+
+### Checklist
+- [ ] **6D.1 Quick Mode Review Toggle**
+  - [ ] Add "Review sections before saving" checkbox
+  - [ ] Post-generation section-by-section review
+  - [ ] Allow regeneration of individual sections
+  - [ ] Show quality score
+- [ ] **6D.2 Guided Mode Step Validation**
+  - [ ] Add validation after each wizard step
+  - [ ] Show quality score per section
+  - [ ] Allow section regeneration
+  - [ ] Add "Continue" / "Regenerate" buttons
+- [ ] **6D.3 Alternative Approaches UI**
+  - [ ] Create comparison table component
+  - [ ] Show pros/cons/estimated days
+  - [ ] Highlight recommended approach
+  - [ ] Allow approach selection
+
+### Locations
+- Quick Mode: `packages/dashboard/src/components/ideate/QuickMode/`
+- Guided Mode: `packages/dashboard/src/components/ideate/GuidedMode/`
+
+---
+
+## Phase 6E: UI Integration - Epic & Task Views (Priority 5)
+
+### Status: **NOT STARTED**
+
+### Checklist
+- [ ] **6E.1 Parent Task Review UI**
+  - [ ] Display parent tasks before expansion
+  - [ ] Allow reordering parent tasks
+  - [ ] Allow editing/deleting parent tasks
+  - [ ] Add "Generate Detailed Tasks" button
+  - [ ] Show estimated task count
+- [ ] **6E.2 Complexity Display**
+  - [ ] Show complexity score (1-10)
+  - [ ] Display complexity reasoning
+  - [ ] Show recommended task count
+  - [ ] Task count vs. limit indicator
+- [ ] **6E.3 TDD Task View**
+  - [ ] Display test strategy prominently
+  - [ ] Show execution steps with timing
+  - [ ] Make test commands copyable
+  - [ ] Link relevant files
+  - [ ] Show similar implementations
+- [ ] **6E.4 Checkpoint UI Modals**
+  - [ ] Checkpoint trigger modal
+  - [ ] Required validation checklist
+  - [ ] Progress history timeline
+  - [ ] Append-only progress display
+
+### Locations
+- Epic views: `packages/dashboard/src/components/epics/` (may need creation)
+- Task views: `packages/dashboard/src/components/tasks/` (may need creation)
+
+---
+
+## Phase 6F: Testing (Priority 6)
+
+### Status: **NOT STARTED**
+
+### Checklist
+- [ ] **6F.1 Backend Unit Tests**
+  - [ ] Test new API endpoints
+  - [ ] Test prompt parameter substitution
+  - [ ] Test codebase analyzer logic
+  - [ ] Test complexity scoring
+  - [ ] Test task decomposition flows
+- [ ] **6F.2 Integration Tests**
+  - [ ] Test full ideate → PRD → Epic → Tasks flow
+  - [ ] Test two-phase task generation
+  - [ ] Test checkpoint system
+  - [ ] Test validation history
+- [ ] **6F.3 Frontend Tests**
+  - [ ] Test Chat Mode discovery flow
+  - [ ] Test Quick Mode review toggle
+  - [ ] Test Guided Mode validation
+  - [ ] Test Epic parent task review
+  - [ ] Test Task execution steps UI
+
+---
+
+## Phase 6G: Documentation & Release (Priority 7)
+
+### Status: **NOT STARTED**
+
+### Checklist
+- [ ] **6G.1 API Documentation**
+  - [ ] Document all new endpoints
+  - [ ] Add request/response examples
+  - [ ] Document error codes
+  - [ ] Update OpenAPI spec if exists
+- [ ] **6G.2 User Documentation**
+  - [ ] Update mode selection guide
+  - [ ] Two-phase task generation tutorial
+  - [ ] TDD workflow guide
+  - [ ] Checkpoint system explanation
+- [ ] **6G.3 Developer Documentation**
+  - [ ] Database schema changes summary
+  - [ ] Prompt engineering guidelines
+  - [ ] Testing requirements
+  - [ ] Architecture decision records
+- [ ] **6G.4 Release Preparation**
+  - [ ] Write release notes
+  - [ ] Create migration guide
+  - [ ] Update CHANGELOG
+  - [ ] Version bump
+
+---
 
 ---
 
