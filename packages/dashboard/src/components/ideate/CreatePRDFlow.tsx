@@ -75,8 +75,30 @@ export function CreatePRDFlow({
     }
   };
 
-  const handleTemplateConfirm = () => {
-    setStep('description');
+  const handleTemplateConfirm = async () => {
+    // For guided mode, create session immediately and open guided flow
+    if (selectedMode === 'guided') {
+      try {
+        const session = await createSessionMutation.mutateAsync({
+          projectId,
+          initialDescription: selectedTemplateId
+            ? `Using template: ${templates.find(t => t.id === selectedTemplateId)?.name || 'Template'}`
+            : 'Guided PRD creation',
+          mode: 'guided',
+          templateId: selectedTemplateId || undefined,
+        });
+
+        // Reset and close
+        resetFlow();
+        onOpenChange(false);
+        onSessionCreated(session.id, 'guided');
+      } catch {
+        // Error handled by React Query mutation
+      }
+    } else {
+      // For other modes, continue to description
+      setStep('description');
+    }
   };
 
   const handleBack = () => {
