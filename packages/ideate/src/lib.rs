@@ -25,6 +25,7 @@ pub mod roundtable_manager;
 pub mod task_decomposer;
 pub mod templates;
 pub mod types;
+pub mod validation;
 
 pub use approach_generator::{
     ApproachComparison, ApproachGenerator, ComplexityLevel, TechnicalApproach,
@@ -84,6 +85,7 @@ pub use task_decomposer::{
 };
 pub use templates::TemplateManager;
 pub use types::*;
+pub use validation::{PRDSection, PRDValidator, ValidationResult as PRDValidationResult};
 
 /// Re-export commonly used types
 pub mod prelude {

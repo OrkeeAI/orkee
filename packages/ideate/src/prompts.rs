@@ -96,6 +96,21 @@ pub fn research_prompt(description: &str) -> Result<String, String> {
     with_prompt_manager(|manager| manager.get_prompt("research", &[("description", description)]))
 }
 
+/// Generate non-goals section (what we're NOT building)
+pub fn non_goals_prompt(description: &str) -> Result<String, String> {
+    with_prompt_manager(|manager| manager.get_prompt("non-goals", &[("description", description)]))
+}
+
+/// Generate open questions section (clarifications needed)
+pub fn open_questions_prompt(description: &str) -> Result<String, String> {
+    with_prompt_manager(|manager| manager.get_prompt("open-questions", &[("description", description)]))
+}
+
+/// Generate success metrics section (quantifiable KPIs)
+pub fn success_metrics_prompt(description: &str) -> Result<String, String> {
+    with_prompt_manager(|manager| manager.get_prompt("success-metrics", &[("description", description)]))
+}
+
 /// Generate a complete PRD from a one-liner description
 pub fn complete_prd_prompt(description: &str) -> Result<String, String> {
     with_prompt_manager(|manager| manager.get_prompt("complete", &[("description", description)]))
