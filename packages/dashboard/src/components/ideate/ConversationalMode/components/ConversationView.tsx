@@ -65,8 +65,8 @@ export function ConversationView({
   }
 
   return (
-    <div className="flex flex-col h-full">
-      <ScrollArea ref={scrollAreaRef} className="flex-1 px-4">
+    <div className="flex flex-col h-full overflow-hidden">
+      <ScrollArea ref={scrollAreaRef} className="flex-1 px-4 overflow-y-auto">
         <div className="py-4 space-y-4">
           {isLoading ? (
             <div className="flex items-center justify-center py-8">

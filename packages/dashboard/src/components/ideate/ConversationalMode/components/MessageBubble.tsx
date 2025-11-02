@@ -39,7 +39,7 @@ export function MessageBubble({ message, isStreaming = false }: MessageBubblePro
         className={cn(
           'flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center',
           isUser && 'bg-primary text-primary-foreground',
-          isAssistant && 'bg-muted text-muted-foreground'
+          isAssistant && 'bg-slate-600 dark:bg-slate-700 text-white'
         )}
       >
         {isUser ? <User className="h-4 w-4" /> : <Bot className="h-4 w-4" />}
@@ -53,9 +53,9 @@ export function MessageBubble({ message, isStreaming = false }: MessageBubblePro
       >
         <div
           className={cn(
-            'rounded-lg px-4 py-3 prose prose-sm max-w-none',
-            isUser && 'bg-primary text-primary-foreground',
-            isAssistant && 'bg-muted',
+            'rounded-lg px-4 py-3 prose prose-sm max-w-none border',
+            isUser && 'bg-primary text-primary-foreground border-primary/20',
+            isAssistant && 'bg-slate-100 dark:bg-slate-800 text-foreground border-slate-200 dark:border-slate-700',
             isStreaming && 'animate-pulse'
           )}
         >

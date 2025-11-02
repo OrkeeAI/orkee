@@ -46,7 +46,7 @@ export function ConversationalModeFlow({
     autoLoad: true,
   });
 
-  const { streamingMessage, isStreaming, startStreaming } = useStreamingResponse({
+  const { streamingMessage, isStreaming, startStreaming, stopStreaming } = useStreamingResponse({
     sessionId,
     conversationHistory: messages,
     onMessageComplete: async (content: string) => {
@@ -59,6 +59,8 @@ export function ConversationalModeFlow({
         });
         await refresh();
         await loadInsights();
+        // Clear streaming message after saving to prevent duplication
+        stopStreaming();
       } catch (err) {
         console.error('Failed to save assistant message:', err);
       }
