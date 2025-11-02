@@ -205,7 +205,7 @@ export function ProjectDetail() {
           </TabsTrigger>
           <TabsTrigger value="ai-usage" className="flex-1 flex items-center justify-center gap-1.5">
             <DollarSign className="h-4 w-4 shrink-0" />
-            <span className="hidden sm:inline">AI Usage</span>
+            <span className="hidden sm:inline">Usage</span>
           </TabsTrigger>
           <TabsTrigger value="preview" className="flex-1 flex items-center justify-center gap-1.5">
             <Play className="h-4 w-4 shrink-0" />
