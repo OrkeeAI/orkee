@@ -12,6 +12,7 @@ pub mod discovery_manager;
 pub mod epic;
 pub mod epic_manager;
 pub mod error;
+pub mod execution_tracker;
 pub mod expert_moderator;
 pub mod export_service;
 pub mod github_sync;
@@ -61,6 +62,10 @@ pub use epic::{
 };
 pub use epic_manager::EpicManager;
 pub use error::{IdeateError, Result};
+pub use execution_tracker::{
+    AppendProgressInput, CheckpointType, CreateCheckpointInput, ExecutionCheckpoint,
+    ExecutionTracker, ValidationEntry, ValidationEntryType,
+};
 pub use expert_moderator::ExpertModerator;
 pub use export_service::{ExportFormat, ExportOptions, ExportResult, ExportService};
 pub use github_sync::{

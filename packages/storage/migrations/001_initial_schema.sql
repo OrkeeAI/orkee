@@ -2270,6 +2270,40 @@ CREATE TABLE prd_validation_history (
 CREATE INDEX idx_prd_validation_session ON prd_validation_history(session_id);
 CREATE INDEX idx_prd_validation_section ON prd_validation_history(section_name);
 
+-- Phase 5: Execution Checkpoints
+CREATE TABLE execution_checkpoints (
+    id TEXT PRIMARY KEY CHECK(length(id) >= 8),
+    epic_id TEXT NOT NULL,
+    after_task_id TEXT NOT NULL,
+    checkpoint_type TEXT CHECK(checkpoint_type IN ('review', 'test', 'integration', 'approval')),
+    message TEXT NOT NULL,
+    required_validation TEXT, -- JSON array
+    completed BOOLEAN NOT NULL DEFAULT FALSE,
+    completed_at TEXT,
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+    FOREIGN KEY (epic_id) REFERENCES epics(id) ON DELETE CASCADE,
+    FOREIGN KEY (after_task_id) REFERENCES tasks(id) ON DELETE CASCADE
+);
+
+CREATE INDEX idx_execution_checkpoints_epic ON execution_checkpoints(epic_id);
+CREATE INDEX idx_execution_checkpoints_task ON execution_checkpoints(after_task_id);
+CREATE INDEX idx_execution_checkpoints_completed ON execution_checkpoints(completed);
+
+-- Phase 5: Validation Entries (Append-Only Progress Tracking)
+CREATE TABLE validation_entries (
+    id TEXT PRIMARY KEY CHECK(length(id) >= 8),
+    task_id TEXT NOT NULL,
+    timestamp TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+    entry_type TEXT CHECK(entry_type IN ('progress', 'issue', 'decision', 'checkpoint')),
+    content TEXT NOT NULL,
+    author TEXT NOT NULL,
+    FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE
+);
+
+CREATE INDEX idx_validation_entries_task ON validation_entries(task_id);
+CREATE INDEX idx_validation_entries_timestamp ON validation_entries(timestamp);
+CREATE INDEX idx_validation_entries_type ON validation_entries(entry_type);
+
 -- ============================================================================
 -- SEED DATA: Default Discovery Questions for Chat Mode
 -- ============================================================================

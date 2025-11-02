@@ -120,6 +120,10 @@ DROP TABLE IF EXISTS prd_validation_history;
 DROP TABLE IF EXISTS discovery_sessions;
 DROP TABLE IF EXISTS task_complexity_reports;
 
+-- Phase 5 Enhancement tables
+DROP TABLE IF EXISTS validation_entries;
+DROP TABLE IF EXISTS execution_checkpoints;
+
 DROP TABLE IF EXISTS discovery_questions;
 DROP TABLE IF EXISTS work_analysis;
 DROP TABLE IF EXISTS github_sync;

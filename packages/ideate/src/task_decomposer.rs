@@ -1067,7 +1067,7 @@ impl TaskDecomposer {
 }
 
 // Helper function to convert row to Task (needed since TaskStorage methods are private)
-mod storage {
+pub(crate) mod storage {
     use super::*;
     use sqlx::Row;
 
