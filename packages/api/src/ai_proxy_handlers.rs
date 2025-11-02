@@ -320,13 +320,26 @@ async fn proxy_ai_request(
         .request(method, &target_url)
         .body(body_bytes.to_vec());
 
-    // Copy relevant headers (exclude host, connection, etc.)
-    info!("Copying request headers (excluding auth headers)");
+    // Copy relevant headers (exclude host, connection, browser-specific headers, etc.)
+    info!("Copying request headers (excluding auth and browser-specific headers)");
     for (key, value) in headers.iter() {
         let key_str = key.as_str().to_lowercase();
         if !matches!(
             key_str.as_str(),
-            "host" | "connection" | "content-length" | "x-api-key" | "authorization"
+            "host"
+                | "connection"
+                | "content-length"
+                | "x-api-key"
+                | "authorization"
+                | "origin"
+                | "referer"
+                | "user-agent"
+                | "sec-fetch-site"
+                | "sec-fetch-mode"
+                | "sec-fetch-dest"
+                | "sec-ch-ua"
+                | "sec-ch-ua-mobile"
+                | "sec-ch-ua-platform"
         ) {
             if let Ok(val_str) = value.to_str() {
                 info!("  Copying header: {} = {}", key_str, val_str);
