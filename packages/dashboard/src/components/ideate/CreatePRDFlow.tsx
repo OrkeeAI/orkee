@@ -18,6 +18,7 @@ import { TemplateSelector } from './TemplateSelector';
 import { useCreateIdeateSession, useTemplates } from '@/hooks/useIdeate';
 import type { IdeateMode } from '@/services/ideate';
 import { Lightbulb, AlertCircle } from 'lucide-react';
+import { SESSION_DEFAULTS } from './ConversationalMode/constants';
 
 interface CreatePRDFlowProps {
   projectId: string;
@@ -50,7 +51,7 @@ export function CreatePRDFlow({
         try {
           const session = await createSessionMutation.mutateAsync({
             projectId,
-            initialDescription: 'New conversation',
+            initialDescription: SESSION_DEFAULTS.NEW_CONVERSATION_TITLE,
             mode: 'conversational',
             templateId: undefined,
           });
@@ -159,7 +160,7 @@ export function CreatePRDFlow({
                 Cancel
               </Button>
               <Button onClick={handleModeConfirm} disabled={!selectedMode || loading}>
-                {loading && selectedMode === 'conversational' ? 'Starting Chat...' : 'Continue'}
+                {loading && selectedMode === 'conversational' ? SESSION_DEFAULTS.STARTING_CHAT_TITLE : 'Continue'}
               </Button>
             </DialogFooter>
           </>
