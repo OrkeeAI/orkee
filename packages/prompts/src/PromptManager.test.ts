@@ -40,7 +40,8 @@ describe('PromptManager', () => {
 
     it('should load features prompt', async () => {
       const prompt = await manager.getPrompt('features', {
-        description: 'A task management tool'
+        description: 'A task management tool',
+        codebase_context: 'Existing authentication and task storage modules'
       });
       expect(prompt).toContain('A task management tool');
       expect(prompt).toContain('5-8 core features');

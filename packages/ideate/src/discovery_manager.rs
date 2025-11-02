@@ -411,7 +411,7 @@ impl DiscoveryManager {
         // Consider discovery complete if we have at least 5 questions answered
         // and have covered the core categories
         let min_questions = 5;
-        let core_categories = vec![
+        let core_categories = [
             QuestionCategory::Problem,
             QuestionCategory::Users,
             QuestionCategory::Features,

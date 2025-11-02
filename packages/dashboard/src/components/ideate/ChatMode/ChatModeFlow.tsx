@@ -26,9 +26,8 @@ export interface ChatModeFlowProps {
 
 export function ChatModeFlow({
   sessionId,
-  projectId,
   onPRDGenerated,
-}: ChatModeFlowProps) {
+}: Omit<ChatModeFlowProps, 'projectId'>) {
   const [insights, setInsights] = useState<ChatInsight[]>([]);
   const [isGeneratingPRD, setIsGeneratingPRD] = useState(false);
   const [prdError, setPrdError] = useState<Error | null>(null);
@@ -39,7 +38,7 @@ export function ChatModeFlow({
   // Phase 6C: Codebase Context state
   const [codebaseContext, setCodebaseContext] = useState<CodebaseContext | null>(null);
   const [isAnalyzingCodebase, setIsAnalyzingCodebase] = useState(false);
-  const [projectPath, setProjectPath] = useState<string | null>(null);
+  const [projectPath] = useState<string | null>(null);
 
   // Phase 6C: Validation Checkpoint state
   const [showCheckpoint, setShowCheckpoint] = useState(false);
@@ -232,6 +231,7 @@ export function ChatModeFlow({
     } else {
       setMessagesSinceLastCheckpoint(newMessageCount);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messages.length, insights, qualityMetrics]); // Note: Intentionally not including messagesSinceLastCheckpoint to avoid loops
 
   const handleSendMessage = useCallback(

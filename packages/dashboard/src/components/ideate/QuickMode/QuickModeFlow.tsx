@@ -64,7 +64,6 @@ export function QuickModeFlow({
   const [reviewingSectionIndex, setReviewingSectionIndex] = useState<number | null>(null);
   const [sectionValidations, setSectionValidations] = useState<Record<string, SectionValidationResult>>({});
   const [qualityScore, setQualityScore] = useState<QualityScore | null>(null);
-  const [approvedSections, setApprovedSections] = useState<Set<string>>(new Set());
 
   const { data: session } = useIdeateSession(sessionId);
   const expandMutation = useQuickExpand(projectId, sessionId);

@@ -490,7 +490,7 @@ describe('TDDTaskView', () => {
 
   describe('Component Layout', () => {
     it('should render all cards in correct order when all data is present', () => {
-      const { container } = render(<TDDTaskView {...defaultProps} />);
+      render(<TDDTaskView {...defaultProps} />);
 
       expect(screen.getByText('Test Strategy')).toBeInTheDocument();
       expect(screen.getByText('Acceptance Criteria')).toBeInTheDocument();

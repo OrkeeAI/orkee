@@ -245,7 +245,7 @@ pub struct TaskStep {
 
 /// Generate TDD execution steps for a task
 pub async fn generate_task_steps(
-    State(db): State<DbState>,
+    State(_db): State<DbState>,
     Path((_project_id, task_id)): Path<(String, String)>,
 ) -> impl IntoResponse {
     info!("Generating execution steps for task: {}", task_id);

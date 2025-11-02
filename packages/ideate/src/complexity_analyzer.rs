@@ -31,6 +31,12 @@ pub struct ComplexityFactors {
 /// Complexity analyzer service
 pub struct ComplexityAnalyzer;
 
+impl Default for ComplexityAnalyzer {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ComplexityAnalyzer {
     pub fn new() -> Self {
         Self

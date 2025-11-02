@@ -211,7 +211,7 @@ describe('QualityScoreDisplay', () => {
 
   describe('Color Coding', () => {
     it('should use green color for scores >= 80', () => {
-      const { container } = render(
+      render(
         <QualityScoreDisplay
           qualityScore={{ ...mockQualityScore, overall_score: 85 }}
         />
@@ -222,7 +222,7 @@ describe('QualityScoreDisplay', () => {
     });
 
     it('should use yellow color for scores between 60-79', () => {
-      const { container } = render(
+      render(
         <QualityScoreDisplay
           qualityScore={{ ...mockQualityScore, overall_score: 70 }}
         />
@@ -233,7 +233,7 @@ describe('QualityScoreDisplay', () => {
     });
 
     it('should use red color for scores < 60', () => {
-      const { container } = render(
+      render(
         <QualityScoreDisplay
           qualityScore={{ ...mockQualityScore, overall_score: 50 }}
         />

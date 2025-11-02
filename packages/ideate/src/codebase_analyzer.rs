@@ -127,27 +127,16 @@ impl CodebaseAnalyzer {
             self.project_path, session.id
         );
 
-        let mut context = CodebaseContext::default();
-
-        // 1. Scan for existing patterns
-        context.patterns = self.identify_patterns().await?;
-
-        // 2. Find similar features
-        context.similar_features = self
-            .find_similar_features(&session.initial_description)
-            .await?;
-
-        // 3. Identify reusable components
-        context.reusable_components = self.find_reusable_components().await?;
-
-        // 4. Detect architecture style
-        context.architecture_style = self.detect_architecture().await?;
-
-        // 5. Detect tech stack
-        context.tech_stack = self.detect_tech_stack().await?;
-
-        // 6. Analyze file structure
-        context.file_structure = self.analyze_file_structure().await?;
+        let context = CodebaseContext {
+            patterns: self.identify_patterns().await?,
+            similar_features: self
+                .find_similar_features(&session.initial_description)
+                .await?,
+            reusable_components: self.find_reusable_components().await?,
+            architecture_style: self.detect_architecture().await?,
+            tech_stack: self.detect_tech_stack().await?,
+            file_structure: self.analyze_file_structure().await?,
+        };
 
         Ok(context)
     }

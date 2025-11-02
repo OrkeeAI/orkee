@@ -2,7 +2,7 @@
 // ABOUTME: Validates section review display, quality score, and user actions (approve/regenerate/edit)
 
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen, within } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { SectionReviewModal } from './SectionReviewModal';
 import type { SectionValidationResult } from '@/services/ideate';
@@ -227,7 +227,7 @@ describe('SectionReviewModal', () => {
     });
 
     it('should show regenerating state in button', () => {
-      const { container } = render(
+      render(
         <SectionReviewModal {...defaultProps} isRegenerating={true} />
       );
 

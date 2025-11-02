@@ -347,7 +347,7 @@ impl TaskDecomposer {
         _codebase_context: Option<&CodebaseContext>,
     ) -> Result<Vec<ParentTask>, StoreError> {
         let mut parent_tasks = Vec::new();
-        let task_count = complexity_report.recommended_tasks.min(15).max(3);
+        let task_count = complexity_report.recommended_tasks.clamp(3, 15);
 
         // Generate parent tasks based on epic content
         // In a real implementation, this would use AI to analyze the epic
