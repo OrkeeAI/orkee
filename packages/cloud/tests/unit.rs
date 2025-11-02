@@ -4,7 +4,7 @@
 mod cloud_unit_tests {
     use chrono::Utc;
     use orkee_cloud::{
-        orkee_api::{ApiError, ApiResponse, CloudProject},
+        api::{ApiError, ApiResponse, CloudProject},
         CloudError,
     };
 
