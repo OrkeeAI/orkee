@@ -20,8 +20,7 @@ import {
   Play,
   FileText,
   DollarSign,
-  Layers,
-  Network
+  Layers
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -36,7 +35,6 @@ import { OpenInEditorButton } from '@/components/ui/OpenInEditorButton';
 import { SpecsTab } from '@/components/SpecsTab';
 import { CostDashboard } from '@/components/CostDashboard';
 import { ContextTab } from '@/components/ContextTab';
-import { GraphTab } from '@/components/graph/GraphTab';
 import { GitHubSettings } from '@/components/settings/GitHubSettings';
 import { useProject } from '@/hooks/useProjects';
 import { useCommitHistory } from '@/services/git';
@@ -199,10 +197,6 @@ export function ProjectDetail() {
             <Layers className="h-4 w-4 shrink-0" />
             <span className="hidden sm:inline">Context</span>
           </TabsTrigger>
-          <TabsTrigger value="graph" className="flex-1 flex items-center justify-center gap-1.5">
-            <Network className="h-4 w-4 shrink-0" />
-            <span className="hidden sm:inline">Graph</span>
-          </TabsTrigger>
           <TabsTrigger value="ai-usage" className="flex-1 flex items-center justify-center gap-1.5">
             <DollarSign className="h-4 w-4 shrink-0" />
             <span className="hidden sm:inline">Usage</span>
@@ -231,10 +225,6 @@ export function ProjectDetail() {
 
         <TabsContent value="context" className="space-y-4">
           <ContextTab projectId={project.id} projectPath={project.projectRoot} />
-        </TabsContent>
-
-        <TabsContent value="graph" className="space-y-4">
-          <GraphTab projectId={project.id} projectPath={project.projectRoot} />
         </TabsContent>
 
         <TabsContent value="ai-usage" className="space-y-4">
