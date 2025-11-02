@@ -1081,6 +1081,7 @@ impl IdeateManager {
                 mode: None,
                 status: None,
                 skipped_sections: None,
+                research_tools_enabled: None,
             },
         )
         .await
@@ -1137,7 +1138,6 @@ impl IdeateManager {
         let is_ready = match session.mode {
             IdeateMode::Quick => true,                  // Quick mode is always ready
             IdeateMode::Guided => completed_count >= 2, // At least 2 sections
-            IdeateMode::Comprehensive => completed_count >= 5, // At least 5 sections
             IdeateMode::Conversational => true,         // Conversational uses quality score instead
         };
 
