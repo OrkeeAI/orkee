@@ -1154,11 +1154,17 @@ Phase 6C is **FULLY COMPLETE** with all components integrated into ChatModeFlow:
   - [x] Created comprehensive unit test file: `packages/ideate/tests/unit_tests.rs` (16 tests)
   - [x] Created API endpoint test file: `packages/ideate/tests/api_endpoint_tests.rs` (4 tests)
   - [x] All tests passing (30 total: 16 unit + 4 API + 10 GitHub sync)
-- [ ] **6F.2 Integration Tests**
-  - [ ] Test full ideate → PRD → Epic → Tasks flow
-  - [ ] Test two-phase task generation
-  - [ ] Test checkpoint system
-  - [ ] Test validation history
+- [x] **6F.2 Integration Tests** - COMPLETED (100% pass rate - 4/4 tests)
+  - [x] Test full ideate → PRD → Epic → Tasks flow (test_full_ideate_to_tasks_workflow)
+  - [x] Test two-phase task generation (test_two_phase_task_generation)
+  - [x] Test checkpoint system (test_checkpoint_system)
+  - [x] Test validation history (test_validation_history)
+  - [x] Created comprehensive integration test file: `packages/ideate/tests/integration_tests.rs` (4 tests)
+  - [x] All tests passing with in-memory SQLite database
+  - [x] Tests verify complete workflow from ideation through task generation
+  - [x] Tests validate two-phase parent→subtask generation with limits
+  - [x] Tests confirm checkpoint creation, activation, and tracking
+  - [x] Tests ensure append-only validation history with no overwrites
 - [ ] **6F.3 Frontend Tests**
   - [ ] Test Chat Mode discovery flow
   - [ ] Test Quick Mode review toggle
@@ -1179,13 +1185,18 @@ Phase 6C is **FULLY COMPLETE** with all components integrated into ChatModeFlow:
 - PRD validator API JSON serialization
 - Full ideate workflow simulation
 
+**Integration Tests** (`packages/ideate/tests/integration_tests.rs` - 4 tests):
+- **Full Workflow**: Tests complete ideate→PRD→Epic→Tasks flow with database persistence and FK integrity
+- **Two-Phase Generation**: Tests parent task generation, user review phase, and subtask expansion with task count limits
+- **Checkpoint System**: Tests checkpoint creation, activation on task completion, and state tracking
+- **Validation History**: Tests append-only progress tracking, entry type filtering, and correction handling
+
 **GitHub Sync Tests** (`packages/ideate/tests/github_sync_tests.rs` - 10 tests):
 - Epic struct compatibility verified with Phase 1 fields
 
-**Test Results**: ✅ **30/30 tests passing (100%)**
+**Test Results**: ✅ **34/34 tests passing (100%)** (30 previous + 4 new integration tests)
 
 **What's Remaining for Full Phase 6F**:
-- 6F.2: Integration tests with database (two-phase generation, checkpoints)
 - 6F.3: Frontend component tests (Chat/Quick/Guided modes, Epic/Task views)
 
 ---
