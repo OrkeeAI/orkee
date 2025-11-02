@@ -73,28 +73,28 @@ export const AI_CONFIG: AIConfig = {
     },
     anthropic: {
       displayName: 'Anthropic',
-      defaultModel: 'claude-3-5-sonnet-20240620',
+      defaultModel: 'claude-sonnet-4-5-20250929',
       models: {
-        'claude-3-5-sonnet-20240620': {
-          displayName: 'Claude 3.5 Sonnet',
-          maxTokens: 8192,
+        'claude-sonnet-4-5-20250929': {
+          displayName: 'Claude Sonnet 4.5',
+          maxTokens: 64000,
           contextWindow: 200000,
           costPer1kInput: 0.003,
           costPer1kOutput: 0.015,
         },
-        'claude-3-opus-20240229': {
-          displayName: 'Claude 3 Opus',
-          maxTokens: 4096,
+        'claude-haiku-4-5-20251001': {
+          displayName: 'Claude Haiku 4.5',
+          maxTokens: 64000,
+          contextWindow: 200000,
+          costPer1kInput: 0.001,
+          costPer1kOutput: 0.005,
+        },
+        'claude-opus-4-1-20250805': {
+          displayName: 'Claude Opus 4.1',
+          maxTokens: 32000,
           contextWindow: 200000,
           costPer1kInput: 0.015,
           costPer1kOutput: 0.075,
-        },
-        'claude-3-haiku-20240307': {
-          displayName: 'Claude 3 Haiku',
-          maxTokens: 4096,
-          contextWindow: 200000,
-          costPer1kInput: 0.00025,
-          costPer1kOutput: 0.00125,
         },
       },
     },
