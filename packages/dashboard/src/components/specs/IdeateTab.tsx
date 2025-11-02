@@ -7,7 +7,7 @@ import { CreatePRDFlow } from '@/components/ideate/CreatePRDFlow';
 import { SessionsList } from '@/components/ideate/SessionsList';
 import { QuickModeFlow } from '@/components/ideate/QuickMode';
 import { GuidedModeFlow } from '@/components/ideate/GuidedMode';
-import { ChatModeFlow } from '@/components/ideate/ConversationalMode/ChatModeFlow';
+import { ChatModeFlow } from '@/components/ideate/ChatMode/ChatModeFlow';
 import type { IdeateSession, IdeateMode } from '@/services/ideate';
 
 interface IdeateTabProps {

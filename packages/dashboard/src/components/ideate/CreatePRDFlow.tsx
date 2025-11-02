@@ -18,7 +18,7 @@ import { TemplateSelector } from './TemplateSelector';
 import { useCreateIdeateSession, useTemplates } from '@/hooks/useIdeate';
 import type { IdeateMode } from '@/services/ideate';
 import { Lightbulb, AlertCircle } from 'lucide-react';
-import { SESSION_DEFAULTS } from './ConversationalMode/constants';
+import { SESSION_DEFAULTS } from './ChatMode/constants';
 
 interface CreatePRDFlowProps {
   projectId: string;
