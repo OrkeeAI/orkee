@@ -25,6 +25,7 @@ pub mod ideate_generation_handlers;
 pub mod ideate_handlers;
 pub mod ideate_research_handlers;
 pub mod ideate_roundtable_handlers;
+pub mod ideate_validation_handlers;
 pub mod models_handlers;
 pub mod prd_handlers;
 pub mod response;
@@ -621,6 +622,19 @@ pub fn create_ideate_router() -> Router<DbState> {
         .route(
             "/ideate/sessions/{id}/discovery-progress",
             get(ideate_discovery_handlers::get_discovery_progress),
+        )
+        // PRD Validation routes (Phase 6A.2 CCPM)
+        .route(
+            "/ideate/sessions/{id}/validate-section/{section}",
+            post(ideate_validation_handlers::validate_section),
+        )
+        .route(
+            "/ideate/sessions/{id}/quality-score",
+            get(ideate_validation_handlers::get_quality_score),
+        )
+        .route(
+            "/ideate/sessions/{id}/validation-history",
+            post(ideate_validation_handlers::store_validation_feedback),
         )
 }
 
