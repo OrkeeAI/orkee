@@ -119,7 +119,7 @@ export const AI_CONFIG: AIConfig = {
 
 /**
  * Get the preferred provider
- * Defaults to Anthropic as it's configured via proxy
+ * Defaults to Anthropic (requires VITE_ANTHROPIC_API_KEY in .env)
  */
 export function getPreferredProvider(): 'anthropic' {
   return 'anthropic';

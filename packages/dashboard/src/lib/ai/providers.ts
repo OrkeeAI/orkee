@@ -1,42 +1,39 @@
 // ABOUTME: AI provider initialization and configuration
-// ABOUTME: Sets up OpenAI and Anthropic clients using secure proxy endpoints
+// ABOUTME: Sets up OpenAI and Anthropic clients with browser-side API calls
 
 import { createOpenAI } from '@ai-sdk/openai';
 import { createAnthropic } from '@ai-sdk/anthropic';
 import { AI_CONFIG } from './config';
 
 /**
- * Get API base URL for proxy endpoints
- */
-function getApiBaseUrl(): string {
-  return window.location.origin.includes('localhost')
-    ? 'http://localhost:4001'
-    : window.location.origin;
-}
-
-/**
- * Initialize OpenAI provider via secure proxy
- * API keys are stored in database and retrieved server-side
+ * Initialize OpenAI provider with API key from environment
+ * API key is read from VITE_OPENAI_API_KEY environment variable
  */
 export function getOpenAIProvider() {
-  const apiBaseUrl = getApiBaseUrl();
+  const apiKey = import.meta.env.VITE_OPENAI_API_KEY;
+
+  if (!apiKey) {
+    throw new Error('VITE_OPENAI_API_KEY environment variable is not set');
+  }
 
   return createOpenAI({
-    apiKey: 'proxy', // Dummy key - actual key is retrieved from database on server
-    baseURL: `${apiBaseUrl}/api/ai/openai/v1`,
+    apiKey,
   });
 }
 
 /**
- * Initialize Anthropic provider via secure proxy
- * API keys are stored in database and retrieved server-side
+ * Initialize Anthropic provider with API key from environment
+ * API key is read from VITE_ANTHROPIC_API_KEY environment variable
  */
 export function getAnthropicProvider() {
-  const apiBaseUrl = getApiBaseUrl();
+  const apiKey = import.meta.env.VITE_ANTHROPIC_API_KEY;
+
+  if (!apiKey) {
+    throw new Error('VITE_ANTHROPIC_API_KEY environment variable is not set');
+  }
 
   return createAnthropic({
-    apiKey: 'proxy', // Dummy key - actual key is retrieved from database on server
-    baseURL: `${apiBaseUrl}/api/ai/anthropic/v1`,
+    apiKey,
   });
 }
 
