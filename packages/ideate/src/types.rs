@@ -44,6 +44,16 @@ pub struct IdeateSession {
     pub current_section: Option<String>,
     pub research_tools_enabled: bool,
     pub generated_prd_id: Option<String>,
+
+    // Phase 1 enhancement fields
+    pub non_goals: Option<String>,
+    pub open_questions: Option<String>,
+    pub constraints_assumptions: Option<String>,
+    pub success_metrics: Option<String>,
+    pub alternative_approaches: Option<serde_json::Value>,
+    pub validation_checkpoints: Option<serde_json::Value>,
+    pub codebase_context: Option<serde_json::Value>,
+
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }

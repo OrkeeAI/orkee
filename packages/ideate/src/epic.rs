@@ -115,6 +115,19 @@ pub struct Epic {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub github_synced_at: Option<DateTime<Utc>>,
 
+    // Phase 1 enhancement fields
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub codebase_context: Option<serde_json::Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub simplification_analysis: Option<String>,
+    pub task_count_limit: Option<i32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub decomposition_phase: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub parent_tasks: Option<serde_json::Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub quality_validation: Option<serde_json::Value>,
+
     // Timestamps
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,

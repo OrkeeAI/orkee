@@ -369,6 +369,21 @@ impl EpicManager {
             github_issue_number: row.get("github_issue_number"),
             github_issue_url: row.get("github_issue_url"),
             github_synced_at: row.get("github_synced_at"),
+
+            // Phase 1 enhancement fields
+            codebase_context: row
+                .get::<Option<String>, _>("codebase_context")
+                .and_then(|s| serde_json::from_str(&s).ok()),
+            simplification_analysis: row.get("simplification_analysis"),
+            task_count_limit: row.get("task_count_limit"),
+            decomposition_phase: row.get("decomposition_phase"),
+            parent_tasks: row
+                .get::<Option<String>, _>("parent_tasks")
+                .and_then(|s| serde_json::from_str(&s).ok()),
+            quality_validation: row
+                .get::<Option<String>, _>("quality_validation")
+                .and_then(|s| serde_json::from_str(&s).ok()),
+
             created_at: row.get("created_at"),
             updated_at: row.get("updated_at"),
             started_at: row.get("started_at"),

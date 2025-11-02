@@ -49,6 +49,22 @@ impl IdeateManager {
             current_section: session.get("current_section"),
             research_tools_enabled: session.get::<i32, _>("research_tools_enabled") != 0,
             generated_prd_id: session.get("generated_prd_id"),
+
+            // Phase 1 enhancement fields
+            non_goals: session.get("non_goals"),
+            open_questions: session.get("open_questions"),
+            constraints_assumptions: session.get("constraints_assumptions"),
+            success_metrics: session.get("success_metrics"),
+            alternative_approaches: session
+                .get::<Option<String>, _>("alternative_approaches")
+                .and_then(|s| serde_json::from_str(&s).ok()),
+            validation_checkpoints: session
+                .get::<Option<String>, _>("validation_checkpoints")
+                .and_then(|s| serde_json::from_str(&s).ok()),
+            codebase_context: session
+                .get::<Option<String>, _>("codebase_context")
+                .and_then(|s| serde_json::from_str(&s).ok()),
+
             created_at: session.get("created_at"),
             updated_at: session.get("updated_at"),
         })
@@ -78,6 +94,22 @@ impl IdeateManager {
             current_section: session.get("current_section"),
             research_tools_enabled: session.get::<i32, _>("research_tools_enabled") != 0,
             generated_prd_id: session.get("generated_prd_id"),
+
+            // Phase 1 enhancement fields
+            non_goals: session.get("non_goals"),
+            open_questions: session.get("open_questions"),
+            constraints_assumptions: session.get("constraints_assumptions"),
+            success_metrics: session.get("success_metrics"),
+            alternative_approaches: session
+                .get::<Option<String>, _>("alternative_approaches")
+                .and_then(|s| serde_json::from_str(&s).ok()),
+            validation_checkpoints: session
+                .get::<Option<String>, _>("validation_checkpoints")
+                .and_then(|s| serde_json::from_str(&s).ok()),
+            codebase_context: session
+                .get::<Option<String>, _>("codebase_context")
+                .and_then(|s| serde_json::from_str(&s).ok()),
+
             created_at: session.get("created_at"),
             updated_at: session.get("updated_at"),
         })
@@ -110,6 +142,22 @@ impl IdeateManager {
                     current_section: row.get("current_section"),
                     research_tools_enabled: row.get::<i32, _>("research_tools_enabled") != 0,
                     generated_prd_id: row.get("generated_prd_id"),
+
+                    // Phase 1 enhancement fields
+                    non_goals: row.get("non_goals"),
+                    open_questions: row.get("open_questions"),
+                    constraints_assumptions: row.get("constraints_assumptions"),
+                    success_metrics: row.get("success_metrics"),
+                    alternative_approaches: row
+                        .get::<Option<String>, _>("alternative_approaches")
+                        .and_then(|s| serde_json::from_str(&s).ok()),
+                    validation_checkpoints: row
+                        .get::<Option<String>, _>("validation_checkpoints")
+                        .and_then(|s| serde_json::from_str(&s).ok()),
+                    codebase_context: row
+                        .get::<Option<String>, _>("codebase_context")
+                        .and_then(|s| serde_json::from_str(&s).ok()),
+
                     created_at: row.get("created_at"),
                     updated_at: row.get("updated_at"),
                 })
@@ -202,6 +250,22 @@ impl IdeateManager {
             current_section: session.get("current_section"),
             research_tools_enabled: session.get::<i32, _>("research_tools_enabled") != 0,
             generated_prd_id: session.get("generated_prd_id"),
+
+            // Phase 1 enhancement fields
+            non_goals: session.get("non_goals"),
+            open_questions: session.get("open_questions"),
+            constraints_assumptions: session.get("constraints_assumptions"),
+            success_metrics: session.get("success_metrics"),
+            alternative_approaches: session
+                .get::<Option<String>, _>("alternative_approaches")
+                .and_then(|s| serde_json::from_str(&s).ok()),
+            validation_checkpoints: session
+                .get::<Option<String>, _>("validation_checkpoints")
+                .and_then(|s| serde_json::from_str(&s).ok()),
+            codebase_context: session
+                .get::<Option<String>, _>("codebase_context")
+                .and_then(|s| serde_json::from_str(&s).ok()),
+
             created_at: session.get("created_at"),
             updated_at: session.get("updated_at"),
         })

@@ -103,6 +103,14 @@ pub struct Task {
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 
+    // Phase 1 enhancement fields
+    pub relevant_files: Option<serde_json::Value>,
+    pub similar_implementations: Option<String>,
+    pub execution_steps: Option<serde_json::Value>,
+    pub validation_history: Option<serde_json::Value>,
+    pub codebase_references: Option<serde_json::Value>,
+    pub parent_task_id: Option<String>,
+
     // CCPM Epic Integration
     pub epic_id: Option<String>,
     pub github_issue_number: Option<i32>,
