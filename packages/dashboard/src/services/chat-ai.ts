@@ -1,10 +1,10 @@
-// ABOUTME: AI-powered conversational mode services using AI SDK
+// ABOUTME: AI-powered chat mode services using AI SDK
 // ABOUTME: Handles streaming conversations, insight extraction, quality metrics, and PRD generation
 
 import { streamText, generateObject } from 'ai';
 import { getPreferredModel } from '@/lib/ai/providers';
 import { z } from 'zod';
-import { conversationalService, type ConversationMessage, type ConversationInsight } from './conversational';
+import { chatService, type ConversationMessage, type ConversationInsight } from './chat';
 
 /**
  * Discovery question prompts for guiding conversations
@@ -28,7 +28,7 @@ What specific problem are you trying to solve with this project?`,
 /**
  * Stream a conversational AI response based on conversation history
  */
-export async function streamConversationalResponse(
+export async function streamChatResponse(
   sessionId: string,
   userMessage: string,
   conversationHistory: ConversationMessage[],
@@ -126,7 +126,7 @@ For each insight, provide the type, the insight text, and a confidence score (0-
   const insights: ConversationInsight[] = [];
 
   for (const insight of result.object.insights) {
-    const saved = await conversationalService.createInsight(sessionId, {
+    const saved = await chatService.createInsight(sessionId, {
       insight_type: insight.type,
       insight_text: insight.text,
       confidence_score: insight.confidence,

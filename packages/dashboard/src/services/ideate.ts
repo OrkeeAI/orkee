@@ -6,7 +6,7 @@ import { usersService } from './users';
 import { createAIService } from './ai';
 import { templatesService } from './templates';
 
-export type IdeateMode = 'quick' | 'guided' | 'comprehensive' | 'conversational';
+export type IdeateMode = 'quick' | 'guided' | 'chat';
 export type IdeateStatus = 'draft' | 'in_progress' | 'ready_for_prd' | 'completed';
 
 export interface IdeateSession {
