@@ -49,6 +49,7 @@ pub async fn start_ideate(
         initial_description: request.initial_description,
         mode: request.mode,
         template_id: request.template_id,
+        research_tools_enabled: request.research_tools_enabled.unwrap_or(false),
     };
 
     let result = manager.create_session(input).await;
@@ -105,6 +106,7 @@ pub async fn update_ideate(
         status: request.status,
         skipped_sections: request.skipped_sections,
         current_section: None,
+        research_tools_enabled: request.research_tools_enabled,
     };
 
     let result = manager.update_session(&session_id, input).await;
@@ -789,6 +791,7 @@ pub async fn save_as_prd(
         status: Some(IdeateStatus::Completed),
         skipped_sections: None,
         current_section: None,
+        research_tools_enabled: None,
     };
 
     if let Err(e) = manager.update_session(&session_id, update_input).await {
