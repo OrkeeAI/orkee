@@ -199,7 +199,7 @@ pub struct ApproachComparison {
 mod tests {
     use super::*;
     use crate::codebase_analyzer::CodebaseContext;
-    use crate::epic::{CreateEpicInput, Epic};
+    use crate::epic::Epic;
 
     #[tokio::test]
     async fn test_generate_approaches() {
