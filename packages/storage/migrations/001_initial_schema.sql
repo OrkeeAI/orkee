@@ -362,8 +362,22 @@ CREATE TABLE tasks (
     can_parallel BOOLEAN DEFAULT FALSE,
     spec_validation_status TEXT,
     spec_validation_result TEXT,
+
+    -- Enhanced Task fields (Phase 1 improvements)
+    relevant_files TEXT,
+    similar_implementations TEXT,
+    execution_steps TEXT,
+    validation_history TEXT,
+    codebase_references TEXT,
+    parent_task_id TEXT,
+
     created_at TEXT NOT NULL,
-    updated_at TEXT NOT NULL
+    updated_at TEXT NOT NULL,
+
+    CHECK (json_valid(relevant_files) OR relevant_files IS NULL),
+    CHECK (json_valid(execution_steps) OR execution_steps IS NULL),
+    CHECK (json_valid(validation_history) OR validation_history IS NULL),
+    CHECK (json_valid(codebase_references) OR codebase_references IS NULL)
 );
 
 -- Task indexes
@@ -854,13 +868,25 @@ CREATE TABLE ideate_sessions (
     template_id TEXT,
     generated_prd_id TEXT,
 
+    -- Enhanced PRD fields (Phase 1 improvements)
+    non_goals TEXT,
+    open_questions TEXT,
+    constraints_assumptions TEXT,
+    success_metrics TEXT,
+    alternative_approaches TEXT,
+    validation_checkpoints TEXT,
+    codebase_context TEXT,
+
     created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
     updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
 
     FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
     FOREIGN KEY (template_id) REFERENCES prd_output_templates(id) ON DELETE SET NULL,
     FOREIGN KEY (generated_prd_id) REFERENCES prds(id) ON DELETE SET NULL,
-    CHECK (json_valid(skipped_sections) OR skipped_sections IS NULL)
+    CHECK (json_valid(skipped_sections) OR skipped_sections IS NULL),
+    CHECK (json_valid(alternative_approaches) OR alternative_approaches IS NULL),
+    CHECK (json_valid(validation_checkpoints) OR validation_checkpoints IS NULL),
+    CHECK (json_valid(codebase_context) OR codebase_context IS NULL)
 );
 
 CREATE INDEX idx_ideate_sessions_project ON ideate_sessions(project_id);
@@ -2049,6 +2075,14 @@ CREATE TABLE epics (
     github_issue_url TEXT,
     github_synced_at TEXT,
 
+    -- Enhanced Epic fields (Phase 1 improvements)
+    codebase_context TEXT,
+    simplification_analysis TEXT,
+    task_count_limit INTEGER DEFAULT 20,
+    decomposition_phase TEXT CHECK(decomposition_phase IN ('parent_planning', 'subtask_generation', 'completed')),
+    parent_tasks TEXT,
+    quality_validation TEXT,
+
     -- Timestamps
     created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
     updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
@@ -2060,7 +2094,10 @@ CREATE TABLE epics (
     CHECK (json_valid(architecture_decisions) OR architecture_decisions IS NULL),
     CHECK (json_valid(dependencies) OR dependencies IS NULL),
     CHECK (json_valid(success_criteria) OR success_criteria IS NULL),
-    CHECK (json_valid(task_categories) OR task_categories IS NULL)
+    CHECK (json_valid(task_categories) OR task_categories IS NULL),
+    CHECK (json_valid(codebase_context) OR codebase_context IS NULL),
+    CHECK (json_valid(parent_tasks) OR parent_tasks IS NULL),
+    CHECK (json_valid(quality_validation) OR quality_validation IS NULL)
 );
 
 CREATE INDEX idx_epics_project ON epics(project_id);
@@ -2178,6 +2215,60 @@ CREATE TABLE conversation_insights (
 CREATE INDEX idx_conversation_insights_session ON conversation_insights(session_id);
 CREATE INDEX idx_conversation_insights_type ON conversation_insights(insight_type);
 CREATE INDEX idx_conversation_insights_applied ON conversation_insights(applied_to_prd);
+
+-- ============================================================================
+-- PHASE 1 ENHANCEMENT TABLES
+-- ============================================================================
+
+-- Task Complexity Analysis
+CREATE TABLE task_complexity_reports (
+    id TEXT PRIMARY KEY CHECK(length(id) >= 8),
+    epic_id TEXT NOT NULL,
+    task_id TEXT,
+    complexity_score INTEGER CHECK(complexity_score >= 1 AND complexity_score <= 10),
+    recommended_subtasks INTEGER,
+    expansion_prompt TEXT,
+    reasoning TEXT,
+    analyzed_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+    FOREIGN KEY (epic_id) REFERENCES epics(id) ON DELETE CASCADE
+);
+
+CREATE INDEX idx_complexity_reports_epic ON task_complexity_reports(epic_id);
+CREATE INDEX idx_complexity_reports_task ON task_complexity_reports(task_id);
+
+-- Discovery Sessions (one-question-at-a-time)
+CREATE TABLE discovery_sessions (
+    id TEXT PRIMARY KEY CHECK(length(id) >= 8),
+    session_id TEXT NOT NULL,
+    question_number INTEGER NOT NULL,
+    question_text TEXT NOT NULL,
+    question_type TEXT CHECK(question_type IN ('open', 'multiple_choice', 'yes_no')),
+    options TEXT,
+    user_answer TEXT,
+    asked_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+    answered_at TEXT,
+    FOREIGN KEY (session_id) REFERENCES ideate_sessions(id) ON DELETE CASCADE,
+    UNIQUE(session_id, question_number),
+    CHECK (json_valid(options) OR options IS NULL)
+);
+
+CREATE INDEX idx_discovery_sessions_session ON discovery_sessions(session_id);
+CREATE INDEX idx_discovery_sessions_order ON discovery_sessions(session_id, question_number);
+
+-- PRD Validation History
+CREATE TABLE prd_validation_history (
+    id TEXT PRIMARY KEY CHECK(length(id) >= 8),
+    session_id TEXT NOT NULL,
+    section_name TEXT NOT NULL,
+    validation_status TEXT CHECK(validation_status IN ('approved', 'rejected', 'regenerated')),
+    user_feedback TEXT,
+    quality_score INTEGER CHECK(quality_score >= 0 AND quality_score <= 100),
+    validated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+    FOREIGN KEY (session_id) REFERENCES ideate_sessions(id) ON DELETE CASCADE
+);
+
+CREATE INDEX idx_prd_validation_session ON prd_validation_history(session_id);
+CREATE INDEX idx_prd_validation_section ON prd_validation_history(section_name);
 
 -- ============================================================================
 -- SEED DATA: Default Discovery Questions for Chat Mode

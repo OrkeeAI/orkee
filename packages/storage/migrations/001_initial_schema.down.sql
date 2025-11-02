@@ -114,6 +114,12 @@ DROP TABLE IF EXISTS competitor_analysis_cache;
 
 -- Chat Mode (CCPM) tables
 DROP TABLE IF EXISTS conversation_insights;
+
+-- Phase 1 Enhancement tables
+DROP TABLE IF EXISTS prd_validation_history;
+DROP TABLE IF EXISTS discovery_sessions;
+DROP TABLE IF EXISTS task_complexity_reports;
+
 DROP TABLE IF EXISTS discovery_questions;
 DROP TABLE IF EXISTS work_analysis;
 DROP TABLE IF EXISTS github_sync;
