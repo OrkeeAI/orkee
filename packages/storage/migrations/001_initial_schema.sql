@@ -2020,11 +2020,11 @@ UPDATE prd_quickstart_templates SET
 WHERE id = 'tpl_internal';
 
 -- ============================================================================
--- CONVERSATIONAL MODE (CCPM) TABLES
+-- CHAT MODE (CCPM) TABLES
 -- ============================================================================
 
--- PRD Conversation History
-CREATE TABLE prd_conversations (
+-- PRD Chats
+CREATE TABLE prd_chats (
     id TEXT PRIMARY KEY CHECK(length(id) >= 8),
     session_id TEXT NOT NULL,
     prd_id TEXT,
@@ -2041,10 +2041,10 @@ CREATE TABLE prd_conversations (
     CHECK (json_valid(metadata) OR metadata IS NULL)
 );
 
-CREATE INDEX idx_prd_conversations_session ON prd_conversations(session_id);
-CREATE INDEX idx_prd_conversations_prd ON prd_conversations(prd_id);
-CREATE INDEX idx_prd_conversations_order ON prd_conversations(session_id, message_order);
-CREATE INDEX idx_prd_conversations_type ON prd_conversations(message_type);
+CREATE INDEX idx_prd_chats_session ON prd_chats(session_id);
+CREATE INDEX idx_prd_chats_prd ON prd_chats(prd_id);
+CREATE INDEX idx_prd_chats_order ON prd_chats(session_id, message_order);
+CREATE INDEX idx_prd_chats_type ON prd_chats(message_type);
 
 -- Epic Management
 CREATE TABLE epics (
@@ -2196,8 +2196,8 @@ CREATE INDEX idx_discovery_questions_category ON discovery_questions(category, d
 CREATE INDEX idx_discovery_questions_active ON discovery_questions(is_active, priority DESC);
 CREATE INDEX idx_discovery_questions_required ON discovery_questions(is_required) WHERE is_required = TRUE;
 
--- Extracted Insights from Conversations
-CREATE TABLE conversation_insights (
+-- Extracted Insights from Chat
+CREATE TABLE chat_insights (
     id TEXT PRIMARY KEY CHECK(length(id) >= 8),
     session_id TEXT NOT NULL,
     insight_type TEXT NOT NULL CHECK(insight_type IN ('requirement', 'constraint', 'risk', 'assumption', 'decision')),
@@ -2212,9 +2212,9 @@ CREATE TABLE conversation_insights (
     CHECK (json_valid(source_message_ids) OR source_message_ids IS NULL)
 );
 
-CREATE INDEX idx_conversation_insights_session ON conversation_insights(session_id);
-CREATE INDEX idx_conversation_insights_type ON conversation_insights(insight_type);
-CREATE INDEX idx_conversation_insights_applied ON conversation_insights(applied_to_prd);
+CREATE INDEX idx_chat_insights_session ON chat_insights(session_id);
+CREATE INDEX idx_chat_insights_type ON chat_insights(insight_type);
+CREATE INDEX idx_chat_insights_applied ON chat_insights(applied_to_prd);
 
 -- ============================================================================
 -- PHASE 1 ENHANCEMENT TABLES

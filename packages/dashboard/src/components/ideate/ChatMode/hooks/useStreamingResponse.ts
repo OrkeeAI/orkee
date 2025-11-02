@@ -15,14 +15,14 @@ export interface StreamingMessage {
 
 export interface UseStreamingResponseOptions {
   sessionId: string;
-  conversationHistory: ChatMessage[];
+  chatHistory: ChatMessage[];
   onMessageComplete?: (content: string) => void;
   onError?: (error: Error) => void;
 }
 
 export function useStreamingResponse({
   sessionId,
-  conversationHistory,
+  chatHistory,
   onMessageComplete,
   onError,
 }: UseStreamingResponseOptions) {
@@ -107,7 +107,7 @@ export function useStreamingResponse({
         await streamChatResponse(
           sessionId,
           userMessage,
-          conversationHistory,
+          chatHistory,
           // onChunk
           (chunk: string) => {
             // Check if aborted
@@ -153,7 +153,7 @@ export function useStreamingResponse({
         handleError(err);
       }
     },
-    [sessionId, conversationHistory, onMessageComplete, cleanup, handleError]
+    [sessionId, chatHistory, onMessageComplete, cleanup, handleError]
   );
 
   const stopStreaming = useCallback(() => {

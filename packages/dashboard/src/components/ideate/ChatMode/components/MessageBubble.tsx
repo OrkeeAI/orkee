@@ -1,4 +1,4 @@
-// ABOUTME: Message bubble component for displaying conversation messages
+// ABOUTME: Message bubble component for displaying chat messages
 // ABOUTME: Renders user and assistant messages with appropriate styling and formatting
 
 import React from 'react';

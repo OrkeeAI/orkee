@@ -37,8 +37,8 @@ pub use build_optimizer::{
     OptimizationStrategy,
 };
 pub use chat::{
-    ConversationInsight, ConversationMessage, CreateInsightInput, DiscoveryQuestion,
-    DiscoveryStatus, GeneratePRDFromConversationInput, GeneratePRDFromConversationResult,
+    ChatInsight, ChatMessage, CreateInsightInput, DiscoveryQuestion,
+    DiscoveryStatus, GeneratePRDFromChatInput, GeneratePRDFromChatResult,
     InsightType, MessageRole, MessageType, QualityMetrics, QuestionCategory, SendMessageInput,
     TopicCoverage, ValidationResult,
 };

@@ -1,5 +1,5 @@
-// ABOUTME: Suggested questions component for guiding conversation discovery
-// ABOUTME: Displays clickable question chips based on conversation context
+// ABOUTME: Suggested questions component for guiding chat discovery
+// ABOUTME: Displays clickable question chips based on chat context
 
 import React from 'react';
 import { Button } from '@/components/ui/button';

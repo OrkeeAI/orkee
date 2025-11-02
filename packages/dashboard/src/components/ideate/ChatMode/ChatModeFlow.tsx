@@ -1,5 +1,5 @@
-// ABOUTME: Main container for conversational PRD discovery mode
-// ABOUTME: Orchestrates conversation, insights, quality tracking, and PRD generation
+// ABOUTME: Main container for chat PRD discovery mode
+// ABOUTME: Orchestrates chat, insights, quality tracking, and PRD generation
 
 import React, { useState, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
@@ -34,7 +34,7 @@ export function ChatModeFlow({
     qualityMetrics,
     isLoading,
     isSending,
-    error: conversationError,
+    error: chatError,
     sendMessage,
     refresh,
   } = useChat({
@@ -49,7 +49,7 @@ export function ChatModeFlow({
 
   const { streamingMessage, isStreaming, startStreaming, stopStreaming } = useStreamingResponse({
     sessionId,
-    conversationHistory: messages,
+    chatHistory: messages,
     onMessageComplete: async (content: string) => {
       try {
         await chatService.sendMessage(sessionId, {
@@ -115,7 +115,7 @@ export function ChatModeFlow({
       }
 
       const result = await chatService.generatePRD(sessionId, {
-        title: `PRD from Conversation - ${new Date().toLocaleDateString()}`,
+        title: `PRD from Chat - ${new Date().toLocaleDateString()}`,
       });
 
       onPRDGenerated(result.prd_id);
@@ -131,7 +131,7 @@ export function ChatModeFlow({
       <div className="flex-1 grid grid-cols-12 gap-4 overflow-hidden">
         <div className="col-span-8 flex flex-col border rounded-lg bg-card">
           <div className="border-b p-4">
-            <h2 className="text-lg font-semibold">Conversation</h2>
+            <h2 className="text-lg font-semibold">Chat</h2>
             <p className="text-sm text-muted-foreground">
               Discuss your project idea and I'll help discover the requirements
             </p>
@@ -157,10 +157,10 @@ export function ChatModeFlow({
       </div>
 
       <div className="mt-4 p-4 border-t bg-background space-y-3">
-        {conversationError && (
+        {chatError && (
           <Alert variant="destructive">
             <AlertCircle className="h-4 w-4" />
-            <AlertDescription>{conversationError.message}</AlertDescription>
+            <AlertDescription>{chatError.message}</AlertDescription>
           </Alert>
         )}
 

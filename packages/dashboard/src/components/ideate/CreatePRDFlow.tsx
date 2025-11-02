@@ -46,12 +46,12 @@ export function CreatePRDFlow({
 
   const handleModeConfirm = async () => {
     if (selectedMode) {
-      // Conversational mode: create session immediately and open chat
+      // Chat mode: create session immediately and open chat
       if (selectedMode === 'chat') {
         try {
           const session = await createSessionMutation.mutateAsync({
             projectId,
-            initialDescription: SESSION_DEFAULTS.NEW_CONVERSATION_TITLE,
+            initialDescription: SESSION_DEFAULTS.NEW_CHAT_TITLE,
             mode: 'chat',
             templateId: undefined,
           });
@@ -248,7 +248,7 @@ export function CreatePRDFlow({
                       ? 'Example: A mobile app for tracking daily water intake with reminders and progress visualization'
                       : selectedMode === 'guided'
                       ? 'Provide a brief description of your project idea. You will expand on this in the following steps.'
-                      : 'Describe your initial project idea. We will discover requirements through conversation.'
+                      : 'Describe your initial project idea. We will discover requirements through chat.'
                   }
                   rows={6}
                   className="resize-none"
@@ -273,7 +273,7 @@ export function CreatePRDFlow({
                   {selectedMode === 'guided' &&
                     'You will be guided through each PRD section step-by-step.'}
                   {selectedMode === 'chat' &&
-                    'Start a conversation to discover and refine your requirements naturally.'}
+                    'Start a chat to discover and refine your requirements naturally.'}
                 </AlertDescription>
               </Alert>
             </div>

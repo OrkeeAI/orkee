@@ -12,25 +12,25 @@ use tracing::{error, info, warn};
 use super::response::ok_or_internal_error;
 use orkee_ideate::{
     ChatManager, CreateInsightInput, DiscoveryQuestion, DiscoveryStatus,
-    GeneratePRDFromConversationInput, GeneratePRDFromConversationResult, MessageRole,
+    GeneratePRDFromChatInput, GeneratePRDFromChatResult, MessageRole,
     QualityMetrics, QuestionCategory, SendMessageInput, TopicCoverage, ValidationResult,
 };
 use orkee_projects::DbState;
 
-/// Get conversation history for a session
+/// Get chat history for a session
 pub async fn get_history(
     State(db): State<DbState>,
     Path(session_id): Path<String>,
 ) -> impl IntoResponse {
-    info!("Getting conversation history for session: {}", session_id);
+    info!("Getting chat history for session: {}", session_id);
 
     let manager = ChatManager::new(db.pool.clone());
     let result = manager.get_history(&session_id).await;
 
-    ok_or_internal_error(result, "Failed to get conversation history")
+    ok_or_internal_error(result, "Failed to get chat history")
 }
 
-/// Send a message in the conversation
+/// Send a message in the chat
 pub async fn send_message(
     State(db): State<DbState>,
     Path(session_id): Path<String>,
@@ -94,7 +94,7 @@ pub async fn get_discovery_questions(
     ok_or_internal_error(result, "Failed to get discovery questions")
 }
 
-/// Get suggested questions based on conversation context
+/// Get suggested questions based on chat context
 pub async fn get_suggested_questions(
     State(db): State<DbState>,
     Path(session_id): Path<String>,
@@ -103,19 +103,19 @@ pub async fn get_suggested_questions(
 
     let manager = ChatManager::new(db.pool.clone());
 
-    // Get conversation history to analyze context
+    // Get chat history to analyze context
     let _history = match manager.get_history(&session_id).await {
         Ok(h) => h,
         Err(e) => {
-            error!("Failed to get conversation history: {}", e);
+            error!("Failed to get chat history: {}", e);
             return ok_or_internal_error(
                 Err::<Vec<DiscoveryQuestion>, _>(e),
-                "Failed to get conversation history",
+                "Failed to get chat history",
             );
         }
     };
 
-    // TODO: Use AI SDK to analyze conversation and suggest contextual questions
+    // TODO: Use AI SDK to analyze chat and suggest contextual questions
     // For now, return high-priority required questions that haven't been covered
     let all_questions = match manager.get_discovery_questions(None).await {
         Ok(q) => q,
@@ -141,7 +141,7 @@ pub async fn get_suggested_questions(
     )
 }
 
-/// Get insights extracted from the conversation
+/// Get insights extracted from the chat
 pub async fn get_insights(
     State(db): State<DbState>,
     Path(session_id): Path<String>,
@@ -171,7 +171,7 @@ pub async fn create_insight(
     ok_or_internal_error(result, "Failed to create insight")
 }
 
-/// Calculate quality metrics for the conversation
+/// Calculate quality metrics for the chat
 pub async fn get_quality_metrics(
     State(db): State<DbState>,
     Path(session_id): Path<String>,
@@ -304,27 +304,27 @@ pub async fn update_status(
     ok_or_internal_error(result, "Failed to update discovery status")
 }
 
-/// Generate PRD from conversation
+/// Generate PRD from chat
 pub async fn generate_prd(
     State(db): State<DbState>,
     Path(session_id): Path<String>,
-    Json(input): Json<GeneratePRDFromConversationInput>,
+    Json(input): Json<GeneratePRDFromChatInput>,
 ) -> impl IntoResponse {
     info!(
-        "Generating PRD from conversation for session: {} (title: {})",
+        "Generating PRD from chat for session: {} (title: {})",
         session_id, input.title
     );
 
     let manager = ChatManager::new(db.pool.clone());
 
-    // Get conversation history
+    // Get chat history
     let history = match manager.get_history(&session_id).await {
         Ok(h) => h,
         Err(e) => {
-            error!("Failed to get conversation history: {}", e);
+            error!("Failed to get chat history: {}", e);
             return ok_or_internal_error(
-                Err::<GeneratePRDFromConversationResult, _>(e),
-                "Failed to get conversation history",
+                Err::<GeneratePRDFromChatResult, _>(e),
+                "Failed to get chat history",
             );
         }
     };
@@ -335,13 +335,13 @@ pub async fn generate_prd(
         Err(e) => {
             error!("Failed to get insights: {}", e);
             return ok_or_internal_error(
-                Err::<GeneratePRDFromConversationResult, _>(e),
+                Err::<GeneratePRDFromChatResult, _>(e),
                 "Failed to get insights",
             );
         }
     };
 
-    // TODO: Use AI SDK streamObject to generate structured PRD from conversation history
+    // TODO: Use AI SDK streamObject to generate structured PRD from chat history
     // For now, return a placeholder
     let prd_id = nanoid::nanoid!(12);
     let content_markdown = format!(
@@ -351,7 +351,7 @@ pub async fn generate_prd(
         insights.len()
     );
 
-    let result = GeneratePRDFromConversationResult {
+    let result = GeneratePRDFromChatResult {
         prd_id,
         content_markdown,
         quality_score: 75,
@@ -363,23 +363,23 @@ pub async fn generate_prd(
     )
 }
 
-/// Validate conversation readiness for PRD generation
+/// Validate chat readiness for PRD generation
 pub async fn validate_for_prd(
     State(db): State<DbState>,
     Path(session_id): Path<String>,
 ) -> impl IntoResponse {
-    info!("Validating conversation for PRD generation: {}", session_id);
+    info!("Validating chat for PRD generation: {}", session_id);
 
     let manager = ChatManager::new(db.pool.clone());
 
-    // Get conversation history
+    // Get chat history
     let history = match manager.get_history(&session_id).await {
         Ok(h) => h,
         Err(e) => {
-            error!("Failed to get conversation history: {}", e);
+            error!("Failed to get chat history: {}", e);
             return ok_or_internal_error(
                 Err::<ValidationResult, _>(e),
-                "Failed to get conversation history",
+                "Failed to get chat history",
             );
         }
     };
@@ -404,7 +404,7 @@ pub async fn validate_for_prd(
     let mut warnings = Vec::new();
 
     if history.len() < 3 {
-        missing_required.push("Need at least 3 messages in conversation".to_string());
+        missing_required.push("Need at least 3 messages in chat".to_string());
     }
 
     if !has_requirement {
@@ -425,6 +425,6 @@ pub async fn validate_for_prd(
 
     ok_or_internal_error(
         Ok::<_, orkee_ideate::IdeateError>(validation),
-        "Failed to validate conversation",
+        "Failed to validate chat",
     )
 }

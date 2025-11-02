@@ -1,5 +1,5 @@
 // ABOUTME: React hook for fetching and managing discovery questions
-// ABOUTME: Provides suggested questions based on conversation context
+// ABOUTME: Provides suggested questions based on chat context
 
 import { useState, useEffect, useCallback } from 'react';
 import { chatService, DiscoveryQuestion } from '@/services/chat';

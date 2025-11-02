@@ -1,5 +1,5 @@
 // ABOUTME: AI-powered chat mode services using AI SDK
-// ABOUTME: Handles streaming conversations, insight extraction, quality metrics, and PRD generation
+// ABOUTME: Handles streaming chats, insight extraction, quality metrics, and PRD generation
 
 import { streamText, generateObject } from 'ai';
 import { getPreferredModel } from '@/lib/ai/providers';
@@ -7,10 +7,10 @@ import { z } from 'zod';
 import { chatService, type ChatMessage, type ChatInsight } from './chat';
 
 /**
- * Discovery question prompts for guiding conversations
+ * Discovery question prompts for guiding chats
  */
 const DISCOVERY_PROMPTS = {
-  system: `You are an expert product manager helping to discover requirements for a new project through conversation.
+  system: `You are an expert product manager helping to discover requirements for a new project through chat.
 Your goal is to ask thoughtful, probing questions that help the user articulate their vision clearly.
 
 Guidelines:
@@ -20,18 +20,18 @@ Guidelines:
 - Be conversational and supportive
 - Extract concrete requirements, constraints, and success criteria`,
 
-  initial: `I'll help you explore and refine your project idea through conversation. Let's start with understanding the core problem you're trying to solve.
+  initial: `I'll help you explore and refine your project idea through chat. Let's start with understanding the core problem you're trying to solve.
 
 What specific problem are you trying to solve with this project?`,
 };
 
 /**
- * Stream a conversational AI response based on conversation history
+ * Stream a chat AI response based on chat history
  */
 export async function streamChatResponse(
   sessionId: string,
   userMessage: string,
-  conversationHistory: ChatMessage[],
+  chatHistory: ChatMessage[],
   onChunk: (text: string) => void,
   onComplete: (fullText: string) => void,
   onError: (error: Error) => void,
@@ -40,8 +40,8 @@ export async function streamChatResponse(
   try {
     const { model } = getPreferredModel();
 
-    // Build conversation context
-    const messages = conversationHistory.map((msg) => ({
+    // Build chat context
+    const messages = chatHistory.map((msg) => ({
       role: msg.role === 'user' ? 'user' as const : 'assistant' as const,
       content: msg.content,
     }));
@@ -90,28 +90,28 @@ const InsightSchema = z.object({
 });
 
 /**
- * Extract insights from conversation using AI
+ * Extract insights from chat using AI
  */
 export async function extractInsights(
   sessionId: string,
-  conversationHistory: ChatMessage[]
+  chatHistory: ChatMessage[]
 ): Promise<ChatInsight[]> {
   const { model } = getPreferredModel();
 
-  const conversationText = conversationHistory
+  const chatText = chatHistory
     .map((msg) => `${msg.role}: ${msg.content}`)
     .join('\n\n');
 
-  const prompt = `Analyze this conversation and extract key insights:
+  const prompt = `Analyze this chat and extract key insights:
 
-${conversationText}
+${chatText}
 
 Identify:
 1. Requirements - What the user wants to build
 2. Constraints - Limitations, deadlines, resources
 3. Risks - Potential problems or challenges mentioned
 4. Assumptions - Unstated beliefs or prerequisites
-5. Decisions - Choices made during the conversation
+5. Decisions - Choices made during the chat
 
 For each insight, provide the type, the insight text, and a confidence score (0-1).`;
 
@@ -162,7 +162,7 @@ const QualityMetricsSchema = z.object({
  */
 export async function calculateQualityMetrics(
   sessionId: string,
-  conversationHistory: ChatMessage[],
+  chatHistory: ChatMessage[],
   insights: ChatInsight[]
 ): Promise<{
   quality_score: number;
@@ -172,7 +172,7 @@ export async function calculateQualityMetrics(
 }> {
   const { model } = getPreferredModel();
 
-  const conversationText = conversationHistory
+  const chatText = chatHistory
     .map((msg) => `${msg.role}: ${msg.content}`)
     .join('\n\n');
 
@@ -180,10 +180,10 @@ export async function calculateQualityMetrics(
     .map((ins) => `${ins.insight_type}: ${ins.insight_text}`)
     .join('\n');
 
-  const prompt = `Analyze this conversation and extracted insights to assess PRD readiness:
+  const prompt = `Analyze this chat and extracted insights to assess PRD readiness:
 
-CONVERSATION:
-${conversationText}
+CHAT:
+${chatText}
 
 EXTRACTED INSIGHTS:
 ${insightsText}
@@ -243,17 +243,17 @@ const PRDSchema = z.object({
 });
 
 /**
- * Generate a PRD from conversation using AI
+ * Generate a PRD from chat using AI
  */
-export async function generatePRDFromConversation(
+export async function generatePRDFromChat(
   sessionId: string,
   title: string,
-  conversationHistory: ChatMessage[],
+  chatHistory: ChatMessage[],
   insights: ChatInsight[]
 ): Promise<{ prd_markdown: string; prd_data: z.infer<typeof PRDSchema> }> {
   const { model } = getPreferredModel();
 
-  const conversationText = conversationHistory
+  const chatText = chatHistory
     .map((msg) => `${msg.role}: ${msg.content}`)
     .join('\n\n');
 
@@ -261,10 +261,10 @@ export async function generatePRDFromConversation(
     .map((ins) => `${ins.insight_type}: ${ins.insight_text}`)
     .join('\n');
 
-  const prompt = `Generate a comprehensive Product Requirements Document based on this conversation:
+  const prompt = `Generate a comprehensive Product Requirements Document based on this chat:
 
-CONVERSATION:
-${conversationText}
+CHAT:
+${chatText}
 
 EXTRACTED INSIGHTS:
 ${insightsText}
@@ -280,7 +280,7 @@ Create a structured PRD with:
 - Success criteria
 - Timeline (if discussed)
 
-Be specific and actionable. Use insights from the conversation to fill in details.`;
+Be specific and actionable. Use insights from the chat to fill in details.`;
 
   const result = await generateObject({
     model,

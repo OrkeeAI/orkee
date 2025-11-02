@@ -25,7 +25,7 @@ export const UI_TEXT = {
  * Session defaults
  */
 export const SESSION_DEFAULTS = {
-  NEW_CONVERSATION_TITLE: 'New conversation',
+  NEW_CHAT_TITLE: 'New chat',
   STARTING_CHAT_TITLE: 'Starting Chat...',
 } as const;
 

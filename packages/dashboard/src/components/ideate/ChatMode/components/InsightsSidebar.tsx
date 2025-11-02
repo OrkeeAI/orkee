@@ -1,4 +1,4 @@
-// ABOUTME: Sidebar component displaying extracted conversation insights
+// ABOUTME: Sidebar component displaying extracted chat insights
 // ABOUTME: Groups insights by type with visual indicators
 
 import React from 'react';
@@ -68,7 +68,7 @@ export function InsightsSidebar({ insights, className }: InsightsSidebarProps) {
           {sortedGroups.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground text-sm">
               <p>No insights extracted yet.</p>
-              <p className="mt-1">Keep the conversation going!</p>
+              <p className="mt-1">Keep the chat going!</p>
             </div>
           ) : (
             sortedGroups.map(([type, typeInsights]) => {

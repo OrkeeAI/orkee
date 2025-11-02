@@ -51,10 +51,10 @@ const MODE_OPTIONS: ModeOption[] = [
   {
     mode: 'chat',
     title: 'Chat Mode',
-    description: 'Chat-based PRD discovery through conversation',
+    description: 'Chat-based PRD discovery through chat',
     icon: <MessageSquare className="h-6 w-6" />,
     features: [
-      'Natural conversation flow',
+      'Natural chat flow',
       'AI-guided discovery questions',
       'Real-time quality feedback',
       'Insight extraction',
