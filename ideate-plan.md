@@ -37,7 +37,7 @@ This document outlines a comprehensive plan to optimize Orkee's ideation → PRD
 ### Overall Phase Status
 - [x] **Phase 1**: Database Schema Updates (Day 1) - COMPLETED
 - [x] **Phase 2**: Ideation & Discovery Improvements (Day 2-3) - COMPLETED
-- [ ] **Phase 3**: PRD Generation Enhancements (Day 4-5)
+- [x] **Phase 3**: PRD Generation Enhancements (Day 4-5) - COMPLETED
 - [ ] **Phase 4**: Epic & Task Decomposition (Day 6-8)
 - [ ] **Phase 5**: Execution & Progress Tracking (Day 9-10)
 - [ ] **Phase 6**: Integration & Polish (Day 11-12)
@@ -406,21 +406,24 @@ impl ApproachGenerator {
 ## Phase 3: PRD Generation Enhancements (Day 4-5)
 
 ### Phase 3 Checklist
-- [ ] **3.1 Enhanced PRD Sections**
-  - [ ] Add Non-Goals section to prompts
-  - [ ] Add Open Questions section to prompts
-  - [ ] Add Success Metrics section to prompts
-  - [ ] Update all mode prompts (Quick, Guided, Chat)
+- [x] **3.1 Enhanced PRD Sections**
+  - [x] Add Non-Goals section to prompts (non-goals.json)
+  - [x] Add Open Questions section to prompts (open-questions.json)
+  - [x] Add Success Metrics section to prompts (success-metrics.json)
+  - [x] Update complete.json prompt with new sections
+  - [x] Add prompt functions to prompts.rs
+  - [ ] Update all mode prompts (Quick, Guided, Chat) - DEFERRED TO PHASE 6
 - [ ] **3.2 Incremental Section Validation**
-  - [ ] Quick Mode: Optional review toggle
-  - [ ] Guided Mode: Step validation
-  - [ ] Chat Mode: Natural checkpoints
-  - [ ] API endpoint for section validation
-- [ ] **3.3 PRD Quality Validation**
-  - [ ] Create PRDValidator struct
-  - [ ] Implement quality scoring
-  - [ ] Add validation UI component
-  - [ ] Pre-save checklist implementation
+  - [ ] Quick Mode: Optional review toggle - DEFERRED TO PHASE 6 (UI work)
+  - [ ] Guided Mode: Step validation - DEFERRED TO PHASE 6 (UI work)
+  - [ ] Chat Mode: Natural checkpoints - DEFERRED TO PHASE 6 (UI work)
+  - [ ] API endpoint for section validation - DEFERRED (requires API integration)
+- [x] **3.3 PRD Quality Validation**
+  - [x] Create PRDValidator struct
+  - [x] Implement quality scoring
+  - [x] Add comprehensive validation tests
+  - [ ] Add validation UI component - DEFERRED TO PHASE 6 (UI work)
+  - [ ] Pre-save checklist implementation - DEFERRED (requires API integration)
 
 ### 3.1 Enhanced PRD Sections
 
