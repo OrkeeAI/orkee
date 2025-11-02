@@ -11,7 +11,7 @@ import { InsightsSidebar } from './components/InsightsSidebar';
 import { useChat } from './hooks/useChat';
 import { useDiscoveryQuestions } from './hooks/useDiscoveryQuestions';
 import { useStreamingResponse } from './hooks/useStreamingResponse';
-import { chatService, ConversationInsight } from '@/services/chat';
+import { chatService, ChatInsight } from '@/services/chat';
 import { UI_TEXT } from './constants';
 
 export interface ChatModeFlowProps {
@@ -25,7 +25,7 @@ export function ChatModeFlow({
   // projectId,
   onPRDGenerated,
 }: ChatModeFlowProps) {
-  const [insights, setInsights] = useState<ConversationInsight[]>([]);
+  const [insights, setInsights] = useState<ChatInsight[]>([]);
   const [isGeneratingPRD, setIsGeneratingPRD] = useState(false);
   const [prdError, setPrdError] = useState<Error | null>(null);
 

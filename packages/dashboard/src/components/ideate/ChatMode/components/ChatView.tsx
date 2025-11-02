@@ -8,12 +8,12 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Send, Loader2 } from 'lucide-react';
 import { MessageBubble } from './MessageBubble';
 import { SuggestedQuestions } from './SuggestedQuestions';
-import type { ConversationMessage, DiscoveryQuestion } from '@/services/chat';
+import type { ChatMessage, DiscoveryQuestion } from '@/services/chat';
 import type { StreamingMessage } from '../hooks/useStreamingResponse';
 import { UI_TEXT } from '../constants';
 
 export interface ChatViewProps {
-  messages: ConversationMessage[];
+  messages: ChatMessage[];
   streamingMessage: StreamingMessage | null;
   suggestedQuestions: DiscoveryQuestion[];
   onSendMessage: (content: string) => void;
@@ -62,7 +62,7 @@ export function ChatView({
 
   const allMessages = [...messages];
   if (streamingMessage) {
-    allMessages.push(streamingMessage as ConversationMessage);
+    allMessages.push(streamingMessage as ChatMessage);
   }
 
   return (

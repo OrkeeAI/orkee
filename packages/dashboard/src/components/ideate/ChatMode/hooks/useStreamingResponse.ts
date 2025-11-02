@@ -3,7 +3,7 @@
 
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { streamChatResponse } from '@/services/chat-ai';
-import type { ConversationMessage } from '@/services/chat';
+import type { ChatMessage } from '@/services/chat';
 import { STREAMING_CONFIG, ERROR_MESSAGES } from '../constants';
 
 export interface StreamingMessage {
@@ -15,7 +15,7 @@ export interface StreamingMessage {
 
 export interface UseStreamingResponseOptions {
   sessionId: string;
-  conversationHistory: ConversationMessage[];
+  conversationHistory: ChatMessage[];
   onMessageComplete?: (content: string) => void;
   onError?: (error: Error) => void;
 }

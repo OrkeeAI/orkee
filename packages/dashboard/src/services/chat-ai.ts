@@ -4,7 +4,7 @@
 import { streamText, generateObject } from 'ai';
 import { getPreferredModel } from '@/lib/ai/providers';
 import { z } from 'zod';
-import { chatService, type ConversationMessage, type ConversationInsight } from './chat';
+import { chatService, type ChatMessage, type ChatInsight } from './chat';
 
 /**
  * Discovery question prompts for guiding conversations
@@ -31,7 +31,7 @@ What specific problem are you trying to solve with this project?`,
 export async function streamChatResponse(
   sessionId: string,
   userMessage: string,
-  conversationHistory: ConversationMessage[],
+  conversationHistory: ChatMessage[],
   onChunk: (text: string) => void,
   onComplete: (fullText: string) => void,
   onError: (error: Error) => void,
@@ -94,8 +94,8 @@ const InsightSchema = z.object({
  */
 export async function extractInsights(
   sessionId: string,
-  conversationHistory: ConversationMessage[]
-): Promise<ConversationInsight[]> {
+  conversationHistory: ChatMessage[]
+): Promise<ChatInsight[]> {
   const { model } = getPreferredModel();
 
   const conversationText = conversationHistory
@@ -122,8 +122,8 @@ For each insight, provide the type, the insight text, and a confidence score (0-
     temperature: 0.3,
   });
 
-  // Convert to ConversationInsight format and save to backend
-  const insights: ConversationInsight[] = [];
+  // Convert to ChatInsight format and save to backend
+  const insights: ChatInsight[] = [];
 
   for (const insight of result.object.insights) {
     const saved = await chatService.createInsight(sessionId, {
@@ -162,8 +162,8 @@ const QualityMetricsSchema = z.object({
  */
 export async function calculateQualityMetrics(
   sessionId: string,
-  conversationHistory: ConversationMessage[],
-  insights: ConversationInsight[]
+  conversationHistory: ChatMessage[],
+  insights: ChatInsight[]
 ): Promise<{
   quality_score: number;
   coverage: Record<string, boolean>;
@@ -248,8 +248,8 @@ const PRDSchema = z.object({
 export async function generatePRDFromConversation(
   sessionId: string,
   title: string,
-  conversationHistory: ConversationMessage[],
-  insights: ConversationInsight[]
+  conversationHistory: ChatMessage[],
+  insights: ChatInsight[]
 ): Promise<{ prd_markdown: string; prd_data: z.infer<typeof PRDSchema> }> {
   const { model } = getPreferredModel();
 

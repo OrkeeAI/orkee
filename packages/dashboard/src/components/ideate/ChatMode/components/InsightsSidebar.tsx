@@ -6,10 +6,10 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Lightbulb, AlertTriangle, Lock, HelpCircle, CheckSquare } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import type { ConversationInsight } from '@/services/chat';
+import type { ChatInsight } from '@/services/chat';
 
 export interface InsightsSidebarProps {
-  insights: ConversationInsight[];
+  insights: ChatInsight[];
   className?: string;
 }
 
@@ -44,7 +44,7 @@ export function InsightsSidebar({ insights, className }: InsightsSidebarProps) {
     }
     acc[insight.insight_type].push(insight);
     return acc;
-  }, {} as Record<string, ConversationInsight[]>);
+  }, {} as Record<string, ChatInsight[]>);
 
   const sortedGroups = Object.entries(groupedInsights).sort(([a], [b]) => {
     const order = ['requirement', 'constraint', 'risk', 'assumption', 'decision'];

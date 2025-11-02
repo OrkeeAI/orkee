@@ -2,7 +2,7 @@
 // ABOUTME: Handles message sending, history fetching, and quality metrics tracking
 
 import { useState, useEffect, useCallback } from 'react';
-import { chatService, ConversationMessage, QualityMetrics } from '@/services/chat';
+import { chatService, ChatMessage, QualityMetrics } from '@/services/chat';
 
 export interface UseConversationOptions {
   sessionId: string;
@@ -10,7 +10,7 @@ export interface UseConversationOptions {
 }
 
 export function useChat({ sessionId, autoLoadHistory = true }: UseConversationOptions) {
-  const [messages, setMessages] = useState<ConversationMessage[]>([]);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [error, setError] = useState<Error | null>(null);
