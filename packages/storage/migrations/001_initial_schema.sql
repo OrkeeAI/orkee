@@ -1290,6 +1290,56 @@ CREATE INDEX IF NOT EXISTS idx_competitor_cache_session
 ON competitor_analysis_cache(session_id);
 
 -- ============================================================================
+-- PERFORMANCE CACHE TABLES
+-- ============================================================================
+
+-- Cache for complexity analysis results (expensive computation)
+CREATE TABLE IF NOT EXISTS complexity_analysis_cache (
+    epic_id TEXT PRIMARY KEY,
+    complexity_report TEXT NOT NULL, -- JSON: ComplexityReport
+    computed_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+    expires_at TEXT, -- Optional TTL (e.g., 24 hours)
+
+    FOREIGN KEY (epic_id) REFERENCES epics(id) ON DELETE CASCADE,
+    CHECK (json_valid(complexity_report))
+);
+
+CREATE INDEX idx_complexity_cache_expires ON complexity_analysis_cache(expires_at);
+
+-- Cache for codebase context (doesn't change frequently)
+CREATE TABLE IF NOT EXISTS codebase_context_cache (
+    project_id TEXT PRIMARY KEY,
+    context_data TEXT NOT NULL, -- JSON: CodebaseContext
+    file_count INTEGER,
+    patterns_found INTEGER,
+    analyzed_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+    expires_at TEXT, -- TTL based on codebase changes
+
+    CHECK (json_valid(context_data))
+);
+
+CREATE INDEX idx_codebase_cache_expires ON codebase_context_cache(expires_at);
+CREATE INDEX idx_codebase_cache_analyzed ON codebase_context_cache(analyzed_at DESC);
+
+-- Cache for PRD validation scores (can be cached per section)
+CREATE TABLE IF NOT EXISTS validation_score_cache (
+    id TEXT PRIMARY KEY CHECK(length(id) >= 8),
+    session_id TEXT NOT NULL,
+    section_name TEXT NOT NULL,
+    content_hash TEXT NOT NULL, -- SHA256 of section content
+    validation_result TEXT NOT NULL, -- JSON: PRDValidationResult
+    computed_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+
+    FOREIGN KEY (session_id) REFERENCES ideate_sessions(id) ON DELETE CASCADE,
+    CHECK (json_valid(validation_result)),
+    UNIQUE(session_id, section_name, content_hash)
+);
+
+CREATE INDEX idx_validation_cache_session ON validation_score_cache(session_id);
+CREATE INDEX idx_validation_cache_section ON validation_score_cache(section_name);
+CREATE INDEX idx_validation_cache_computed ON validation_score_cache(computed_at DESC);
+
+-- ============================================================================
 -- EXPERT ROUNDTABLE SYSTEM
 -- ============================================================================
 
