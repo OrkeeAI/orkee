@@ -15,6 +15,8 @@ pub enum IdeateMode {
     Guided,
     /// Comprehensive mode: full brainstorming with expert roundtables
     Comprehensive,
+    /// Conversational mode: chat-based PRD discovery through conversation
+    Conversational,
 }
 
 /// Ideating session status

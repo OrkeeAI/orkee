@@ -196,7 +196,7 @@ impl ConversationalManager {
             .into_iter()
             .map(|row| DiscoveryQuestion {
                 id: row.get("id"),
-                category: serde_json::from_str(&row.get::<String, _>("category")).unwrap(),
+                category: row.get("category"),
                 question_text: row.get("question_text"),
                 follow_up_prompts: row
                     .get::<Option<String>, _>("follow_up_prompts")

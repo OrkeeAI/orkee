@@ -50,7 +50,7 @@ pub enum InsightType {
 
 /// Category of discovery question
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, sqlx::Type)]
-#[sqlx(type_name = "TEXT")]
+#[sqlx(type_name = "TEXT", rename_all = "lowercase")]
 #[serde(rename_all = "lowercase")]
 pub enum QuestionCategory {
     Problem,
