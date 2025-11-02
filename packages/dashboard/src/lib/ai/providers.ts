@@ -36,7 +36,7 @@ export function getAnthropicProvider() {
 
   return createAnthropic({
     apiKey: 'proxy', // Dummy key - actual key is retrieved from database on server
-    baseURL: `${apiBaseUrl}/api/ai/anthropic`,
+    baseURL: `${apiBaseUrl}/api/ai/anthropic/v1`,
   });
 }
 
