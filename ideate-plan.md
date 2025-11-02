@@ -890,7 +890,7 @@ impl Task {
 
 ## Phase 6A: API Endpoint Completion (Priority 1)
 
-### Status: **IN PROGRESS** (4 of 6 sections complete)
+### Status: **COMPLETED** (6 of 6 sections complete)
 
 ### Checklist
 - [x] **6A.1 Discovery & Codebase Analysis Endpoints** (commit b2e0e88)
@@ -906,21 +906,21 @@ impl Task {
   - [x] POST `/api/epics/{id}/generate-alternatives` - Generate 2-3 technical approaches
   - [x] GET `/api/epics/{id}/alternatives` - Get all alternatives
   - [x] PUT `/api/epics/{id}/select-approach` - Select preferred approach
-- [ ] **6A.4 Epic Complexity & Simplification Endpoints**
-  - [ ] POST `/api/epics/{id}/analyze-complexity` - Complexity analysis
-  - [ ] POST `/api/epics/{id}/simplify` - Get simplification suggestions
-  - [ ] GET `/api/epics/{id}/leverage-analysis` - What existing code can be reused
+- [x] **6A.4 Epic Complexity & Simplification Endpoints** (commit 27192a5)
+  - [x] POST `/api/epics/{id}/analyze-complexity` - Complexity analysis
+  - [x] POST `/api/epics/{id}/simplify` - Get simplification suggestions
+  - [x] GET `/api/epics/{id}/leverage-analysis` - What existing code can be reused
 - [x] **6A.5 Two-Phase Task Generation Endpoints** (HIGH PRIORITY) - **COMPLETED** (commit 6cb3612)
   - [x] POST `/api/projects/:project_id/epics/:epic_id/decompose-phase1` - Generate parent tasks only
   - [x] GET `/api/projects/:project_id/epics/:epic_id/parent-tasks` - Get parent tasks for review
   - [x] PUT `/api/projects/:project_id/epics/:epic_id/parent-tasks` - Update parent tasks before expansion
   - [x] POST `/api/projects/:project_id/epics/:epic_id/decompose-phase2` - Expand parent tasks to subtasks
-- [ ] **6A.6 Task Execution Tracking Endpoints**
-  - [ ] POST `/api/tasks/{id}/generate-steps` - Generate TDD execution steps
-  - [ ] POST `/api/tasks/{id}/append-progress` - Append-only progress update
-  - [ ] GET `/api/tasks/{id}/validation-history` - Get progress history
-  - [ ] GET `/api/tasks/{id}/checkpoints` - Get execution checkpoints
-  - [ ] POST `/api/epics/{id}/checkpoints` - Generate epic-level checkpoints
+- [x] **6A.6 Task Execution Tracking Endpoints** (commit 516bfc5)
+  - [x] POST `/api/tasks/{id}/generate-steps` - Generate TDD execution steps
+  - [x] POST `/api/tasks/{id}/append-progress` - Append-only progress update
+  - [x] GET `/api/tasks/{id}/validation-history` - Get progress history
+  - [x] GET `/api/tasks/{id}/checkpoints` - Get execution checkpoints
+  - [x] POST `/api/epics/{id}/checkpoints` - Generate epic-level checkpoints
 
 ### Implementation Notes
 - Most backend managers already exist (TaskDecomposer, ComplexityAnalyzer, etc.)
