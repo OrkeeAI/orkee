@@ -236,7 +236,7 @@ The desktop app is designed to run in the background:
 
 ## PRD Ideation & CCPM Workflow
 
-Orkee provides AI-powered PRD (Product Requirements Document) ideation and Conversational Collaborative Project Management:
+Orkee provides AI-powered PRD (Product Requirements Document) ideation and Chat-Based Collaborative Project Management:
 
 ```
 💡 Ideate → 📄 PRD → 📋 Epic → ✅ Tasks
@@ -253,9 +253,9 @@ Orkee provides AI-powered PRD (Product Requirements Document) ideation and Conve
 - 💾 **Version Tracking** - Full PRD history with soft delete support
 - 🎨 **Custom Templates** - Create and manage reusable PRD templates
 
-**CCPM (Conversational Collaborative Project Management):**
+**CCPM (Chat-Based Collaborative Project Management):**
 - 💬 **Epic Generation** - Convert PRDs into actionable epics with AI
-- 🔄 **Iterative Refinement** - Conversational workflow for epic improvement
+- 🔄 **Iterative Refinement** - Chat-based workflow for epic improvement
 - 🎯 **Task Decomposition** - Break down epics into executable tasks
 - 🔍 **Research Tools** - Competitor analysis, similar projects, and technical specs
 

@@ -1,10 +1,10 @@
-// ABOUTME: AI-powered conversational mode services using AI SDK
+// ABOUTME: AI-powered chat mode services using AI SDK
 // ABOUTME: Handles streaming conversations, insight extraction, quality metrics, and PRD generation
 
 import { streamText, generateObject } from 'ai';
 import { getPreferredModel } from '@/lib/ai/providers';
 import { z } from 'zod';
-import { conversationalService, type ConversationMessage, type ConversationInsight } from './conversational';
+import { chatService, type ChatMessage, type ChatInsight } from './chat';
 
 /**
  * Discovery question prompts for guiding conversations
@@ -28,10 +28,10 @@ What specific problem are you trying to solve with this project?`,
 /**
  * Stream a conversational AI response based on conversation history
  */
-export async function streamConversationalResponse(
+export async function streamChatResponse(
   sessionId: string,
   userMessage: string,
-  conversationHistory: ConversationMessage[],
+  conversationHistory: ChatMessage[],
   onChunk: (text: string) => void,
   onComplete: (fullText: string) => void,
   onError: (error: Error) => void,
@@ -94,8 +94,8 @@ const InsightSchema = z.object({
  */
 export async function extractInsights(
   sessionId: string,
-  conversationHistory: ConversationMessage[]
-): Promise<ConversationInsight[]> {
+  conversationHistory: ChatMessage[]
+): Promise<ChatInsight[]> {
   const { model } = getPreferredModel();
 
   const conversationText = conversationHistory
@@ -122,11 +122,11 @@ For each insight, provide the type, the insight text, and a confidence score (0-
     temperature: 0.3,
   });
 
-  // Convert to ConversationInsight format and save to backend
-  const insights: ConversationInsight[] = [];
+  // Convert to ChatInsight format and save to backend
+  const insights: ChatInsight[] = [];
 
   for (const insight of result.object.insights) {
-    const saved = await conversationalService.createInsight(sessionId, {
+    const saved = await chatService.createInsight(sessionId, {
       insight_type: insight.type,
       insight_text: insight.text,
       confidence_score: insight.confidence,
@@ -162,8 +162,8 @@ const QualityMetricsSchema = z.object({
  */
 export async function calculateQualityMetrics(
   sessionId: string,
-  conversationHistory: ConversationMessage[],
-  insights: ConversationInsight[]
+  conversationHistory: ChatMessage[],
+  insights: ChatInsight[]
 ): Promise<{
   quality_score: number;
   coverage: Record<string, boolean>;
@@ -248,8 +248,8 @@ const PRDSchema = z.object({
 export async function generatePRDFromConversation(
   sessionId: string,
   title: string,
-  conversationHistory: ConversationMessage[],
-  insights: ConversationInsight[]
+  conversationHistory: ChatMessage[],
+  insights: ChatInsight[]
 ): Promise<{ prd_markdown: string; prd_data: z.infer<typeof PRDSchema> }> {
   const { model } = getPreferredModel();
 

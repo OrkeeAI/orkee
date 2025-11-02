@@ -840,9 +840,12 @@ CREATE TABLE ideate_sessions (
     initial_description TEXT NOT NULL,
 
     -- Session metadata
-    mode TEXT NOT NULL CHECK(mode IN ('quick', 'guided', 'comprehensive', 'conversational')),
+    mode TEXT NOT NULL CHECK(mode IN ('quick', 'guided', 'chat')),
     status TEXT NOT NULL DEFAULT 'draft' CHECK(status IN ('draft', 'in_progress', 'ready_for_prd', 'completed')),
     current_section TEXT,
+
+    -- Research tools preference (for guided mode)
+    research_tools_enabled INTEGER NOT NULL DEFAULT 0,
 
     -- Track what user chose to skip (JSON array of section names)
     skipped_sections TEXT,
@@ -1030,7 +1033,7 @@ CREATE TABLE ideate_research (
 CREATE INDEX idx_ideate_research_session ON ideate_research(session_id);
 
 -- ============================================================================
--- COMPREHENSIVE MODE FEATURES
+-- ADVANCED IDEATE FEATURES (Research, Generation, Analysis)
 -- ============================================================================
 
 -- ============================================================================
@@ -2137,7 +2140,7 @@ CREATE TABLE work_analysis (
 CREATE INDEX idx_work_analysis_epic ON work_analysis(epic_id);
 CREATE INDEX idx_work_analysis_current ON work_analysis(epic_id, is_current);
 
--- Reusable Discovery Questions for Conversational Mode
+-- Reusable Discovery Questions for Chat Mode
 CREATE TABLE discovery_questions (
     id TEXT PRIMARY KEY CHECK(length(id) >= 8),
     category TEXT NOT NULL CHECK(category IN ('problem', 'users', 'features', 'technical', 'risks', 'constraints', 'success')),
@@ -2177,7 +2180,7 @@ CREATE INDEX idx_conversation_insights_type ON conversation_insights(insight_typ
 CREATE INDEX idx_conversation_insights_applied ON conversation_insights(applied_to_prd);
 
 -- ============================================================================
--- SEED DATA: Default Discovery Questions for Conversational Mode
+-- SEED DATA: Default Discovery Questions for Chat Mode
 -- ============================================================================
 
 INSERT OR IGNORE INTO discovery_questions (id, category, question_text, priority, is_required, display_order) VALUES

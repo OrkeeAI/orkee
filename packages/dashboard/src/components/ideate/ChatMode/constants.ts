@@ -1,4 +1,4 @@
-// ABOUTME: Constants for conversational mode
+// ABOUTME: Constants for chat mode
 // ABOUTME: Centralized configuration values and magic strings
 
 /**

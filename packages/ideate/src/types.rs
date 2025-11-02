@@ -11,12 +11,10 @@ use serde::{Deserialize, Serialize};
 pub enum IdeateMode {
     /// Quick mode: one-liner → complete PRD
     Quick,
-    /// Guided mode: step-by-step with optional sections
+    /// Guided mode: step-by-step with optional sections and advanced research tools
     Guided,
-    /// Comprehensive mode: full brainstorming with expert roundtables
-    Comprehensive,
-    /// Conversational mode: chat-based PRD discovery through conversation
-    Conversational,
+    /// Chat mode: chat-based PRD discovery through conversation
+    Chat,
 }
 
 /// Ideating session status
@@ -44,6 +42,7 @@ pub struct IdeateSession {
     pub status: IdeateStatus,
     pub skipped_sections: Option<Vec<String>>,
     pub current_section: Option<String>,
+    pub research_tools_enabled: bool,
     pub generated_prd_id: Option<String>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
@@ -56,6 +55,8 @@ pub struct CreateIdeateSessionInput {
     pub initial_description: String,
     pub mode: IdeateMode,
     pub template_id: Option<String>,
+    #[serde(default)]
+    pub research_tools_enabled: bool,
 }
 
 /// Input for updating a session
@@ -66,6 +67,7 @@ pub struct UpdateIdeateSessionInput {
     pub status: Option<IdeateStatus>,
     pub skipped_sections: Option<Vec<String>>,
     pub current_section: Option<String>,
+    pub research_tools_enabled: Option<bool>,
 }
 
 /// Overview section data

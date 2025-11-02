@@ -18,7 +18,7 @@ import { TemplateSelector } from './TemplateSelector';
 import { useCreateIdeateSession, useTemplates } from '@/hooks/useIdeate';
 import type { IdeateMode } from '@/services/ideate';
 import { Lightbulb, AlertCircle } from 'lucide-react';
-import { SESSION_DEFAULTS } from './ConversationalMode/constants';
+import { SESSION_DEFAULTS } from './ChatMode/constants';
 
 interface CreatePRDFlowProps {
   projectId: string;
@@ -47,19 +47,19 @@ export function CreatePRDFlow({
   const handleModeConfirm = async () => {
     if (selectedMode) {
       // Conversational mode: create session immediately and open chat
-      if (selectedMode === 'conversational') {
+      if (selectedMode === 'chat') {
         try {
           const session = await createSessionMutation.mutateAsync({
             projectId,
             initialDescription: SESSION_DEFAULTS.NEW_CONVERSATION_TITLE,
-            mode: 'conversational',
+            mode: 'chat',
             templateId: undefined,
           });
 
           // Reset and close
           resetFlow();
           onOpenChange(false);
-          onSessionCreated(session.id, 'conversational');
+          onSessionCreated(session.id, 'chat');
         } catch {
           // Error handled by React Query mutation
         }
@@ -68,23 +68,45 @@ export function CreatePRDFlow({
       else if (selectedMode === 'quick') {
         setStep('description');
       }
-      // Guided/Comprehensive: show template selection
+      // Guided: show template selection
       else {
         setStep('template');
       }
     }
   };
 
-  const handleTemplateConfirm = () => {
-    setStep('description');
+  const handleTemplateConfirm = async () => {
+    // For guided mode, create session immediately and open guided flow
+    if (selectedMode === 'guided') {
+      try {
+        const session = await createSessionMutation.mutateAsync({
+          projectId,
+          initialDescription: selectedTemplateId
+            ? `Using template: ${templates.find(t => t.id === selectedTemplateId)?.name || 'Template'}`
+            : 'Guided PRD creation',
+          mode: 'guided',
+          templateId: selectedTemplateId || undefined,
+        });
+
+        // Reset and close
+        resetFlow();
+        onOpenChange(false);
+        onSessionCreated(session.id, 'guided');
+      } catch {
+        // Error handled by React Query mutation
+      }
+    } else {
+      // For other modes, continue to description
+      setStep('description');
+    }
   };
 
   const handleBack = () => {
     if (step === 'template') {
       setStep('mode');
     } else if (step === 'description') {
-      // Go back to template for guided/comprehensive, or mode for quick/conversational
-      if (selectedMode === 'quick' || selectedMode === 'conversational') {
+      // Go back to template for guided, or mode for quick/chat
+      if (selectedMode === 'quick' || selectedMode === 'chat') {
         setStep('mode');
       } else {
         setStep('template');
@@ -160,7 +182,7 @@ export function CreatePRDFlow({
                 Cancel
               </Button>
               <Button onClick={handleModeConfirm} disabled={!selectedMode || loading}>
-                {loading && selectedMode === 'conversational' ? SESSION_DEFAULTS.STARTING_CHAT_TITLE : 'Continue'}
+                {loading && selectedMode === 'chat' ? SESSION_DEFAULTS.STARTING_CHAT_TITLE : 'Continue'}
               </Button>
             </DialogFooter>
           </>
@@ -226,8 +248,6 @@ export function CreatePRDFlow({
                       ? 'Example: A mobile app for tracking daily water intake with reminders and progress visualization'
                       : selectedMode === 'guided'
                       ? 'Provide a brief description of your project idea. You will expand on this in the following steps.'
-                      : selectedMode === 'comprehensive'
-                      ? 'Describe your project vision. We will explore it deeply through research and expert discussions.'
                       : 'Describe your initial project idea. We will discover requirements through conversation.'
                   }
                   rows={6}
@@ -239,8 +259,6 @@ export function CreatePRDFlow({
                     ? 'Be specific! The more detail you provide, the better the AI-generated PRD will be.'
                     : selectedMode === 'guided'
                     ? 'This will be your starting point. You can refine it as you work through each section.'
-                    : selectedMode === 'comprehensive'
-                    ? 'This description will be the foundation for comprehensive research and ideation.'
                     : 'This will start the conversation. You can elaborate and refine through back-and-forth dialogue.'}
                 </p>
               </div>
@@ -254,9 +272,7 @@ export function CreatePRDFlow({
                     'Your PRD will be generated automatically from this description.'}
                   {selectedMode === 'guided' &&
                     'You will be guided through each PRD section step-by-step.'}
-                  {selectedMode === 'comprehensive' &&
-                    'This will kick off in-depth research and expert roundtable discussions.'}
-                  {selectedMode === 'conversational' &&
+                  {selectedMode === 'chat' &&
                     'Start a conversation to discover and refine your requirements naturally.'}
                 </AlertDescription>
               </Alert>

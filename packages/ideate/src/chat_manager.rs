@@ -1,17 +1,17 @@
-// ABOUTME: Conversational mode manager for chat-based PRD discovery
+// ABOUTME: Chat mode manager for chat-based PRD discovery
 // ABOUTME: Handles message storage, retrieval, insight extraction, and quality tracking
 
-use crate::conversational::*;
+use crate::chat::*;
 use crate::error::{IdeateError, Result};
 use nanoid::nanoid;
 use sqlx::{Row, SqlitePool};
 use tracing::{error, info};
 
-pub struct ConversationalManager {
+pub struct ChatManager {
     pool: SqlitePool,
 }
 
-impl ConversationalManager {
+impl ChatManager {
     pub fn new(pool: SqlitePool) -> Self {
         Self { pool }
     }

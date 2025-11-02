@@ -5,27 +5,27 @@ import React, { useState, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Loader2, FileText, AlertCircle } from 'lucide-react';
-import { ConversationView } from './components/ConversationView';
+import { ChatView } from './components/ChatView';
 import { QualityIndicator } from './components/QualityIndicator';
 import { InsightsSidebar } from './components/InsightsSidebar';
-import { useConversation } from './hooks/useConversation';
+import { useChat } from './hooks/useChat';
 import { useDiscoveryQuestions } from './hooks/useDiscoveryQuestions';
 import { useStreamingResponse } from './hooks/useStreamingResponse';
-import { conversationalService, ConversationInsight } from '@/services/conversational';
+import { chatService, ChatInsight } from '@/services/chat';
 import { UI_TEXT } from './constants';
 
-export interface ConversationalModeFlowProps {
+export interface ChatModeFlowProps {
   sessionId: string;
   projectId: string;
   onPRDGenerated: (prdId: string) => void;
 }
 
-export function ConversationalModeFlow({
+export function ChatModeFlow({
   sessionId,
   // projectId,
   onPRDGenerated,
-}: ConversationalModeFlowProps) {
-  const [insights, setInsights] = useState<ConversationInsight[]>([]);
+}: ChatModeFlowProps) {
+  const [insights, setInsights] = useState<ChatInsight[]>([]);
   const [isGeneratingPRD, setIsGeneratingPRD] = useState(false);
   const [prdError, setPrdError] = useState<Error | null>(null);
 
@@ -37,7 +37,7 @@ export function ConversationalModeFlow({
     error: conversationError,
     sendMessage,
     refresh,
-  } = useConversation({
+  } = useChat({
     sessionId,
     autoLoadHistory: true,
   });
@@ -52,7 +52,7 @@ export function ConversationalModeFlow({
     conversationHistory: messages,
     onMessageComplete: async (content: string) => {
       try {
-        await conversationalService.sendMessage(sessionId, {
+        await chatService.sendMessage(sessionId, {
           content,
           message_type: 'discovery',
           role: 'assistant',
@@ -73,7 +73,7 @@ export function ConversationalModeFlow({
 
   const loadInsights = useCallback(async () => {
     try {
-      const data = await conversationalService.getInsights(sessionId);
+      const data = await chatService.getInsights(sessionId);
       setInsights(data);
     } catch (err) {
       console.error('Failed to load insights:', err);
@@ -103,7 +103,7 @@ export function ConversationalModeFlow({
       setIsGeneratingPRD(true);
       setPrdError(null);
 
-      const validation = await conversationalService.validateForPRD(sessionId);
+      const validation = await chatService.validateForPRD(sessionId);
 
       if (!validation.is_valid) {
         setPrdError(
@@ -114,7 +114,7 @@ export function ConversationalModeFlow({
         return;
       }
 
-      const result = await conversationalService.generatePRD(sessionId, {
+      const result = await chatService.generatePRD(sessionId, {
         title: `PRD from Conversation - ${new Date().toLocaleDateString()}`,
       });
 
@@ -138,7 +138,7 @@ export function ConversationalModeFlow({
           </div>
 
           <div className="flex-1 overflow-hidden">
-            <ConversationView
+            <ChatView
               messages={messages}
               streamingMessage={streamingMessage}
               suggestedQuestions={suggestedQuestions}

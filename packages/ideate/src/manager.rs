@@ -22,15 +22,16 @@ impl IdeateManager {
         let now = Utc::now();
 
         let session = sqlx::query(
-            "INSERT INTO ideate_sessions (id, project_id, initial_description, mode, status, created_at, updated_at)
-             VALUES ($1, $2, $3, $4, $5, $6, $7)
-             RETURNING id, project_id, initial_description, mode, status, skipped_sections, current_section, generated_prd_id, created_at, updated_at"
+            "INSERT INTO ideate_sessions (id, project_id, initial_description, mode, status, research_tools_enabled, created_at, updated_at)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+             RETURNING id, project_id, initial_description, mode, status, skipped_sections, current_section, research_tools_enabled, generated_prd_id, created_at, updated_at"
         )
         .bind(&id)
         .bind(&input.project_id)
         .bind(&input.initial_description)
         .bind(input.mode)
         .bind(IdeateStatus::Draft)
+        .bind(input.research_tools_enabled)
         .bind(now)
         .bind(now)
         .fetch_one(&self.db)
@@ -46,6 +47,7 @@ impl IdeateManager {
                 .get::<Option<String>, _>("skipped_sections")
                 .and_then(|s| serde_json::from_str(&s).ok()),
             current_section: session.get("current_section"),
+            research_tools_enabled: session.get::<i32, _>("research_tools_enabled") != 0,
             generated_prd_id: session.get("generated_prd_id"),
             created_at: session.get("created_at"),
             updated_at: session.get("updated_at"),
@@ -55,7 +57,7 @@ impl IdeateManager {
     /// Get a session by ID
     pub async fn get_session(&self, session_id: &str) -> Result<IdeateSession> {
         let session = sqlx::query(
-            "SELECT id, project_id, initial_description, mode, status, skipped_sections, current_section, generated_prd_id, created_at, updated_at
+            "SELECT id, project_id, initial_description, mode, status, skipped_sections, current_section, research_tools_enabled, generated_prd_id, created_at, updated_at
              FROM ideate_sessions
              WHERE id = $1"
         )
@@ -74,6 +76,7 @@ impl IdeateManager {
                 .get::<Option<String>, _>("skipped_sections")
                 .and_then(|s| serde_json::from_str(&s).ok()),
             current_section: session.get("current_section"),
+            research_tools_enabled: session.get::<i32, _>("research_tools_enabled") != 0,
             generated_prd_id: session.get("generated_prd_id"),
             created_at: session.get("created_at"),
             updated_at: session.get("updated_at"),
@@ -83,7 +86,7 @@ impl IdeateManager {
     /// List sessions for a project
     pub async fn list_sessions(&self, project_id: &str) -> Result<Vec<IdeateSession>> {
         let sessions = sqlx::query(
-            "SELECT id, project_id, initial_description, mode, status, skipped_sections, current_section, generated_prd_id, created_at, updated_at
+            "SELECT id, project_id, initial_description, mode, status, skipped_sections, current_section, research_tools_enabled, generated_prd_id, created_at, updated_at
              FROM ideate_sessions
              WHERE project_id = $1
              ORDER BY created_at DESC"
@@ -105,6 +108,7 @@ impl IdeateManager {
                         .get::<Option<String>, _>("skipped_sections")
                         .and_then(|s| serde_json::from_str(&s).ok()),
                     current_section: row.get("current_section"),
+                    research_tools_enabled: row.get::<i32, _>("research_tools_enabled") != 0,
                     generated_prd_id: row.get("generated_prd_id"),
                     created_at: row.get("created_at"),
                     updated_at: row.get("updated_at"),
@@ -142,6 +146,10 @@ impl IdeateManager {
             updates.push(format!("current_section = ${}", bind_count));
             bind_count += 1;
         }
+        if input.research_tools_enabled.is_some() {
+            updates.push(format!("research_tools_enabled = ${}", bind_count));
+            bind_count += 1;
+        }
 
         if updates.is_empty() {
             return self.get_session(session_id).await;
@@ -151,7 +159,7 @@ impl IdeateManager {
 
         let query = format!(
             "UPDATE ideate_sessions SET {} WHERE id = ${}
-             RETURNING id, project_id, initial_description, mode, status, skipped_sections, current_section, generated_prd_id, created_at, updated_at",
+             RETURNING id, project_id, initial_description, mode, status, skipped_sections, current_section, research_tools_enabled, generated_prd_id, created_at, updated_at",
             updates.join(", "),
             bind_count
         );
@@ -174,6 +182,9 @@ impl IdeateManager {
         if let Some(current_section) = input.current_section {
             q = q.bind(current_section);
         }
+        if let Some(research_tools_enabled) = input.research_tools_enabled {
+            q = q.bind(research_tools_enabled);
+        }
 
         q = q.bind(session_id);
 
@@ -189,6 +200,7 @@ impl IdeateManager {
                 .get::<Option<String>, _>("skipped_sections")
                 .and_then(|s| serde_json::from_str(&s).ok()),
             current_section: session.get("current_section"),
+            research_tools_enabled: session.get::<i32, _>("research_tools_enabled") != 0,
             generated_prd_id: session.get("generated_prd_id"),
             created_at: session.get("created_at"),
             updated_at: session.get("updated_at"),
@@ -1069,6 +1081,7 @@ impl IdeateManager {
                 mode: None,
                 status: None,
                 skipped_sections: None,
+                research_tools_enabled: None,
             },
         )
         .await
@@ -1125,8 +1138,7 @@ impl IdeateManager {
         let is_ready = match session.mode {
             IdeateMode::Quick => true,                  // Quick mode is always ready
             IdeateMode::Guided => completed_count >= 2, // At least 2 sections
-            IdeateMode::Comprehensive => completed_count >= 5, // At least 5 sections
-            IdeateMode::Conversational => true,         // Conversational uses quality score instead
+            IdeateMode::Chat => true,                   // Chat uses quality score instead
         };
 
         Ok(SessionCompletionStatus {

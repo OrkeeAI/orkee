@@ -5,7 +5,7 @@ import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { HelpCircle } from 'lucide-react';
-import type { DiscoveryQuestion } from '@/services/conversational';
+import type { DiscoveryQuestion } from '@/services/chat';
 
 export interface SuggestedQuestionsProps {
   questions: DiscoveryQuestion[];

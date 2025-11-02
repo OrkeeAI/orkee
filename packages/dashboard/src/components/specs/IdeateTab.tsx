@@ -1,5 +1,5 @@
 // ABOUTME: Ideation session management view for creating and managing PRD generation sessions
-// ABOUTME: Supports quick, guided, comprehensive, and conversational ideation modes with session tracking
+// ABOUTME: Supports quick, guided, and chat ideation modes with session tracking
 import { useState } from 'react';
 import { Lightbulb } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -7,8 +7,7 @@ import { CreatePRDFlow } from '@/components/ideate/CreatePRDFlow';
 import { SessionsList } from '@/components/ideate/SessionsList';
 import { QuickModeFlow } from '@/components/ideate/QuickMode';
 import { GuidedModeFlow } from '@/components/ideate/GuidedMode';
-import { ComprehensiveModeFlow } from '@/components/ideate/ComprehensiveMode';
-import { ConversationalModeFlow } from '@/components/ideate/ConversationalMode/ConversationalModeFlow';
+import { ChatModeFlow } from '@/components/ideate/ChatMode/ChatModeFlow';
 import type { IdeateSession, IdeateMode } from '@/services/ideate';
 
 interface IdeateTabProps {
@@ -19,8 +18,7 @@ export function IdeateTab({ projectId }: IdeateTabProps) {
   const [showIdeateFlow, setShowIdeateFlow] = useState(false);
   const [showQuickModeFlow, setShowQuickModeFlow] = useState(false);
   const [showGuidedModeFlow, setShowGuidedModeFlow] = useState(false);
-  const [showComprehensiveModeFlow, setShowComprehensiveModeFlow] = useState(false);
-  const [showConversationalModeFlow, setShowConversationalModeFlow] = useState(false);
+  const [showChatModeFlow, setShowChatModeFlow] = useState(false);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [skipToGenerateQuick, setSkipToGenerateQuick] = useState(false);
 
@@ -30,10 +28,8 @@ export function IdeateTab({ projectId }: IdeateTabProps) {
       setShowQuickModeFlow(true);
     } else if (session.mode === 'guided') {
       setShowGuidedModeFlow(true);
-    } else if (session.mode === 'comprehensive') {
-      setShowComprehensiveModeFlow(true);
-    } else if (session.mode === 'conversational') {
-      setShowConversationalModeFlow(true);
+    } else if (session.mode === 'chat') {
+      setShowChatModeFlow(true);
     }
   };
 
@@ -44,10 +40,8 @@ export function IdeateTab({ projectId }: IdeateTabProps) {
       setShowQuickModeFlow(true);
     } else if (mode === 'guided') {
       setShowGuidedModeFlow(true);
-    } else if (mode === 'comprehensive') {
-      setShowComprehensiveModeFlow(true);
-    } else if (mode === 'conversational') {
-      setShowConversationalModeFlow(true);
+    } else if (mode === 'chat') {
+      setShowChatModeFlow(true);
     }
   };
 
@@ -62,13 +56,8 @@ export function IdeateTab({ projectId }: IdeateTabProps) {
     setActiveSessionId(null);
   };
 
-  const handleComprehensiveModeComplete = () => {
-    setShowComprehensiveModeFlow(false);
-    setActiveSessionId(null);
-  };
-
-  const handleConversationalModeComplete = (prdId: string) => {
-    setShowConversationalModeFlow(false);
+  const handleChatModeComplete = (prdId: string) => {
+    setShowChatModeFlow(false);
     setActiveSessionId(null);
     console.log('PRD generated:', prdId);
   };
@@ -116,31 +105,23 @@ export function IdeateTab({ projectId }: IdeateTabProps) {
             onComplete={handleGuidedModeComplete}
           />
 
-          <ComprehensiveModeFlow
-            projectId={projectId}
-            sessionId={activeSessionId}
-            open={showComprehensiveModeFlow}
-            onOpenChange={setShowComprehensiveModeFlow}
-            onComplete={handleComprehensiveModeComplete}
-          />
-
-          {showConversationalModeFlow && (
+          {showChatModeFlow && (
             <div className="fixed inset-0 z-50 bg-background">
               <div className="h-full flex flex-col">
                 <div className="border-b p-4">
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => handleConversationalModeComplete('')}
+                    onClick={() => handleChatModeComplete('')}
                   >
                     ← Back to Sessions
                   </Button>
                 </div>
                 <div className="flex-1 overflow-hidden p-4">
-                  <ConversationalModeFlow
+                  <ChatModeFlow
                     projectId={projectId}
                     sessionId={activeSessionId}
-                    onPRDGenerated={handleConversationalModeComplete}
+                    onPRDGenerated={handleChatModeComplete}
                   />
                 </div>
               </div>

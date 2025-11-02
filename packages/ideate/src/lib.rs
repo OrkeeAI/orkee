@@ -2,8 +2,8 @@
 // ABOUTME: Provides session management, section handling, and PRD generation support
 
 pub mod build_optimizer;
-pub mod conversational;
-pub mod conversational_manager;
+pub mod chat;
+pub mod chat_manager;
 pub mod dependency_analyzer;
 pub mod epic;
 pub mod epic_manager;
@@ -27,13 +27,13 @@ pub use build_optimizer::{
     BuildOptimizer, BuildOrderResult, CircularDependency, CircularDependencySeverity,
     OptimizationStrategy,
 };
-pub use conversational::{
+pub use chat::{
     ConversationInsight, ConversationMessage, CreateInsightInput, DiscoveryQuestion,
     DiscoveryStatus, GeneratePRDFromConversationInput, GeneratePRDFromConversationResult,
     InsightType, MessageRole, MessageType, QualityMetrics, QuestionCategory, SendMessageInput,
     TopicCoverage, ValidationResult,
 };
-pub use conversational_manager::ConversationalManager;
+pub use chat_manager::ChatManager;
 pub use dependency_analyzer::{
     CreateDependencyInput, DependencyAnalysis, DependencyAnalyzer, DependencyStrength,
     DependencyType, FeatureDependency,

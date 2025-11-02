@@ -6,7 +6,7 @@ import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { CheckCircle2, Circle, AlertCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import type { QualityMetrics } from '@/services/conversational';
+import type { QualityMetrics } from '@/services/chat';
 
 export interface QualityIndicatorProps {
   metrics: QualityMetrics | null;

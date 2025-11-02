@@ -1,12 +1,12 @@
-# Conversational Mode (CCPM) Implementation Plan for Orkee
+# Chat Mode (CCPM) Implementation Plan for Orkee
 
 ## Overview
 
-This document outlines the implementation of a Conversational Mode (based on CCPM - Claude Code PM methodology) as a fourth ideation mode in Orkee. The system enables a conversational PRD discovery process, automatic Epic generation, task decomposition, and GitHub Issues integration for transparent execution tracking.
+This document outlines the implementation of a Chat Mode (based on CCPM - Claude Code PM methodology) as a fourth ideation mode in Orkee. The system enables a conversational PRD discovery process, automatic Epic generation, task decomposition, and GitHub Issues integration for transparent execution tracking.
 
 **Key Principles:**
 - All content stored in SQLite (no filesystem storage)
-- Conversational Mode added as fourth option (preserving existing modes)
+- Chat Mode added as fourth option (preserving existing modes)
 - PRD → Epic → Tasks workflow with full traceability
 - GitHub Issues for Epics and Tasks (PRDs remain private)
 - No "ccpm_" prefixes in database fields
@@ -15,7 +15,7 @@ This document outlines the implementation of a Conversational Mode (based on CCP
 
 ### Overall Status
 - [x] Phase 1: Database Schema Modifications
-- [x] Phase 2: Conversational Mode UI
+- [x] Phase 2: Chat Mode UI
 - [x] Phase 3: Epic Management System
 - [x] Phase 4: Task Decomposition
 - [x] Phase 5: GitHub Integration (Webhooks Deferred to Future Enhancement)
@@ -37,7 +37,7 @@ mode TEXT NOT NULL CHECK(mode IN ('quick', 'guided', 'comprehensive', 'conversat
 ```
 
 **prds table:**
-- [x] Add new fields for conversational mode
+- [x] Add new fields for chat mode
 ```sql
 -- Add after line ~278 (before created_at)
 conversation_id TEXT,           -- Links to prd_conversations
@@ -244,7 +244,7 @@ CREATE INDEX idx_work_analysis_current ON work_analysis(epic_id, is_current);
 
 - [x] Create discovery_questions table
 ```sql
--- Reusable Discovery Questions for Conversational Mode
+-- Reusable Discovery Questions for Chat Mode
 CREATE TABLE discovery_questions (
     id TEXT PRIMARY KEY CHECK(length(id) >= 8),
     category TEXT NOT NULL CHECK(category IN ('problem', 'users', 'features', 'technical', 'risks', 'constraints', 'success')),
@@ -292,7 +292,7 @@ CREATE INDEX idx_conversation_insights_applied ON conversation_insights(applied_
 - [x] Add default discovery questions
 ```sql
 -- Insert after line ~2000
--- Default Discovery Questions for Conversational Mode
+-- Default Discovery Questions for Chat Mode
 INSERT INTO discovery_questions (id, category, question_text, priority, is_required, display_order) VALUES
 ('dq-prob-1', 'problem', 'What specific problem are you trying to solve?', 10, TRUE, 1),
 ('dq-prob-2', 'problem', 'Who experiences this problem most acutely?', 9, TRUE, 2),
@@ -316,7 +316,7 @@ INSERT INTO discovery_questions (id, category, question_text, priority, is_requi
 
 ---
 
-## Phase 2: Conversational Mode UI Components
+## Phase 2: Chat Mode UI Components
 
 **Status**: ✅ COMPLETED
 
@@ -484,10 +484,10 @@ interface ConversationalState {
 14. `/packages/api/src/ideate_conversational_handlers.rs` - REST API handlers
 
 **Files Modified**:
-1. `/packages/dashboard/src/components/ideate/ModeSelector.tsx` - Added conversational mode option
-2. `/packages/dashboard/src/components/ideate/CreatePRDFlow.tsx` - Added conversational mode descriptions
+1. `/packages/dashboard/src/components/ideate/ModeSelector.tsx` - Added chat mode option
+2. `/packages/dashboard/src/components/ideate/CreatePRDFlow.tsx` - Added chat mode descriptions
 3. `/packages/dashboard/src/services/ideate.ts` - Updated IdeateMode type
-4. `/packages/dashboard/src/components/specs/IdeateTab.tsx` - Integrated conversational mode flow
+4. `/packages/dashboard/src/components/specs/IdeateTab.tsx` - Integrated chat mode flow
 5. `/packages/ideate/src/lib.rs` - Export conversational types and manager
 6. `/packages/api/src/lib.rs` - Wire up conversational API routes
 
@@ -978,7 +978,7 @@ describe('Conversational Flow', () => {
 - [ ] Playwright tests
 ```typescript
 // /packages/e2e/tests/conversational.spec.ts
-test('Complete Conversational Mode workflow', async ({ page }) => {
+test('Complete Chat Mode workflow', async ({ page }) => {
   // 1. Start new conversational session
   // 2. Complete discovery conversation
   // 3. Generate PRD
@@ -1003,7 +1003,7 @@ test('Complete Conversational Mode workflow', async ({ page }) => {
 ### 6.5 Documentation
 
 - [ ] User documentation
-  - Conversational Mode guide
+  - Chat Mode guide
   - Epic management tutorial
   - GitHub integration setup
   - Video walkthrough
@@ -1051,7 +1051,7 @@ test('Complete Conversational Mode workflow', async ({ page }) => {
 
 ## API Endpoints Reference
 
-### Conversational Mode (✅ Implemented)
+### Chat Mode (✅ Implemented)
 ```
 GET    /api/ideate/conversational/{session_id}/history
 POST   /api/ideate/conversational/{session_id}/message

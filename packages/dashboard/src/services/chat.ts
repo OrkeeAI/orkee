@@ -1,4 +1,4 @@
-// ABOUTME: Conversational mode API service for chat-based PRD discovery
+// ABOUTME: Chat mode API service for chat-based PRD discovery
 // ABOUTME: Handles conversation messages, discovery questions, and PRD generation from conversations
 
 import { apiClient } from './api';
@@ -8,7 +8,7 @@ export type MessageRole = 'user' | 'assistant' | 'system';
 export type MessageType = 'discovery' | 'refinement' | 'validation' | 'general';
 export type InsightType = 'requirement' | 'constraint' | 'risk' | 'assumption' | 'decision';
 
-export interface ConversationMessage {
+export interface ChatMessage {
   id: string;
   session_id: string;
   prd_id: string | null;
@@ -39,7 +39,7 @@ export interface DiscoveryQuestion {
   created_at: string;
 }
 
-export interface ConversationInsight {
+export interface ChatInsight {
   id: string;
   session_id: string;
   insight_type: InsightType;
@@ -75,13 +75,13 @@ export interface GeneratePRDFromConversationResult {
   quality_score: number;
 }
 
-class ConversationalService {
+class ChatService {
   /**
    * Get conversation history for a session
    */
-  async getHistory(sessionId: string): Promise<ConversationMessage[]> {
-    const response = await apiClient.get<{ success: boolean; data: ConversationMessage[] }>(
-      `/api/ideate/conversational/${sessionId}/history`
+  async getHistory(sessionId: string): Promise<ChatMessage[]> {
+    const response = await apiClient.get<{ success: boolean; data: ChatMessage[] }>(
+      `/api/ideate/chat/${sessionId}/history`
     );
 
     if (response.error || !response.data.success) {
@@ -94,9 +94,9 @@ class ConversationalService {
   /**
    * Send a message in the conversation
    */
-  async sendMessage(sessionId: string, input: SendMessageInput): Promise<ConversationMessage> {
-    const response = await apiClient.post<{ success: boolean; data: ConversationMessage }>(
-      `/api/ideate/conversational/${sessionId}/message`,
+  async sendMessage(sessionId: string, input: SendMessageInput): Promise<ChatMessage> {
+    const response = await apiClient.post<{ success: boolean; data: ChatMessage }>(
+      `/api/ideate/chat/${sessionId}/message`,
       input
     );
 
@@ -113,8 +113,8 @@ class ConversationalService {
    */
   async getDiscoveryQuestions(category?: string): Promise<DiscoveryQuestion[]> {
     const url = category
-      ? `/api/ideate/conversational/questions?category=${category}`
-      : '/api/ideate/conversational/questions';
+      ? `/api/ideate/chat/questions?category=${category}`
+      : '/api/ideate/chat/questions';
 
     const response = await apiClient.get<{ success: boolean; data: DiscoveryQuestion[] }>(url);
 
@@ -130,7 +130,7 @@ class ConversationalService {
    */
   async getSuggestedQuestions(sessionId: string): Promise<DiscoveryQuestion[]> {
     const response = await apiClient.get<{ success: boolean; data: DiscoveryQuestion[] }>(
-      `/api/ideate/conversational/${sessionId}/suggested-questions`
+      `/api/ideate/chat/${sessionId}/suggested-questions`
     );
 
     if (response.error || !response.data.success) {
@@ -143,9 +143,9 @@ class ConversationalService {
   /**
    * Get extracted insights from the conversation
    */
-  async getInsights(sessionId: string): Promise<ConversationInsight[]> {
-    const response = await apiClient.get<{ success: boolean; data: ConversationInsight[] }>(
-      `/api/ideate/conversational/${sessionId}/insights`
+  async getInsights(sessionId: string): Promise<ChatInsight[]> {
+    const response = await apiClient.get<{ success: boolean; data: ChatInsight[] }>(
+      `/api/ideate/chat/${sessionId}/insights`
     );
 
     if (response.error || !response.data.success) {
@@ -160,7 +160,7 @@ class ConversationalService {
    */
   async getQualityMetrics(sessionId: string): Promise<QualityMetrics> {
     const response = await apiClient.get<{ success: boolean; data: QualityMetrics }>(
-      `/api/ideate/conversational/${sessionId}/quality`
+      `/api/ideate/chat/${sessionId}/quality`
     );
 
     if (response.error || !response.data.success) {
@@ -175,7 +175,7 @@ class ConversationalService {
    */
   async updateDiscoveryStatus(sessionId: string, status: DiscoveryStatus): Promise<void> {
     const response = await apiClient.put<{ success: boolean }>(
-      `/api/ideate/conversational/${sessionId}/status`,
+      `/api/ideate/chat/${sessionId}/status`,
       { status }
     );
 
@@ -192,7 +192,7 @@ class ConversationalService {
     input: GeneratePRDFromConversationInput
   ): Promise<GeneratePRDFromConversationResult> {
     const response = await apiClient.post<{ success: boolean; data: GeneratePRDFromConversationResult }>(
-      `/api/ideate/conversational/${sessionId}/generate-prd`,
+      `/api/ideate/chat/${sessionId}/generate-prd`,
       input
     );
 
@@ -214,7 +214,7 @@ class ConversationalService {
     const response = await apiClient.get<{
       success: boolean;
       data: { is_valid: boolean; missing_required: string[]; warnings: string[] };
-    }>(`/api/ideate/conversational/${sessionId}/validate`);
+    }>(`/api/ideate/chat/${sessionId}/validate`);
 
     if (response.error || !response.data.success) {
       throw new Error(response.error || 'Failed to validate conversation');
@@ -234,9 +234,9 @@ class ConversationalService {
       confidence_score?: number;
       source_message_ids?: string[];
     }
-  ): Promise<ConversationInsight> {
-    const response = await apiClient.post<{ success: boolean; data: ConversationInsight }>(
-      `/api/ideate/conversational/${sessionId}/insights`,
+  ): Promise<ChatInsight> {
+    const response = await apiClient.post<{ success: boolean; data: ChatInsight }>(
+      `/api/ideate/chat/${sessionId}/insights`,
       input
     );
 
@@ -248,4 +248,4 @@ class ConversationalService {
   }
 }
 
-export const conversationalService = new ConversationalService();
+export const chatService = new ChatService();

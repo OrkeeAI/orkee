@@ -1,16 +1,16 @@
-// ABOUTME: React hook for managing conversational mode state and operations
+// ABOUTME: React hook for managing chat mode state and operations
 // ABOUTME: Handles message sending, history fetching, and quality metrics tracking
 
 import { useState, useEffect, useCallback } from 'react';
-import { conversationalService, ConversationMessage, QualityMetrics } from '@/services/conversational';
+import { chatService, ChatMessage, QualityMetrics } from '@/services/chat';
 
 export interface UseConversationOptions {
   sessionId: string;
   autoLoadHistory?: boolean;
 }
 
-export function useConversation({ sessionId, autoLoadHistory = true }: UseConversationOptions) {
-  const [messages, setMessages] = useState<ConversationMessage[]>([]);
+export function useChat({ sessionId, autoLoadHistory = true }: UseConversationOptions) {
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [error, setError] = useState<Error | null>(null);
@@ -20,7 +20,7 @@ export function useConversation({ sessionId, autoLoadHistory = true }: UseConver
     try {
       setIsLoading(true);
       setError(null);
-      const history = await conversationalService.getHistory(sessionId);
+      const history = await chatService.getHistory(sessionId);
       setMessages(history);
     } catch (err) {
       setError(err instanceof Error ? err : new Error('Failed to load conversation history'));
@@ -31,7 +31,7 @@ export function useConversation({ sessionId, autoLoadHistory = true }: UseConver
 
   const loadQualityMetrics = useCallback(async () => {
     try {
-      const metrics = await conversationalService.getQualityMetrics(sessionId);
+      const metrics = await chatService.getQualityMetrics(sessionId);
       setQualityMetrics(metrics);
     } catch (err) {
       console.error('Failed to load quality metrics:', err);
@@ -44,7 +44,7 @@ export function useConversation({ sessionId, autoLoadHistory = true }: UseConver
         setIsSending(true);
         setError(null);
 
-        const newMessage = await conversationalService.sendMessage(sessionId, {
+        const newMessage = await chatService.sendMessage(sessionId, {
           content,
           message_type: messageType,
         });
