@@ -178,6 +178,45 @@ export interface DecompositionResult {
   conflicts: Array<{ task1: string; task2: string; reason: string }>;
 }
 
+// Two-Phase Task Generation Types
+export interface ParentTask {
+  id: string;
+  title: string;
+  description: string;
+  order: number;
+  estimatedSubtasks?: number;
+}
+
+export interface ParentTasksResponse {
+  parentTasks: ParentTask[];
+  estimatedTotalTasks: number;
+  complexity: number;
+}
+
+// Complexity Analysis Types
+export interface ComplexityReport {
+  epicId: string;
+  complexityScore: number;
+  reasoning: string;
+  recommendedTaskCount: number;
+  expansionStrategy: string;
+  analyzedAt: string;
+}
+
+// Simplification Types
+export interface SimplificationSuggestion {
+  type: 'combine' | 'leverage' | 'defer';
+  suggestion: string;
+  reason: string;
+  potentialSavings?: string;
+}
+
+export interface SimplificationAnalysis {
+  suggestions: SimplificationSuggestion[];
+  leverageOpportunities: string[];
+  combinableTasks: Array<{ task1: string; task2: string; reason: string }>;
+}
+
 // GitHub Sync Types
 export type GitHubSyncStatus = 'pending' | 'syncing' | 'synced' | 'failed' | 'conflict';
 export type GitHubSyncDirection = 'local_to_github' | 'github_to_local' | 'bidirectional';
@@ -430,6 +469,121 @@ export class EpicsService {
     }
 
     return response.data.data?.syncs || [];
+  }
+
+  // Two-Phase Task Generation Operations
+  async generateParentTasks(projectId: string, epicId: string): Promise<ParentTasksResponse> {
+    const response = await apiClient.post<ApiResponse<ParentTasksResponse>>(
+      `/api/projects/${projectId}/epics/${epicId}/decompose-phase1`,
+      {}
+    );
+
+    if (response.error || !response.data?.success) {
+      throw new Error(response.data?.error || response.error || 'Failed to generate parent tasks');
+    }
+
+    if (!response.data.data) {
+      throw new Error('No parent tasks response returned');
+    }
+
+    return response.data.data;
+  }
+
+  async getParentTasks(projectId: string, epicId: string): Promise<ParentTask[]> {
+    const response = await apiClient.get<ApiResponse<{ parent_tasks: ParentTask[] }>>(
+      `/api/projects/${projectId}/epics/${epicId}/parent-tasks`
+    );
+
+    if (response.error || !response.data?.success) {
+      throw new Error(response.data?.error || response.error || 'Failed to get parent tasks');
+    }
+
+    return response.data.data?.parent_tasks || [];
+  }
+
+  async updateParentTasks(projectId: string, epicId: string, parentTasks: ParentTask[]): Promise<boolean> {
+    const { apiRequest } = await import('./api');
+    const result = await apiRequest<ApiResponse<string>>(
+      `/api/projects/${projectId}/epics/${epicId}/parent-tasks`,
+      {
+        method: 'PUT',
+        body: JSON.stringify({ parent_tasks: parentTasks }),
+      }
+    );
+
+    if (!result.success || !result.data) {
+      throw new Error(result.error || 'Failed to update parent tasks');
+    }
+
+    if (!result.data.success) {
+      throw new Error(result.data.error || 'Failed to update parent tasks');
+    }
+
+    return true;
+  }
+
+  async expandToSubtasks(projectId: string, epicId: string): Promise<DecompositionResult> {
+    const response = await apiClient.post<ApiResponse<DecompositionResult>>(
+      `/api/projects/${projectId}/epics/${epicId}/decompose-phase2`,
+      {}
+    );
+
+    if (response.error || !response.data?.success) {
+      throw new Error(response.data?.error || response.error || 'Failed to expand parent tasks to subtasks');
+    }
+
+    if (!response.data.data) {
+      throw new Error('No decomposition result returned');
+    }
+
+    return response.data.data;
+  }
+
+  // Complexity Analysis Operations
+  async analyzeComplexity(epicId: string): Promise<ComplexityReport> {
+    const response = await apiClient.post<ApiResponse<ComplexityReport>>(
+      `/api/epics/${epicId}/analyze-complexity`,
+      {}
+    );
+
+    if (response.error || !response.data?.success) {
+      throw new Error(response.data?.error || response.error || 'Failed to analyze complexity');
+    }
+
+    if (!response.data.data) {
+      throw new Error('No complexity report returned');
+    }
+
+    return response.data.data;
+  }
+
+  async getSimplificationSuggestions(epicId: string): Promise<SimplificationAnalysis> {
+    const response = await apiClient.post<ApiResponse<SimplificationAnalysis>>(
+      `/api/epics/${epicId}/simplify`,
+      {}
+    );
+
+    if (response.error || !response.data?.success) {
+      throw new Error(response.data?.error || response.error || 'Failed to get simplification suggestions');
+    }
+
+    if (!response.data.data) {
+      throw new Error('No simplification analysis returned');
+    }
+
+    return response.data.data;
+  }
+
+  async getLeverageAnalysis(epicId: string): Promise<{ opportunities: string[] }> {
+    const response = await apiClient.get<ApiResponse<{ opportunities: string[] }>>(
+      `/api/epics/${epicId}/leverage-analysis`
+    );
+
+    if (response.error || !response.data?.success) {
+      throw new Error(response.data?.error || response.error || 'Failed to get leverage analysis');
+    }
+
+    return response.data.data || { opportunities: [] };
   }
 }
 

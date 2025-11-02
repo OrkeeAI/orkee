@@ -47,6 +47,50 @@ export interface TaskUpdateInput {
   completedAt?: string;
 }
 
+// TDD Task Execution Types
+export interface TaskStep {
+  stepNumber: number;
+  action: string;
+  testCommand?: string;
+  expectedOutput: string;
+  estimatedMinutes: number;
+}
+
+export interface FileReference {
+  path: string;
+  operation: 'create' | 'modify' | 'delete';
+  reason: string;
+}
+
+export interface ValidationEntry {
+  timestamp: string;
+  entryType: 'progress' | 'issue' | 'decision' | 'checkpoint';
+  content: string;
+  author: string;
+}
+
+export interface ExecutionCheckpoint {
+  afterTaskId: string;
+  checkpointType: 'review' | 'test' | 'integration' | 'approval';
+  message: string;
+  requiredValidation: string[];
+}
+
+export interface TaskExecutionSteps {
+  taskId: string;
+  steps: TaskStep[];
+  testStrategy: string;
+  acceptanceCriteria: string[];
+  relevantFiles: FileReference[];
+  similarImplementations: string[];
+}
+
+export interface ProgressUpdate {
+  content: string;
+  entryType: ValidationEntry['entryType'];
+  author?: string;
+}
+
 interface ApiResponse<T> {
   success: boolean;
   data: T | null;
@@ -149,6 +193,94 @@ export class TasksService {
     if (!response.data.success) {
       throw new Error(response.data.error || 'Failed to delete task');
     }
+  }
+
+  // Task Execution Tracking Operations
+  async generateExecutionSteps(taskId: string): Promise<TaskExecutionSteps> {
+    const response = await apiRequest<ApiResponse<TaskExecutionSteps>>(
+      `/api/tasks/${taskId}/generate-steps`,
+      {
+        method: 'POST',
+      }
+    );
+
+    if (!response.success || !response.data) {
+      throw new Error(response.error || 'Failed to generate execution steps');
+    }
+
+    if (!response.data.success) {
+      throw new Error(response.data.error || 'Failed to generate execution steps');
+    }
+
+    return response.data.data!;
+  }
+
+  async appendProgress(taskId: string, update: ProgressUpdate): Promise<ValidationEntry> {
+    const response = await apiRequest<ApiResponse<ValidationEntry>>(
+      `/api/tasks/${taskId}/append-progress`,
+      {
+        method: 'POST',
+        body: JSON.stringify(update),
+      }
+    );
+
+    if (!response.success || !response.data) {
+      throw new Error(response.error || 'Failed to append progress');
+    }
+
+    if (!response.data.success) {
+      throw new Error(response.data.error || 'Failed to append progress');
+    }
+
+    return response.data.data!;
+  }
+
+  async getValidationHistory(taskId: string): Promise<ValidationEntry[]> {
+    const response = await apiRequest<ApiResponse<{ history: ValidationEntry[] }>>(
+      `/api/tasks/${taskId}/validation-history`
+    );
+
+    if (!response.success || !response.data) {
+      throw new Error(response.error || 'Failed to get validation history');
+    }
+
+    if (!response.data.success) {
+      throw new Error(response.data.error || 'Failed to get validation history');
+    }
+
+    return response.data.data?.history || [];
+  }
+
+  async getTaskCheckpoints(taskId: string): Promise<ExecutionCheckpoint[]> {
+    const response = await apiRequest<ApiResponse<{ checkpoints: ExecutionCheckpoint[] }>>(
+      `/api/tasks/${taskId}/checkpoints`
+    );
+
+    if (!response.success || !response.data) {
+      throw new Error(response.error || 'Failed to get task checkpoints');
+    }
+
+    if (!response.data.success) {
+      throw new Error(response.data.error || 'Failed to get task checkpoints');
+    }
+
+    return response.data.data?.checkpoints || [];
+  }
+
+  async getEpicCheckpoints(epicId: string): Promise<ExecutionCheckpoint[]> {
+    const response = await apiRequest<ApiResponse<{ checkpoints: ExecutionCheckpoint[] }>>(
+      `/api/epics/${epicId}/checkpoints`
+    );
+
+    if (!response.success || !response.data) {
+      throw new Error(response.error || 'Failed to get epic checkpoints');
+    }
+
+    if (!response.data.success) {
+      throw new Error(response.data.error || 'Failed to get epic checkpoints');
+    }
+
+    return response.data.data?.checkpoints || [];
   }
 }
 
