@@ -29,6 +29,7 @@ pub struct AnswerQuestionRequest {
 
 /// Response for discovery progress
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct DiscoveryProgressResponse {
     pub total_questions_asked: usize,
     pub total_questions_answered: usize,
@@ -53,12 +54,12 @@ pub async fn analyze_codebase(
     let session = match manager.get_session(&session_id).await {
         Ok(s) => s,
         Err(e) => {
-            error!("Failed to get session: {:?}", e);
+            error!("Failed to get session {}: {:?}", session_id, e);
             return (
                 StatusCode::NOT_FOUND,
                 Json(serde_json::json!({
                     "success": false,
-                    "error": "Ideate session not found"
+                    "error": format!("Ideate session '{}' not found. Please verify the session ID exists.", session_id)
                 })),
             )
                 .into_response();
@@ -73,23 +74,29 @@ pub async fn analyze_codebase(
         match orkee_projects::get_project(&session.project_id).await {
             Ok(Some(project)) => PathBuf::from(project.project_root),
             Ok(None) => {
-                error!("Project not found: {}", session.project_id);
+                error!("Project '{}' not found for session '{}'", session.project_id, session_id);
                 return (
                     StatusCode::BAD_REQUEST,
                     Json(serde_json::json!({
                         "success": false,
-                        "error": "Project not found and no project_path provided"
+                        "error": format!(
+                            "Project '{}' not found for session '{}'. Please provide a project_path in the request body or ensure the project exists.",
+                            session.project_id, session_id
+                        )
                     })),
                 )
                     .into_response();
             }
             Err(e) => {
-                error!("Failed to get project: {:?}", e);
+                error!("Failed to get project '{}' for session '{}': {:?}", session.project_id, session_id, e);
                 return (
                     StatusCode::INTERNAL_SERVER_ERROR,
                     Json(serde_json::json!({
                         "success": false,
-                        "error": format!("Failed to get project: {}", e)
+                        "error": format!(
+                            "Failed to retrieve project '{}' from database: {}. Session ID: {}",
+                            session.project_id, e, session_id
+                        )
                     })),
                 )
                     .into_response();
@@ -113,12 +120,15 @@ pub async fn analyze_codebase(
                 .into_response()
         }
         Err(e) => {
-            error!("Failed to analyze codebase: {:?}", e);
+            error!("Failed to analyze codebase for session '{}': {:?}", session_id, e);
             (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(serde_json::json!({
                     "success": false,
-                    "error": format!("Failed to analyze codebase: {}", e)
+                    "error": format!(
+                        "Failed to analyze codebase for session '{}': {}. Please verify the project path is accessible and contains valid code.",
+                        session_id, e
+                    )
                 })),
             )
                 .into_response()

@@ -15,6 +15,7 @@ use orkee_projects::DbState;
 
 /// Request body for storing validation feedback
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct StoreValidationRequest {
     pub section: String,
     pub validation_result: PRDValidationResult,
@@ -23,6 +24,7 @@ pub struct StoreValidationRequest {
 
 /// Response for quality score
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct QualityScoreResponse {
     pub overall_score: i32,
     pub section_scores: std::collections::HashMap<String, i32>,

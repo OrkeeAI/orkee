@@ -19,6 +19,7 @@ use orkee_projects::DbState;
 
 /// Response for generated alternatives
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct AlternativesResponse {
     pub approaches: Vec<TechnicalApproach>,
     pub comparison: ApproachComparison,
@@ -27,6 +28,7 @@ pub struct AlternativesResponse {
 
 /// Request body for selecting an approach
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct SelectApproachRequest {
     pub approach_name: String,
     pub rationale: Option<String>,

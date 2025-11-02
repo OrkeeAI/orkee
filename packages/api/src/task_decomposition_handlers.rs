@@ -15,6 +15,7 @@ use orkee_projects::DbState;
 
 /// Request body for updating parent tasks
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct UpdateParentTasksRequest {
     pub parent_tasks: Vec<ParentTask>,
 }
