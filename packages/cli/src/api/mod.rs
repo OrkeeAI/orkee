@@ -331,10 +331,6 @@ pub async fn create_router_with_options(
             "/api/ai-usage",
             api::create_ai_usage_router().with_state(db_state.clone()),
         )
-        .nest(
-            "/api/projects",
-            api::create_context_router().with_state(db_state.clone()),
-        )
         .layer(axum::Extension(path_validator));
 
     // If dashboard path is provided, serve static files
