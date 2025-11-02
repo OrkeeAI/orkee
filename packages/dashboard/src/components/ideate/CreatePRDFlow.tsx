@@ -68,7 +68,7 @@ export function CreatePRDFlow({
       else if (selectedMode === 'quick') {
         setStep('description');
       }
-      // Guided/Comprehensive: show template selection
+      // Guided: show template selection
       else {
         setStep('template');
       }
@@ -83,7 +83,7 @@ export function CreatePRDFlow({
     if (step === 'template') {
       setStep('mode');
     } else if (step === 'description') {
-      // Go back to template for guided/comprehensive, or mode for quick/conversational
+      // Go back to template for guided, or mode for quick/conversational
       if (selectedMode === 'quick' || selectedMode === 'conversational') {
         setStep('mode');
       } else {
@@ -226,8 +226,6 @@ export function CreatePRDFlow({
                       ? 'Example: A mobile app for tracking daily water intake with reminders and progress visualization'
                       : selectedMode === 'guided'
                       ? 'Provide a brief description of your project idea. You will expand on this in the following steps.'
-                      : selectedMode === 'comprehensive'
-                      ? 'Describe your project vision. We will explore it deeply through research and expert discussions.'
                       : 'Describe your initial project idea. We will discover requirements through conversation.'
                   }
                   rows={6}
@@ -239,8 +237,6 @@ export function CreatePRDFlow({
                     ? 'Be specific! The more detail you provide, the better the AI-generated PRD will be.'
                     : selectedMode === 'guided'
                     ? 'This will be your starting point. You can refine it as you work through each section.'
-                    : selectedMode === 'comprehensive'
-                    ? 'This description will be the foundation for comprehensive research and ideation.'
                     : 'This will start the conversation. You can elaborate and refine through back-and-forth dialogue.'}
                 </p>
               </div>
@@ -254,8 +250,6 @@ export function CreatePRDFlow({
                     'Your PRD will be generated automatically from this description.'}
                   {selectedMode === 'guided' &&
                     'You will be guided through each PRD section step-by-step.'}
-                  {selectedMode === 'comprehensive' &&
-                    'This will kick off in-depth research and expert roundtable discussions.'}
                   {selectedMode === 'conversational' &&
                     'Start a conversation to discover and refine your requirements naturally.'}
                 </AlertDescription>

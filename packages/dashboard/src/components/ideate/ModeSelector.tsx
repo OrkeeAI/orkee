@@ -1,5 +1,5 @@
 // ABOUTME: Mode selection component for ideate session creation
-// ABOUTME: Displays three mode options (Quick, Guided, Comprehensive) with descriptions
+// ABOUTME: Displays mode options (Quick, Guided, Conversational) with descriptions
 import React from 'react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -37,25 +37,15 @@ const MODE_OPTIONS: ModeOption[] = [
   {
     mode: 'guided',
     title: 'Guided Mode',
-    description: 'Step-by-step PRD creation with AI assistance',
+    description: 'Step-by-step PRD creation with optional advanced research tools',
     icon: <MapPin className="h-6 w-6" />,
     features: [
       'Navigate through sections',
       'Skip optional sections',
       'AI suggestions for each part',
+      'Advanced research tools (optional)',
+      'Expert roundtable discussions (optional)',
       'Full control over content',
-    ],
-  },
-  {
-    mode: 'comprehensive',
-    title: 'Comprehensive Mode',
-    description: 'Deep ideateing with research and expert roundtables',
-    icon: <Sparkles className="h-6 w-6" />,
-    features: [
-      'Competitor analysis',
-      'Expert AI roundtable discussions',
-      'Similar project research',
-      'In-depth ideation',
     ],
   },
   {
