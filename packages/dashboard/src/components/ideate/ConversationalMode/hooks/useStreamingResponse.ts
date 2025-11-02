@@ -144,7 +144,9 @@ export function useStreamingResponse({
           // onError
           (error: Error) => {
             handleError(error);
-          }
+          },
+          // abortSignal
+          abortControllerRef.current?.signal
         );
       } catch (error) {
         const err = error instanceof Error ? error : new Error(ERROR_MESSAGES.GENERIC_ERROR);

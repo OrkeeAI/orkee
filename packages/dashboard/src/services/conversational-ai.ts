@@ -34,7 +34,8 @@ export async function streamConversationalResponse(
   conversationHistory: ConversationMessage[],
   onChunk: (text: string) => void,
   onComplete: (fullText: string) => void,
-  onError: (error: Error) => void
+  onError: (error: Error) => void,
+  abortSignal?: AbortSignal
 ): Promise<void> {
   try {
     const { model } = getPreferredModel();
@@ -57,6 +58,7 @@ export async function streamConversationalResponse(
       messages,
       temperature: 0.7,
       maxTokens: 1000,
+      abortSignal,
     });
 
     let fullText = '';
