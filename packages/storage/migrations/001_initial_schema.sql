@@ -388,6 +388,7 @@ CREATE INDEX idx_tasks_assigned_agent_id ON tasks(assigned_agent_id);
 CREATE INDEX idx_tasks_created_by_user_id ON tasks(created_by_user_id);
 CREATE INDEX idx_tasks_tag_id ON tasks(tag_id);
 CREATE INDEX idx_tasks_from_prd_id ON tasks(from_prd_id);
+CREATE INDEX idx_tasks_parent_task_id ON tasks(parent_task_id);
 CREATE INDEX idx_tasks_user_status ON tasks(created_by_user_id, status);
 CREATE INDEX idx_tasks_project_status ON tasks(project_id, status);
 CREATE INDEX idx_tasks_project_priority ON tasks(project_id, priority);
@@ -2269,6 +2270,7 @@ CREATE TABLE prd_validation_history (
 
 CREATE INDEX idx_prd_validation_session ON prd_validation_history(session_id);
 CREATE INDEX idx_prd_validation_section ON prd_validation_history(section_name);
+CREATE INDEX idx_prd_validation_session_time ON prd_validation_history(session_id, validated_at);
 
 -- Phase 5: Execution Checkpoints
 CREATE TABLE execution_checkpoints (

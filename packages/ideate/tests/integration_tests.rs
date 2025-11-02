@@ -402,7 +402,7 @@ async fn test_full_ideate_to_tasks_workflow() {
 
     // Step 5: Generate tasks (simulated - would use TaskDecomposer in real flow)
     println!("\nStep 5: Generating tasks...");
-    let task_ids = vec!["test-task-001", "test-task-002", "test-task-003"];
+    let task_ids = ["test-task-001", "test-task-002", "test-task-003"];
 
     for (idx, task_id) in task_ids.iter().enumerate() {
         sqlx::query(
@@ -417,7 +417,7 @@ async fn test_full_ideate_to_tasks_workflow() {
         .bind(format!("Detailed description for task {}", idx + 1))
         .bind(5)
         .bind(format!("Write integration test for task {}", idx + 1))
-        .bind(format!("{{\"criteria\":[\"Test passes\",\"No errors\"]}}",))
+        .bind("{\"criteria\":[\"Test passes\",\"No errors\"]}".to_string())
         .bind(5)
         .execute(&pool)
         .await
@@ -617,9 +617,7 @@ async fn test_two_phase_task_generation() {
             .bind(subtask_name)
             .bind(format!("Subtask {} of parent {}", idx + 1, parent_id))
             .bind(format!("Write unit test for {}", subtask_name))
-            .bind(format!(
-                "{{\"criteria\":[\"Test passes\",\"Code reviewed\"]}}",
-            ))
+            .bind("{\"criteria\":[\"Test passes\",\"Code reviewed\"]}".to_string())
             .bind(3) // complexity_score
             .bind(parent_id)
             .execute(&pool)
@@ -716,12 +714,7 @@ async fn test_checkpoint_system() {
     .unwrap();
 
     // Create tasks
-    let task_ids = vec![
-        "pay-task-001",
-        "pay-task-002",
-        "pay-task-003",
-        "pay-task-004",
-    ];
+    let task_ids = ["pay-task-001", "pay-task-002", "pay-task-003", "pay-task-004"];
     for (idx, task_id) in task_ids.iter().enumerate() {
         sqlx::query(
             "INSERT INTO tasks (
