@@ -1,5 +1,5 @@
 // ABOUTME: Mode selection component for ideate session creation
-// ABOUTME: Displays mode options (Quick, Guided, Conversational) with descriptions
+// ABOUTME: Displays mode options (Quick, Guided, Chat) with descriptions
 import React from 'react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -72,7 +72,7 @@ export function ModeSelector({ selectedMode, onSelectMode, onConfirm }: ModeSele
         </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {MODE_OPTIONS.map((option) => (
           <Card
             key={option.mode}
