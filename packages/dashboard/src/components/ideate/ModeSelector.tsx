@@ -3,7 +3,7 @@
 import React from 'react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Zap, MapPin, Sparkles, MessageSquare } from 'lucide-react';
+import { Zap, MapPin, MessageSquare } from 'lucide-react';
 import type { IdeateMode } from '@/services/ideate';
 import { cn } from '@/lib/utils';
 
