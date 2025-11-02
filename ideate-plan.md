@@ -1068,35 +1068,63 @@ Phase 6C is **FULLY COMPLETE** with all components integrated into ChatModeFlow:
 
 ## Phase 6E: UI Integration - Epic & Task Views (Priority 5)
 
-### Status: **NOT STARTED**
+### Status: **IN PROGRESS** (6E.1-6E.2 COMPLETED, 6E.3-6E.4 PENDING)
 
 ### Checklist
-- [ ] **6E.1 Parent Task Review UI**
-  - [ ] Display parent tasks before expansion
-  - [ ] Allow reordering parent tasks
-  - [ ] Allow editing/deleting parent tasks
-  - [ ] Add "Generate Detailed Tasks" button
-  - [ ] Show estimated task count
-- [ ] **6E.2 Complexity Display**
-  - [ ] Show complexity score (1-10)
-  - [ ] Display complexity reasoning
-  - [ ] Show recommended task count
-  - [ ] Task count vs. limit indicator
+- [x] **6E.1 Parent Task Review UI** - COMPLETED (commit db6c1f4)
+  - [x] Display parent tasks before expansion with drag-and-drop reordering
+  - [x] Allow reordering parent tasks via drag handle
+  - [x] Allow editing/deleting parent tasks with inline editor
+  - [x] Add "Generate Detailed Tasks" button with loading state
+  - [x] Show estimated task count per parent task and total
+  - [x] Component: `packages/dashboard/src/components/epics/ParentTaskReview.tsx`
+- [x] **6E.2 Complexity Display** - COMPLETED (commit db6c1f4)
+  - [x] Show complexity score (1-10) with color-coded badge
+  - [x] Display complexity reasoning in dedicated card
+  - [x] Show recommended task count with progress bar
+  - [x] Task count vs. limit indicator (visual progress)
+  - [x] Component: `packages/dashboard/src/components/epics/ComplexityDisplay.tsx`
 - [ ] **6E.3 TDD Task View**
   - [ ] Display test strategy prominently
   - [ ] Show execution steps with timing
   - [ ] Make test commands copyable
   - [ ] Link relevant files
   - [ ] Show similar implementations
+  - [ ] Component: `packages/dashboard/src/components/tasks/TDDTaskView.tsx` (to be created)
 - [ ] **6E.4 Checkpoint UI Modals**
   - [ ] Checkpoint trigger modal
   - [ ] Required validation checklist
   - [ ] Progress history timeline
   - [ ] Append-only progress display
+  - [ ] Components: `packages/dashboard/src/components/tasks/CheckpointModal.tsx` (to be created)
+- [ ] **6E.5 Integration with EpicDetail View**
+  - [ ] Add new tabs for Parent Tasks, Complexity, TDD View
+  - [ ] Wire up API calls with React Query
+  - [ ] Add loading and error states
+  - [ ] Test end-to-end workflow
+
+### Implementation Summary (As of 2025-11-02)
+
+**Completed Work:**
+1. **API Services** (commit 33b3017):
+   - Added `ParentTask`, `ComplexityReport`, `SimplificationAnalysis` types to `epics.ts`
+   - Added `TaskStep`, `FileReference`, `ValidationEntry`, `ExecutionCheckpoint` types to `tasks.ts`
+   - Implemented two-phase task generation methods in `EpicsService`
+   - Implemented execution tracking methods in `TasksService`
+
+2. **UI Components** (commit db6c1f4):
+   - `ParentTaskReview.tsx`: Full-featured parent task management with drag-and-drop, inline editing
+   - `ComplexityDisplay.tsx`: Visual complexity analysis with score, reasoning, and strategy display
+
+**Remaining Work:**
+- TDD Task View component to display execution steps, test strategies, and file references
+- Checkpoint UI Modals for validation checklists and progress history
+- Integration of all new components into the existing `EpicDetail.tsx` view
+- End-to-end testing of the two-phase task generation workflow
 
 ### Locations
-- Epic views: `packages/dashboard/src/components/epics/` (may need creation)
-- Task views: `packages/dashboard/src/components/tasks/` (may need creation)
+- Epic views: `packages/dashboard/src/components/epics/`
+- Task views: `packages/dashboard/src/components/tasks/` (needs creation)
 
 ---
 
