@@ -714,7 +714,12 @@ async fn test_checkpoint_system() {
     .unwrap();
 
     // Create tasks
-    let task_ids = ["pay-task-001", "pay-task-002", "pay-task-003", "pay-task-004"];
+    let task_ids = [
+        "pay-task-001",
+        "pay-task-002",
+        "pay-task-003",
+        "pay-task-004",
+    ];
     for (idx, task_id) in task_ids.iter().enumerate() {
         sqlx::query(
             "INSERT INTO tasks (
