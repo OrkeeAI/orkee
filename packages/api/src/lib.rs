@@ -13,6 +13,7 @@ pub mod ai_handlers;
 pub mod ai_proxy_handlers;
 pub mod ai_usage_log_handlers;
 pub mod auth;
+pub mod epic_approaches_handlers;
 pub mod epic_handlers;
 pub mod executions_handlers;
 pub mod github_sync_handlers;
@@ -228,6 +229,19 @@ pub fn create_epics_router() -> Router<DbState> {
         .route(
             "/{project_id}/epics/{epic_id}/decompose-phase2",
             post(task_decomposition_handlers::decompose_phase2),
+        )
+        // Epic Alternative Approaches routes (Phase 6A.3 CCPM)
+        .route(
+            "/{project_id}/epics/{epic_id}/generate-alternatives",
+            post(epic_approaches_handlers::generate_alternatives),
+        )
+        .route(
+            "/{project_id}/epics/{epic_id}/alternatives",
+            get(epic_approaches_handlers::get_alternatives),
+        )
+        .route(
+            "/{project_id}/epics/{epic_id}/select-approach",
+            put(epic_approaches_handlers::select_approach),
         )
 }
 
