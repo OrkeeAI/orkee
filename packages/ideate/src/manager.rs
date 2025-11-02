@@ -24,7 +24,9 @@ impl IdeateManager {
         let session = sqlx::query(
             "INSERT INTO ideate_sessions (id, project_id, initial_description, mode, status, research_tools_enabled, created_at, updated_at)
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-             RETURNING id, project_id, initial_description, mode, status, skipped_sections, current_section, research_tools_enabled, generated_prd_id, created_at, updated_at"
+             RETURNING id, project_id, initial_description, mode, status, skipped_sections, current_section, research_tools_enabled, generated_prd_id,
+                       non_goals, open_questions, constraints_assumptions, success_metrics, alternative_approaches, validation_checkpoints, codebase_context,
+                       created_at, updated_at"
         )
         .bind(&id)
         .bind(&input.project_id)
@@ -73,7 +75,9 @@ impl IdeateManager {
     /// Get a session by ID
     pub async fn get_session(&self, session_id: &str) -> Result<IdeateSession> {
         let session = sqlx::query(
-            "SELECT id, project_id, initial_description, mode, status, skipped_sections, current_section, research_tools_enabled, generated_prd_id, created_at, updated_at
+            "SELECT id, project_id, initial_description, mode, status, skipped_sections, current_section, research_tools_enabled, generated_prd_id,
+                    non_goals, open_questions, constraints_assumptions, success_metrics, alternative_approaches, validation_checkpoints, codebase_context,
+                    created_at, updated_at
              FROM ideate_sessions
              WHERE id = $1"
         )
@@ -118,7 +122,9 @@ impl IdeateManager {
     /// List sessions for a project
     pub async fn list_sessions(&self, project_id: &str) -> Result<Vec<IdeateSession>> {
         let sessions = sqlx::query(
-            "SELECT id, project_id, initial_description, mode, status, skipped_sections, current_section, research_tools_enabled, generated_prd_id, created_at, updated_at
+            "SELECT id, project_id, initial_description, mode, status, skipped_sections, current_section, research_tools_enabled, generated_prd_id,
+                    non_goals, open_questions, constraints_assumptions, success_metrics, alternative_approaches, validation_checkpoints, codebase_context,
+                    created_at, updated_at
              FROM ideate_sessions
              WHERE project_id = $1
              ORDER BY created_at DESC"
