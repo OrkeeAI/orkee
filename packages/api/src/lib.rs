@@ -20,6 +20,7 @@ pub mod graph_handlers;
 pub mod handlers;
 pub mod ideate_chat_handlers;
 pub mod ideate_dependency_handlers;
+pub mod ideate_discovery_handlers;
 pub mod ideate_generation_handlers;
 pub mod ideate_handlers;
 pub mod ideate_research_handlers;
@@ -603,6 +604,23 @@ pub fn create_ideate_router() -> Router<DbState> {
         .route(
             "/ideate/chat/{session_id}/validate",
             get(ideate_chat_handlers::validate_for_prd),
+        )
+        // Discovery & Codebase Analysis routes (Phase 6A.1 CCPM)
+        .route(
+            "/ideate/sessions/{id}/analyze-codebase",
+            post(ideate_discovery_handlers::analyze_codebase),
+        )
+        .route(
+            "/ideate/sessions/{id}/codebase-context",
+            get(ideate_discovery_handlers::get_codebase_context),
+        )
+        .route(
+            "/ideate/sessions/{id}/next-question",
+            post(ideate_discovery_handlers::get_next_question),
+        )
+        .route(
+            "/ideate/sessions/{id}/discovery-progress",
+            get(ideate_discovery_handlers::get_discovery_progress),
         )
 }
 
