@@ -506,6 +506,21 @@ export interface SuggestTemplateRequest {
 }
 
 // =============================================================================
+// Phase 6D: Alternative Approaches Types
+// =============================================================================
+
+export interface TechnicalApproach {
+  name: string;
+  description: string;
+  pros: string[];
+  cons: string[];
+  estimated_days: number;
+  complexity: 'Low' | 'Medium' | 'High';
+  recommended: boolean;
+  reasoning: string;
+}
+
+// =============================================================================
 // Phase 7: PRD Generation & Export Types
 // =============================================================================
 
@@ -2251,6 +2266,55 @@ class IdeateService {
 
     if (response.error || !response.data.success) {
       throw new Error(response.error || 'Failed to delete template');
+    }
+  }
+
+  // ===========================================================================
+  // Phase 6D: Alternative Approaches Methods
+  // ===========================================================================
+
+  /**
+   * Generate alternative technical approaches for an epic
+   */
+  async generateAlternatives(epicId: string): Promise<TechnicalApproach[]> {
+    const response = await apiClient.post<{ success: boolean; data: TechnicalApproach[] }>(
+      `/api/epics/${epicId}/generate-alternatives`,
+      {}
+    );
+
+    if (response.error || !response.data.success) {
+      throw new Error(response.error || 'Failed to generate alternatives');
+    }
+
+    return response.data.data;
+  }
+
+  /**
+   * Get all generated alternatives for an epic
+   */
+  async getAlternatives(epicId: string): Promise<TechnicalApproach[]> {
+    const response = await apiClient.get<{ success: boolean; data: TechnicalApproach[] }>(
+      `/api/epics/${epicId}/alternatives`
+    );
+
+    if (response.error || !response.data.success) {
+      throw new Error(response.error || 'Failed to get alternatives');
+    }
+
+    return response.data.data;
+  }
+
+  /**
+   * Select a specific technical approach
+   */
+  async selectApproach(epicId: string, approachName: string): Promise<void> {
+    const response = await apiClient.put<{ success: boolean }>(
+      `/api/epics/${epicId}/select-approach`,
+      { approach_name: approachName }
+    );
+
+    if (response.error || !response.data.success) {
+      throw new Error(response.error || 'Failed to select approach');
     }
   }
 
