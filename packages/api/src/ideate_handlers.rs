@@ -31,6 +31,8 @@ pub struct StartIdeateRequest {
     pub mode: IdeateMode,
     #[serde(rename = "templateId")]
     pub template_id: Option<String>,
+    #[serde(rename = "researchToolsEnabled")]
+    pub research_tools_enabled: Option<bool>,
 }
 
 /// Start a new ideateing session
@@ -89,6 +91,8 @@ pub struct UpdateIdeateRequest {
     pub status: Option<IdeateStatus>,
     #[serde(rename = "skippedSections")]
     pub skipped_sections: Option<Vec<String>>,
+    #[serde(rename = "researchToolsEnabled")]
+    pub research_tools_enabled: Option<bool>,
 }
 
 /// Update a ideateing session
