@@ -126,10 +126,7 @@ export function CreatePRDFlow({
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent
-        className="sm:max-w-[800px]"
-        aria-describedby="create-prd-flow-description"
-      >
+      <DialogContent className="sm:max-w-[800px]">
         {step === 'mode' ? (
           <>
             <DialogHeader>
@@ -137,7 +134,7 @@ export function CreatePRDFlow({
                 <Lightbulb className="h-5 w-5" />
                 Start Ideateing
               </DialogTitle>
-              <DialogDescription id="create-prd-flow-description">
+              <DialogDescription>
                 Choose how you want to create your PRD. Each mode offers different levels of
                 detail and AI assistance.
               </DialogDescription>
@@ -173,7 +170,7 @@ export function CreatePRDFlow({
                 <Lightbulb className="h-5 w-5" />
                 Choose a Template
               </DialogTitle>
-              <DialogDescription id="create-prd-flow-description">
+              <DialogDescription>
                 Select a quickstart template to pre-populate your PRD, or start from scratch.
               </DialogDescription>
             </DialogHeader>
@@ -203,7 +200,7 @@ export function CreatePRDFlow({
                 <Lightbulb className="h-5 w-5" />
                 Describe Your Idea
               </DialogTitle>
-              <DialogDescription id="create-prd-flow-description">
+              <DialogDescription>
                 Provide an initial description of your project idea. This will be used to
                 generate or guide your PRD creation.
               </DialogDescription>
