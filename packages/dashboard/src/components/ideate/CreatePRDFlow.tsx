@@ -43,9 +43,34 @@ export function CreatePRDFlow({
   const { isPending: loading, error } = createSessionMutation;
   const { data: templates = [], isLoading: templatesLoading } = useTemplates();
 
-  const handleModeConfirm = () => {
+  const handleModeConfirm = async () => {
     if (selectedMode) {
-      setStep('template');
+      // Conversational mode: create session immediately and open chat
+      if (selectedMode === 'conversational') {
+        try {
+          const session = await createSessionMutation.mutateAsync({
+            projectId,
+            initialDescription: 'New conversation',
+            mode: 'conversational',
+            templateId: undefined,
+          });
+
+          // Reset and close
+          resetFlow();
+          onOpenChange(false);
+          onSessionCreated(session.id, 'conversational');
+        } catch {
+          // Error handled by React Query mutation
+        }
+      }
+      // Quick mode: skip template selection, go to description
+      else if (selectedMode === 'quick') {
+        setStep('description');
+      }
+      // Guided/Comprehensive: show template selection
+      else {
+        setStep('template');
+      }
     }
   };
 
@@ -57,7 +82,12 @@ export function CreatePRDFlow({
     if (step === 'template') {
       setStep('mode');
     } else if (step === 'description') {
-      setStep('template');
+      // Go back to template for guided/comprehensive, or mode for quick/conversational
+      if (selectedMode === 'quick' || selectedMode === 'conversational') {
+        setStep('mode');
+      } else {
+        setStep('template');
+      }
     }
   };
 
@@ -113,7 +143,14 @@ export function CreatePRDFlow({
               </DialogDescription>
             </DialogHeader>
 
-            <div className="py-4">
+            <div className="py-4 space-y-4">
+              {error && (
+                <Alert variant="destructive">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>{error.message}</AlertDescription>
+                </Alert>
+              )}
+
               <ModeSelector
                 selectedMode={selectedMode}
                 onSelectMode={setSelectedMode}
@@ -121,11 +158,11 @@ export function CreatePRDFlow({
             </div>
 
             <DialogFooter>
-              <Button variant="outline" onClick={handleClose}>
+              <Button variant="outline" onClick={handleClose} disabled={loading}>
                 Cancel
               </Button>
-              <Button onClick={handleModeConfirm} disabled={!selectedMode}>
-                Continue
+              <Button onClick={handleModeConfirm} disabled={!selectedMode || loading}>
+                {loading && selectedMode === 'conversational' ? 'Starting Chat...' : 'Continue'}
               </Button>
             </DialogFooter>
           </>
