@@ -73,17 +73,17 @@ export const AI_CONFIG: AIConfig = {
     },
     anthropic: {
       displayName: 'Anthropic',
-      defaultModel: 'claude-sonnet-4-5-20250514',
+      defaultModel: 'claude-3-5-sonnet-20241022',
       models: {
-        'claude-sonnet-4-5-20250514': {
-          displayName: 'Claude Sonnet 4.5',
+        'claude-3-5-sonnet-20241022': {
+          displayName: 'Claude 3.5 Sonnet (Latest)',
           maxTokens: 8192,
           contextWindow: 200000,
           costPer1kInput: 0.003,
           costPer1kOutput: 0.015,
         },
         'claude-3-5-sonnet-20240620': {
-          displayName: 'Claude 3.5 Sonnet',
+          displayName: 'Claude 3.5 Sonnet (June)',
           maxTokens: 8192,
           contextWindow: 200000,
           costPer1kInput: 0.003,
