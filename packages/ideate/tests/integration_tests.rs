@@ -36,10 +36,12 @@ async fn setup_test_db() -> SqlitePool {
     .unwrap();
 
     // Insert test project
-    sqlx::query("INSERT INTO projects (id, name, path) VALUES ('test-proj', 'Test Project', '/tmp/test')")
-        .execute(&pool)
-        .await
-        .unwrap();
+    sqlx::query(
+        "INSERT INTO projects (id, name, path) VALUES ('test-proj', 'Test Project', '/tmp/test')",
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
 
     // Ideate sessions table
     sqlx::query(
@@ -273,17 +275,19 @@ async fn test_full_ideate_to_tasks_workflow() {
     .await
     .unwrap();
 
-    let (mode, status): (String, String) = sqlx::query_as(
-        "SELECT mode, status FROM ideate_sessions WHERE id = ?"
-    )
-    .bind(session_id)
-    .fetch_one(&pool)
-    .await
-    .unwrap();
+    let (mode, status): (String, String) =
+        sqlx::query_as("SELECT mode, status FROM ideate_sessions WHERE id = ?")
+            .bind(session_id)
+            .fetch_one(&pool)
+            .await
+            .unwrap();
 
     assert_eq!(mode, "quick");
     assert_eq!(status, "draft");
-    println!("  ✓ Ideate session created (mode: {}, status: {})", mode, status);
+    println!(
+        "  ✓ Ideate session created (mode: {}, status: {})",
+        mode, status
+    );
 
     // Step 2: Generate PRD
     println!("\nStep 2: Generating PRD...");
@@ -299,12 +303,14 @@ async fn test_full_ideate_to_tasks_workflow() {
     .unwrap();
 
     // Update session with PRD link
-    sqlx::query("UPDATE ideate_sessions SET generated_prd_id = ?, status = 'completed' WHERE id = ?")
-        .bind(prd_id)
-        .bind(session_id)
-        .execute(&pool)
-        .await
-        .unwrap();
+    sqlx::query(
+        "UPDATE ideate_sessions SET generated_prd_id = ?, status = 'completed' WHERE id = ?",
+    )
+    .bind(prd_id)
+    .bind(session_id)
+    .execute(&pool)
+    .await
+    .unwrap();
 
     println!("  ✓ PRD generated and linked to session");
 
@@ -325,17 +331,22 @@ async fn test_full_ideate_to_tasks_workflow() {
     .await
     .unwrap();
 
-    let (epic_status, epic_complexity, epic_decomp_phase): (String, Option<String>, Option<String>) = sqlx::query_as(
-        "SELECT status, complexity, decomposition_phase FROM epics WHERE id = ?"
-    )
-    .bind(epic_id)
-    .fetch_one(&pool)
-    .await
-    .unwrap();
+    let (epic_status, epic_complexity, epic_decomp_phase): (
+        String,
+        Option<String>,
+        Option<String>,
+    ) = sqlx::query_as("SELECT status, complexity, decomposition_phase FROM epics WHERE id = ?")
+        .bind(epic_id)
+        .fetch_one(&pool)
+        .await
+        .unwrap();
 
     assert_eq!(epic_status, "draft");
     assert_eq!(epic_decomp_phase, Some("parent_planning".to_string()));
-    println!("  ✓ Epic created (complexity: {:?}, phase: {:?})", epic_complexity, epic_decomp_phase);
+    println!(
+        "  ✓ Epic created (complexity: {:?}, phase: {:?})",
+        epic_complexity, epic_decomp_phase
+    );
 
     // Step 4: Analyze complexity
     println!("\nStep 4: Analyzing epic complexity...");
@@ -347,7 +358,8 @@ async fn test_full_ideate_to_tasks_workflow() {
         project_id: "test-proj".to_string(),
         prd_id: prd_id.to_string(),
         name: "Task Management Backend".to_string(),
-        overview_markdown: "## Epic: Task Management Backend\\n\\nBuild core task CRUD operations.".to_string(),
+        overview_markdown: "## Epic: Task Management Backend\\n\\nBuild core task CRUD operations."
+            .to_string(),
         technical_approach: "Use Rust with Axum and SQLite".to_string(),
         implementation_strategy: None,
         architecture_decisions: None,
@@ -373,11 +385,16 @@ async fn test_full_ideate_to_tasks_workflow() {
         completed_at: None,
     };
 
-    let complexity_report = complexity_analyzer.analyze_epic(&test_epic, Some(20)).unwrap();
+    let complexity_report = complexity_analyzer
+        .analyze_epic(&test_epic, Some(20))
+        .unwrap();
 
     println!("  ✓ Complexity analyzed:");
     println!("    - Score: {}/10", complexity_report.score);
-    println!("    - Recommended tasks: {}", complexity_report.recommended_tasks);
+    println!(
+        "    - Recommended tasks: {}",
+        complexity_report.recommended_tasks
+    );
     println!("    - Reasoning: {}", complexity_report.reasoning);
 
     assert!(complexity_report.score >= 1 && complexity_report.score <= 10);
@@ -392,7 +409,7 @@ async fn test_full_ideate_to_tasks_workflow() {
             "INSERT INTO tasks (
                 id, project_id, epic_id, name, description, status, priority,
                 test_strategy, acceptance_criteria, complexity_score
-            ) VALUES (?, 'test-proj', ?, ?, ?, 'pending', ?, ?, ?, ?)"
+            ) VALUES (?, 'test-proj', ?, ?, ?, 'pending', ?, ?, ?, ?)",
         )
         .bind(task_id)
         .bind(epic_id)
@@ -400,7 +417,7 @@ async fn test_full_ideate_to_tasks_workflow() {
         .bind(format!("Detailed description for task {}", idx + 1))
         .bind(5)
         .bind(format!("Write integration test for task {}", idx + 1))
-        .bind(format!("{{\"criteria\":[\"Test passes\",\"No errors\"]}}", ))
+        .bind(format!("{{\"criteria\":[\"Test passes\",\"No errors\"]}}",))
         .bind(5)
         .execute(&pool)
         .await
@@ -420,33 +437,29 @@ async fn test_full_ideate_to_tasks_workflow() {
     println!("\nStep 6: Verifying workflow integrity...");
 
     // Verify session → PRD link
-    let session_check: (String,) = sqlx::query_as(
-        "SELECT generated_prd_id FROM ideate_sessions WHERE id = ?"
-    )
-    .bind(session_id)
-    .fetch_one(&pool)
-    .await
-    .unwrap();
+    let session_check: (String,) =
+        sqlx::query_as("SELECT generated_prd_id FROM ideate_sessions WHERE id = ?")
+            .bind(session_id)
+            .fetch_one(&pool)
+            .await
+            .unwrap();
     assert_eq!(session_check.0, prd_id);
 
     // Verify PRD → Epic link
-    let epic_check: (String,) = sqlx::query_as(
-        "SELECT prd_id FROM epics WHERE id = ?"
-    )
-    .bind(epic_id)
-    .fetch_one(&pool)
-    .await
-    .unwrap();
+    let epic_check: (String,) = sqlx::query_as("SELECT prd_id FROM epics WHERE id = ?")
+        .bind(epic_id)
+        .fetch_one(&pool)
+        .await
+        .unwrap();
     assert_eq!(epic_check.0, prd_id);
 
     // Verify Epic → Tasks link
-    let tasks_check: Vec<(String,)> = sqlx::query_as(
-        "SELECT id FROM tasks WHERE epic_id = ? ORDER BY created_at"
-    )
-    .bind(epic_id)
-    .fetch_all(&pool)
-    .await
-    .unwrap();
+    let tasks_check: Vec<(String,)> =
+        sqlx::query_as("SELECT id FROM tasks WHERE epic_id = ? ORDER BY created_at")
+            .bind(epic_id)
+            .fetch_all(&pool)
+            .await
+            .unwrap();
     assert_eq!(tasks_check.len(), 3);
 
     println!("  ✓ Full workflow chain verified:");
@@ -468,7 +481,7 @@ async fn test_two_phase_task_generation() {
     // Setup: Insert PRD first (epic references it)
     sqlx::query(
         "INSERT INTO prds (id, project_id, name, markdown_content)
-         VALUES ('test-prd-002', 'test-proj', 'Auth PRD', '# Auth System')"
+         VALUES ('test-prd-002', 'test-proj', 'Auth PRD', '# Auth System')",
     )
     .execute(&pool)
     .await
@@ -482,7 +495,7 @@ async fn test_two_phase_task_generation() {
             status, task_count_limit, decomposition_phase
         ) VALUES (?, 'test-proj', 'test-prd-002', 'Authentication System',
                   '## Epic: Authentication System\\n\\nOAuth and JWT-based auth.',
-                  'Use existing auth patterns', 'draft', 15, 'parent_planning')"
+                  'Use existing auth patterns', 'draft', 15, 'parent_planning')",
     )
     .bind(epic_id)
     .execute(&pool)
@@ -514,7 +527,7 @@ async fn test_two_phase_task_generation() {
     }
 
     let parent_count: i64 = sqlx::query_scalar(
-        "SELECT COUNT(*) FROM tasks WHERE epic_id = ? AND parent_task_id IS NULL"
+        "SELECT COUNT(*) FROM tasks WHERE epic_id = ? AND parent_task_id IS NULL",
     )
     .bind(epic_id)
     .fetch_one(&pool)
@@ -544,7 +557,7 @@ async fn test_two_phase_task_generation() {
     ]);
 
     sqlx::query(
-        "UPDATE epics SET parent_tasks = ?, decomposition_phase = 'parent_planning' WHERE id = ?"
+        "UPDATE epics SET parent_tasks = ?, decomposition_phase = 'parent_planning' WHERE id = ?",
     )
     .bind(parent_tasks_json.to_string())
     .bind(epic_id)
@@ -561,24 +574,33 @@ async fn test_two_phase_task_generation() {
     println!("\nPhase 2: Expanding parent tasks to subtasks...");
 
     let subtask_definitions = vec![
-        ("parent-001", vec![
-            ("subtask-001-1", "Create users table migration"),
-            ("subtask-001-2", "Create sessions table migration"),
-            ("subtask-001-3", "Add indexes for performance"),
-        ]),
-        ("parent-002", vec![
-            ("subtask-002-1", "Configure OAuth provider credentials"),
-            ("subtask-002-2", "Implement OAuth callback handler"),
-            ("subtask-002-3", "Add OAuth state validation"),
-            ("subtask-002-4", "Store OAuth tokens securely"),
-            ("subtask-002-5", "Add OAuth refresh token logic"),
-        ]),
-        ("parent-003", vec![
-            ("subtask-003-1", "Generate JWT signing keys"),
-            ("subtask-003-2", "Implement JWT token creation"),
-            ("subtask-003-3", "Implement JWT token validation"),
-            ("subtask-003-4", "Add token expiration logic"),
-        ]),
+        (
+            "parent-001",
+            vec![
+                ("subtask-001-1", "Create users table migration"),
+                ("subtask-001-2", "Create sessions table migration"),
+                ("subtask-001-3", "Add indexes for performance"),
+            ],
+        ),
+        (
+            "parent-002",
+            vec![
+                ("subtask-002-1", "Configure OAuth provider credentials"),
+                ("subtask-002-2", "Implement OAuth callback handler"),
+                ("subtask-002-3", "Add OAuth state validation"),
+                ("subtask-002-4", "Store OAuth tokens securely"),
+                ("subtask-002-5", "Add OAuth refresh token logic"),
+            ],
+        ),
+        (
+            "parent-003",
+            vec![
+                ("subtask-003-1", "Generate JWT signing keys"),
+                ("subtask-003-2", "Implement JWT token creation"),
+                ("subtask-003-3", "Implement JWT token validation"),
+                ("subtask-003-4", "Add token expiration logic"),
+            ],
+        ),
     ];
 
     for (parent_id, subtasks) in &subtask_definitions {
@@ -588,14 +610,16 @@ async fn test_two_phase_task_generation() {
                     id, project_id, epic_id, name, description, status, priority,
                     test_strategy, acceptance_criteria, complexity_score,
                     parent_task_id
-                ) VALUES (?, 'test-proj', ?, ?, ?, 'pending', 5, ?, ?, ?, ?)"
+                ) VALUES (?, 'test-proj', ?, ?, ?, 'pending', 5, ?, ?, ?, ?)",
             )
             .bind(subtask_id)
             .bind(epic_id)
             .bind(subtask_name)
             .bind(format!("Subtask {} of parent {}", idx + 1, parent_id))
             .bind(format!("Write unit test for {}", subtask_name))
-            .bind(format!("{{\"criteria\":[\"Test passes\",\"Code reviewed\"]}}", ))
+            .bind(format!(
+                "{{\"criteria\":[\"Test passes\",\"Code reviewed\"]}}",
+            ))
             .bind(3) // complexity_score
             .bind(parent_id)
             .execute(&pool)
@@ -613,7 +637,7 @@ async fn test_two_phase_task_generation() {
 
     // Verify two-phase generation
     let final_parent_count: i64 = sqlx::query_scalar(
-        "SELECT COUNT(*) FROM tasks WHERE epic_id = ? AND parent_task_id IS NULL"
+        "SELECT COUNT(*) FROM tasks WHERE epic_id = ? AND parent_task_id IS NULL",
     )
     .bind(epic_id)
     .fetch_one(&pool)
@@ -621,20 +645,18 @@ async fn test_two_phase_task_generation() {
     .unwrap();
 
     let final_subtask_count: i64 = sqlx::query_scalar(
-        "SELECT COUNT(*) FROM tasks WHERE epic_id = ? AND parent_task_id IS NOT NULL"
+        "SELECT COUNT(*) FROM tasks WHERE epic_id = ? AND parent_task_id IS NOT NULL",
     )
     .bind(epic_id)
     .fetch_one(&pool)
     .await
     .unwrap();
 
-    let total_tasks: i64 = sqlx::query_scalar(
-        "SELECT COUNT(*) FROM tasks WHERE epic_id = ?"
-    )
-    .bind(epic_id)
-    .fetch_one(&pool)
-    .await
-    .unwrap();
+    let total_tasks: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM tasks WHERE epic_id = ?")
+        .bind(epic_id)
+        .fetch_one(&pool)
+        .await
+        .unwrap();
 
     assert_eq!(final_parent_count, 3);
     assert_eq!(final_subtask_count, 12); // 3 + 5 + 4 = 12
@@ -646,13 +668,12 @@ async fn test_two_phase_task_generation() {
     println!("    - Total: {}", total_tasks);
 
     // Verify epic is within task count limit
-    let (task_limit,): (Option<i64>,) = sqlx::query_as(
-        "SELECT task_count_limit FROM epics WHERE id = ?"
-    )
-    .bind(epic_id)
-    .fetch_one(&pool)
-    .await
-    .unwrap();
+    let (task_limit,): (Option<i64>,) =
+        sqlx::query_as("SELECT task_count_limit FROM epics WHERE id = ?")
+            .bind(epic_id)
+            .fetch_one(&pool)
+            .await
+            .unwrap();
 
     let limit = task_limit.unwrap_or(20);
     assert!(total_tasks <= limit);
@@ -674,7 +695,7 @@ async fn test_checkpoint_system() {
     // Setup: Insert PRD first
     sqlx::query(
         "INSERT INTO prds (id, project_id, name, markdown_content)
-         VALUES ('test-prd-003', 'test-proj', 'Payment PRD', '# Payments')"
+         VALUES ('test-prd-003', 'test-proj', 'Payment PRD', '# Payments')",
     )
     .execute(&pool)
     .await
@@ -687,7 +708,7 @@ async fn test_checkpoint_system() {
             id, project_id, prd_id, name, overview_markdown, technical_approach, status
         ) VALUES (?, 'test-proj', 'test-prd-003', 'Payment Integration',
                   '## Payment Integration\\n\\nStripe payment flow.',
-                  'Use Stripe SDK', 'in_progress')"
+                  'Use Stripe SDK', 'in_progress')",
     )
     .bind(epic_id)
     .execute(&pool)
@@ -695,12 +716,17 @@ async fn test_checkpoint_system() {
     .unwrap();
 
     // Create tasks
-    let task_ids = vec!["pay-task-001", "pay-task-002", "pay-task-003", "pay-task-004"];
+    let task_ids = vec![
+        "pay-task-001",
+        "pay-task-002",
+        "pay-task-003",
+        "pay-task-004",
+    ];
     for (idx, task_id) in task_ids.iter().enumerate() {
         sqlx::query(
             "INSERT INTO tasks (
                 id, project_id, epic_id, name, description, status, test_strategy
-            ) VALUES (?, 'test-proj', ?, ?, 'Payment task', 'pending', 'Test payment flow')"
+            ) VALUES (?, 'test-proj', ?, ?, 'Payment task', 'pending', 'Test payment flow')",
         )
         .bind(task_id)
         .bind(epic_id)
@@ -714,12 +740,20 @@ async fn test_checkpoint_system() {
     println!("Creating execution checkpoints...");
 
     let checkpoints = vec![
-        ("checkpoint-001", "pay-task-002", CheckpointType::Review,
-         "Database schema complete. Review migrations before API work?",
-         vec!["Schema matches requirements", "Migrations run cleanly"]),
-        ("checkpoint-002", "pay-task-004", CheckpointType::Test,
-         "All payment endpoints implemented. Run integration tests?",
-         vec!["All tests pass", "No security vulnerabilities"]),
+        (
+            "checkpoint-001",
+            "pay-task-002",
+            CheckpointType::Review,
+            "Database schema complete. Review migrations before API work?",
+            vec!["Schema matches requirements", "Migrations run cleanly"],
+        ),
+        (
+            "checkpoint-002",
+            "pay-task-004",
+            CheckpointType::Test,
+            "All payment endpoints implemented. Run integration tests?",
+            vec!["All tests pass", "No security vulnerabilities"],
+        ),
     ];
 
     for (cp_id, after_task, cp_type, message, validations) in checkpoints {
@@ -735,7 +769,7 @@ async fn test_checkpoint_system() {
         sqlx::query(
             "INSERT INTO execution_checkpoints (
                 id, epic_id, after_task_id, checkpoint_type, message, required_validation
-            ) VALUES (?, ?, ?, ?, ?, ?)"
+            ) VALUES (?, ?, ?, ?, ?, ?)",
         )
         .bind(cp_id)
         .bind(epic_id)
@@ -747,17 +781,19 @@ async fn test_checkpoint_system() {
         .await
         .unwrap();
 
-        println!("  ✓ Checkpoint created: {} (type: {:?}, after: {})", cp_id, cp_type, after_task);
+        println!(
+            "  ✓ Checkpoint created: {} (type: {:?}, after: {})",
+            cp_id, cp_type, after_task
+        );
     }
 
     // Verify checkpoints
-    let checkpoint_count: i64 = sqlx::query_scalar(
-        "SELECT COUNT(*) FROM execution_checkpoints WHERE epic_id = ?"
-    )
-    .bind(epic_id)
-    .fetch_one(&pool)
-    .await
-    .unwrap();
+    let checkpoint_count: i64 =
+        sqlx::query_scalar("SELECT COUNT(*) FROM execution_checkpoints WHERE epic_id = ?")
+            .bind(epic_id)
+            .fetch_one(&pool)
+            .await
+            .unwrap();
 
     assert_eq!(checkpoint_count, 2);
     println!("\n  ✓ {} checkpoints created for epic", checkpoint_count);
@@ -774,7 +810,7 @@ async fn test_checkpoint_system() {
     // Activate checkpoint
     let now = Utc::now().to_rfc3339();
     sqlx::query(
-        "UPDATE execution_checkpoints SET reached = 1, reached_at = ? WHERE id = 'checkpoint-001'"
+        "UPDATE execution_checkpoints SET reached = 1, reached_at = ? WHERE id = 'checkpoint-001'",
     )
     .bind(now)
     .execute(&pool)
@@ -785,7 +821,7 @@ async fn test_checkpoint_system() {
 
     // Verify checkpoint state
     let (reached, message): (i64, String) = sqlx::query_as(
-        "SELECT reached, message FROM execution_checkpoints WHERE id = 'checkpoint-001'"
+        "SELECT reached, message FROM execution_checkpoints WHERE id = 'checkpoint-001'",
     )
     .fetch_one(&pool)
     .await
@@ -802,7 +838,7 @@ async fn test_checkpoint_system() {
          FROM execution_checkpoints ec
          JOIN tasks t ON ec.after_task_id = t.id
          WHERE ec.epic_id = ?
-         ORDER BY t.created_at"
+         ORDER BY t.created_at",
     )
     .bind(epic_id)
     .fetch_all(&pool)
@@ -828,7 +864,7 @@ async fn test_validation_history() {
     // Setup: Insert PRD first
     sqlx::query(
         "INSERT INTO prds (id, project_id, name, markdown_content)
-         VALUES ('history-prd', 'test-proj', 'PRD', '# PRD')"
+         VALUES ('history-prd', 'test-proj', 'PRD', '# PRD')",
     )
     .execute(&pool)
     .await
@@ -839,7 +875,7 @@ async fn test_validation_history() {
         "INSERT INTO epics (
             id, project_id, prd_id, name, overview_markdown, technical_approach, status
         ) VALUES ('history-epic', 'test-proj', 'history-prd', 'Feature X',
-                  '## Feature X', 'Implementation', 'in_progress')"
+                  '## Feature X', 'Implementation', 'in_progress')",
     )
     .execute(&pool)
     .await
@@ -852,7 +888,7 @@ async fn test_validation_history() {
         "INSERT INTO tasks (
             id, project_id, epic_id, name, description, status, test_strategy
         ) VALUES (?, 'test-proj', 'history-epic', 'Implement auth flow',
-                  'Add OAuth login', 'in_progress', 'Integration tests')"
+                  'Add OAuth login', 'in_progress', 'Integration tests')",
     )
     .bind(task_id)
     .execute(&pool)
@@ -863,12 +899,42 @@ async fn test_validation_history() {
     println!("Testing append-only validation history...");
 
     let entries = vec![
-        ("entry-001", ValidationEntryType::Progress, "Started implementation", "dev-1"),
-        ("entry-002", ValidationEntryType::Decision, "Chose OAuth 2.0 over SAML", "dev-1"),
-        ("entry-003", ValidationEntryType::Issue, "Token refresh failing in edge case", "dev-2"),
-        ("entry-004", ValidationEntryType::Progress, "Fixed token refresh issue", "dev-2"),
-        ("entry-005", ValidationEntryType::Checkpoint, "Code review complete", "reviewer"),
-        ("entry-006", ValidationEntryType::Progress, "Tests passing", "dev-1"),
+        (
+            "entry-001",
+            ValidationEntryType::Progress,
+            "Started implementation",
+            "dev-1",
+        ),
+        (
+            "entry-002",
+            ValidationEntryType::Decision,
+            "Chose OAuth 2.0 over SAML",
+            "dev-1",
+        ),
+        (
+            "entry-003",
+            ValidationEntryType::Issue,
+            "Token refresh failing in edge case",
+            "dev-2",
+        ),
+        (
+            "entry-004",
+            ValidationEntryType::Progress,
+            "Fixed token refresh issue",
+            "dev-2",
+        ),
+        (
+            "entry-005",
+            ValidationEntryType::Checkpoint,
+            "Code review complete",
+            "reviewer",
+        ),
+        (
+            "entry-006",
+            ValidationEntryType::Progress,
+            "Tests passing",
+            "dev-1",
+        ),
     ];
 
     for (entry_id, entry_type, content, author) in &entries {
@@ -882,7 +948,7 @@ async fn test_validation_history() {
         sqlx::query(
             "INSERT INTO validation_entries (
                 id, task_id, entry_type, content, author
-            ) VALUES (?, ?, ?, ?, ?)"
+            ) VALUES (?, ?, ?, ?, ?)",
         )
         .bind(entry_id)
         .bind(task_id)
@@ -897,13 +963,12 @@ async fn test_validation_history() {
     }
 
     // Verify all entries are preserved (append-only)
-    let entry_count: i64 = sqlx::query_scalar(
-        "SELECT COUNT(*) FROM validation_entries WHERE task_id = ?"
-    )
-    .bind(task_id)
-    .fetch_one(&pool)
-    .await
-    .unwrap();
+    let entry_count: i64 =
+        sqlx::query_scalar("SELECT COUNT(*) FROM validation_entries WHERE task_id = ?")
+            .bind(task_id)
+            .fetch_one(&pool)
+            .await
+            .unwrap();
 
     assert_eq!(entry_count, 6);
     println!("\n  ✓ All {} entries preserved (append-only)", entry_count);
@@ -913,7 +978,7 @@ async fn test_validation_history() {
         "SELECT entry_type, content, author
          FROM validation_entries
          WHERE task_id = ?
-         ORDER BY timestamp ASC"
+         ORDER BY timestamp ASC",
     )
     .bind(task_id)
     .fetch_all(&pool)
@@ -927,7 +992,7 @@ async fn test_validation_history() {
 
     // Test filtering by entry type
     let issue_count: i64 = sqlx::query_scalar(
-        "SELECT COUNT(*) FROM validation_entries WHERE task_id = ? AND entry_type = 'issue'"
+        "SELECT COUNT(*) FROM validation_entries WHERE task_id = ? AND entry_type = 'issue'",
     )
     .bind(task_id)
     .fetch_one(&pool)
@@ -951,24 +1016,25 @@ async fn test_validation_history() {
     .await
     .unwrap();
 
-    let final_count: i64 = sqlx::query_scalar(
-        "SELECT COUNT(*) FROM validation_entries WHERE task_id = ?"
-    )
-    .bind(task_id)
-    .fetch_one(&pool)
-    .await
-    .unwrap();
+    let final_count: i64 =
+        sqlx::query_scalar("SELECT COUNT(*) FROM validation_entries WHERE task_id = ?")
+            .bind(task_id)
+            .fetch_one(&pool)
+            .await
+            .unwrap();
 
     assert_eq!(final_count, 7); // Original 6 + 1 correction
-    println!("  ✓ Corrections append new entries (count: {})", final_count);
+    println!(
+        "  ✓ Corrections append new entries (count: {})",
+        final_count
+    );
 
     // Verify old entries still exist
-    let original_decision: (String,) = sqlx::query_as(
-        "SELECT content FROM validation_entries WHERE id = 'entry-002'"
-    )
-    .fetch_one(&pool)
-    .await
-    .unwrap();
+    let original_decision: (String,) =
+        sqlx::query_as("SELECT content FROM validation_entries WHERE id = 'entry-002'")
+            .fetch_one(&pool)
+            .await
+            .unwrap();
 
     assert_eq!(original_decision.0, "Chose OAuth 2.0 over SAML");
     println!("  ✓ Original entries preserved (never overwritten)");

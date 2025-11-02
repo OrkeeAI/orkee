@@ -232,9 +232,7 @@ pub async fn select_approach(
     };
 
     // Find the selected approach
-    let selected_approach = approaches
-        .iter()
-        .find(|a| a.name == request.approach_name);
+    let selected_approach = approaches.iter().find(|a| a.name == request.approach_name);
 
     if selected_approach.is_none() {
         return (
@@ -254,10 +252,7 @@ pub async fn select_approach(
         "**Selected Approach**: {}\n\n{}\n\n**Rationale**: {}",
         selected.name,
         selected.description,
-        request
-            .rationale
-            .as_ref()
-            .unwrap_or(&selected.reasoning)
+        request.rationale.as_ref().unwrap_or(&selected.reasoning)
     );
 
     // Add pros and cons
@@ -292,7 +287,10 @@ pub async fn select_approach(
         progress_percentage: None,
     };
 
-    match epic_manager.update_epic(&project_id, &epic_id, update_input).await {
+    match epic_manager
+        .update_epic(&project_id, &epic_id, update_input)
+        .await
+    {
         Ok(updated_epic) => (
             StatusCode::OK,
             Json(serde_json::json!({

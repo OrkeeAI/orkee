@@ -146,16 +146,14 @@ impl PRDValidator {
         deduction
     }
 
-    fn validate_non_goals(
-        &self,
-        non_goals: &serde_json::Value,
-        issues: &mut Vec<String>,
-    ) -> i32 {
+    fn validate_non_goals(&self, non_goals: &serde_json::Value, issues: &mut Vec<String>) -> i32 {
         let mut deduction = 0;
 
         if let Some(non_goals_array) = non_goals.as_array() {
             if non_goals_array.is_empty() {
-                issues.push("Non-Goals section is empty - should list what's out of scope".to_string());
+                issues.push(
+                    "Non-Goals section is empty - should list what's out of scope".to_string(),
+                );
                 deduction += 10;
             } else {
                 // Check each non-goal has required fields
@@ -187,7 +185,9 @@ impl PRDValidator {
 
         if let Some(questions_array) = open_questions.as_array() {
             if questions_array.len() > 20 {
-                issues.push("Too many open questions (>20) - may indicate unclear requirements".to_string());
+                issues.push(
+                    "Too many open questions (>20) - may indicate unclear requirements".to_string(),
+                );
                 deduction += 5;
             }
 
@@ -204,7 +204,8 @@ impl PRDValidator {
 
             if critical_count > 5 {
                 issues.push(
-                    "More than 5 critical open questions - may need more discovery work".to_string(),
+                    "More than 5 critical open questions - may need more discovery work"
+                        .to_string(),
                 );
                 deduction += 5;
             }
@@ -224,7 +225,10 @@ impl PRDValidator {
         let mut deduction = 0;
 
         // Check for primary metrics
-        if let Some(primary_metrics) = success_metrics.get("primaryMetrics").and_then(|m| m.as_array()) {
+        if let Some(primary_metrics) = success_metrics
+            .get("primaryMetrics")
+            .and_then(|m| m.as_array())
+        {
             if primary_metrics.is_empty() {
                 issues.push("No primary success metrics defined".to_string());
                 deduction += 10;
@@ -267,11 +271,7 @@ impl PRDValidator {
         deduction
     }
 
-    fn validate_features(
-        &self,
-        features: &serde_json::Value,
-        issues: &mut Vec<String>,
-    ) -> i32 {
+    fn validate_features(&self, features: &serde_json::Value, issues: &mut Vec<String>) -> i32 {
         let mut deduction = 0;
 
         if let Some(features_array) = features.as_array() {
@@ -283,7 +283,8 @@ impl PRDValidator {
             // Check for overly long feature lists
             if features_array.len() > 30 {
                 issues.push(
-                    "Very large number of features (>30) - consider breaking into phases".to_string(),
+                    "Very large number of features (>30) - consider breaking into phases"
+                        .to_string(),
                 );
                 deduction += 5;
             }
@@ -295,11 +296,7 @@ impl PRDValidator {
         deduction
     }
 
-    fn validate_technical(
-        &self,
-        technical: &serde_json::Value,
-        issues: &mut Vec<String>,
-    ) -> i32 {
+    fn validate_technical(&self, technical: &serde_json::Value, issues: &mut Vec<String>) -> i32 {
         let mut deduction = 0;
 
         if technical.get("components").is_none() {
@@ -347,13 +344,11 @@ impl PRDValidator {
         }
 
         if issues.iter().any(|i| i.contains("placeholder")) {
-            suggestions.push("Replace placeholder text with specific, actionable content".to_string());
+            suggestions
+                .push("Replace placeholder text with specific, actionable content".to_string());
         }
 
-        if issues
-            .iter()
-            .any(|i| i.contains("critical open questions"))
-        {
+        if issues.iter().any(|i| i.contains("critical open questions")) {
             suggestions.push(
                 "Consider additional discovery work to resolve critical questions before implementation"
                     .to_string(),
@@ -370,7 +365,10 @@ impl PRDValidator {
 
         // Check for minimum content length
         if content.len() < 50 {
-            issues.push(format!("Section '{}' is very brief (< 50 chars)", section_name));
+            issues.push(format!(
+                "Section '{}' is very brief (< 50 chars)",
+                section_name
+            ));
             score -= 20;
         }
 
@@ -560,6 +558,9 @@ mod tests {
             result.issues.iter().any(|i| i.contains("brief")),
             "Should detect brief content"
         );
-        assert_eq!(result.score, 80, "Score should be 80 (100 - 20 for brevity)");
+        assert_eq!(
+            result.score, 80,
+            "Score should be 80 (100 - 20 for brevity)"
+        );
     }
 }

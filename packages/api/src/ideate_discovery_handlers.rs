@@ -198,7 +198,8 @@ pub async fn get_discovery_progress(
     match discovery_manager.get_answers(&session_id).await {
         Ok(answers) => {
             let total_questions_asked = answers.len();
-            let total_questions_answered = answers.iter().filter(|a| a.answered_at.is_some()).count();
+            let total_questions_answered =
+                answers.iter().filter(|a| a.answered_at.is_some()).count();
 
             // Calculate unique categories covered
             let categories_covered: Vec<String> = answers

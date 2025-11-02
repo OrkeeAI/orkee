@@ -353,10 +353,10 @@ pub async fn get_task_checkpoints(
     let task = match task_result {
         Ok(task) => task,
         Err(e) => {
-            return ok_or_internal_error::<Vec<orkee_ideate::ExecutionCheckpoint>, orkee_storage::StorageError>(
-                Err(e),
-                "Failed to get task",
-            )
+            return ok_or_internal_error::<
+                Vec<orkee_ideate::ExecutionCheckpoint>,
+                orkee_storage::StorageError,
+            >(Err(e), "Failed to get task")
         }
     };
 

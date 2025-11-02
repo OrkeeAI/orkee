@@ -293,7 +293,9 @@ pub async fn analyze_complexity(
         Ok(Some(epic)) => epic,
         Ok(None) => {
             return ok_or_not_found::<orkee_ideate::ComplexityReport, orkee_ideate::IdeateError>(
-                Err(orkee_ideate::IdeateError::NotFound("Epic not found".to_string())),
+                Err(orkee_ideate::IdeateError::NotFound(
+                    "Epic not found".to_string(),
+                )),
                 "Epic not found",
             )
         }
@@ -355,7 +357,9 @@ pub async fn simplify_epic(
         Ok(Some(epic)) => epic,
         Ok(None) => {
             return ok_or_not_found::<SimplifyResponse, orkee_ideate::IdeateError>(
-                Err(orkee_ideate::IdeateError::NotFound("Epic not found".to_string())),
+                Err(orkee_ideate::IdeateError::NotFound(
+                    "Epic not found".to_string(),
+                )),
                 "Epic not found",
             )
         }
@@ -475,7 +479,9 @@ pub async fn get_leverage_analysis(
         Ok(Some(epic)) => epic,
         Ok(None) => {
             return ok_or_not_found::<LeverageAnalysisResponse, orkee_ideate::IdeateError>(
-                Err(orkee_ideate::IdeateError::NotFound("Epic not found".to_string())),
+                Err(orkee_ideate::IdeateError::NotFound(
+                    "Epic not found".to_string(),
+                )),
                 "Epic not found",
             )
         }
@@ -494,7 +500,10 @@ pub async fn get_leverage_analysis(
     // Parse codebase_context if available
     if let Some(context) = &epic.codebase_context {
         // Extract reusable components
-        if let Some(components) = context.get("reusable_components").and_then(|c| c.as_array()) {
+        if let Some(components) = context
+            .get("reusable_components")
+            .and_then(|c| c.as_array())
+        {
             for component in components {
                 if let (Some(name), Some(path)) = (
                     component.get("name").and_then(|n| n.as_str()),

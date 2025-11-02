@@ -37,10 +37,9 @@ pub use build_optimizer::{
     OptimizationStrategy,
 };
 pub use chat::{
-    ChatInsight, ChatMessage, CreateInsightInput, DiscoveryQuestion,
-    DiscoveryStatus, GeneratePRDFromChatInput, GeneratePRDFromChatResult,
-    InsightType, MessageRole, MessageType, QualityMetrics, QuestionCategory, SendMessageInput,
-    TopicCoverage, ValidationResult,
+    ChatInsight, ChatMessage, CreateInsightInput, DiscoveryQuestion, DiscoveryStatus,
+    GeneratePRDFromChatInput, GeneratePRDFromChatResult, InsightType, MessageRole, MessageType,
+    QualityMetrics, QuestionCategory, SendMessageInput, TopicCoverage, ValidationResult,
 };
 pub use chat_manager::ChatManager;
 pub use codebase_analyzer::{

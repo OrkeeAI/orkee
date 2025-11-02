@@ -210,10 +210,9 @@ impl DiscoveryManager {
                     "Are there any limitations or constraints?",
                     QuestionCategory::Constraints,
                 ),
-                QuestionCategory::Success => Question::open(
-                    "How will we measure success?",
-                    QuestionCategory::Success,
-                ),
+                QuestionCategory::Success => {
+                    Question::open("How will we measure success?", QuestionCategory::Success)
+                }
             })
         } else {
             // All categories covered, ask refinement question
@@ -371,7 +370,12 @@ impl DiscoveryManager {
     }
 
     /// Save a user's answer
-    pub async fn save_answer(&self, session_id: &str, question_number: i32, answer: String) -> Result<()> {
+    pub async fn save_answer(
+        &self,
+        session_id: &str,
+        question_number: i32,
+        answer: String,
+    ) -> Result<()> {
         info!(
             "Saving answer for session: {}, question: {}",
             session_id, question_number

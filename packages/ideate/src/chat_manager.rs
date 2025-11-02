@@ -81,7 +81,7 @@ impl ChatManager {
 
         // Get next message order
         let message_order: i32 = sqlx::query_scalar(
-            "SELECT COALESCE(MAX(message_order), -1) + 1 FROM prd_chats WHERE session_id = ?"
+            "SELECT COALESCE(MAX(message_order), -1) + 1 FROM prd_chats WHERE session_id = ?",
         )
         .bind(session_id)
         .fetch_one(&self.pool)

@@ -101,17 +101,9 @@ impl ComplexityAnalyzer {
             || technical_approach_lower.contains("migrate")
             || technical_approach_lower.contains("refactor");
 
-        let dependency_count = epic
-            .dependencies
-            .as_ref()
-            .map(|d| d.len())
-            .unwrap_or(0);
+        let dependency_count = epic.dependencies.as_ref().map(|d| d.len()).unwrap_or(0);
 
-        let success_criteria_count = epic
-            .success_criteria
-            .as_ref()
-            .map(|s| s.len())
-            .unwrap_or(0);
+        let success_criteria_count = epic.success_criteria.as_ref().map(|s| s.len()).unwrap_or(0);
 
         let has_similar_features = epic
             .codebase_context
@@ -161,7 +153,10 @@ impl ComplexityAnalyzer {
             reasons.push("Migration or refactoring work adds risk".to_string());
         }
         if factors.dependency_count > 5 {
-            reasons.push(format!("{} external dependencies to manage", factors.dependency_count));
+            reasons.push(format!(
+                "{} external dependencies to manage",
+                factors.dependency_count
+            ));
         }
         if factors.success_criteria_count > 10 {
             reasons.push("High number of success criteria to satisfy".to_string());
@@ -270,8 +265,14 @@ mod tests {
 
         let report = analyzer.analyze_epic(&epic, None).unwrap();
 
-        assert!(report.score <= 6, "Simple epic should have low-medium complexity");
-        assert!(report.recommended_tasks <= 10, "Simple epic should have fewer tasks");
+        assert!(
+            report.score <= 6,
+            "Simple epic should have low-medium complexity"
+        );
+        assert!(
+            report.recommended_tasks <= 10,
+            "Simple epic should have fewer tasks"
+        );
     }
 
     #[test]
@@ -281,8 +282,14 @@ mod tests {
 
         let report = analyzer.analyze_epic(&epic, None).unwrap();
 
-        assert!(report.score >= 7, "Distributed system should have high complexity");
-        assert!(report.factors.distributed_systems, "Should detect distributed architecture");
+        assert!(
+            report.score >= 7,
+            "Distributed system should have high complexity"
+        );
+        assert!(
+            report.factors.distributed_systems,
+            "Should detect distributed architecture"
+        );
     }
 
     #[test]
@@ -292,7 +299,10 @@ mod tests {
 
         let report = analyzer.analyze_epic(&epic, None).unwrap();
 
-        assert!(report.factors.migration_work, "Should detect migration work");
+        assert!(
+            report.factors.migration_work,
+            "Should detect migration work"
+        );
         assert!(report.score >= 6, "Migration should increase complexity");
     }
 
@@ -304,15 +314,30 @@ mod tests {
         let report_unlimited = analyzer.analyze_epic(&epic, None).unwrap();
         let report_limited = analyzer.analyze_epic(&epic, Some(8)).unwrap();
 
-        assert!(report_limited.recommended_tasks <= 8, "Should respect user limit");
+        assert!(
+            report_limited.recommended_tasks <= 8,
+            "Should respect user limit"
+        );
         assert!(report_limited.recommended_tasks <= report_unlimited.recommended_tasks);
     }
 
     #[test]
     fn test_complexity_enum_mapping() {
-        assert_eq!(ComplexityAnalyzer::complexity_to_score(&EpicComplexity::Low), 3);
-        assert_eq!(ComplexityAnalyzer::complexity_to_score(&EpicComplexity::Medium), 6);
-        assert_eq!(ComplexityAnalyzer::complexity_to_score(&EpicComplexity::High), 8);
-        assert_eq!(ComplexityAnalyzer::complexity_to_score(&EpicComplexity::VeryHigh), 10);
+        assert_eq!(
+            ComplexityAnalyzer::complexity_to_score(&EpicComplexity::Low),
+            3
+        );
+        assert_eq!(
+            ComplexityAnalyzer::complexity_to_score(&EpicComplexity::Medium),
+            6
+        );
+        assert_eq!(
+            ComplexityAnalyzer::complexity_to_score(&EpicComplexity::High),
+            8
+        );
+        assert_eq!(
+            ComplexityAnalyzer::complexity_to_score(&EpicComplexity::VeryHigh),
+            10
+        );
     }
 }

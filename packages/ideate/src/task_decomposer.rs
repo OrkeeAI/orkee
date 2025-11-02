@@ -127,7 +127,8 @@ impl TaskDecomposer {
         // Generate parent tasks based on complexity
         // NOTE: In a real implementation, this would use AI to generate tasks
         // For now, we'll create placeholder parent tasks
-        let parent_tasks = self.create_parent_task_placeholders(&epic, &complexity_report, codebase_context)?;
+        let parent_tasks =
+            self.create_parent_task_placeholders(&epic, &complexity_report, codebase_context)?;
 
         // Store parent tasks in epic
         self.save_parent_tasks(epic_id, &parent_tasks).await?;
@@ -160,10 +161,12 @@ impl TaskDecomposer {
                 title_to_id_map.insert(subtask_template.title.clone(), task_id.clone());
 
                 // Generate TDD execution steps
-                let execution_steps = self.generate_tdd_steps(&subtask_template.title, &subtask_template.test_strategy)?;
+                let execution_steps = self
+                    .generate_tdd_steps(&subtask_template.title, &subtask_template.test_strategy)?;
 
                 // Generate file references
-                let relevant_files = self.identify_relevant_files(subtask_template, codebase_context)?;
+                let relevant_files =
+                    self.identify_relevant_files(subtask_template, codebase_context)?;
 
                 let task_input = TaskCreateInput {
                     title: subtask_template.title.clone(),
@@ -203,12 +206,14 @@ impl TaskDecomposer {
 
                 // Add execution steps
                 if !execution_steps.is_empty() {
-                    self.update_task_execution_steps(&task.id, &execution_steps).await?;
+                    self.update_task_execution_steps(&task.id, &execution_steps)
+                        .await?;
                 }
 
                 // Add relevant files
                 if !relevant_files.is_empty() {
-                    self.update_task_relevant_files(&task.id, &relevant_files).await?;
+                    self.update_task_relevant_files(&task.id, &relevant_files)
+                        .await?;
                 }
 
                 // Reload task with all updates
@@ -219,7 +224,9 @@ impl TaskDecomposer {
 
         // Build dependency graph and assign parallel groups
         let dependency_graph = self.build_task_dependency_graph(&all_tasks)?;
-        let _parallel_groups = self.assign_parallel_groups_to_tasks(&all_tasks, &dependency_graph).await?;
+        let _parallel_groups = self
+            .assign_parallel_groups_to_tasks(&all_tasks, &dependency_graph)
+            .await?;
 
         // Reload all tasks with parallel group assignments
         let mut final_tasks = Vec::new();
@@ -232,7 +239,11 @@ impl TaskDecomposer {
     }
 
     /// Generate TDD execution steps for a task
-    fn generate_tdd_steps(&self, task_title: &str, _test_strategy: &str) -> Result<Vec<TaskStep>, StoreError> {
+    fn generate_tdd_steps(
+        &self,
+        task_title: &str,
+        _test_strategy: &str,
+    ) -> Result<Vec<TaskStep>, StoreError> {
         // Generate standard TDD cycle steps
         let steps = vec![
             TaskStep {
@@ -280,7 +291,9 @@ impl TaskDecomposer {
             TaskStep {
                 step_number: 7,
                 action: "Commit changes".to_string(),
-                test_command: Some("git add . && git commit -m 'Add <feature> with tests'".to_string()),
+                test_command: Some(
+                    "git add . && git commit -m 'Add <feature> with tests'".to_string(),
+                ),
                 expected_output: "Committed to branch".to_string(),
                 estimated_minutes: 2,
             },
@@ -304,14 +317,20 @@ impl TaskDecomposer {
         if let Some(_ctx) = codebase_context {
             // Example: Create test file
             files.push(FileReference {
-                path: format!("tests/{}_test.rs", task_template.title.to_lowercase().replace(' ', "_")),
+                path: format!(
+                    "tests/{}_test.rs",
+                    task_template.title.to_lowercase().replace(' ', "_")
+                ),
                 operation: FileOperation::Create,
                 reason: "Test file for TDD approach".to_string(),
             });
 
             // Example: Modify implementation file
             files.push(FileReference {
-                path: format!("src/{}.rs", task_template.title.to_lowercase().replace(' ', "_")),
+                path: format!(
+                    "src/{}.rs",
+                    task_template.title.to_lowercase().replace(' ', "_")
+                ),
                 operation: FileOperation::Create,
                 reason: "Implementation file".to_string(),
             });
@@ -401,7 +420,11 @@ impl TaskDecomposer {
     }
 
     /// Save parent tasks to epic (public API for Phase 1 storage)
-    pub async fn save_parent_tasks(&self, epic_id: &str, parent_tasks: &[ParentTask]) -> Result<(), StoreError> {
+    pub async fn save_parent_tasks(
+        &self,
+        epic_id: &str,
+        parent_tasks: &[ParentTask],
+    ) -> Result<(), StoreError> {
         let parent_tasks_json = serde_json::to_string(parent_tasks)?;
 
         sqlx::query(
@@ -419,15 +442,18 @@ impl TaskDecomposer {
     }
 
     /// Get stored parent tasks from epic (public API for Phase 2 expansion)
-    pub async fn get_stored_parent_tasks(&self, epic_id: &str) -> Result<Vec<ParentTask>, StoreError> {
+    pub async fn get_stored_parent_tasks(
+        &self,
+        epic_id: &str,
+    ) -> Result<Vec<ParentTask>, StoreError> {
         let row = sqlx::query("SELECT parent_tasks FROM epics WHERE id = ?")
             .bind(epic_id)
             .fetch_one(&self.pool)
             .await
             .map_err(StoreError::Sqlx)?;
 
-        let parent_tasks_json: Option<String> = sqlx::Row::try_get(&row, "parent_tasks")
-            .map_err(StoreError::Sqlx)?;
+        let parent_tasks_json: Option<String> =
+            sqlx::Row::try_get(&row, "parent_tasks").map_err(StoreError::Sqlx)?;
 
         match parent_tasks_json {
             Some(json) => {
@@ -438,7 +464,11 @@ impl TaskDecomposer {
         }
     }
 
-    async fn update_task_parent(&self, task_id: &str, parent_title: &str) -> Result<(), StoreError> {
+    async fn update_task_parent(
+        &self,
+        task_id: &str,
+        parent_title: &str,
+    ) -> Result<(), StoreError> {
         sqlx::query("UPDATE tasks SET parent_task_id = ?, updated_at = ? WHERE id = ?")
             .bind(parent_title)
             .bind(Utc::now())
@@ -450,7 +480,11 @@ impl TaskDecomposer {
         Ok(())
     }
 
-    async fn update_task_execution_steps(&self, task_id: &str, steps: &[TaskStep]) -> Result<(), StoreError> {
+    async fn update_task_execution_steps(
+        &self,
+        task_id: &str,
+        steps: &[TaskStep],
+    ) -> Result<(), StoreError> {
         let steps_json = serde_json::to_string(steps)?;
 
         sqlx::query("UPDATE tasks SET execution_steps = ?, updated_at = ? WHERE id = ?")
@@ -464,7 +498,11 @@ impl TaskDecomposer {
         Ok(())
     }
 
-    async fn update_task_relevant_files(&self, task_id: &str, files: &[FileReference]) -> Result<(), StoreError> {
+    async fn update_task_relevant_files(
+        &self,
+        task_id: &str,
+        files: &[FileReference],
+    ) -> Result<(), StoreError> {
         let files_json = serde_json::to_string(files)?;
 
         sqlx::query("UPDATE tasks SET relevant_files = ?, updated_at = ? WHERE id = ?")

@@ -258,9 +258,7 @@ impl ExecutionTracker {
         .await
         .map_err(StoreError::Sqlx)?;
 
-        rows.iter()
-            .map(|row| self.row_to_checkpoint(row))
-            .collect()
+        rows.iter().map(|row| self.row_to_checkpoint(row)).collect()
     }
 
     /// Get checkpoint by ID
@@ -316,13 +314,12 @@ impl ExecutionTracker {
         &self,
         task_id: &str,
     ) -> Result<Vec<ValidationEntry>, StoreError> {
-        let rows = sqlx::query(
-            "SELECT * FROM validation_entries WHERE task_id = ? ORDER BY timestamp",
-        )
-        .bind(task_id)
-        .fetch_all(&self.pool)
-        .await
-        .map_err(StoreError::Sqlx)?;
+        let rows =
+            sqlx::query("SELECT * FROM validation_entries WHERE task_id = ? ORDER BY timestamp")
+                .bind(task_id)
+                .fetch_all(&self.pool)
+                .await
+                .map_err(StoreError::Sqlx)?;
 
         rows.iter()
             .map(|row| self.row_to_validation_entry(row))
@@ -331,10 +328,7 @@ impl ExecutionTracker {
 
     // Private helper methods
 
-    async fn save_checkpoint(
-        &self,
-        checkpoint: &ExecutionCheckpoint,
-    ) -> Result<(), StoreError> {
+    async fn save_checkpoint(&self, checkpoint: &ExecutionCheckpoint) -> Result<(), StoreError> {
         let required_validation_json = serde_json::to_string(&checkpoint.required_validation)?;
 
         sqlx::query(

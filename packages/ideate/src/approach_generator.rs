@@ -29,7 +29,6 @@ pub enum ComplexityLevel {
     High,
 }
 
-
 /// Generates alternative technical approaches
 pub struct ApproachGenerator {
     epic: Epic,
@@ -46,7 +45,10 @@ impl ApproachGenerator {
 
     /// Generate 2-3 alternative approaches with trade-offs
     pub async fn generate_alternatives(&self) -> Result<Vec<TechnicalApproach>> {
-        info!("Generating alternative approaches for epic: {}", self.epic.id);
+        info!(
+            "Generating alternative approaches for epic: {}",
+            self.epic.id
+        );
 
         let mut approaches = Vec::new();
 
@@ -133,8 +135,9 @@ impl ApproachGenerator {
     fn generate_hybrid_approach(&self) -> TechnicalApproach {
         TechnicalApproach {
             name: "Hybrid Approach".to_string(),
-            description: "Combine existing components with new, improved implementations where needed"
-                .to_string(),
+            description:
+                "Combine existing components with new, improved implementations where needed"
+                    .to_string(),
             pros: vec![
                 "Balanced risk and innovation".to_string(),
                 "Reuse what works, improve what doesn't".to_string(),
@@ -165,10 +168,7 @@ impl ApproachGenerator {
 
     /// Get a summary comparison of all approaches
     pub fn compare_approaches(approaches: &[TechnicalApproach]) -> ApproachComparison {
-        let fastest = approaches
-            .iter()
-            .min_by_key(|a| a.estimated_days)
-            .cloned();
+        let fastest = approaches.iter().min_by_key(|a| a.estimated_days).cloned();
 
         let safest = approaches.iter().find(|a| a.recommended).cloned();
 

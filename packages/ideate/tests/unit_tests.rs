@@ -2,8 +2,8 @@
 // ABOUTME: Tests codebase analyzer, complexity analyzer, validation, and prompt functionality
 
 use orkee_ideate::{
-    CodebaseAnalyzer, CodebaseContext, ComplexityAnalyzer, Epic, EpicComplexity,
-    EpicStatus, EstimatedEffort, PRDValidator, PRDValidationResult,
+    CodebaseAnalyzer, CodebaseContext, ComplexityAnalyzer, Epic, EpicComplexity, EpicStatus,
+    EstimatedEffort, PRDValidationResult, PRDValidator,
 };
 use serde_json::json;
 use std::path::PathBuf;
@@ -71,7 +71,10 @@ fn test_complexity_analyzer_simple_epic() {
     assert!(!report.reasoning.is_empty());
     assert!(!report.expansion_strategy.is_empty());
 
-    println!("✓ Complexity analyzer handles simple epic (score: {})", report.score);
+    println!(
+        "✓ Complexity analyzer handles simple epic (score: {})",
+        report.score
+    );
 }
 
 #[test]
@@ -79,16 +82,23 @@ fn test_complexity_analyzer_distributed_systems() {
     let analyzer = ComplexityAnalyzer::new();
 
     let mut epic = create_simple_epic();
-    epic.technical_approach = "Build a distributed microservices system with event-driven architecture".to_string();
+    epic.technical_approach =
+        "Build a distributed microservices system with event-driven architecture".to_string();
 
     let report = analyzer.analyze_epic(&epic, Some(20)).unwrap();
 
     // Distributed systems should increase complexity
-    assert!(report.score >= 7, "Distributed systems should have high complexity");
+    assert!(
+        report.score >= 7,
+        "Distributed systems should have high complexity"
+    );
     assert!(report.factors.distributed_systems);
     assert!(report.reasoning.contains("distributed") || report.reasoning.contains("complex"));
 
-    println!("✓ Complexity analyzer detects distributed systems (score: {})", report.score);
+    println!(
+        "✓ Complexity analyzer detects distributed systems (score: {})",
+        report.score
+    );
 }
 
 #[test]
@@ -101,9 +111,15 @@ fn test_complexity_analyzer_migration_work() {
     let report = analyzer.analyze_epic(&epic, Some(20)).unwrap();
 
     assert!(report.factors.migration_work);
-    assert!(report.score >= 6, "Migration work should increase complexity");
+    assert!(
+        report.score >= 6,
+        "Migration work should increase complexity"
+    );
 
-    println!("✓ Complexity analyzer detects migration work (score: {})", report.score);
+    println!(
+        "✓ Complexity analyzer detects migration work (score: {})",
+        report.score
+    );
 }
 
 #[test]
@@ -114,15 +130,24 @@ fn test_complexity_analyzer_task_count_limits() {
 
     // Test with low limit
     let report_low = analyzer.analyze_epic(&epic, Some(5)).unwrap();
-    assert!(report_low.recommended_tasks <= 5, "Should respect user limit");
+    assert!(
+        report_low.recommended_tasks <= 5,
+        "Should respect user limit"
+    );
 
     // Test with high limit
     let report_high = analyzer.analyze_epic(&epic, Some(50)).unwrap();
-    assert!(report_high.recommended_tasks <= 50, "Should respect high limit");
+    assert!(
+        report_high.recommended_tasks <= 50,
+        "Should respect high limit"
+    );
 
     // Test with default (None)
     let report_default = analyzer.analyze_epic(&epic, None).unwrap();
-    assert!(report_default.recommended_tasks <= 20, "Should use default limit of 20");
+    assert!(
+        report_default.recommended_tasks <= 20,
+        "Should use default limit of 20"
+    );
 
     println!("✓ Complexity analyzer respects task count limits");
 }
@@ -133,7 +158,8 @@ fn test_complexity_score_clamping() {
 
     // Epic with many complexity-increasing factors
     let mut epic = create_complex_epic();
-    epic.technical_approach = "Distributed microservices migration with event-driven architecture".to_string();
+    epic.technical_approach =
+        "Distributed microservices migration with event-driven architecture".to_string();
 
     let report = analyzer.analyze_epic(&epic, Some(20)).unwrap();
 
@@ -208,11 +234,17 @@ fn test_prd_validator_complete_prd() {
     println!("  Suggestions: {:?}", result.suggestions);
 
     // Adjusted expectations - PRD validator is strict, score of 70+ is acceptable
-    assert!(result.passed || result.score >= 70,
+    assert!(
+        result.passed || result.score >= 70,
         "Complete PRD should pass or have score >= 70 (got score: {}, passed: {})",
-        result.score, result.passed);
+        result.score,
+        result.passed
+    );
 
-    println!("✓ PRD validator evaluates complete PRD (score: {}, passed: {})", result.score, result.passed);
+    println!(
+        "✓ PRD validator evaluates complete PRD (score: {}, passed: {})",
+        result.score, result.passed
+    );
 }
 
 #[test]
@@ -231,7 +263,10 @@ fn test_prd_validator_missing_non_goals() {
 
     let result = validator.validate(&prd);
 
-    assert!(!result.passed || result.score < 90, "Missing Non-Goals should lower score");
+    assert!(
+        !result.passed || result.score < 90,
+        "Missing Non-Goals should lower score"
+    );
     assert!(result.issues.iter().any(|i| i.contains("Non-Goals")));
 
     println!("✓ PRD validator detects missing Non-Goals section");
@@ -278,24 +313,30 @@ fn test_prd_validator_non_quantifiable_metrics() {
     let result = validator.validate(&prd);
 
     // Debug output
-    println!("Non-quantifiable metrics test - Issues: {:?}", result.issues);
+    println!(
+        "Non-quantifiable metrics test - Issues: {:?}",
+        result.issues
+    );
 
     // Should detect that metrics lack quantifiable targets or be flagged in some way
     // The validator checks if success metrics contain numbers - if not, it should flag them
-    let has_metrics_issue = result.issues.iter().any(|i|
-        i.contains("quantifiable") ||
-        i.contains("measurable") ||
-        i.contains("numeric") ||
-        i.contains("metric") ||
-        i.contains("target")
-    );
+    let has_metrics_issue = result.issues.iter().any(|i| {
+        i.contains("quantifiable")
+            || i.contains("measurable")
+            || i.contains("numeric")
+            || i.contains("metric")
+            || i.contains("target")
+    });
 
     // If the validator doesn't specifically flag this, the score should still be lower
     assert!(has_metrics_issue || result.score < 85,
         "PRD validator should detect non-quantifiable metrics or give lower score (got score: {}, issues: {:?})",
         result.score, result.issues);
 
-    println!("✓ PRD validator handles non-quantifiable success metrics (score: {})", result.score);
+    println!(
+        "✓ PRD validator handles non-quantifiable success metrics (score: {})",
+        result.score
+    );
 }
 
 #[test]
@@ -333,7 +374,10 @@ fn test_prd_validator_missing_acceptance_criteria() {
 
     let result = validator.validate(&prd);
 
-    assert!(result.issues.iter().any(|i| i.contains("acceptance criteria")));
+    assert!(result
+        .issues
+        .iter()
+        .any(|i| i.contains("acceptance criteria")));
 
     println!("✓ PRD validator detects missing acceptance criteria");
 }
@@ -438,17 +482,16 @@ fn create_complex_epic() -> Epic {
         project_id: "test-project".to_string(),
         prd_id: "test-prd".to_string(),
         name: "Complex Test Epic".to_string(),
-        overview_markdown: "## Overview\n\nThis is a complex test epic with many dependencies.".to_string(),
+        overview_markdown: "## Overview\n\nThis is a complex test epic with many dependencies."
+            .to_string(),
         technical_approach: "Build new system from scratch".to_string(),
         implementation_strategy: Some("Multi-phase rollout".to_string()),
-        architecture_decisions: Some(vec![
-            ArchitectureDecision {
-                decision: "Use microservices".to_string(),
-                rationale: "Better scalability".to_string(),
-                alternatives: Some(vec!["Monolith".to_string()]),
-                tradeoffs: Some("More complexity".to_string()),
-            },
-        ]),
+        architecture_decisions: Some(vec![ArchitectureDecision {
+            decision: "Use microservices".to_string(),
+            rationale: "Better scalability".to_string(),
+            alternatives: Some(vec!["Monolith".to_string()]),
+            tradeoffs: Some("More complexity".to_string()),
+        }]),
         dependencies: Some(vec![
             ExternalDependency {
                 name: "Service A".to_string(),
@@ -487,11 +530,15 @@ fn create_complex_epic() -> Epic {
                 reason: "Analytics".to_string(),
             },
         ]),
-        success_criteria: Some((0..12).map(|i| SuccessCriterion {
-            criterion: format!("Criterion {}", i),
-            target: Some("100%".to_string()),
-            measurable: true,
-        }).collect()),
+        success_criteria: Some(
+            (0..12)
+                .map(|i| SuccessCriterion {
+                    criterion: format!("Criterion {}", i),
+                    target: Some("100%".to_string()),
+                    measurable: true,
+                })
+                .collect(),
+        ),
         task_categories: None,
         estimated_effort: Some(EstimatedEffort::Months),
         complexity: Some(EpicComplexity::High),

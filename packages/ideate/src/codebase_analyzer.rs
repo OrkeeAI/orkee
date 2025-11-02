@@ -259,7 +259,8 @@ impl CodebaseAnalyzer {
             // Check for layered architecture indicators
             if self.has_file("src/api").await?
                 && self.has_file("src/domain").await?
-                && self.has_file("src/infrastructure").await? {
+                && self.has_file("src/infrastructure").await?
+            {
                 return Ok(ArchitectureStyle::Layered);
             }
         }
@@ -283,7 +284,9 @@ impl CodebaseAnalyzer {
             tech_stack.languages.push("Rust".to_string());
         }
         if self.has_file("package.json").await? {
-            tech_stack.languages.push("TypeScript/JavaScript".to_string());
+            tech_stack
+                .languages
+                .push("TypeScript/JavaScript".to_string());
         }
 
         // Detect frameworks from Cargo.toml

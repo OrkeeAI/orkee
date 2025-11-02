@@ -54,7 +54,10 @@ pub fn overview_prompt(description: &str) -> Result<String, String> {
 /// Generate core features section
 pub fn features_prompt(description: &str) -> Result<String, String> {
     with_prompt_manager(|manager| {
-        manager.get_prompt("features", &[("description", description), ("codebase_context", "")])
+        manager.get_prompt(
+            "features",
+            &[("description", description), ("codebase_context", "")],
+        )
     })
 }
 
@@ -105,18 +108,25 @@ pub fn non_goals_prompt(description: &str) -> Result<String, String> {
 
 /// Generate open questions section (clarifications needed)
 pub fn open_questions_prompt(description: &str) -> Result<String, String> {
-    with_prompt_manager(|manager| manager.get_prompt("open-questions", &[("description", description)]))
+    with_prompt_manager(|manager| {
+        manager.get_prompt("open-questions", &[("description", description)])
+    })
 }
 
 /// Generate success metrics section (quantifiable KPIs)
 pub fn success_metrics_prompt(description: &str) -> Result<String, String> {
-    with_prompt_manager(|manager| manager.get_prompt("success-metrics", &[("description", description)]))
+    with_prompt_manager(|manager| {
+        manager.get_prompt("success-metrics", &[("description", description)])
+    })
 }
 
 /// Generate a complete PRD from a one-liner description
 pub fn complete_prd_prompt(description: &str) -> Result<String, String> {
     with_prompt_manager(|manager| {
-        manager.get_prompt("complete", &[("description", description), ("codebase_context", "")])
+        manager.get_prompt(
+            "complete",
+            &[("description", description), ("codebase_context", "")],
+        )
     })
 }
 

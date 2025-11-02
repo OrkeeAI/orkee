@@ -316,7 +316,13 @@ pub async fn decompose_phase2(
     let codebase_context = None;
 
     match decomposer
-        .expand_to_subtasks(&project_id, user_id, &epic_id, &parent_tasks, codebase_context)
+        .expand_to_subtasks(
+            &project_id,
+            user_id,
+            &epic_id,
+            &parent_tasks,
+            codebase_context,
+        )
         .await
     {
         Ok(tasks) => (

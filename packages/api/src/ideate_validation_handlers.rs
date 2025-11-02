@@ -79,180 +79,168 @@ pub async fn validate_section(
                 }
             }
         }
-        "ux" => {
-            match manager.get_ux(&session_id).await {
-                Ok(Some(ux)) => serde_json::to_value(&ux)
-                    .ok()
-                    .and_then(|v| serde_json::to_string(&v).ok())
-                    .unwrap_or_default(),
-                Ok(None) => {
-                    return (
-                        StatusCode::NOT_FOUND,
-                        Json(serde_json::json!({
-                            "success": false,
-                            "error": "Section not found"
-                        })),
-                    )
-                        .into_response();
-                }
-                Err(e) => {
-                    error!("Failed to fetch ux: {:?}", e);
-                    return (
-                        StatusCode::INTERNAL_SERVER_ERROR,
-                        Json(serde_json::json!({
-                            "success": false,
-                            "error": format!("Failed to fetch section: {}", e)
-                        })),
-                    )
-                        .into_response();
-                }
+        "ux" => match manager.get_ux(&session_id).await {
+            Ok(Some(ux)) => serde_json::to_value(&ux)
+                .ok()
+                .and_then(|v| serde_json::to_string(&v).ok())
+                .unwrap_or_default(),
+            Ok(None) => {
+                return (
+                    StatusCode::NOT_FOUND,
+                    Json(serde_json::json!({
+                        "success": false,
+                        "error": "Section not found"
+                    })),
+                )
+                    .into_response();
             }
-        }
-        "technical" => {
-            match manager.get_technical(&session_id).await {
-                Ok(Some(technical)) => serde_json::to_value(&technical)
-                    .ok()
-                    .and_then(|v| serde_json::to_string(&v).ok())
-                    .unwrap_or_default(),
-                Ok(None) => {
-                    return (
-                        StatusCode::NOT_FOUND,
-                        Json(serde_json::json!({
-                            "success": false,
-                            "error": "Section not found"
-                        })),
-                    )
-                        .into_response();
-                }
-                Err(e) => {
-                    error!("Failed to fetch technical: {:?}", e);
-                    return (
-                        StatusCode::INTERNAL_SERVER_ERROR,
-                        Json(serde_json::json!({
-                            "success": false,
-                            "error": format!("Failed to fetch section: {}", e)
-                        })),
-                    )
-                        .into_response();
-                }
+            Err(e) => {
+                error!("Failed to fetch ux: {:?}", e);
+                return (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(serde_json::json!({
+                        "success": false,
+                        "error": format!("Failed to fetch section: {}", e)
+                    })),
+                )
+                    .into_response();
             }
-        }
-        "roadmap" => {
-            match manager.get_roadmap(&session_id).await {
-                Ok(Some(roadmap)) => serde_json::to_value(&roadmap)
-                    .ok()
-                    .and_then(|v| serde_json::to_string(&v).ok())
-                    .unwrap_or_default(),
-                Ok(None) => {
-                    return (
-                        StatusCode::NOT_FOUND,
-                        Json(serde_json::json!({
-                            "success": false,
-                            "error": "Section not found"
-                        })),
-                    )
-                        .into_response();
-                }
-                Err(e) => {
-                    error!("Failed to fetch roadmap: {:?}", e);
-                    return (
-                        StatusCode::INTERNAL_SERVER_ERROR,
-                        Json(serde_json::json!({
-                            "success": false,
-                            "error": format!("Failed to fetch section: {}", e)
-                        })),
-                    )
-                        .into_response();
-                }
+        },
+        "technical" => match manager.get_technical(&session_id).await {
+            Ok(Some(technical)) => serde_json::to_value(&technical)
+                .ok()
+                .and_then(|v| serde_json::to_string(&v).ok())
+                .unwrap_or_default(),
+            Ok(None) => {
+                return (
+                    StatusCode::NOT_FOUND,
+                    Json(serde_json::json!({
+                        "success": false,
+                        "error": "Section not found"
+                    })),
+                )
+                    .into_response();
             }
-        }
-        "dependencies" => {
-            match manager.get_dependencies(&session_id).await {
-                Ok(Some(dependencies)) => serde_json::to_value(&dependencies)
-                    .ok()
-                    .and_then(|v| serde_json::to_string(&v).ok())
-                    .unwrap_or_default(),
-                Ok(None) => {
-                    return (
-                        StatusCode::NOT_FOUND,
-                        Json(serde_json::json!({
-                            "success": false,
-                            "error": "Section not found"
-                        })),
-                    )
-                        .into_response();
-                }
-                Err(e) => {
-                    error!("Failed to fetch dependencies: {:?}", e);
-                    return (
-                        StatusCode::INTERNAL_SERVER_ERROR,
-                        Json(serde_json::json!({
-                            "success": false,
-                            "error": format!("Failed to fetch section: {}", e)
-                        })),
-                    )
-                        .into_response();
-                }
+            Err(e) => {
+                error!("Failed to fetch technical: {:?}", e);
+                return (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(serde_json::json!({
+                        "success": false,
+                        "error": format!("Failed to fetch section: {}", e)
+                    })),
+                )
+                    .into_response();
             }
-        }
-        "risks" => {
-            match manager.get_risks(&session_id).await {
-                Ok(Some(risks)) => serde_json::to_value(&risks)
-                    .ok()
-                    .and_then(|v| serde_json::to_string(&v).ok())
-                    .unwrap_or_default(),
-                Ok(None) => {
-                    return (
-                        StatusCode::NOT_FOUND,
-                        Json(serde_json::json!({
-                            "success": false,
-                            "error": "Section not found"
-                        })),
-                    )
-                        .into_response();
-                }
-                Err(e) => {
-                    error!("Failed to fetch risks: {:?}", e);
-                    return (
-                        StatusCode::INTERNAL_SERVER_ERROR,
-                        Json(serde_json::json!({
-                            "success": false,
-                            "error": format!("Failed to fetch section: {}", e)
-                        })),
-                    )
-                        .into_response();
-                }
+        },
+        "roadmap" => match manager.get_roadmap(&session_id).await {
+            Ok(Some(roadmap)) => serde_json::to_value(&roadmap)
+                .ok()
+                .and_then(|v| serde_json::to_string(&v).ok())
+                .unwrap_or_default(),
+            Ok(None) => {
+                return (
+                    StatusCode::NOT_FOUND,
+                    Json(serde_json::json!({
+                        "success": false,
+                        "error": "Section not found"
+                    })),
+                )
+                    .into_response();
             }
-        }
-        "research" | "appendix" => {
-            match manager.get_research(&session_id).await {
-                Ok(Some(research)) => serde_json::to_value(&research)
-                    .ok()
-                    .and_then(|v| serde_json::to_string(&v).ok())
-                    .unwrap_or_default(),
-                Ok(None) => {
-                    return (
-                        StatusCode::NOT_FOUND,
-                        Json(serde_json::json!({
-                            "success": false,
-                            "error": "Section not found"
-                        })),
-                    )
-                        .into_response();
-                }
-                Err(e) => {
-                    error!("Failed to fetch research: {:?}", e);
-                    return (
-                        StatusCode::INTERNAL_SERVER_ERROR,
-                        Json(serde_json::json!({
-                            "success": false,
-                            "error": format!("Failed to fetch section: {}", e)
-                        })),
-                    )
-                        .into_response();
-                }
+            Err(e) => {
+                error!("Failed to fetch roadmap: {:?}", e);
+                return (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(serde_json::json!({
+                        "success": false,
+                        "error": format!("Failed to fetch section: {}", e)
+                    })),
+                )
+                    .into_response();
             }
-        }
+        },
+        "dependencies" => match manager.get_dependencies(&session_id).await {
+            Ok(Some(dependencies)) => serde_json::to_value(&dependencies)
+                .ok()
+                .and_then(|v| serde_json::to_string(&v).ok())
+                .unwrap_or_default(),
+            Ok(None) => {
+                return (
+                    StatusCode::NOT_FOUND,
+                    Json(serde_json::json!({
+                        "success": false,
+                        "error": "Section not found"
+                    })),
+                )
+                    .into_response();
+            }
+            Err(e) => {
+                error!("Failed to fetch dependencies: {:?}", e);
+                return (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(serde_json::json!({
+                        "success": false,
+                        "error": format!("Failed to fetch section: {}", e)
+                    })),
+                )
+                    .into_response();
+            }
+        },
+        "risks" => match manager.get_risks(&session_id).await {
+            Ok(Some(risks)) => serde_json::to_value(&risks)
+                .ok()
+                .and_then(|v| serde_json::to_string(&v).ok())
+                .unwrap_or_default(),
+            Ok(None) => {
+                return (
+                    StatusCode::NOT_FOUND,
+                    Json(serde_json::json!({
+                        "success": false,
+                        "error": "Section not found"
+                    })),
+                )
+                    .into_response();
+            }
+            Err(e) => {
+                error!("Failed to fetch risks: {:?}", e);
+                return (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(serde_json::json!({
+                        "success": false,
+                        "error": format!("Failed to fetch section: {}", e)
+                    })),
+                )
+                    .into_response();
+            }
+        },
+        "research" | "appendix" => match manager.get_research(&session_id).await {
+            Ok(Some(research)) => serde_json::to_value(&research)
+                .ok()
+                .and_then(|v| serde_json::to_string(&v).ok())
+                .unwrap_or_default(),
+            Ok(None) => {
+                return (
+                    StatusCode::NOT_FOUND,
+                    Json(serde_json::json!({
+                        "success": false,
+                        "error": "Section not found"
+                    })),
+                )
+                    .into_response();
+            }
+            Err(e) => {
+                error!("Failed to fetch research: {:?}", e);
+                return (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(serde_json::json!({
+                        "success": false,
+                        "error": format!("Failed to fetch section: {}", e)
+                    })),
+                )
+                    .into_response();
+            }
+        },
         _ => {
             return (
                 StatusCode::BAD_REQUEST,
@@ -297,7 +285,10 @@ pub async fn get_quality_score(
     if let Ok(Some(overview)) = manager.get_overview(&session_id).await {
         if let Ok(value) = serde_json::to_value(&overview) {
             prd_json.insert("overview".to_string(), value.clone());
-            let section_result = validator.validate_section("overview", &serde_json::to_string(&value).unwrap_or_default());
+            let section_result = validator.validate_section(
+                "overview",
+                &serde_json::to_string(&value).unwrap_or_default(),
+            );
             section_scores.insert("overview".to_string(), section_result.score);
         }
     }
@@ -306,7 +297,8 @@ pub async fn get_quality_score(
     if let Ok(Some(ux)) = manager.get_ux(&session_id).await {
         if let Ok(value) = serde_json::to_value(&ux) {
             prd_json.insert("ux".to_string(), value.clone());
-            let section_result = validator.validate_section("ux", &serde_json::to_string(&value).unwrap_or_default());
+            let section_result = validator
+                .validate_section("ux", &serde_json::to_string(&value).unwrap_or_default());
             section_scores.insert("ux".to_string(), section_result.score);
         }
     }
@@ -315,7 +307,10 @@ pub async fn get_quality_score(
     if let Ok(Some(technical)) = manager.get_technical(&session_id).await {
         if let Ok(value) = serde_json::to_value(&technical) {
             prd_json.insert("technical".to_string(), value.clone());
-            let section_result = validator.validate_section("technical", &serde_json::to_string(&value).unwrap_or_default());
+            let section_result = validator.validate_section(
+                "technical",
+                &serde_json::to_string(&value).unwrap_or_default(),
+            );
             section_scores.insert("technical".to_string(), section_result.score);
         }
     }
@@ -324,7 +319,10 @@ pub async fn get_quality_score(
     if let Ok(Some(roadmap)) = manager.get_roadmap(&session_id).await {
         if let Ok(value) = serde_json::to_value(&roadmap) {
             prd_json.insert("roadmap".to_string(), value.clone());
-            let section_result = validator.validate_section("roadmap", &serde_json::to_string(&value).unwrap_or_default());
+            let section_result = validator.validate_section(
+                "roadmap",
+                &serde_json::to_string(&value).unwrap_or_default(),
+            );
             section_scores.insert("roadmap".to_string(), section_result.score);
         }
     }
@@ -333,7 +331,10 @@ pub async fn get_quality_score(
     if let Ok(Some(dependencies)) = manager.get_dependencies(&session_id).await {
         if let Ok(value) = serde_json::to_value(&dependencies) {
             prd_json.insert("dependencies".to_string(), value.clone());
-            let section_result = validator.validate_section("dependencies", &serde_json::to_string(&value).unwrap_or_default());
+            let section_result = validator.validate_section(
+                "dependencies",
+                &serde_json::to_string(&value).unwrap_or_default(),
+            );
             section_scores.insert("dependencies".to_string(), section_result.score);
         }
     }
@@ -342,7 +343,8 @@ pub async fn get_quality_score(
     if let Ok(Some(risks)) = manager.get_risks(&session_id).await {
         if let Ok(value) = serde_json::to_value(&risks) {
             prd_json.insert("risks".to_string(), value.clone());
-            let section_result = validator.validate_section("risks", &serde_json::to_string(&value).unwrap_or_default());
+            let section_result = validator
+                .validate_section("risks", &serde_json::to_string(&value).unwrap_or_default());
             section_scores.insert("risks".to_string(), section_result.score);
         }
     }
