@@ -284,6 +284,19 @@ async fn proxy_ai_request(
                 ),
             );
         }
+    } else {
+        warn!(
+            "Content-Type header missing for {} proxy request. This may cause issues with the API.",
+            provider
+        );
+    }
+
+    // Check for Accept header (important for content negotiation)
+    if !headers.contains_key("accept") {
+        warn!(
+            "Accept header missing for {} proxy request. API may return unexpected content type.",
+            provider
+        );
     }
 
     // Read the request body with size limit
