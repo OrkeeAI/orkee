@@ -18,6 +18,7 @@ import { TemplateSelector } from './TemplateSelector';
 import { useCreateIdeateSession, useTemplates } from '@/hooks/useIdeate';
 import type { IdeateMode } from '@/services/ideate';
 import { Lightbulb, AlertCircle } from 'lucide-react';
+import { SESSION_DEFAULTS } from './ConversationalMode/constants';
 
 interface CreatePRDFlowProps {
   projectId: string;
@@ -43,9 +44,34 @@ export function CreatePRDFlow({
   const { isPending: loading, error } = createSessionMutation;
   const { data: templates = [], isLoading: templatesLoading } = useTemplates();
 
-  const handleModeConfirm = () => {
+  const handleModeConfirm = async () => {
     if (selectedMode) {
-      setStep('template');
+      // Conversational mode: create session immediately and open chat
+      if (selectedMode === 'conversational') {
+        try {
+          const session = await createSessionMutation.mutateAsync({
+            projectId,
+            initialDescription: SESSION_DEFAULTS.NEW_CONVERSATION_TITLE,
+            mode: 'conversational',
+            templateId: undefined,
+          });
+
+          // Reset and close
+          resetFlow();
+          onOpenChange(false);
+          onSessionCreated(session.id, 'conversational');
+        } catch {
+          // Error handled by React Query mutation
+        }
+      }
+      // Quick mode: skip template selection, go to description
+      else if (selectedMode === 'quick') {
+        setStep('description');
+      }
+      // Guided/Comprehensive: show template selection
+      else {
+        setStep('template');
+      }
     }
   };
 
@@ -57,7 +83,12 @@ export function CreatePRDFlow({
     if (step === 'template') {
       setStep('mode');
     } else if (step === 'description') {
-      setStep('template');
+      // Go back to template for guided/comprehensive, or mode for quick/conversational
+      if (selectedMode === 'quick' || selectedMode === 'conversational') {
+        setStep('mode');
+      } else {
+        setStep('template');
+      }
     }
   };
 
@@ -96,10 +127,7 @@ export function CreatePRDFlow({
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent
-        className="sm:max-w-[800px]"
-        aria-describedby="create-prd-flow-description"
-      >
+      <DialogContent className="sm:max-w-[800px]">
         {step === 'mode' ? (
           <>
             <DialogHeader>
@@ -107,13 +135,20 @@ export function CreatePRDFlow({
                 <Lightbulb className="h-5 w-5" />
                 Start Ideateing
               </DialogTitle>
-              <DialogDescription id="create-prd-flow-description">
+              <DialogDescription>
                 Choose how you want to create your PRD. Each mode offers different levels of
                 detail and AI assistance.
               </DialogDescription>
             </DialogHeader>
 
-            <div className="py-4">
+            <div className="py-4 space-y-4">
+              {error && (
+                <Alert variant="destructive">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>{error.message}</AlertDescription>
+                </Alert>
+              )}
+
               <ModeSelector
                 selectedMode={selectedMode}
                 onSelectMode={setSelectedMode}
@@ -121,11 +156,11 @@ export function CreatePRDFlow({
             </div>
 
             <DialogFooter>
-              <Button variant="outline" onClick={handleClose}>
+              <Button variant="outline" onClick={handleClose} disabled={loading}>
                 Cancel
               </Button>
-              <Button onClick={handleModeConfirm} disabled={!selectedMode}>
-                Continue
+              <Button onClick={handleModeConfirm} disabled={!selectedMode || loading}>
+                {loading && selectedMode === 'conversational' ? SESSION_DEFAULTS.STARTING_CHAT_TITLE : 'Continue'}
               </Button>
             </DialogFooter>
           </>
@@ -136,7 +171,7 @@ export function CreatePRDFlow({
                 <Lightbulb className="h-5 w-5" />
                 Choose a Template
               </DialogTitle>
-              <DialogDescription id="create-prd-flow-description">
+              <DialogDescription>
                 Select a quickstart template to pre-populate your PRD, or start from scratch.
               </DialogDescription>
             </DialogHeader>
@@ -166,7 +201,7 @@ export function CreatePRDFlow({
                 <Lightbulb className="h-5 w-5" />
                 Describe Your Idea
               </DialogTitle>
-              <DialogDescription id="create-prd-flow-description">
+              <DialogDescription>
                 Provide an initial description of your project idea. This will be used to
                 generate or guide your PRD creation.
               </DialogDescription>

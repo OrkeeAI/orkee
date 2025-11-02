@@ -1126,6 +1126,7 @@ impl IdeateManager {
             IdeateMode::Quick => true,                  // Quick mode is always ready
             IdeateMode::Guided => completed_count >= 2, // At least 2 sections
             IdeateMode::Comprehensive => completed_count >= 5, // At least 5 sections
+            IdeateMode::Conversational => true,         // Conversational uses quality score instead
         };
 
         Ok(SessionCompletionStatus {

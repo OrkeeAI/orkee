@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 
 /// Role of the message sender
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, sqlx::Type)]
-#[sqlx(type_name = "TEXT")]
+#[sqlx(type_name = "TEXT", rename_all = "lowercase")]
 #[serde(rename_all = "lowercase")]
 pub enum MessageRole {
     User,
@@ -15,7 +15,7 @@ pub enum MessageRole {
 
 /// Type of message in the conversation flow
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, sqlx::Type)]
-#[sqlx(type_name = "TEXT")]
+#[sqlx(type_name = "TEXT", rename_all = "lowercase")]
 #[serde(rename_all = "lowercase")]
 pub enum MessageType {
     Discovery,
@@ -26,7 +26,7 @@ pub enum MessageType {
 
 /// Discovery status of the PRD conversation
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, sqlx::Type)]
-#[sqlx(type_name = "TEXT")]
+#[sqlx(type_name = "TEXT", rename_all = "lowercase")]
 #[serde(rename_all = "lowercase")]
 pub enum DiscoveryStatus {
     Draft,
@@ -38,7 +38,7 @@ pub enum DiscoveryStatus {
 
 /// Type of insight extracted from conversation
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, sqlx::Type)]
-#[sqlx(type_name = "TEXT")]
+#[sqlx(type_name = "TEXT", rename_all = "lowercase")]
 #[serde(rename_all = "lowercase")]
 pub enum InsightType {
     Requirement,
@@ -50,7 +50,7 @@ pub enum InsightType {
 
 /// Category of discovery question
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, sqlx::Type)]
-#[sqlx(type_name = "TEXT")]
+#[sqlx(type_name = "TEXT", rename_all = "lowercase")]
 #[serde(rename_all = "lowercase")]
 pub enum QuestionCategory {
     Problem,

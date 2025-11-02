@@ -13,6 +13,7 @@ import { queryClient } from '@/lib/queryClient'
 import { PopupCloseHandler } from '@/components/PopupCloseHandler'
 import { CliSetupDialog } from '@/components/CliSetupDialog'
 import { TelemetryOnboardingDialog } from '@/components/TelemetryOnboardingDialog'
+import { isTauriApp } from '@/lib/platform'
 
 // Lazy load page components for code splitting
 const Projects = lazy(() => import('@/pages/Projects'))
@@ -44,8 +45,13 @@ function AppWithTelemetry() {
   }, [shouldShowOnboarding]);
 
   useEffect(() => {
-    // Check if we should show the CLI setup dialog (macOS only)
+    // Check if we should show the CLI setup dialog (Tauri desktop + macOS only)
     const checkCliSetup = async () => {
+      // Only run in Tauri desktop environment
+      if (!isTauriApp()) {
+        return
+      }
+
       try {
         // Check if we're on macOS - using user agent as a simple check
         // In a real Tauri app, platform() from @tauri-apps/api would be more reliable

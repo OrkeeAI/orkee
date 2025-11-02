@@ -284,6 +284,19 @@ async fn proxy_ai_request(
                 ),
             );
         }
+    } else {
+        warn!(
+            "Content-Type header missing for {} proxy request. This may cause issues with the API.",
+            provider
+        );
+    }
+
+    // Check for Accept header (important for content negotiation)
+    if !headers.contains_key("accept") {
+        warn!(
+            "Accept header missing for {} proxy request. API may return unexpected content type.",
+            provider
+        );
     }
 
     // Read the request body with size limit
@@ -320,13 +333,26 @@ async fn proxy_ai_request(
         .request(method, &target_url)
         .body(body_bytes.to_vec());
 
-    // Copy relevant headers (exclude host, connection, etc.)
-    info!("Copying request headers (excluding auth headers)");
+    // Copy relevant headers (exclude host, connection, browser-specific headers, etc.)
+    info!("Copying request headers (excluding auth and browser-specific headers)");
     for (key, value) in headers.iter() {
         let key_str = key.as_str().to_lowercase();
         if !matches!(
             key_str.as_str(),
-            "host" | "connection" | "content-length" | "x-api-key" | "authorization"
+            "host"
+                | "connection"
+                | "content-length"
+                | "x-api-key"
+                | "authorization"
+                | "origin"
+                | "referer"
+                | "user-agent"
+                | "sec-fetch-site"
+                | "sec-fetch-mode"
+                | "sec-fetch-dest"
+                | "sec-ch-ua"
+                | "sec-ch-ua-mobile"
+                | "sec-ch-ua-platform"
         ) {
             if let Ok(val_str) = value.to_str() {
                 info!("  Copying header: {} = {}", key_str, val_str);
@@ -336,6 +362,9 @@ async fn proxy_ai_request(
             info!("  Excluding header: {}", key_str);
         }
     }
+
+    // Add custom User-Agent header for proper API behavior
+    proxy_req = proxy_req.header("User-Agent", "Orkee/1.0");
 
     // Add the API key header and provider-specific headers
     info!("Adding provider-specific headers for: {}", provider);

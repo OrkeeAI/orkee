@@ -52,11 +52,9 @@ impl ConversationalManager {
                 session_id: row.get("session_id"),
                 prd_id: row.get("prd_id"),
                 message_order: row.get("message_order"),
-                role: serde_json::from_str(&row.get::<String, _>("role")).unwrap(),
+                role: row.get("role"),
                 content: row.get("content"),
-                message_type: row
-                    .get::<Option<String>, _>("message_type")
-                    .and_then(|s| serde_json::from_str(&s).ok()),
+                message_type: row.get("message_type"),
                 metadata: row.get("metadata"),
                 created_at: row.get("created_at"),
             })
@@ -196,7 +194,7 @@ impl ConversationalManager {
             .into_iter()
             .map(|row| DiscoveryQuestion {
                 id: row.get("id"),
-                category: serde_json::from_str(&row.get::<String, _>("category")).unwrap(),
+                category: row.get("category"),
                 question_text: row.get("question_text"),
                 follow_up_prompts: row
                     .get::<Option<String>, _>("follow_up_prompts")
