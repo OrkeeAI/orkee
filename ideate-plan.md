@@ -890,7 +890,7 @@ impl Task {
 
 ## Phase 6A: API Endpoint Completion (Priority 1)
 
-### Status: **IN PROGRESS** (3 of 6 sections complete)
+### Status: **IN PROGRESS** (4 of 6 sections complete)
 
 ### Checklist
 - [x] **6A.1 Discovery & Codebase Analysis Endpoints** (commit b2e0e88)
@@ -902,10 +902,10 @@ impl Task {
   - [x] POST `/api/ideate/sessions/{id}/validate-section/{section}` - Validate individual section
   - [x] GET `/api/ideate/sessions/{id}/quality-score` - Get overall quality score
   - [x] POST `/api/ideate/sessions/{id}/validation-history` - Store validation feedback
-- [ ] **6A.3 Epic Alternative Approaches Endpoints**
-  - [ ] POST `/api/epics/{id}/generate-alternatives` - Generate 2-3 technical approaches
-  - [ ] GET `/api/epics/{id}/alternatives` - Get all alternatives
-  - [ ] PUT `/api/epics/{id}/select-approach` - Select preferred approach
+- [x] **6A.3 Epic Alternative Approaches Endpoints** (commit 8639442)
+  - [x] POST `/api/epics/{id}/generate-alternatives` - Generate 2-3 technical approaches
+  - [x] GET `/api/epics/{id}/alternatives` - Get all alternatives
+  - [x] PUT `/api/epics/{id}/select-approach` - Select preferred approach
 - [ ] **6A.4 Epic Complexity & Simplification Endpoints**
   - [ ] POST `/api/epics/{id}/analyze-complexity` - Complexity analysis
   - [ ] POST `/api/epics/{id}/simplify` - Get simplification suggestions
