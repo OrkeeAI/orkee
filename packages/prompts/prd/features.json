@@ -2,8 +2,8 @@
   "id": "features",
   "name": "Core Features",
   "category": "prd",
-  "template": "Based on this project description:\n\n{{description}}\n\nGenerate 5-8 core features for an MVP. For each feature, provide:\n\n{\n  \"features\": [\n    {\n      \"name\": \"Feature name\",\n      \"what\": \"What does this feature do?\",\n      \"why\": \"Why is this important for the MVP?\",\n      \"how\": \"High-level approach for implementation\",\n      \"dependsOn\": [\"List of feature names this depends on\"],\n      \"enables\": [\"List of features this unlocks\"],\n      \"buildPhase\": 1-3 (1=foundation, 2=visible, 3=enhancement),\n      \"isVisible\": true/false (does this give users something to see/use?)\n    }\n  ]\n}\n\nFocus on:\n1. Foundation features that must be built first\n2. Visible features that users can interact with quickly\n3. Enhancement features that build on the foundation\n\nEnsure dependencies are logical and create a clear build order.",
-  "parameters": ["description"],
+  "template": "Based on this project description:\n\n{{description}}\n\n{{#if codebase_context}}\nCODEBASE CONTEXT - LEVERAGE THESE EXISTING PATTERNS:\n{{codebase_context}}\n\nIMPORTANT: Before proposing new features, check if similar functionality already exists. Prefer extending existing features over creating new ones.\n{{/if}}\n\nGenerate 5-8 core features for an MVP. For each feature, provide:\n\n{\n  \"features\": [\n    {\n      \"name\": \"Feature name\",\n      \"what\": \"What does this feature do?\",\n      \"why\": \"Why is this important for the MVP?\",\n      \"how\": \"High-level approach for implementation\",\n      \"testStrategy\": \"REQUIRED: How will this feature be tested? (e.g., unit tests, integration tests, E2E tests)\",\n      \"acceptanceCriteria\": [\"List of specific, measurable criteria that define when this feature is complete\"],\n      \"relevantFiles\": [\"List of exact file paths to create or modify (e.g., 'packages/api/src/handlers/feature.rs')\"],\n      \"similarImplementations\": [\"References to similar features in the codebase that can be used as patterns\"],\n      \"reuseOpportunities\": \"Can this leverage existing code? What can be reused vs. built new?\",\n      \"dependsOn\": [\"List of feature names this depends on\"],\n      \"enables\": [\"List of features this unlocks\"],\n      \"buildPhase\": 1-3 (1=foundation, 2=visible, 3=enhancement),\n      \"isVisible\": true/false (does this give users something to see/use?)\n    }\n  ]\n}\n\nFocus on:\n1. Foundation features that must be built first\n2. Visible features that users can interact with quickly\n3. Enhancement features that build on the foundation\n4. EVERY feature MUST have a test strategy - no feature is complete without tests\n5. BE SPECIFIC about file paths - provide exact locations, not vague descriptions\n6. IDENTIFY reuse opportunities - what existing code can be leveraged?\n7. MINIMIZE feature count - can features be combined? Can we start simpler?\n\nEnsure dependencies are logical and create a clear build order.",
+  "parameters": ["description", "codebase_context"],
   "outputSchema": {
     "features": [
       {
@@ -19,8 +19,8 @@
     ]
   },
   "metadata": {
-    "version": "1.0.0",
-    "lastModified": "2025-10-30",
-    "description": "Generate core features section with dependencies"
+    "version": "1.1.0",
+    "lastModified": "2025-11-02",
+    "description": "Generate core features with codebase context, TDD requirements, file specificity, and reuse opportunities (Phase 6B enhancements)"
   }
 }

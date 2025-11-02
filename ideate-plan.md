@@ -41,8 +41,8 @@ This document outlines a comprehensive plan to optimize Orkee's ideation → PRD
 - [x] **Phase 4**: Epic & Task Decomposition (Day 6-8) - COMPLETED (core backend functionality)
 - [x] **Phase 5**: Execution & Progress Tracking (Day 9-10) - COMPLETED (core backend functionality)
 - [ ] **Phase 6**: Integration & Polish - **EXPANDED INTO 7 SUB-PHASES (6A-6G)**
-  - [ ] **Phase 6A**: API Endpoint Completion (Priority 1)
-  - [ ] **Phase 6B**: Prompt Enhancements (Priority 2)
+  - [x] **Phase 6A**: API Endpoint Completion (Priority 1) - COMPLETED
+  - [x] **Phase 6B**: Prompt Enhancements (Priority 2) - COMPLETED
   - [ ] **Phase 6C**: UI Integration - Chat Mode (Priority 3)
   - [ ] **Phase 6D**: UI Integration - Quick & Guided Modes (Priority 4)
   - [ ] **Phase 6E**: UI Integration - Epic & Task Views (Priority 5)
@@ -932,28 +932,28 @@ impl Task {
 
 ## Phase 6B: Prompt Enhancements (Priority 2)
 
-### Status: **NOT STARTED**
+### Status: **COMPLETED** (2025-11-02)
 
 ### Checklist
-- [ ] **6B.1 Add Context Awareness to All Prompts**
-  - [ ] Update `complete.json` with codebase context instructions
-  - [ ] Update `features.json` to reference similar implementations
-  - [ ] Update `technical.json` to leverage existing patterns
-  - [ ] Add codebase_context parameter to prompt functions
-- [ ] **6B.2 Add TDD Requirements**
-  - [ ] Update all prompts to require test strategies
-  - [ ] Add acceptance criteria requirements
-  - [ ] Include test command examples
-  - [ ] Emphasize test-first approach
-- [ ] **6B.3 Add Simplification Pressure**
-  - [ ] Add "Can we leverage existing code?" questions
-  - [ ] Add "Can we combine requirements?" prompts
-  - [ ] Add target task count reminders
-  - [ ] Emphasize MINIMUM viable approach
-- [ ] **6B.4 Add File Specificity**
-  - [ ] Require exact file paths in all prompts
-  - [ ] Request similar implementation references
-  - [ ] Include "files to create/modify" in responses
+- [x] **6B.1 Add Context Awareness to All Prompts**
+  - [x] Update `complete.json` with codebase context instructions
+  - [x] Update `features.json` to reference similar implementations
+  - [x] Update `technical.json` to leverage existing patterns
+  - [x] Add codebase_context parameter to prompt functions
+- [x] **6B.2 Add TDD Requirements**
+  - [x] Update all prompts to require test strategies
+  - [x] Add acceptance criteria requirements
+  - [x] Include test command examples
+  - [x] Emphasize test-first approach
+- [x] **6B.3 Add Simplification Pressure**
+  - [x] Add "Can we leverage existing code?" questions
+  - [x] Add "Can we combine requirements?" prompts
+  - [x] Add target task count reminders
+  - [x] Emphasize MINIMUM viable approach
+- [x] **6B.4 Add File Specificity**
+  - [x] Require exact file paths in all prompts
+  - [x] Request similar implementation references
+  - [x] Include "files to create/modify" in responses
 
 ### Implementation Notes
 - Prompts are in `packages/prompts/prd/*.json`

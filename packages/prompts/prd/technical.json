@@ -2,8 +2,8 @@
   "id": "technical",
   "name": "Technical Architecture",
   "category": "prd",
-  "template": "Based on this project description:\n\n{{description}}\n\nGenerate a technical architecture plan:\n\n{\n  \"components\": [\n    {\n      \"name\": \"Component name\",\n      \"purpose\": \"What this component does\",\n      \"technology\": \"Suggested technology/framework\"\n    }\n  ],\n  \"dataModels\": [\n    {\n      \"name\": \"Model name\",\n      \"fields\": [\n        {\n          \"name\": \"Field name\",\n          \"type\": \"Data type\",\n          \"required\": true/false\n        }\n      ]\n    }\n  ],\n  \"apis\": [\n    {\n      \"name\": \"API name\",\n      \"purpose\": \"What this API does\",\n      \"endpoints\": [\"List of endpoint patterns\"]\n    }\n  ],\n  \"infrastructure\": {\n    \"hosting\": \"Recommended hosting approach\",\n    \"database\": \"Database technology and why\",\n    \"caching\": \"Caching strategy if needed\",\n    \"fileStorage\": \"File storage approach if needed\"\n  },\n  \"techStackQuick\": \"One-line summary of the tech stack\"\n}\n\nBe practical and consider:\n- Scalability needs\n- Development complexity\n- Maintenance requirements\n- Cost efficiency",
-  "parameters": ["description"],
+  "template": "Based on this project description:\n\n{{description}}\n\n{{#if codebase_context}}\nCODEBASE CONTEXT - LEVERAGE THESE EXISTING PATTERNS:\n{{codebase_context}}\n\nIMPORTANT: Prefer extending the existing tech stack and architectural patterns. Only propose new technologies if the current stack cannot support the requirements. Reference existing implementations wherever possible.\n{{/if}}\n\nGenerate a technical architecture plan:\n\n{\n  \"components\": [\n    {\n      \"name\": \"Component name\",\n      \"purpose\": \"What this component does\",\n      \"technology\": \"Suggested technology/framework\",\n      \"reuseOpportunity\": \"Can this extend an existing component? Provide specific file path if yes (e.g., 'packages/api/src/handlers/existing.rs')\",\n      \"testingApproach\": \"REQUIRED: How will this component be tested? (unit tests, integration tests, etc.)\",\n      \"relevantFiles\": [\"Exact file paths to create or modify\"]\n    }\n  ],\n  \"dataModels\": [\n    {\n      \"name\": \"Model name\",\n      \"fields\": [\n        {\n          \"name\": \"Field name\",\n          \"type\": \"Data type\",\n          \"required\": true/false\n        }\n      ]\n    }\n  ],\n  \"apis\": [\n    {\n      \"name\": \"API name\",\n      \"purpose\": \"What this API does\",\n      \"endpoints\": [\"List of endpoint patterns\"]\n    }\n  ],\n  \"infrastructure\": {\n    \"hosting\": \"Recommended hosting approach\",\n    \"database\": \"Database technology and why\",\n    \"caching\": \"Caching strategy if needed\",\n    \"fileStorage\": \"File storage approach if needed\"\n  },\n  \"techStackQuick\": \"One-line summary of the tech stack\"\n}\n\nBe practical and consider:\n- Scalability needs\n- Development complexity\n- Maintenance requirements\n- Cost efficiency\n- LEVERAGE existing tech stack - don't introduce new technologies unless absolutely necessary\n- PROVIDE specific file paths - where exactly will code go?\n- REQUIRE testing approach for every component\n- IDENTIFY reuse opportunities - what existing code can be extended?",
+  "parameters": ["description", "codebase_context"],
   "outputSchema": {
     "components": [
       {
@@ -40,8 +40,8 @@
     "techStackQuick": "string"
   },
   "metadata": {
-    "version": "1.0.0",
-    "lastModified": "2025-10-30",
-    "description": "Generate technical architecture section"
+    "version": "1.1.0",
+    "lastModified": "2025-11-02",
+    "description": "Generate technical architecture with codebase context, TDD requirements, file specificity, and reuse opportunities (Phase 6B enhancements)"
   }
 }
