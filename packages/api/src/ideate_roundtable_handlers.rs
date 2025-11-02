@@ -1,7 +1,6 @@
 // ABOUTME: HTTP request handlers for expert roundtable discussions
 // ABOUTME: Handles roundtable creation, expert management, discussion streaming, and insight extraction
 
-use ai::AIService;
 use axum::{
     extract::{Path, State},
     response::{
@@ -11,11 +10,12 @@ use axum::{
     Json,
 };
 use futures::stream::{self, Stream};
-use ideate::{
+use orkee_ai::AIService;
+use orkee_config::constants;
+use orkee_ideate::{
     CreateExpertPersonaInput, ExpertModerator, RoundtableEvent, RoundtableManager,
     StartRoundtableRequest, SuggestExpertsRequest, UserInterjectionInput,
 };
-use orkee_config::constants;
 use orkee_projects::DbState;
 use serde::{Deserialize, Serialize};
 use std::convert::Infallible;

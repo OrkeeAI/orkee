@@ -14,7 +14,7 @@ use super::auth::CurrentUser;
 use super::response::{created_or_internal_error, ok_or_internal_error};
 use orkee_projects::pagination::{PaginatedResponse, PaginationParams};
 use orkee_projects::DbState;
-use tasks::{TaskCreateInput, TaskPriority, TaskStatus, TaskUpdateInput};
+use orkee_tasks::{TaskCreateInput, TaskPriority, TaskStatus, TaskUpdateInput};
 
 /// Helper function to parse ISO 8601 date string
 fn parse_due_date(date_str: &str) -> Option<DateTime<Utc>> {

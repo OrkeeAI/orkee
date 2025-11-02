@@ -4,7 +4,7 @@
 use clap::Subcommand;
 use colored::*;
 use inquire::{Password, PasswordDisplayMode};
-use orkee_projects::security::encryption::{ApiKeyEncryption, EncryptionMode};
+use orkee_projects::orkee_security::encryption::{ApiKeyEncryption, EncryptionMode};
 use orkee_projects::ProjectManager;
 use std::process;
 

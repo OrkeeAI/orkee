@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 use tracing::info;
 
 use super::response::ok_or_internal_error;
-use ideate::{EpicManager, GitHubConfig, GitHubSyncService, SyncResult};
+use orkee_ideate::{EpicManager, GitHubConfig, GitHubSyncService, SyncResult};
 use orkee_projects::DbState;
 
 /// Request to sync an Epic to GitHub
@@ -29,7 +29,7 @@ pub struct SyncResponse {
 /// Sync status response
 #[derive(Debug, Serialize)]
 pub struct SyncStatusResponse {
-    pub syncs: Vec<ideate::GitHubSync>,
+    pub syncs: Vec<orkee_ideate::GitHubSync>,
 }
 
 /// Get GitHub configuration from project
@@ -71,7 +71,7 @@ async fn get_github_config(
         github_token_encrypted.ok_or_else(|| "GitHub token not configured".to_string())?;
 
     // Decrypt token using security package
-    let encryption = security::ApiKeyEncryption::new()
+    let encryption = orkee_security::ApiKeyEncryption::new()
         .map_err(|e| format!("Failed to initialize encryption: {}", e))?;
     let token = encryption
         .decrypt(&encrypted_token)

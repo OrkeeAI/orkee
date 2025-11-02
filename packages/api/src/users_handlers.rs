@@ -12,7 +12,7 @@ use tracing::info;
 use super::auth::CurrentUser;
 use super::response::ok_or_internal_error;
 use orkee_projects::DbState;
-use security::users::{MaskedUser, UserUpdateInput};
+use orkee_security::users::{MaskedUser, UserUpdateInput};
 
 /// Get current user (with masked credentials)
 pub async fn get_current_user(State(db): State<DbState>) -> impl IntoResponse {

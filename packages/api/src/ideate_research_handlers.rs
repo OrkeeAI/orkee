@@ -1,13 +1,13 @@
 // ABOUTME: HTTP request handlers for PRD research and competitor analysis
 // ABOUTME: Handles competitor analysis, gap analysis, similar projects, and pattern extraction
 
-use ai::AIService;
 use axum::{
     extract::{Path, State},
     response::IntoResponse,
     Json,
 };
-use ideate::{IdeateManager, ResearchAnalyzer, SimilarProject};
+use orkee_ai::AIService;
+use orkee_ideate::{IdeateManager, ResearchAnalyzer, SimilarProject};
 use orkee_projects::{DbState, StorageError};
 use serde::{Deserialize, Serialize};
 use tracing::{info, warn};
@@ -79,7 +79,7 @@ pub async fn analyze_competitor(
         Ok(s) => s,
         Err(e) => {
             warn!("Failed to retrieve session: {}", e);
-            return ok_or_not_found::<(), ideate::IdeateError>(Err(e), "Session not found");
+            return ok_or_not_found::<(), orkee_ideate::IdeateError>(Err(e), "Session not found");
         }
     };
 
@@ -111,8 +111,8 @@ pub async fn analyze_competitor(
             struct ApiKeyError {
                 error: String,
             }
-            return ok_or_internal_error::<ApiKeyError, ideate::IdeateError>(
-                Err(ideate::IdeateError::AIService(
+            return ok_or_internal_error::<ApiKeyError, orkee_ideate::IdeateError>(
+                Err(orkee_ideate::IdeateError::AIService(
                     "No API key configured. Please add your Anthropic API key in Settings."
                         .to_string(),
                 )),
@@ -156,7 +156,7 @@ pub async fn analyze_gaps(
         Ok(s) => s,
         Err(e) => {
             warn!("Failed to retrieve session: {}", e);
-            return ok_or_not_found::<(), ideate::IdeateError>(Err(e), "Session not found");
+            return ok_or_not_found::<(), orkee_ideate::IdeateError>(Err(e), "Session not found");
         }
     };
 
@@ -184,8 +184,8 @@ pub async fn analyze_gaps(
             struct ApiKeyError {
                 error: String,
             }
-            return ok_or_internal_error::<ApiKeyError, ideate::IdeateError>(
-                Err(ideate::IdeateError::AIService(
+            return ok_or_internal_error::<ApiKeyError, orkee_ideate::IdeateError>(
+                Err(orkee_ideate::IdeateError::AIService(
                     "No API key configured. Please add your Anthropic API key in Settings."
                         .to_string(),
                 )),
@@ -225,7 +225,7 @@ pub async fn extract_patterns(
         Ok(s) => s,
         Err(e) => {
             warn!("Failed to retrieve session: {}", e);
-            return ok_or_not_found::<(), ideate::IdeateError>(Err(e), "Session not found");
+            return ok_or_not_found::<(), orkee_ideate::IdeateError>(Err(e), "Session not found");
         }
     };
 
@@ -257,8 +257,8 @@ pub async fn extract_patterns(
             struct ApiKeyError {
                 error: String,
             }
-            return ok_or_internal_error::<ApiKeyError, ideate::IdeateError>(
-                Err(ideate::IdeateError::AIService(
+            return ok_or_internal_error::<ApiKeyError, orkee_ideate::IdeateError>(
+                Err(orkee_ideate::IdeateError::AIService(
                     "No API key configured. Please add your Anthropic API key in Settings."
                         .to_string(),
                 )),
@@ -330,7 +330,7 @@ pub async fn extract_lessons(
         Ok(s) => s,
         Err(e) => {
             warn!("Failed to retrieve session: {}", e);
-            return ok_or_not_found::<(), ideate::IdeateError>(Err(e), "Session not found");
+            return ok_or_not_found::<(), orkee_ideate::IdeateError>(Err(e), "Session not found");
         }
     };
 
@@ -344,7 +344,7 @@ pub async fn extract_lessons(
         Ok(projects) => projects,
         Err(e) => {
             warn!("Failed to get similar projects: {}", e);
-            return ok_or_internal_error::<(), ideate::IdeateError>(
+            return ok_or_internal_error::<(), orkee_ideate::IdeateError>(
                 Err(e),
                 "Failed to get similar projects",
             );
@@ -358,8 +358,8 @@ pub async fn extract_lessons(
         Some(p) => p,
         None => {
             warn!("Similar project not found: {}", request.project_name);
-            return ok_or_not_found::<(), ideate::IdeateError>(
-                Err(ideate::IdeateError::InvalidInput(format!(
+            return ok_or_not_found::<(), orkee_ideate::IdeateError>(
+                Err(orkee_ideate::IdeateError::InvalidInput(format!(
                     "Similar project '{}' not found",
                     request.project_name
                 ))),
@@ -392,8 +392,8 @@ pub async fn extract_lessons(
             struct ApiKeyError {
                 error: String,
             }
-            return ok_or_internal_error::<ApiKeyError, ideate::IdeateError>(
-                Err(ideate::IdeateError::AIService(
+            return ok_or_internal_error::<ApiKeyError, orkee_ideate::IdeateError>(
+                Err(orkee_ideate::IdeateError::AIService(
                     "No API key configured. Please add your Anthropic API key in Settings."
                         .to_string(),
                 )),
@@ -423,7 +423,7 @@ pub async fn synthesize_research(
         Ok(s) => s,
         Err(e) => {
             warn!("Failed to retrieve session: {}", e);
-            return ok_or_not_found::<(), ideate::IdeateError>(Err(e), "Session not found");
+            return ok_or_not_found::<(), orkee_ideate::IdeateError>(Err(e), "Session not found");
         }
     };
 
@@ -451,8 +451,8 @@ pub async fn synthesize_research(
             struct ApiKeyError {
                 error: String,
             }
-            return ok_or_internal_error::<ApiKeyError, ideate::IdeateError>(
-                Err(ideate::IdeateError::AIService(
+            return ok_or_internal_error::<ApiKeyError, orkee_ideate::IdeateError>(
+                Err(orkee_ideate::IdeateError::AIService(
                     "No API key configured. Please add your Anthropic API key in Settings."
                         .to_string(),
                 )),

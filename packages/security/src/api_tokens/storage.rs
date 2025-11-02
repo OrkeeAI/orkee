@@ -3,10 +3,10 @@
 
 use crate::api_tokens::types::{ApiToken, TokenGeneration};
 use base64::Engine;
+use orkee_storage::StorageError;
 use rand::Rng;
 use sha2::{Digest, Sha256};
 use sqlx::{Row, SqlitePool};
-use storage::StorageError;
 use uuid::Uuid;
 
 pub struct TokenStorage {

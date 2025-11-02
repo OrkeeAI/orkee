@@ -9,22 +9,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "320119579fcad9c21884f5c4861d16174d0e06250625266f50fe6898340abefa"
 
 [[package]]
-name = "agents"
-version = "0.0.9"
-dependencies = [
- "chrono",
- "models",
- "orkee_core",
- "serde",
- "serde_json",
- "sqlx",
- "storage",
- "tempfile",
- "thiserror 2.0.17",
- "tracing",
-]
-
-[[package]]
 name = "ahash"
 version = "0.8.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -44,26 +28,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8e60d3430d3a69478ad0993f19238d2df97c507009a52b3c10addcd7f6bcb916"
 dependencies = [
  "memchr",
-]
-
-[[package]]
-name = "ai"
-version = "0.0.9"
-dependencies = [
- "async-stream",
- "chrono",
- "futures",
- "orkee_core",
- "reqwest 0.12.24",
- "serde",
- "serde_json",
- "sqlx",
- "storage",
- "tempfile",
- "thiserror 2.0.17",
- "tokio",
- "tracing",
- "wiremock",
 ]
 
 [[package]]
@@ -151,45 +115,6 @@ name = "anyhow"
 version = "1.0.100"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a23eb6b1614318a8071c9b2521f36b424b2c83db5eb3a0fead4a6c0809af6e61"
-
-[[package]]
-name = "api"
-version = "0.0.9"
-dependencies = [
- "agents",
- "ai",
- "async-stream",
- "axum 0.8.6",
- "chrono",
- "context",
- "executions",
- "futures",
- "http-body-util",
- "models",
- "nanoid",
- "orkee-config",
- "orkee-ideate",
- "orkee-projects",
- "orkee_core",
- "reqwest 0.12.24",
- "security",
- "serde",
- "serde_json",
- "settings",
- "sqlx",
- "storage",
- "tags",
- "tasks",
- "tokio",
- "tokio-stream",
- "tokio-test",
- "tower",
- "tower-http 0.6.6",
- "tracing",
- "url",
- "uuid",
- "zeroize",
-]
 
 [[package]]
 name = "arc-swap"
@@ -820,29 +745,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c2459377285ad874054d797f3ccebf984978aa39129f6eafde5cdc8315b612f8"
 
 [[package]]
-name = "context"
-version = "0.0.9"
-dependencies = [
- "chrono",
- "lazy_static",
- "num_cpus",
- "rand 0.8.5",
- "serde",
- "serde_json",
- "sha2",
- "sqlx",
- "tempfile",
- "tokio",
- "tracing",
- "tree-sitter",
- "tree-sitter-javascript",
- "tree-sitter-python",
- "tree-sitter-rust",
- "tree-sitter-typescript",
- "walkdir",
-]
-
-[[package]]
 name = "cookie"
 version = "0.18.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1320,23 +1222,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "executions"
-version = "0.0.9"
-dependencies = [
- "chrono",
- "models",
- "nanoid",
- "orkee_core",
- "serde",
- "serde_json",
- "sqlx",
- "storage",
- "tempfile",
- "thiserror 2.0.17",
- "tracing",
-]
-
-[[package]]
 name = "fastrand"
 version = "2.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1421,14 +1306,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cb4cb245038516f5f85277875cdaa4f7d2c9a0fa0468de06ed190163b1581fcf"
 dependencies = [
  "percent-encoding",
-]
-
-[[package]]
-name = "formatter"
-version = "0.0.9"
-dependencies = [
- "chrono",
- "orkee_core",
 ]
 
 [[package]]
@@ -1656,20 +1533,6 @@ dependencies = [
  "openssl-probe",
  "openssl-sys",
  "url",
-]
-
-[[package]]
-name = "git_utils"
-version = "0.0.9"
-dependencies = [
- "git2",
- "orkee_core",
- "serde",
- "serde_json",
- "thiserror 2.0.17",
- "tokio",
- "tracing",
- "which",
 ]
 
 [[package]]
@@ -2674,15 +2537,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "models"
-version = "0.0.9"
-dependencies = [
- "lazy_static",
- "serde",
- "serde_json",
-]
-
-[[package]]
 name = "multer"
 version = "3.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2956,11 +2810,85 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "04744f49eae99ab78e0d5c0b603ab218f515ea8cfe5a456d7629ad883a3b6e7d"
 
 [[package]]
+name = "orkee-agents"
+version = "0.0.9"
+dependencies = [
+ "chrono",
+ "orkee-core",
+ "orkee-models",
+ "orkee-storage",
+ "serde",
+ "serde_json",
+ "sqlx",
+ "tempfile",
+ "thiserror 2.0.17",
+ "tracing",
+]
+
+[[package]]
+name = "orkee-ai"
+version = "0.0.9"
+dependencies = [
+ "async-stream",
+ "chrono",
+ "futures",
+ "orkee-core",
+ "orkee-storage",
+ "reqwest 0.12.24",
+ "serde",
+ "serde_json",
+ "sqlx",
+ "tempfile",
+ "thiserror 2.0.17",
+ "tokio",
+ "tracing",
+ "wiremock",
+]
+
+[[package]]
+name = "orkee-api"
+version = "0.0.9"
+dependencies = [
+ "async-stream",
+ "axum 0.8.6",
+ "chrono",
+ "futures",
+ "http-body-util",
+ "nanoid",
+ "orkee-agents",
+ "orkee-ai",
+ "orkee-config",
+ "orkee-context",
+ "orkee-core",
+ "orkee-executions",
+ "orkee-ideate",
+ "orkee-models",
+ "orkee-projects",
+ "orkee-security",
+ "orkee-settings",
+ "orkee-storage",
+ "orkee-tags",
+ "orkee-tasks",
+ "reqwest 0.12.24",
+ "serde",
+ "serde_json",
+ "sqlx",
+ "tokio",
+ "tokio-stream",
+ "tokio-test",
+ "tower",
+ "tower-http 0.6.6",
+ "tracing",
+ "url",
+ "uuid",
+ "zeroize",
+]
+
+[[package]]
 name = "orkee-cli"
 version = "0.0.9"
 dependencies = [
  "anyhow",
- "api",
  "axum 0.8.6",
  "axum-server",
  "axum-test",
@@ -2978,6 +2906,7 @@ dependencies = [
  "indicatif",
  "inquire",
  "mockall 0.12.1",
+ "orkee-api",
  "orkee-cloud",
  "orkee-config",
  "orkee-preview",
@@ -3053,30 +2982,109 @@ dependencies = [
 ]
 
 [[package]]
+name = "orkee-context"
+version = "0.0.9"
+dependencies = [
+ "chrono",
+ "lazy_static",
+ "num_cpus",
+ "rand 0.8.5",
+ "serde",
+ "serde_json",
+ "sha2",
+ "sqlx",
+ "tempfile",
+ "tokio",
+ "tracing",
+ "tree-sitter",
+ "tree-sitter-javascript",
+ "tree-sitter-python",
+ "tree-sitter-rust",
+ "tree-sitter-typescript",
+ "walkdir",
+]
+
+[[package]]
+name = "orkee-core"
+version = "0.0.9"
+dependencies = [
+ "chrono",
+ "dirs",
+ "flate2",
+ "rand 0.8.5",
+ "regex",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror 2.0.17",
+ "tokio",
+ "tokio-test",
+]
+
+[[package]]
+name = "orkee-executions"
+version = "0.0.9"
+dependencies = [
+ "chrono",
+ "nanoid",
+ "orkee-core",
+ "orkee-models",
+ "orkee-storage",
+ "serde",
+ "serde_json",
+ "sqlx",
+ "tempfile",
+ "thiserror 2.0.17",
+ "tracing",
+]
+
+[[package]]
+name = "orkee-formatter"
+version = "0.0.9"
+dependencies = [
+ "chrono",
+ "orkee-core",
+]
+
+[[package]]
+name = "orkee-git-utils"
+version = "0.0.9"
+dependencies = [
+ "git2",
+ "orkee-core",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.17",
+ "tokio",
+ "tracing",
+ "which",
+]
+
+[[package]]
 name = "orkee-ideate"
 version = "0.0.9"
 dependencies = [
- "ai",
  "async-trait",
  "axum 0.8.6",
  "chrono",
  "futures",
- "git_utils",
  "html5ever 0.26.0",
  "lazy_static",
  "nanoid",
+ "orkee-ai",
+ "orkee-core",
+ "orkee-git-utils",
  "orkee-prompts",
- "orkee_core",
+ "orkee-security",
+ "orkee-settings",
+ "orkee-storage",
+ "orkee-tasks",
  "petgraph",
  "reqwest 0.12.24",
  "scraper",
- "security",
  "serde",
  "serde_json",
- "settings",
  "sqlx",
- "storage",
- "tasks",
  "tempfile",
  "thiserror 2.0.17",
  "tokio",
@@ -3109,6 +3117,15 @@ dependencies = [
  "tokio",
  "tokio-test",
  "wiremock",
+]
+
+[[package]]
+name = "orkee-models"
+version = "0.0.9"
+dependencies = [
+ "lazy_static",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -3148,21 +3165,14 @@ dependencies = [
 name = "orkee-projects"
 version = "0.0.9"
 dependencies = [
- "agents",
- "ai",
- "api",
  "argon2",
  "async-trait",
  "axum 0.8.6",
  "base64 0.22.1",
  "chrono",
- "context",
  "dirs",
- "executions",
  "flate2",
- "formatter",
  "git2",
- "git_utils",
  "hex",
  "hostname",
  "http-body-util",
@@ -3170,25 +3180,32 @@ dependencies = [
  "machine-uid",
  "mime",
  "mockall 0.13.1",
- "models",
  "nanoid",
  "num_cpus",
+ "orkee-agents",
+ "orkee-ai",
+ "orkee-api",
  "orkee-cloud",
- "orkee_core",
+ "orkee-context",
+ "orkee-core",
+ "orkee-executions",
+ "orkee-formatter",
+ "orkee-git-utils",
+ "orkee-models",
+ "orkee-security",
+ "orkee-settings",
+ "orkee-storage",
+ "orkee-tags",
+ "orkee-tasks",
  "rand 0.8.5",
  "regex",
  "reqwest 0.12.24",
  "ring",
- "security",
  "serde",
  "serde_json",
- "settings",
  "sha2",
  "sqlx",
- "storage",
  "subtle",
- "tags",
- "tasks",
  "tempfile",
  "thiserror 2.0.17",
  "tokio",
@@ -3216,6 +3233,97 @@ dependencies = [
 ]
 
 [[package]]
+name = "orkee-security"
+version = "0.0.9"
+dependencies = [
+ "argon2",
+ "async-trait",
+ "base64 0.22.1",
+ "chrono",
+ "hex",
+ "hostname",
+ "machine-uid",
+ "orkee-core",
+ "orkee-storage",
+ "rand 0.8.5",
+ "ring",
+ "serde",
+ "serde_json",
+ "sha2",
+ "sqlx",
+ "subtle",
+ "tempfile",
+ "thiserror 2.0.17",
+ "tokio",
+ "tokio-test",
+ "tracing",
+ "uuid",
+]
+
+[[package]]
+name = "orkee-settings"
+version = "0.0.9"
+dependencies = [
+ "orkee-storage",
+ "serde",
+ "sqlx",
+ "thiserror 2.0.17",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
+name = "orkee-storage"
+version = "0.0.9"
+dependencies = [
+ "async-trait",
+ "chrono",
+ "flate2",
+ "orkee-cloud",
+ "orkee-core",
+ "rand 0.8.5",
+ "serde",
+ "serde_json",
+ "sqlx",
+ "tempfile",
+ "thiserror 2.0.17",
+ "tokio",
+ "tokio-test",
+ "tracing",
+]
+
+[[package]]
+name = "orkee-tags"
+version = "0.0.9"
+dependencies = [
+ "chrono",
+ "nanoid",
+ "orkee-core",
+ "orkee-storage",
+ "serde",
+ "sqlx",
+ "tempfile",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
+name = "orkee-tasks"
+version = "0.0.9"
+dependencies = [
+ "chrono",
+ "nanoid",
+ "orkee-core",
+ "orkee-storage",
+ "serde",
+ "serde_json",
+ "sqlx",
+ "tempfile",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "orkee-tui"
 version = "0.0.9"
 dependencies = [
@@ -3234,23 +3342,6 @@ dependencies = [
  "unicode-segmentation",
  "unicode-width 0.1.14",
  "uuid",
-]
-
-[[package]]
-name = "orkee_core"
-version = "0.0.9"
-dependencies = [
- "chrono",
- "dirs",
- "flate2",
- "rand 0.8.5",
- "regex",
- "serde",
- "serde_json",
- "tempfile",
- "thiserror 2.0.17",
- "tokio",
- "tokio-test",
 ]
 
 [[package]]
@@ -4240,34 +4331,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "490dcfcbfef26be6800d11870ff2df8774fa6e86d047e3e8c8a76b25655e41ca"
 
 [[package]]
-name = "security"
-version = "0.0.9"
-dependencies = [
- "argon2",
- "async-trait",
- "base64 0.22.1",
- "chrono",
- "hex",
- "hostname",
- "machine-uid",
- "orkee_core",
- "rand 0.8.5",
- "ring",
- "serde",
- "serde_json",
- "sha2",
- "sqlx",
- "storage",
- "subtle",
- "tempfile",
- "thiserror 2.0.17",
- "tokio",
- "tokio-test",
- "tracing",
- "uuid",
-]
-
-[[package]]
 name = "security-framework"
 version = "2.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4423,18 +4486,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d036d71a959e00c77a63538b90a6c2390969f9772b096ea837205c6bd0491a44"
 dependencies = [
  "stable_deref_trait",
-]
-
-[[package]]
-name = "settings"
-version = "0.0.9"
-dependencies = [
- "serde",
- "sqlx",
- "storage",
- "thiserror 2.0.17",
- "tokio",
- "tracing",
 ]
 
 [[package]]
@@ -4807,26 +4858,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a2eb9349b6444b326872e140eb1cf5e7c522154d69e7a0ffb0fb81c06b37543f"
 
 [[package]]
-name = "storage"
-version = "0.0.9"
-dependencies = [
- "async-trait",
- "chrono",
- "flate2",
- "orkee-cloud",
- "orkee_core",
- "rand 0.8.5",
- "serde",
- "serde_json",
- "sqlx",
- "tempfile",
- "thiserror 2.0.17",
- "tokio",
- "tokio-test",
- "tracing",
-]
-
-[[package]]
 name = "string_cache"
 version = "0.8.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5021,21 +5052,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "tags"
-version = "0.0.9"
-dependencies = [
- "chrono",
- "nanoid",
- "orkee_core",
- "serde",
- "sqlx",
- "storage",
- "tempfile",
- "tokio",
- "tracing",
-]
-
-[[package]]
 name = "tar"
 version = "0.4.44"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5044,22 +5060,6 @@ dependencies = [
  "filetime",
  "libc",
  "xattr",
-]
-
-[[package]]
-name = "tasks"
-version = "0.0.9"
-dependencies = [
- "chrono",
- "nanoid",
- "orkee_core",
- "serde",
- "serde_json",
- "sqlx",
- "storage",
- "tempfile",
- "tokio",
- "tracing",
 ]
 
 [[package]]

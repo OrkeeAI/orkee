@@ -8,7 +8,7 @@ use tracing::debug;
 use super::types::{
     AiUsageLog, AiUsageQuery, AiUsageStats, ModelStats, OperationStats, ProviderStats,
 };
-use storage::StorageError;
+use orkee_storage::StorageError;
 
 pub struct AiUsageLogStorage {
     pool: SqlitePool,

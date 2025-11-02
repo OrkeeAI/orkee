@@ -5,8 +5,8 @@ use sqlx::{Row, SqlitePool};
 use tracing::debug;
 
 use super::types::UserAgent;
-use models::REGISTRY;
-use storage::StorageError;
+use orkee_models::REGISTRY;
+use orkee_storage::StorageError;
 
 pub struct UserAgentStorage {
     pool: SqlitePool,

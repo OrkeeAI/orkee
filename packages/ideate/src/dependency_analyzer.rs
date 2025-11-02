@@ -3,8 +3,8 @@
 
 use crate::error::{IdeateError, Result};
 use crate::types::IdeateFeature;
-use ai::AIService;
 use chrono::Utc;
+use orkee_ai::AIService;
 use serde::{Deserialize, Serialize};
 use sqlx::{Row, SqlitePool};
 use std::collections::HashSet;

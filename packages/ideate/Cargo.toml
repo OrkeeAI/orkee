@@ -7,30 +7,33 @@ authors.workspace = true
 license.workspace = true
 repository.workspace = true
 
+[lib]
+name = "orkee_ideate"
+
 [dependencies]
 # Core package
-orkee_core = { path = "../core" }
+orkee-core = { path = "../core" }
 
 # Prompts package for centralized prompt management
-orkee-prompts = { path = "../prompts", package = "orkee-prompts" }
+orkee-prompts = { path = "../prompts" }
 
 # AI package for intelligent suggestions
-ai = { path = "../ai" }
+orkee-ai = { path = "../ai" }
 
 # Settings for configuration
-settings = { path = "../settings" }
+orkee-settings = { path = "../settings" }
 
 # Security for user API keys
-security = { path = "../security" }
+orkee-security = { path = "../security" }
 
 # Storage for database access
-storage = { path = "../storage" }
+orkee-storage = { path = "../storage" }
 
 # Tasks for task management
-tasks = { path = "../tasks" }
+orkee-tasks = { path = "../tasks" }
 
 # Git utilities for GitHub CLI integration
-git_utils = { path = "../git_utils" }
+orkee-git-utils = { path = "../git_utils" }
 
 # Database
 sqlx = { version = "0.8.1", default-features = false, features = ["runtime-tokio-rustls", "sqlite", "uuid", "chrono", "migrate", "macros", "json"] }

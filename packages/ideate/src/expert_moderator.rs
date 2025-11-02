@@ -4,7 +4,7 @@
 use crate::error::{IdeateError, Result};
 use crate::roundtable::*;
 use crate::roundtable_manager::RoundtableManager;
-use ai::AIService;
+use orkee_ai::AIService;
 use serde::Deserialize;
 use tracing::{debug, info};
 

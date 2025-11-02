@@ -1,5 +1,5 @@
 [package]
-name = "executions"
+name = "orkee-executions"
 version.workspace = true
 edition.workspace = true
 description = "Agent execution and PR review tracking for Orkee"
@@ -7,10 +7,13 @@ authors.workspace = true
 license.workspace = true
 repository.workspace = true
 
+[lib]
+name = "orkee_executions"
+
 [dependencies]
-orkee_core = { path = "../core" }
-storage = { path = "../storage" }
-models = { path = "../models" }
+orkee-core = { path = "../core" }
+orkee-storage = { path = "../storage" }
+orkee-models = { path = "../models" }
 
 sqlx = { version = "0.8.1", default-features = false, features = ["runtime-tokio-rustls", "sqlite", "chrono"] }
 serde = { version = "1.0", features = ["derive"] }

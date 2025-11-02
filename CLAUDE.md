@@ -113,7 +113,7 @@ Orkee is an AI agent orchestration platform consisting of a Rust CLI server and 
 Orkee uses two different SQLx query patterns based on the use case:
 
 **Runtime Queries (`sqlx::query()`)** - Used in most packages:
-- **Packages**: `ideate`, `projects`, `storage`, and most other Rust packages
+- **Packages**: `orkee-ideate`, `orkee-projects`, `orkee-storage`, and most other Rust packages
 - **Use Case**: Dynamic query construction where query structure is determined at runtime
 - **Examples**:
   - Conditional column selection based on template category (`packages/ideate/src/templates.rs:26-40`)
@@ -127,7 +127,7 @@ Orkee uses two different SQLx query patterns based on the use case:
   - ⚠️ No compile-time query verification
 
 **Compile-Time Queries (`sqlx::query!()`)** - Used selectively:
-- **Packages**: `api` package (specifically `context_handlers.rs`)
+- **Packages**: `orkee-api` package (specifically `context_handlers.rs`)
 - **Use Case**: Simple, static queries with fixed structure known at compile time
 - **Examples**:
   - Basic SELECT queries with fixed columns (`packages/api/src/context_handlers.rs:36-38`)
@@ -140,7 +140,7 @@ Orkee uses two different SQLx query patterns based on the use case:
   - ❌ Requires `.sqlx/` query cache for offline compilation
 
 **Query Cache (`.sqlx/` directory)**:
-- Contains 27 cached queries from the `api` package's compile-time macros
+- Contains 27 cached queries from the `orkee-api` package's compile-time macros
 - Generated via `cargo sqlx prepare --workspace`
 - Not needed for packages using runtime queries (ideate, projects, etc.)
 - Only required for CI/offline builds when using `query!()` macros

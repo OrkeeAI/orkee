@@ -11,7 +11,7 @@ use serde::Deserialize;
 use tracing::info;
 
 use super::response::ok_or_internal_error;
-use models::REGISTRY;
+use orkee_models::REGISTRY;
 use orkee_projects::pagination::{PaginatedResponse, PaginationParams};
 use orkee_projects::DbState;
 

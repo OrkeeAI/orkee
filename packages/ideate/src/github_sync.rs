@@ -8,7 +8,7 @@ use std::collections::HashMap;
 use thiserror::Error;
 
 use crate::epic::{Epic, EpicStatus};
-use git_utils::{GitHubCli, UpdateIssueParams};
+use orkee_git_utils::{GitHubCli, UpdateIssueParams};
 
 #[derive(Debug, Error)]
 pub enum GitHubSyncError {

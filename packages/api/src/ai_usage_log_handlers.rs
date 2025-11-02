@@ -10,7 +10,7 @@ use serde::Deserialize;
 use tracing::info;
 
 use super::response::ok_or_internal_error;
-use ai::usage_logs::AiUsageQuery;
+use orkee_ai::usage_logs::AiUsageQuery;
 use orkee_projects::DbState;
 
 #[derive(Deserialize)]

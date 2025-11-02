@@ -10,7 +10,7 @@ use axum::{
 use serde::Serialize;
 use tracing::info;
 
-use models::REGISTRY;
+use orkee_models::REGISTRY;
 use orkee_projects::pagination::{PaginatedResponse, PaginationParams};
 
 /// Model DTO for frontend with normalized field names
@@ -27,8 +27,8 @@ pub struct ModelDTO {
     pub is_available: bool,
 }
 
-impl From<&models::Model> for ModelDTO {
-    fn from(model: &models::Model) -> Self {
+impl From<&orkee_models::Model> for ModelDTO {
+    fn from(model: &orkee_models::Model) -> Self {
         ModelDTO {
             id: model.id.clone(),
             provider: model.provider.clone(),

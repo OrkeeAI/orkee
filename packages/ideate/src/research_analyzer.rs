@@ -4,7 +4,7 @@
 use crate::error::{IdeateError, Result};
 use crate::research_prompts;
 use crate::types::{Competitor, SimilarProject};
-use ai::AIService;
+use orkee_ai::AIService;
 use scraper::{Html, Selector};
 use serde::{Deserialize, Serialize};
 use sqlx::{Row, SqlitePool};

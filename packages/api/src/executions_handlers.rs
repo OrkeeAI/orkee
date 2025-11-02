@@ -11,7 +11,7 @@ use serde::Deserialize;
 use tracing::info;
 
 use super::response::{created_or_internal_error, ok_or_internal_error};
-use executions::{
+use orkee_executions::{
     AgentExecutionCreateInput, AgentExecutionUpdateInput, ExecutionStatus, PrReviewCreateInput,
     PrReviewUpdateInput, PrStatus, ReviewStatus, ReviewerType,
 };

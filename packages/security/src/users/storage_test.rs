@@ -3,9 +3,7 @@
 
 #[cfg(test)]
 mod tests {
-    use super::super::storage::UserStorage;
-    use super::super::types::UserUpdateInput;
-    use crate::encryption::ApiKeyEncryption;
+    use crate::{ApiKeyEncryption, UserStorage, UserUpdateInput};
     use sqlx::SqlitePool;
 
     async fn setup_test_db() -> SqlitePool {

@@ -8,7 +8,7 @@ use tracing::debug;
 
 use super::types::{User, UserUpdateInput};
 use crate::encryption::ApiKeyEncryption;
-use storage::StorageError;
+use orkee_storage::StorageError;
 
 pub struct UserStorage {
     pool: SqlitePool,

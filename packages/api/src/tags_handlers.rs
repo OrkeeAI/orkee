@@ -13,7 +13,7 @@ use tracing::info;
 use super::response::{created_or_internal_error, ok_or_internal_error};
 use orkee_projects::pagination::{PaginatedResponse, PaginationParams};
 use orkee_projects::DbState;
-use tags::{TagCreateInput, TagUpdateInput};
+use orkee_tags::{TagCreateInput, TagUpdateInput};
 
 #[derive(Deserialize)]
 pub struct ListTagsQuery {

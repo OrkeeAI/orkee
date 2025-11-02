@@ -1,5 +1,5 @@
 [package]
-name = "storage"
+name = "orkee-storage"
 version.workspace = true
 edition.workspace = true
 description = "Data layer and persistence for Orkee"
@@ -7,9 +7,12 @@ authors.workspace = true
 license.workspace = true
 repository.workspace = true
 
+[lib]
+name = "orkee_storage"
+
 [dependencies]
 # Core package
-orkee_core = { path = "../core" }
+orkee-core = { path = "../core" }
 
 # Database
 sqlx = { version = "0.8.1", default-features = false, features = ["runtime-tokio-rustls", "sqlite", "uuid", "chrono", "migrate", "macros", "json"] }

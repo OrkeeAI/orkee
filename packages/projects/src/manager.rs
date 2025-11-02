@@ -1,8 +1,8 @@
-use git_utils::get_git_repository_info;
 use orkee_core::types::{Project, ProjectCreateInput, ProjectStatus, ProjectUpdateInput};
 use orkee_core::{validate_project_data, validate_project_update, ValidationError};
+use orkee_git_utils::get_git_repository_info;
+use orkee_storage::{factory::StorageManager, StorageError};
 use std::sync::Arc;
-use storage::{factory::StorageManager, StorageError};
 use thiserror::Error;
 use tracing::{debug, info, warn};
 
@@ -82,7 +82,7 @@ pub async fn initialize_storage() -> ManagerResult<()> {
 
 /// Initialize the global storage manager with a custom database path
 pub async fn initialize_storage_with_path(db_path: std::path::PathBuf) -> ManagerResult<()> {
-    use storage::{StorageConfig, StorageProvider};
+    use orkee_storage::{StorageConfig, StorageProvider};
 
     let config = StorageConfig {
         provider: StorageProvider::Sqlite { path: db_path },
@@ -405,7 +405,7 @@ impl ProjectsManager {
     /// List projects with filters
     pub async fn list_projects_with_filter(
         &self,
-        filter: storage::ProjectFilter,
+        filter: orkee_storage::ProjectFilter,
     ) -> ManagerResult<Vec<Project>> {
         let storage = self.storage_manager.storage();
         let mut projects = storage.list_projects_with_filter(filter).await?;
@@ -415,13 +415,13 @@ impl ProjectsManager {
 
     /// Get active projects only (Pre-Launch and Launched)
     pub async fn list_active_projects(&self) -> ManagerResult<Vec<Project>> {
-        let filter = storage::ProjectFilter {
+        let filter = orkee_storage::ProjectFilter {
             status: Some(ProjectStatus::Planning),
             ..Default::default()
         };
         let mut projects = self.list_projects_with_filter(filter).await?;
 
-        let filter2 = storage::ProjectFilter {
+        let filter2 = orkee_storage::ProjectFilter {
             status: Some(ProjectStatus::Launched),
             ..Default::default()
         };
@@ -432,7 +432,7 @@ impl ProjectsManager {
     }
 
     /// Get storage statistics
-    pub async fn get_storage_stats(&self) -> ManagerResult<storage::factory::StorageStats> {
+    pub async fn get_storage_stats(&self) -> ManagerResult<orkee_storage::factory::StorageStats> {
         self.storage_manager
             .get_stats()
             .await
@@ -442,7 +442,7 @@ impl ProjectsManager {
     /// Get current encryption mode
     pub async fn get_encryption_mode(
         &self,
-    ) -> ManagerResult<Option<security::encryption::EncryptionMode>> {
+    ) -> ManagerResult<Option<orkee_security::encryption::EncryptionMode>> {
         let storage = self.storage_manager.storage();
         storage
             .get_encryption_mode()
@@ -455,7 +455,7 @@ impl ProjectsManager {
         &self,
     ) -> ManagerResult<
         Option<(
-            security::encryption::EncryptionMode,
+            orkee_security::encryption::EncryptionMode,
             Option<Vec<u8>>,
             Option<Vec<u8>>,
         )>,
@@ -470,7 +470,7 @@ impl ProjectsManager {
     /// Set encryption mode and settings
     pub async fn set_encryption_mode(
         &self,
-        mode: security::encryption::EncryptionMode,
+        mode: orkee_security::encryption::EncryptionMode,
         salt: Option<&[u8]>,
         hash: Option<&[u8]>,
     ) -> ManagerResult<()> {
@@ -524,7 +524,7 @@ pub async fn export_database() -> ManagerResult<Vec<u8>> {
 }
 
 /// Import database from a compressed snapshot
-pub async fn import_database(data: Vec<u8>) -> ManagerResult<storage::ImportResult> {
+pub async fn import_database(data: Vec<u8>) -> ManagerResult<orkee_storage::ImportResult> {
     let storage_manager = get_storage_manager().await?;
     let storage = storage_manager.storage();
 
@@ -545,8 +545,8 @@ pub async fn import_database(data: Vec<u8>) -> ManagerResult<storage::ImportResu
 mod tests {
     use super::*;
     use orkee_core::types::ProjectStatus;
+    use orkee_storage::{StorageConfig, StorageProvider};
     use std::path::PathBuf;
-    use storage::{StorageConfig, StorageProvider};
 
     /// Create a test storage manager (not using the global singleton)
     async fn create_test_storage_manager() -> ManagerResult<Arc<StorageManager>> {

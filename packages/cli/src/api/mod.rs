@@ -57,7 +57,7 @@ pub async fn create_router_with_options(
                     "/api/browse-directories",
                     post(directories::browse_directories),
                 )
-                .nest("/api/projects", api::create_projects_router());
+                .nest("/api/projects", orkee_api::create_projects_router());
             return (router, minimal_db);
         }
     };
@@ -86,7 +86,7 @@ pub async fn create_router_with_options(
                     "/api/browse-directories",
                     post(directories::browse_directories),
                 )
-                .nest("/api/projects", api::create_projects_router());
+                .nest("/api/projects", orkee_api::create_projects_router());
             return (router, minimal_db);
         }
     };
@@ -124,7 +124,7 @@ pub async fn create_router_with_options(
                     "/api/browse-directories",
                     post(directories::browse_directories),
                 )
-                .nest("/api/projects", api::create_projects_router());
+                .nest("/api/projects", orkee_api::create_projects_router());
             return (router, minimal_db);
         }
     };
@@ -265,36 +265,36 @@ pub async fn create_router_with_options(
         )
         .nest(
             "/api",
-            api::create_ai_proxy_router().with_state(db_state.clone()),
+            orkee_api::create_ai_proxy_router().with_state(db_state.clone()),
         )
-        .nest("/api/projects", api::create_projects_router())
+        .nest("/api/projects", orkee_api::create_projects_router())
         .nest(
             "/api/projects/{project_id}/tasks",
-            api::create_tasks_router().with_state(db_state.clone()),
+            orkee_api::create_tasks_router().with_state(db_state.clone()),
         )
         .nest(
             "/api/projects",
-            api::create_prds_router().with_state(db_state.clone()),
+            orkee_api::create_prds_router().with_state(db_state.clone()),
         )
         .nest(
             "/api/projects",
-            api::create_epics_router().with_state(db_state.clone()),
+            orkee_api::create_epics_router().with_state(db_state.clone()),
         )
         .nest(
             "/api",
-            api::create_github_sync_router().with_state(db_state.clone()),
+            orkee_api::create_github_sync_router().with_state(db_state.clone()),
         )
         .nest(
             "/api",
-            api::create_ideate_router().with_state(db_state.clone()),
+            orkee_api::create_ideate_router().with_state(db_state.clone()),
         )
         .nest(
             "/api",
-            api::create_templates_router().with_state(db_state.clone()),
+            orkee_api::create_templates_router().with_state(db_state.clone()),
         )
         .nest(
             "/api/projects",
-            api::create_graph_router().with_state(db_state.clone()),
+            orkee_api::create_graph_router().with_state(db_state.clone()),
         )
         .nest("/api/git", git_router)
         .nest("/api/preview", preview_router)
@@ -304,32 +304,35 @@ pub async fn create_router_with_options(
         .nest("/api/settings", settings_router)
         .nest(
             "/api/agents",
-            api::create_agents_router().with_state(db_state.clone()),
+            orkee_api::create_agents_router().with_state(db_state.clone()),
         )
         .nest(
             "/api/models",
-            api::create_models_router().with_state(db_state.clone()),
+            orkee_api::create_models_router().with_state(db_state.clone()),
         )
         .nest(
             "/api/users",
-            api::create_users_router().with_state(db_state.clone()),
+            orkee_api::create_users_router().with_state(db_state.clone()),
         )
         .nest(
             "/api",
-            api::create_security_router().with_state(db_state.clone()),
+            orkee_api::create_security_router().with_state(db_state.clone()),
         )
         .nest(
             "/api/tags",
-            api::create_tags_router().with_state(db_state.clone()),
+            orkee_api::create_tags_router().with_state(db_state.clone()),
         )
         .nest(
             "/api/executions",
-            api::create_executions_router().with_state(db_state.clone()),
+            orkee_api::create_executions_router().with_state(db_state.clone()),
         )
-        .nest("/api", api::create_ai_router().with_state(db_state.clone()))
+        .nest(
+            "/api",
+            orkee_api::create_ai_router().with_state(db_state.clone()),
+        )
         .nest(
             "/api/ai-usage",
-            api::create_ai_usage_router().with_state(db_state.clone()),
+            orkee_api::create_ai_usage_router().with_state(db_state.clone()),
         )
         .layer(axum::Extension(path_validator));
 

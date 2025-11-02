@@ -1,5 +1,5 @@
 [package]
-name = "tags"
+name = "orkee-tags"
 version.workspace = true
 edition.workspace = true
 description = "Tag management system for organizing tasks"
@@ -7,10 +7,13 @@ authors.workspace = true
 license.workspace = true
 repository.workspace = true
 
+[lib]
+name = "orkee_tags"
+
 [dependencies]
 # Core dependencies
-orkee_core = { path = "../core" }
-storage = { path = "../storage" }
+orkee-core = { path = "../core" }
+orkee-storage = { path = "../storage" }
 
 # Database
 sqlx = { version = "0.8", features = ["runtime-tokio-rustls", "sqlite"] }

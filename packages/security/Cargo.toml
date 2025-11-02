@@ -1,5 +1,5 @@
 [package]
-name = "security"
+name = "orkee-security"
 version.workspace = true
 edition.workspace = true
 description = "Security, authentication, and encryption for Orkee"
@@ -7,10 +7,13 @@ authors.workspace = true
 license.workspace = true
 repository.workspace = true
 
+[lib]
+name = "orkee_security"
+
 [dependencies]
 # Core packages
-orkee_core = { path = "../core" }
-storage = { path = "../storage" }
+orkee-core = { path = "../core" }
+orkee-storage = { path = "../storage" }
 
 # Database
 sqlx = { version = "0.8.1", default-features = false, features = ["runtime-tokio-rustls", "sqlite", "uuid", "chrono"] }

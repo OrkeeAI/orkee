@@ -1,13 +1,13 @@
 // ABOUTME: HTTP request handlers for PRD dependency analysis and build optimization
 // ABOUTME: Handles dependency CRUD, AI analysis, build order optimization, and visibility analysis
 
-use ai::AIService;
 use axum::{
     extract::{Path, State},
     response::IntoResponse,
     Json,
 };
-use ideate::{
+use orkee_ai::AIService;
+use orkee_ideate::{
     BuildOptimizer, CreateDependencyInput, DependencyAnalyzer, DependencyStrength, DependencyType,
     OptimizationStrategy,
 };
@@ -124,8 +124,8 @@ pub async fn analyze_dependencies(
             struct ApiKeyError {
                 error: String,
             }
-            return ok_or_internal_error::<ApiKeyError, ideate::IdeateError>(
-                Err(ideate::IdeateError::AIService(
+            return ok_or_internal_error::<ApiKeyError, orkee_ideate::IdeateError>(
+                Err(orkee_ideate::IdeateError::AIService(
                     "No API key configured. Please add your Anthropic API key in Settings."
                         .to_string(),
                 )),
@@ -244,7 +244,7 @@ pub async fn suggest_quick_wins(
         quick_wins: Vec<String>,
     }
 
-    ok_or_internal_error::<QuickWinsResponse, ideate::IdeateError>(
+    ok_or_internal_error::<QuickWinsResponse, orkee_ideate::IdeateError>(
         Ok(QuickWinsResponse { quick_wins }),
         "Failed to suggest quick wins",
     )

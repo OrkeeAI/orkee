@@ -4,11 +4,11 @@
 use crate::epic::{
     ConflictAnalysis, DependencyGraph, GraphEdge, GraphNode, TaskConflict, WorkAnalysis, WorkStream,
 };
-use ::storage::StorageError as StoreError;
+use ::orkee_storage::StorageError as StoreError;
 use chrono::Utc;
+use orkee_tasks::types::{SizeEstimate, Task, TaskCreateInput, TaskPriority, TaskStatus, TaskType};
 use serde::{Deserialize, Serialize};
 use sqlx::SqlitePool;
-use tasks::types::{SizeEstimate, Task, TaskCreateInput, TaskPriority, TaskStatus, TaskType};
 
 /// Input for task decomposition
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -327,12 +327,12 @@ impl TaskDecomposer {
         user_id: &str,
         input: TaskCreateInput,
     ) -> Result<Task, StoreError> {
-        let storage = tasks::storage::TaskStorage::new(self.pool.clone());
+        let storage = orkee_tasks::storage::TaskStorage::new(self.pool.clone());
         storage.create_task(project_id, user_id, input).await
     }
 
     async fn get_task(&self, task_id: &str) -> Result<Task, StoreError> {
-        let storage = tasks::storage::TaskStorage::new(self.pool.clone());
+        let storage = orkee_tasks::storage::TaskStorage::new(self.pool.clone());
         storage.get_task(task_id).await
     }
 
@@ -556,7 +556,7 @@ impl TaskDecomposer {
                 .await
                 .map_err(StoreError::Sqlx)?;
 
-        let _storage = tasks::storage::TaskStorage::new(self.pool.clone());
+        let _storage = orkee_tasks::storage::TaskStorage::new(self.pool.clone());
         rows.iter()
             .map(storage::row_to_task_result)
             .collect::<Result<Vec<Task>, StoreError>>()

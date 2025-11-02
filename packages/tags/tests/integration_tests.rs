@@ -1,8 +1,8 @@
 // ABOUTME: Integration tests for tag storage operations
 // ABOUTME: Tests CRUD operations, pagination, archiving, and deletion validation
 
+use orkee_tags::{TagCreateInput, TagStorage, TagUpdateInput};
 use sqlx::SqlitePool;
-use tags::{TagCreateInput, TagStorage, TagUpdateInput};
 
 /// Helper to create an in-memory database for testing
 async fn create_test_db() -> SqlitePool {

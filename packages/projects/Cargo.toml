@@ -9,43 +9,43 @@ repository.workspace = true
 
 [dependencies]
 # Core package
-orkee_core = { path = "../core" }
+orkee-core = { path = "../core" }
 
 # Storage package
-storage = { path = "../storage" }
+orkee-storage = { path = "../storage" }
 
 # Security package
-security = { path = "../security" }
+orkee-security = { path = "../security" }
 
 # Formatter package
-formatter = { path = "../formatter" }
+orkee-formatter = { path = "../formatter" }
 
 # Git utilities package
-git_utils = { path = "../git_utils" }
+orkee-git-utils = { path = "../git_utils" }
 
 # Tags package
-tags = { path = "../tags" }
+orkee-tags = { path = "../tags" }
 
 # Settings package
-settings = { path = "../settings" }
+orkee-settings = { path = "../settings" }
 
 # Tasks package
-tasks = { path = "../tasks" }
+orkee-tasks = { path = "../tasks" }
 
 # Models package
-models = { path = "../models" }
+orkee-models = { path = "../models" }
 
 # Agents package
-agents = { path = "../agents" }
+orkee-agents = { path = "../agents" }
 
 # Executions package
-executions = { path = "../executions" }
+orkee-executions = { path = "../executions" }
 
 # AI package
-ai = { path = "../ai" }
+orkee-ai = { path = "../ai" }
 
 # Context package
-context = { path = "../context" }
+orkee-context = { path = "../context" }
 
 # Database
 sqlx = { version = "0.8.1", default-features = false, features = ["runtime-tokio-rustls", "sqlite", "uuid", "chrono", "migrate", "macros", "json"] }
@@ -113,7 +113,7 @@ cloud = ["orkee-cloud"]
 test-utils = ["tempfile"]
 
 [dev-dependencies]
-api = { path = "../api" }
+orkee-api = { path = "../api" }
 tempfile = "3.0"
 tokio-test = "0.4"
 mockall = "0.13"  # For trait mocking

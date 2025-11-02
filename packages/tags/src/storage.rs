@@ -6,7 +6,7 @@ use sqlx::{Row, SqlitePool};
 use tracing::debug;
 
 use super::types::{Tag, TagCreateInput, TagUpdateInput};
-use storage::StorageError;
+use orkee_storage::StorageError;
 
 pub struct TagStorage {
     pool: SqlitePool,

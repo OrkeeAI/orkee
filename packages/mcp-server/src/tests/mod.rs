@@ -10,7 +10,7 @@ mod integration_tests;
 #[cfg(test)]
 pub mod test_helpers {
     use crate::context::ToolContext;
-    use orkee_projects::storage::{factory::StorageManager, StorageConfig, StorageProvider};
+    use orkee_projects::orkee_storage::{factory::StorageManager, StorageConfig, StorageProvider};
     use orkee_projects::ProjectsManager;
     use std::path::PathBuf;
     use std::sync::Arc;
