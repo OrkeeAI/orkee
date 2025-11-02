@@ -1,10 +1,13 @@
 // ABOUTME: Orkee ideate library - brainstorming and PRD ideation functionality
 // ABOUTME: Provides session management, section handling, and PRD generation support
 
+pub mod approach_generator;
 pub mod build_optimizer;
 pub mod chat;
 pub mod chat_manager;
+pub mod codebase_analyzer;
 pub mod dependency_analyzer;
+pub mod discovery_manager;
 pub mod epic;
 pub mod epic_manager;
 pub mod error;
@@ -23,6 +26,9 @@ pub mod task_decomposer;
 pub mod templates;
 pub mod types;
 
+pub use approach_generator::{
+    ApproachComparison, ApproachGenerator, ComplexityLevel, TechnicalApproach,
+};
 pub use build_optimizer::{
     BuildOptimizer, BuildOrderResult, CircularDependency, CircularDependencySeverity,
     OptimizationStrategy,
@@ -34,9 +40,16 @@ pub use chat::{
     TopicCoverage, ValidationResult,
 };
 pub use chat_manager::ChatManager;
+pub use codebase_analyzer::{
+    ArchitectureStyle, CodebaseAnalyzer, CodebaseContext, FileStructure, Pattern, PatternType,
+    ReusableComponent, SimilarFeature, TechStack,
+};
 pub use dependency_analyzer::{
     CreateDependencyInput, DependencyAnalysis, DependencyAnalyzer, DependencyStrength,
     DependencyType, FeatureDependency,
+};
+pub use discovery_manager::{
+    DiscoveryAnswer, DiscoveryManager, Question, QuestionType, SessionContext,
 };
 pub use epic::{
     ArchitectureDecision, ConflictAnalysis, CreateEpicInput, DependencyGraph, Epic, EpicComplexity,
