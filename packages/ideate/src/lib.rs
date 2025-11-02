@@ -6,6 +6,7 @@ pub mod build_optimizer;
 pub mod chat;
 pub mod chat_manager;
 pub mod codebase_analyzer;
+pub mod complexity_analyzer;
 pub mod dependency_analyzer;
 pub mod discovery_manager;
 pub mod epic;
@@ -45,6 +46,7 @@ pub use codebase_analyzer::{
     ArchitectureStyle, CodebaseAnalyzer, CodebaseContext, FileStructure, Pattern, PatternType,
     ReusableComponent, SimilarFeature, TechStack,
 };
+pub use complexity_analyzer::{ComplexityAnalyzer, ComplexityFactors, ComplexityReport};
 pub use dependency_analyzer::{
     CreateDependencyInput, DependencyAnalysis, DependencyAnalyzer, DependencyStrength,
     DependencyType, FeatureDependency,
@@ -80,8 +82,8 @@ pub use roundtable::{
 };
 pub use roundtable_manager::RoundtableManager;
 pub use task_decomposer::{
-    DecomposeEpicInput, DecompositionResult, ParallelGroup, TaskCategory, TaskDecomposer,
-    TaskTemplate,
+    DecomposeEpicInput, DecompositionResult, FileOperation, FileReference, ParallelGroup,
+    ParentTask, TaskCategory, TaskDecomposer, TaskStep, TaskTemplate,
 };
 pub use templates::TemplateManager;
 pub use types::*;

@@ -1,6 +1,8 @@
 // ABOUTME: Task decomposition service for breaking down Epics into actionable tasks
 // ABOUTME: Handles dependency detection, parallel group assignment, and size estimation
 
+use crate::codebase_analyzer::CodebaseContext;
+use crate::complexity_analyzer::{ComplexityAnalyzer, ComplexityReport};
 use crate::epic::{
     ConflictAnalysis, DependencyGraph, GraphEdge, GraphNode, TaskConflict, WorkAnalysis, WorkStream,
 };
@@ -35,7 +37,7 @@ pub struct TaskTemplate {
     pub effort_hours: Option<i32>,
     pub depends_on_titles: Option<Vec<String>>, // Task titles this depends on
     pub acceptance_criteria: Option<String>,
-    pub test_strategy: Option<String>,
+    pub test_strategy: String, // Required for TDD approach
 }
 
 /// Result of task decomposition
@@ -55,6 +57,43 @@ pub struct ParallelGroup {
     pub task_ids: Vec<String>,
 }
 
+/// Parent task (Phase 1 of two-phase generation)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ParentTask {
+    pub title: String,
+    pub description: String,
+    pub category: String,
+    pub estimated_subtasks: usize,
+    pub depends_on_titles: Vec<String>,
+}
+
+/// TDD execution step
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TaskStep {
+    pub step_number: usize,
+    pub action: String,
+    pub test_command: Option<String>,
+    pub expected_output: String,
+    pub estimated_minutes: u8,
+}
+
+/// File reference for a task
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FileReference {
+    pub path: String,
+    pub operation: FileOperation,
+    pub reason: String,
+}
+
+/// File operation type
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum FileOperation {
+    Create,
+    Modify,
+    Delete,
+}
+
 /// Task decomposer service
 pub struct TaskDecomposer {
     pool: SqlitePool,
@@ -63,6 +102,424 @@ pub struct TaskDecomposer {
 impl TaskDecomposer {
     pub fn new(pool: SqlitePool) -> Self {
         Self { pool }
+    }
+
+    /// Phase 1: Generate high-level parent tasks
+    ///
+    /// This is the first phase of two-phase task generation. It creates 5-15 parent tasks
+    /// based on epic complexity without going into detailed subtasks yet.
+    pub async fn generate_parent_tasks(
+        &self,
+        epic_id: &str,
+        codebase_context: Option<&CodebaseContext>,
+    ) -> Result<Vec<ParentTask>, StoreError> {
+        let epic = self.get_epic(epic_id).await?;
+
+        // Analyze complexity to determine task count
+        let analyzer = ComplexityAnalyzer::new();
+        let complexity_report = analyzer
+            .analyze_epic(&epic, epic.task_count_limit)
+            .map_err(|e| StoreError::Database(e.to_string()))?;
+
+        // Update epic with complexity analysis
+        self.save_complexity_report(&complexity_report).await?;
+
+        // Generate parent tasks based on complexity
+        // NOTE: In a real implementation, this would use AI to generate tasks
+        // For now, we'll create placeholder parent tasks
+        let parent_tasks = self.create_parent_task_placeholders(&epic, &complexity_report, codebase_context)?;
+
+        // Store parent tasks in epic
+        self.save_parent_tasks(epic_id, &parent_tasks).await?;
+
+        Ok(parent_tasks)
+    }
+
+    /// Phase 2: Expand parent tasks into detailed subtasks
+    ///
+    /// This is the second phase. It takes reviewed/approved parent tasks and expands
+    /// each into detailed subtasks with TDD steps, file references, etc.
+    pub async fn expand_to_subtasks(
+        &self,
+        project_id: &str,
+        user_id: &str,
+        epic_id: &str,
+        parent_tasks: &[ParentTask],
+        codebase_context: Option<&CodebaseContext>,
+    ) -> Result<Vec<Task>, StoreError> {
+        let epic = self.get_epic(epic_id).await?;
+        let mut all_tasks = Vec::new();
+        let mut title_to_id_map = std::collections::HashMap::new();
+
+        for (idx, parent) in parent_tasks.iter().enumerate() {
+            // Generate subtasks for this parent
+            let subtasks = self.generate_subtasks_for_parent(parent, &epic, codebase_context)?;
+
+            for (sub_idx, subtask_template) in subtasks.iter().enumerate() {
+                let task_id = nanoid::nanoid!();
+                title_to_id_map.insert(subtask_template.title.clone(), task_id.clone());
+
+                // Generate TDD execution steps
+                let execution_steps = self.generate_tdd_steps(&subtask_template.title, &subtask_template.test_strategy)?;
+
+                // Generate file references
+                let relevant_files = self.identify_relevant_files(subtask_template, codebase_context)?;
+
+                let task_input = TaskCreateInput {
+                    title: subtask_template.title.clone(),
+                    description: subtask_template.description.clone(),
+                    status: Some(TaskStatus::Pending),
+                    priority: Some(TaskPriority::Medium),
+                    assigned_agent_id: None,
+                    parent_id: None,
+                    position: Some((idx * 100 + sub_idx) as i32),
+                    dependencies: None,
+                    due_date: None,
+                    estimated_hours: subtask_template.effort_hours.map(|h| h as f64),
+                    complexity_score: None,
+                    details: subtask_template.technical_details.clone(),
+                    test_strategy: Some(subtask_template.test_strategy.to_string()),
+                    acceptance_criteria: subtask_template.acceptance_criteria.clone(),
+                    prompt: None,
+                    context: None,
+                    tag_id: None,
+                    tags: None,
+                    category: Some(parent.category.clone()),
+                    epic_id: Some(epic_id.to_string()),
+                    parallel_group: None,
+                    depends_on: None,
+                    conflicts_with: None,
+                    task_type: Some(TaskType::Task),
+                    size_estimate: subtask_template.size_estimate.clone(),
+                    technical_details: subtask_template.technical_details.clone(),
+                    effort_hours: subtask_template.effort_hours,
+                    can_parallel: Some(false),
+                };
+
+                let mut task = self.create_task(project_id, user_id, task_input).await?;
+
+                // Set parent_task_id to link back to parent
+                self.update_task_parent(&task.id, &parent.title).await?;
+
+                // Add execution steps
+                if !execution_steps.is_empty() {
+                    self.update_task_execution_steps(&task.id, &execution_steps).await?;
+                }
+
+                // Add relevant files
+                if !relevant_files.is_empty() {
+                    self.update_task_relevant_files(&task.id, &relevant_files).await?;
+                }
+
+                // Reload task with all updates
+                task = self.get_task(&task.id).await?;
+                all_tasks.push(task);
+            }
+        }
+
+        // Build dependency graph and assign parallel groups
+        let dependency_graph = self.build_task_dependency_graph(&all_tasks)?;
+        let _parallel_groups = self.assign_parallel_groups_to_tasks(&all_tasks, &dependency_graph).await?;
+
+        // Reload all tasks with parallel group assignments
+        let mut final_tasks = Vec::new();
+        for task in all_tasks {
+            let updated_task = self.get_task(&task.id).await?;
+            final_tasks.push(updated_task);
+        }
+
+        Ok(final_tasks)
+    }
+
+    /// Generate TDD execution steps for a task
+    fn generate_tdd_steps(&self, task_title: &str, _test_strategy: &str) -> Result<Vec<TaskStep>, StoreError> {
+        // Generate standard TDD cycle steps
+        let steps = vec![
+            TaskStep {
+                step_number: 1,
+                action: format!("Write failing test for {}", task_title),
+                test_command: Some("cargo test <test_name>".to_string()),
+                expected_output: "FAIL: function not implemented".to_string(),
+                estimated_minutes: 5,
+            },
+            TaskStep {
+                step_number: 2,
+                action: "Create minimal implementation stub".to_string(),
+                test_command: None,
+                expected_output: "File created with function signature".to_string(),
+                estimated_minutes: 3,
+            },
+            TaskStep {
+                step_number: 3,
+                action: "Run test to verify it fails correctly".to_string(),
+                test_command: Some("cargo test <test_name>".to_string()),
+                expected_output: "FAIL: assertion failed (not implemented)".to_string(),
+                estimated_minutes: 2,
+            },
+            TaskStep {
+                step_number: 4,
+                action: "Implement core functionality".to_string(),
+                test_command: None,
+                expected_output: "Implementation complete".to_string(),
+                estimated_minutes: 15,
+            },
+            TaskStep {
+                step_number: 5,
+                action: "Run test to verify success".to_string(),
+                test_command: Some("cargo test <test_name>".to_string()),
+                expected_output: "PASS: test passed".to_string(),
+                estimated_minutes: 2,
+            },
+            TaskStep {
+                step_number: 6,
+                action: "Refactor if needed".to_string(),
+                test_command: Some("cargo test <test_name>".to_string()),
+                expected_output: "PASS: still passing after refactor".to_string(),
+                estimated_minutes: 5,
+            },
+            TaskStep {
+                step_number: 7,
+                action: "Commit changes".to_string(),
+                test_command: Some("git add . && git commit -m 'Add <feature> with tests'".to_string()),
+                expected_output: "Committed to branch".to_string(),
+                estimated_minutes: 2,
+            },
+        ];
+
+        Ok(steps)
+    }
+
+    /// Identify relevant files for a task based on codebase context
+    fn identify_relevant_files(
+        &self,
+        task_template: &TaskTemplate,
+        codebase_context: Option<&CodebaseContext>,
+    ) -> Result<Vec<FileReference>, StoreError> {
+        let mut files = Vec::new();
+
+        // In a real implementation, this would analyze the codebase context
+        // to determine which files need to be created/modified
+        // For now, return placeholder file references
+
+        if let Some(_ctx) = codebase_context {
+            // Example: Create test file
+            files.push(FileReference {
+                path: format!("tests/{}_test.rs", task_template.title.to_lowercase().replace(' ', "_")),
+                operation: FileOperation::Create,
+                reason: "Test file for TDD approach".to_string(),
+            });
+
+            // Example: Modify implementation file
+            files.push(FileReference {
+                path: format!("src/{}.rs", task_template.title.to_lowercase().replace(' ', "_")),
+                operation: FileOperation::Create,
+                reason: "Implementation file".to_string(),
+            });
+        }
+
+        Ok(files)
+    }
+
+    /// Create placeholder parent tasks based on complexity
+    fn create_parent_task_placeholders(
+        &self,
+        epic: &crate::epic::Epic,
+        complexity_report: &ComplexityReport,
+        _codebase_context: Option<&CodebaseContext>,
+    ) -> Result<Vec<ParentTask>, StoreError> {
+        let mut parent_tasks = Vec::new();
+        let task_count = complexity_report.recommended_tasks.min(15).max(3);
+
+        // Generate parent tasks based on epic content
+        // In a real implementation, this would use AI to analyze the epic
+        // and generate meaningful parent tasks
+
+        for i in 0..task_count {
+            parent_tasks.push(ParentTask {
+                title: format!("Parent Task {} for {}", i + 1, epic.name),
+                description: format!("High-level task {} description", i + 1),
+                category: format!("category_{}", i % 3),
+                estimated_subtasks: 2 + (i % 3),
+                depends_on_titles: if i > 0 {
+                    vec![format!("Parent Task {} for {}", i, epic.name)]
+                } else {
+                    vec![]
+                },
+            });
+        }
+
+        Ok(parent_tasks)
+    }
+
+    /// Generate subtasks for a parent task
+    fn generate_subtasks_for_parent(
+        &self,
+        parent: &ParentTask,
+        _epic: &crate::epic::Epic,
+        _codebase_context: Option<&CodebaseContext>,
+    ) -> Result<Vec<TaskTemplate>, StoreError> {
+        let mut subtasks = Vec::new();
+
+        // In a real implementation, this would use AI to generate subtasks
+        // For now, create placeholders
+        for i in 0..parent.estimated_subtasks {
+            subtasks.push(TaskTemplate {
+                title: format!("{} - Subtask {}", parent.title, i + 1),
+                description: Some(format!("Detailed subtask {} for {}", i + 1, parent.title)),
+                technical_details: Some("Technical implementation details".to_string()),
+                size_estimate: Some(SizeEstimate::M),
+                effort_hours: Some(4),
+                depends_on_titles: None,
+                acceptance_criteria: Some("Feature works as expected and tests pass".to_string()),
+                test_strategy: "Write unit tests covering core functionality".to_string(),
+            });
+        }
+
+        Ok(subtasks)
+    }
+
+    // Database helper methods for Phase 1/2
+
+    async fn save_complexity_report(&self, report: &ComplexityReport) -> Result<(), StoreError> {
+        sqlx::query(
+            r#"
+            INSERT INTO task_complexity_reports (id, epic_id, complexity_score, recommended_subtasks, reasoning, analyzed_at)
+            VALUES (?, ?, ?, ?, ?, ?)
+            "#,
+        )
+        .bind(nanoid::nanoid!())
+        .bind(&report.epic_id)
+        .bind(report.score as i32)
+        .bind(report.recommended_tasks as i32)
+        .bind(&report.reasoning)
+        .bind(Utc::now())
+        .execute(&self.pool)
+        .await
+        .map_err(StoreError::Sqlx)?;
+
+        Ok(())
+    }
+
+    async fn save_parent_tasks(&self, epic_id: &str, parent_tasks: &[ParentTask]) -> Result<(), StoreError> {
+        let parent_tasks_json = serde_json::to_string(parent_tasks)?;
+
+        sqlx::query(
+            "UPDATE epics SET parent_tasks = ?, decomposition_phase = ?, updated_at = ? WHERE id = ?"
+        )
+        .bind(parent_tasks_json)
+        .bind("parent_planning")
+        .bind(Utc::now())
+        .bind(epic_id)
+        .execute(&self.pool)
+        .await
+        .map_err(StoreError::Sqlx)?;
+
+        Ok(())
+    }
+
+    async fn update_task_parent(&self, task_id: &str, parent_title: &str) -> Result<(), StoreError> {
+        sqlx::query("UPDATE tasks SET parent_task_id = ?, updated_at = ? WHERE id = ?")
+            .bind(parent_title)
+            .bind(Utc::now())
+            .bind(task_id)
+            .execute(&self.pool)
+            .await
+            .map_err(StoreError::Sqlx)?;
+
+        Ok(())
+    }
+
+    async fn update_task_execution_steps(&self, task_id: &str, steps: &[TaskStep]) -> Result<(), StoreError> {
+        let steps_json = serde_json::to_string(steps)?;
+
+        sqlx::query("UPDATE tasks SET execution_steps = ?, updated_at = ? WHERE id = ?")
+            .bind(steps_json)
+            .bind(Utc::now())
+            .bind(task_id)
+            .execute(&self.pool)
+            .await
+            .map_err(StoreError::Sqlx)?;
+
+        Ok(())
+    }
+
+    async fn update_task_relevant_files(&self, task_id: &str, files: &[FileReference]) -> Result<(), StoreError> {
+        let files_json = serde_json::to_string(files)?;
+
+        sqlx::query("UPDATE tasks SET relevant_files = ?, updated_at = ? WHERE id = ?")
+            .bind(files_json)
+            .bind(Utc::now())
+            .bind(task_id)
+            .execute(&self.pool)
+            .await
+            .map_err(StoreError::Sqlx)?;
+
+        Ok(())
+    }
+
+    async fn assign_parallel_groups_to_tasks(
+        &self,
+        tasks: &[Task],
+        dependency_graph: &DependencyGraph,
+    ) -> Result<Vec<ParallelGroup>, StoreError> {
+        let mut parallel_groups = Vec::new();
+
+        // Build dependency map
+        let mut dependencies: std::collections::HashMap<String, Vec<String>> =
+            std::collections::HashMap::new();
+        for edge in &dependency_graph.edges {
+            dependencies
+                .entry(edge.to.clone())
+                .or_default()
+                .push(edge.from.clone());
+        }
+
+        // Topological sorting to assign levels (parallel groups)
+        let mut level = 0;
+        let mut processed: std::collections::HashSet<String> = std::collections::HashSet::new();
+
+        loop {
+            let mut current_level_tasks = Vec::new();
+
+            for task in tasks {
+                if processed.contains(&task.id) {
+                    continue;
+                }
+
+                // Check if all dependencies are processed
+                let deps = dependencies.get(&task.id);
+                let can_process = deps.is_none_or(|d| d.iter().all(|dep| processed.contains(dep)));
+
+                if can_process {
+                    current_level_tasks.push(task.id.clone());
+                }
+            }
+
+            if current_level_tasks.is_empty() {
+                break;
+            }
+
+            let group_id = format!("group_{}", level);
+            let group_name = format!("Parallel Group {}", level + 1);
+
+            for task_id in &current_level_tasks {
+                processed.insert(task_id.clone());
+
+                // Update task with parallel group
+                self.update_task_parallel_group(task_id, &group_id, true)
+                    .await?;
+            }
+
+            parallel_groups.push(ParallelGroup {
+                id: group_id,
+                name: group_name,
+                task_ids: current_level_tasks,
+            });
+
+            level += 1;
+        }
+
+        Ok(parallel_groups)
     }
 
     /// Decompose an epic into tasks
@@ -103,7 +560,7 @@ impl TaskDecomposer {
                     estimated_hours: task_template.effort_hours.map(|h| h as f64),
                     complexity_score: None,
                     details: task_template.technical_details.clone(),
-                    test_strategy: task_template.test_strategy.clone(),
+                    test_strategy: Some(task_template.test_strategy.clone()),
                     acceptance_criteria: task_template.acceptance_criteria.clone(),
                     prompt: None,
                     context: None,

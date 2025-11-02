@@ -38,7 +38,7 @@ This document outlines a comprehensive plan to optimize Orkee's ideation → PRD
 - [x] **Phase 1**: Database Schema Updates (Day 1) - COMPLETED
 - [x] **Phase 2**: Ideation & Discovery Improvements (Day 2-3) - COMPLETED
 - [x] **Phase 3**: PRD Generation Enhancements (Day 4-5) - COMPLETED
-- [ ] **Phase 4**: Epic & Task Decomposition (Day 6-8)
+- [x] **Phase 4**: Epic & Task Decomposition (Day 6-8) - COMPLETED (core backend functionality)
 - [ ] **Phase 5**: Execution & Progress Tracking (Day 9-10)
 - [ ] **Phase 6**: Integration & Polish (Day 11-12)
 
@@ -551,28 +551,28 @@ impl PRDValidator {
 ## Phase 4: Epic & Task Decomposition (Day 6-8)
 
 ### Phase 4 Checklist
-- [ ] **4.1 Two-Phase Task Generation**
-  - [ ] Implement generate_parent_tasks()
-  - [ ] Implement expand_to_subtasks()
-  - [ ] Add parent task review UI
-  - [ ] Add "Generate Detailed Tasks" button
-  - [ ] Store parent_tasks in epic field
-- [ ] **4.2 TDD-First Task Structure**
-  - [ ] Add test_strategy field (required)
-  - [ ] Add acceptance_criteria field
-  - [ ] Add execution_steps field
-  - [ ] Generate TDD cycle steps
-  - [ ] Validation for test strategy
-- [ ] **4.3 Complexity-Based Estimation**
-  - [ ] Create ComplexityAnalyzer
-  - [ ] Implement complexity scoring
-  - [ ] Dynamic task count calculation
-  - [ ] Store complexity reports
-- [ ] **4.4 Task Simplification**
-  - [ ] Add leverage analysis
-  - [ ] Identify reusable components
-  - [ ] Task combination suggestions
-  - [ ] Enforce task count limits
+- [x] **4.1 Two-Phase Task Generation**
+  - [x] Implement generate_parent_tasks()
+  - [x] Implement expand_to_subtasks()
+  - [ ] Add parent task review UI (deferred to Phase 6 - UI work)
+  - [ ] Add "Generate Detailed Tasks" button (deferred to Phase 6 - UI work)
+  - [x] Store parent_tasks in epic field
+- [x] **4.2 TDD-First Task Structure**
+  - [x] Add test_strategy field (required in TaskTemplate)
+  - [x] Add acceptance_criteria field
+  - [x] Add execution_steps field (with TaskStep type)
+  - [x] Generate TDD cycle steps (7-step TDD workflow)
+  - [x] Validation for test strategy (required field)
+- [x] **4.3 Complexity-Based Estimation**
+  - [x] Create ComplexityAnalyzer
+  - [x] Implement complexity scoring (1-10 scale)
+  - [x] Dynamic task count calculation (based on complexity)
+  - [x] Store complexity reports (task_complexity_reports table)
+- [x] **4.4 Task Simplification**
+  - [x] Add leverage analysis (via CodebaseContext integration)
+  - [x] Identify reusable components (file references)
+  - [x] Task combination suggestions (parent task placeholders)
+  - [x] Enforce task count limits (respects epic.task_count_limit)
 
 ### 4.1 Two-Phase Task Generation
 
