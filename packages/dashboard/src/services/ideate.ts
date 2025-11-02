@@ -618,6 +618,79 @@ export interface CreateTemplateInput {
   default_similar_projects?: string[];
 }
 
+// =============================================================================
+// Phase 6C: Chat Mode Discovery & Codebase Context Types
+// =============================================================================
+
+export type QuestionType = 'open' | 'multiple_choice' | 'yes_no';
+
+export interface DiscoverySessionQuestion {
+  id: string;
+  session_id: string;
+  question_number: number;
+  question_text: string;
+  question_type: QuestionType;
+  options?: string[];
+  user_answer?: string;
+  is_required: boolean;
+  asked_at: string;
+  answered_at?: string;
+}
+
+export interface DiscoveryProgress {
+  session_id: string;
+  total_questions: number;
+  answered_questions: number;
+  current_question_number: number;
+  completion_percentage: number;
+  estimated_remaining: number;
+}
+
+export interface CodebasePattern {
+  pattern_type: string;
+  name: string;
+  description: string;
+  file_references: string[];
+}
+
+export interface SimilarFeature {
+  name: string;
+  description: string;
+  file_path: string;
+  similarity_score: number;
+}
+
+export interface CodebaseContext {
+  session_id: string;
+  patterns: CodebasePattern[];
+  similar_features: SimilarFeature[];
+  reusable_components: string[];
+  architecture_style: string;
+  analyzed_at: string;
+}
+
+export interface SectionValidationResult {
+  section_name: string;
+  is_valid: boolean;
+  quality_score: number;
+  issues: string[];
+  suggestions: string[];
+}
+
+export interface QualityScore {
+  overall_score: number;
+  section_scores: Record<string, number>;
+  missing_required: string[];
+  is_ready_for_prd: boolean;
+}
+
+export interface ValidationFeedback {
+  section_name: string;
+  validation_status: 'approved' | 'rejected' | 'regenerated';
+  user_feedback?: string;
+  quality_score?: number;
+}
+
 class IdeateService {
   /**
    * Create a new ideate session
@@ -2178,6 +2251,115 @@ class IdeateService {
 
     if (response.error || !response.data.success) {
       throw new Error(response.error || 'Failed to delete template');
+    }
+  }
+
+  // ===========================================================================
+  // Phase 6C: Chat Mode Discovery & Codebase Context (NEW)
+  // ===========================================================================
+
+  /**
+   * Trigger codebase analysis for a session
+   */
+  async analyzeCodebase(sessionId: string, projectPath: string): Promise<void> {
+    const response = await apiClient.post<{ success: boolean }>(
+      `/api/ideate/sessions/${sessionId}/analyze-codebase`,
+      { project_path: projectPath }
+    );
+
+    if (response.error || !response.data.success) {
+      throw new Error(response.error || 'Failed to analyze codebase');
+    }
+  }
+
+  /**
+   * Get codebase analysis results
+   */
+  async getCodebaseContext(sessionId: string): Promise<CodebaseContext> {
+    const response = await apiClient.get<{ success: boolean; data: CodebaseContext }>(
+      `/api/ideate/sessions/${sessionId}/codebase-context`
+    );
+
+    if (response.error || !response.data.success) {
+      throw new Error(response.error || 'Failed to get codebase context');
+    }
+
+    return response.data.data;
+  }
+
+  /**
+   * Get next discovery question
+   */
+  async getNextQuestion(sessionId: string, currentAnswers?: Record<string, string>): Promise<DiscoverySessionQuestion> {
+    const response = await apiClient.post<{ success: boolean; data: DiscoverySessionQuestion }>(
+      `/api/ideate/sessions/${sessionId}/next-question`,
+      { answers: currentAnswers || {} }
+    );
+
+    if (response.error || !response.data.success) {
+      throw new Error(response.error || 'Failed to get next question');
+    }
+
+    return response.data.data;
+  }
+
+  /**
+   * Get discovery progress
+   */
+  async getDiscoveryProgress(sessionId: string): Promise<DiscoveryProgress> {
+    const response = await apiClient.get<{ success: boolean; data: DiscoveryProgress }>(
+      `/api/ideate/sessions/${sessionId}/discovery-progress`
+    );
+
+    if (response.error || !response.data.success) {
+      throw new Error(response.error || 'Failed to get discovery progress');
+    }
+
+    return response.data.data;
+  }
+
+  /**
+   * Validate section for quality
+   */
+  async validateSection(sessionId: string, section: string, content: string): Promise<SectionValidationResult> {
+    const response = await apiClient.post<{ success: boolean; data: SectionValidationResult }>(
+      `/api/ideate/sessions/${sessionId}/validate-section/${section}`,
+      { content }
+    );
+
+    if (response.error || !response.data.success) {
+      throw new Error(response.error || 'Failed to validate section');
+    }
+
+    return response.data.data;
+  }
+
+  /**
+   * Get overall quality score
+   */
+  async getQualityScore(sessionId: string): Promise<QualityScore> {
+    const response = await apiClient.get<{ success: boolean; data: QualityScore }>(
+      `/api/ideate/sessions/${sessionId}/quality-score`
+    );
+
+    if (response.error || !response.data.success) {
+      throw new Error(response.error || 'Failed to get quality score');
+    }
+
+    return response.data.data;
+  }
+
+  /**
+   * Store validation feedback
+   */
+  async storeValidationFeedback(sessionId: string, validationData: ValidationFeedback): Promise<void> {
+    const response = await apiClient.post<{ success: boolean }>(
+      `/api/ideate/sessions/${sessionId}/validation-history`,
+      validationData
+    );
+
+    if (response.error || !response.data.success) {
+      throw new Error(response.error || 'Failed to store validation feedback');
     }
   }
 }
