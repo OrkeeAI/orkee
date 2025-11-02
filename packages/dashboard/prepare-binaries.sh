@@ -77,8 +77,11 @@ echo "✓ Target $TARGET is installed"
 
 # Build CLI binary
 cd "$(dirname "$0")/../cli"
-echo "Running: cargo build --release --target $TARGET"
-if ! cargo build --release --target "$TARGET" 2>&1; then
+
+# Use release-ci profile in CI, regular release profile otherwise
+BUILD_PROFILE="${CARGO_BUILD_PROFILE:-release}"
+echo "Running: cargo build --profile $BUILD_PROFILE --target $TARGET"
+if ! cargo build --profile "$BUILD_PROFILE" --target "$TARGET" 2>&1; then
     echo ""
     echo "=========================================="
     echo "Error: Cargo build failed for target $TARGET"
@@ -100,7 +103,13 @@ if ! cargo build --release --target "$TARGET" 2>&1; then
 fi
 
 # Verify binary was created
-BINARY_PATH="../../target/$TARGET/release/orkee$BINARY_EXT"
+# Note: Cargo uses the profile name as the directory name, except "release" stays as "release"
+if [ "$BUILD_PROFILE" = "release-ci" ]; then
+    PROFILE_DIR="release-ci"
+else
+    PROFILE_DIR="release"
+fi
+BINARY_PATH="../../target/$TARGET/$PROFILE_DIR/orkee$BINARY_EXT"
 if [ ! -f "$BINARY_PATH" ]; then
     echo "Error: Binary not found at $BINARY_PATH"
     echo "Build may have failed. Check cargo output above."

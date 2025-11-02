@@ -31,6 +31,7 @@ jobs:
       contents: write
     strategy:
       fail-fast: false
+      max-parallel: 2
       matrix:
         settings:
           - platform: macos
@@ -56,6 +57,18 @@ jobs:
     steps:
       - uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
 
+      - name: Free up disk space
+        if: runner.os == 'Linux'
+        run: |
+          echo "Disk space before cleanup:"
+          df -h
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /opt/ghc
+          sudo rm -rf /usr/local/share/boost
+          sudo rm -rf "$AGENT_TOOLSDIRECTORY"
+          echo "Disk space after cleanup:"
+          df -h
+
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # v1
         with:
@@ -77,19 +90,11 @@ jobs:
         uses: oven-sh/setup-bun@735343b667d3e6f658f44d0eca948eb6282f2b76 # v2.0.2
         # Automatically uses version from package.json "packageManager" field
 
-      - name: Cache Cargo
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@82a92a6e8fbeee089604da2575dc567ae9ddeaab # v2.7.7
         with:
-          path: |
-            ~/.cargo/bin/
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            target/
-          key: ${{ runner.os }}-tauri-${{ matrix.settings.target }}-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-tauri-${{ matrix.settings.target }}-
-            ${{ runner.os }}-tauri-
+          shared-key: "orkee-tauri-${{ matrix.settings.target }}"
+          cache-on-failure: true
 
       - name: Cache Bun dependencies
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
@@ -112,6 +117,7 @@ jobs:
         shell: bash
         env:
           TAURI_TARGET: ${{ matrix.settings.target }}
+          CARGO_BUILD_PROFILE: release-ci
         run: |
           bash packages/dashboard/prepare-binaries.sh
 

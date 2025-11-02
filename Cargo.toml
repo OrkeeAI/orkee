@@ -61,3 +61,9 @@ lto = true            # Enable Link Time Optimization
 codegen-units = 1     # Single codegen unit for better optimization
 strip = true          # Strip symbols from binary
 panic = "unwind"      # Allow panic recovery and mutex poisoning detection
+
+# CI-optimized release profile - disables LTO to save disk space and build time
+[profile.release-ci]
+inherits = "release"
+lto = false           # Disable LTO for CI to reduce disk usage by 50-70%
+codegen-units = 16    # Parallel compilation for faster builds
