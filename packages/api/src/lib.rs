@@ -68,6 +68,23 @@ pub fn create_tasks_router() -> Router<DbState> {
         .route("/{task_id}", get(tasks_handlers::get_task))
         .route("/{task_id}", put(tasks_handlers::update_task))
         .route("/{task_id}", delete(tasks_handlers::delete_task))
+        // Task Execution Tracking routes (Phase 6A.6 CCPM)
+        .route(
+            "/{task_id}/generate-steps",
+            post(tasks_handlers::generate_task_steps),
+        )
+        .route(
+            "/{task_id}/append-progress",
+            post(tasks_handlers::append_task_progress),
+        )
+        .route(
+            "/{task_id}/validation-history",
+            get(tasks_handlers::get_task_validation_history),
+        )
+        .route(
+            "/{task_id}/checkpoints",
+            get(tasks_handlers::get_task_checkpoints),
+        )
 }
 
 /// Creates the agents API router
@@ -255,6 +272,11 @@ pub fn create_epics_router() -> Router<DbState> {
         .route(
             "/{project_id}/epics/{epic_id}/leverage-analysis",
             get(epic_handlers::get_leverage_analysis),
+        )
+        // Epic Execution Tracking routes (Phase 6A.6 CCPM)
+        .route(
+            "/{project_id}/epics/{epic_id}/checkpoints",
+            post(epic_handlers::generate_epic_checkpoints),
         )
 }
 

@@ -12,7 +12,7 @@ use tracing::info;
 use super::response::{created_or_internal_error, ok_or_internal_error, ok_or_not_found};
 use orkee_ideate::{
     ComplexityAnalyzer, CreateEpicInput, Epic, EpicComplexity, EpicManager, EpicStatus,
-    EstimatedEffort, UpdateEpicInput,
+    EstimatedEffort, ExecutionTracker, UpdateEpicInput,
 };
 use orkee_projects::DbState;
 
@@ -593,4 +593,20 @@ pub async fn get_leverage_analysis(
         Ok(response),
         "Failed to get leverage analysis",
     )
+}
+
+/// Generate execution checkpoints for an Epic
+pub async fn generate_epic_checkpoints(
+    State(db): State<DbState>,
+    Path((project_id, epic_id)): Path<(String, String)>,
+) -> impl IntoResponse {
+    info!(
+        "Generating checkpoints for epic: {} in project: {}",
+        epic_id, project_id
+    );
+
+    let tracker = ExecutionTracker::new(db.pool.clone());
+    let result = tracker.generate_checkpoints(&epic_id).await;
+
+    ok_or_internal_error(result, "Failed to generate checkpoints")
 }
