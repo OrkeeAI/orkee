@@ -29,10 +29,12 @@ async fn setup_test_db() -> SqlitePool {
     .await
     .unwrap();
 
-    sqlx::query("INSERT INTO projects (id, name, path) VALUES ('test-proj', 'Test Project', '/tmp/test')")
-        .execute(&pool)
-        .await
-        .unwrap();
+    sqlx::query(
+        "INSERT INTO projects (id, name, path) VALUES ('test-proj', 'Test Project', '/tmp/test')",
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
 
     sqlx::query(
         "CREATE TABLE ideate_sessions (
@@ -157,8 +159,22 @@ async fn test_query_performance_with_100_epics() {
         .bind("test-session")
         .bind(format!("Epic {}", i))
         .bind(format!("Technical approach for epic {}", i))
-        .bind(if i % 3 == 0 { "draft" } else if i % 3 == 1 { "in_progress" } else { "completed" })
-        .bind(if i % 4 == 0 { "low" } else if i % 4 == 1 { "medium" } else if i % 4 == 2 { "high" } else { "very_high" })
+        .bind(if i % 3 == 0 {
+            "draft"
+        } else if i % 3 == 1 {
+            "in_progress"
+        } else {
+            "completed"
+        })
+        .bind(if i % 4 == 0 {
+            "low"
+        } else if i % 4 == 1 {
+            "medium"
+        } else if i % 4 == 2 {
+            "high"
+        } else {
+            "very_high"
+        })
         .bind(&codebase_context)
         .bind(&parent_tasks)
         .bind(20)
@@ -186,7 +202,11 @@ async fn test_query_performance_with_100_epics() {
             .unwrap();
 
     let query_duration = query_start.elapsed();
-    println!("  ✓ Retrieved {} epics in {:?}", all_epics.len(), query_duration);
+    println!(
+        "  ✓ Retrieved {} epics in {:?}",
+        all_epics.len(),
+        query_duration
+    );
     assert_eq!(all_epics.len(), 100);
     assert!(
         query_duration.as_millis() < 100,
@@ -220,11 +240,12 @@ async fn test_query_performance_with_100_epics() {
     println!("\nTest 3: Query with JSON field parsing");
     let json_start = Instant::now();
 
-    let epics_with_context: Vec<(String, Option<String>)> =
-        sqlx::query_as("SELECT id, codebase_context FROM epics WHERE codebase_context IS NOT NULL LIMIT 50")
-            .fetch_all(&pool)
-            .await
-            .unwrap();
+    let epics_with_context: Vec<(String, Option<String>)> = sqlx::query_as(
+        "SELECT id, codebase_context FROM epics WHERE codebase_context IS NOT NULL LIMIT 50",
+    )
+    .fetch_all(&pool)
+    .await
+    .unwrap();
 
     let json_duration = json_start.elapsed();
     println!(
@@ -242,7 +263,11 @@ async fn test_query_performance_with_100_epics() {
             }
         }
     }
-    println!("  ✓ Successfully parsed {}/{} JSON contexts", parsed_count, epics_with_context.len());
+    println!(
+        "  ✓ Successfully parsed {}/{} JSON contexts",
+        parsed_count,
+        epics_with_context.len()
+    );
 
     assert!(
         json_duration.as_millis() < 200,
@@ -378,8 +403,14 @@ async fn test_json_field_memory_impact() {
     .unwrap();
 
     println!("  ✓ Inserted epic with large JSON blobs");
-    println!("    - Execution steps: {} bytes", large_execution_steps.len());
-    println!("    - File references: {} bytes", large_file_references.len());
+    println!(
+        "    - Execution steps: {} bytes",
+        large_execution_steps.len()
+    );
+    println!(
+        "    - File references: {} bytes",
+        large_file_references.len()
+    );
 
     // Query and measure parsing time
     let parse_start = Instant::now();
@@ -392,19 +423,28 @@ async fn test_json_field_memory_impact() {
     .unwrap();
 
     let parse_duration = parse_start.elapsed();
-    println!("\n  ✓ Retrieved and parsed large JSON in {:?}", parse_duration);
+    println!(
+        "\n  ✓ Retrieved and parsed large JSON in {:?}",
+        parse_duration
+    );
 
     // Verify JSON parsing
     if let Some(steps) = &result.1 {
         let parsed: serde_json::Value = serde_json::from_str(steps).unwrap();
         assert!(parsed.is_array());
-        println!("  ✓ Execution steps JSON valid ({} items)", parsed.as_array().unwrap().len());
+        println!(
+            "  ✓ Execution steps JSON valid ({} items)",
+            parsed.as_array().unwrap().len()
+        );
     }
 
     if let Some(refs) = &result.2 {
         let parsed: serde_json::Value = serde_json::from_str(refs).unwrap();
         assert!(parsed.is_array());
-        println!("  ✓ File references JSON valid ({} items)", parsed.as_array().unwrap().len());
+        println!(
+            "  ✓ File references JSON valid ({} items)",
+            parsed.as_array().unwrap().len()
+        );
     }
 
     assert!(

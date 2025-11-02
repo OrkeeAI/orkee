@@ -74,7 +74,10 @@ pub async fn analyze_codebase(
         match orkee_projects::get_project(&session.project_id).await {
             Ok(Some(project)) => PathBuf::from(project.project_root),
             Ok(None) => {
-                error!("Project '{}' not found for session '{}'", session.project_id, session_id);
+                error!(
+                    "Project '{}' not found for session '{}'",
+                    session.project_id, session_id
+                );
                 return (
                     StatusCode::BAD_REQUEST,
                     Json(serde_json::json!({
@@ -88,7 +91,10 @@ pub async fn analyze_codebase(
                     .into_response();
             }
             Err(e) => {
-                error!("Failed to get project '{}' for session '{}': {:?}", session.project_id, session_id, e);
+                error!(
+                    "Failed to get project '{}' for session '{}': {:?}",
+                    session.project_id, session_id, e
+                );
                 return (
                     StatusCode::INTERNAL_SERVER_ERROR,
                     Json(serde_json::json!({
@@ -120,7 +126,10 @@ pub async fn analyze_codebase(
                 .into_response()
         }
         Err(e) => {
-            error!("Failed to analyze codebase for session '{}': {:?}", session_id, e);
+            error!(
+                "Failed to analyze codebase for session '{}': {:?}",
+                session_id, e
+            );
             (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(serde_json::json!({
