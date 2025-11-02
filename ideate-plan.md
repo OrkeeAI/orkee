@@ -890,7 +890,7 @@ impl Task {
 
 ## Phase 6A: API Endpoint Completion (Priority 1)
 
-### Status: **NOT STARTED**
+### Status: **IN PROGRESS** (1 of 6 sections complete)
 
 ### Checklist
 - [ ] **6A.1 Discovery & Codebase Analysis Endpoints**
@@ -910,11 +910,11 @@ impl Task {
   - [ ] POST `/api/epics/{id}/analyze-complexity` - Complexity analysis
   - [ ] POST `/api/epics/{id}/simplify` - Get simplification suggestions
   - [ ] GET `/api/epics/{id}/leverage-analysis` - What existing code can be reused
-- [ ] **6A.5 Two-Phase Task Generation Endpoints** (HIGH PRIORITY)
-  - [ ] POST `/api/epics/{id}/decompose-phase1` - Generate parent tasks only
-  - [ ] GET `/api/epics/{id}/parent-tasks` - Get parent tasks for review
-  - [ ] PUT `/api/epics/{id}/parent-tasks` - Update parent tasks before expansion
-  - [ ] POST `/api/epics/{id}/decompose-phase2` - Expand parent tasks to subtasks
+- [x] **6A.5 Two-Phase Task Generation Endpoints** (HIGH PRIORITY) - **COMPLETED** (commit 6cb3612)
+  - [x] POST `/api/projects/:project_id/epics/:epic_id/decompose-phase1` - Generate parent tasks only
+  - [x] GET `/api/projects/:project_id/epics/:epic_id/parent-tasks` - Get parent tasks for review
+  - [x] PUT `/api/projects/:project_id/epics/:epic_id/parent-tasks` - Update parent tasks before expansion
+  - [x] POST `/api/projects/:project_id/epics/:epic_id/decompose-phase2` - Expand parent tasks to subtasks
 - [ ] **6A.6 Task Execution Tracking Endpoints**
   - [ ] POST `/api/tasks/{id}/generate-steps` - Generate TDD execution steps
   - [ ] POST `/api/tasks/{id}/append-progress` - Append-only progress update
