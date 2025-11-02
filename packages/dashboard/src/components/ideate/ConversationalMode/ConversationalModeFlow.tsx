@@ -51,19 +51,19 @@ export function ConversationalModeFlow({
     sessionId,
     conversationHistory: messages,
     onMessageComplete: async (content: string) => {
-      // Save assistant message to backend
       try {
         await conversationalService.sendMessage(sessionId, {
           content,
           message_type: 'discovery',
           role: 'assistant',
         });
-        // Clear streaming message immediately after saving to prevent race conditions
+      } catch (err) {
+        console.error('Failed to save assistant message:', err);
+      } finally {
+        // Always clear streaming state to prevent race conditions with new messages
         stopStreaming();
         await refresh();
         await loadInsights();
-      } catch (err) {
-        console.error('Failed to save assistant message:', err);
       }
     },
     onError: (error) => {
