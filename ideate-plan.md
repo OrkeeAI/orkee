@@ -890,7 +890,7 @@ impl Task {
 
 ## Phase 6A: API Endpoint Completion (Priority 1)
 
-### Status: **IN PROGRESS** (2 of 6 sections complete)
+### Status: **IN PROGRESS** (3 of 6 sections complete)
 
 ### Checklist
 - [x] **6A.1 Discovery & Codebase Analysis Endpoints** (commit b2e0e88)
@@ -898,10 +898,10 @@ impl Task {
   - [x] GET `/api/ideate/sessions/{id}/codebase-context` - Get analysis results
   - [x] POST `/api/ideate/sessions/{id}/next-question` - Chat mode discovery
   - [x] GET `/api/ideate/sessions/{id}/discovery-progress` - Discovery status
-- [ ] **6A.2 PRD Validation Endpoints**
-  - [ ] POST `/api/ideate/sessions/{id}/validate-section/{section}` - Validate individual section
-  - [ ] GET `/api/ideate/sessions/{id}/quality-score` - Get overall quality score
-  - [ ] POST `/api/ideate/sessions/{id}/validation-history` - Store validation feedback
+- [x] **6A.2 PRD Validation Endpoints** (commit 110d765)
+  - [x] POST `/api/ideate/sessions/{id}/validate-section/{section}` - Validate individual section
+  - [x] GET `/api/ideate/sessions/{id}/quality-score` - Get overall quality score
+  - [x] POST `/api/ideate/sessions/{id}/validation-history` - Store validation feedback
 - [ ] **6A.3 Epic Alternative Approaches Endpoints**
   - [ ] POST `/api/epics/{id}/generate-alternatives` - Generate 2-3 technical approaches
   - [ ] GET `/api/epics/{id}/alternatives` - Get all alternatives
