@@ -29,7 +29,13 @@ describe('useStreamingResponse', () => {
   describe('startStreaming', () => {
     it('should initialize streaming message when starting', async () => {
       const mockStreamFn = conversationalAi.streamConversationalResponse as any;
-      mockStreamFn.mockImplementation(async (_sid: string, _msg: string, _hist: any[], onChunk: Function, onComplete: Function) => {
+      mockStreamFn.mockImplementation(async (
+        _sid: string,
+        _msg: string,
+        _hist: any[],
+        onChunk: (chunk: string) => void,
+        onComplete: (fullText: string) => void
+      ) => {
         onChunk('Hello');
         onChunk(' world');
         onComplete('Hello world');
