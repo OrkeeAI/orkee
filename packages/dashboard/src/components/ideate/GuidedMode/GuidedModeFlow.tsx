@@ -10,6 +10,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { SectionNavigator } from './SectionNavigator';
 import { SectionProgress } from './SectionProgress';
 import { SkipDialog } from './SkipDialog';
@@ -20,11 +21,15 @@ import { RoadmapSection } from './sections/RoadmapSection';
 import { DependencyChainSection } from './sections/DependencyChainSection';
 import { RisksSection } from './sections/RisksSection';
 import { AppendixSection } from './sections/AppendixSection';
+import { CompetitorAnalysisSection } from '../shared/research/CompetitorAnalysisSection';
+import { SimilarProjectsSection } from '../shared/research/SimilarProjectsSection';
+import { ExpertRoundtableFlow } from '../shared/research/ExpertRoundtable/ExpertRoundtableFlow';
 import { PRDGeneratorFlow } from '../PRDGenerator/PRDGeneratorFlow';
 import {
   useIdeateSession,
   useIdeateStatus,
   useNavigateToSection,
+  useUpdateIdeateSession,
 } from '@/hooks/useIdeate';
 import { toast } from 'sonner';
 
@@ -67,10 +72,13 @@ export function GuidedModeFlow({
   const [skipDialogOpen, setSkipDialogOpen] = useState(false);
   const [currentSection, setCurrentSection] = useState<SectionName>('overview');
   const [showPRDGenerator, setShowPRDGenerator] = useState(false);
+  const [researchToolsEnabled, setResearchToolsEnabled] = useState(false);
+  const [researchTab, setResearchTab] = useState<'competitors' | 'similar-projects' | 'expert-roundtable'>('competitors');
 
   const { data: session } = useIdeateSession(sessionId);
   const { data: status } = useIdeateStatus(sessionId);
   const navigateMutation = useNavigateToSection(sessionId);
+  const updateSessionMutation = useUpdateIdeateSession(sessionId);
 
   // Initialize current section from session, or show PRDGeneratorFlow for completed sessions
   useEffect(() => {
@@ -82,6 +90,30 @@ export function GuidedModeFlow({
       setShowPRDGenerator(true);
     }
   }, [session]);
+
+  // Load research tools preference from session
+  useEffect(() => {
+    if (session?.research_tools_enabled !== undefined) {
+      setResearchToolsEnabled(session.research_tools_enabled);
+    }
+  }, [session?.research_tools_enabled]);
+
+  const toggleResearchTools = async () => {
+    const newValue = !researchToolsEnabled;
+    setResearchToolsEnabled(newValue);
+
+    try {
+      await updateSessionMutation.mutateAsync({
+        research_tools_enabled: newValue,
+      });
+      toast.success(newValue ? 'Advanced research tools enabled' : 'Research tools disabled');
+    } catch (error) {
+      // Revert on error
+      setResearchToolsEnabled(!newValue);
+      toast.error('Failed to update research tools preference');
+      console.error(error);
+    }
+  };
 
   const handleSectionSelect = async (sectionId: SectionName) => {
     try {
@@ -143,7 +175,40 @@ export function GuidedModeFlow({
       case 'risks':
         return <RisksSection sessionId={sessionId} />;
       case 'research':
-        return <AppendixSection sessionId={sessionId} />;
+        return researchToolsEnabled ? (
+          <div className="space-y-4">
+            <div className="flex justify-end">
+              <Button variant="ghost" size="sm" onClick={toggleResearchTools}>
+                Switch to Simple View
+              </Button>
+            </div>
+            <Tabs value={researchTab} onValueChange={(v) => setResearchTab(v as typeof researchTab)}>
+              <TabsList className="grid w-full grid-cols-3">
+                <TabsTrigger value="competitors">Competitor Analysis</TabsTrigger>
+                <TabsTrigger value="similar-projects">Similar Projects</TabsTrigger>
+                <TabsTrigger value="expert-roundtable">Expert Roundtable</TabsTrigger>
+              </TabsList>
+              <TabsContent value="competitors">
+                <CompetitorAnalysisSection sessionId={sessionId} />
+              </TabsContent>
+              <TabsContent value="similar-projects">
+                <SimilarProjectsSection sessionId={sessionId} />
+              </TabsContent>
+              <TabsContent value="expert-roundtable">
+                <ExpertRoundtableFlow sessionId={sessionId} />
+              </TabsContent>
+            </Tabs>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <div className="flex justify-end">
+              <Button variant="outline" size="sm" onClick={toggleResearchTools}>
+                Enable Advanced Research Tools
+              </Button>
+            </div>
+            <AppendixSection sessionId={sessionId} />
+          </div>
+        );
       default:
         return null;
     }
