@@ -261,7 +261,8 @@ impl PRDAggregator {
                 .flatten()
                 .and_then(|s| serde_json::from_str(&s).ok()),
             current_section: row.try_get("current_section").ok(),
-            research_tools_enabled: row.try_get::<i32, _>("research_tools_enabled").unwrap_or(0) != 0,
+            research_tools_enabled: row.try_get::<i32, _>("research_tools_enabled").unwrap_or(0)
+                != 0,
             generated_prd_id: row.try_get("generated_prd_id").ok(),
             created_at: row
                 .try_get::<String, _>("created_at")
