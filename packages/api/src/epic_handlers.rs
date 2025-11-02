@@ -11,8 +11,8 @@ use tracing::info;
 
 use super::response::{created_or_internal_error, ok_or_internal_error, ok_or_not_found};
 use orkee_ideate::{
-    CreateEpicInput, Epic, EpicComplexity, EpicManager, EpicStatus, EstimatedEffort,
-    UpdateEpicInput,
+    ComplexityAnalyzer, CreateEpicInput, Epic, EpicComplexity, EpicManager, EpicStatus,
+    EstimatedEffort, UpdateEpicInput,
 };
 use orkee_projects::DbState;
 
@@ -273,5 +273,324 @@ pub async fn analyze_work_streams(
     ok_or_internal_error(
         Err::<orkee_ideate::WorkAnalysis, _>(error),
         "Work stream analysis not implemented",
+    )
+}
+
+/// Analyze Epic complexity
+pub async fn analyze_complexity(
+    State(db): State<DbState>,
+    Path((project_id, epic_id)): Path<(String, String)>,
+) -> impl IntoResponse {
+    info!(
+        "Analyzing complexity for epic: {} in project: {}",
+        epic_id, project_id
+    );
+
+    let manager = EpicManager::new(db.pool.clone());
+    let epic_result = manager.get_epic(&project_id, &epic_id).await;
+
+    let epic = match epic_result {
+        Ok(Some(epic)) => epic,
+        Ok(None) => {
+            return ok_or_not_found::<orkee_ideate::ComplexityReport, orkee_ideate::IdeateError>(
+                Err(orkee_ideate::IdeateError::NotFound("Epic not found".to_string())),
+                "Epic not found",
+            )
+        }
+        Err(e) => {
+            return ok_or_internal_error::<orkee_ideate::ComplexityReport, orkee_ideate::IdeateError>(
+                Err(e),
+                "Failed to get epic",
+            )
+        }
+    };
+
+    let analyzer = ComplexityAnalyzer::new();
+    let user_limit = epic.task_count_limit;
+    let result = analyzer.analyze_epic(&epic, user_limit);
+
+    ok_or_internal_error(result, "Failed to analyze complexity")
+}
+
+/// Request body for simplification analysis
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SimplifyRequest {
+    pub current_task_count: usize,
+}
+
+/// Response for simplification analysis
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SimplifyResponse {
+    pub suggestions: Vec<SimplificationSuggestion>,
+    pub target_task_count: usize,
+    pub potential_savings: usize,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SimplificationSuggestion {
+    pub suggestion_type: String,
+    pub description: String,
+    pub task_ids: Vec<String>,
+    pub estimated_reduction: usize,
+}
+
+/// Get simplification suggestions for an Epic
+pub async fn simplify_epic(
+    State(db): State<DbState>,
+    Path((project_id, epic_id)): Path<(String, String)>,
+    Json(request): Json<SimplifyRequest>,
+) -> impl IntoResponse {
+    info!(
+        "Getting simplification suggestions for epic: {} in project: {}",
+        epic_id, project_id
+    );
+
+    let manager = EpicManager::new(db.pool.clone());
+    let epic_result = manager.get_epic(&project_id, &epic_id).await;
+
+    let epic = match epic_result {
+        Ok(Some(epic)) => epic,
+        Ok(None) => {
+            return ok_or_not_found::<SimplifyResponse, orkee_ideate::IdeateError>(
+                Err(orkee_ideate::IdeateError::NotFound("Epic not found".to_string())),
+                "Epic not found",
+            )
+        }
+        Err(e) => {
+            return ok_or_internal_error::<SimplifyResponse, orkee_ideate::IdeateError>(
+                Err(e),
+                "Failed to get epic",
+            )
+        }
+    };
+
+    let target_limit = epic.task_count_limit.unwrap_or(20) as usize;
+    let mut suggestions = Vec::new();
+    let mut potential_savings = 0;
+
+    // Suggest combining similar tasks
+    if request.current_task_count > target_limit {
+        let overhead = request.current_task_count - target_limit;
+        suggestions.push(SimplificationSuggestion {
+            suggestion_type: "combine_similar".to_string(),
+            description: format!(
+                "Combine similar tasks to reduce count by approximately {} tasks",
+                overhead / 2
+            ),
+            task_ids: Vec::new(), // Would be populated by actual task analysis
+            estimated_reduction: overhead / 2,
+        });
+        potential_savings += overhead / 2;
+    }
+
+    // Suggest leveraging existing code
+    if let Some(context) = &epic.codebase_context {
+        if context.get("similar_features").is_some() {
+            suggestions.push(SimplificationSuggestion {
+                suggestion_type: "leverage_existing".to_string(),
+                description: "Use existing similar features to reduce implementation tasks"
+                    .to_string(),
+                task_ids: Vec::new(),
+                estimated_reduction: 2,
+            });
+            potential_savings += 2;
+        }
+    }
+
+    // Suggest deferring non-critical work
+    suggestions.push(SimplificationSuggestion {
+        suggestion_type: "defer_non_critical".to_string(),
+        description: "Move nice-to-have features to a future phase".to_string(),
+        task_ids: Vec::new(),
+        estimated_reduction: 3,
+    });
+    potential_savings += 3;
+
+    let response = SimplifyResponse {
+        suggestions,
+        target_task_count: target_limit,
+        potential_savings: potential_savings.min(request.current_task_count - target_limit),
+    };
+
+    ok_or_internal_error::<SimplifyResponse, orkee_ideate::IdeateError>(
+        Ok(response),
+        "Failed to generate simplification suggestions",
+    )
+}
+
+/// Response for leverage analysis
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LeverageAnalysisResponse {
+    pub reusable_components: Vec<ReusableComponent>,
+    pub similar_features: Vec<SimilarFeature>,
+    pub existing_patterns: Vec<ExistingPattern>,
+    pub estimated_time_savings: String,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ReusableComponent {
+    pub name: String,
+    pub file_path: String,
+    pub description: String,
+    pub usage_example: String,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SimilarFeature {
+    pub name: String,
+    pub location: String,
+    pub similarity_score: u8,
+    pub adaptation_notes: String,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ExistingPattern {
+    pub pattern_name: String,
+    pub description: String,
+    pub example_location: String,
+    pub recommended_usage: String,
+}
+
+/// Get leverage analysis for an Epic
+pub async fn get_leverage_analysis(
+    State(db): State<DbState>,
+    Path((project_id, epic_id)): Path<(String, String)>,
+) -> impl IntoResponse {
+    info!(
+        "Getting leverage analysis for epic: {} in project: {}",
+        epic_id, project_id
+    );
+
+    let manager = EpicManager::new(db.pool.clone());
+    let epic_result = manager.get_epic(&project_id, &epic_id).await;
+
+    let epic = match epic_result {
+        Ok(Some(epic)) => epic,
+        Ok(None) => {
+            return ok_or_not_found::<LeverageAnalysisResponse, orkee_ideate::IdeateError>(
+                Err(orkee_ideate::IdeateError::NotFound("Epic not found".to_string())),
+                "Epic not found",
+            )
+        }
+        Err(e) => {
+            return ok_or_internal_error::<LeverageAnalysisResponse, orkee_ideate::IdeateError>(
+                Err(e),
+                "Failed to get epic",
+            )
+        }
+    };
+
+    let mut reusable_components = Vec::new();
+    let mut similar_features = Vec::new();
+    let mut existing_patterns = Vec::new();
+
+    // Parse codebase_context if available
+    if let Some(context) = &epic.codebase_context {
+        // Extract reusable components
+        if let Some(components) = context.get("reusable_components").and_then(|c| c.as_array()) {
+            for component in components {
+                if let (Some(name), Some(path)) = (
+                    component.get("name").and_then(|n| n.as_str()),
+                    component.get("path").and_then(|p| p.as_str()),
+                ) {
+                    reusable_components.push(ReusableComponent {
+                        name: name.to_string(),
+                        file_path: path.to_string(),
+                        description: component
+                            .get("description")
+                            .and_then(|d| d.as_str())
+                            .unwrap_or("Reusable component")
+                            .to_string(),
+                        usage_example: component
+                            .get("usage")
+                            .and_then(|u| u.as_str())
+                            .unwrap_or("See documentation")
+                            .to_string(),
+                    });
+                }
+            }
+        }
+
+        // Extract similar features
+        if let Some(features) = context.get("similar_features").and_then(|f| f.as_array()) {
+            for feature in features {
+                if let (Some(name), Some(location)) = (
+                    feature.get("name").and_then(|n| n.as_str()),
+                    feature.get("location").and_then(|l| l.as_str()),
+                ) {
+                    similar_features.push(SimilarFeature {
+                        name: name.to_string(),
+                        location: location.to_string(),
+                        similarity_score: feature
+                            .get("similarity")
+                            .and_then(|s| s.as_u64())
+                            .unwrap_or(70) as u8,
+                        adaptation_notes: feature
+                            .get("notes")
+                            .and_then(|n| n.as_str())
+                            .unwrap_or("Can be adapted for this use case")
+                            .to_string(),
+                    });
+                }
+            }
+        }
+
+        // Extract existing patterns
+        if let Some(patterns) = context.get("patterns").and_then(|p| p.as_array()) {
+            for pattern in patterns {
+                if let Some(name) = pattern.get("name").and_then(|n| n.as_str()) {
+                    existing_patterns.push(ExistingPattern {
+                        pattern_name: name.to_string(),
+                        description: pattern
+                            .get("description")
+                            .and_then(|d| d.as_str())
+                            .unwrap_or("Established pattern in codebase")
+                            .to_string(),
+                        example_location: pattern
+                            .get("example")
+                            .and_then(|e| e.as_str())
+                            .unwrap_or("See codebase")
+                            .to_string(),
+                        recommended_usage: pattern
+                            .get("usage")
+                            .and_then(|u| u.as_str())
+                            .unwrap_or("Follow this pattern for consistency")
+                            .to_string(),
+                    });
+                }
+            }
+        }
+    }
+
+    // Estimate time savings
+    let total_opportunities =
+        reusable_components.len() + similar_features.len() + existing_patterns.len();
+    let estimated_time_savings = if total_opportunities > 0 {
+        format!(
+            "Approximately {}-{} hours by leveraging existing code",
+            total_opportunities * 2,
+            total_opportunities * 4
+        )
+    } else {
+        "No significant reuse opportunities identified yet".to_string()
+    };
+
+    let response = LeverageAnalysisResponse {
+        reusable_components,
+        similar_features,
+        existing_patterns,
+        estimated_time_savings,
+    };
+
+    ok_or_internal_error::<LeverageAnalysisResponse, orkee_ideate::IdeateError>(
+        Ok(response),
+        "Failed to get leverage analysis",
     )
 }

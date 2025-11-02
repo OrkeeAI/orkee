@@ -243,6 +243,19 @@ pub fn create_epics_router() -> Router<DbState> {
             "/{project_id}/epics/{epic_id}/select-approach",
             put(epic_approaches_handlers::select_approach),
         )
+        // Epic Complexity & Simplification routes (Phase 6A.4 CCPM)
+        .route(
+            "/{project_id}/epics/{epic_id}/analyze-complexity",
+            post(epic_handlers::analyze_complexity),
+        )
+        .route(
+            "/{project_id}/epics/{epic_id}/simplify",
+            post(epic_handlers::simplify_epic),
+        )
+        .route(
+            "/{project_id}/epics/{epic_id}/leverage-analysis",
+            get(epic_handlers::get_leverage_analysis),
+        )
 }
 
 /// Creates the Brainstorm API router for PRD ideation and ideateing
