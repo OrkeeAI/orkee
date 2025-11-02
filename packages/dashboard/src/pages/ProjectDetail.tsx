@@ -18,7 +18,6 @@ import {
   Trash2,
   Github,
   Play,
-  ListTodo,
   FileText,
   DollarSign,
   Layers,
@@ -34,7 +33,6 @@ import { ProjectDeleteDialog } from '@/components/ProjectDeleteDialog';
 import { PreviewPanel } from '@/components/preview';
 import { GitTab, GitActivityGraph } from '@/components/git';
 import { OpenInEditorButton } from '@/components/ui/OpenInEditorButton';
-import { TasksTab } from '@/components/TasksTab';
 import { SpecsTab } from '@/components/SpecsTab';
 import { CostDashboard } from '@/components/CostDashboard';
 import { ContextTab } from '@/components/ContextTab';
@@ -195,11 +193,7 @@ export function ProjectDetail() {
           </TabsTrigger>
           <TabsTrigger value="specs" className="flex-1 flex items-center justify-center gap-1.5">
             <FileText className="h-4 w-4 shrink-0" />
-            <span className="hidden sm:inline">Specs</span>
-          </TabsTrigger>
-          <TabsTrigger value="tasks" className="flex-1 flex items-center justify-center gap-1.5">
-            <ListTodo className="h-4 w-4 shrink-0" />
-            <span className="hidden sm:inline">Tasks</span>
+            <span className="hidden sm:inline">Plan</span>
           </TabsTrigger>
           <TabsTrigger value="context" className="flex-1 flex items-center justify-center gap-1.5">
             <Layers className="h-4 w-4 shrink-0" />
@@ -228,11 +222,7 @@ export function ProjectDetail() {
         </TabsList>
 
         <TabsContent value="specs" className="space-y-4">
-          <SpecsTab projectId={project.id} />
-        </TabsContent>
-
-        <TabsContent value="tasks" className="space-y-4">
-          <TasksTab
+          <SpecsTab
             projectId={project.id}
             projectPath={project.projectRoot}
             taskSource={project.taskSource || 'manual'}
