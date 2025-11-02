@@ -47,19 +47,19 @@ export function CreatePRDFlow({
   const handleModeConfirm = async () => {
     if (selectedMode) {
       // Conversational mode: create session immediately and open chat
-      if (selectedMode === 'conversational') {
+      if (selectedMode === 'chat') {
         try {
           const session = await createSessionMutation.mutateAsync({
             projectId,
             initialDescription: SESSION_DEFAULTS.NEW_CONVERSATION_TITLE,
-            mode: 'conversational',
+            mode: 'chat',
             templateId: undefined,
           });
 
           // Reset and close
           resetFlow();
           onOpenChange(false);
-          onSessionCreated(session.id, 'conversational');
+          onSessionCreated(session.id, 'chat');
         } catch {
           // Error handled by React Query mutation
         }
@@ -83,8 +83,8 @@ export function CreatePRDFlow({
     if (step === 'template') {
       setStep('mode');
     } else if (step === 'description') {
-      // Go back to template for guided, or mode for quick/conversational
-      if (selectedMode === 'quick' || selectedMode === 'conversational') {
+      // Go back to template for guided, or mode for quick/chat
+      if (selectedMode === 'quick' || selectedMode === 'chat') {
         setStep('mode');
       } else {
         setStep('template');
@@ -160,7 +160,7 @@ export function CreatePRDFlow({
                 Cancel
               </Button>
               <Button onClick={handleModeConfirm} disabled={!selectedMode || loading}>
-                {loading && selectedMode === 'conversational' ? SESSION_DEFAULTS.STARTING_CHAT_TITLE : 'Continue'}
+                {loading && selectedMode === 'chat' ? SESSION_DEFAULTS.STARTING_CHAT_TITLE : 'Continue'}
               </Button>
             </DialogFooter>
           </>
@@ -250,7 +250,7 @@ export function CreatePRDFlow({
                     'Your PRD will be generated automatically from this description.'}
                   {selectedMode === 'guided' &&
                     'You will be guided through each PRD section step-by-step.'}
-                  {selectedMode === 'conversational' &&
+                  {selectedMode === 'chat' &&
                     'Start a conversation to discover and refine your requirements naturally.'}
                 </AlertDescription>
               </Alert>

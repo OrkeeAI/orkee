@@ -49,8 +49,8 @@ const MODE_OPTIONS: ModeOption[] = [
     ],
   },
   {
-    mode: 'conversational',
-    title: 'Conversational Mode',
+    mode: 'chat',
+    title: 'Chat Mode',
     description: 'Chat-based PRD discovery through conversation',
     icon: <MessageSquare className="h-6 w-6" />,
     features: [

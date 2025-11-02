@@ -4,11 +4,11 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useStreamingResponse } from './useStreamingResponse';
-import * as conversationalAi from '@/services/conversational-ai';
+import * as conversationalAi from '@/services/chat-ai';
 
 // Mock the conversational-ai service
 vi.mock('@/services/conversational-ai', () => ({
-  streamConversationalResponse: vi.fn(),
+  streamChatResponse: vi.fn(),
 }));
 
 describe('useStreamingResponse', () => {
@@ -28,7 +28,7 @@ describe('useStreamingResponse', () => {
 
   describe('startStreaming', () => {
     it('should initialize streaming message when starting', async () => {
-      const mockStreamFn = conversationalAi.streamConversationalResponse as any;
+      const mockStreamFn = conversationalAi.streamChatResponse as any;
       mockStreamFn.mockImplementation(async (
         _sid: string,
         _msg: string,
@@ -70,7 +70,7 @@ describe('useStreamingResponse', () => {
 
   describe('AbortSignal integration', () => {
     it('should pass AbortSignal to streaming function', async () => {
-      const mockStreamFn = conversationalAi.streamConversationalResponse as any;
+      const mockStreamFn = conversationalAi.streamChatResponse as any;
 
       mockStreamFn.mockImplementation(async () => {
         return Promise.resolve();
@@ -96,7 +96,7 @@ describe('useStreamingResponse', () => {
 
   describe('stopStreaming', () => {
     it('should abort ongoing stream', async () => {
-      const mockStreamFn = conversationalAi.streamConversationalResponse as any;
+      const mockStreamFn = conversationalAi.streamChatResponse as any;
 
       // Mock a stream that never completes
       mockStreamFn.mockImplementation(async () => {
@@ -125,7 +125,7 @@ describe('useStreamingResponse', () => {
     });
 
     it('should clean up resources on unmount', async () => {
-      const mockStreamFn = conversationalAi.streamConversationalResponse as any;
+      const mockStreamFn = conversationalAi.streamChatResponse as any;
 
       mockStreamFn.mockImplementation(async () => {
         return new Promise(() => {});

@@ -2,7 +2,7 @@
 // ABOUTME: Provides suggested questions based on conversation context
 
 import { useState, useEffect, useCallback } from 'react';
-import { conversationalService, DiscoveryQuestion } from '@/services/conversational';
+import { chatService, DiscoveryQuestion } from '@/services/chat';
 
 export interface UseDiscoveryQuestionsOptions {
   sessionId: string;
@@ -24,7 +24,7 @@ export function useDiscoveryQuestions({
     try {
       setIsLoading(true);
       setError(null);
-      const data = await conversationalService.getDiscoveryQuestions(category);
+      const data = await chatService.getDiscoveryQuestions(category);
       setQuestions(data);
     } catch (err) {
       setError(err instanceof Error ? err : new Error('Failed to load discovery questions'));
@@ -35,7 +35,7 @@ export function useDiscoveryQuestions({
 
   const loadSuggestedQuestions = useCallback(async () => {
     try {
-      const data = await conversationalService.getSuggestedQuestions(sessionId);
+      const data = await chatService.getSuggestedQuestions(sessionId);
       setSuggestedQuestions(data);
     } catch (err) {
       console.error('Failed to load suggested questions:', err);

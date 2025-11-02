@@ -4,7 +4,7 @@
 import React from 'react';
 import { cn } from '@/lib/utils';
 import { User, Bot } from 'lucide-react';
-import type { ConversationMessage } from '@/services/conversational';
+import type { ConversationMessage } from '@/services/chat';
 import type { StreamingMessage } from '../hooks/useStreamingResponse';
 
 export interface MessageBubbleProps {

@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Lightbulb, AlertTriangle, Lock, HelpCircle, CheckSquare } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import type { ConversationInsight } from '@/services/conversational';
+import type { ConversationInsight } from '@/services/chat';
 
 export interface InsightsSidebarProps {
   insights: ConversationInsight[];

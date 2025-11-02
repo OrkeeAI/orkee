@@ -1,9 +1,9 @@
 // ABOUTME: React hook for handling AI streaming responses
-// ABOUTME: Manages real-time AI assistant responses in conversational mode using AI SDK
+// ABOUTME: Manages real-time AI assistant responses in chat mode using AI SDK
 
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { streamConversationalResponse } from '@/services/conversational-ai';
-import type { ConversationMessage } from '@/services/conversational';
+import { streamChatResponse } from '@/services/chat-ai';
+import type { ConversationMessage } from '@/services/chat';
 import { STREAMING_CONFIG, ERROR_MESSAGES } from '../constants';
 
 export interface StreamingMessage {
@@ -104,7 +104,7 @@ export function useStreamingResponse({
       }, STREAMING_CONFIG.TIMEOUT_MS);
 
       try {
-        await streamConversationalResponse(
+        await streamChatResponse(
           sessionId,
           userMessage,
           conversationHistory,
