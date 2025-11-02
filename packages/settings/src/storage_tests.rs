@@ -3,8 +3,7 @@
 
 #[cfg(test)]
 mod tests {
-    use crate::orkee_storage::SettingsStorage;
-    use crate::types::{BulkSettingUpdate, SettingUpdate, SettingUpdateItem};
+    use crate::{BulkSettingUpdate, SettingUpdate, SettingUpdateItem, SettingsStorage};
     use orkee_storage::StorageError;
     use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
     use std::str::FromStr;
