@@ -363,6 +363,9 @@ async fn proxy_ai_request(
         }
     }
 
+    // Add custom User-Agent header for proper API behavior
+    proxy_req = proxy_req.header("User-Agent", "Orkee/1.0");
+
     // Add the API key header and provider-specific headers
     info!("Adding provider-specific headers for: {}", provider);
     proxy_req = match provider {

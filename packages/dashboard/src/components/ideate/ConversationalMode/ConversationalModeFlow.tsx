@@ -58,10 +58,10 @@ export function ConversationalModeFlow({
           message_type: 'discovery',
           role: 'assistant',
         });
+        // Clear streaming message immediately after saving to prevent race conditions
+        stopStreaming();
         await refresh();
         await loadInsights();
-        // Clear streaming message after saving to prevent duplication
-        stopStreaming();
       } catch (err) {
         console.error('Failed to save assistant message:', err);
       }
