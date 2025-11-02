@@ -53,7 +53,9 @@ pub fn overview_prompt(description: &str) -> Result<String, String> {
 
 /// Generate core features section
 pub fn features_prompt(description: &str) -> Result<String, String> {
-    with_prompt_manager(|manager| manager.get_prompt("features", &[("description", description)]))
+    with_prompt_manager(|manager| {
+        manager.get_prompt("features", &[("description", description), ("codebase_context", "")])
+    })
 }
 
 /// Generate UX section (Personas, Flows)
@@ -113,7 +115,9 @@ pub fn success_metrics_prompt(description: &str) -> Result<String, String> {
 
 /// Generate a complete PRD from a one-liner description
 pub fn complete_prd_prompt(description: &str) -> Result<String, String> {
-    with_prompt_manager(|manager| manager.get_prompt("complete", &[("description", description)]))
+    with_prompt_manager(|manager| {
+        manager.get_prompt("complete", &[("description", description), ("codebase_context", "")])
+    })
 }
 
 #[cfg(test)]
