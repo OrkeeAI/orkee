@@ -1165,14 +1165,17 @@ Phase 6C is **FULLY COMPLETE** with all components integrated into ChatModeFlow:
   - [x] Tests validate two-phase parent→subtask generation with limits
   - [x] Tests confirm checkpoint creation, activation, and tracking
   - [x] Tests ensure append-only validation history with no overwrites
-- [x] **6F.3 Frontend Tests** - PARTIALLY COMPLETED (90+ tests created)
+- [x] **6F.3 Frontend Tests** - COMPLETED (380+ tests created)
   - [x] Test Chat Mode discovery flow (DiscoveryProgress component - 9 tests)
   - [x] Test Chat Mode codebase context (CodebaseContextPanel component - 17 tests)
   - [x] Test Chat Mode validation checkpoints (ValidationCheckpoint component - 14 tests, 5 skipped)
-  - [x] Test Quick Mode review toggle (QualityScoreDisplay - 35 tests, Section ReviewModal - 39 tests)
+  - [x] Test Quick Mode review toggle (QualityScoreDisplay - 35 tests, SectionReviewModal - 39 tests)
   - [x] Test Guided Mode validation (SectionValidationPanel - 50+ tests)
-  - [ ] Test Epic parent task review (deferred - component tests needed)
-  - [ ] Test Task execution steps UI (deferred - component tests needed)
+  - [x] Test Epic parent task review (ParentTaskReview - 70+ tests)
+  - [x] Test Epic complexity display (ComplexityDisplay - 60+ tests)
+  - [x] Test Task execution steps UI (TDDTaskView - 80+ tests)
+  - [x] Test Task checkpoint modal (CheckpointModal - 60+ tests)
+  - [x] Test Task progress history (ProgressHistory - 70+ tests)
 
 ### Implementation Summary
 
@@ -1208,14 +1211,15 @@ Phase 6C is **FULLY COMPLETE** with all components integrated into ChatModeFlow:
   - `SectionReviewModal.test.tsx` - 39 tests for section review and regeneration
 - Guided Mode (`packages/dashboard/src/components/ideate/GuidedMode/components/`):
   - `SectionValidationPanel.test.tsx` - 50+ tests for step validation
+- Epic Components (`packages/dashboard/src/components/epics/`):
+  - `ParentTaskReview.test.tsx` - 70+ tests for parent task review, editing, drag-and-drop
+  - `ComplexityDisplay.test.tsx` - 60+ tests for complexity score display and recommendations
+- Task Components (`packages/dashboard/src/components/tasks/`):
+  - `TDDTaskView.test.tsx` - 80+ tests for TDD execution steps, commands, and file references
+  - `CheckpointModal.test.tsx` - 60+ tests for checkpoint validation and completion
+  - `ProgressHistory.test.tsx` - 70+ tests for progress timeline and entry types
 
 **What's Remaining for Full Phase 6F**:
-- 6F.3 Additional Frontend Tests:
-  - Epic ParentTaskReview component tests
-  - Epic ComplexityDisplay component tests
-  - Task TDDTaskView component tests
-  - Task CheckpointModal component tests
-  - Task ProgressHistory component tests
 - Component accessibility improvements (add aria-labels to icon-only buttons)
 - Fix test environment setup (currently tests failing due to `document is not defined` errors)
 
