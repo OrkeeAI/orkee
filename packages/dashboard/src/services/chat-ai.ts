@@ -41,9 +41,18 @@ export async function streamChatResponse(
 ): Promise<void> {
   try {
     // Use selected model if provided, otherwise use preferred model
-    const modelToUse = selectedProvider && selectedModel
-      ? getModel(selectedProvider as 'anthropic' | 'openai', selectedModel)
-      : getPreferredModel().model;
+    let modelToUse;
+    if (selectedProvider && selectedModel) {
+      // Only anthropic and openai are currently supported for streaming
+      if (selectedProvider === 'anthropic' || selectedProvider === 'openai') {
+        modelToUse = getModel(selectedProvider, selectedModel);
+      } else {
+        console.warn(`Provider ${selectedProvider} not yet supported for streaming, falling back to default`);
+        modelToUse = getPreferredModel().model;
+      }
+    } else {
+      modelToUse = getPreferredModel().model;
+    }
 
     // Build chat context
     const messages = chatHistory.map((msg) => ({
@@ -75,6 +84,7 @@ export async function streamChatResponse(
 
     onComplete(fullText);
   } catch (error) {
+    console.error('Streaming error details:', error);
     const err = error instanceof Error ? error : new Error('Streaming failed');
     onError(err);
   }
