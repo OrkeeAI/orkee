@@ -294,15 +294,53 @@ export function ChatModeFlow({
       <div className="flex-1 grid grid-cols-12 gap-4 min-h-0">
         <div className="col-span-8 flex flex-col border rounded-lg bg-card min-h-0">
           <div className="border-b p-4 space-y-3 flex-shrink-0">
-            <div>
-              <h2 className="text-lg font-semibold">Chat</h2>
-              <p className="text-sm text-muted-foreground">
-                Discuss your project idea and I'll help discover the requirements
-              </p>
+            <div className="flex items-start justify-between">
+              <div>
+                <h2 className="text-lg font-semibold">Chat</h2>
+                <p className="text-sm text-muted-foreground">
+                  Discuss your project idea and I'll help discover the requirements
+                </p>
+              </div>
+
+              <Button
+                onClick={handleGeneratePRD}
+                disabled={
+                  !qualityMetrics?.is_ready_for_prd || isGeneratingPRD || isSending || isStreaming
+                }
+                size="lg"
+                className="gap-2"
+              >
+                {isGeneratingPRD ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    {UI_TEXT.GENERATING_PRD}
+                  </>
+                ) : (
+                  <>
+                    <FileText className="h-4 w-4" />
+                    {UI_TEXT.GENERATE_PRD}
+                  </>
+                )}
+              </Button>
             </div>
 
             {/* Phase 6C: Discovery Progress */}
             <DiscoveryProgress progress={discoveryProgress} />
+
+            {/* Error Alerts */}
+            {chatError && (
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>{chatError.message}</AlertDescription>
+              </Alert>
+            )}
+
+            {prdError && (
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>{prdError.message}</AlertDescription>
+              </Alert>
+            )}
           </div>
 
           <div className="flex-1 overflow-hidden min-h-0">
@@ -335,55 +373,6 @@ export function ChatModeFlow({
             isReanalyzing={isReanalyzing}
             className="flex-shrink-0"
           />
-        </div>
-      </div>
-
-      <div className="mt-4 p-4 border-t bg-background space-y-3">
-        {chatError && (
-          <Alert variant="destructive">
-            <AlertCircle className="h-4 w-4" />
-            <AlertDescription>{chatError.message}</AlertDescription>
-          </Alert>
-        )}
-
-        {prdError && (
-          <Alert variant="destructive">
-            <AlertCircle className="h-4 w-4" />
-            <AlertDescription>{prdError.message}</AlertDescription>
-          </Alert>
-        )}
-
-        <div className="flex items-center justify-between">
-          <div className="text-sm text-muted-foreground">
-            {qualityMetrics?.is_ready_for_prd ? (
-              <span className="text-green-600 dark:text-green-400 font-medium">
-                {UI_TEXT.READY_FOR_PRD}
-              </span>
-            ) : (
-              <span>{UI_TEXT.KEEP_EXPLORING}</span>
-            )}
-          </div>
-
-          <Button
-            onClick={handleGeneratePRD}
-            disabled={
-              !qualityMetrics?.is_ready_for_prd || isGeneratingPRD || isSending || isStreaming
-            }
-            size="lg"
-            className="gap-2"
-          >
-            {isGeneratingPRD ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin" />
-                {UI_TEXT.GENERATING_PRD}
-              </>
-            ) : (
-              <>
-                <FileText className="h-4 w-4" />
-                {UI_TEXT.GENERATE_PRD}
-              </>
-            )}
-          </Button>
         </div>
       </div>
 
