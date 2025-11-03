@@ -80,6 +80,28 @@ Transform Chat Mode into the most intuitive ideation experience with true conver
 - [ ] User acceptance testing with 5+ users
 - [ ] Performance testing (response times)
 
+**⚠️ Integration Status**: Phase 1 component development is **COMPLETE**. All building blocks exist (backend data structures, frontend components) but are not yet wired into ChatModeFlow.tsx.
+
+**What Remains for Full Phase 1**:
+1. **Backend API Handlers** (packages/api/src/):
+   - POST `/api/ideate/sessions/{id}/answer-question` - Submit answer, get next question
+   - GET `/api/ideate/sessions/{id}/chunks` - Fetch chunks for validation
+   - POST `/api/ideate/sessions/{id}/chunks/{id}/validate` - Approve/reject/edit chunk
+   - POST `/api/ideate/sessions/{id}/chunks/{id}/regenerate` - Regenerate rejected chunk
+2. **Frontend Service Layer** (packages/dashboard/src/services/ideate.ts):
+   - Add TypeScript types for chunks and questions with Phase 1 fields
+   - Add service methods wrapping new API endpoints
+3. **ChatModeFlow Integration** (packages/dashboard/src/components/ideate/ChatMode/ChatModeFlow.tsx):
+   - Replace/refactor ChatView to use QuestionDisplay for one-question-at-a-time flow
+   - Add chunk validation step after PRD generation using ChunkValidator
+   - Wire up question progression with backend API calls
+4. **End-to-End Testing**:
+   - Full workflow testing from first question to PRD generation
+   - Chunk validation workflow testing
+   - Performance benchmarking
+
+**Recommendation**: Tackle integration as a separate focused effort when ready to deploy Phase 1 to users.
+
 ---
 
 ## Phase 2: Alternative Approach Explorer (Week 3)
