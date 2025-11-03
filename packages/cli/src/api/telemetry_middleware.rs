@@ -78,19 +78,23 @@ pub async fn track_api_calls(request: Request<Body>, next: Next) -> Response {
             event_name.to_string()
         };
 
-        // Add status code and success flag to event data
+        // Add status code, success flag, and error category to event data
         if let serde_json::Value::Object(ref mut map) = event_data {
             map.insert("success".to_string(), json!(is_success));
             map.insert("status_code".to_string(), json!(status.as_u16()));
+
+            // Add error_category for all non-success responses
             if !is_success {
-                map.insert(
-                    "error_category".to_string(),
-                    json!(if is_client_error {
-                        "client_error"
-                    } else {
-                        "server_error"
-                    }),
-                );
+                let error_category = if is_client_error {
+                    "client_error"
+                } else if is_server_error {
+                    "server_error"
+                } else if status.is_redirection() {
+                    "redirect"
+                } else {
+                    "unknown"
+                };
+                map.insert("error_category".to_string(), json!(error_category));
             }
         }
 
