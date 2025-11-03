@@ -3,29 +3,23 @@
 
 import React, { useRef, useEffect } from 'react';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Loader2 } from 'lucide-react';
+import { ArrowUpIcon, Loader2 } from 'lucide-react';
 import { useModels } from '@/hooks/useModels';
 import { useCurrentUser } from '@/hooks/useUsers';
+import { useTaskModel } from '@/contexts/ModelPreferencesContext';
 import {
-  PromptInput,
-  PromptInputHeader,
-  PromptInputAttachments,
-  PromptInputAttachment,
-  PromptInputBody,
-  PromptInputTextarea,
-  PromptInputFooter,
-  PromptInputTools,
-  PromptInputSubmit,
-  PromptInputActionMenu,
-  PromptInputActionMenuTrigger,
-  PromptInputActionMenuContent,
-  PromptInputActionAddAttachments,
-  PromptInputModelSelect,
-  PromptInputModelSelectTrigger,
-  PromptInputModelSelectContent,
-  PromptInputModelSelectItem,
-  PromptInputModelSelectValue,
-} from '@/components/ai-elements/prompt-input';
+  InputGroup,
+  InputGroupTextarea,
+  InputGroupAddon,
+  InputGroupButton,
+} from '@/components/ui/input-group';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { MessageBubble } from './MessageBubble';
 import type { ChatMessage } from '@/services/chat';
 import type { StreamingMessage } from '../hooks/useStreamingResponse';
@@ -49,47 +43,62 @@ export function ChatView({
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  const { data: currentUser } = useCurrentUser();
-  const { data: models } = useModels();
+  const { data: currentUser, isLoading: isLoadingUser } = useCurrentUser();
+  const { data: models, isLoading: isLoadingModels } = useModels();
+  const chatModelPreference = useTaskModel('chat');
 
   // Get available providers (matching ModelSelectionDialog pattern)
   const availableProviders = React.useMemo(() => {
-    if (!currentUser) return [];
+    if (!currentUser) {
+      console.log('[ChatView] No currentUser data yet');
+      return [];
+    }
+
+    console.log('[ChatView] currentUser:', currentUser);
 
     const providers = [
       {
         value: 'anthropic',
-        label: 'Anthropic (Claude)',
+        label: 'Anthropic',
         hasKey: !!currentUser.has_anthropic_api_key,
       },
       {
         value: 'openai',
-        label: 'OpenAI (GPT)',
+        label: 'OpenAI',
         hasKey: !!currentUser.has_openai_api_key,
       },
       {
         value: 'google',
-        label: 'Google (Gemini)',
+        label: 'Google',
         hasKey: !!currentUser.has_google_api_key,
       },
       {
         value: 'xai',
-        label: 'xAI (Grok)',
+        label: 'xAI',
         hasKey: !!currentUser.has_xai_api_key,
       },
     ];
 
-    return providers.filter((p) => p.hasKey);
+    const filtered = providers.filter((p) => p.hasKey);
+    console.log('[ChatView] availableProviders:', filtered);
+    return filtered;
   }, [currentUser]);
 
-  // Get models for selected provider
-  const [selectedProvider, setSelectedProvider] = React.useState('anthropic');
-  const [selectedModel, setSelectedModel] = React.useState('');
+  // Get models for selected provider - Initialize with user's chat preferences
+  const [selectedProvider, setSelectedProvider] = React.useState(chatModelPreference.provider);
+  const [selectedModel, setSelectedModel] = React.useState(chatModelPreference.model);
+  const [inputValue, setInputValue] = React.useState('');
 
   const availableModels = React.useMemo(() => {
-    if (!models || !selectedProvider) return [];
+    console.log('[ChatView] Computing availableModels:', { models, selectedProvider });
+    if (!models || !selectedProvider) {
+      console.log('[ChatView] No models or provider:', { hasModels: !!models, selectedProvider });
+      return [];
+    }
 
-    return models.filter((model) => model.provider === selectedProvider);
+    const filtered = models.filter((model) => model.provider === selectedProvider);
+    console.log('[ChatView] Filtered models for provider:', { provider: selectedProvider, count: filtered.length, models: filtered });
+    return filtered;
   }, [models, selectedProvider]);
 
   const scrollToBottom = () => {
@@ -99,6 +108,12 @@ export function ChatView({
   useEffect(() => {
     scrollToBottom();
   }, [messages, streamingMessage]);
+
+  // Update selected values when user's preferences change
+  useEffect(() => {
+    setSelectedProvider(chatModelPreference.provider);
+    setSelectedModel(chatModelPreference.model);
+  }, [chatModelPreference.provider, chatModelPreference.model]);
 
   // Auto-select first model when provider changes or models load
   useEffect(() => {
@@ -117,14 +132,23 @@ export function ChatView({
     }
   }, [selectedProvider, availableModels, selectedModel]);
 
-  const handleSubmit = async (message: { text?: string; files?: Array<{ name: string; url: string; type: string }> }) => {
-    if (message.text?.trim() && !isSending) {
+  const handleSubmit = async (e?: React.FormEvent) => {
+    e?.preventDefault();
+    if (inputValue.trim() && !isSending) {
       console.log('[ChatView.handleSubmit] Submitting message with:', {
         provider: selectedProvider,
         model: selectedModel,
-        text: message.text.substring(0, 50) + '...'
+        text: inputValue.substring(0, 50) + '...'
       });
-      await onSendMessage(message.text, selectedModel, selectedProvider);
+      await onSendMessage(inputValue, selectedModel, selectedProvider);
+      setInputValue('');
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSubmit();
     }
   };
 
@@ -162,55 +186,81 @@ export function ChatView({
         </div>
       </ScrollArea>
 
-      <PromptInput onSubmit={handleSubmit}>
-        <PromptInputHeader>
-          <PromptInputAttachments>
-            {(attachment) => <PromptInputAttachment data={attachment} />}
-          </PromptInputAttachments>
-        </PromptInputHeader>
-        <PromptInputBody>
-          <PromptInputTextarea placeholder={UI_TEXT.INPUT_PLACEHOLDER} disabled={isSending} />
-        </PromptInputBody>
-        <PromptInputFooter>
-          <PromptInputTools>
+      <div className="px-4 pb-4">
+        <InputGroup className="min-h-[120px] p-3">
+          <InputGroupTextarea
+            placeholder={UI_TEXT.INPUT_PLACEHOLDER}
+            value={inputValue}
+            onChange={(e) => setInputValue(e.target.value)}
+            onKeyDown={handleKeyDown}
+            disabled={isSending}
+            rows={2}
+            className="min-h-[50px] max-h-[200px] py-0"
+          />
+          <InputGroupAddon align="block-end">
             {/* Provider Selector */}
-            <PromptInputModelSelect value={selectedProvider} onValueChange={setSelectedProvider}>
-              <PromptInputModelSelectTrigger>
-                <PromptInputModelSelectValue placeholder="Provider..." />
-              </PromptInputModelSelectTrigger>
-              <PromptInputModelSelectContent>
-                {availableProviders.map((provider) => (
-                  <PromptInputModelSelectItem key={provider.value} value={provider.value}>
-                    {provider.label}
-                  </PromptInputModelSelectItem>
-                ))}
-              </PromptInputModelSelectContent>
-            </PromptInputModelSelect>
+            <Select value={selectedProvider} onValueChange={setSelectedProvider} disabled={isSending}>
+              <SelectTrigger className="h-6 w-auto min-w-[140px] border-0 bg-transparent shadow-none text-xs focus:ring-0">
+                <SelectValue>
+                  {availableProviders.find(p => p.value === selectedProvider)?.label || 'Provider...'}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                {isLoadingUser ? (
+                  <SelectItem value="loading" disabled>Loading providers...</SelectItem>
+                ) : availableProviders.length === 0 ? (
+                  <SelectItem value="none" disabled>No API keys configured</SelectItem>
+                ) : (
+                  availableProviders.map((provider) => (
+                    <SelectItem key={provider.value} value={provider.value}>
+                      {provider.label}
+                    </SelectItem>
+                  ))
+                )}
+              </SelectContent>
+            </Select>
 
             {/* Model Selector */}
-            <PromptInputModelSelect value={selectedModel} onValueChange={setSelectedModel}>
-              <PromptInputModelSelectTrigger>
-                <PromptInputModelSelectValue placeholder="Model..." />
-              </PromptInputModelSelectTrigger>
-              <PromptInputModelSelectContent>
-                {availableModels.map((model) => (
-                  <PromptInputModelSelectItem key={model.id} value={model.model}>
-                    {model.display_name}
-                  </PromptInputModelSelectItem>
-                ))}
-              </PromptInputModelSelectContent>
-            </PromptInputModelSelect>
+            <Select value={selectedModel} onValueChange={setSelectedModel} disabled={isSending}>
+              <SelectTrigger className="h-6 w-auto min-w-[140px] border-0 bg-transparent shadow-none text-xs focus:ring-0">
+                <SelectValue>
+                  {availableModels.find(m => m.model === selectedModel)?.display_name ||
+                   availableModels.find(m => m.model === selectedModel)?.model ||
+                   'Model...'}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                {isLoadingModels ? (
+                  <SelectItem value="loading" disabled>Loading models...</SelectItem>
+                ) : availableModels.length === 0 ? (
+                  <SelectItem value="none" disabled>No models for this provider</SelectItem>
+                ) : (
+                  availableModels.map((model) => (
+                    <SelectItem key={model.id} value={model.model}>
+                      {model.display_name || model.model}
+                    </SelectItem>
+                  ))
+                )}
+              </SelectContent>
+            </Select>
 
-            <PromptInputActionMenu>
-              <PromptInputActionMenuTrigger />
-              <PromptInputActionMenuContent>
-                <PromptInputActionAddAttachments />
-              </PromptInputActionMenuContent>
-            </PromptInputActionMenu>
-            <PromptInputSubmit status={status} />
-          </PromptInputTools>
-        </PromptInputFooter>
-      </PromptInput>
+            <InputGroupButton
+              variant="default"
+              className="rounded-full ml-auto"
+              size="icon-xs"
+              disabled={!inputValue.trim() || isSending}
+              onClick={handleSubmit}
+            >
+              {isSending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <ArrowUpIcon className="h-4 w-4" />
+              )}
+              <span className="sr-only">Send</span>
+            </InputGroupButton>
+          </InputGroupAddon>
+        </InputGroup>
+      </div>
     </div>
   );
 }
