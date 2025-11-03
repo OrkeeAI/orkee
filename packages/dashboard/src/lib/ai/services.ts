@@ -3,7 +3,8 @@
 
 import { generateObject, generateText } from 'ai';
 import { getPreferredModel } from './providers';
-import { AI_CONFIG, calculateCost } from './config';
+import { AI_CONFIG, calculateCost, getModelInstance } from './config';
+import type { ModelConfig } from '@/types/models';
 import { aiRateLimiter } from './rate-limiter';
 import { aiCache } from './cache';
 import {
@@ -59,7 +60,7 @@ export class AISpecService {
    * Analyze a PRD and extract capabilities, requirements, and scenarios
    * Automatically handles large PRDs via chunking if needed
    */
-  async analyzePRD(prdContent: string): Promise<AIResult<PRDAnalysis>> {
+  async analyzePRD(prdContent: string, modelPreferences?: ModelConfig): Promise<AIResult<PRDAnalysis>> {
     try {
       // Check cache first
       const cachedResult = aiCache.get<AIResult<PRDAnalysis>>('analyzePRD', { prdContent });
@@ -73,7 +74,7 @@ export class AISpecService {
         throw new RateLimitError(rateLimitCheck.reason!);
       }
 
-      return await this._analyzePRDImpl(prdContent);
+      return await this._analyzePRDImpl(prdContent, modelPreferences);
     } catch (error) {
       if (error instanceof RateLimitError) {
         throw error;
@@ -94,9 +95,11 @@ export class AISpecService {
   /**
    * Internal implementation of PRD analysis
    */
-  private async _analyzePRDImpl(prdContent: string): Promise<AIResult<PRDAnalysis>> {
-
-    const { provider, model, modelName } = getPreferredModel();
+  private async _analyzePRDImpl(prdContent: string, modelPreferences?: ModelConfig): Promise<AIResult<PRDAnalysis>> {
+    // Determine model to use: preferences > default
+    const { provider, model, modelName } = modelPreferences
+      ? { provider: modelPreferences.provider, model: getModelInstance(modelPreferences.provider, modelPreferences.model), modelName: modelPreferences.model }
+      : getPreferredModel();
     const { maxPRDTokens, promptOverhead, timeoutMs } = AI_CONFIG.sizeLimits;
 
     // Validate size and check if chunking is needed
@@ -108,7 +111,7 @@ export class AISpecService {
       console.warn(`Will attempt to process via chunking...`);
 
       // Try chunking approach for large PRDs
-      return this.analyzePRDChunked(prdContent);
+      return this.analyzePRDChunked(prdContent, modelPreferences);
     }
 
     // Log size info for transparency
@@ -185,8 +188,11 @@ ${prdContent}`;
   /**
    * Process a large PRD by chunking it and merging results
    */
-  private async analyzePRDChunked(prdContent: string): Promise<AIResult<PRDAnalysis>> {
-    const { provider, model, modelName } = getPreferredModel();
+  private async analyzePRDChunked(prdContent: string, modelPreferences?: ModelConfig): Promise<AIResult<PRDAnalysis>> {
+    // Determine model to use: preferences > default
+    const { provider, model, modelName } = modelPreferences
+      ? { provider: modelPreferences.provider, model: getModelInstance(modelPreferences.provider, modelPreferences.model), modelName: modelPreferences.model }
+      : getPreferredModel();
     const { chunkSize, timeoutMs } = AI_CONFIG.sizeLimits;
 
     // Split PRD into semantic chunks
@@ -292,9 +298,13 @@ Guidelines:
   async generateSpec(
     capabilityName: string,
     purpose: string,
-    requirements?: string[]
+    requirements?: string[],
+    modelPreferences?: ModelConfig
   ): Promise<AIResult<SpecCapability>> {
-    const { provider, model, modelName } = getPreferredModel();
+    // Determine model to use: preferences > default
+    const { provider, model, modelName } = modelPreferences
+      ? { provider: modelPreferences.provider, model: getModelInstance(modelPreferences.provider, modelPreferences.model), modelName: modelPreferences.model }
+      : getPreferredModel();
 
     let prompt = `You are an expert software architect creating an OpenSpec specification.
 
@@ -349,9 +359,13 @@ Purpose: ${purpose}`;
    */
   async suggestTasks(
     capability: SpecCapability,
-    existingTasks?: string[]
+    existingTasks?: string[],
+    modelPreferences?: ModelConfig
   ): Promise<AIResult<TaskSuggestion[]>> {
-    const { provider, model, modelName } = getPreferredModel();
+    // Determine model to use: preferences > default
+    const { provider, model, modelName } = modelPreferences
+      ? { provider: modelPreferences.provider, model: getModelInstance(modelPreferences.provider, modelPreferences.model), modelName: modelPreferences.model }
+      : getPreferredModel();
 
     let prompt = `You are an expert project manager breaking down specifications into actionable tasks.
 
@@ -409,9 +423,13 @@ ${capability.requirements.map((r, i) => `${i + 1}. ${r.name}: ${r.content}`).joi
    */
   async analyzeOrphanTask(
     task: { title: string; description: string },
-    existingCapabilities: Array<{ id: string; name: string; purpose: string }>
+    existingCapabilities: Array<{ id: string; name: string; purpose: string }>,
+    modelPreferences?: ModelConfig
   ): Promise<AIResult<OrphanTaskAnalysis>> {
-    const { provider, model, modelName } = getPreferredModel();
+    // Determine model to use: preferences > default
+    const { provider, model, modelName } = modelPreferences
+      ? { provider: modelPreferences.provider, model: getModelInstance(modelPreferences.provider, modelPreferences.model), modelName: modelPreferences.model }
+      : getPreferredModel();
 
     const prompt = `You are an expert software architect organizing tasks into specifications.
 
@@ -466,9 +484,13 @@ Provide a high-confidence suggestion with clear rationale.`;
    */
   async validateTaskCompletion(
     task: { title: string; description: string; implementation?: string },
-    scenarios: Array<{ name: string; when: string; then: string; and?: string[] }>
+    scenarios: Array<{ name: string; when: string; then: string; and?: string[] }>,
+    modelPreferences?: ModelConfig
   ): Promise<AIResult<TaskValidation>> {
-    const { provider, model, modelName } = getPreferredModel();
+    // Determine model to use: preferences > default
+    const { provider, model, modelName } = modelPreferences
+      ? { provider: modelPreferences.provider, model: getModelInstance(modelPreferences.provider, modelPreferences.model), modelName: modelPreferences.model }
+      : getPreferredModel();
 
     const prompt = `You are an expert QA engineer validating task implementation against specifications.
 
@@ -532,9 +554,13 @@ Provide an overall assessment and recommendations.`;
    */
   async refineSpec(
     capability: SpecCapability,
-    feedback: string
+    feedback: string,
+    modelPreferences?: ModelConfig
   ): Promise<AIResult<SpecRefinement>> {
-    const { provider, model, modelName } = getPreferredModel();
+    // Determine model to use: preferences > default
+    const { provider, model, modelName} = modelPreferences
+      ? { provider: modelPreferences.provider, model: getModelInstance(modelPreferences.provider, modelPreferences.model), modelName: modelPreferences.model }
+      : getPreferredModel();
 
     const prompt = `You are an expert software architect refining specifications based on feedback.
 
@@ -589,8 +615,11 @@ Prioritize suggestions and explain the rationale.`;
   /**
    * Generate markdown spec from capability
    */
-  async generateSpecMarkdown(capability: SpecCapability): Promise<AIResult<string>> {
-    const { provider, model, modelName} = getPreferredModel();
+  async generateSpecMarkdown(capability: SpecCapability, modelPreferences?: ModelConfig): Promise<AIResult<string>> {
+    // Determine model to use: preferences > default
+    const { provider, model, modelName} = modelPreferences
+      ? { provider: modelPreferences.provider, model: getModelInstance(modelPreferences.provider, modelPreferences.model), modelName: modelPreferences.model }
+      : getPreferredModel();
 
     const prompt = `You are an expert technical writer creating OpenSpec documentation.
 
@@ -661,9 +690,13 @@ Return ONLY the markdown content, no explanations.`;
    */
   async regeneratePRD(
     capabilities: SpecCapability[],
-    tasks?: Array<{ title: string; description: string; status: string }>
+    tasks?: Array<{ title: string; description: string; status: string }>,
+    modelPreferences?: ModelConfig
   ): Promise<AIResult<string>> {
-    const { provider, model, modelName } = getPreferredModel();
+    // Determine model to use: preferences > default
+    const { provider, model, modelName } = modelPreferences
+      ? { provider: modelPreferences.provider, model: getModelInstance(modelPreferences.provider, modelPreferences.model), modelName: modelPreferences.model }
+      : getPreferredModel();
 
     const capabilitiesSummary = capabilities
       .map(
