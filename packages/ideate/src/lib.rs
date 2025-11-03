@@ -17,6 +17,7 @@ pub mod execution_tracker;
 pub mod expert_moderator;
 pub mod export_service;
 pub mod github_sync;
+pub mod insight_extractor;
 pub mod manager;
 pub mod prd_aggregator;
 pub mod prd_generator;
@@ -74,6 +75,7 @@ pub use github_sync::{
     EntityType, GitHubConfig, GitHubSync, GitHubSyncError, GitHubSyncService, SyncDirection,
     SyncMethod, SyncResult, SyncStatus,
 };
+pub use insight_extractor::extract_insights_with_ai;
 pub use manager::IdeateManager;
 pub use prd_aggregator::{AggregatedPRDData, CompletenessMetrics, PRDAggregator};
 pub use prd_generator::PRDGenerator;
