@@ -12,7 +12,6 @@ import { DiscoveryProgress } from './components/DiscoveryProgress';
 import { CodebaseContextPanel } from './components/CodebaseContextPanel';
 import { ValidationCheckpoint, CheckpointSection } from './components/ValidationCheckpoint';
 import { useChat } from './hooks/useChat';
-import { useDiscoveryQuestions } from './hooks/useDiscoveryQuestions';
 import { useStreamingResponse } from './hooks/useStreamingResponse';
 import { chatService, ChatInsight } from '@/services/chat';
 import { ideateService, DiscoveryProgress as DiscoveryProgressType, CodebaseContext } from '@/services/ideate';
@@ -56,11 +55,6 @@ export function ChatModeFlow({
   } = useChat({
     sessionId,
     autoLoadHistory: true,
-  });
-
-  const { suggestedQuestions } = useDiscoveryQuestions({
-    sessionId,
-    autoLoad: true,
   });
 
   const { streamingMessage, isStreaming, startStreaming, stopStreaming } = useStreamingResponse({
@@ -301,7 +295,6 @@ export function ChatModeFlow({
             <ChatView
               messages={messages}
               streamingMessage={streamingMessage}
-              suggestedQuestions={suggestedQuestions}
               onSendMessage={handleSendMessage}
               isLoading={isLoading}
               isSending={isSending || isStreaming}

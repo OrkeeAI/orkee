@@ -7,15 +7,13 @@ import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Send, Loader2 } from 'lucide-react';
 import { MessageBubble } from './MessageBubble';
-import { SuggestedQuestions } from './SuggestedQuestions';
-import type { ChatMessage, DiscoveryQuestion } from '@/services/chat';
+import type { ChatMessage } from '@/services/chat';
 import type { StreamingMessage } from '../hooks/useStreamingResponse';
 import { UI_TEXT } from '../constants';
 
 export interface ChatViewProps {
   messages: ChatMessage[];
   streamingMessage: StreamingMessage | null;
-  suggestedQuestions: DiscoveryQuestion[];
   onSendMessage: (content: string) => void;
   isLoading: boolean;
   isSending: boolean;
@@ -24,7 +22,6 @@ export interface ChatViewProps {
 export function ChatView({
   messages,
   streamingMessage,
-  suggestedQuestions,
   onSendMessage,
   isLoading,
   isSending,
@@ -54,10 +51,6 @@ export function ChatView({
       e.preventDefault();
       handleSubmit(e);
     }
-  };
-
-  const handleQuestionSelect = (question: string) => {
-    setInput(question);
   };
 
   const allMessages = [...messages];
@@ -91,15 +84,7 @@ export function ChatView({
         </div>
       </ScrollArea>
 
-      <div className="border-t p-4 space-y-3 bg-background">
-        {suggestedQuestions.length > 0 && (
-          <SuggestedQuestions
-            questions={suggestedQuestions}
-            onSelectQuestion={handleQuestionSelect}
-            isDisabled={isSending}
-          />
-        )}
-
+      <div className="border-t p-4 bg-background">
         <form onSubmit={handleSubmit} className="flex gap-2">
           <Textarea
             value={input}
