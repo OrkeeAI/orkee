@@ -404,12 +404,18 @@ export async function analyzePRD(content: string) {
 - [x] **Test Results:** 10/10 passing (100%) in <800ms
 - [x] **Strategy:** Mock UI components, context providers, and services
 
-### 7.3 Integration Tests - AI Calls
-- [ ] **File:** `orkee-oss/packages/dashboard/src/lib/ai/services.test.ts` (NEW)
-- [ ] Test each AI function uses correct model from preferences
-- [ ] Test fallback to defaults
-- [ ] Test all 4 providers work
-- [ ] Test error handling for invalid models
+### 7.3 Integration Tests - AI Calls ✅ COMPLETED (ALL 20 TESTS PASSING)
+- [x] **File:** `orkee-oss/packages/dashboard/src/lib/ai/services.test.ts` (NEW)
+- [x] Test each AI function uses correct model from preferences (4 tests)
+- [x] Test fallback to defaults (2 tests)
+- [x] Test all 4 providers work (1 test covering all providers)
+- [x] Test error handling for invalid models (5 tests)
+- [x] Test response structure validation (3 tests)
+- [x] Test model selection consistency (2 tests)
+- [x] Test caching behavior (2 tests)
+- [x] Test rate limiting (1 test)
+- [x] **Test Results:** 20/20 passing (100%) in <80ms
+- [x] **Strategy:** Mock AI SDK (`generateObject`, `generateText`) to avoid real API calls
 
 ### 7.4 Manual Testing Checklist
 - [ ] Select Haiku for chat → verify only 1 AI call made (no duplicates)
@@ -464,7 +470,7 @@ export async function analyzePRD(content: string) {
 
 ## Progress Summary
 
-**Completed:** 88 / 90+ tasks (98%)
+**Completed:** 99 / 100+ tasks (99%)
 
 **Phase 1:** ✅ 2/2 (100%) - Database schema complete
 **Phase 2:** ✅ 3/3 (100%) - Backend API complete (Google/xAI proxies deferred)
@@ -472,10 +478,10 @@ export async function analyzePRD(content: string) {
 **Phase 4:** ✅ 18/18 (100%) - AI service updates complete
 **Phase 5:** ✅ 4/4 (100%) - Settings UI complete
 **Phase 6:** ✅ 7/7 (100%) - Backend migration complete, all TypeScript services implemented
-**Phase 7:** ✅ 3/5 (60%) - Testing complete for implemented tests
+**Phase 7:** ✅ 4/5 (80%) - Testing nearly complete
   - ✅ 7.1: Unit tests for model-preferences service (14/14 passing 100%)
   - ✅ 7.2: Unit tests for AIModelsSettings component (10/10 passing 100%)
-  - ⏳ 7.3: Integration tests for AI service functions (skipped - covered by Phase 4 implementation)
+  - ✅ 7.3: Integration tests for AI service functions (20/20 passing 100%)
   - ⏳ 7.4: Manual testing checklist (pending)
   - ✅ 7.5: Database migration tests (7/7 passing 100%)
 
