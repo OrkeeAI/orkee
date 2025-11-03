@@ -35,10 +35,15 @@ export async function streamChatResponse(
   onChunk: (text: string) => void,
   onComplete: (fullText: string) => void,
   onError: (error: Error) => void,
-  abortSignal?: AbortSignal
+  abortSignal?: AbortSignal,
+  selectedProvider?: 'anthropic' | 'openai' | 'google' | 'xai',
+  selectedModel?: string
 ): Promise<void> {
   try {
-    const { model } = getPreferredModel();
+    // Use selected model if provided, otherwise use preferred model
+    const modelToUse = selectedProvider && selectedModel
+      ? getModel(selectedProvider as 'anthropic' | 'openai', selectedModel)
+      : getPreferredModel().model;
 
     // Build chat context
     const messages = chatHistory.map((msg) => ({
@@ -53,7 +58,7 @@ export async function streamChatResponse(
     });
 
     const { textStream } = await streamText({
-      model,
+      model: modelToUse,
       system: DISCOVERY_PROMPTS.system,
       messages,
       temperature: 0.7,

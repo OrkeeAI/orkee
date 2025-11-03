@@ -248,12 +248,12 @@ export function ChatModeFlow({
   }, [messages.length, insights, qualityMetrics]); // Note: Intentionally not including messagesSinceLastCheckpoint to avoid loops
 
   const handleSendMessage = useCallback(
-    async (content: string, model?: string) => {
+    async (content: string, model?: string, provider?: string) => {
       try {
         // Save user message to backend
         await sendMessage(content, 'discovery', model);
-        // Start AI streaming response
-        await startStreaming(content);
+        // Start AI streaming response with selected model
+        await startStreaming(content, provider, model);
       } catch (err) {
         console.error('Failed to send message:', err);
       }
