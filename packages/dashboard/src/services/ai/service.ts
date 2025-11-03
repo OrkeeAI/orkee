@@ -5,6 +5,8 @@ import { createAnthropic } from '@ai-sdk/anthropic';
 import { generateObject, streamObject } from 'ai';
 import type { ZodSchema } from 'zod';
 import { PromptManager } from '@orkee/prompts';
+import { getModelInstance } from '@/lib/ai/config';
+import type { ModelConfig } from '@/types/models';
 import {
   CompletePRDSchema,
   IdeateOverviewSchema,
@@ -98,7 +100,8 @@ async function generateStructured<T>(
   config: AIGenerationConfig,
   prompt: string,
   schema: ZodSchema<T>,
-  systemPrompt?: string
+  systemPrompt?: string,
+  modelPreferences?: ModelConfig
 ): Promise<AIGenerationResult<T>> {
   // Load system prompt if not provided
   if (!systemPrompt) {
@@ -113,25 +116,37 @@ async function generateStructured<T>(
   }
 
   try {
-    // Create Anthropic client for direct API calls (no proxy)
-    const anthropic = createAnthropic({
-      apiKey: config.apiKey,
-      headers: {
-        'anthropic-dangerous-direct-browser-access': 'true',
-      },
-    });
+    // Determine model to use: preferences > config > default
+    let modelInstance;
+    let modelName: string;
 
-    console.log(`[AI Service] Calling Anthropic API directly`);
+    if (modelPreferences) {
+      console.log(`[AI Service] Using model preferences: ${modelPreferences.provider}/${modelPreferences.model}`);
+      modelInstance = getModelInstance(modelPreferences.provider, modelPreferences.model);
+      modelName = modelPreferences.model;
+    } else {
+      // Create Anthropic client for direct API calls (no proxy)
+      const anthropic = createAnthropic({
+        apiKey: config.apiKey,
+        headers: {
+          'anthropic-dangerous-direct-browser-access': 'true',
+        },
+      });
 
-    const model = config.model || DEFAULT_MODEL;
+      console.log(`[AI Service] Calling Anthropic API directly`);
+
+      modelName = config.model || DEFAULT_MODEL;
+      modelInstance = anthropic(modelName);
+    }
+
     const maxTokens = config.maxTokens || DEFAULT_MAX_TOKENS;
     const temperature = config.temperature ?? DEFAULT_TEMPERATURE;
 
-    console.log(`[AI Service] Generating with model: ${model}`);
+    console.log(`[AI Service] Generating with model: ${modelName}`);
     console.log(`[AI Service] Max tokens: ${maxTokens}, Temperature: ${temperature}`);
 
     const result = await generateObject({
-      model: anthropic(model),
+      model: modelInstance,
       schema,
       system: systemPrompt,
       prompt,
@@ -192,7 +207,8 @@ async function generateStreamedStructured<T>(
   config: AIGenerationConfig,
   prompt: string,
   schema: ZodSchema<T>,
-  systemPrompt?: string
+  systemPrompt?: string,
+  modelPreferences?: ModelConfig
 ): Promise<AIStreamingResult<T>> {
   // Load system prompt if not provided
   if (!systemPrompt) {
@@ -207,25 +223,37 @@ async function generateStreamedStructured<T>(
   }
 
   try {
-    // Create Anthropic client for direct API calls (no proxy)
-    const anthropic = createAnthropic({
-      apiKey: config.apiKey,
-      headers: {
-        'anthropic-dangerous-direct-browser-access': 'true',
-      },
-    });
+    // Determine model to use: preferences > config > default
+    let modelInstance;
+    let modelName: string;
 
-    console.log(`[AI Service] Calling Anthropic API directly (streaming)`);
+    if (modelPreferences) {
+      console.log(`[AI Service] Using model preferences (streaming): ${modelPreferences.provider}/${modelPreferences.model}`);
+      modelInstance = getModelInstance(modelPreferences.provider, modelPreferences.model);
+      modelName = modelPreferences.model;
+    } else {
+      // Create Anthropic client for direct API calls (no proxy)
+      const anthropic = createAnthropic({
+        apiKey: config.apiKey,
+        headers: {
+          'anthropic-dangerous-direct-browser-access': 'true',
+        },
+      });
 
-    const model = config.model || DEFAULT_MODEL;
+      console.log(`[AI Service] Calling Anthropic API directly (streaming)`);
+
+      modelName = config.model || DEFAULT_MODEL;
+      modelInstance = anthropic(modelName);
+    }
+
     const maxTokens = config.maxTokens || DEFAULT_MAX_TOKENS;
     const temperature = config.temperature ?? DEFAULT_TEMPERATURE;
 
-    console.log(`[AI Service] Generating with model: ${model} (streaming)`);
+    console.log(`[AI Service] Generating with model: ${modelName} (streaming)`);
     console.log(`[AI Service] Max tokens: ${maxTokens}, Temperature: ${temperature}`);
 
     const result = streamObject({
-      model: anthropic(model),
+      model: modelInstance,
       schema,
       system: systemPrompt,
       prompt,
@@ -293,25 +321,25 @@ export class AIService {
   /**
    * Generate complete PRD from description
    */
-  async generateCompletePRD(description: string): Promise<AIGenerationResult<CompletePRD>> {
+  async generateCompletePRD(description: string, modelPreferences?: ModelConfig): Promise<AIGenerationResult<CompletePRD>> {
     const prompt = await this.promptManager.getPrompt('complete', { description });
-    return generateStructured(this.config, prompt, CompletePRDSchema);
+    return generateStructured(this.config, prompt, CompletePRDSchema, undefined, modelPreferences);
   }
 
   /**
    * Generate overview section
    */
-  async generateOverview(description: string): Promise<AIGenerationResult<IdeateOverview>> {
+  async generateOverview(description: string, modelPreferences?: ModelConfig): Promise<AIGenerationResult<IdeateOverview>> {
     const prompt = await this.promptManager.getPrompt('overview', { description });
-    return generateStructured(this.config, prompt, IdeateOverviewSchema);
+    return generateStructured(this.config, prompt, IdeateOverviewSchema, undefined, modelPreferences);
   }
 
   /**
    * Generate features section
    */
-  async generateFeatures(description: string): Promise<AIGenerationResult<IdeateFeature[]>> {
+  async generateFeatures(description: string, modelPreferences?: ModelConfig): Promise<AIGenerationResult<IdeateFeature[]>> {
     const prompt = await this.promptManager.getPrompt('features', { description });
-    const result = await generateStructured(this.config, prompt, FeaturesResponseSchema);
+    const result = await generateStructured(this.config, prompt, FeaturesResponseSchema, undefined, modelPreferences);
     return {
       data: result.data.features,
       usage: result.usage,
@@ -321,17 +349,17 @@ export class AIService {
   /**
    * Generate UX section
    */
-  async generateUX(description: string): Promise<AIGenerationResult<IdeateUX>> {
+  async generateUX(description: string, modelPreferences?: ModelConfig): Promise<AIGenerationResult<IdeateUX>> {
     const prompt = await this.promptManager.getPrompt('ux', { description });
-    return generateStructured(this.config, prompt, IdeateUXSchema);
+    return generateStructured(this.config, prompt, IdeateUXSchema, undefined, modelPreferences);
   }
 
   /**
    * Generate technical architecture section
    */
-  async generateTechnical(description: string): Promise<AIGenerationResult<IdeateTechnical>> {
+  async generateTechnical(description: string, modelPreferences?: ModelConfig): Promise<AIGenerationResult<IdeateTechnical>> {
     const prompt = await this.promptManager.getPrompt('technical', { description });
-    return generateStructured(this.config, prompt, IdeateTechnicalSchema);
+    return generateStructured(this.config, prompt, IdeateTechnicalSchema, undefined, modelPreferences);
   }
 
   /**
@@ -339,10 +367,11 @@ export class AIService {
    */
   async generateRoadmap(
     description: string,
-    features: string
+    features: string,
+    modelPreferences?: ModelConfig
   ): Promise<AIGenerationResult<IdeateRoadmap>> {
     const prompt = await this.promptManager.getPrompt('roadmap', { description, features });
-    return generateStructured(this.config, prompt, IdeateRoadmapSchema);
+    return generateStructured(this.config, prompt, IdeateRoadmapSchema, undefined, modelPreferences);
   }
 
   /**
@@ -350,26 +379,27 @@ export class AIService {
    */
   async generateDependencies(
     description: string,
-    features: string
+    features: string,
+    modelPreferences?: ModelConfig
   ): Promise<AIGenerationResult<IdeateDependencies>> {
     const prompt = await this.promptManager.getPrompt('dependencies', { description, features });
-    return generateStructured(this.config, prompt, IdeateDependenciesSchema);
+    return generateStructured(this.config, prompt, IdeateDependenciesSchema, undefined, modelPreferences);
   }
 
   /**
    * Generate risks section
    */
-  async generateRisks(description: string): Promise<AIGenerationResult<IdeateRisks>> {
+  async generateRisks(description: string, modelPreferences?: ModelConfig): Promise<AIGenerationResult<IdeateRisks>> {
     const prompt = await this.promptManager.getPrompt('risks', { description });
-    return generateStructured(this.config, prompt, IdeateRisksSchema);
+    return generateStructured(this.config, prompt, IdeateRisksSchema, undefined, modelPreferences);
   }
 
   /**
    * Generate research section
    */
-  async generateResearch(description: string): Promise<AIGenerationResult<IdeateResearch>> {
+  async generateResearch(description: string, modelPreferences?: ModelConfig): Promise<AIGenerationResult<IdeateResearch>> {
     const prompt = await this.promptManager.getPrompt('research', { description });
-    return generateStructured(this.config, prompt, IdeateResearchSchema);
+    return generateStructured(this.config, prompt, IdeateResearchSchema, undefined, modelPreferences);
   }
 
   // Streaming versions of generation methods
@@ -377,25 +407,25 @@ export class AIService {
   /**
    * Generate complete PRD from description (streaming)
    */
-  async generateCompletePRDStreaming(description: string): Promise<AIStreamingResult<CompletePRD>> {
+  async generateCompletePRDStreaming(description: string, modelPreferences?: ModelConfig): Promise<AIStreamingResult<CompletePRD>> {
     const prompt = await this.promptManager.getPrompt('complete', { description });
-    return generateStreamedStructured(this.config, prompt, CompletePRDSchema);
+    return generateStreamedStructured(this.config, prompt, CompletePRDSchema, undefined, modelPreferences);
   }
 
   /**
    * Generate overview section (streaming)
    */
-  async generateOverviewStreaming(description: string): Promise<AIStreamingResult<IdeateOverview>> {
+  async generateOverviewStreaming(description: string, modelPreferences?: ModelConfig): Promise<AIStreamingResult<IdeateOverview>> {
     const prompt = await this.promptManager.getPrompt('overview', { description });
-    return generateStreamedStructured(this.config, prompt, IdeateOverviewSchema);
+    return generateStreamedStructured(this.config, prompt, IdeateOverviewSchema, undefined, modelPreferences);
   }
 
   /**
    * Generate features section (streaming)
    */
-  async generateFeaturesStreaming(description: string): Promise<AIStreamingResult<IdeateFeature[]>> {
+  async generateFeaturesStreaming(description: string, modelPreferences?: ModelConfig): Promise<AIStreamingResult<IdeateFeature[]>> {
     const prompt = await this.promptManager.getPrompt('features', { description });
-    const result = await generateStreamedStructured(this.config, prompt, FeaturesResponseSchema);
+    const result = await generateStreamedStructured(this.config, prompt, FeaturesResponseSchema, undefined, modelPreferences);
 
     // Transform the stream to extract just the features array
     return {
@@ -414,17 +444,17 @@ export class AIService {
   /**
    * Generate UX section (streaming)
    */
-  async generateUXStreaming(description: string): Promise<AIStreamingResult<IdeateUX>> {
+  async generateUXStreaming(description: string, modelPreferences?: ModelConfig): Promise<AIStreamingResult<IdeateUX>> {
     const prompt = await this.promptManager.getPrompt('ux', { description });
-    return generateStreamedStructured(this.config, prompt, IdeateUXSchema);
+    return generateStreamedStructured(this.config, prompt, IdeateUXSchema, undefined, modelPreferences);
   }
 
   /**
    * Generate technical architecture section (streaming)
    */
-  async generateTechnicalStreaming(description: string): Promise<AIStreamingResult<IdeateTechnical>> {
+  async generateTechnicalStreaming(description: string, modelPreferences?: ModelConfig): Promise<AIStreamingResult<IdeateTechnical>> {
     const prompt = await this.promptManager.getPrompt('technical', { description });
-    return generateStreamedStructured(this.config, prompt, IdeateTechnicalSchema);
+    return generateStreamedStructured(this.config, prompt, IdeateTechnicalSchema, undefined, modelPreferences);
   }
 
   /**
@@ -432,10 +462,11 @@ export class AIService {
    */
   async generateRoadmapStreaming(
     description: string,
-    features: string
+    features: string,
+    modelPreferences?: ModelConfig
   ): Promise<AIStreamingResult<IdeateRoadmap>> {
     const prompt = await this.promptManager.getPrompt('roadmap', { description, features });
-    return generateStreamedStructured(this.config, prompt, IdeateRoadmapSchema);
+    return generateStreamedStructured(this.config, prompt, IdeateRoadmapSchema, undefined, modelPreferences);
   }
 
   /**
@@ -443,26 +474,27 @@ export class AIService {
    */
   async generateDependenciesStreaming(
     description: string,
-    features: string
+    features: string,
+    modelPreferences?: ModelConfig
   ): Promise<AIStreamingResult<IdeateDependencies>> {
     const prompt = await this.promptManager.getPrompt('dependencies', { description, features });
-    return generateStreamedStructured(this.config, prompt, IdeateDependenciesSchema);
+    return generateStreamedStructured(this.config, prompt, IdeateDependenciesSchema, undefined, modelPreferences);
   }
 
   /**
    * Generate risks section (streaming)
    */
-  async generateRisksStreaming(description: string): Promise<AIStreamingResult<IdeateRisks>> {
+  async generateRisksStreaming(description: string, modelPreferences?: ModelConfig): Promise<AIStreamingResult<IdeateRisks>> {
     const prompt = await this.promptManager.getPrompt('risks', { description });
-    return generateStreamedStructured(this.config, prompt, IdeateRisksSchema);
+    return generateStreamedStructured(this.config, prompt, IdeateRisksSchema, undefined, modelPreferences);
   }
 
   /**
    * Generate research section (streaming)
    */
-  async generateResearchStreaming(description: string): Promise<AIStreamingResult<IdeateResearch>> {
+  async generateResearchStreaming(description: string, modelPreferences?: ModelConfig): Promise<AIStreamingResult<IdeateResearch>> {
     const prompt = await this.promptManager.getPrompt('research', { description });
-    return generateStreamedStructured(this.config, prompt, IdeateResearchSchema);
+    return generateStreamedStructured(this.config, prompt, IdeateResearchSchema, undefined, modelPreferences);
   }
 
   /**
