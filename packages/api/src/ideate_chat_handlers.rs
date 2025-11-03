@@ -51,13 +51,8 @@ pub async fn send_message(
         .add_message(&session_id, role.clone(), input.content.clone(), input.message_type, None)
         .await;
 
-    // Auto-extract insights from all messages using AI
-    // Users provide requirements/context, assistants may surface risks/assumptions
-    if role == MessageRole::User || role == MessageRole::Assistant {
-        if let Ok(ref message) = message_result {
-            let _ = extract_and_save_insights(&manager, &session_id, &input.content, &message.id).await;
-        }
-    }
+    // Note: Insight extraction is now handled by the frontend after AI streaming completes
+    // This ensures the user's selected model is used for extraction (Phase 6)
 
     ok_or_internal_error(message_result, "Failed to send message")
 }
