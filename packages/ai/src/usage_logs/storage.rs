@@ -28,8 +28,9 @@ impl AiUsageLogStorage {
             INSERT INTO ai_usage_logs (
                 id, project_id, request_id, operation, model, provider,
                 input_tokens, output_tokens, total_tokens, estimated_cost,
-                duration_ms, error, created_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                duration_ms, error, tool_calls_count, tool_calls_json,
+                response_metadata, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             "#,
         )
         .bind(&log.id)
@@ -44,6 +45,9 @@ impl AiUsageLogStorage {
         .bind(log.estimated_cost)
         .bind(log.duration_ms)
         .bind(&log.error)
+        .bind(log.tool_calls_count)
+        .bind(&log.tool_calls_json)
+        .bind(&log.response_metadata)
         .bind(&created_at_str)
         .execute(&self.pool)
         .await
@@ -442,6 +446,9 @@ impl AiUsageLogStorage {
             estimated_cost: row.try_get("estimated_cost").map_err(StorageError::Sqlx)?,
             duration_ms: row.try_get("duration_ms").map_err(StorageError::Sqlx)?,
             error: row.try_get("error").map_err(StorageError::Sqlx)?,
+            tool_calls_count: row.try_get("tool_calls_count").map_err(StorageError::Sqlx)?,
+            tool_calls_json: row.try_get("tool_calls_json").map_err(StorageError::Sqlx)?,
+            response_metadata: row.try_get("response_metadata").map_err(StorageError::Sqlx)?,
             created_at,
         })
     }

@@ -413,6 +413,9 @@ RESPOND WITH ONLY VALID JSON."#
                 )),
                 duration_ms: Some(0), // TODO: Track actual duration
                 error: None,
+                tool_calls_count: None,
+                tool_calls_json: None,
+                response_metadata: None,
                 created_at: chrono::Utc::now(),
             };
 
@@ -610,6 +613,9 @@ Respond with ONLY valid JSON. Do not include markdown formatting, code blocks, o
                 )),
                 duration_ms: Some(0), // TODO: Track actual duration
                 error: None,
+                tool_calls_count: None,
+                tool_calls_json: None,
+                response_metadata: None,
                 created_at: chrono::Utc::now(),
             };
 
@@ -795,6 +801,9 @@ Respond with ONLY valid JSON. Do not include markdown formatting, code blocks, o
                 )),
                 duration_ms: Some(0),
                 error: None,
+                tool_calls_count: None,
+                tool_calls_json: None,
+                response_metadata: None,
                 created_at: chrono::Utc::now(),
             };
 
@@ -958,6 +967,9 @@ Respond with ONLY valid JSON. Do not include markdown formatting, code blocks, o
                 )),
                 duration_ms: Some(0),
                 error: None,
+                tool_calls_count: None,
+                tool_calls_json: None,
+                response_metadata: None,
                 created_at: chrono::Utc::now(),
             };
 
@@ -1152,6 +1164,9 @@ Respond with ONLY valid JSON. Do not include markdown formatting, code blocks, o
                 )),
                 duration_ms: Some(0),
                 error: None,
+                tool_calls_count: None,
+                tool_calls_json: None,
+                response_metadata: None,
                 created_at: chrono::Utc::now(),
             };
 

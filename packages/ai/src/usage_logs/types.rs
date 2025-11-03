@@ -18,6 +18,9 @@ pub struct AiUsageLog {
     pub estimated_cost: Option<f64>,
     pub duration_ms: Option<i64>,
     pub error: Option<String>,
+    pub tool_calls_count: Option<i64>,
+    pub tool_calls_json: Option<String>,
+    pub response_metadata: Option<String>,
     pub created_at: DateTime<Utc>,
 }
 
