@@ -82,6 +82,7 @@ impl ModelPreferencesStorage {
     /// Get model preferences for a user
     /// Returns default preferences if not found
     pub async fn get_preferences(&self, user_id: &str) -> Result<ModelPreferences, StorageError> {
+        // First attempt to fetch existing preferences
         let result = sqlx::query_as::<_, ModelPreferences>(
             "SELECT * FROM model_preferences WHERE user_id = ?",
         )
@@ -93,10 +94,20 @@ impl ModelPreferencesStorage {
         match result {
             Some(prefs) => Ok(prefs),
             None => {
-                // Create default preferences if they don't exist
-                self.create_default_preferences(user_id).await?;
+                // Atomically create default preferences if they don't exist
+                // INSERT OR IGNORE handles race conditions where another thread creates simultaneously
+                sqlx::query(
+                    r#"
+                    INSERT OR IGNORE INTO model_preferences (user_id)
+                    VALUES (?)
+                    "#,
+                )
+                .bind(user_id)
+                .execute(&self.pool)
+                .await
+                .map_err(StorageError::Sqlx)?;
 
-                // Fetch again after creating (avoiding recursion)
+                // Fetch the preferences (either the one we just created or the one created by another thread)
                 sqlx::query_as::<_, ModelPreferences>(
                     "SELECT * FROM model_preferences WHERE user_id = ?",
                 )
@@ -106,22 +117,6 @@ impl ModelPreferencesStorage {
                 .map_err(StorageError::Sqlx)
             }
         }
-    }
-
-    /// Create default preferences for a user
-    async fn create_default_preferences(&self, user_id: &str) -> Result<(), StorageError> {
-        sqlx::query(
-            r#"
-            INSERT OR IGNORE INTO model_preferences (user_id)
-            VALUES (?)
-            "#,
-        )
-        .bind(user_id)
-        .execute(&self.pool)
-        .await
-        .map_err(StorageError::Sqlx)?;
-
-        Ok(())
     }
 
     /// Update all model preferences for a user
