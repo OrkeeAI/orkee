@@ -632,16 +632,16 @@ pub fn create_ideate_router() -> Router<DbState> {
             get(ideate_chat_handlers::get_suggested_questions),
         )
         .route(
+            "/ideate/chat/{session_id}/insights/reanalyze",
+            post(ideate_chat_handlers::reanalyze_insights),
+        )
+        .route(
             "/ideate/chat/{session_id}/insights",
             get(ideate_chat_handlers::get_insights),
         )
         .route(
             "/ideate/chat/{session_id}/insights",
             post(ideate_chat_handlers::create_insight),
-        )
-        .route(
-            "/ideate/chat/{session_id}/insights/reanalyze",
-            post(ideate_chat_handlers::reanalyze_insights),
         )
         .route(
             "/ideate/chat/{session_id}/quality",
