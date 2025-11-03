@@ -14,7 +14,10 @@ import { ValidationCheckpoint, CheckpointSection } from './components/Validation
 import { useChat } from './hooks/useChat';
 import { useStreamingResponse } from './hooks/useStreamingResponse';
 import { chatService, ChatInsight } from '@/services/chat';
+import { extractInsights } from '@/services/chat-ai';
 import { ideateService, DiscoveryProgress as DiscoveryProgressType, CodebaseContext } from '@/services/ideate';
+import { useCurrentUser } from '@/hooks/useUsers';
+import { useModelPreferences, getModelForTask } from '@/services/model-preferences';
 import { UI_TEXT } from './constants';
 
 export interface ChatModeFlowProps {
@@ -45,6 +48,10 @@ export function ChatModeFlow({
   const [checkpointSections, setCheckpointSections] = useState<CheckpointSection[]>([]);
   const [messagesSinceLastCheckpoint, setMessagesSinceLastCheckpoint] = useState(0);
 
+  // Phase 6: Get user and model preferences for insight extraction
+  const { data: currentUser } = useCurrentUser();
+  const { data: modelPreferences } = useModelPreferences(currentUser?.id || 'default');
+
   const {
     messages,
     qualityMetrics,
@@ -63,11 +70,25 @@ export function ChatModeFlow({
     chatHistory: messages,
     onMessageComplete: async (content: string) => {
       try {
+        // Save assistant message to backend
         await chatService.sendMessage(sessionId, {
           content,
           message_type: 'discovery',
           role: 'assistant',
         });
+
+        // Phase 6: Extract insights using user's preferred model
+        // This happens in the frontend now to respect user's model preferences
+        try {
+          const insightPreferences = getModelForTask(modelPreferences, 'insight_extraction');
+          console.log('[ChatModeFlow] Extracting insights with model:', insightPreferences);
+
+          await extractInsights(sessionId, messages, insightPreferences);
+          console.log('[ChatModeFlow] Insights extracted successfully');
+        } catch (insightError) {
+          // Don't block on insight extraction failure - log and continue
+          console.warn('[ChatModeFlow] Failed to extract insights:', insightError);
+        }
       } catch (err) {
         console.error('Failed to save assistant message:', err);
       } finally {
@@ -82,7 +103,7 @@ export function ChatModeFlow({
     },
   });
 
-  // Insight extraction - backend extracts insights after each assistant message
+  // Load insights from backend (extracted by frontend after streaming completes)
   const loadInsights = useCallback(async () => {
     try {
       const data = await chatService.getInsights(sessionId);
