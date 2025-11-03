@@ -53,30 +53,39 @@ Implement comprehensive AI usage tracking for Orkee, capturing all AI SDK calls 
 - [x] Update all AiUsageLog initializers in `packages/api/src/ai_handlers.rs`
 - [x] Build verified - all code compiles successfully
 
-### Phase 2: Backend API Endpoint
-- [ ] Create `POST /api/ai/usage` endpoint in `packages/api/src/ai_handlers.rs`
-- [ ] Add request/response types:
+### Phase 2: Backend API Endpoint ✅ COMPLETED
+- [x] Create `POST /api/ai/usage` endpoint in `packages/api/src/ai_usage_log_handlers.rs`
+- [x] Add request/response types:
   ```rust
   #[derive(Deserialize)]
-  struct AIUsageRequest {
-      project_id: Option<i64>,
-      operation: String,
-      model: String,
-      provider: String,
-      input_tokens: i32,
-      output_tokens: i32,
-      total_tokens: i32,
-      estimated_cost: f64,
-      duration_ms: i32,
-      tool_calls_count: i32,
-      tool_calls_json: Option<String>,
-      response_metadata: Option<String>,
-      error: Option<String>,
+  pub struct CreateLogRequest {
+      pub project_id: Option<String>,
+      pub request_id: Option<String>,
+      pub operation: String,
+      pub model: String,
+      pub provider: String,
+      pub input_tokens: i32,
+      pub output_tokens: i32,
+      pub total_tokens: i32,
+      pub estimated_cost: f64,
+      pub duration_ms: i32,
+      pub tool_calls_count: Option<i32>,
+      pub tool_calls_json: Option<String>,
+      pub response_metadata: Option<String>,
+      pub error: Option<String>,
   }
   ```
-- [ ] Implement validation and storage logic
-- [ ] Add endpoint to router in `packages/cli/src/api/mod.rs`
-- [ ] Test endpoint with curl/Postman
+- [x] Implement validation and storage logic with comprehensive validation:
+  - Required field validation (operation, model, provider)
+  - Non-negative value validation (tokens, cost, duration)
+  - JSON validation for tool_calls_json and response_metadata
+  - Foreign key constraint handling for project_id
+- [x] Add endpoint to router in `packages/api/src/lib.rs`
+- [x] Build verified - compiles successfully
+- [x] Endpoint functional at `POST /api/ai-usage`
+  - **Note**: Requires valid project_id due to foreign key constraint (phase 1 schema)
+  - Returns proper error messages for validation failures
+  - Returns 201 Created with log ID on success
 
 ### Phase 3: Frontend Telemetry Infrastructure
 

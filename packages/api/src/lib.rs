@@ -723,6 +723,7 @@ pub fn create_ideate_router() -> Router<DbState> {
 /// Creates the AI usage logs API router for cost tracking
 pub fn create_ai_usage_router() -> Router<DbState> {
     Router::new()
+        .route("/", post(ai_usage_log_handlers::create_log))
         .route("/logs", get(ai_usage_log_handlers::list_logs))
         .route("/stats", get(ai_usage_log_handlers::get_stats))
 }

@@ -2,15 +2,16 @@
 // ABOUTME: Provides endpoints for querying AI usage statistics and cost tracking
 
 use axum::{
-    extract::{Query, State},
+    extract::{Json, Query, State},
+    http::StatusCode,
     response::IntoResponse,
 };
 use chrono::{DateTime, Utc};
-use serde::Deserialize;
-use tracing::info;
+use serde::{Deserialize, Serialize};
+use tracing::{error, info};
 
-use super::response::ok_or_internal_error;
-use orkee_ai::usage_logs::AiUsageQuery;
+use super::response::{ok_or_internal_error, ApiResponse};
+use orkee_ai::usage_logs::{AiUsageLog, AiUsageQuery};
 use orkee_projects::DbState;
 
 #[derive(Deserialize)]
@@ -86,4 +87,186 @@ pub async fn get_stats(
 
     let result = db.ai_usage_log_storage.get_stats(query).await;
     ok_or_internal_error(result, "Failed to get AI usage stats")
+}
+
+#[derive(Debug, Deserialize)]
+pub struct CreateLogRequest {
+    #[serde(rename = "projectId")]
+    pub project_id: Option<String>,
+    #[serde(rename = "requestId")]
+    pub request_id: Option<String>,
+    pub operation: String,
+    pub model: String,
+    pub provider: String,
+    #[serde(rename = "inputTokens")]
+    pub input_tokens: i32,
+    #[serde(rename = "outputTokens")]
+    pub output_tokens: i32,
+    #[serde(rename = "totalTokens")]
+    pub total_tokens: i32,
+    #[serde(rename = "estimatedCost")]
+    pub estimated_cost: f64,
+    #[serde(rename = "durationMs")]
+    pub duration_ms: i32,
+    #[serde(rename = "toolCallsCount")]
+    pub tool_calls_count: Option<i32>,
+    #[serde(rename = "toolCallsJson")]
+    pub tool_calls_json: Option<String>,
+    #[serde(rename = "responseMetadata")]
+    pub response_metadata: Option<String>,
+    pub error: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct CreateLogResponse {
+    pub id: String,
+    #[serde(rename = "createdAt")]
+    pub created_at: DateTime<Utc>,
+}
+
+/// Create a new AI usage log entry from frontend telemetry
+pub async fn create_log(
+    State(db): State<DbState>,
+    Json(request): Json<CreateLogRequest>,
+) -> impl IntoResponse {
+    info!(
+        "Creating AI usage log (operation: {}, model: {})",
+        request.operation, request.model
+    );
+
+    // Validate required fields
+    if request.operation.is_empty() {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(ApiResponse::<()>::error(
+                "operation field is required and cannot be empty".to_string(),
+            )),
+        )
+            .into_response();
+    }
+
+    if request.model.is_empty() {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(ApiResponse::<()>::error(
+                "model field is required and cannot be empty".to_string(),
+            )),
+        )
+            .into_response();
+    }
+
+    if request.provider.is_empty() {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(ApiResponse::<()>::error(
+                "provider field is required and cannot be empty".to_string(),
+            )),
+        )
+            .into_response();
+    }
+
+    // Validate token counts are non-negative
+    if request.input_tokens < 0 || request.output_tokens < 0 || request.total_tokens < 0 {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(ApiResponse::<()>::error(
+                "token counts must be non-negative".to_string(),
+            )),
+        )
+            .into_response();
+    }
+
+    // Validate cost is non-negative
+    if request.estimated_cost < 0.0 {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(ApiResponse::<()>::error(
+                "estimated cost must be non-negative".to_string(),
+            )),
+        )
+            .into_response();
+    }
+
+    // Validate duration is non-negative
+    if request.duration_ms < 0 {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(ApiResponse::<()>::error(
+                "duration must be non-negative".to_string(),
+            )),
+        )
+            .into_response();
+    }
+
+    // Validate tool_calls_json is valid JSON if provided
+    if let Some(ref json_str) = request.tool_calls_json {
+        if serde_json::from_str::<serde_json::Value>(json_str).is_err() {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(ApiResponse::<()>::error(
+                    "toolCallsJson must be valid JSON".to_string(),
+                )),
+            )
+                .into_response();
+        }
+    }
+
+    // Validate response_metadata is valid JSON if provided
+    if let Some(ref json_str) = request.response_metadata {
+        if serde_json::from_str::<serde_json::Value>(json_str).is_err() {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(ApiResponse::<()>::error(
+                    "responseMetadata must be valid JSON".to_string(),
+                )),
+            )
+                .into_response();
+        }
+    }
+
+    // Create the usage log
+    let now = Utc::now();
+    let log_id = nanoid::nanoid!(10);
+
+    let usage_log = AiUsageLog {
+        id: log_id.clone(),
+        project_id: request.project_id.unwrap_or_else(|| "unknown".to_string()),
+        request_id: request.request_id,
+        operation: request.operation,
+        model: request.model,
+        provider: request.provider,
+        input_tokens: Some(request.input_tokens as i64),
+        output_tokens: Some(request.output_tokens as i64),
+        total_tokens: Some(request.total_tokens as i64),
+        estimated_cost: Some(request.estimated_cost),
+        duration_ms: Some(request.duration_ms as i64),
+        error: request.error,
+        tool_calls_count: request.tool_calls_count.map(|c| c as i64),
+        tool_calls_json: request.tool_calls_json,
+        response_metadata: request.response_metadata,
+        created_at: now,
+    };
+
+    // Save to database
+    match db.ai_usage_log_storage.create_log(&usage_log).await {
+        Ok(_) => {
+            info!("Successfully created AI usage log: {}", log_id);
+            let response = CreateLogResponse {
+                id: log_id,
+                created_at: now,
+            };
+            (StatusCode::CREATED, Json(ApiResponse::success(response))).into_response()
+        }
+        Err(e) => {
+            error!("Failed to create AI usage log: {}", e);
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ApiResponse::<()>::error(format!(
+                    "Failed to save AI usage log: {}",
+                    e
+                ))),
+            )
+                .into_response()
+        }
+    }
 }
