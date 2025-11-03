@@ -157,9 +157,6 @@ export function ChatView({
     allMessages.push(streamingMessage as unknown as ChatMessage);
   }
 
-  // Determine input status based on current state
-  const status: 'ready' | 'submitted' | 'streaming' = isSending ? 'streaming' : 'ready';
-
   return (
     <div className="flex flex-col h-full overflow-hidden">
       <ScrollArea ref={scrollAreaRef} className="flex-1 px-4 overflow-y-auto">
