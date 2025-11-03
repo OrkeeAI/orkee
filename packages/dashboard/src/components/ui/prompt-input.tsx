@@ -140,33 +140,35 @@ export function PromptInput({
   };
 
   return (
-    <div className={cn('border-t p-4 bg-background', className)}>
-      <form onSubmit={handleSubmit} className="space-y-2">
-        {/* Attachments Preview */}
+    <div className={cn('border-t bg-background', className)}>
+      <form onSubmit={handleSubmit} className="flex flex-col">
+        {/* Attachments Header */}
         {attachments.length > 0 && (
-          <div className="flex flex-wrap gap-2">
-            {attachments.map((attachment, index) => (
-              <div
-                key={index}
-                className="flex items-center gap-2 px-3 py-1.5 bg-muted rounded-md text-sm"
-              >
-                <Paperclip className="h-3 w-3" />
-                <span className="max-w-[200px] truncate">{attachment.name}</span>
-                <button
-                  type="button"
-                  onClick={() => removeAttachment(index)}
-                  className="hover:text-destructive"
-                  disabled={isDisabled}
+          <div className="px-4 pt-3 pb-2 border-b">
+            <div className="flex flex-wrap gap-2">
+              {attachments.map((attachment, index) => (
+                <div
+                  key={index}
+                  className="flex items-center gap-2 px-3 py-1.5 bg-muted rounded-full text-sm group"
                 >
-                  <X className="h-3 w-3" />
-                </button>
-              </div>
-            ))}
+                  <Paperclip className="h-3.5 w-3.5 text-muted-foreground" />
+                  <span className="max-w-[200px] truncate">{attachment.name}</span>
+                  <button
+                    type="button"
+                    onClick={() => removeAttachment(index)}
+                    className="opacity-0 group-hover:opacity-100 transition-opacity hover:text-destructive"
+                    disabled={isDisabled}
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              ))}
+            </div>
           </div>
         )}
 
-        {/* Input Area */}
-        <div className="flex gap-2">
+        {/* Input Body */}
+        <div className="flex items-end gap-2 p-4">
           <div className="flex-1 relative">
             <Textarea
               ref={textareaRef}
@@ -179,13 +181,13 @@ export function PromptInput({
               rows={1}
             />
 
-            {/* Attachment Button (inside textarea) */}
+            {/* Attachment Button (inside textarea, bottom-right) */}
             {accept && (
               <Button
                 type="button"
                 variant="ghost"
                 size="icon"
-                className="absolute right-2 bottom-2 h-6 w-6"
+                className="absolute right-2 bottom-2 h-7 w-7"
                 onClick={() => fileInputRef.current?.click()}
                 disabled={isDisabled || attachments.length >= maxFiles}
               >
@@ -194,12 +196,12 @@ export function PromptInput({
             )}
           </div>
 
-          {/* Submit Button */}
+          {/* Submit Button - Smaller, status-aware */}
           <Button
             type="submit"
             size="icon"
             disabled={!canSubmit}
-            className="h-[60px] w-[60px] flex-shrink-0"
+            className="h-10 w-10 flex-shrink-0 rounded-full"
           >
             {getSubmitIcon()}
           </Button>
