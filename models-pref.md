@@ -249,14 +249,16 @@ export async function analyzePRD(content: string) {
 
 ---
 
-## Phase 5: Settings UI
+## Phase 5: Settings UI ✅ COMPLETED
+
+**Commit:** `549ead6` - feat(phase-5): Add AI Models settings UI with per-task model configuration
 
 ### 5.1 Create AI Models Settings Component
-- [ ] **File:** `orkee-oss/packages/dashboard/src/components/settings/AIModelsSettings.tsx` (NEW)
-- [ ] Header: "AI Model Preferences for Ideate, PRD, and Task Features"
-- [ ] Subtitle explaining separation from agent models
-- [ ] Grid layout (2 columns) with 10 task cards
-- [ ] Each card:
+- [x] **File:** `orkee-oss/packages/dashboard/src/components/settings/AIModelsSettings.tsx` (NEW)
+- [x] Header: "AI Model Preferences for Ideate, PRD, and Task Features"
+- [x] Subtitle explaining separation from agent models
+- [x] Grid layout (2 columns) with 10 task cards
+- [x] Each card:
   - Icon and name
   - Description
   - Provider dropdown (with API key validation)
@@ -276,26 +278,27 @@ export async function analyzePRD(content: string) {
 10. Markdown Generation
 
 ### 5.2 Create Model Selector Component
-- [ ] **File:** `orkee-oss/packages/dashboard/src/components/settings/ModelSelector.tsx` (NEW)
-- [ ] Props: `taskType`, `currentProvider`, `currentModel`, `onChange`
-- [ ] Provider dropdown with API key validation
-- [ ] Model dropdown filtered by provider
-- [ ] Show warning if API key missing
-- [ ] Optimistic UI updates
+- [x] **File:** `orkee-oss/packages/dashboard/src/components/settings/ModelSelector.tsx` (NEW)
+- [x] Props: `taskType`, `currentProvider`, `currentModel`, `onChange`
+- [x] Provider dropdown with API key validation
+- [x] Model dropdown filtered by provider
+- [x] Show warning if API key missing
+- [x] Optimistic UI updates
 
 ### 5.3 Create Model Info Badge Component
-- [ ] **File:** `orkee-oss/packages/dashboard/src/components/settings/ModelInfoBadge.tsx` (NEW)
-- [ ] Props: `modelId`
-- [ ] Display context window (formatted, e.g. "200K")
-- [ ] Display cost (formatted, e.g. "$3/1M")
-- [ ] Capability badges (Streaming ✓, Vision ✓, etc.)
-- [ ] Data from `packages/models/config/models.json`
+- [x] **File:** `orkee-oss/packages/dashboard/src/components/settings/ModelInfoBadge.tsx` (NEW)
+- [x] Props: `modelId`
+- [x] Display context window (formatted, e.g. "200K")
+- [x] Display cost (formatted, e.g. "$3/1M")
+- [x] Capability badges (Vision ✓, Thinking ✓, Code ✓, Web ✓)
+- [x] Data from `packages/models/config/models.json`
 
 ### 5.4 Add Tab to Settings Page
-- [ ] **File:** `orkee-oss/packages/dashboard/src/pages/Settings.tsx`
-- [ ] Add `<TabsTrigger value="ai-models">AI Models</TabsTrigger>` after Security
-- [ ] Add `<TabsContent value="ai-models"><AIModelsSettings /></TabsContent>`
-- [ ] Import component
+- [x] **File:** `orkee-oss/packages/dashboard/src/pages/Settings.tsx`
+- [x] Add `<TabsTrigger value="ai-models">AI Models</TabsTrigger>` after General
+- [x] Add `<TabsContent value="ai-models"><AIModelsSettings /></TabsContent>`
+- [x] Import component
+- [x] Updated grid-cols from 6 to 7 for new tab
 
 ---
 
@@ -419,13 +422,13 @@ export async function analyzePRD(content: string) {
 
 ## Progress Summary
 
-**Completed:** 51 / 80+ tasks (64%)
+**Completed:** 55 / 80+ tasks (69%)
 
 **Phase 1:** ✅ 2/2 (100%) - Database schema complete
 **Phase 2:** ✅ 3/3 (100%) - Backend API complete (Google/xAI proxies deferred)
 **Phase 3:** ✅ 25/25 (100%) - Frontend integration complete
 **Phase 4:** ✅ 18/18 (100%) - AI service updates complete
-**Phase 5:** ⏳ 0/4 (0%) - Settings UI pending
+**Phase 5:** ✅ 4/4 (100%) - Settings UI complete
 **Phase 6:** ⏳ 0/7 (0%) - Backend migration pending
 **Phase 7:** ⏳ 0/5 (0%) - Testing pending
 
