@@ -259,7 +259,10 @@ impl ChatManager {
                         created_at: row.get("created_at"),
                     }),
                     Err(e) => {
-                        error!("Failed to deserialize insight_type '{}': {}", insight_type_str, e);
+                        error!(
+                            "Failed to deserialize insight_type '{}': {}",
+                            insight_type_str, e
+                        );
                         None
                     }
                 }

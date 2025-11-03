@@ -46,9 +46,9 @@ pub struct Question {
 /// Formatted option with letter/number prefix
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FormattedOption {
-    pub prefix: String,  // "A", "B", "C" or "1", "2"
+    pub prefix: String, // "A", "B", "C" or "1", "2"
     pub text: String,
-    pub value: String,   // Original value for backend
+    pub value: String, // Original value for backend
 }
 
 /// Context for generating the next question

@@ -48,7 +48,13 @@ pub async fn send_message(
     let role = input.role.unwrap_or(MessageRole::User);
 
     let message_result = manager
-        .add_message(&session_id, role.clone(), input.content.clone(), input.message_type, None)
+        .add_message(
+            &session_id,
+            role.clone(),
+            input.content.clone(),
+            input.message_type,
+            None,
+        )
         .await;
 
     // Note: Insight extraction is now handled by the frontend after AI streaming completes
@@ -446,10 +452,7 @@ pub async fn reanalyze_insights(
         Ok(h) => h,
         Err(e) => {
             error!("Failed to get chat history: {}", e);
-            return ok_or_internal_error(
-                Err::<(), _>(e),
-                "Failed to get chat history",
-            );
+            return ok_or_internal_error(Err::<(), _>(e), "Failed to get chat history");
         }
     };
 
@@ -491,7 +494,11 @@ pub async fn reanalyze_insights(
         // Extract insights from this message
         match extract_insights_with_ai(&message.content, &context, &current_insights).await {
             Ok(insights) => {
-                info!("Extracted {} insights from message {}", insights.len(), message.id);
+                info!(
+                    "Extracted {} insights from message {}",
+                    insights.len(),
+                    message.id
+                );
 
                 for mut insight in insights {
                     // Populate source_message_ids
@@ -506,7 +513,10 @@ pub async fn reanalyze_insights(
                 }
             }
             Err(e) => {
-                warn!("Failed to extract insights from message {}: {}", message.id, e);
+                warn!(
+                    "Failed to extract insights from message {}: {}",
+                    message.id, e
+                );
                 error_count += 1;
             }
         }
@@ -541,7 +551,10 @@ async fn extract_and_save_insights(
     message_content: &str,
     message_id: &str,
 ) -> Result<(), orkee_ideate::IdeateError> {
-    info!("Extracting insights with AI for session: {} (message: {})", session_id, message_id);
+    info!(
+        "Extracting insights with AI for session: {} (message: {})",
+        session_id, message_id
+    );
 
     // Get recent message history for context (last 5 messages)
     let history = manager.get_history(session_id).await.unwrap_or_default();

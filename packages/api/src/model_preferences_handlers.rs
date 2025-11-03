@@ -189,7 +189,10 @@ pub async fn update_task_model(
     }
 
     // Validate provider
-    if !matches!(request.provider.as_str(), "anthropic" | "openai" | "google" | "xai") {
+    if !matches!(
+        request.provider.as_str(),
+        "anthropic" | "openai" | "google" | "xai"
+    ) {
         return (
             StatusCode::BAD_REQUEST,
             Json(serde_json::json!({

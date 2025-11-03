@@ -12,7 +12,7 @@ use crate::{ChatInsight, CreateInsightInput, InsightType, Result};
 pub struct ExtractedInsight {
     pub insight_type: String, // "requirement", "risk", "constraint", "assumption", "decision"
     pub insight_text: String,
-    pub confidence: f64, // 0.0 to 1.0
+    pub confidence: f64,           // 0.0 to 1.0
     pub reasoning: Option<String>, // Why this was identified as an insight
 }
 
@@ -25,7 +25,7 @@ pub struct InsightExtractionResponse {
 /// Extract insights from a chat message using AI with deduplication
 pub async fn extract_insights_with_ai(
     message_content: &str,
-    conversation_context: &[String], // Recent messages for context
+    conversation_context: &[String],   // Recent messages for context
     existing_insights: &[ChatInsight], // Existing insights for deduplication
 ) -> Result<Vec<CreateInsightInput>> {
     info!(
@@ -101,7 +101,10 @@ If no insights are found, return: {{"insights": []}}
          Focus on actionable information that would be useful in a PRD.".to_string()
     );
 
-    match ai_service.generate_structured::<InsightExtractionResponse>(prompt, system_prompt).await {
+    match ai_service
+        .generate_structured::<InsightExtractionResponse>(prompt, system_prompt)
+        .await
+    {
         Ok(response) => {
             info!("AI extracted {} insights", response.data.insights.len());
 
@@ -141,7 +144,10 @@ If no insights are found, return: {{"insights": []}}
             Ok(insights)
         }
         Err(e) => {
-            warn!("AI insight extraction failed: {}, falling back to empty list", e);
+            warn!(
+                "AI insight extraction failed: {}, falling back to empty list",
+                e
+            );
             // Don't fail the whole operation if AI extraction fails
             Ok(Vec::new())
         }

@@ -83,7 +83,7 @@ impl ModelPreferencesStorage {
     /// Returns default preferences if not found
     pub async fn get_preferences(&self, user_id: &str) -> Result<ModelPreferences, StorageError> {
         let result = sqlx::query_as::<_, ModelPreferences>(
-            "SELECT * FROM model_preferences WHERE user_id = ?"
+            "SELECT * FROM model_preferences WHERE user_id = ?",
         )
         .bind(user_id)
         .fetch_optional(&self.pool)
@@ -98,7 +98,7 @@ impl ModelPreferencesStorage {
 
                 // Fetch again after creating (avoiding recursion)
                 sqlx::query_as::<_, ModelPreferences>(
-                    "SELECT * FROM model_preferences WHERE user_id = ?"
+                    "SELECT * FROM model_preferences WHERE user_id = ?",
                 )
                 .bind(user_id)
                 .fetch_one(&self.pool)
@@ -114,7 +114,7 @@ impl ModelPreferencesStorage {
             r#"
             INSERT OR IGNORE INTO model_preferences (user_id)
             VALUES (?)
-            "#
+            "#,
         )
         .bind(user_id)
         .execute(&self.pool)
@@ -163,7 +163,7 @@ impl ModelPreferencesStorage {
                 markdown_generation_model = excluded.markdown_generation_model,
                 markdown_generation_provider = excluded.markdown_generation_provider,
                 updated_at = datetime('now', 'utc')
-            "#
+            "#,
         )
         .bind(&prefs.user_id)
         .bind(&prefs.chat_model)
@@ -212,7 +212,12 @@ impl ModelPreferencesStorage {
             "spec_refinement" => ("spec_refinement_model", "spec_refinement_provider"),
             "research_generation" => ("research_generation_model", "research_generation_provider"),
             "markdown_generation" => ("markdown_generation_model", "markdown_generation_provider"),
-            _ => return Err(StorageError::InvalidInput(format!("Invalid task type: {}", task_type))),
+            _ => {
+                return Err(StorageError::InvalidInput(format!(
+                    "Invalid task type: {}",
+                    task_type
+                )))
+            }
         };
 
         // Ensure preferences exist
