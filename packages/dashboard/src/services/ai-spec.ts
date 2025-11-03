@@ -3,16 +3,11 @@
 
 import { generateObject } from 'ai';
 import { getModelInstance, calculateCost } from '@/lib/ai/config';
-import { getModelForTask } from './model-preferences';
-import type { ModelConfig, TaskType, ModelPreferences } from '@/types/models';
+import type { ModelConfig } from '@/types/models';
 import {
   PRDAnalysisSchema,
   type PRDAnalysis,
   SpecScenarioSchema,
-  type SpecCapability,
-  type SpecScenario,
-  type SpecRequirement,
-  type TaskSuggestion,
 } from '@/lib/ai/schemas';
 import { z } from 'zod';
 

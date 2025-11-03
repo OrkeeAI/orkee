@@ -28,11 +28,10 @@ interface ModelSelectorProps {
 export function ModelSelector({
   userId,
   taskType,
-  taskLabel,
   currentConfig,
   availableModels,
   onModelChange,
-}: ModelSelectorProps) {
+}: Omit<ModelSelectorProps, 'taskLabel'>) {
   const [selectedProvider, setSelectedProvider] = useState<Provider>(currentConfig.provider);
   const [selectedModel, setSelectedModel] = useState<string>(currentConfig.model);
   const [hasApiKey, setHasApiKey] = useState(false);

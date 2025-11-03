@@ -102,7 +102,7 @@ export function AIModelsSettings() {
   const [isLoadingModels, setIsLoadingModels] = useState(true);
   const [modelsError, setModelsError] = useState<string | null>(null);
 
-  const { preferences, isLoading: isLoadingPreferences, getModelForTask } = useModelPreferencesContext();
+  const { isLoading: isLoadingPreferences, getModelForTask } = useModelPreferencesContext();
 
   // Fetch available models from registry
   useEffect(() => {

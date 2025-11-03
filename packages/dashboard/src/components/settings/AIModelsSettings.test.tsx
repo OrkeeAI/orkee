@@ -3,7 +3,7 @@
 
 import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, within, waitFor } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import type { ModelInfo, ModelConfig, Provider } from '@/types/models';
 
 // Mock UI components to bypass Radix UI issues
@@ -17,7 +17,7 @@ vi.mock('@/components/ui/alert', () => ({
 }));
 
 vi.mock('@/components/ui/select', () => ({
-  Select: ({ children, value, onValueChange }: any) => (
+  Select: ({ children, value }: any) => (
     <div data-testid="select" data-value={value}>{children}</div>
   ),
   SelectTrigger: ({ children }: any) => <button data-testid="select-trigger">{children}</button>,

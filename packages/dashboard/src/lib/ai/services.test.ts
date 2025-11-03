@@ -108,7 +108,6 @@ vi.mock('@/services/model-preferences', () => ({
 
 // Import services after mocks are set up
 import { AISpecService } from './services';
-import type { PRDAnalysis } from './schemas';
 
 describe('AI Services Integration Tests', () => {
   let aiService: AISpecService;

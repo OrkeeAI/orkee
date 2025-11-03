@@ -705,9 +705,9 @@ pub fn create_ideate_router() -> Router<DbState> {
         )
 }
 
-/// Phase 6: AI handler functions moved to frontend TypeScript
-/// These routes are no longer needed - all AI calls now happen client-side
-/// Keeping router commented for reference during migration
+// Phase 6: AI handler functions moved to frontend TypeScript
+// These routes are no longer needed - all AI calls now happen client-side
+// Keeping router commented for reference during migration
 // pub fn create_ai_router() -> Router<DbState> {
 //     Router::new()
 //         .route("/ai/analyze-prd", post(ai_handlers::analyze_prd))

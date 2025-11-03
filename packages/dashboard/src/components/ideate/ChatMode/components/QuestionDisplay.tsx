@@ -4,7 +4,7 @@
 import React from 'react';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 import { AnswerSelector, FormattedOption, AnswerFormat } from './AnswerSelector';
 import { cn } from '@/lib/utils';

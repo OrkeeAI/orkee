@@ -1,10 +1,9 @@
 // ABOUTME: Tests for model preferences service functions
 // ABOUTME: Validates model selection, fallbacks, React Query hooks, and API integration
 
-import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { getModelForTask } from './model-preferences';
-import type { ModelPreferences, ModelConfig, ModelInfo, Provider } from '@/types/models';
+import type { ModelPreferences, ModelInfo, Provider } from '@/types/models';
 
 // Mock the API client first (needs to be before the service import)
 vi.mock('./api', () => ({
@@ -118,31 +117,6 @@ describe('Model Preferences Service', () => {
   });
 
   describe('useModelPreferences', () => {
-    const mockApiResponse = {
-      user_id: 'user-123',
-      chat_model: 'claude-haiku-4-5-20251001',
-      chat_provider: 'anthropic',
-      prd_generation_model: 'gpt-4-turbo',
-      prd_generation_provider: 'openai',
-      prd_analysis_model: 'claude-sonnet-4-5-20250929',
-      prd_analysis_provider: 'anthropic',
-      insight_extraction_model: 'gemini-2.0-flash-exp',
-      insight_extraction_provider: 'google',
-      spec_generation_model: 'claude-sonnet-4-5-20250929',
-      spec_generation_provider: 'anthropic',
-      task_suggestions_model: 'gpt-4-turbo',
-      task_suggestions_provider: 'openai',
-      task_analysis_model: 'claude-sonnet-4-5-20250929',
-      task_analysis_provider: 'anthropic',
-      spec_refinement_model: 'claude-sonnet-4-5-20250929',
-      spec_refinement_provider: 'anthropic',
-      research_generation_model: 'claude-sonnet-4-5-20250929',
-      research_generation_provider: 'anthropic',
-      markdown_generation_model: 'claude-sonnet-4-5-20250929',
-      markdown_generation_provider: 'anthropic',
-      updated_at: '2025-01-15T12:00:00Z',
-    };
-
     it('should fetch and convert model preferences correctly', async () => {
       // Import the hook to trigger its execution with our mock
       const { useModelPreferences } = await import('./model-preferences');
@@ -402,7 +376,7 @@ describe('Model Preferences Service', () => {
     ];
 
     it('should filter models by provider', async () => {
-      const { useAvailableModelsForProvider, useAvailableModels } = await import('./model-preferences');
+      const { useAvailableModelsForProvider } = await import('./model-preferences');
 
       // Mock useAvailableModels to return all models
       mockUseQuery.mockReturnValue({
