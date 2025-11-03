@@ -30,11 +30,11 @@ Transform Chat Mode into the most intuitive ideation experience with true conver
   - [x] Never return multiple questions in one response
   - [x] Track question sequence and dependencies
   - [x] Implement question branching logic
-- [ ] **Frontend: Update ChatModeFlow.tsx**
-  - [ ] Display one question at a time
-  - [ ] Show question counter (e.g., "Question 3 of ~10")
-  - [ ] Add "Skip" option for non-critical questions
-  - [ ] Implement "Go back" to previous question
+- [x] **Frontend: QuestionDisplay Component**
+  - [x] Display one question at a time
+  - [x] Show question counter (e.g., "Question 3 of ~10")
+  - [x] Add "Skip" option for non-critical questions
+  - [x] Implement "Go back" to previous question
 - [x] **Database: Add tracking fields**
   - [x] Add `question_sequence` to discovery_sessions
   - [x] Add `is_critical` flag for required questions
@@ -46,11 +46,11 @@ Transform Chat Mode into the most intuitive ideation experience with true conver
   - [x] Generate natural break points (end of sections)
   - [x] Track chunk approval status
   - [x] Store chunk edits and feedback
-- [ ] **Frontend: Create ChunkValidator component**
-  - [ ] Display chunk with word count
-  - [ ] "Does this look right?" confirmation button
-  - [ ] Inline editing capability
-  - [ ] "Regenerate this section" option
+- [x] **Frontend: ChunkValidator Component**
+  - [x] Display chunk with word count
+  - [x] "Does this look right?" confirmation button
+  - [x] Inline editing capability
+  - [x] "Regenerate this section" option
 - [x] **Database: Extend prd_validation_history**
   - [x] Add `chunk_number INTEGER`
   - [x] Add `chunk_word_count INTEGER`
@@ -63,11 +63,11 @@ Transform Chat Mode into the most intuitive ideation experience with true conver
   - [x] Format yes/no with numbers (1, 2)
   - [x] Format scales with ranges (1-5, Low/Medium/High)
   - [x] Accept single-character responses
-- [ ] **Frontend: Create AnswerSelector component**
-  - [ ] Display formatted options clearly
-  - [ ] Keyboard shortcuts for letter/number selection
-  - [ ] Visual feedback for selected option
-  - [ ] "Other" option with text input
+- [x] **Frontend: AnswerSelector Component**
+  - [x] Display formatted options clearly
+  - [x] Keyboard shortcuts for letter/number selection
+  - [x] Visual feedback for selected option
+  - [x] "Other" option with text input
 - [x] **Database: Track answer formats**
   - [x] Add `answer_format` to discovery_sessions ('letter', 'number', 'scale', 'open')
   - [x] Add `options_presented JSON` for storing choices
