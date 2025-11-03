@@ -98,13 +98,22 @@ pub async fn update_model_preferences(
         (&request.chat_model, "chat_model"),
         (&request.prd_generation_model, "prd_generation_model"),
         (&request.prd_analysis_model, "prd_analysis_model"),
-        (&request.insight_extraction_model, "insight_extraction_model"),
+        (
+            &request.insight_extraction_model,
+            "insight_extraction_model",
+        ),
         (&request.spec_generation_model, "spec_generation_model"),
         (&request.task_suggestions_model, "task_suggestions_model"),
         (&request.task_analysis_model, "task_analysis_model"),
         (&request.spec_refinement_model, "spec_refinement_model"),
-        (&request.research_generation_model, "research_generation_model"),
-        (&request.markdown_generation_model, "markdown_generation_model"),
+        (
+            &request.research_generation_model,
+            "research_generation_model",
+        ),
+        (
+            &request.markdown_generation_model,
+            "markdown_generation_model",
+        ),
     ];
 
     for (model_id, field_name) in model_ids {
@@ -136,13 +145,31 @@ pub async fn update_model_preferences(
         (&request.chat_provider, "chat_provider"),
         (&request.prd_generation_provider, "prd_generation_provider"),
         (&request.prd_analysis_provider, "prd_analysis_provider"),
-        (&request.insight_extraction_provider, "insight_extraction_provider"),
-        (&request.spec_generation_provider, "spec_generation_provider"),
-        (&request.task_suggestions_provider, "task_suggestions_provider"),
+        (
+            &request.insight_extraction_provider,
+            "insight_extraction_provider",
+        ),
+        (
+            &request.spec_generation_provider,
+            "spec_generation_provider",
+        ),
+        (
+            &request.task_suggestions_provider,
+            "task_suggestions_provider",
+        ),
         (&request.task_analysis_provider, "task_analysis_provider"),
-        (&request.spec_refinement_provider, "spec_refinement_provider"),
-        (&request.research_generation_provider, "research_generation_provider"),
-        (&request.markdown_generation_provider, "markdown_generation_provider"),
+        (
+            &request.spec_refinement_provider,
+            "spec_refinement_provider",
+        ),
+        (
+            &request.research_generation_provider,
+            "research_generation_provider",
+        ),
+        (
+            &request.markdown_generation_provider,
+            "markdown_generation_provider",
+        ),
     ];
 
     for (provider, field_name) in providers {

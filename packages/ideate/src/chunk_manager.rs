@@ -82,7 +82,9 @@ impl ChunkManager {
             let para_words = paragraph.split_whitespace().count();
 
             // If adding this paragraph exceeds max, save current chunk
-            if current_word_count + para_words > TARGET_MAX_WORDS && current_word_count >= TARGET_MIN_WORDS {
+            if current_word_count + para_words > TARGET_MAX_WORDS
+                && current_word_count >= TARGET_MIN_WORDS
+            {
                 chunks.push(current_chunk.trim().to_string());
                 current_chunk = String::new();
                 current_word_count = 0;

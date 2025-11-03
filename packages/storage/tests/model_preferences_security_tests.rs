@@ -41,16 +41,10 @@ async fn test_update_task_model_rejects_sql_injection_attempts(pool: SqlitePool)
     // Test 2: Verify no SQL injection via string formatting
     // Even if a malicious task_type somehow passed validation,
     // the new match-based approach prevents SQL injection
-    let tasks = vec![
-        "chat",
-        "prd_generation",
-        "insight_extraction",
-    ];
+    let tasks = vec!["chat", "prd_generation", "insight_extraction"];
 
     for task in tasks {
-        let result = storage
-            .update_task_model(user_id, task, &request)
-            .await;
+        let result = storage.update_task_model(user_id, task, &request).await;
         assert!(result.is_ok(), "Failed to update task: {}", task);
     }
 }
@@ -87,11 +81,7 @@ async fn test_all_task_types_have_safe_queries(pool: SqlitePool) {
             .update_task_model(user_id, task_type, &request)
             .await;
 
-        assert!(
-            result.is_ok(),
-            "Failed to update task_type: {}",
-            task_type
-        );
+        assert!(result.is_ok(), "Failed to update task_type: {}", task_type);
     }
 
     // Verify updates were applied
@@ -166,9 +156,7 @@ async fn test_parameterized_queries_prevent_injection(pool: SqlitePool) {
         };
 
         // This should either fail validation or safely store the literal string
-        let _result = storage
-            .update_task_model(user_id, "chat", &request)
-            .await;
+        let _result = storage.update_task_model(user_id, "chat", &request).await;
 
         // Verify table still exists and data is intact
         let prefs = storage.get_preferences(user_id).await.unwrap();
@@ -215,7 +203,10 @@ async fn test_update_preferences_safe_with_special_chars(pool: SqlitePool) {
     // Retrieve and verify special characters are preserved as-is
     let retrieved = storage.get_preferences(user_id).await.unwrap();
     assert_eq!(retrieved.chat_model, "model-with-'quotes'");
-    assert_eq!(retrieved.prd_generation_model, "model-with-\"double-quotes\"");
+    assert_eq!(
+        retrieved.prd_generation_model,
+        "model-with-\"double-quotes\""
+    );
     assert_eq!(retrieved.prd_analysis_model, "model-with-;semicolon");
 }
 
@@ -291,9 +282,7 @@ async fn test_unicode_and_special_chars_handled_safely(pool: SqlitePool) {
         };
 
         // Should safely handle unicode/special chars
-        let _result = storage
-            .update_task_model(user_id, "chat", &request)
-            .await;
+        let _result = storage.update_task_model(user_id, "chat", &request).await;
 
         // Verify data integrity
         let prefs = storage.get_preferences(user_id).await.unwrap();
