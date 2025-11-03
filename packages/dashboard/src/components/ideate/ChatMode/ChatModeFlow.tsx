@@ -106,6 +106,11 @@ export function ChatModeFlow({
     }
   }, [sessionId]);
 
+  // Load discovery progress when messages change
+  React.useEffect(() => {
+    loadDiscoveryProgress();
+  }, [loadDiscoveryProgress, messages.length]); // Reload when messages change
+
   // Phase 6C: Load codebase context
   const loadCodebaseContext = useCallback(async () => {
     try {
@@ -186,12 +191,6 @@ export function ChatModeFlow({
     console.log('Section edited:', sectionName, newContent);
   }, []);
 
-  // Phase 6C: Initialize and periodically load discovery progress
-  useEffect(() => {
-    loadDiscoveryProgress();
-    const interval = setInterval(loadDiscoveryProgress, 30000); // Every 30 seconds
-    return () => clearInterval(interval);
-  }, [loadDiscoveryProgress]);
 
   // Phase 6C: Load codebase context on mount
   useEffect(() => {
