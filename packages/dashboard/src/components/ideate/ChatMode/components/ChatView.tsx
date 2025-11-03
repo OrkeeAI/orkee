@@ -34,7 +34,7 @@ import { UI_TEXT } from '../constants';
 export interface ChatViewProps {
   messages: ChatMessage[];
   streamingMessage: StreamingMessage | null;
-  onSendMessage: (content: string) => void;
+  onSendMessage: (content: string, model?: string) => void | Promise<void>;
   isLoading: boolean;
   isSending: boolean;
 }
@@ -117,9 +117,9 @@ export function ChatView({
     }
   }, [selectedProvider, availableModels, selectedModel]);
 
-  const handleSubmit = (message: { text?: string; files?: any[] }) => {
+  const handleSubmit = async (message: { text?: string; files?: any[] }) => {
     if (message.text?.trim() && !isSending) {
-      onSendMessage(message.text);
+      await onSendMessage(message.text, selectedModel);
     }
   };
 

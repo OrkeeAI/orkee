@@ -24,6 +24,7 @@ export interface SendMessageInput {
   content: string;
   message_type?: MessageType;
   role?: MessageRole;
+  model?: string;
 }
 
 export interface DiscoveryQuestion {
