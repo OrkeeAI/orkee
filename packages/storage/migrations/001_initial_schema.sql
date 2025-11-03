@@ -323,6 +323,8 @@ BEGIN
     UPDATE model_preferences SET updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE user_id = NEW.user_id;
 END;
 
+CREATE INDEX idx_model_preferences_updated_at ON model_preferences(updated_at);
+
 -- ============================================================================
 -- TASK MANAGEMENT
 -- ============================================================================
