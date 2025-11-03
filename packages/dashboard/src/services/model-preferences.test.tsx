@@ -155,7 +155,6 @@ describe('Model Preferences Service', () => {
 
     it('should fetch and convert model preferences correctly', async () => {
       (apiClient.get as any).mockResolvedValue({
-        success: true,
         data: mockApiResponse,
         error: undefined,
       });
@@ -186,7 +185,6 @@ describe('Model Preferences Service', () => {
 
     it('should handle API errors', async () => {
       (apiClient.get as any).mockResolvedValue({
-        success: false,
         data: null,
         error: 'User not found',
       });
@@ -203,7 +201,6 @@ describe('Model Preferences Service', () => {
 
     it('should use correct cache key', async () => {
       (apiClient.get as any).mockResolvedValue({
-        success: true,
         data: mockApiResponse,
         error: undefined,
       });
@@ -247,7 +244,6 @@ describe('Model Preferences Service', () => {
       };
 
       (apiClient.put as any).mockResolvedValue({
-        success: true,
         data: mockResponse,
         error: undefined,
       });
@@ -297,7 +293,6 @@ describe('Model Preferences Service', () => {
       };
 
       (apiClient.put as any).mockResolvedValue({
-        success: true,
         data: mockResponse,
         error: undefined,
       });
@@ -348,7 +343,6 @@ describe('Model Preferences Service', () => {
       };
 
       (apiClient.put as any).mockResolvedValue({
-        success: true,
         data: mockResponse,
         error: undefined,
       });
@@ -403,7 +397,6 @@ describe('Model Preferences Service', () => {
 
     it('should fetch model registry', async () => {
       (apiClient.get as any).mockResolvedValue({
-        success: true,
         data: mockModels,
         error: undefined,
       });
@@ -458,7 +451,6 @@ describe('Model Preferences Service', () => {
 
     it('should filter models by provider', async () => {
       (apiClient.get as any).mockResolvedValue({
-        success: true,
         data: mockModels,
         error: undefined,
       });
@@ -475,7 +467,6 @@ describe('Model Preferences Service', () => {
 
     it('should return empty array when no models match provider', async () => {
       (apiClient.get as any).mockResolvedValue({
-        success: true,
         data: mockModels,
         error: undefined,
       });
@@ -489,10 +480,9 @@ describe('Model Preferences Service', () => {
       expect(result.current.data).toEqual([]);
     });
 
-    it('should handle undefined data gracefully', async () => {
+    it('should handle empty data gracefully', async () => {
       (apiClient.get as any).mockResolvedValue({
-        success: true,
-        data: undefined,
+        data: [],
         error: undefined,
       });
 
