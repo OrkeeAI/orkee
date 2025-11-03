@@ -2369,6 +2369,16 @@ CREATE TABLE discovery_sessions (
     user_answer TEXT,
     asked_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
     answered_at TEXT,
+
+    -- Phase 1 Chat Mode fields
+    answer_format TEXT DEFAULT 'open' CHECK(answer_format IN ('open', 'letter', 'number', 'scale')),
+    question_sequence INTEGER,
+    is_critical BOOLEAN DEFAULT FALSE,
+    branching_logic TEXT CHECK(json_valid(branching_logic) OR branching_logic IS NULL),
+    options_presented TEXT CHECK(json_valid(options_presented) OR options_presented IS NULL),
+    response_time INTEGER,
+    category TEXT,
+
     FOREIGN KEY (session_id) REFERENCES ideate_sessions(id) ON DELETE CASCADE,
     UNIQUE(session_id, question_number),
     CHECK (json_valid(options) OR options IS NULL)
@@ -2376,6 +2386,8 @@ CREATE TABLE discovery_sessions (
 
 CREATE INDEX idx_discovery_sessions_session ON discovery_sessions(session_id);
 CREATE INDEX idx_discovery_sessions_order ON discovery_sessions(session_id, question_number);
+CREATE INDEX idx_discovery_sessions_sequence ON discovery_sessions(session_id, question_sequence);
+CREATE INDEX idx_discovery_sessions_format ON discovery_sessions(session_id, answer_format);
 
 -- PRD Validation History
 CREATE TABLE prd_validation_history (
@@ -2386,12 +2398,20 @@ CREATE TABLE prd_validation_history (
     user_feedback TEXT,
     quality_score INTEGER CHECK(quality_score >= 0 AND quality_score <= 100),
     validated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+
+    -- Phase 1 Chat Mode chunking fields
+    chunk_number INTEGER,
+    chunk_word_count INTEGER,
+    chunk_content TEXT,
+    edited_content TEXT,
+
     FOREIGN KEY (session_id) REFERENCES ideate_sessions(id) ON DELETE CASCADE
 );
 
 CREATE INDEX idx_prd_validation_session ON prd_validation_history(session_id);
 CREATE INDEX idx_prd_validation_section ON prd_validation_history(section_name);
 CREATE INDEX idx_prd_validation_session_time ON prd_validation_history(session_id, validated_at);
+CREATE INDEX idx_prd_validation_chunks ON prd_validation_history(session_id, chunk_number);
 
 -- Phase 5: Execution Checkpoints
 CREATE TABLE execution_checkpoints (
