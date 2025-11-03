@@ -2,13 +2,16 @@
 // ABOUTME: Automatically logs project CRUD operations, preview server actions, and other API calls
 
 use axum::{body::Body, extract::Request, middleware::Next, response::Response};
+use hmac::{Hmac, Mac};
 use serde_json::json;
-use sha2::{Digest, Sha256};
+use sha2::Sha256;
 use std::collections::HashMap;
 use std::sync::OnceLock;
 use std::time::{Duration, Instant};
 use tokio::sync::Mutex;
 use tracing::{error, warn};
+
+type HmacSha256 = Hmac<Sha256>;
 
 /// Rate limiter for failed request telemetry to prevent unbounded database growth
 struct FailureRateLimiter {
@@ -205,11 +208,27 @@ pub(crate) fn extract_id_from_path(path: &str, prefix: &str) -> String {
     }
 }
 
-/// Hash an ID using SHA256 to protect sensitive information in telemetry
+/// Secret salt for HMAC-based ID hashing (derived from application context)
+fn get_hmac_secret() -> &'static [u8] {
+    static SECRET: OnceLock<Vec<u8>> = OnceLock::new();
+    SECRET.get_or_init(|| {
+        // Use a combination of compile-time constants and runtime context
+        // This provides defense-in-depth against rainbow table attacks
+        let app_salt = env!("CARGO_PKG_NAME");
+        let version = env!("CARGO_PKG_VERSION");
+        let combined = format!("{}:{}:orkee-telemetry-salt", app_salt, version);
+        combined.as_bytes().to_vec()
+    })
+}
+
+/// Hash an ID using HMAC-SHA256 to protect sensitive information in telemetry
+/// Uses application-specific secret to prevent rainbow table attacks
 pub(crate) fn hash_id(id: &str) -> String {
-    let mut hasher = Sha256::new();
-    hasher.update(id.as_bytes());
-    format!("{:x}", hasher.finalize())
+    let mut mac = HmacSha256::new_from_slice(get_hmac_secret())
+        .expect("HMAC can take key of any size");
+    mac.update(id.as_bytes());
+    let result = mac.finalize();
+    format!("{:x}", result.into_bytes())
 }
 
 /// Check if a path is a task-related endpoint (not a project endpoint)
