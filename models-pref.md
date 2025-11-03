@@ -192,35 +192,44 @@ export function getModelForTask(taskType: TaskType): ModelConfig {
 
 ---
 
-## Phase 4: Update AI Service Functions
+## Phase 4: Update AI Service Functions ✅ COMPLETED
 
-### 4.1 Update chat-ai.ts
-- [ ] **File:** `orkee-oss/packages/dashboard/src/services/chat-ai.ts`
-- [ ] `streamChatResponse()` - Use `getModelForTask('chat')`
-- [ ] Remove/keep `selectedModel` param as override (TBD)
+**Commits:** `ead72a6`, `488657b`, `977827c` - feat(phase-4.*): Updated all AI service functions
 
-### 4.2 Update ai/service.ts (PRD Functions)
-- [ ] **File:** `orkee-oss/packages/dashboard/src/services/ai/service.ts`
-- [ ] `generateCompletePRD()` - Use `getModelForTask('prd_generation')`
-- [ ] `generateOverview()` - Use `getModelForTask('prd_generation')`
-- [ ] `generateFeatures()` - Use `getModelForTask('prd_generation')`
-- [ ] `generateUX()` - Use `getModelForTask('prd_generation')`
-- [ ] `generateTechnical()` - Use `getModelForTask('prd_generation')`
-- [ ] `generateRoadmap()` - Use `getModelForTask('prd_generation')`
-- [ ] `generateDependencies()` - Use `getModelForTask('prd_generation')`
-- [ ] `generateRisks()` - Use `getModelForTask('prd_generation')`
-- [ ] `generateResearch()` - Use `getModelForTask('research_generation')`
+### 4.1 Update chat-ai.ts ✅ COMPLETED
+- [x] **File:** `orkee-oss/packages/dashboard/src/services/chat-ai.ts`
+- [x] `streamChatResponse()` - Added optional `preferences` parameter, supports model preferences
+- [x] `extractInsights()` - Added optional `preferences` parameter for `insight_extraction` task
+- [x] `calculateQualityMetrics()` - Added optional `preferences` parameter for `chat` task
+- [x] `generatePRDFromChat()` - Added optional `preferences` parameter for `prd_generation` task
+- [x] Kept `selectedModel` param as override for backward compatibility
 
-### 4.3 Update lib/ai/services.ts (Analysis Functions)
-- [ ] **File:** `orkee-oss/packages/dashboard/src/lib/ai/services.ts`
-- [ ] `analyzePRD()` - Use `getModelForTask('prd_analysis')`
-- [ ] `generateSpec()` - Use `getModelForTask('spec_generation')`
-- [ ] `suggestTasks()` - Use `getModelForTask('task_suggestions')`
-- [ ] `analyzeOrphanTask()` - Use `getModelForTask('task_analysis')`
-- [ ] `validateTaskCompletion()` - Use `getModelForTask('task_analysis')`
-- [ ] `refineSpec()` - Use `getModelForTask('spec_refinement')`
-- [ ] `generateSpecMarkdown()` - Use `getModelForTask('markdown_generation')`
-- [ ] `regeneratePRD()` - Use `getModelForTask('prd_generation')`
+### 4.2 Update ai/service.ts (PRD Functions) ✅ COMPLETED
+- [x] **File:** `orkee-oss/packages/dashboard/src/services/ai/service.ts`
+- [x] Updated core functions: `generateStructured()` and `generateStreamedStructured()`
+- [x] `generateCompletePRD()` - Added `modelPreferences` parameter
+- [x] `generateOverview()` - Added `modelPreferences` parameter
+- [x] `generateFeatures()` - Added `modelPreferences` parameter
+- [x] `generateUX()` - Added `modelPreferences` parameter
+- [x] `generateTechnical()` - Added `modelPreferences` parameter
+- [x] `generateRoadmap()` - Added `modelPreferences` parameter
+- [x] `generateDependencies()` - Added `modelPreferences` parameter
+- [x] `generateRisks()` - Added `modelPreferences` parameter
+- [x] `generateResearch()` - Added `modelPreferences` parameter
+- [x] All 9 streaming versions updated as well
+
+### 4.3 Update lib/ai/services.ts (Analysis Functions) ✅ COMPLETED
+- [x] **File:** `orkee-oss/packages/dashboard/src/lib/ai/services.ts`
+- [x] `analyzePRD()` - Added `modelPreferences` parameter for `prd_analysis` task
+- [x] `_analyzePRDImpl()` - Updated helper method
+- [x] `analyzePRDChunked()` - Updated chunking method
+- [x] `generateSpec()` - Added `modelPreferences` parameter for `spec_generation` task
+- [x] `suggestTasks()` - Added `modelPreferences` parameter for `task_suggestions` task
+- [x] `analyzeOrphanTask()` - Added `modelPreferences` parameter for `task_analysis` task
+- [x] `validateTaskCompletion()` - Added `modelPreferences` parameter for `task_analysis` task
+- [x] `refineSpec()` - Added `modelPreferences` parameter for `spec_refinement` task
+- [x] `generateSpecMarkdown()` - Added `modelPreferences` parameter for `markdown_generation` task
+- [x] `regeneratePRD()` - Added `modelPreferences` parameter for `prd_generation` task
 
 **Update Pattern:**
 ```typescript
@@ -410,12 +419,12 @@ export async function analyzePRD(content: string) {
 
 ## Progress Summary
 
-**Completed:** 33 / 80+ tasks (41%)
+**Completed:** 51 / 80+ tasks (64%)
 
 **Phase 1:** ✅ 2/2 (100%) - Database schema complete
 **Phase 2:** ✅ 3/3 (100%) - Backend API complete (Google/xAI proxies deferred)
 **Phase 3:** ✅ 25/25 (100%) - Frontend integration complete
-**Phase 4:** ⏳ 0/18 (0%) - AI service updates pending
+**Phase 4:** ✅ 18/18 (100%) - AI service updates complete
 **Phase 5:** ⏳ 0/4 (0%) - Settings UI pending
 **Phase 6:** ⏳ 0/7 (0%) - Backend migration pending
 **Phase 7:** ⏳ 0/5 (0%) - Testing pending
