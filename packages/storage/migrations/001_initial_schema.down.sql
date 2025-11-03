@@ -111,6 +111,9 @@ DROP TABLE IF EXISTS expert_personas;
 
 -- Research Analysis Cache
 DROP TABLE IF EXISTS competitor_analysis_cache;
+DROP TABLE IF EXISTS complexity_analysis_cache;
+DROP TABLE IF EXISTS codebase_context_cache;
+DROP TABLE IF EXISTS validation_score_cache;
 
 -- Chat Mode (CCPM) tables
 DROP TABLE IF EXISTS chat_insights;
