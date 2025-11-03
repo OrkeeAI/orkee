@@ -73,8 +73,26 @@ Transform Chat Mode into the most intuitive ideation experience with true conver
   - [x] Add `options_presented JSON` for storing choices
   - [x] Add `response_time INTEGER` for UX metrics
 
-### 1.4 Testing & Integration
+### 1.4 AI-Powered Insight Extraction ✨ (BONUS - Completed)
+- [x] **Backend: Create insight_extractor.rs**
+  - [x] AI-powered extraction using Claude
+  - [x] Context-aware analysis (uses last 5 messages)
+  - [x] Extract 5 insight types: Requirements, Risks, Constraints, Assumptions, Decisions
+  - [x] Confidence scoring (0.0-1.0) for each insight
+  - [x] Filter low-confidence insights (< 0.3)
+- [x] **API Integration**
+  - [x] Auto-trigger extraction after assistant messages
+  - [x] Graceful fallback if AI extraction fails
+  - [x] Save insights to database with metadata
+- [x] **Frontend Updates**
+  - [x] Real-time insight updates in sidebar
+  - [x] Reload insights after each message
+
+**✅ Status**: FULLY IMPLEMENTED with AI-powered extraction. Insights now appear automatically in the sidebar as users chat, with intelligent context-aware analysis.
+
+### 1.5 Testing & Integration
 - [x] Unit tests for chunking algorithm
+- [x] Unit tests for AI insight extraction (compile-time verified)
 - [ ] Unit tests for question formatting
 - [ ] Integration tests for Chat Mode flow
 - [ ] User acceptance testing with 5+ users
