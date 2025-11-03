@@ -132,6 +132,12 @@ If no insights are found, return: {{"insights": []}}
                         return None;
                     }
 
+                    // Skip insights with empty or whitespace-only text
+                    if insight.insight_text.trim().is_empty() {
+                        warn!("Skipping insight with empty text");
+                        return None;
+                    }
+
                     Some(CreateInsightInput {
                         insight_type,
                         insight_text: insight.insight_text,
