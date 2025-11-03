@@ -1,10 +1,11 @@
 // ABOUTME: Main chat view component with message display and input
 // ABOUTME: Handles message rendering, auto-scroll, and user input submission
 
-import { useRef, useEffect, useState } from 'react';
+import React, { useRef, useEffect } from 'react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Loader2 } from 'lucide-react';
-import { modelsService, type Model } from '@/services/models';
+import { useModels } from '@/hooks/useModels';
+import { useCurrentUser } from '@/hooks/useUsers';
 import {
   PromptInput,
   PromptInputHeader,
@@ -48,18 +49,48 @@ export function ChatView({
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Model selection state
-  const [allModels, setAllModels] = useState<Model[]>([]);
-  const [selectedProvider, setSelectedProvider] = useState<string>('');
-  const [selectedModel, setSelectedModel] = useState<string>('');
+  const { data: currentUser } = useCurrentUser();
+  const { data: models } = useModels();
 
-  // Get unique providers from models
-  const providers = Array.from(new Set(allModels.map(m => m.provider)));
+  // Get available providers (matching ModelSelectionDialog pattern)
+  const availableProviders = React.useMemo(() => {
+    if (!currentUser) return [];
 
-  // Filter models by selected provider
-  const availableModels = selectedProvider
-    ? allModels.filter(m => m.provider === selectedProvider)
-    : [];
+    const providers = [
+      {
+        value: 'anthropic',
+        label: 'Anthropic (Claude)',
+        hasKey: !!currentUser.has_anthropic_api_key,
+      },
+      {
+        value: 'openai',
+        label: 'OpenAI (GPT)',
+        hasKey: !!currentUser.has_openai_api_key,
+      },
+      {
+        value: 'google',
+        label: 'Google (Gemini)',
+        hasKey: !!currentUser.has_google_api_key,
+      },
+      {
+        value: 'xai',
+        label: 'xAI (Grok)',
+        hasKey: !!currentUser.has_xai_api_key,
+      },
+    ];
+
+    return providers.filter((p) => p.hasKey);
+  }, [currentUser]);
+
+  // Get models for selected provider
+  const [selectedProvider, setSelectedProvider] = React.useState('anthropic');
+  const [selectedModel, setSelectedModel] = React.useState('');
+
+  const availableModels = React.useMemo(() => {
+    if (!models || !selectedProvider) return [];
+
+    return models.filter((model) => model.provider === selectedProvider);
+  }, [models, selectedProvider]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -69,42 +100,22 @@ export function ChatView({
     scrollToBottom();
   }, [messages, streamingMessage]);
 
-  // Load available models
+  // Auto-select first model when provider changes or models load
   useEffect(() => {
-    const loadModels = async () => {
-      try {
-        const response = await modelsService.listModels();
-        const available = response.items.filter(m => m.is_available);
-        setAllModels(available);
+    if (availableModels.length > 0 && !selectedModel) {
+      setSelectedModel(availableModels[0].model);
+    }
+  }, [availableModels, selectedModel]);
 
-        // Set default provider and model
-        if (available.length > 0 && !selectedProvider) {
-          const firstProvider = available[0].provider;
-          setSelectedProvider(firstProvider);
-
-          const firstModel = available.find(m => m.provider === firstProvider);
-          if (firstModel) {
-            setSelectedModel(firstModel.id);
-          }
-        }
-      } catch (error) {
-        console.error('Failed to load models:', error);
-      }
-    };
-
-    loadModels();
-  }, [selectedProvider]);
-
-  // Update selected model when provider changes
+  // Reset model when provider changes
   useEffect(() => {
-    if (selectedProvider && availableModels.length > 0) {
-      // If current model doesn't belong to new provider, select first model from new provider
-      const currentModelProvider = allModels.find(m => m.id === selectedModel)?.provider;
-      if (currentModelProvider !== selectedProvider) {
-        setSelectedModel(availableModels[0].id);
+    if (availableModels.length > 0) {
+      const currentModel = availableModels.find(m => m.model === selectedModel);
+      if (!currentModel) {
+        setSelectedModel(availableModels[0].model);
       }
     }
-  }, [selectedProvider, availableModels, allModels, selectedModel]);
+  }, [selectedProvider, availableModels, selectedModel]);
 
   const handleSubmit = (message: { text?: string; files?: any[] }) => {
     if (message.text?.trim() && !isSending) {
@@ -163,9 +174,9 @@ export function ChatView({
                 <PromptInputModelSelectValue placeholder="Provider..." />
               </PromptInputModelSelectTrigger>
               <PromptInputModelSelectContent>
-                {providers.map((provider) => (
-                  <PromptInputModelSelectItem key={provider} value={provider}>
-                    {provider}
+                {availableProviders.map((provider) => (
+                  <PromptInputModelSelectItem key={provider.value} value={provider.value}>
+                    {provider.label}
                   </PromptInputModelSelectItem>
                 ))}
               </PromptInputModelSelectContent>
@@ -178,7 +189,7 @@ export function ChatView({
               </PromptInputModelSelectTrigger>
               <PromptInputModelSelectContent>
                 {availableModels.map((model) => (
-                  <PromptInputModelSelectItem key={model.id} value={model.id}>
+                  <PromptInputModelSelectItem key={model.id} value={model.model}>
                     {model.display_name}
                   </PromptInputModelSelectItem>
                 ))}
