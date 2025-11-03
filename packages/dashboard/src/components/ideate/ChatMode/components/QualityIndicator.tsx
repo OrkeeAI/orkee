@@ -4,7 +4,7 @@
 import React from 'react';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
-import { CheckCircle2, Circle, AlertCircle } from 'lucide-react';
+import { CheckCircle2, Circle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { QualityMetrics } from '@/services/chat';
 
@@ -88,22 +88,6 @@ export function QualityIndicator({ metrics, className }: QualityIndicatorProps) 
           ))}
         </div>
       </div>
-
-      {metrics.missing_areas.length > 0 && (
-        <div className="pt-2 border-t space-y-2">
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <AlertCircle className="h-4 w-4" />
-            <span>Consider discussing:</span>
-          </div>
-          <ul className="text-sm space-y-1 pl-6">
-            {metrics.missing_areas.map((area, index) => (
-              <li key={index} className="text-muted-foreground list-disc">
-                {area}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
     </div>
   );
 }
