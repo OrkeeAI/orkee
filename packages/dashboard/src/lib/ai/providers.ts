@@ -3,6 +3,8 @@
 
 import { createOpenAI } from '@ai-sdk/openai';
 import { createAnthropic } from '@ai-sdk/anthropic';
+import { createGoogle } from '@ai-sdk/google';
+import { createXAI } from '@ai-sdk/xai';
 import { AI_CONFIG } from './config';
 
 /**
@@ -41,6 +43,32 @@ export function getAnthropicProvider() {
 }
 
 /**
+ * Initialize Google provider via secure proxy
+ * API keys are stored in database and retrieved server-side
+ */
+export function getGoogleProvider() {
+  const apiBaseUrl = getApiBaseUrl();
+
+  return createGoogle({
+    apiKey: 'proxy', // Dummy key - actual key is retrieved from database on server
+    baseURL: `${apiBaseUrl}/api/ai/google/v1`,
+  });
+}
+
+/**
+ * Initialize xAI provider via secure proxy
+ * API keys are stored in database and retrieved server-side
+ */
+export function getXAIProvider() {
+  const apiBaseUrl = getApiBaseUrl();
+
+  return createXAI({
+    apiKey: 'proxy', // Dummy key - actual key is retrieved from database on server
+    baseURL: `${apiBaseUrl}/api/ai/xai/v1`,
+  });
+}
+
+/**
  * Get the preferred model instance (defaults to Anthropic Sonnet 4.5)
  */
 export function getPreferredModel() {
@@ -55,7 +83,7 @@ export function getPreferredModel() {
 /**
  * Get a specific model instance by provider and model name
  */
-export function getModel(provider: 'openai' | 'anthropic', modelName?: string) {
+export function getModel(provider: 'openai' | 'anthropic' | 'google' | 'xai', modelName?: string) {
   if (provider === 'openai') {
     const openai = getOpenAIProvider();
     const config = AI_CONFIG.providers.openai;
@@ -72,15 +100,37 @@ export function getModel(provider: 'openai' | 'anthropic', modelName?: string) {
     return anthropic(selectedModel);
   }
 
+  if (provider === 'google') {
+    const google = getGoogleProvider();
+    const selectedModel = modelName || 'gemini-2.0-flash-exp';
+    console.log(`[providers] Creating Google model instance:`, selectedModel);
+    return google(selectedModel);
+  }
+
+  if (provider === 'xai') {
+    const xai = getXAIProvider();
+    const selectedModel = modelName || 'grok-beta';
+    console.log(`[providers] Creating xAI model instance:`, selectedModel);
+    return xai(selectedModel);
+  }
+
   throw new Error(`Unknown provider: ${provider}`);
 }
 
 /**
  * Get model with full info (provider, model instance, model name)
  */
-export function getModelWithInfo(provider: 'openai' | 'anthropic', modelName?: string) {
-  const config = AI_CONFIG.providers[provider];
-  const selectedModel = modelName || config.defaultModel;
+export function getModelWithInfo(provider: 'openai' | 'anthropic' | 'google' | 'xai', modelName?: string) {
+  let selectedModel: string;
+
+  if (provider === 'google') {
+    selectedModel = modelName || 'gemini-2.0-flash-exp';
+  } else if (provider === 'xai') {
+    selectedModel = modelName || 'grok-beta';
+  } else {
+    const config = AI_CONFIG.providers[provider];
+    selectedModel = modelName || config.defaultModel;
+  }
 
   return {
     provider,
@@ -92,7 +142,11 @@ export function getModelWithInfo(provider: 'openai' | 'anthropic', modelName?: s
 /**
  * Get available models for a provider
  */
-export function getAvailableModels(provider: 'openai' | 'anthropic'): string[] {
+export function getAvailableModels(provider: 'openai' | 'anthropic' | 'google' | 'xai'): string[] {
+  if (provider === 'google' || provider === 'xai') {
+    // Google and xAI models will be populated from the model registry
+    return [];
+  }
   const config = AI_CONFIG.providers[provider];
   return Object.keys(config.models);
 }
@@ -100,7 +154,11 @@ export function getAvailableModels(provider: 'openai' | 'anthropic'): string[] {
 /**
  * Get available models with display names for a provider
  */
-export function getAvailableModelsWithNames(provider: 'openai' | 'anthropic'): Array<{ id: string; name: string }> {
+export function getAvailableModelsWithNames(provider: 'openai' | 'anthropic' | 'google' | 'xai'): Array<{ id: string; name: string }> {
+  if (provider === 'google' || provider === 'xai') {
+    // Google and xAI models will be populated from the model registry
+    return [];
+  }
   const config = AI_CONFIG.providers[provider];
   return Object.entries(config.models).map(([id, model]) => ({
     id,
@@ -111,24 +169,32 @@ export function getAvailableModelsWithNames(provider: 'openai' | 'anthropic'): A
 /**
  * Get all available providers
  */
-export function getAvailableProviders(): Array<{ id: 'openai' | 'anthropic'; name: string }> {
+export function getAvailableProviders(): Array<{ id: 'openai' | 'anthropic' | 'google' | 'xai'; name: string }> {
   return [
     { id: 'openai', name: AI_CONFIG.providers.openai.displayName },
     { id: 'anthropic', name: AI_CONFIG.providers.anthropic.displayName },
+    { id: 'google', name: 'Google' },
+    { id: 'xai', name: 'xAI' },
   ];
 }
 
 /**
  * Get provider display name
  */
-export function getProviderDisplayName(provider: 'openai' | 'anthropic'): string {
+export function getProviderDisplayName(provider: 'openai' | 'anthropic' | 'google' | 'xai'): string {
+  if (provider === 'google') return 'Google';
+  if (provider === 'xai') return 'xAI';
   return AI_CONFIG.providers[provider].displayName;
 }
 
 /**
  * Get model display name
  */
-export function getModelDisplayName(provider: 'openai' | 'anthropic', modelId: string): string {
+export function getModelDisplayName(provider: 'openai' | 'anthropic' | 'google' | 'xai', modelId: string): string {
+  if (provider === 'google' || provider === 'xai') {
+    // Display name will come from model registry
+    return modelId;
+  }
   const config = AI_CONFIG.providers[provider];
   return config.models[modelId]?.displayName || modelId;
 }
