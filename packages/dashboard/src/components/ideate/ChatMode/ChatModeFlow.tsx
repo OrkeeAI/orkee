@@ -30,6 +30,7 @@ export function ChatModeFlow({
   const [insights, setInsights] = useState<ChatInsight[]>([]);
   const [isGeneratingPRD, setIsGeneratingPRD] = useState(false);
   const [prdError, setPrdError] = useState<Error | null>(null);
+  const [isReanalyzing, setIsReanalyzing] = useState(false);
 
   // Phase 6C: Discovery Progress state
   const [discoveryProgress, setDiscoveryProgress] = useState<DiscoveryProgressType | null>(null);
@@ -95,6 +96,20 @@ export function ChatModeFlow({
   React.useEffect(() => {
     loadInsights();
   }, [loadInsights, messages.length]); // Reload when messages change
+
+  // Re-analyze all messages to extract insights
+  const handleReanalyzeInsights = useCallback(async () => {
+    try {
+      setIsReanalyzing(true);
+      const result = await chatService.reanalyzeInsights(sessionId);
+      console.log(`Re-analysis complete: ${result.extracted_count} insights extracted from ${result.total_messages_processed} messages`);
+      await loadInsights();
+    } catch (err) {
+      console.error('Failed to re-analyze insights:', err);
+    } finally {
+      setIsReanalyzing(false);
+    }
+  }, [sessionId, loadInsights]);
 
   // Phase 6C: Load discovery progress
   const loadDiscoveryProgress = useCallback(async () => {
@@ -314,7 +329,12 @@ export function ChatModeFlow({
             className="flex-shrink-0"
           />
 
-          <InsightsSidebar insights={insights} className="flex-shrink-0" />
+          <InsightsSidebar
+            insights={insights}
+            onReanalyze={handleReanalyzeInsights}
+            isReanalyzing={isReanalyzing}
+            className="flex-shrink-0"
+          />
         </div>
       </div>
 

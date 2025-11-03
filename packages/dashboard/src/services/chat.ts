@@ -246,6 +246,30 @@ class ChatService {
 
     return response.data.data;
   }
+
+  /**
+   * Re-analyze entire session history to extract insights
+   */
+  async reanalyzeInsights(sessionId: string): Promise<{
+    extracted_count: number;
+    error_count: number;
+    total_messages_processed: number;
+  }> {
+    const response = await apiClient.post<{
+      success: boolean;
+      data: {
+        extracted_count: number;
+        error_count: number;
+        total_messages_processed: number;
+      };
+    }>(`/api/ideate/chat/${sessionId}/insights/reanalyze`, {});
+
+    if (response.error || !response.data.success) {
+      throw new Error(response.error || 'Failed to re-analyze insights');
+    }
+
+    return response.data.data;
+  }
 }
 
 export const chatService = new ChatService();

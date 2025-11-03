@@ -640,6 +640,10 @@ pub fn create_ideate_router() -> Router<DbState> {
             post(ideate_chat_handlers::create_insight),
         )
         .route(
+            "/ideate/chat/{session_id}/insights/reanalyze",
+            post(ideate_chat_handlers::reanalyze_insights),
+        )
+        .route(
             "/ideate/chat/{session_id}/quality",
             get(ideate_chat_handlers::get_quality_metrics),
         )

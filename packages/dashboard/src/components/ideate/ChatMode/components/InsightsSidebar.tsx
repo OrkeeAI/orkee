@@ -3,14 +3,17 @@
 
 import React from 'react';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Lightbulb, AlertTriangle, Lock, HelpCircle, CheckSquare } from 'lucide-react';
+import { Lightbulb, AlertTriangle, Lock, HelpCircle, CheckSquare, RefreshCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { ChatInsight } from '@/services/chat';
 
 export interface InsightsSidebarProps {
   insights: ChatInsight[];
   className?: string;
+  onReanalyze?: () => void;
+  isReanalyzing?: boolean;
 }
 
 const INSIGHT_ICONS = {
@@ -37,7 +40,7 @@ const INSIGHT_LABELS = {
   decision: 'Decisions',
 };
 
-export function InsightsSidebar({ insights, className }: InsightsSidebarProps) {
+export function InsightsSidebar({ insights, className, onReanalyze, isReanalyzing }: InsightsSidebarProps) {
   const groupedInsights = insights.reduce((acc, insight) => {
     if (!acc[insight.insight_type]) {
       acc[insight.insight_type] = [];
@@ -53,14 +56,28 @@ export function InsightsSidebar({ insights, className }: InsightsSidebarProps) {
 
   return (
     <div className={cn('bg-card rounded-lg border flex flex-col', className)}>
-      <div className="p-4 border-b">
-        <h3 className="text-sm font-medium flex items-center gap-2">
-          <Lightbulb className="h-4 w-4" />
-          Extracted Insights
-        </h3>
-        <p className="text-xs text-muted-foreground mt-1">
-          {insights.length} insight{insights.length !== 1 ? 's' : ''} captured
-        </p>
+      <div className="p-4 border-b space-y-3">
+        <div>
+          <h3 className="text-sm font-medium flex items-center gap-2">
+            <Lightbulb className="h-4 w-4" />
+            Extracted Insights
+          </h3>
+          <p className="text-xs text-muted-foreground mt-1">
+            {insights.length} insight{insights.length !== 1 ? 's' : ''} captured
+          </p>
+        </div>
+        {onReanalyze && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onReanalyze}
+            disabled={isReanalyzing}
+            className="w-full gap-2"
+          >
+            <RefreshCw className={cn('h-3 w-3', isReanalyzing && 'animate-spin')} />
+            {isReanalyzing ? 'Re-analyzing...' : 'Re-analyze All Messages'}
+          </Button>
+        )}
       </div>
 
       <ScrollArea className="flex-1">
