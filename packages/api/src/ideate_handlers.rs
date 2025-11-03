@@ -708,33 +708,16 @@ pub async fn get_preview(
     }
 
     info!(
-        "No sections found for session {}, will attempt to generate or retrieve saved PRD",
+        "No sections found for session {}, returning empty preview (session is in draft state)",
         session_id
     );
 
-    // No saved PRD and no sections, generate on-demand
-    info!(
-        "No saved PRD or sections, generating new one for session: {}",
-        session_id
-    );
-    let generator = PRDGenerator::new(db.pool.clone());
-    let prd = match generator
-        .generate_complete_prd(DEFAULT_USER_ID, &session.initial_description)
-        .await
-    {
-        Ok(p) => p,
-        Err(e) => {
-            return ok_or_internal_error::<serde_json::Value, _>(Err(e), "Failed to generate PRD")
-        }
-    };
-
-    // Format as markdown
-    let markdown = generator.format_prd_markdown(&prd);
-
-    // Return as JSON with markdown string
+    // Return empty preview - don't auto-generate as it requires API keys and is expensive
+    // Frontend will handle the "no content" state gracefully
     let response = serde_json::json!({
-        "markdown": markdown,
-        "prd": prd
+        "markdown": "",
+        "content": "",
+        "sections": {}
     });
 
     ok_or_internal_error::<_, String>(Ok(response), "Failed to get preview")
