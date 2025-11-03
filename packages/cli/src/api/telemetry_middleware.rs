@@ -118,7 +118,7 @@ fn extract_id_from_path(path: &str, prefix: &str) -> String {
 }
 
 /// Hash an ID using SHA256 to protect sensitive information in telemetry
-fn hash_id(id: &str) -> String {
+pub(crate) fn hash_id(id: &str) -> String {
     let mut hasher = Sha256::new();
     hasher.update(id.as_bytes());
     format!("{:x}", hasher.finalize())
@@ -126,7 +126,7 @@ fn hash_id(id: &str) -> String {
 
 /// Check if a path is a task-related endpoint (not a project endpoint)
 /// Returns true if the path matches /api/projects/{id}/tasks*
-fn is_task_endpoint(path: &str) -> bool {
+pub(crate) fn is_task_endpoint(path: &str) -> bool {
     // Match pattern: /api/projects/{something}/tasks (with optional trailing segments)
     // This avoids false positives from project names containing "tasks"
     if let Some(after_projects) = path.strip_prefix("/api/projects/") {

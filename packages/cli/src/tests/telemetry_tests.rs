@@ -823,3 +823,71 @@ async fn test_background_collector_starts_and_processes_events() {
     // Clean up
     env::remove_var("POSTHOG_API_KEY");
 }
+
+// ============================================================================
+// Middleware Helper Function Tests
+// ============================================================================
+
+#[test]
+fn test_is_task_endpoint_edge_cases() {
+    use crate::api::telemetry_middleware::is_task_endpoint;
+
+    // Edge case: Double slash (empty segment)
+    assert!(!is_task_endpoint("/api/projects//tasks"));
+
+    // Valid: Nested task endpoint
+    assert!(is_task_endpoint("/api/projects/123/tasks/456"));
+
+    // False positive prevention: Project name containing "tasks"
+    assert!(!is_task_endpoint("/api/projects/my-tasks-project"));
+
+    // Valid: Basic task endpoint
+    assert!(is_task_endpoint("/api/projects/abc123/tasks"));
+
+    // Invalid: Not a project endpoint
+    assert!(!is_task_endpoint("/api/tasks"));
+
+    // Invalid: Missing tasks segment
+    assert!(!is_task_endpoint("/api/projects/123"));
+
+    // Invalid: Different resource after project ID
+    assert!(!is_task_endpoint("/api/projects/123/settings"));
+}
+
+#[test]
+fn test_hash_id_consistency() {
+    use crate::api::telemetry_middleware::hash_id;
+
+    let id = "project-123";
+
+    // Same input should produce same hash
+    let hash1 = hash_id(id);
+    let hash2 = hash_id(id);
+    assert_eq!(hash1, hash2);
+
+    // Different input should produce different hash
+    let hash3 = hash_id("project-124");
+    assert_ne!(hash1, hash3);
+
+    // Hash should be deterministic
+    assert_eq!(
+        hash_id("test"),
+        "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08"
+    );
+}
+
+#[test]
+fn test_hash_id_output_format() {
+    use crate::api::telemetry_middleware::hash_id;
+
+    let hash = hash_id("project-123");
+
+    // SHA256 hash should be 64 hex characters
+    assert_eq!(hash.len(), 64);
+
+    // Should only contain hex characters
+    assert!(hash.chars().all(|c| c.is_ascii_hexdigit()));
+
+    // Should be lowercase
+    assert_eq!(hash, hash.to_lowercase());
+}
