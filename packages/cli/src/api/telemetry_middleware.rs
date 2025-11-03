@@ -16,13 +16,13 @@ pub async fn track_api_calls(request: Request<Body>, next: Next) -> Response {
     // Call the next handler
     let response = next.run(request).await;
 
-    // Only track successful operations (2xx status codes)
+    // Track both successful (2xx) and failed (4xx/5xx) operations
     let status = response.status();
-    if !status.is_success() {
-        return response;
-    }
+    let is_success = status.is_success();
+    let is_client_error = status.is_client_error();
+    let is_server_error = status.is_server_error();
 
-    // Track different types of operations based on path and method
+    // Determine if this is an operation we want to track
     let event_name_and_data = match (method.as_str(), path.as_str()) {
         // Project CRUD operations
         ("POST", "/api/projects") | ("POST", "/api/projects/") => {
@@ -70,12 +70,25 @@ pub async fn track_api_calls(request: Request<Body>, next: Next) -> Response {
     };
 
     // Track the event if we have a match
-    if let Some((event_name, event_data)) = event_name_and_data {
+    if let Some((event_name, mut event_data)) = event_name_and_data {
+        // Append "_failed" suffix for error responses and add status info
+        let final_event_name = if is_client_error || is_server_error {
+            format!("{}_failed", event_name)
+        } else {
+            event_name.to_string()
+        };
+
+        // Add status code and success flag to event data
+        if let serde_json::Value::Object(ref mut map) = event_data {
+            map.insert("success".to_string(), json!(is_success));
+            map.insert("status_code".to_string(), json!(status.as_u16()));
+        }
+
         // Track asynchronously, don't block the response
         tokio::spawn(async move {
-            if let Err(e) = track_telemetry_event(event_name, event_data).await {
+            if let Err(e) = track_telemetry_event(&final_event_name, event_data).await {
                 // Just log the error, don't fail the request
-                warn!("Failed to track telemetry event {}: {}", event_name, e);
+                warn!("Failed to track telemetry event {}: {}", final_event_name, e);
             }
         });
     }
