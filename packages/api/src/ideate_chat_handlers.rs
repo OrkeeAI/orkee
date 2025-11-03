@@ -12,7 +12,7 @@ use tracing::{error, info, warn};
 use super::response::ok_or_internal_error;
 use orkee_ideate::{
     ChatManager, CreateInsightInput, DiscoveryQuestion, DiscoveryStatus, GeneratePRDFromChatInput,
-    GeneratePRDFromChatResult, MessageRole, QualityMetrics, QuestionCategory, SendMessageInput,
+    GeneratePRDFromChatResult, InsightType, MessageRole, QualityMetrics, QuestionCategory, SendMessageInput,
     TopicCoverage, ValidationResult,
 };
 use orkee_projects::DbState;
@@ -47,11 +47,16 @@ pub async fn send_message(
     // Frontend can send Assistant messages after AI streaming
     let role = input.role.unwrap_or(MessageRole::User);
 
-    let result = manager
-        .add_message(&session_id, role, input.content, input.message_type, None)
+    let message_result = manager
+        .add_message(&session_id, role.clone(), input.content.clone(), input.message_type, None)
         .await;
 
-    ok_or_internal_error(result, "Failed to send message")
+    // Auto-extract insights from assistant messages (simple keyword-based extraction)
+    if role == MessageRole::Assistant {
+        let _ = extract_insights_from_message(&manager, &session_id, &input.content).await;
+    }
+
+    ok_or_internal_error(message_result, "Failed to send message")
 }
 
 /// Query parameters for suggested questions
@@ -427,4 +432,83 @@ pub async fn validate_for_prd(
         Ok::<_, orkee_ideate::IdeateError>(validation),
         "Failed to validate chat",
     )
+}
+
+/// Simple keyword-based insight extraction (placeholder for AI-powered extraction)
+async fn extract_insights_from_message(
+    manager: &ChatManager,
+    session_id: &str,
+    content: &str,
+) -> Result<(), orkee_ideate::IdeateError> {
+    let content_lower = content.to_lowercase();
+
+    // Extract requirements (looking for "need", "must", "should", "require")
+    if content_lower.contains("need") || content_lower.contains("must") ||
+       content_lower.contains("should") || content_lower.contains("require") {
+        // Extract sentence containing the keyword
+        if let Some(sentence) = extract_sentence_with_keywords(&content, &["need", "must", "should", "require"]) {
+            let _ = manager.create_insight(
+                session_id,
+                CreateInsightInput {
+                    insight_type: InsightType::Requirement,
+                    insight_text: sentence,
+                    confidence_score: Some(0.7),
+                    source_message_ids: None,
+                },
+            ).await;
+        }
+    }
+
+    // Extract risks (looking for "risk", "concern", "issue", "problem", "challenge")
+    if content_lower.contains("risk") || content_lower.contains("concern") ||
+       content_lower.contains("issue") || content_lower.contains("problem") || content_lower.contains("challenge") {
+        if let Some(sentence) = extract_sentence_with_keywords(&content, &["risk", "concern", "issue", "problem", "challenge"]) {
+            let _ = manager.create_insight(
+                session_id,
+                CreateInsightInput {
+                    insight_type: InsightType::Risk,
+                    insight_text: sentence,
+                    confidence_score: Some(0.6),
+                    source_message_ids: None,
+                },
+            ).await;
+        }
+    }
+
+    // Extract constraints (looking for "can't", "cannot", "limited", "constraint", "restriction")
+    if content_lower.contains("can't") || content_lower.contains("cannot") ||
+       content_lower.contains("limited") || content_lower.contains("constraint") || content_lower.contains("restriction") {
+        if let Some(sentence) = extract_sentence_with_keywords(&content, &["can't", "cannot", "limited", "constraint", "restriction"]) {
+            let _ = manager.create_insight(
+                session_id,
+                CreateInsightInput {
+                    insight_type: InsightType::Constraint,
+                    insight_text: sentence,
+                    confidence_score: Some(0.6),
+                    source_message_ids: None,
+                },
+            ).await;
+        }
+    }
+
+    Ok(())
+}
+
+/// Extract a sentence containing any of the keywords
+fn extract_sentence_with_keywords(text: &str, keywords: &[&str]) -> Option<String> {
+    let sentences: Vec<&str> = text.split(&['.', '!', '?'][..]).collect();
+
+    for sentence in sentences {
+        let sentence_lower = sentence.to_lowercase();
+        for keyword in keywords {
+            if sentence_lower.contains(keyword) {
+                let trimmed = sentence.trim();
+                if !trimmed.is_empty() && trimmed.len() > 10 {
+                    return Some(trimmed.to_string());
+                }
+            }
+        }
+    }
+
+    None
 }

@@ -87,26 +87,20 @@ export function ChatModeFlow({
     },
   });
 
-  // TODO: Implement automatic insight extraction from chat messages
-  // Currently insights are not being auto-extracted from chat messages on the backend.
-  // Backend needs to implement:
-  // 1. POST /api/ideate/chat/{sessionId}/extract-insights - Extract insights from recent messages
-  // 2. Auto-trigger extraction after each assistant message is saved
-  // 3. Use AI to identify requirements, constraints, risks, assumptions, decisions
-  // Frontend is ready - just waiting for backend implementation in packages/api/src/ideate_chat_handlers.rs
+  // Insight extraction - backend extracts insights after each assistant message
   const loadInsights = useCallback(async () => {
     try {
       const data = await chatService.getInsights(sessionId);
       setInsights(data);
     } catch (err) {
       console.error('Failed to load insights:', err);
-      // Silently fail - insights extraction not yet implemented on backend
     }
   }, [sessionId]);
 
+  // Load insights initially and after each new message
   React.useEffect(() => {
     loadInsights();
-  }, [loadInsights]);
+  }, [loadInsights, messages.length]); // Reload when messages change
 
   // Phase 6C: Load discovery progress
   const loadDiscoveryProgress = useCallback(async () => {
