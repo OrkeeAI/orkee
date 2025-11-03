@@ -5,6 +5,7 @@ pub mod approach_generator;
 pub mod build_optimizer;
 pub mod chat;
 pub mod chat_manager;
+pub mod chunk_manager;
 pub mod codebase_analyzer;
 pub mod complexity_analyzer;
 pub mod dependency_analyzer;
@@ -42,6 +43,7 @@ pub use chat::{
     QualityMetrics, QuestionCategory, SendMessageInput, TopicCoverage, ValidationResult,
 };
 pub use chat_manager::ChatManager;
+pub use chunk_manager::{ChunkManager, ChunkStatus, PrdChunk, ValidateChunkInput};
 pub use codebase_analyzer::{
     ArchitectureStyle, CodebaseAnalyzer, CodebaseContext, FileStructure, Pattern, PatternType,
     ReusableComponent, SimilarFeature, TechStack,
@@ -52,7 +54,8 @@ pub use dependency_analyzer::{
     DependencyType, FeatureDependency,
 };
 pub use discovery_manager::{
-    DiscoveryAnswer, DiscoveryManager, Question, QuestionType, SessionContext,
+    AnswerFormat, DiscoveryAnswer, DiscoveryManager, FormattedOption, Question, QuestionType,
+    SessionContext,
 };
 pub use epic::{
     ArchitectureDecision, ConflictAnalysis, CreateEpicInput, DependencyGraph, Epic, EpicComplexity,
