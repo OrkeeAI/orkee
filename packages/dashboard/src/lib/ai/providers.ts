@@ -3,8 +3,8 @@
 
 import { createOpenAI } from '@ai-sdk/openai';
 import { createAnthropic } from '@ai-sdk/anthropic';
-import { createGoogle } from '@ai-sdk/google';
-import { createXAI } from '@ai-sdk/xai';
+import { createGoogleGenerativeAI } from '@ai-sdk/google';
+import { createXai } from '@ai-sdk/xai';
 import { AI_CONFIG } from './config';
 
 /**
@@ -49,7 +49,7 @@ export function getAnthropicProvider() {
 export function getGoogleProvider() {
   const apiBaseUrl = getApiBaseUrl();
 
-  return createGoogle({
+  return createGoogleGenerativeAI({
     apiKey: 'proxy', // Dummy key - actual key is retrieved from database on server
     baseURL: `${apiBaseUrl}/api/ai/google/v1`,
   });
@@ -62,7 +62,7 @@ export function getGoogleProvider() {
 export function getXAIProvider() {
   const apiBaseUrl = getApiBaseUrl();
 
-  return createXAI({
+  return createXai({
     apiKey: 'proxy', // Dummy key - actual key is retrieved from database on server
     baseURL: `${apiBaseUrl}/api/ai/xai/v1`,
   });
