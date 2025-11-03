@@ -5,7 +5,7 @@ use orkee_ai::AIService;
 use serde::{Deserialize, Serialize};
 use tracing::{info, warn};
 
-use crate::{CreateInsightInput, InsightType, Result};
+use crate::{ChatInsight, CreateInsightInput, InsightType, Result};
 
 /// AI-extracted insight with metadata
 #[derive(Debug, Deserialize, Serialize)]
@@ -22,12 +22,16 @@ pub struct InsightExtractionResponse {
     pub insights: Vec<ExtractedInsight>,
 }
 
-/// Extract insights from a chat message using AI
+/// Extract insights from a chat message using AI with deduplication
 pub async fn extract_insights_with_ai(
     message_content: &str,
     conversation_context: &[String], // Recent messages for context
+    existing_insights: &[ChatInsight], // Existing insights for deduplication
 ) -> Result<Vec<CreateInsightInput>> {
-    info!("Extracting insights with AI from message");
+    info!(
+        "Extracting insights with AI from message ({} existing insights for deduplication)",
+        existing_insights.len()
+    );
 
     let ai_service = AIService::new(); // Uses default model and env API key
 
@@ -41,11 +45,25 @@ pub async fn extract_insights_with_ai(
         )
     };
 
+    // Format existing insights for AI to avoid duplicates
+    let existing_insights_text = if existing_insights.is_empty() {
+        String::new()
+    } else {
+        let insights_list: Vec<String> = existing_insights
+            .iter()
+            .map(|i| format!("- [{:?}] {}", i.insight_type, i.insight_text))
+            .collect();
+        format!(
+            "\n\nEXISTING INSIGHTS (do NOT duplicate these):\n{}",
+            insights_list.join("\n")
+        )
+    };
+
     let prompt = format!(
         r#"Analyze the following chat message and extract any PRD-relevant insights.
 
 MESSAGE:
-{}{}
+{}{}{}
 
 Identify and extract:
 1. **Requirements** - Things that must be implemented or features needed
@@ -73,12 +91,13 @@ Respond with JSON:
 
 If no insights are found, return: {{"insights": []}}
 "#,
-        message_content, context
+        message_content, context, existing_insights_text
     );
 
     let system_prompt = Some(
         "You are an expert at analyzing product requirement discussions and extracting structured insights. \
-         Be precise and only extract genuinely relevant insights. Avoid duplicating similar insights. \
+         Be precise and only extract genuinely relevant insights. NEVER duplicate existing insights - carefully \
+         check the EXISTING INSIGHTS section and only extract NEW insights not already captured. \
          Focus on actionable information that would be useful in a PRD.".to_string()
     );
 

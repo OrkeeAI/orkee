@@ -11,9 +11,9 @@ use tracing::{error, info, warn};
 
 use super::response::ok_or_internal_error;
 use orkee_ideate::{
-    extract_insights_with_ai, ChatManager, CreateInsightInput, DiscoveryQuestion, DiscoveryStatus,
-    GeneratePRDFromChatInput, GeneratePRDFromChatResult, MessageRole, QualityMetrics,
-    QuestionCategory, SendMessageInput, TopicCoverage, ValidationResult,
+    extract_insights_with_ai, ChatInsight, ChatManager, CreateInsightInput, DiscoveryQuestion,
+    DiscoveryStatus, GeneratePRDFromChatInput, GeneratePRDFromChatResult, MessageRole,
+    QualityMetrics, QuestionCategory, SendMessageInput, TopicCoverage, ValidationResult,
 };
 use orkee_projects::DbState;
 
@@ -54,7 +54,9 @@ pub async fn send_message(
     // Auto-extract insights from all messages using AI
     // Users provide requirements/context, assistants may surface risks/assumptions
     if role == MessageRole::User || role == MessageRole::Assistant {
-        let _ = extract_and_save_insights(&manager, &session_id, &input.content).await;
+        if let Ok(ref message) = message_result {
+            let _ = extract_and_save_insights(&manager, &session_id, &input.content, &message.id).await;
+        }
     }
 
     ok_or_internal_error(message_result, "Failed to send message")
@@ -435,13 +437,14 @@ pub async fn validate_for_prd(
     )
 }
 
-/// AI-powered insight extraction with context awareness
+/// AI-powered insight extraction with context awareness and deduplication
 async fn extract_and_save_insights(
     manager: &ChatManager,
     session_id: &str,
     message_content: &str,
+    message_id: &str,
 ) -> Result<(), orkee_ideate::IdeateError> {
-    info!("Extracting insights with AI for session: {}", session_id);
+    info!("Extracting insights with AI for session: {} (message: {})", session_id, message_id);
 
     // Get recent message history for context (last 5 messages)
     let history = manager.get_history(session_id).await.unwrap_or_default();
@@ -452,13 +455,19 @@ async fn extract_and_save_insights(
         .map(|msg| msg.content.clone())
         .collect();
 
-    // Extract insights using AI
-    match extract_insights_with_ai(message_content, &context).await {
-        Ok(insights) => {
-            info!("AI extracted {} insights", insights.len());
+    // Get existing insights for deduplication
+    let existing_insights = manager.get_insights(session_id).await.unwrap_or_default();
 
-            // Save each insight to database
-            for insight in insights {
+    // Extract insights using AI with deduplication
+    match extract_insights_with_ai(message_content, &context, &existing_insights).await {
+        Ok(insights) => {
+            info!("AI extracted {} new insights", insights.len());
+
+            // Save each insight to database with source_message_ids populated
+            for mut insight in insights {
+                // Populate source_message_ids with the current message ID
+                insight.source_message_ids = Some(vec![message_id.to_string()]);
+
                 if let Err(e) = manager.create_insight(session_id, insight).await {
                     warn!("Failed to save insight: {}", e);
                 }
