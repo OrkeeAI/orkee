@@ -1,5 +1,5 @@
 // ABOUTME: Chat mode types and data structures for chat-based PRD discovery
-// ABOUTME: Defines conversation messages, insights, quality metrics, and discovery questions
+// ABOUTME: Defines chat messages, insights, quality metrics, and discovery questions
 
 use serde::{Deserialize, Serialize};
 
@@ -13,7 +13,7 @@ pub enum MessageRole {
     System,
 }
 
-/// Type of message in the conversation flow
+/// Type of message in the chat flow
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, sqlx::Type)]
 #[sqlx(type_name = "TEXT", rename_all = "lowercase")]
 #[serde(rename_all = "lowercase")]
@@ -24,7 +24,7 @@ pub enum MessageType {
     General,
 }
 
-/// Discovery status of the PRD conversation
+/// Discovery status of the PRD chat
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, sqlx::Type)]
 #[sqlx(type_name = "TEXT", rename_all = "lowercase")]
 #[serde(rename_all = "lowercase")]
@@ -36,7 +36,7 @@ pub enum DiscoveryStatus {
     Finalized,
 }
 
-/// Type of insight extracted from conversation
+/// Type of insight extracted from chat
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, sqlx::Type)]
 #[sqlx(type_name = "TEXT", rename_all = "lowercase")]
 #[serde(rename_all = "lowercase")]
@@ -62,9 +62,9 @@ pub enum QuestionCategory {
     Success,
 }
 
-/// A message in the conversation
+/// A message in the chat
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ConversationMessage {
+pub struct ChatMessage {
     pub id: String,
     pub session_id: String,
     pub prd_id: Option<String>,
@@ -84,7 +84,7 @@ pub struct SendMessageInput {
     pub role: Option<MessageRole>,
 }
 
-/// Discovery question for guiding conversation
+/// Discovery question for guiding chat
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DiscoveryQuestion {
     pub id: String,
@@ -99,9 +99,9 @@ pub struct DiscoveryQuestion {
     pub created_at: String,
 }
 
-/// Insight extracted from conversation
+/// Insight extracted from chat
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ConversationInsight {
+pub struct ChatInsight {
     pub id: String,
     pub session_id: String,
     pub insight_type: InsightType,
@@ -124,7 +124,7 @@ pub struct TopicCoverage {
     pub success: bool,
 }
 
-/// Quality metrics for the conversation
+/// Quality metrics for the chat
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct QualityMetrics {
     pub quality_score: i32,
@@ -133,21 +133,21 @@ pub struct QualityMetrics {
     pub is_ready_for_prd: bool,
 }
 
-/// Input for generating PRD from conversation
+/// Input for generating PRD from chat
 #[derive(Debug, Clone, Deserialize)]
-pub struct GeneratePRDFromConversationInput {
+pub struct GeneratePRDFromChatInput {
     pub title: String,
 }
 
-/// Result of PRD generation from conversation
+/// Result of PRD generation from chat
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct GeneratePRDFromConversationResult {
+pub struct GeneratePRDFromChatResult {
     pub prd_id: String,
     pub content_markdown: String,
     pub quality_score: i32,
 }
 
-/// Validation result for conversation readiness
+/// Validation result for chat readiness
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ValidationResult {
     pub is_valid: bool,

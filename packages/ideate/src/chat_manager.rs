@@ -16,9 +16,9 @@ impl ChatManager {
         Self { pool }
     }
 
-    /// Get conversation history for a session
-    pub async fn get_history(&self, session_id: &str) -> Result<Vec<ConversationMessage>> {
-        info!("Getting conversation history for session: {}", session_id);
+    /// Get chat history for a session
+    pub async fn get_history(&self, session_id: &str) -> Result<Vec<ChatMessage>> {
+        info!("Getting chat history for session: {}", session_id);
 
         let rows = sqlx::query(
             r#"
@@ -32,7 +32,7 @@ impl ChatManager {
                 message_type,
                 metadata,
                 created_at
-            FROM prd_conversations
+            FROM prd_chats
             WHERE session_id = ?
             ORDER BY message_order ASC
             "#,
@@ -41,13 +41,13 @@ impl ChatManager {
         .fetch_all(&self.pool)
         .await
         .map_err(|e| {
-            error!("Failed to get conversation history: {}", e);
+            error!("Failed to get chat history: {}", e);
             IdeateError::Database(e)
         })?;
 
-        let messages: Vec<ConversationMessage> = rows
+        let messages: Vec<ChatMessage> = rows
             .into_iter()
-            .map(|row| ConversationMessage {
+            .map(|row| ChatMessage {
                 id: row.get("id"),
                 session_id: row.get("session_id"),
                 prd_id: row.get("prd_id"),
@@ -63,7 +63,7 @@ impl ChatManager {
         Ok(messages)
     }
 
-    /// Add a message to the conversation
+    /// Add a message to the chat
     pub async fn add_message(
         &self,
         session_id: &str,
@@ -71,7 +71,7 @@ impl ChatManager {
         content: String,
         message_type: Option<MessageType>,
         metadata: Option<serde_json::Value>,
-    ) -> Result<ConversationMessage> {
+    ) -> Result<ChatMessage> {
         info!(
             "Adding message to session: {} (role: {:?})",
             session_id, role
@@ -81,7 +81,7 @@ impl ChatManager {
 
         // Get next message order
         let message_order: i32 = sqlx::query_scalar(
-            "SELECT COALESCE(MAX(message_order), -1) + 1 FROM prd_conversations WHERE session_id = ?"
+            "SELECT COALESCE(MAX(message_order), -1) + 1 FROM prd_chats WHERE session_id = ?",
         )
         .bind(session_id)
         .fetch_one(&self.pool)
@@ -96,7 +96,7 @@ impl ChatManager {
 
         sqlx::query(
             r#"
-            INSERT INTO prd_conversations (
+            INSERT INTO prd_chats (
                 id, session_id, message_order, role, content, message_type, metadata, created_at
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             "#,
@@ -116,7 +116,7 @@ impl ChatManager {
             IdeateError::Database(e)
         })?;
 
-        Ok(ConversationMessage {
+        Ok(ChatMessage {
             id,
             session_id: session_id.to_string(),
             prd_id: None,
@@ -214,7 +214,7 @@ impl ChatManager {
     }
 
     /// Get insights for a session
-    pub async fn get_insights(&self, session_id: &str) -> Result<Vec<ConversationInsight>> {
+    pub async fn get_insights(&self, session_id: &str) -> Result<Vec<ChatInsight>> {
         info!("Getting insights for session: {}", session_id);
 
         let rows = sqlx::query(
@@ -228,7 +228,7 @@ impl ChatManager {
                 source_message_ids,
                 applied_to_prd,
                 created_at
-            FROM conversation_insights
+            FROM chat_insights
             WHERE session_id = ?
             ORDER BY created_at DESC
             "#,
@@ -241,9 +241,9 @@ impl ChatManager {
             IdeateError::Database(e)
         })?;
 
-        let insights: Vec<ConversationInsight> = rows
+        let insights: Vec<ChatInsight> = rows
             .into_iter()
-            .map(|row| ConversationInsight {
+            .map(|row| ChatInsight {
                 id: row.get("id"),
                 session_id: row.get("session_id"),
                 insight_type: serde_json::from_str(&row.get::<String, _>("insight_type")).unwrap(),
@@ -265,7 +265,7 @@ impl ChatManager {
         &self,
         session_id: &str,
         input: CreateInsightInput,
-    ) -> Result<ConversationInsight> {
+    ) -> Result<ChatInsight> {
         info!(
             "Creating insight for session: {} (type: {:?})",
             session_id, input.insight_type
@@ -281,7 +281,7 @@ impl ChatManager {
 
         sqlx::query(
             r#"
-            INSERT INTO conversation_insights (
+            INSERT INTO chat_insights (
                 id, session_id, insight_type, insight_text, confidence_score,
                 source_message_ids, applied_to_prd, created_at
             ) VALUES (?, ?, ?, ?, ?, ?, FALSE, ?)
@@ -301,7 +301,7 @@ impl ChatManager {
             IdeateError::Database(e)
         })?;
 
-        Ok(ConversationInsight {
+        Ok(ChatInsight {
             id,
             session_id: session_id.to_string(),
             insight_type: input.insight_type,

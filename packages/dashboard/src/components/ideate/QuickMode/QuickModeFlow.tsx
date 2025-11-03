@@ -10,15 +10,19 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Label } from '@/components/ui/label';
 import { OneLineInput } from './OneLineInput';
 import { GenerationStatus } from './GenerationStatus';
 import { PRDEditor } from './PRDEditor';
 import { SavePreview } from './SavePreview';
+import { SectionReviewModal } from './components/SectionReviewModal';
+import { QualityScoreDisplay } from './components/QualityScoreDisplay';
 import { ModelSelectionDialog } from '@/components/ModelSelectionDialog';
 import { RegenerateTemplateDialog } from '../PRDGenerator/RegenerateTemplateDialog';
 import { useQuickExpand, useSaveAsPRD, useIdeateSession, useUpdateIdeateSession } from '@/hooks/useIdeate';
 import { ideateService } from '@/services/ideate';
-import type { GeneratedPRD } from '@/services/ideate';
+import type { GeneratedPRD, SectionValidationResult, QualityScore } from '@/services/ideate';
 import { toast } from 'sonner';
 
 type FlowStep = 'input' | 'generating' | 'edit' | 'save';
@@ -54,6 +58,12 @@ export function QuickModeFlow({
   const [selectedProvider, setSelectedProvider] = useState<string>('');
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [selectedModel, setSelectedModel] = useState<string>('');
+
+  // Review mode state
+  const [enableReviewMode, setEnableReviewMode] = useState(false);
+  const [reviewingSectionIndex, setReviewingSectionIndex] = useState<number | null>(null);
+  const [sectionValidations, setSectionValidations] = useState<Record<string, SectionValidationResult>>({});
+  const [qualityScore, setQualityScore] = useState<QualityScore | null>(null);
 
   const { data: session } = useIdeateSession(sessionId);
   const expandMutation = useQuickExpand(projectId, sessionId);
@@ -165,7 +175,6 @@ export function QuickModeFlow({
 
       // Final result received and saved to database
       setGeneratedPRD(result);
-      setStep('edit');
       setIsGenerating(false);
 
       // Update session status to 'completed' after successful PRD generation
@@ -173,7 +182,13 @@ export function QuickModeFlow({
         status: 'completed'
       });
 
-      toast.success('PRD generated successfully!');
+      // If review mode is enabled, start section-by-section review
+      if (enableReviewMode) {
+        await startSectionReview(result);
+      } else {
+        setStep('edit');
+        toast.success('PRD generated successfully!');
+      }
     } catch (error) {
       setStep('input');
       setIsGenerating(false);
@@ -315,6 +330,136 @@ export function QuickModeFlow({
     }
   };
 
+  // Review mode helper functions
+  const startSectionReview = async (prd: GeneratedPRD) => {
+    try {
+      // Fetch quality score
+      const score = await ideateService.getQualityScore(sessionId);
+      setQualityScore(score);
+
+      // Validate all sections
+      const sections = Object.keys(prd.sections);
+      const validations: Record<string, SectionValidationResult> = {};
+
+      for (const section of sections) {
+        const content = typeof prd.sections[section] === 'string'
+          ? prd.sections[section]
+          : JSON.stringify(prd.sections[section], null, 2);
+
+        const validation = await ideateService.validateSection(sessionId, section, content);
+        validations[section] = validation;
+      }
+
+      setSectionValidations(validations);
+
+      // Start reviewing first section
+      setReviewingSectionIndex(0);
+      setStep('edit');
+      toast.info('Review mode enabled - reviewing sections one by one');
+    } catch (error) {
+      console.error('Failed to start section review:', error);
+      toast.error('Failed to load quality scores');
+      setStep('edit');
+    }
+  };
+
+  const handleSectionApprove = () => {
+    if (reviewingSectionIndex === null || !generatedPRD) return;
+
+    const sections = Object.keys(generatedPRD.sections);
+    const currentSection = sections[reviewingSectionIndex];
+
+    // Mark section as approved
+    setApprovedSections(prev => new Set([...prev, currentSection]));
+
+    // Store validation feedback
+    ideateService.storeValidationFeedback(sessionId, {
+      section_name: currentSection,
+      validation_status: 'approved',
+      quality_score: sectionValidations[currentSection]?.quality_score,
+    }).catch(err => console.error('Failed to store validation feedback:', err));
+
+    // Move to next section or finish review
+    if (reviewingSectionIndex < sections.length - 1) {
+      setReviewingSectionIndex(reviewingSectionIndex + 1);
+    } else {
+      // All sections reviewed
+      setReviewingSectionIndex(null);
+      toast.success('All sections reviewed successfully!');
+    }
+  };
+
+  const handleSectionRegenerate = async (sectionName: string) => {
+    try {
+      setIsRegenerating(prev => ({ ...prev, [sectionName]: true }));
+      toast.info(`Regenerating ${sectionName} section...`);
+
+      const result = await expandMutation.mutateAsync({ sections: [sectionName] });
+
+      setGeneratedPRD(prev => {
+        if (!prev) return result;
+        return {
+          ...prev,
+          sections: {
+            ...prev.sections,
+            ...result.sections,
+          },
+          content: result.content,
+        };
+      });
+
+      // Re-validate the regenerated section
+      const content = typeof result.sections[sectionName] === 'string'
+        ? result.sections[sectionName]
+        : JSON.stringify(result.sections[sectionName], null, 2);
+
+      const validation = await ideateService.validateSection(sessionId, sectionName, content);
+      setSectionValidations(prev => ({ ...prev, [sectionName]: validation }));
+
+      // Store validation feedback
+      await ideateService.storeValidationFeedback(sessionId, {
+        section_name: sectionName,
+        validation_status: 'regenerated',
+      });
+
+      toast.success('Section regenerated successfully!');
+    } catch (error) {
+      toast.error('Failed to regenerate section', {
+        description: error instanceof Error ? error.message : 'Unknown error',
+      });
+    } finally {
+      setIsRegenerating(prev => ({ ...prev, [sectionName]: false }));
+    }
+  };
+
+  const handleSectionEdit = (sectionName: string, content: string) => {
+    setGeneratedPRD(prev => {
+      if (!prev) return null;
+      return {
+        ...prev,
+        sections: {
+          ...prev.sections,
+          [sectionName]: content,
+        },
+      };
+    });
+    toast.success('Section updated');
+  };
+
+  const getCurrentReviewingSection = () => {
+    if (reviewingSectionIndex === null || !generatedPRD) return null;
+    const sections = Object.keys(generatedPRD.sections);
+    return sections[reviewingSectionIndex];
+  };
+
+  const getCurrentReviewingSectionContent = () => {
+    const sectionName = getCurrentReviewingSection();
+    if (!sectionName || !generatedPRD) return '';
+
+    const content = generatedPRD.sections[sectionName];
+    return typeof content === 'string' ? content : JSON.stringify(content, null, 2);
+  };
+
   return (
     <>
       <Dialog open={open} onOpenChange={handleClose}>
@@ -335,16 +480,30 @@ export function QuickModeFlow({
           <div className="flex-1 overflow-auto">
             {/* Step: Input */}
             {step === 'input' && !showModelSelection && (
-              <OneLineInput
-                value={description}
-                onChange={setDescription}
-                onGenerate={handleGenerate}
-                onSaveDraft={handleSaveDraft}
-                onCancel={handleCancel}
-                isGenerating={isGenerating}
-                isSavingDraft={isSavingDraft}
-                error={undefined}
-              />
+              <div className="space-y-4">
+                <OneLineInput
+                  value={description}
+                  onChange={setDescription}
+                  onGenerate={handleGenerate}
+                  onSaveDraft={handleSaveDraft}
+                  onCancel={handleCancel}
+                  isGenerating={isGenerating}
+                  isSavingDraft={isSavingDraft}
+                  error={undefined}
+                />
+
+                {/* Review Mode Toggle */}
+                <div className="flex items-center space-x-2 pt-2 border-t">
+                  <Checkbox
+                    id="reviewMode"
+                    checked={enableReviewMode}
+                    onCheckedChange={(checked) => setEnableReviewMode(checked === true)}
+                  />
+                  <Label htmlFor="reviewMode" className="text-sm font-normal cursor-pointer">
+                    Review sections before saving (recommended for higher quality)
+                  </Label>
+                </div>
+              </div>
             )}
 
             {/* Step: Generating */}
@@ -358,6 +517,11 @@ export function QuickModeFlow({
             {/* Step: Edit */}
             {step === 'edit' && generatedPRD && (
               <div className="space-y-4">
+                {/* Quality Score Display (if review mode was enabled) */}
+                {qualityScore && (
+                  <QualityScoreDisplay qualityScore={qualityScore} />
+                )}
+
                 <PRDEditor
                   prdContent={generatedPRD.content}
                   sections={generatedPRD.sections}
@@ -418,6 +582,31 @@ export function QuickModeFlow({
         defaultProvider="anthropic"
         defaultModel="claude-3-5-sonnet-20241022"
       />
+
+      {/* Section Review Modal (shown when reviewing sections one by one) */}
+      {reviewingSectionIndex !== null && generatedPRD && (
+        <SectionReviewModal
+          open={true}
+          onOpenChange={(open) => {
+            if (!open) {
+              // Skip to next section when modal is closed
+              const sections = Object.keys(generatedPRD.sections);
+              if (reviewingSectionIndex < sections.length - 1) {
+                setReviewingSectionIndex(reviewingSectionIndex + 1);
+              } else {
+                setReviewingSectionIndex(null);
+              }
+            }
+          }}
+          sectionName={getCurrentReviewingSection() || ''}
+          sectionContent={getCurrentReviewingSectionContent()}
+          validationResult={sectionValidations[getCurrentReviewingSection() || ''] || null}
+          onApprove={handleSectionApprove}
+          onRegenerate={() => handleSectionRegenerate(getCurrentReviewingSection() || '')}
+          onEdit={(content) => handleSectionEdit(getCurrentReviewingSection() || '', content)}
+          isRegenerating={isRegenerating[getCurrentReviewingSection() || ''] || false}
+        />
+      )}
     </>
   );
 }

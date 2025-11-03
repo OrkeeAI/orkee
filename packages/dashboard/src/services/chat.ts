@@ -1,5 +1,5 @@
 // ABOUTME: Chat mode API service for chat-based PRD discovery
-// ABOUTME: Handles conversation messages, discovery questions, and PRD generation from conversations
+// ABOUTME: Handles chat messages, discovery questions, and PRD generation from chats
 
 import { apiClient } from './api';
 
@@ -65,11 +65,11 @@ export interface QualityMetrics {
   is_ready_for_prd: boolean;
 }
 
-export interface GeneratePRDFromConversationInput {
+export interface GeneratePRDFromChatInput {
   title: string;
 }
 
-export interface GeneratePRDFromConversationResult {
+export interface GeneratePRDFromChatResult {
   prd_id: string;
   content_markdown: string;
   quality_score: number;
@@ -77,7 +77,7 @@ export interface GeneratePRDFromConversationResult {
 
 class ChatService {
   /**
-   * Get conversation history for a session
+   * Get chat history for a session
    */
   async getHistory(sessionId: string): Promise<ChatMessage[]> {
     const response = await apiClient.get<{ success: boolean; data: ChatMessage[] }>(
@@ -85,14 +85,14 @@ class ChatService {
     );
 
     if (response.error || !response.data.success) {
-      throw new Error(response.error || 'Failed to fetch conversation history');
+      throw new Error(response.error || 'Failed to fetch chat history');
     }
 
     return response.data.data;
   }
 
   /**
-   * Send a message in the conversation
+   * Send a message in the chat
    */
   async sendMessage(sessionId: string, input: SendMessageInput): Promise<ChatMessage> {
     const response = await apiClient.post<{ success: boolean; data: ChatMessage }>(
@@ -126,7 +126,7 @@ class ChatService {
   }
 
   /**
-   * Get suggested questions based on conversation context
+   * Get suggested questions based on chat context
    */
   async getSuggestedQuestions(sessionId: string): Promise<DiscoveryQuestion[]> {
     const response = await apiClient.get<{ success: boolean; data: DiscoveryQuestion[] }>(
@@ -141,7 +141,7 @@ class ChatService {
   }
 
   /**
-   * Get extracted insights from the conversation
+   * Get extracted insights from the chat
    */
   async getInsights(sessionId: string): Promise<ChatInsight[]> {
     const response = await apiClient.get<{ success: boolean; data: ChatInsight[] }>(
@@ -156,7 +156,7 @@ class ChatService {
   }
 
   /**
-   * Get quality metrics for the conversation
+   * Get quality metrics for the chat
    */
   async getQualityMetrics(sessionId: string): Promise<QualityMetrics> {
     const response = await apiClient.get<{ success: boolean; data: QualityMetrics }>(
@@ -185,26 +185,26 @@ class ChatService {
   }
 
   /**
-   * Generate PRD from conversation
+   * Generate PRD from chat
    */
   async generatePRD(
     sessionId: string,
-    input: GeneratePRDFromConversationInput
-  ): Promise<GeneratePRDFromConversationResult> {
-    const response = await apiClient.post<{ success: boolean; data: GeneratePRDFromConversationResult }>(
+    input: GeneratePRDFromChatInput
+  ): Promise<GeneratePRDFromChatResult> {
+    const response = await apiClient.post<{ success: boolean; data: GeneratePRDFromChatResult }>(
       `/api/ideate/chat/${sessionId}/generate-prd`,
       input
     );
 
     if (response.error || !response.data.success) {
-      throw new Error(response.error || 'Failed to generate PRD from conversation');
+      throw new Error(response.error || 'Failed to generate PRD from chat');
     }
 
     return response.data.data;
   }
 
   /**
-   * Validate conversation readiness for PRD generation
+   * Validate chat readiness for PRD generation
    */
   async validateForPRD(sessionId: string): Promise<{
     is_valid: boolean;
@@ -217,7 +217,7 @@ class ChatService {
     }>(`/api/ideate/chat/${sessionId}/validate`);
 
     if (response.error || !response.data.success) {
-      throw new Error(response.error || 'Failed to validate conversation');
+      throw new Error(response.error || 'Failed to validate chat');
     }
 
     return response.data.data;

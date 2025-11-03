@@ -1,0 +1,20 @@
+{
+  "id": "non-goals",
+  "name": "Non-Goals and Out of Scope",
+  "category": "prd",
+  "template": "Based on this project description:\n\n{{description}}\n\nGenerate a comprehensive list of NON-GOALS - things we are explicitly NOT building or addressing in this project. This prevents scope creep and sets clear boundaries.\n\nProvide a JSON array of non-goal items:\n\n[\n  {\n    \"item\": \"Specific feature or capability we're NOT implementing\",\n    \"rationale\": \"Why we're explicitly excluding this (e.g., out of scope, future phase, too complex, not aligned with core value prop)\",\n    \"deferredTo\": \"Future phase name or 'never' if permanently out of scope\"\n  }\n]\n\nConsider:\n1. Features that might seem related but are out of scope\n2. Common feature requests that don't align with the core value proposition\n3. Technical capabilities that are unnecessary for MVP\n4. Integrations or platforms we're not supporting initially\n5. Edge cases or use cases we're explicitly not addressing\n\nMake this specific and actionable to prevent scope creep.",
+  "parameters": ["description"],
+  "outputSchema": {
+    "type": "array",
+    "items": {
+      "item": "string",
+      "rationale": "string",
+      "deferredTo": "string"
+    }
+  },
+  "metadata": {
+    "version": "1.0.0",
+    "lastModified": "2025-11-02",
+    "description": "Generate the Non-Goals section to prevent scope creep"
+  }
+}

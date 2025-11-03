@@ -12,9 +12,11 @@ use tracing::info;
 
 use super::auth::CurrentUser;
 use super::response::{created_or_internal_error, ok_or_internal_error};
+use orkee_ideate::{AppendProgressInput, ExecutionTracker};
 use orkee_projects::pagination::{PaginatedResponse, PaginationParams};
 use orkee_projects::DbState;
 use orkee_tasks::{TaskCreateInput, TaskPriority, TaskStatus, TaskUpdateInput};
+use serde::Serialize;
 
 /// Helper function to parse ISO 8601 date string
 fn parse_due_date(date_str: &str) -> Option<DateTime<Utc>> {
@@ -228,4 +230,146 @@ pub async fn delete_task(
     });
 
     ok_or_internal_error(result, "Failed to delete task")
+}
+
+/// Response for task execution steps
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TaskStep {
+    step_number: usize,
+    action: String,
+    test_command: Option<String>,
+    expected_output: String,
+    estimated_minutes: u8,
+}
+
+/// Generate TDD execution steps for a task
+pub async fn generate_task_steps(
+    State(_db): State<DbState>,
+    Path((_project_id, task_id)): Path<(String, String)>,
+) -> impl IntoResponse {
+    info!("Generating execution steps for task: {}", task_id);
+
+    // This is a placeholder - in a real implementation, this would use AI to generate
+    // execution steps based on the task description
+    // For now, we return a standard TDD workflow
+
+    let steps = vec![
+        TaskStep {
+            step_number: 1,
+            action: "Write failing test for the functionality".to_string(),
+            test_command: Some("cargo test <test_name>".to_string()),
+            expected_output: "Test fails as expected".to_string(),
+            estimated_minutes: 5,
+        },
+        TaskStep {
+            step_number: 2,
+            action: "Create minimal implementation stub".to_string(),
+            test_command: None,
+            expected_output: "Function signature created".to_string(),
+            estimated_minutes: 3,
+        },
+        TaskStep {
+            step_number: 3,
+            action: "Verify test still fails correctly".to_string(),
+            test_command: Some("cargo test <test_name>".to_string()),
+            expected_output: "Test fails with correct assertion message".to_string(),
+            estimated_minutes: 2,
+        },
+        TaskStep {
+            step_number: 4,
+            action: "Implement core functionality".to_string(),
+            test_command: None,
+            expected_output: "Implementation complete".to_string(),
+            estimated_minutes: 15,
+        },
+        TaskStep {
+            step_number: 5,
+            action: "Run test to verify success".to_string(),
+            test_command: Some("cargo test <test_name>".to_string()),
+            expected_output: "Test passes".to_string(),
+            estimated_minutes: 2,
+        },
+        TaskStep {
+            step_number: 6,
+            action: "Refactor if needed".to_string(),
+            test_command: Some("cargo test".to_string()),
+            expected_output: "All tests still pass".to_string(),
+            estimated_minutes: 5,
+        },
+        TaskStep {
+            step_number: 7,
+            action: "Commit changes".to_string(),
+            test_command: Some("git add . && git commit -m 'message'".to_string()),
+            expected_output: "Changes committed".to_string(),
+            estimated_minutes: 2,
+        },
+    ];
+
+    ok_or_internal_error::<Vec<TaskStep>, orkee_storage::StorageError>(
+        Ok(steps),
+        "Failed to generate execution steps",
+    )
+}
+
+/// Append progress to a task (append-only)
+pub async fn append_task_progress(
+    State(db): State<DbState>,
+    Path((_project_id, task_id)): Path<(String, String)>,
+    _user: CurrentUser,
+    Json(input): Json<AppendProgressInput>,
+) -> impl IntoResponse {
+    info!("Appending progress to task: {}", task_id);
+
+    let tracker = ExecutionTracker::new(db.pool.clone());
+    let result = tracker.append_progress(input).await;
+
+    ok_or_internal_error(result, "Failed to append progress")
+}
+
+/// Get validation history for a task
+pub async fn get_task_validation_history(
+    State(db): State<DbState>,
+    Path((_project_id, task_id)): Path<(String, String)>,
+) -> impl IntoResponse {
+    info!("Getting validation history for task: {}", task_id);
+
+    let tracker = ExecutionTracker::new(db.pool.clone());
+    let result = tracker.get_task_validation_history(&task_id).await;
+
+    ok_or_internal_error(result, "Failed to get validation history")
+}
+
+/// Get execution checkpoints for a task
+pub async fn get_task_checkpoints(
+    State(db): State<DbState>,
+    Path((_project_id, task_id)): Path<(String, String)>,
+) -> impl IntoResponse {
+    info!("Getting checkpoints for task: {}", task_id);
+
+    // Get task to find its epic
+    let task_result = db.task_storage.get_task(&task_id).await;
+
+    let task = match task_result {
+        Ok(task) => task,
+        Err(e) => {
+            return ok_or_internal_error::<
+                Vec<orkee_ideate::ExecutionCheckpoint>,
+                orkee_storage::StorageError,
+            >(Err(e), "Failed to get task")
+        }
+    };
+
+    // If task has an epic_id, get epic checkpoints
+    if let Some(ref epic_id) = task.epic_id {
+        let tracker = ExecutionTracker::new(db.pool.clone());
+        let result = tracker.get_epic_checkpoints(epic_id).await;
+        ok_or_internal_error(result, "Failed to get task checkpoints")
+    } else {
+        // Task not part of an epic, no checkpoints
+        ok_or_internal_error::<Vec<orkee_ideate::ExecutionCheckpoint>, orkee_storage::StorageError>(
+            Ok(Vec::new()),
+            "No checkpoints",
+        )
+    }
 }

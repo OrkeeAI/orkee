@@ -505,6 +505,22 @@ impl TaskStorage {
             created_at: row.try_get("created_at")?,
             updated_at: row.try_get("updated_at")?,
 
+            // Phase 1 enhancement fields
+            relevant_files: row
+                .try_get::<Option<String>, _>("relevant_files")?
+                .and_then(|s| serde_json::from_str(&s).ok()),
+            similar_implementations: row.try_get("similar_implementations")?,
+            execution_steps: row
+                .try_get::<Option<String>, _>("execution_steps")?
+                .and_then(|s| serde_json::from_str(&s).ok()),
+            validation_history: row
+                .try_get::<Option<String>, _>("validation_history")?
+                .and_then(|s| serde_json::from_str(&s).ok()),
+            codebase_references: row
+                .try_get::<Option<String>, _>("codebase_references")?
+                .and_then(|s| serde_json::from_str(&s).ok()),
+            parent_task_id: row.try_get("parent_task_id")?,
+
             // CCPM Epic Integration
             epic_id: row.try_get("epic_id")?,
             github_issue_number: row.try_get("github_issue_number")?,

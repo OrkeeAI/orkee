@@ -264,6 +264,28 @@ impl PRDAggregator {
             research_tools_enabled: row.try_get::<i32, _>("research_tools_enabled").unwrap_or(0)
                 != 0,
             generated_prd_id: row.try_get("generated_prd_id").ok(),
+
+            // Phase 1 enhancement fields
+            non_goals: row.try_get("non_goals").ok(),
+            open_questions: row.try_get("open_questions").ok(),
+            constraints_assumptions: row.try_get("constraints_assumptions").ok(),
+            success_metrics: row.try_get("success_metrics").ok(),
+            alternative_approaches: row
+                .try_get::<Option<String>, _>("alternative_approaches")
+                .ok()
+                .flatten()
+                .and_then(|s| serde_json::from_str(&s).ok()),
+            validation_checkpoints: row
+                .try_get::<Option<String>, _>("validation_checkpoints")
+                .ok()
+                .flatten()
+                .and_then(|s| serde_json::from_str(&s).ok()),
+            codebase_context: row
+                .try_get::<Option<String>, _>("codebase_context")
+                .ok()
+                .flatten()
+                .and_then(|s| serde_json::from_str(&s).ok()),
+
             created_at: row
                 .try_get::<String, _>("created_at")
                 .ok()

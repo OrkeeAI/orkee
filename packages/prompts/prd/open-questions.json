@@ -1,0 +1,24 @@
+{
+  "id": "open-questions",
+  "name": "Open Questions and Clarifications",
+  "category": "prd",
+  "template": "Based on this project description:\n\n{{description}}\n\nIdentify OPEN QUESTIONS that need clarification before or during implementation. These are unknowns, ambiguities, or decisions that haven't been made yet.\n\nProvide a JSON array of open questions:\n\n[\n  {\n    "question": "Clear, specific question that needs answering",\n    \"category\": \"technical|product|ux|business\",\n    \"priority\": \"critical|high|medium|low\",\n    \"blocking\": \"List of features or tasks this blocks, or 'none'\",\n    \"possibleAnswers\": [\"Option 1\", \"Option 2\", \"Option 3\"],\n    \"needsStakeholderInput\": true|false,\n    \"researchRequired\": \"Brief description of what research is needed, or null\"\n  }\n]\n\nConsider questions about:\n1. Technical implementation choices that aren't obvious\n2. UX patterns or flows that have multiple valid approaches\n3. Business logic rules that need clarification\n4. Edge cases and error handling strategies\n5. Integration points and third-party service choices\n6. Data modeling decisions\n7. Performance or scaling requirements\n8. Security and privacy considerations\n\nPrioritize questions by:\n- Critical: Must be answered before starting implementation\n- High: Should be answered early in development\n- Medium: Can be answered during implementation\n- Low: Can be deferred or decided later\n\nMake questions specific and actionable.",
+  "parameters": ["description"],
+  "outputSchema": {
+    "type": "array",
+    "items": {
+      "question": "string",
+      "category": "string",
+      "priority": "string",
+      "blocking": "string",
+      "possibleAnswers": "array",
+      "needsStakeholderInput": "boolean",
+      "researchRequired": "string|null"
+    }
+  },
+  "metadata": {
+    "version": "1.0.0",
+    "lastModified": "2025-11-02",
+    "description": "Generate the Open Questions section to identify unknowns and ambiguities"
+  }
+}

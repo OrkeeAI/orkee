@@ -11,9 +11,12 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Label } from '@/components/ui/label';
 import { SectionNavigator } from './SectionNavigator';
 import { SectionProgress } from './SectionProgress';
 import { SkipDialog } from './SkipDialog';
+import { SectionValidationPanel } from './components/SectionValidationPanel';
 import { OverviewSection } from './sections/OverviewSection';
 import { UXSection } from './sections/UXSection';
 import { TechnicalSection } from './sections/TechnicalSection';
@@ -74,6 +77,11 @@ export function GuidedModeFlow({
   const [showPRDGenerator, setShowPRDGenerator] = useState(false);
   const [researchToolsEnabled, setResearchToolsEnabled] = useState(false);
   const [researchTab, setResearchTab] = useState<'competitors' | 'similar-projects' | 'expert-roundtable'>('competitors');
+
+  // Step validation state
+  const [enableStepValidation, setEnableStepValidation] = useState(true);
+  const [showValidation, setShowValidation] = useState(false);
+  const [currentSectionContent, setCurrentSectionContent] = useState('');
 
   const { data: session } = useIdeateSession(sessionId);
   const { data: status } = useIdeateStatus(sessionId);
@@ -158,6 +166,79 @@ export function GuidedModeFlow({
 
   const handleBackToSections = () => {
     setShowPRDGenerator(false);
+  };
+
+  const handleValidateBeforeNext = async () => {
+    if (!enableStepValidation) {
+      await handleNext();
+      return;
+    }
+
+    try {
+      // Fetch current section content from backend
+      const content = await fetchSectionContent(currentSection);
+      if (!content) {
+        toast.error('No content to validate. Please complete the section first.');
+        return;
+      }
+
+      setCurrentSectionContent(content);
+      setShowValidation(true);
+    } catch (error) {
+      console.error('Failed to fetch section content:', error);
+      toast.error('Failed to load section for validation');
+    }
+  };
+
+  const fetchSectionContent = async (section: SectionName): Promise<string> => {
+    try {
+      // Fetch section data from backend based on section type
+      switch (section) {
+        case 'overview': {
+          const data = await ideateService.getOverview(sessionId);
+          return data ? JSON.stringify(data, null, 2) : '';
+        }
+        case 'ux': {
+          const data = await ideateService.getUX(sessionId);
+          return data ? JSON.stringify(data, null, 2) : '';
+        }
+        case 'technical': {
+          const data = await ideateService.getTechnical(sessionId);
+          return data ? JSON.stringify(data, null, 2) : '';
+        }
+        case 'roadmap': {
+          const data = await ideateService.getRoadmap(sessionId);
+          return data ? JSON.stringify(data, null, 2) : '';
+        }
+        case 'dependencies': {
+          const data = await ideateService.getDependencies(sessionId);
+          return data ? JSON.stringify(data, null, 2) : '';
+        }
+        case 'risks': {
+          const data = await ideateService.getRisks(sessionId);
+          return data ? JSON.stringify(data, null, 2) : '';
+        }
+        case 'research': {
+          const data = await ideateService.getResearch(sessionId);
+          return data ? JSON.stringify(data, null, 2) : '';
+        }
+        default:
+          return '';
+      }
+    } catch (error) {
+      console.error(`Failed to fetch ${section} content:`, error);
+      return '';
+    }
+  };
+
+  const handleValidationContinue = () => {
+    setShowValidation(false);
+    handleNext();
+  };
+
+  const handleValidationRegenerate = () => {
+    setShowValidation(false);
+    toast.info(`Please regenerate the ${currentSection} section with AI assistance`);
   };
 
   const renderSection = () => {
@@ -275,7 +356,21 @@ export function GuidedModeFlow({
                 completionStatus={status}
               />
 
-              <div className="mt-auto pt-6 space-y-2">
+              {/* Step Validation Toggle */}
+              <div className="mt-auto pt-4 pb-2 space-y-3 border-t">
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="stepValidation"
+                    checked={enableStepValidation}
+                    onCheckedChange={(checked) => setEnableStepValidation(checked === true)}
+                  />
+                  <Label htmlFor="stepValidation" className="text-sm font-normal cursor-pointer">
+                    Validate each step (recommended)
+                  </Label>
+                </div>
+              </div>
+
+              <div className="space-y-2">
                 <Button
                   variant="outline"
                   size="sm"
@@ -311,8 +406,19 @@ export function GuidedModeFlow({
               </div>
 
               {/* Section Content */}
-              <div className="flex-1 overflow-y-auto p-6">
+              <div className="flex-1 overflow-y-auto p-6 space-y-4">
                 {renderSection()}
+
+                {/* Validation Panel (if enabled and validation triggered) */}
+                {showValidation && enableStepValidation && (
+                  <SectionValidationPanel
+                    sessionId={sessionId}
+                    sectionName={SECTIONS[currentIndex].label}
+                    sectionContent={currentSectionContent}
+                    onContinue={handleValidationContinue}
+                    onRegenerate={handleValidationRegenerate}
+                  />
+                )}
               </div>
 
               {/* Navigation Footer */}
@@ -336,10 +442,10 @@ export function GuidedModeFlow({
                   </Button>
 
                   <Button
-                    onClick={handleNext}
+                    onClick={handleValidateBeforeNext}
                     disabled={isLastSection || navigateMutation.isPending}
                   >
-                    Next
+                    {enableStepValidation ? 'Validate & Next' : 'Next'}
                     <ArrowLeft className="w-4 h-4 ml-2 rotate-180" />
                   </Button>
                 </div>

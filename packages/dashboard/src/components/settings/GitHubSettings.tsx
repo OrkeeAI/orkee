@@ -28,6 +28,7 @@ export function GitHubSettings({ projectId }: GitHubSettingsProps) {
 
   useEffect(() => {
     loadConfig();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId]);
 
   const loadConfig = async () => {

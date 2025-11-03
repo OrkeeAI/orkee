@@ -1,0 +1,17 @@
+{
+  "id": "success-metrics",
+  "name": "Success Metrics and KPIs",
+  "category": "prd",
+  "template": "Based on this project description:\n\n{{description}}\n\nDefine MEASURABLE SUCCESS METRICS that will determine if this project is successful. All metrics must be quantifiable and have specific targets.\n\nProvide a JSON object with categorized metrics:\n\n{\n  \"primaryMetrics\": [\n    {\n      \"metric\": \"Clear, measurable metric name\",\n      \"target\": \"Specific numeric target with units\",\n      \"timeframe\": \"Within X days/weeks/months of launch\",\n      \"measurementMethod\": \"How will we measure this?\",\n      \"rationale\": \"Why this metric matters for success\"\n    }\n  ],\n  \"secondaryMetrics\": [\n    {\n      \"metric\": \"Supporting metric name\",\n      \"target\": \"Specific numeric target\",\n      \"timeframe\": \"Time period\",\n      \"measurementMethod\": \"How to measure\",\n      \"rationale\": \"Why this matters\"\n    }\n  ],\n  \"qualitativeIndicators\": [\n    {\n      \"indicator\": \"Non-numeric success indicator\",\n      \"criteria\": \"What good looks like\",\n      \"validationMethod\": \"How to validate\"\n    }\n  ]\n}\n\nMetric categories to consider:\n1. User Engagement (DAU, MAU, session duration, feature usage)\n2. Performance (load time, response time, error rate)\n3. Business Impact (revenue, conversions, cost savings)\n4. User Satisfaction (NPS, CSAT, retention rate)\n5. Technical Quality (uptime, test coverage, bug rate)\n6. Adoption (signup rate, activation rate, feature adoption)\n\nRequirements for each metric:\n- Must be QUANTIFIABLE with specific numbers\n- Must have a TIME FRAME\n- Must have a clear MEASUREMENT METHOD\n- Should be REALISTIC and achievable\n- Should directly relate to project goals\n\nExamples of good metrics:\n✅ \"Reduce page load time to <2 seconds within 30 days\"\n✅ \"Achieve 500 DAU within 3 months of launch\"\n✅ \"Maintain 99.9% uptime over 6 month period\"\n\nExamples of bad metrics:\n❌ \"Users will be happy\" (not measurable)\n❌ \"Fast performance\" (no specific target)\n❌ \"Good adoption\" (no timeframe or number)",
+  "parameters": ["description"],
+  "outputSchema": {
+    "primaryMetrics": "array",
+    "secondaryMetrics": "array",
+    "qualitativeIndicators": "array"
+  },
+  "metadata": {
+    "version": "1.0.0",
+    "lastModified": "2025-11-02",
+    "description": "Generate quantifiable Success Metrics to measure project success"
+  }
+}

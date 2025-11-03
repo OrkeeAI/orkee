@@ -1,13 +1,18 @@
 // ABOUTME: Orkee ideate library - brainstorming and PRD ideation functionality
 // ABOUTME: Provides session management, section handling, and PRD generation support
 
+pub mod approach_generator;
 pub mod build_optimizer;
 pub mod chat;
 pub mod chat_manager;
+pub mod codebase_analyzer;
+pub mod complexity_analyzer;
 pub mod dependency_analyzer;
+pub mod discovery_manager;
 pub mod epic;
 pub mod epic_manager;
 pub mod error;
+pub mod execution_tracker;
 pub mod expert_moderator;
 pub mod export_service;
 pub mod github_sync;
@@ -22,21 +27,32 @@ pub mod roundtable_manager;
 pub mod task_decomposer;
 pub mod templates;
 pub mod types;
+pub mod validation;
 
+pub use approach_generator::{
+    ApproachComparison, ApproachGenerator, ComplexityLevel, TechnicalApproach,
+};
 pub use build_optimizer::{
     BuildOptimizer, BuildOrderResult, CircularDependency, CircularDependencySeverity,
     OptimizationStrategy,
 };
 pub use chat::{
-    ConversationInsight, ConversationMessage, CreateInsightInput, DiscoveryQuestion,
-    DiscoveryStatus, GeneratePRDFromConversationInput, GeneratePRDFromConversationResult,
-    InsightType, MessageRole, MessageType, QualityMetrics, QuestionCategory, SendMessageInput,
-    TopicCoverage, ValidationResult,
+    ChatInsight, ChatMessage, CreateInsightInput, DiscoveryQuestion, DiscoveryStatus,
+    GeneratePRDFromChatInput, GeneratePRDFromChatResult, InsightType, MessageRole, MessageType,
+    QualityMetrics, QuestionCategory, SendMessageInput, TopicCoverage, ValidationResult,
 };
 pub use chat_manager::ChatManager;
+pub use codebase_analyzer::{
+    ArchitectureStyle, CodebaseAnalyzer, CodebaseContext, FileStructure, Pattern, PatternType,
+    ReusableComponent, SimilarFeature, TechStack,
+};
+pub use complexity_analyzer::{ComplexityAnalyzer, ComplexityFactors, ComplexityReport};
 pub use dependency_analyzer::{
     CreateDependencyInput, DependencyAnalysis, DependencyAnalyzer, DependencyStrength,
     DependencyType, FeatureDependency,
+};
+pub use discovery_manager::{
+    DiscoveryAnswer, DiscoveryManager, Question, QuestionType, SessionContext,
 };
 pub use epic::{
     ArchitectureDecision, ConflictAnalysis, CreateEpicInput, DependencyGraph, Epic, EpicComplexity,
@@ -45,6 +61,10 @@ pub use epic::{
 };
 pub use epic_manager::EpicManager;
 pub use error::{IdeateError, Result};
+pub use execution_tracker::{
+    AppendProgressInput, CheckpointType, CreateCheckpointInput, ExecutionCheckpoint,
+    ExecutionTracker, ValidationEntry, ValidationEntryType,
+};
 pub use expert_moderator::ExpertModerator;
 pub use export_service::{ExportFormat, ExportOptions, ExportResult, ExportService};
 pub use github_sync::{
@@ -66,11 +86,12 @@ pub use roundtable::{
 };
 pub use roundtable_manager::RoundtableManager;
 pub use task_decomposer::{
-    DecomposeEpicInput, DecompositionResult, ParallelGroup, TaskCategory, TaskDecomposer,
-    TaskTemplate,
+    DecomposeEpicInput, DecompositionResult, FileOperation, FileReference, ParallelGroup,
+    ParentTask, TaskCategory, TaskDecomposer, TaskStep, TaskTemplate,
 };
 pub use templates::TemplateManager;
 pub use types::*;
+pub use validation::{PRDSection, PRDValidator, ValidationResult as PRDValidationResult};
 
 /// Re-export commonly used types
 pub mod prelude {

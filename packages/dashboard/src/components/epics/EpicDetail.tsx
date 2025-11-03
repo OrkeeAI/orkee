@@ -14,6 +14,8 @@ import { TaskBreakdown } from './TaskBreakdown';
 import { DependencyView } from './DependencyView';
 import { WorkStreamAnalysis } from './WorkStreamAnalysis';
 import { GitHubSyncStatus } from './GitHubSyncStatus';
+import { ParentTaskReview } from './ParentTaskReview';
+import { ComplexityDisplay } from './ComplexityDisplay';
 
 interface EpicDetailProps {
   epic: Epic;
@@ -144,11 +146,12 @@ export function EpicDetail({ epic, onEdit, onGenerateTasks, onSyncSuccess, decom
 
       {/* Main Content Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-8">
+        <TabsList className="grid w-full grid-cols-9">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="architecture">Architecture</TabsTrigger>
           <TabsTrigger value="dependencies">Dependencies</TabsTrigger>
           <TabsTrigger value="success">Success Criteria</TabsTrigger>
+          <TabsTrigger value="planning">Planning</TabsTrigger>
           <TabsTrigger value="tasks">Task Breakdown</TabsTrigger>
           <TabsTrigger value="deps">Dependencies</TabsTrigger>
           <TabsTrigger value="streams">Work Streams</TabsTrigger>
@@ -343,6 +346,25 @@ export function EpicDetail({ epic, onEdit, onGenerateTasks, onSyncSuccess, decom
               </CardContent>
             </Card>
           )}
+        </TabsContent>
+
+        {/* Planning Tab - Parent Tasks & Complexity */}
+        <TabsContent value="planning" className="space-y-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div>
+              <ComplexityDisplay report={null} />
+            </div>
+            <div>
+              <ParentTaskReview
+                parentTasks={[]}
+                estimatedTotalTasks={0}
+                complexity={5}
+                onTasksChange={() => {}}
+                onGenerateDetailedTasks={() => {}}
+                isGenerating={false}
+              />
+            </div>
+          </div>
         </TabsContent>
 
         {/* Task Breakdown Tab */}

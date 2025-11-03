@@ -1,4 +1,4 @@
-// ABOUTME: Main conversation view component with message display and input
+// ABOUTME: Main chat view component with message display and input
 // ABOUTME: Handles message rendering, auto-scroll, and user input submission
 
 import React, { useRef, useEffect, useState } from 'react';

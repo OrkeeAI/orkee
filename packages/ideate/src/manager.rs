@@ -24,7 +24,9 @@ impl IdeateManager {
         let session = sqlx::query(
             "INSERT INTO ideate_sessions (id, project_id, initial_description, mode, status, research_tools_enabled, created_at, updated_at)
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-             RETURNING id, project_id, initial_description, mode, status, skipped_sections, current_section, research_tools_enabled, generated_prd_id, created_at, updated_at"
+             RETURNING id, project_id, initial_description, mode, status, skipped_sections, current_section, research_tools_enabled, generated_prd_id,
+                       non_goals, open_questions, constraints_assumptions, success_metrics, alternative_approaches, validation_checkpoints, codebase_context,
+                       created_at, updated_at"
         )
         .bind(&id)
         .bind(&input.project_id)
@@ -49,6 +51,22 @@ impl IdeateManager {
             current_section: session.get("current_section"),
             research_tools_enabled: session.get::<i32, _>("research_tools_enabled") != 0,
             generated_prd_id: session.get("generated_prd_id"),
+
+            // Phase 1 enhancement fields
+            non_goals: session.get("non_goals"),
+            open_questions: session.get("open_questions"),
+            constraints_assumptions: session.get("constraints_assumptions"),
+            success_metrics: session.get("success_metrics"),
+            alternative_approaches: session
+                .get::<Option<String>, _>("alternative_approaches")
+                .and_then(|s| serde_json::from_str(&s).ok()),
+            validation_checkpoints: session
+                .get::<Option<String>, _>("validation_checkpoints")
+                .and_then(|s| serde_json::from_str(&s).ok()),
+            codebase_context: session
+                .get::<Option<String>, _>("codebase_context")
+                .and_then(|s| serde_json::from_str(&s).ok()),
+
             created_at: session.get("created_at"),
             updated_at: session.get("updated_at"),
         })
@@ -57,7 +75,9 @@ impl IdeateManager {
     /// Get a session by ID
     pub async fn get_session(&self, session_id: &str) -> Result<IdeateSession> {
         let session = sqlx::query(
-            "SELECT id, project_id, initial_description, mode, status, skipped_sections, current_section, research_tools_enabled, generated_prd_id, created_at, updated_at
+            "SELECT id, project_id, initial_description, mode, status, skipped_sections, current_section, research_tools_enabled, generated_prd_id,
+                    non_goals, open_questions, constraints_assumptions, success_metrics, alternative_approaches, validation_checkpoints, codebase_context,
+                    created_at, updated_at
              FROM ideate_sessions
              WHERE id = $1"
         )
@@ -78,6 +98,22 @@ impl IdeateManager {
             current_section: session.get("current_section"),
             research_tools_enabled: session.get::<i32, _>("research_tools_enabled") != 0,
             generated_prd_id: session.get("generated_prd_id"),
+
+            // Phase 1 enhancement fields
+            non_goals: session.get("non_goals"),
+            open_questions: session.get("open_questions"),
+            constraints_assumptions: session.get("constraints_assumptions"),
+            success_metrics: session.get("success_metrics"),
+            alternative_approaches: session
+                .get::<Option<String>, _>("alternative_approaches")
+                .and_then(|s| serde_json::from_str(&s).ok()),
+            validation_checkpoints: session
+                .get::<Option<String>, _>("validation_checkpoints")
+                .and_then(|s| serde_json::from_str(&s).ok()),
+            codebase_context: session
+                .get::<Option<String>, _>("codebase_context")
+                .and_then(|s| serde_json::from_str(&s).ok()),
+
             created_at: session.get("created_at"),
             updated_at: session.get("updated_at"),
         })
@@ -86,7 +122,9 @@ impl IdeateManager {
     /// List sessions for a project
     pub async fn list_sessions(&self, project_id: &str) -> Result<Vec<IdeateSession>> {
         let sessions = sqlx::query(
-            "SELECT id, project_id, initial_description, mode, status, skipped_sections, current_section, research_tools_enabled, generated_prd_id, created_at, updated_at
+            "SELECT id, project_id, initial_description, mode, status, skipped_sections, current_section, research_tools_enabled, generated_prd_id,
+                    non_goals, open_questions, constraints_assumptions, success_metrics, alternative_approaches, validation_checkpoints, codebase_context,
+                    created_at, updated_at
              FROM ideate_sessions
              WHERE project_id = $1
              ORDER BY created_at DESC"
@@ -110,6 +148,22 @@ impl IdeateManager {
                     current_section: row.get("current_section"),
                     research_tools_enabled: row.get::<i32, _>("research_tools_enabled") != 0,
                     generated_prd_id: row.get("generated_prd_id"),
+
+                    // Phase 1 enhancement fields
+                    non_goals: row.get("non_goals"),
+                    open_questions: row.get("open_questions"),
+                    constraints_assumptions: row.get("constraints_assumptions"),
+                    success_metrics: row.get("success_metrics"),
+                    alternative_approaches: row
+                        .get::<Option<String>, _>("alternative_approaches")
+                        .and_then(|s| serde_json::from_str(&s).ok()),
+                    validation_checkpoints: row
+                        .get::<Option<String>, _>("validation_checkpoints")
+                        .and_then(|s| serde_json::from_str(&s).ok()),
+                    codebase_context: row
+                        .get::<Option<String>, _>("codebase_context")
+                        .and_then(|s| serde_json::from_str(&s).ok()),
+
                     created_at: row.get("created_at"),
                     updated_at: row.get("updated_at"),
                 })
@@ -202,6 +256,22 @@ impl IdeateManager {
             current_section: session.get("current_section"),
             research_tools_enabled: session.get::<i32, _>("research_tools_enabled") != 0,
             generated_prd_id: session.get("generated_prd_id"),
+
+            // Phase 1 enhancement fields
+            non_goals: session.get("non_goals"),
+            open_questions: session.get("open_questions"),
+            constraints_assumptions: session.get("constraints_assumptions"),
+            success_metrics: session.get("success_metrics"),
+            alternative_approaches: session
+                .get::<Option<String>, _>("alternative_approaches")
+                .and_then(|s| serde_json::from_str(&s).ok()),
+            validation_checkpoints: session
+                .get::<Option<String>, _>("validation_checkpoints")
+                .and_then(|s| serde_json::from_str(&s).ok()),
+            codebase_context: session
+                .get::<Option<String>, _>("codebase_context")
+                .and_then(|s| serde_json::from_str(&s).ok()),
+
             created_at: session.get("created_at"),
             updated_at: session.get("updated_at"),
         })

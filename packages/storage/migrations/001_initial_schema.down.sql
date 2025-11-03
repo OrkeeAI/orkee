@@ -111,14 +111,27 @@ DROP TABLE IF EXISTS expert_personas;
 
 -- Research Analysis Cache
 DROP TABLE IF EXISTS competitor_analysis_cache;
+DROP TABLE IF EXISTS complexity_analysis_cache;
+DROP TABLE IF EXISTS codebase_context_cache;
+DROP TABLE IF EXISTS validation_score_cache;
 
 -- Chat Mode (CCPM) tables
-DROP TABLE IF EXISTS conversation_insights;
+DROP TABLE IF EXISTS chat_insights;
+
+-- Phase 1 Enhancement tables
+DROP TABLE IF EXISTS prd_validation_history;
+DROP TABLE IF EXISTS discovery_sessions;
+DROP TABLE IF EXISTS task_complexity_reports;
+
+-- Phase 5 Enhancement tables
+DROP TABLE IF EXISTS validation_entries;
+DROP TABLE IF EXISTS execution_checkpoints;
+
 DROP TABLE IF EXISTS discovery_questions;
 DROP TABLE IF EXISTS work_analysis;
 DROP TABLE IF EXISTS github_sync;
 DROP TABLE IF EXISTS epics;
-DROP TABLE IF EXISTS prd_conversations;
+DROP TABLE IF EXISTS prd_chats;
 
 -- Ideate core tables
 DROP TABLE IF EXISTS prd_quickstart_templates;

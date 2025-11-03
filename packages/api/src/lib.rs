@@ -13,6 +13,7 @@ pub mod ai_handlers;
 pub mod ai_proxy_handlers;
 pub mod ai_usage_log_handlers;
 pub mod auth;
+pub mod epic_approaches_handlers;
 pub mod epic_handlers;
 pub mod executions_handlers;
 pub mod github_sync_handlers;
@@ -20,10 +21,12 @@ pub mod graph_handlers;
 pub mod handlers;
 pub mod ideate_chat_handlers;
 pub mod ideate_dependency_handlers;
+pub mod ideate_discovery_handlers;
 pub mod ideate_generation_handlers;
 pub mod ideate_handlers;
 pub mod ideate_research_handlers;
 pub mod ideate_roundtable_handlers;
+pub mod ideate_validation_handlers;
 pub mod models_handlers;
 pub mod prd_handlers;
 pub mod response;
@@ -65,6 +68,23 @@ pub fn create_tasks_router() -> Router<DbState> {
         .route("/{task_id}", get(tasks_handlers::get_task))
         .route("/{task_id}", put(tasks_handlers::update_task))
         .route("/{task_id}", delete(tasks_handlers::delete_task))
+        // Task Execution Tracking routes (Phase 6A.6 CCPM)
+        .route(
+            "/{task_id}/generate-steps",
+            post(tasks_handlers::generate_task_steps),
+        )
+        .route(
+            "/{task_id}/append-progress",
+            post(tasks_handlers::append_task_progress),
+        )
+        .route(
+            "/{task_id}/validation-history",
+            get(tasks_handlers::get_task_validation_history),
+        )
+        .route(
+            "/{task_id}/checkpoints",
+            get(tasks_handlers::get_task_checkpoints),
+        )
 }
 
 /// Creates the agents API router
@@ -209,6 +229,54 @@ pub fn create_epics_router() -> Router<DbState> {
         .route(
             "/{project_id}/epics/{epic_id}/decompose",
             post(task_decomposition_handlers::decompose_epic),
+        )
+        // Two-phase task generation endpoints
+        .route(
+            "/{project_id}/epics/{epic_id}/decompose-phase1",
+            post(task_decomposition_handlers::decompose_phase1),
+        )
+        .route(
+            "/{project_id}/epics/{epic_id}/parent-tasks",
+            get(task_decomposition_handlers::get_parent_tasks),
+        )
+        .route(
+            "/{project_id}/epics/{epic_id}/parent-tasks",
+            put(task_decomposition_handlers::update_parent_tasks),
+        )
+        .route(
+            "/{project_id}/epics/{epic_id}/decompose-phase2",
+            post(task_decomposition_handlers::decompose_phase2),
+        )
+        // Epic Alternative Approaches routes (Phase 6A.3 CCPM)
+        .route(
+            "/{project_id}/epics/{epic_id}/generate-alternatives",
+            post(epic_approaches_handlers::generate_alternatives),
+        )
+        .route(
+            "/{project_id}/epics/{epic_id}/alternatives",
+            get(epic_approaches_handlers::get_alternatives),
+        )
+        .route(
+            "/{project_id}/epics/{epic_id}/select-approach",
+            put(epic_approaches_handlers::select_approach),
+        )
+        // Epic Complexity & Simplification routes (Phase 6A.4 CCPM)
+        .route(
+            "/{project_id}/epics/{epic_id}/analyze-complexity",
+            post(epic_handlers::analyze_complexity),
+        )
+        .route(
+            "/{project_id}/epics/{epic_id}/simplify",
+            post(epic_handlers::simplify_epic),
+        )
+        .route(
+            "/{project_id}/epics/{epic_id}/leverage-analysis",
+            get(epic_handlers::get_leverage_analysis),
+        )
+        // Epic Execution Tracking routes (Phase 6A.6 CCPM)
+        .route(
+            "/{project_id}/epics/{epic_id}/checkpoints",
+            post(epic_handlers::generate_epic_checkpoints),
         )
 }
 
@@ -586,6 +654,36 @@ pub fn create_ideate_router() -> Router<DbState> {
         .route(
             "/ideate/chat/{session_id}/validate",
             get(ideate_chat_handlers::validate_for_prd),
+        )
+        // Discovery & Codebase Analysis routes (Phase 6A.1 CCPM)
+        .route(
+            "/ideate/sessions/{id}/analyze-codebase",
+            post(ideate_discovery_handlers::analyze_codebase),
+        )
+        .route(
+            "/ideate/sessions/{id}/codebase-context",
+            get(ideate_discovery_handlers::get_codebase_context),
+        )
+        .route(
+            "/ideate/sessions/{id}/next-question",
+            post(ideate_discovery_handlers::get_next_question),
+        )
+        .route(
+            "/ideate/sessions/{id}/discovery-progress",
+            get(ideate_discovery_handlers::get_discovery_progress),
+        )
+        // PRD Validation routes (Phase 6A.2 CCPM)
+        .route(
+            "/ideate/sessions/{id}/validate-section/{section}",
+            post(ideate_validation_handlers::validate_section),
+        )
+        .route(
+            "/ideate/sessions/{id}/quality-score",
+            get(ideate_validation_handlers::get_quality_score),
+        )
+        .route(
+            "/ideate/sessions/{id}/validation-history",
+            post(ideate_validation_handlers::store_validation_feedback),
         )
 }
 

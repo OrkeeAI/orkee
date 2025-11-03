@@ -4,12 +4,12 @@
 import { useState, useEffect, useCallback } from 'react';
 import { chatService, ChatMessage, QualityMetrics } from '@/services/chat';
 
-export interface UseConversationOptions {
+export interface UseChatOptions {
   sessionId: string;
   autoLoadHistory?: boolean;
 }
 
-export function useChat({ sessionId, autoLoadHistory = true }: UseConversationOptions) {
+export function useChat({ sessionId, autoLoadHistory = true }: UseChatOptions) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isSending, setIsSending] = useState(false);
@@ -23,7 +23,7 @@ export function useChat({ sessionId, autoLoadHistory = true }: UseConversationOp
       const history = await chatService.getHistory(sessionId);
       setMessages(history);
     } catch (err) {
-      setError(err instanceof Error ? err : new Error('Failed to load conversation history'));
+      setError(err instanceof Error ? err : new Error('Failed to load chat history'));
     } finally {
       setIsLoading(false);
     }

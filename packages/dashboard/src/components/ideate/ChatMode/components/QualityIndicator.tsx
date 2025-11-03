@@ -48,7 +48,7 @@ export function QualityIndicator({ metrics, className }: QualityIndicatorProps) 
   return (
     <div className={cn('bg-card rounded-lg border p-4 space-y-4', className)}>
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-medium">Conversation Quality</h3>
+        <h3 className="text-sm font-medium">Chat Quality</h3>
         <Badge
           variant={metrics.is_ready_for_prd ? 'default' : 'secondary'}
           className={cn(
