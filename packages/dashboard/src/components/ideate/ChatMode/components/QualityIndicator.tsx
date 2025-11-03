@@ -4,7 +4,7 @@
 import React from 'react';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
-import { CheckCircle2, Circle, AlertCircle } from 'lucide-react';
+import { CheckCircle2, Circle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { QualityMetrics } from '@/services/chat';
 
@@ -24,12 +24,20 @@ const COVERAGE_LABELS: Record<keyof QualityMetrics['coverage'], string> = {
 };
 
 export function QualityIndicator({ metrics, className }: QualityIndicatorProps) {
-  if (!metrics) {
-    return null;
-  }
+  // Default empty coverage when no metrics available
+  const defaultCoverage = {
+    problem: false,
+    users: false,
+    features: false,
+    technical: false,
+    risks: false,
+    constraints: false,
+    success: false,
+  };
 
-  const coverageItems = Object.entries(metrics.coverage) as [
-    keyof QualityMetrics['coverage'],
+  const coverage = metrics?.coverage ?? defaultCoverage;
+  const coverageItems = Object.entries(coverage) as [
+    keyof typeof coverage,
     boolean
   ][];
 
@@ -45,28 +53,31 @@ export function QualityIndicator({ metrics, className }: QualityIndicatorProps) 
     return 'bg-red-600';
   };
 
+  const qualityScore = metrics?.quality_score ?? 0;
+  const isReadyForPRD = metrics?.is_ready_for_prd ?? false;
+
   return (
     <div className={cn('bg-card rounded-lg border p-4 space-y-4', className)}>
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-medium">Chat Quality</h3>
         <Badge
-          variant={metrics.is_ready_for_prd ? 'default' : 'secondary'}
+          variant={isReadyForPRD ? 'default' : 'secondary'}
           className={cn(
-            metrics.is_ready_for_prd && 'bg-green-600 hover:bg-green-700'
+            isReadyForPRD && 'bg-green-600 hover:bg-green-700'
           )}
         >
-          {metrics.is_ready_for_prd ? 'Ready for PRD' : 'Keep Exploring'}
+          {isReadyForPRD ? 'Ready for PRD' : 'Keep Exploring'}
         </Badge>
       </div>
 
       <div className="space-y-2">
         <div className="flex items-center justify-between text-sm">
           <span className="text-muted-foreground">Quality Score</span>
-          <span className={cn('font-semibold', getScoreColor(metrics.quality_score))}>
-            {metrics.quality_score}%
+          <span className={cn('font-semibold', getScoreColor(qualityScore))}>
+            {qualityScore}%
           </span>
         </div>
-        <Progress value={metrics.quality_score} className={getProgressColor(metrics.quality_score)} />
+        <Progress value={qualityScore} className={getProgressColor(qualityScore)} />
       </div>
 
       <div className="space-y-2">
@@ -88,22 +99,6 @@ export function QualityIndicator({ metrics, className }: QualityIndicatorProps) 
           ))}
         </div>
       </div>
-
-      {metrics.missing_areas.length > 0 && (
-        <div className="pt-2 border-t space-y-2">
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <AlertCircle className="h-4 w-4" />
-            <span>Consider discussing:</span>
-          </div>
-          <ul className="text-sm space-y-1 pl-6">
-            {metrics.missing_areas.map((area, index) => (
-              <li key={index} className="text-muted-foreground list-disc">
-                {area}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
     </div>
   );
 }

@@ -11,9 +11,9 @@ use tracing::{error, info, warn};
 
 use super::response::ok_or_internal_error;
 use orkee_ideate::{
-    ChatManager, CreateInsightInput, DiscoveryQuestion, DiscoveryStatus, GeneratePRDFromChatInput,
-    GeneratePRDFromChatResult, MessageRole, QualityMetrics, QuestionCategory, SendMessageInput,
-    TopicCoverage, ValidationResult,
+    extract_insights_with_ai, ChatManager, CreateInsightInput, DiscoveryQuestion, DiscoveryStatus,
+    GeneratePRDFromChatInput, GeneratePRDFromChatResult, MessageRole, QualityMetrics,
+    QuestionCategory, SendMessageInput, TopicCoverage, ValidationResult,
 };
 use orkee_projects::DbState;
 
@@ -47,11 +47,20 @@ pub async fn send_message(
     // Frontend can send Assistant messages after AI streaming
     let role = input.role.unwrap_or(MessageRole::User);
 
-    let result = manager
-        .add_message(&session_id, role, input.content, input.message_type, None)
+    let message_result = manager
+        .add_message(
+            &session_id,
+            role.clone(),
+            input.content.clone(),
+            input.message_type,
+            None,
+        )
         .await;
 
-    ok_or_internal_error(result, "Failed to send message")
+    // Note: Insight extraction is now handled by the frontend after AI streaming completes
+    // This ensures the user's selected model is used for extraction (Phase 6)
+
+    ok_or_internal_error(message_result, "Failed to send message")
 }
 
 /// Query parameters for suggested questions
@@ -427,4 +436,160 @@ pub async fn validate_for_prd(
         Ok::<_, orkee_ideate::IdeateError>(validation),
         "Failed to validate chat",
     )
+}
+
+/// Re-analyze entire session history to extract insights
+pub async fn reanalyze_insights(
+    State(db): State<DbState>,
+    Path(session_id): Path<String>,
+) -> impl IntoResponse {
+    info!("Re-analyzing insights for session: {}", session_id);
+
+    let manager = ChatManager::new(db.pool.clone());
+
+    // Get all messages in the session
+    let history = match manager.get_history(&session_id).await {
+        Ok(h) => h,
+        Err(e) => {
+            error!("Failed to get chat history: {}", e);
+            return ok_or_internal_error(Err::<(), _>(e), "Failed to get chat history");
+        }
+    };
+
+    if history.is_empty() {
+        return ok_or_internal_error(
+            Ok::<(), orkee_ideate::IdeateError>(()),
+            "No messages to analyze",
+        );
+    }
+
+    // Get existing insights for deduplication
+    let _existing_insights = manager.get_insights(&session_id).await.unwrap_or_default();
+
+    let mut extracted_count = 0;
+    let mut error_count = 0;
+    let total_messages = history.len();
+
+    // Process each user and assistant message
+    for message in history {
+        if message.role != MessageRole::User && message.role != MessageRole::Assistant {
+            continue;
+        }
+
+        // Build context from surrounding messages (last 5)
+        let history_clone = match manager.get_history(&session_id).await {
+            Ok(h) => h,
+            Err(_) => continue,
+        };
+        let context: Vec<String> = history_clone
+            .iter()
+            .rev()
+            .take(5)
+            .map(|msg| msg.content.clone())
+            .collect();
+
+        // Re-fetch existing insights to include newly extracted ones
+        let current_insights = manager.get_insights(&session_id).await.unwrap_or_default();
+
+        // Extract insights from this message
+        match extract_insights_with_ai(&message.content, &context, &current_insights).await {
+            Ok(insights) => {
+                info!(
+                    "Extracted {} insights from message {}",
+                    insights.len(),
+                    message.id
+                );
+
+                for mut insight in insights {
+                    // Populate source_message_ids
+                    insight.source_message_ids = Some(vec![message.id.clone()]);
+
+                    if let Err(e) = manager.create_insight(&session_id, insight).await {
+                        warn!("Failed to save insight: {}", e);
+                        error_count += 1;
+                    } else {
+                        extracted_count += 1;
+                    }
+                }
+            }
+            Err(e) => {
+                warn!(
+                    "Failed to extract insights from message {}: {}",
+                    message.id, e
+                );
+                error_count += 1;
+            }
+        }
+    }
+
+    info!(
+        "Re-analysis complete: {} insights extracted, {} errors",
+        extracted_count, error_count
+    );
+
+    #[derive(serde::Serialize)]
+    struct ReanalysisResult {
+        extracted_count: usize,
+        error_count: usize,
+        total_messages_processed: usize,
+    }
+
+    ok_or_internal_error(
+        Ok::<ReanalysisResult, orkee_ideate::IdeateError>(ReanalysisResult {
+            extracted_count,
+            error_count,
+            total_messages_processed: total_messages,
+        }),
+        "Failed to re-analyze insights",
+    )
+}
+
+/// AI-powered insight extraction with context awareness and deduplication
+#[allow(dead_code)]
+async fn extract_and_save_insights(
+    manager: &ChatManager,
+    session_id: &str,
+    message_content: &str,
+    message_id: &str,
+) -> Result<(), orkee_ideate::IdeateError> {
+    info!(
+        "Extracting insights with AI for session: {} (message: {})",
+        session_id, message_id
+    );
+
+    // Get recent message history for context (last 5 messages)
+    let history = manager.get_history(session_id).await.unwrap_or_default();
+    let context: Vec<String> = history
+        .iter()
+        .rev()
+        .take(5)
+        .map(|msg| msg.content.clone())
+        .collect();
+
+    // Get existing insights for deduplication
+    let existing_insights = manager.get_insights(session_id).await.unwrap_or_default();
+
+    // Extract insights using AI with deduplication
+    match extract_insights_with_ai(message_content, &context, &existing_insights).await {
+        Ok(insights) => {
+            info!("AI extracted {} new insights", insights.len());
+
+            // Save each insight to database with source_message_ids populated
+            for mut insight in insights {
+                // Populate source_message_ids with the current message ID
+                insight.source_message_ids = Some(vec![message_id.to_string()]);
+
+                if let Err(e) = manager.create_insight(session_id, insight).await {
+                    warn!("Failed to save insight: {}", e);
+                }
+            }
+
+            Ok(())
+        }
+        Err(e) => {
+            warn!("AI insight extraction failed: {}", e);
+            // Don't fail the whole message send if extraction fails
+            Ok(())
+        }
+    }
 }

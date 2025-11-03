@@ -2,7 +2,10 @@
 // ABOUTME: Provides test server setup, database helpers, and HTTP client utilities
 
 use orkee_api::{
-    create_ai_router, create_ai_usage_router, create_ideate_router, create_prds_router,
+    // create_ai_router, // Phase 6: Removed - AI calls now client-side
+    create_ai_usage_router,
+    create_ideate_router,
+    create_prds_router,
 };
 use orkee_projects::DbState;
 use sqlx::SqlitePool;
@@ -57,9 +60,10 @@ pub async fn setup_test_server() -> TestContext {
     let db_state = DbState::new(pool.clone()).expect("Failed to create DbState");
 
     // Use the same pattern as the main CLI: start with one router, merge others
+    // Phase 6: Removed create_ai_router() - AI handler functions moved to frontend
     let app = create_prds_router()
         .merge(create_ideate_router())
-        .merge(create_ai_router())
+        // .merge(create_ai_router())
         .merge(create_ai_usage_router())
         .with_state(db_state);
 

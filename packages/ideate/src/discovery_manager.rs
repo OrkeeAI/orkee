@@ -18,6 +18,17 @@ pub enum QuestionType {
     YesNo,
 }
 
+/// Answer format for the question
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, sqlx::Type)]
+#[sqlx(type_name = "TEXT", rename_all = "lowercase")]
+#[serde(rename_all = "lowercase")]
+pub enum AnswerFormat {
+    Open,   // Free text
+    Letter, // A, B, C, D for multiple choice
+    Number, // 1, 2 for yes/no
+    Scale,  // 1-5 for scale questions
+}
+
 /// A discovery question with context
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Question {
@@ -26,6 +37,18 @@ pub struct Question {
     pub options: Option<Vec<String>>,
     pub category: QuestionCategory,
     pub can_skip: bool,
+    pub answer_format: AnswerFormat,
+    pub formatted_options: Option<Vec<FormattedOption>>,
+    pub question_number: Option<i32>,
+    pub total_questions: Option<i32>,
+}
+
+/// Formatted option with letter/number prefix
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FormattedOption {
+    pub prefix: String, // "A", "B", "C" or "1", "2"
+    pub text: String,
+    pub value: String, // Original value for backend
 }
 
 /// Context for generating the next question
@@ -59,38 +82,81 @@ impl Question {
             options: None,
             category,
             can_skip: false,
+            answer_format: AnswerFormat::Open,
+            formatted_options: None,
+            question_number: None,
+            total_questions: None,
         }
     }
 
-    /// Create a multiple choice question
+    /// Create a multiple choice question with letter formatting (A, B, C, D)
     pub fn multiple_choice(
         text: impl Into<String>,
         options: Vec<String>,
         category: QuestionCategory,
     ) -> Self {
+        let formatted_options: Vec<FormattedOption> = options
+            .iter()
+            .enumerate()
+            .map(|(i, opt)| FormattedOption {
+                prefix: format!("{}", (b'A' + i as u8) as char),
+                text: opt.clone(),
+                value: opt.clone(),
+            })
+            .collect();
+
         Self {
             question_text: text.into(),
             question_type: QuestionType::MultipleChoice,
             options: Some(options),
             category,
             can_skip: false,
+            answer_format: AnswerFormat::Letter,
+            formatted_options: Some(formatted_options),
+            question_number: None,
+            total_questions: None,
         }
     }
 
-    /// Create a yes/no question
+    /// Create a yes/no question with number formatting (1, 2)
     pub fn yes_no(text: impl Into<String>, category: QuestionCategory) -> Self {
+        let options = vec!["Yes".to_string(), "No".to_string()];
+        let formatted_options = vec![
+            FormattedOption {
+                prefix: "1".to_string(),
+                text: "Yes".to_string(),
+                value: "Yes".to_string(),
+            },
+            FormattedOption {
+                prefix: "2".to_string(),
+                text: "No".to_string(),
+                value: "No".to_string(),
+            },
+        ];
+
         Self {
             question_text: text.into(),
             question_type: QuestionType::YesNo,
-            options: Some(vec!["Yes".to_string(), "No".to_string()]),
+            options: Some(options),
             category,
             can_skip: false,
+            answer_format: AnswerFormat::Number,
+            formatted_options: Some(formatted_options),
+            question_number: None,
+            total_questions: None,
         }
     }
 
     /// Make this question skippable
     pub fn skippable(mut self) -> Self {
         self.can_skip = true;
+        self
+    }
+
+    /// Set the question number and total
+    pub fn with_progress(mut self, number: i32, total: i32) -> Self {
+        self.question_number = Some(number);
+        self.total_questions = Some(total);
         self
     }
 }
@@ -111,9 +177,13 @@ impl DiscoveryManager {
 
         // Get session context
         let context = self.get_session_context(session_id).await?;
+        let question_number = context.total_questions_asked;
+
+        // Estimate total questions (minimum 7, maximum based on discovery status)
+        let estimated_total = 10;
 
         // Determine next question based on what we've already asked
-        let question = match context.total_questions_asked {
+        let mut question = match question_number {
             0 => Question::open(
                 "What problem are you trying to solve?",
                 QuestionCategory::Problem,
@@ -160,8 +230,11 @@ impl DiscoveryManager {
             _ => self.generate_contextual_question(&context).await?,
         };
 
+        // Add progress information
+        question = question.with_progress(question_number as i32 + 1, estimated_total);
+
         // Store the question in discovery_sessions table
-        self.save_question(session_id, &question, context.total_questions_asked as i32)
+        self.save_question(session_id, &question, question_number as i32)
             .await?;
 
         Ok(question)
@@ -338,6 +411,13 @@ impl DiscoveryManager {
             .as_ref()
             .map(|opts| serde_json::to_value(opts).unwrap());
 
+        let formatted_options_json = question
+            .formatted_options
+            .as_ref()
+            .map(|opts| serde_json::to_value(opts).unwrap());
+
+        let category_str = format!("{:?}", question.category).to_lowercase();
+
         sqlx::query(
             r#"
             INSERT INTO discovery_sessions (
@@ -348,8 +428,13 @@ impl DiscoveryManager {
                 question_type,
                 options,
                 user_answer,
-                asked_at
-            ) VALUES (?, ?, ?, ?, ?, ?, '', ?)
+                asked_at,
+                answer_format,
+                question_sequence,
+                is_critical,
+                options_presented,
+                category
+            ) VALUES (?, ?, ?, ?, ?, ?, '', ?, ?, ?, ?, ?, ?)
             "#,
         )
         .bind(&id)
@@ -359,6 +444,11 @@ impl DiscoveryManager {
         .bind(&question.question_type)
         .bind(&options_json)
         .bind(&now)
+        .bind(&question.answer_format)
+        .bind(question_number) // question_sequence same as question_number for now
+        .bind(!question.can_skip) // is_critical is inverse of can_skip
+        .bind(&formatted_options_json)
+        .bind(&category_str)
         .execute(&self.pool)
         .await
         .map_err(|e| {

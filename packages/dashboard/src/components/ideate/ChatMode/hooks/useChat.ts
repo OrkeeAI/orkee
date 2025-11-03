@@ -39,7 +39,11 @@ export function useChat({ sessionId, autoLoadHistory = true }: UseChatOptions) {
   }, [sessionId]);
 
   const sendMessage = useCallback(
-    async (content: string, messageType?: 'discovery' | 'refinement' | 'validation' | 'general') => {
+    async (
+      content: string,
+      messageType?: 'discovery' | 'refinement' | 'validation' | 'general',
+      model?: string
+    ) => {
       try {
         setIsSending(true);
         setError(null);
@@ -47,6 +51,7 @@ export function useChat({ sessionId, autoLoadHistory = true }: UseChatOptions) {
         const newMessage = await chatService.sendMessage(sessionId, {
           content,
           message_type: messageType,
+          model,
         });
 
         setMessages((prev) => [...prev, newMessage]);

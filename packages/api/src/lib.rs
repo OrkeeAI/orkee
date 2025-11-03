@@ -27,6 +27,7 @@ pub mod ideate_handlers;
 pub mod ideate_research_handlers;
 pub mod ideate_roundtable_handlers;
 pub mod ideate_validation_handlers;
+pub mod model_preferences_handlers;
 pub mod models_handlers;
 pub mod prd_handlers;
 pub mod response;
@@ -126,6 +127,19 @@ pub fn create_users_router() -> Router<DbState> {
         .route("/{user_id}/theme", put(users_handlers::update_theme))
         .route("/credentials", put(users_handlers::update_credentials))
         .route("/anthropic-key", get(users_handlers::get_anthropic_key))
+        // Model preferences routes
+        .route(
+            "/{user_id}/model-preferences",
+            get(model_preferences_handlers::get_model_preferences),
+        )
+        .route(
+            "/{user_id}/model-preferences",
+            put(model_preferences_handlers::update_model_preferences),
+        )
+        .route(
+            "/{user_id}/model-preferences/{task_type}",
+            put(model_preferences_handlers::update_task_model),
+        )
 }
 
 /// Creates the tags API router
@@ -632,6 +646,10 @@ pub fn create_ideate_router() -> Router<DbState> {
             get(ideate_chat_handlers::get_suggested_questions),
         )
         .route(
+            "/ideate/chat/{session_id}/insights/reanalyze",
+            post(ideate_chat_handlers::reanalyze_insights),
+        )
+        .route(
             "/ideate/chat/{session_id}/insights",
             get(ideate_chat_handlers::get_insights),
         )
@@ -687,18 +705,20 @@ pub fn create_ideate_router() -> Router<DbState> {
         )
 }
 
-/// Creates the AI proxy API router for AI-powered operations
-pub fn create_ai_router() -> Router<DbState> {
-    Router::new()
-        .route("/ai/analyze-prd", post(ai_handlers::analyze_prd))
-        .route("/ai/generate-spec", post(ai_handlers::generate_spec))
-        .route("/ai/suggest-tasks", post(ai_handlers::suggest_tasks))
-        .route("/ai/refine-spec", post(ai_handlers::refine_spec))
-        .route(
-            "/ai/validate-completion",
-            post(ai_handlers::validate_completion),
-        )
-}
+// Phase 6: AI handler functions moved to frontend TypeScript
+// These routes are no longer needed - all AI calls now happen client-side
+// Keeping router commented for reference during migration
+// pub fn create_ai_router() -> Router<DbState> {
+//     Router::new()
+//         .route("/ai/analyze-prd", post(ai_handlers::analyze_prd))
+//         .route("/ai/generate-spec", post(ai_handlers::generate_spec))
+//         .route("/ai/suggest-tasks", post(ai_handlers::suggest_tasks))
+//         .route("/ai/refine-spec", post(ai_handlers::refine_spec))
+//         .route(
+//             "/ai/validate-completion",
+//             post(ai_handlers::validate_completion),
+//         )
+// }
 
 /// Creates the AI usage logs API router for cost tracking
 pub fn create_ai_usage_router() -> Router<DbState> {

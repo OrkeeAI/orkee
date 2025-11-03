@@ -12,10 +12,12 @@ import { DiscoveryProgress } from './components/DiscoveryProgress';
 import { CodebaseContextPanel } from './components/CodebaseContextPanel';
 import { ValidationCheckpoint, CheckpointSection } from './components/ValidationCheckpoint';
 import { useChat } from './hooks/useChat';
-import { useDiscoveryQuestions } from './hooks/useDiscoveryQuestions';
 import { useStreamingResponse } from './hooks/useStreamingResponse';
 import { chatService, ChatInsight } from '@/services/chat';
+import { extractInsights } from '@/services/chat-ai';
 import { ideateService, DiscoveryProgress as DiscoveryProgressType, CodebaseContext } from '@/services/ideate';
+import { useCurrentUser } from '@/hooks/useUsers';
+import { useModelPreferences, getModelForTask } from '@/services/model-preferences';
 import { UI_TEXT } from './constants';
 
 export interface ChatModeFlowProps {
@@ -31,6 +33,7 @@ export function ChatModeFlow({
   const [insights, setInsights] = useState<ChatInsight[]>([]);
   const [isGeneratingPRD, setIsGeneratingPRD] = useState(false);
   const [prdError, setPrdError] = useState<Error | null>(null);
+  const [isReanalyzing, setIsReanalyzing] = useState(false);
 
   // Phase 6C: Discovery Progress state
   const [discoveryProgress, setDiscoveryProgress] = useState<DiscoveryProgressType | null>(null);
@@ -45,6 +48,10 @@ export function ChatModeFlow({
   const [checkpointSections, setCheckpointSections] = useState<CheckpointSection[]>([]);
   const [messagesSinceLastCheckpoint, setMessagesSinceLastCheckpoint] = useState(0);
 
+  // Phase 6: Get user and model preferences for insight extraction
+  const { data: currentUser } = useCurrentUser();
+  const { data: modelPreferences } = useModelPreferences(currentUser?.id || 'default');
+
   const {
     messages,
     qualityMetrics,
@@ -58,21 +65,30 @@ export function ChatModeFlow({
     autoLoadHistory: true,
   });
 
-  const { suggestedQuestions } = useDiscoveryQuestions({
-    sessionId,
-    autoLoad: true,
-  });
-
   const { streamingMessage, isStreaming, startStreaming, stopStreaming } = useStreamingResponse({
     sessionId,
     chatHistory: messages,
     onMessageComplete: async (content: string) => {
       try {
+        // Save assistant message to backend
         await chatService.sendMessage(sessionId, {
           content,
           message_type: 'discovery',
           role: 'assistant',
         });
+
+        // Phase 6: Extract insights using user's preferred model
+        // This happens in the frontend now to respect user's model preferences
+        try {
+          const insightPreferences = getModelForTask(modelPreferences, 'insight_extraction');
+          console.log('[ChatModeFlow] Extracting insights with model:', insightPreferences);
+
+          await extractInsights(sessionId, messages, insightPreferences);
+          console.log('[ChatModeFlow] Insights extracted successfully');
+        } catch (insightError) {
+          // Don't block on insight extraction failure - log and continue
+          console.warn('[ChatModeFlow] Failed to extract insights:', insightError);
+        }
       } catch (err) {
         console.error('Failed to save assistant message:', err);
       } finally {
@@ -87,6 +103,7 @@ export function ChatModeFlow({
     },
   });
 
+  // Load insights from backend (extracted by frontend after streaming completes)
   const loadInsights = useCallback(async () => {
     try {
       const data = await chatService.getInsights(sessionId);
@@ -96,9 +113,24 @@ export function ChatModeFlow({
     }
   }, [sessionId]);
 
+  // Load insights initially and after each new message
   React.useEffect(() => {
     loadInsights();
-  }, [loadInsights]);
+  }, [loadInsights, messages.length]); // Reload when messages change
+
+  // Re-analyze all messages to extract insights
+  const handleReanalyzeInsights = useCallback(async () => {
+    try {
+      setIsReanalyzing(true);
+      const result = await chatService.reanalyzeInsights(sessionId);
+      console.log(`Re-analysis complete: ${result.extracted_count} insights extracted from ${result.total_messages_processed} messages`);
+      await loadInsights();
+    } catch (err) {
+      console.error('Failed to re-analyze insights:', err);
+    } finally {
+      setIsReanalyzing(false);
+    }
+  }, [sessionId, loadInsights]);
 
   // Phase 6C: Load discovery progress
   const loadDiscoveryProgress = useCallback(async () => {
@@ -109,6 +141,11 @@ export function ChatModeFlow({
       console.error('Failed to load discovery progress:', err);
     }
   }, [sessionId]);
+
+  // Load discovery progress when messages change
+  React.useEffect(() => {
+    loadDiscoveryProgress();
+  }, [loadDiscoveryProgress, messages.length]); // Reload when messages change
 
   // Phase 6C: Load codebase context
   const loadCodebaseContext = useCallback(async () => {
@@ -190,24 +227,20 @@ export function ChatModeFlow({
     console.log('Section edited:', sectionName, newContent);
   }, []);
 
-  // Phase 6C: Initialize and periodically load discovery progress
-  useEffect(() => {
-    loadDiscoveryProgress();
-    const interval = setInterval(loadDiscoveryProgress, 30000); // Every 30 seconds
-    return () => clearInterval(interval);
-  }, [loadDiscoveryProgress]);
 
   // Phase 6C: Load codebase context on mount
   useEffect(() => {
     loadCodebaseContext();
   }, [loadCodebaseContext]);
 
-  // Phase 6C: Track messages and trigger checkpoints every 5 messages
+  // Phase 6C: Track messages silently in background (checkpoint modal disabled - only show when explicitly requested)
+  // Note: Auto-triggering removed - validation tracking happens in background via insights/metrics
+  // To re-enable auto checkpoints, uncomment the showCheckpoint logic below
   useEffect(() => {
     const newMessageCount = messagesSinceLastCheckpoint + 1;
 
     if (newMessageCount >= 5 && messages.length > 0) {
-      // Trigger checkpoint
+      // Background validation tracking - prepare sections but DON'T show modal
       const sections: CheckpointSection[] = [
         {
           name: 'problem',
@@ -227,7 +260,8 @@ export function ChatModeFlow({
       ];
 
       setCheckpointSections(sections);
-      setShowCheckpoint(true);
+      // setShowCheckpoint(true); // DISABLED - only show checkpoint when user explicitly requests
+      setMessagesSinceLastCheckpoint(0); // Reset counter after validation
     } else {
       setMessagesSinceLastCheckpoint(newMessageCount);
     }
@@ -235,12 +269,14 @@ export function ChatModeFlow({
   }, [messages.length, insights, qualityMetrics]); // Note: Intentionally not including messagesSinceLastCheckpoint to avoid loops
 
   const handleSendMessage = useCallback(
-    async (content: string) => {
+    async (content: string, model?: string, provider?: string) => {
       try {
+        console.log('[ChatModeFlow.handleSendMessage] Received:', { model, provider, content: content.substring(0, 50) });
         // Save user message to backend
-        await sendMessage(content, 'discovery');
-        // Start AI streaming response
-        await startStreaming(content);
+        await sendMessage(content, 'discovery', model);
+        // Start AI streaming response with selected model
+        console.log('[ChatModeFlow.handleSendMessage] Calling startStreaming with:', { provider, model });
+        await startStreaming(content, provider, model);
       } catch (err) {
         console.error('Failed to send message:', err);
       }
@@ -278,25 +314,62 @@ export function ChatModeFlow({
 
   return (
     <div className="h-full flex flex-col">
-      <div className="flex-1 grid grid-cols-12 gap-4 overflow-hidden">
-        <div className="col-span-8 flex flex-col border rounded-lg bg-card">
-          <div className="border-b p-4 space-y-3">
-            <div>
-              <h2 className="text-lg font-semibold">Chat</h2>
-              <p className="text-sm text-muted-foreground">
-                Discuss your project idea and I'll help discover the requirements
-              </p>
+      <div className="flex-1 grid grid-cols-12 gap-4 min-h-0">
+        <div className="col-span-8 flex flex-col border rounded-lg bg-card min-h-0">
+          <div className="border-b p-4 space-y-3 flex-shrink-0">
+            <div className="flex items-start justify-between">
+              <div>
+                <h2 className="text-lg font-semibold">Chat</h2>
+                <p className="text-sm text-muted-foreground">
+                  Discuss your project idea and I'll help discover the requirements
+                </p>
+              </div>
+
+              <Button
+                onClick={handleGeneratePRD}
+                disabled={
+                  !qualityMetrics?.is_ready_for_prd || isGeneratingPRD || isSending || isStreaming
+                }
+                size="lg"
+                className="gap-2"
+              >
+                {isGeneratingPRD ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    {UI_TEXT.GENERATING_PRD}
+                  </>
+                ) : (
+                  <>
+                    <FileText className="h-4 w-4" />
+                    {UI_TEXT.GENERATE_PRD}
+                  </>
+                )}
+              </Button>
             </div>
 
             {/* Phase 6C: Discovery Progress */}
             <DiscoveryProgress progress={discoveryProgress} />
+
+            {/* Error Alerts */}
+            {chatError && (
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>{chatError.message}</AlertDescription>
+              </Alert>
+            )}
+
+            {prdError && (
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>{prdError.message}</AlertDescription>
+              </Alert>
+            )}
           </div>
 
-          <div className="flex-1 overflow-hidden">
+          <div className="flex-1 overflow-hidden min-h-0">
             <ChatView
               messages={messages}
               streamingMessage={streamingMessage}
-              suggestedQuestions={suggestedQuestions}
               onSendMessage={handleSendMessage}
               isLoading={isLoading}
               isSending={isSending || isStreaming}
@@ -304,8 +377,8 @@ export function ChatModeFlow({
           </div>
         </div>
 
-        <div className="col-span-4 flex flex-col gap-4 overflow-hidden">
-          <QualityIndicator metrics={qualityMetrics} />
+        <div className="col-span-4 flex flex-col gap-4 min-h-0 overflow-y-auto">
+          <QualityIndicator metrics={qualityMetrics} className="flex-shrink-0" />
 
           {/* Phase 6C: Codebase Context Panel */}
           <CodebaseContextPanel
@@ -314,58 +387,15 @@ export function ChatModeFlow({
             context={codebaseContext}
             isAnalyzing={isAnalyzingCodebase}
             onAnalyze={handleAnalyzeCodebase}
+            className="flex-shrink-0"
           />
 
-          <InsightsSidebar insights={insights} className="flex-1 overflow-hidden" />
-        </div>
-      </div>
-
-      <div className="mt-4 p-4 border-t bg-background space-y-3">
-        {chatError && (
-          <Alert variant="destructive">
-            <AlertCircle className="h-4 w-4" />
-            <AlertDescription>{chatError.message}</AlertDescription>
-          </Alert>
-        )}
-
-        {prdError && (
-          <Alert variant="destructive">
-            <AlertCircle className="h-4 w-4" />
-            <AlertDescription>{prdError.message}</AlertDescription>
-          </Alert>
-        )}
-
-        <div className="flex items-center justify-between">
-          <div className="text-sm text-muted-foreground">
-            {qualityMetrics?.is_ready_for_prd ? (
-              <span className="text-green-600 dark:text-green-400 font-medium">
-                {UI_TEXT.READY_FOR_PRD}
-              </span>
-            ) : (
-              <span>{UI_TEXT.KEEP_EXPLORING}</span>
-            )}
-          </div>
-
-          <Button
-            onClick={handleGeneratePRD}
-            disabled={
-              !qualityMetrics?.is_ready_for_prd || isGeneratingPRD || isSending || isStreaming
-            }
-            size="lg"
-            className="gap-2"
-          >
-            {isGeneratingPRD ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin" />
-                {UI_TEXT.GENERATING_PRD}
-              </>
-            ) : (
-              <>
-                <FileText className="h-4 w-4" />
-                {UI_TEXT.GENERATE_PRD}
-              </>
-            )}
-          </Button>
+          <InsightsSidebar
+            insights={insights}
+            onReanalyze={handleReanalyzeInsights}
+            isReanalyzing={isReanalyzing}
+            className="flex-shrink-0"
+          />
         </div>
       </div>
 

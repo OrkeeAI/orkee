@@ -4,7 +4,7 @@ import { useCloudAuth, useCloudSync } from '@/hooks/useCloud'
 import { cloudService, formatLastSync } from '@/services/cloud'
 import { fetchConfig } from '@/services/config'
 import { exportDatabase, importDatabase, type ImportResult } from '@/services/database'
-import { Cloud, User, RefreshCw, Download, Upload, Code2, ExternalLink, Database, AlertTriangle, Shield, Trash2, Key, Check, Terminal, Sliders, LayoutGrid } from 'lucide-react'
+import { Cloud, User, RefreshCw, Download, Upload, Code2, ExternalLink, Database, AlertTriangle, Shield, Trash2, Key, Check, Terminal, Sliders, LayoutGrid, Brain } from 'lucide-react'
 import { useState, useEffect, useRef } from 'react'
 import { SUPPORTED_EDITORS, getDefaultEditorSettings, findEditorById } from '@/lib/editor-utils'
 import type { EditorSettings } from '@/lib/editor-utils'
@@ -23,6 +23,7 @@ import { usersService } from '@/services/users'
 import type { MaskedUser } from '@/services/users'
 import { updateSetting, getSettingsByCategory, type SystemSetting } from '@/services/settings'
 import { clearConfigCache } from '@/services/config'
+import { AIModelsSettings } from '@/components/settings/AIModelsSettings'
 
 export function Settings() {
   const [isMacOS, setIsMacOS] = useState(false)
@@ -41,7 +42,7 @@ export function Settings() {
       </div>
 
       <Tabs defaultValue="general" className="w-full">
-        <TabsList className="grid w-full grid-cols-6">
+        <TabsList className="grid w-full grid-cols-7">
           <TabsTrigger value="general" className="flex items-center gap-2">
             <LayoutGrid className="h-4 w-4" />
             General
@@ -49,6 +50,10 @@ export function Settings() {
           <TabsTrigger value="security" className="flex items-center gap-2">
             <Key className="h-4 w-4" />
             Security
+          </TabsTrigger>
+          <TabsTrigger value="ai-models" className="flex items-center gap-2">
+            <Brain className="h-4 w-4" />
+            AI Models
           </TabsTrigger>
           <TabsTrigger value="database" className="flex items-center gap-2">
             <Database className="h-4 w-4" />
@@ -76,6 +81,11 @@ export function Settings() {
         <TabsContent value="security" className="space-y-6 mt-6">
           {/* API Keys Settings */}
           <ApiKeysSettings />
+        </TabsContent>
+
+        <TabsContent value="ai-models" className="space-y-6 mt-6">
+          {/* AI Models Settings */}
+          <AIModelsSettings />
         </TabsContent>
 
         <TabsContent value="database" className="space-y-6 mt-6">

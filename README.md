@@ -5,6 +5,7 @@ A CLI, TUI, dashboard, and native desktop app for AI agent orchestration
 ## Features
 
 - 🤖 **AI Agent Orchestration** - Deploy and manage AI agents across different environments
+- 🎯 **Customizable AI Models** - Configure different AI providers and models for each task type (chat, PRD generation, insight extraction, etc.)
 - 📊 **Real-time Dashboard** - Web-based interface for monitoring and management
 - 🖥️ **Terminal Interface** - Rich TUI for interactive command-line workflows
 - 🖼️ **Native Desktop App** - Tauri-based desktop application with system tray integration

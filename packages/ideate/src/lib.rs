@@ -5,6 +5,7 @@ pub mod approach_generator;
 pub mod build_optimizer;
 pub mod chat;
 pub mod chat_manager;
+pub mod chunk_manager;
 pub mod codebase_analyzer;
 pub mod complexity_analyzer;
 pub mod dependency_analyzer;
@@ -16,6 +17,7 @@ pub mod execution_tracker;
 pub mod expert_moderator;
 pub mod export_service;
 pub mod github_sync;
+pub mod insight_extractor;
 pub mod manager;
 pub mod prd_aggregator;
 pub mod prd_generator;
@@ -42,6 +44,7 @@ pub use chat::{
     QualityMetrics, QuestionCategory, SendMessageInput, TopicCoverage, ValidationResult,
 };
 pub use chat_manager::ChatManager;
+pub use chunk_manager::{ChunkManager, ChunkStatus, PrdChunk, ValidateChunkInput};
 pub use codebase_analyzer::{
     ArchitectureStyle, CodebaseAnalyzer, CodebaseContext, FileStructure, Pattern, PatternType,
     ReusableComponent, SimilarFeature, TechStack,
@@ -52,7 +55,8 @@ pub use dependency_analyzer::{
     DependencyType, FeatureDependency,
 };
 pub use discovery_manager::{
-    DiscoveryAnswer, DiscoveryManager, Question, QuestionType, SessionContext,
+    AnswerFormat, DiscoveryAnswer, DiscoveryManager, FormattedOption, Question, QuestionType,
+    SessionContext,
 };
 pub use epic::{
     ArchitectureDecision, ConflictAnalysis, CreateEpicInput, DependencyGraph, Epic, EpicComplexity,
@@ -71,6 +75,7 @@ pub use github_sync::{
     EntityType, GitHubConfig, GitHubSync, GitHubSyncError, GitHubSyncService, SyncDirection,
     SyncMethod, SyncResult, SyncStatus,
 };
+pub use insight_extractor::extract_insights_with_ai;
 pub use manager::IdeateManager;
 pub use prd_aggregator::{AggregatedPRDData, CompletenessMetrics, PRDAggregator};
 pub use prd_generator::PRDGenerator;

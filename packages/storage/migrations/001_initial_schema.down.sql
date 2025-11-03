@@ -33,6 +33,7 @@ DROP TRIGGER IF EXISTS sync_state_updated_at;
 DROP TRIGGER IF EXISTS system_settings_updated_at;
 DROP TRIGGER IF EXISTS update_telemetry_settings_timestamp;
 DROP TRIGGER IF EXISTS ideate_prd_generations_updated_at;
+DROP TRIGGER IF EXISTS model_preferences_updated_at;
 
 -- ============================================================================
 -- DROP VIEWS (after triggers)
@@ -152,6 +153,7 @@ DROP TABLE IF EXISTS prds;
 -- DROP USER & AGENT TABLES
 -- ============================================================================
 DROP TABLE IF EXISTS user_agents;
+DROP TABLE IF EXISTS model_preferences;
 DROP TABLE IF EXISTS tags;
 DROP TABLE IF EXISTS users;
 

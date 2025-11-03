@@ -188,45 +188,59 @@ export class PRDsService {
     return true;
   }
 
-  async analyzePRD(projectId: string, prdId: string, provider: string, model: string): Promise<PRDAnalysisResult> {
+  async analyzePRD(projectId: string, prdId: string, modelPreferences: unknown): Promise<PRDAnalysisResult> {
     // Fetch the PRD content first
     const prd = await this.getPRD(projectId, prdId);
     if (!prd) {
       throw new Error(`PRD with ID ${prdId} not found`);
     }
 
-    // Call backend AI analyze endpoint directly
-    const { apiRequest } = await import('./api');
-    const result = await apiRequest<ApiResponse<{
-      prdId: string;
-      analysis: PRDAnalysisResult;
-      tokenUsage: {
-        input: number;
-        output: number;
-        total: number;
-      };
-    }>>(
-      `/api/ai/analyze-prd`,
-      {
-        method: 'POST',
-        body: JSON.stringify({
-          prdId: prdId,
-          contentMarkdown: prd.contentMarkdown,
-          provider: provider,
-          model: model,
-        }),
+    // Get model configuration for PRD analysis task
+    const { getModelForTask } = await import('./model-preferences');
+    const modelConfig = getModelForTask(modelPreferences, 'prd_analysis');
+
+    // Call TypeScript AI service instead of backend
+    const { analyzePRD } = await import('./ai-spec');
+    const result = await analyzePRD(prd.contentMarkdown, modelConfig);
+
+    // Create suggested tasks if any
+    if (result.data.suggestedTasks?.length > 0) {
+      const { tasksService } = await import('./tasks');
+
+      for (const task of result.data.suggestedTasks) {
+        try {
+          await tasksService.createTask(projectId, {
+            title: task.title,
+            description: task.description,
+            complexityScore: task.complexity,
+            priority: task.priority as 'low' | 'medium' | 'high',
+            status: 'pending',
+          });
+          console.log(`[prds.analyzePRD] Created task: ${task.title}`);
+        } catch (error) {
+          console.error(`[prds.analyzePRD] Failed to create task: ${task.title}`, error);
+          // Non-blocking - continue with other tasks
+        }
       }
-    );
-
-    if (!result.success || !result.data) {
-      throw new Error(result.error || 'Failed to analyze PRD');
     }
 
-    if (!result.data.analysis) {
-      throw new Error('No analysis data returned');
-    }
+    // Log AI usage (non-blocking)
+    const { logAiUsage } = await import('./ai-usage');
+    logAiUsage({
+      projectId,
+      operation: 'analyzePRD',
+      provider: modelConfig.provider,
+      model: modelConfig.model,
+      inputTokens: result.usage.inputTokens,
+      outputTokens: result.usage.outputTokens,
+      totalTokens: result.usage.totalTokens,
+      estimatedCost: result.cost,
+      durationMs: 0, // TODO: Track actual duration
+    }).catch((error) => {
+      console.warn('[prds.analyzePRD] Failed to log AI usage:', error);
+    });
 
-    return result.data.analysis;
+    return result.data;
   }
 
   async syncSpecsToPRD(projectId: string, prdId: string): Promise<PRD> {

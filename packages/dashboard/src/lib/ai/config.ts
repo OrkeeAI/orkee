@@ -160,3 +160,10 @@ export function calculateCost(
 
   return inputCost + outputCost;
 }
+
+/**
+ * Get model instance from provider and model ID
+ * This is a re-export of the provider function for convenience
+ * Import this when you need to instantiate a model with provider + model ID
+ */
+export { getModel as getModelInstance } from './providers';

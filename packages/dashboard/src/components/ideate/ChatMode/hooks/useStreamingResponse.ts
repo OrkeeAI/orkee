@@ -80,7 +80,7 @@ export function useStreamingResponse({
   );
 
   const startStreaming = useCallback(
-    async (userMessage: string) => {
+    async (userMessage: string, provider?: string, model?: string) => {
       // Clean up any existing stream
       cleanup();
 
@@ -146,7 +146,10 @@ export function useStreamingResponse({
             handleError(error);
           },
           // abortSignal
-          abortControllerRef.current?.signal
+          abortControllerRef.current?.signal,
+          // provider and model
+          provider,
+          model
         );
       } catch (error) {
         const err = error instanceof Error ? error : new Error(ERROR_MESSAGES.GENERIC_ERROR);

@@ -29,12 +29,14 @@ pub struct AnswerQuestionRequest {
 
 /// Response for discovery progress
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "snake_case")]
 pub struct DiscoveryProgressResponse {
-    pub total_questions_asked: usize,
-    pub total_questions_answered: usize,
-    pub categories_covered: Vec<String>,
+    pub session_id: String,
+    pub total_questions: usize,
+    pub answered_questions: usize,
+    pub current_question_number: usize,
     pub completion_percentage: f32,
+    pub estimated_remaining: u32,
 }
 
 /// POST /api/ideate/sessions/:id/analyze-codebase
@@ -211,55 +213,52 @@ pub async fn get_discovery_progress(
 ) -> impl IntoResponse {
     info!("Getting discovery progress for session: {}", session_id);
 
-    let discovery_manager = DiscoveryManager::new(db.pool.clone());
+    let _discovery_manager = DiscoveryManager::new(db.pool.clone());
 
-    // Get all answers for this session
-    match discovery_manager.get_answers(&session_id).await {
-        Ok(answers) => {
-            let total_questions_asked = answers.len();
-            let total_questions_answered =
-                answers.iter().filter(|a| a.answered_at.is_some()).count();
-
-            // Calculate unique categories covered
-            let categories_covered: Vec<String> = answers
+    // Get conversation messages to track actual progress
+    let chat_manager = orkee_ideate::ChatManager::new(db.pool.clone());
+    match chat_manager.get_history(&session_id).await {
+        Ok(messages) => {
+            // Count user messages (questions answered) and assistant messages (questions asked)
+            let user_message_count = messages
                 .iter()
-                .filter_map(|a| {
-                    // Simple keyword-based category inference
-                    let text = a.question_text.to_lowercase();
-                    if text.contains("problem") {
-                        Some("problem".to_string())
-                    } else if text.contains("user") || text.contains("audience") {
-                        Some("users".to_string())
-                    } else if text.contains("feature") || text.contains("capabilities") {
-                        Some("features".to_string())
-                    } else if text.contains("technical") || text.contains("approach") {
-                        Some("technical".to_string())
-                    } else if text.contains("risk") || text.contains("concern") {
-                        Some("risks".to_string())
-                    } else if text.contains("constraint") || text.contains("requirement") {
-                        Some("constraints".to_string())
-                    } else if text.contains("success") || text.contains("goal") {
-                        Some("success".to_string())
-                    } else {
-                        None
-                    }
-                })
-                .collect::<std::collections::HashSet<_>>()
-                .into_iter()
-                .collect();
+                .filter(|m| m.role == orkee_ideate::MessageRole::User)
+                .count();
+            let assistant_message_count = messages
+                .iter()
+                .filter(|m| m.role == orkee_ideate::MessageRole::Assistant)
+                .count();
 
-            // Estimate completion percentage (assuming 7-10 questions for a complete PRD)
-            let completion_percentage = if total_questions_answered == 0 {
+            let answered_questions = user_message_count;
+            let total_questions_asked = assistant_message_count;
+
+            // Current question is the next one to be asked
+            let current_question_number = total_questions_asked + 1;
+
+            // Dynamic total based on actual conversation (minimum 5, expands as needed)
+            // This gives a realistic sense of progress without false precision
+            let total_questions = std::cmp::max(answered_questions + 3, 5);
+
+            // Calculate completion percentage based on typical coverage
+            // We expect ~5-10 exchanges for a good PRD
+            let completion_percentage = if answered_questions == 0 {
                 0.0
             } else {
-                (total_questions_answered as f32 / 8.0 * 100.0).min(100.0)
+                // Soft cap at 90% until we hit 10+ messages (never shows 100% during discovery)
+                ((answered_questions as f32 / 10.0) * 90.0).min(90.0)
             };
 
+            // Estimate remaining time: ~2 minutes per remaining question until we hit ~8 questions
+            let estimated_remaining_questions = 8_usize.saturating_sub(answered_questions).min(5);
+            let estimated_remaining = (estimated_remaining_questions * 2) as u32;
+
             let response = DiscoveryProgressResponse {
-                total_questions_asked,
-                total_questions_answered,
-                categories_covered,
+                session_id: session_id.clone(),
+                total_questions,
+                answered_questions,
+                current_question_number,
                 completion_percentage,
+                estimated_remaining,
             };
 
             (

@@ -18,8 +18,8 @@ use orkee_projects::pagination::{PaginatedResponse, PaginationParams};
 pub struct ModelDTO {
     pub id: String,
     pub provider: String,
-    pub model: String,        // model_identifier from config
-    pub display_name: String, // name from config
+    pub model: String, // model_identifier from config
+    pub name: String,  // name from config
     pub description: String,
     pub cost_per_1k_input_tokens: f64,
     pub cost_per_1k_output_tokens: f64,
@@ -33,7 +33,7 @@ impl From<&orkee_models::Model> for ModelDTO {
             id: model.id.clone(),
             provider: model.provider.clone(),
             model: model.model_identifier.clone(),
-            display_name: model.name.clone(),
+            name: model.name.clone(),
             description: model.description.clone(),
             // Convert from per-million to per-thousand
             cost_per_1k_input_tokens: model.pricing.input_per_million_tokens / 1000.0,

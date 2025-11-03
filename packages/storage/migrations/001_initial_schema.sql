@@ -253,6 +253,79 @@ BEGIN
 END;
 
 -- ============================================================================
+-- MODEL PREFERENCES (Per-Task AI Model Configuration)
+-- ============================================================================
+-- Stores user preferences for which AI models to use for different tasks in
+-- Ideate, PRD generation, and task management features. This is separate from
+-- agent conversations (which use user_agents.preferred_model_id).
+
+CREATE TABLE model_preferences (
+    user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+
+    -- Chat (Ideate mode)
+    chat_model TEXT NOT NULL DEFAULT 'claude-sonnet-4-5-20250929',
+    chat_provider TEXT NOT NULL DEFAULT 'anthropic',
+
+    -- PRD Generation
+    prd_generation_model TEXT NOT NULL DEFAULT 'claude-sonnet-4-5-20250929',
+    prd_generation_provider TEXT NOT NULL DEFAULT 'anthropic',
+
+    -- PRD Analysis
+    prd_analysis_model TEXT NOT NULL DEFAULT 'claude-sonnet-4-5-20250929',
+    prd_analysis_provider TEXT NOT NULL DEFAULT 'anthropic',
+
+    -- Insight Extraction
+    insight_extraction_model TEXT NOT NULL DEFAULT 'claude-sonnet-4-5-20250929',
+    insight_extraction_provider TEXT NOT NULL DEFAULT 'anthropic',
+
+    -- Spec Generation
+    spec_generation_model TEXT NOT NULL DEFAULT 'claude-sonnet-4-5-20250929',
+    spec_generation_provider TEXT NOT NULL DEFAULT 'anthropic',
+
+    -- Task Suggestions
+    task_suggestions_model TEXT NOT NULL DEFAULT 'claude-sonnet-4-5-20250929',
+    task_suggestions_provider TEXT NOT NULL DEFAULT 'anthropic',
+
+    -- Task Analysis
+    task_analysis_model TEXT NOT NULL DEFAULT 'claude-sonnet-4-5-20250929',
+    task_analysis_provider TEXT NOT NULL DEFAULT 'anthropic',
+
+    -- Spec Refinement
+    spec_refinement_model TEXT NOT NULL DEFAULT 'claude-sonnet-4-5-20250929',
+    spec_refinement_provider TEXT NOT NULL DEFAULT 'anthropic',
+
+    -- Research Generation
+    research_generation_model TEXT NOT NULL DEFAULT 'claude-sonnet-4-5-20250929',
+    research_generation_provider TEXT NOT NULL DEFAULT 'anthropic',
+
+    -- Markdown Generation
+    markdown_generation_model TEXT NOT NULL DEFAULT 'claude-sonnet-4-5-20250929',
+    markdown_generation_provider TEXT NOT NULL DEFAULT 'anthropic',
+
+    updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+
+    -- Provider validation constraints
+    CONSTRAINT valid_chat_provider CHECK (chat_provider IN ('anthropic', 'openai', 'google', 'xai')),
+    CONSTRAINT valid_prd_gen_provider CHECK (prd_generation_provider IN ('anthropic', 'openai', 'google', 'xai')),
+    CONSTRAINT valid_prd_analysis_provider CHECK (prd_analysis_provider IN ('anthropic', 'openai', 'google', 'xai')),
+    CONSTRAINT valid_insight_provider CHECK (insight_extraction_provider IN ('anthropic', 'openai', 'google', 'xai')),
+    CONSTRAINT valid_spec_gen_provider CHECK (spec_generation_provider IN ('anthropic', 'openai', 'google', 'xai')),
+    CONSTRAINT valid_task_suggestions_provider CHECK (task_suggestions_provider IN ('anthropic', 'openai', 'google', 'xai')),
+    CONSTRAINT valid_task_analysis_provider CHECK (task_analysis_provider IN ('anthropic', 'openai', 'google', 'xai')),
+    CONSTRAINT valid_spec_refinement_provider CHECK (spec_refinement_provider IN ('anthropic', 'openai', 'google', 'xai')),
+    CONSTRAINT valid_research_provider CHECK (research_generation_provider IN ('anthropic', 'openai', 'google', 'xai')),
+    CONSTRAINT valid_markdown_provider CHECK (markdown_generation_provider IN ('anthropic', 'openai', 'google', 'xai'))
+);
+
+CREATE TRIGGER model_preferences_updated_at AFTER UPDATE ON model_preferences
+FOR EACH ROW WHEN NEW.updated_at = OLD.updated_at
+BEGIN
+    UPDATE model_preferences SET updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE user_id = NEW.user_id;
+END;
+
+CREATE INDEX idx_model_preferences_updated_at ON model_preferences(updated_at);
+
+-- ============================================================================
 -- TASK MANAGEMENT
 -- ============================================================================
 
@@ -2298,6 +2371,16 @@ CREATE TABLE discovery_sessions (
     user_answer TEXT,
     asked_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
     answered_at TEXT,
+
+    -- Phase 1 Chat Mode fields
+    answer_format TEXT DEFAULT 'open' CHECK(answer_format IN ('open', 'letter', 'number', 'scale')),
+    question_sequence INTEGER,
+    is_critical BOOLEAN DEFAULT FALSE,
+    branching_logic TEXT CHECK(json_valid(branching_logic) OR branching_logic IS NULL),
+    options_presented TEXT CHECK(json_valid(options_presented) OR options_presented IS NULL),
+    response_time INTEGER,
+    category TEXT,
+
     FOREIGN KEY (session_id) REFERENCES ideate_sessions(id) ON DELETE CASCADE,
     UNIQUE(session_id, question_number),
     CHECK (json_valid(options) OR options IS NULL)
@@ -2305,6 +2388,8 @@ CREATE TABLE discovery_sessions (
 
 CREATE INDEX idx_discovery_sessions_session ON discovery_sessions(session_id);
 CREATE INDEX idx_discovery_sessions_order ON discovery_sessions(session_id, question_number);
+CREATE INDEX idx_discovery_sessions_sequence ON discovery_sessions(session_id, question_sequence);
+CREATE INDEX idx_discovery_sessions_format ON discovery_sessions(session_id, answer_format);
 
 -- PRD Validation History
 CREATE TABLE prd_validation_history (
@@ -2315,12 +2400,20 @@ CREATE TABLE prd_validation_history (
     user_feedback TEXT,
     quality_score INTEGER CHECK(quality_score >= 0 AND quality_score <= 100),
     validated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+
+    -- Phase 1 Chat Mode chunking fields
+    chunk_number INTEGER,
+    chunk_word_count INTEGER,
+    chunk_content TEXT,
+    edited_content TEXT,
+
     FOREIGN KEY (session_id) REFERENCES ideate_sessions(id) ON DELETE CASCADE
 );
 
 CREATE INDEX idx_prd_validation_session ON prd_validation_history(session_id);
 CREATE INDEX idx_prd_validation_section ON prd_validation_history(section_name);
 CREATE INDEX idx_prd_validation_session_time ON prd_validation_history(session_id, validated_at);
+CREATE INDEX idx_prd_validation_chunks ON prd_validation_history(session_id, chunk_number);
 
 -- Phase 5: Execution Checkpoints
 CREATE TABLE execution_checkpoints (

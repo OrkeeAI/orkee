@@ -7,6 +7,7 @@ use common::{create_test_project, get, post_json, setup_test_server};
 use serde_json::json;
 
 #[tokio::test]
+#[ignore = "AI endpoints moved to frontend in Phase 6 - backend routes removed"]
 async fn test_analyze_prd_endpoint() {
     let ctx = setup_test_server().await;
     let project_id = create_test_project(&ctx.pool, "Test Project", "/test/path").await;
@@ -71,6 +72,7 @@ async fn test_analyze_prd_missing_fields() {
 }
 
 #[tokio::test]
+#[ignore = "AI endpoints moved to frontend in Phase 6 - backend routes removed"]
 async fn test_generate_spec_endpoint() {
     let ctx = setup_test_server().await;
     let project_id = create_test_project(&ctx.pool, "Test Project", "/test/path").await;
@@ -107,6 +109,7 @@ async fn test_generate_spec_endpoint() {
 }
 
 #[tokio::test]
+#[ignore = "AI endpoints moved to frontend in Phase 6 - backend routes removed"]
 async fn test_generate_spec_minimal() {
     let ctx = setup_test_server().await;
     let project_id = create_test_project(&ctx.pool, "Test Project", "/test/path").await;
@@ -244,6 +247,7 @@ async fn test_refine_spec_missing_feedback() {
 }
 
 #[tokio::test]
+#[ignore = "AI endpoints moved to frontend in Phase 6 - backend routes removed"]
 async fn test_validate_completion_endpoint() {
     let ctx = setup_test_server().await;
     let project_id = create_test_project(&ctx.pool, "Test Project", "/test/path").await;
@@ -279,6 +283,7 @@ async fn test_validate_completion_endpoint() {
 }
 
 #[tokio::test]
+#[ignore = "AI endpoints moved to frontend in Phase 6 - backend routes removed"]
 async fn test_validate_completion_empty_scenarios() {
     let ctx = setup_test_server().await;
     let project_id = create_test_project(&ctx.pool, "Test Project", "/test/path").await;
@@ -305,6 +310,7 @@ async fn test_validate_completion_empty_scenarios() {
 }
 
 #[tokio::test]
+#[ignore = "AI endpoints moved to frontend in Phase 6 - backend routes removed"]
 async fn test_ai_endpoints_route_correctly() {
     let ctx = setup_test_server().await;
 

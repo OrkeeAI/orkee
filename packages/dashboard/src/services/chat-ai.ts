@@ -2,9 +2,11 @@
 // ABOUTME: Handles streaming chats, insight extraction, quality metrics, and PRD generation
 
 import { streamText, generateObject } from 'ai';
-import { getPreferredModel } from '@/lib/ai/providers';
+import { getModel } from '@/lib/ai/providers';
+import { getModelInstance } from '@/lib/ai/config';
 import { z } from 'zod';
 import { chatService, type ChatMessage, type ChatInsight } from './chat';
+import { getModelForTask } from './model-preferences';
 
 /**
  * Discovery question prompts for guiding chats
@@ -35,10 +37,26 @@ export async function streamChatResponse(
   onChunk: (text: string) => void,
   onComplete: (fullText: string) => void,
   onError: (error: Error) => void,
-  abortSignal?: AbortSignal
+  abortSignal?: AbortSignal,
+  selectedProvider?: 'anthropic' | 'openai' | 'google' | 'xai',
+  selectedModel?: string,
+  preferences?: ReturnType<typeof getModelForTask>
 ): Promise<void> {
   try {
-    const { model } = getPreferredModel();
+    console.log('streamChatResponse called with:', { selectedProvider, selectedModel });
+
+    // Determine model to use: explicit selection > preferences > default
+    let modelToUse;
+    if (selectedProvider && selectedModel) {
+      console.log(`Using explicit selection: ${selectedProvider} with model: ${selectedModel}`);
+      modelToUse = getModel(selectedProvider, selectedModel);
+    } else if (preferences) {
+      console.log(`Using model preferences: ${preferences.provider} with model: ${preferences.model}`);
+      modelToUse = getModelInstance(preferences.provider, preferences.model);
+    } else {
+      console.log('No provider/model selected or preferences provided, using default model');
+      modelToUse = getPreferredModel().model;
+    }
 
     // Build chat context
     const messages = chatHistory.map((msg) => ({
@@ -52,14 +70,20 @@ export async function streamChatResponse(
       content: userMessage,
     });
 
+    console.log('[chat-ai.streamText] About to call streamText with model:', modelToUse);
+    console.log('[chat-ai.streamText] Model object type:', typeof modelToUse);
+    console.log('[chat-ai.streamText] Model object:', modelToUse);
+
     const { textStream } = await streamText({
-      model,
+      model: modelToUse,
       system: DISCOVERY_PROMPTS.system,
       messages,
       temperature: 0.7,
       maxTokens: 1000,
       abortSignal,
     });
+
+    console.log('[chat-ai.streamText] streamText call completed, streaming response');
 
     let fullText = '';
 
@@ -70,6 +94,7 @@ export async function streamChatResponse(
 
     onComplete(fullText);
   } catch (error) {
+    console.error('Streaming error details:', error);
     const err = error instanceof Error ? error : new Error('Streaming failed');
     onError(err);
   }
@@ -94,9 +119,12 @@ const InsightSchema = z.object({
  */
 export async function extractInsights(
   sessionId: string,
-  chatHistory: ChatMessage[]
+  chatHistory: ChatMessage[],
+  preferences?: ReturnType<typeof getModelForTask>
 ): Promise<ChatInsight[]> {
-  const { model } = getPreferredModel();
+  // Use preferences or fall back to default
+  const modelConfig = preferences || { provider: 'anthropic' as const, model: 'claude-sonnet-4-5-20250929' };
+  const model = getModelInstance(modelConfig.provider, modelConfig.model);
 
   const chatText = chatHistory
     .map((msg) => `${msg.role}: ${msg.content}`)
@@ -163,14 +191,17 @@ const QualityMetricsSchema = z.object({
 export async function calculateQualityMetrics(
   sessionId: string,
   chatHistory: ChatMessage[],
-  insights: ChatInsight[]
+  insights: ChatInsight[],
+  preferences?: ReturnType<typeof getModelForTask>
 ): Promise<{
   quality_score: number;
   coverage: Record<string, boolean>;
   missing_areas: string[];
   is_ready_for_prd: boolean;
 }> {
-  const { model } = getPreferredModel();
+  // Use preferences or fall back to default
+  const modelConfig = preferences || { provider: 'anthropic' as const, model: 'claude-sonnet-4-5-20250929' };
+  const model = getModelInstance(modelConfig.provider, modelConfig.model);
 
   const chatText = chatHistory
     .map((msg) => `${msg.role}: ${msg.content}`)
@@ -249,9 +280,12 @@ export async function generatePRDFromChat(
   sessionId: string,
   title: string,
   chatHistory: ChatMessage[],
-  insights: ChatInsight[]
+  insights: ChatInsight[],
+  preferences?: ReturnType<typeof getModelForTask>
 ): Promise<{ prd_markdown: string; prd_data: z.infer<typeof PRDSchema> }> {
-  const { model } = getPreferredModel();
+  // Use preferences or fall back to default
+  const modelConfig = preferences || { provider: 'anthropic' as const, model: 'claude-sonnet-4-5-20250929' };
+  const model = getModelInstance(modelConfig.provider, modelConfig.model);
 
   const chatText = chatHistory
     .map((msg) => `${msg.role}: ${msg.content}`)
