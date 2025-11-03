@@ -52,7 +52,7 @@ impl FailureRateLimiter {
 static FAILURE_RATE_LIMITER: OnceLock<FailureRateLimiter> = OnceLock::new();
 
 fn get_failure_rate_limiter() -> &'static FailureRateLimiter {
-    FAILURE_RATE_LIMITER.get_or_init(|| FailureRateLimiter::new())
+    FAILURE_RATE_LIMITER.get_or_init(FailureRateLimiter::new)
 }
 
 /// Middleware that tracks telemetry events for API calls
