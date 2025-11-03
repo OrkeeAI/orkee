@@ -82,6 +82,16 @@ pub async fn track_api_calls(request: Request<Body>, next: Next) -> Response {
         if let serde_json::Value::Object(ref mut map) = event_data {
             map.insert("success".to_string(), json!(is_success));
             map.insert("status_code".to_string(), json!(status.as_u16()));
+            if !is_success {
+                map.insert(
+                    "error_category".to_string(),
+                    json!(if is_client_error {
+                        "client_error"
+                    } else {
+                        "server_error"
+                    }),
+                );
+            }
         }
 
         // Track asynchronously, don't block the response
