@@ -4,7 +4,21 @@
 import { useRef, useEffect } from 'react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Loader2 } from 'lucide-react';
-import { PromptInput } from '@/components/ui/prompt-input';
+import {
+  PromptInput,
+  PromptInputHeader,
+  PromptInputAttachments,
+  PromptInputAttachment,
+  PromptInputBody,
+  PromptInputTextarea,
+  PromptInputFooter,
+  PromptInputTools,
+  PromptInputSubmit,
+  PromptInputActionMenu,
+  PromptInputActionMenuTrigger,
+  PromptInputActionMenuContent,
+  PromptInputActionAddAttachments,
+} from '@/components/ai-elements/prompt-input';
 import { MessageBubble } from './MessageBubble';
 import type { ChatMessage } from '@/services/chat';
 import type { StreamingMessage } from '../hooks/useStreamingResponse';
@@ -36,9 +50,9 @@ export function ChatView({
     scrollToBottom();
   }, [messages, streamingMessage]);
 
-  const handleSubmit = (content: string) => {
-    if (content.trim() && !isSending) {
-      onSendMessage(content);
+  const handleSubmit = (message: { text?: string; files?: any[] }) => {
+    if (message.text?.trim() && !isSending) {
+      onSendMessage(message.text);
     }
   };
 
@@ -48,7 +62,7 @@ export function ChatView({
   }
 
   // Determine input status based on current state
-  const inputStatus = isSending ? 'streaming' : 'ready';
+  const status: 'ready' | 'submitted' | 'streaming' = isSending ? 'streaming' : 'ready';
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
@@ -76,12 +90,27 @@ export function ChatView({
         </div>
       </ScrollArea>
 
-      <PromptInput
-        onSubmit={handleSubmit}
-        placeholder={UI_TEXT.INPUT_PLACEHOLDER}
-        disabled={isSending}
-        status={inputStatus}
-      />
+      <PromptInput onSubmit={handleSubmit}>
+        <PromptInputHeader>
+          <PromptInputAttachments>
+            {(attachment) => <PromptInputAttachment data={attachment} />}
+          </PromptInputAttachments>
+        </PromptInputHeader>
+        <PromptInputBody>
+          <PromptInputTextarea placeholder={UI_TEXT.INPUT_PLACEHOLDER} disabled={isSending} />
+        </PromptInputBody>
+        <PromptInputFooter>
+          <PromptInputTools>
+            <PromptInputActionMenu>
+              <PromptInputActionMenuTrigger />
+              <PromptInputActionMenuContent>
+                <PromptInputActionAddAttachments />
+              </PromptInputActionMenuContent>
+            </PromptInputActionMenu>
+            <PromptInputSubmit status={status} />
+          </PromptInputTools>
+        </PromptInputFooter>
+      </PromptInput>
     </div>
   );
 }
