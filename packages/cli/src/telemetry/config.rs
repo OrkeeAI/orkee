@@ -96,7 +96,7 @@ pub struct TelemetryManager {
 }
 
 impl TelemetryManager {
-    pub async fn new(pool: SqlitePool) -> Result<Self, Box<dyn std::error::Error>> {
+    pub async fn new(pool: SqlitePool) -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
         let config = TelemetryConfig::from_env();
         let settings = Self::load_settings(&pool).await?;
 
@@ -109,7 +109,7 @@ impl TelemetryManager {
 
     async fn load_settings(
         pool: &SqlitePool,
-    ) -> Result<TelemetrySettings, Box<dyn std::error::Error>> {
+    ) -> Result<TelemetrySettings, Box<dyn std::error::Error + Send + Sync>> {
         let row = sqlx::query!(
             r#"
             SELECT
@@ -156,7 +156,7 @@ impl TelemetryManager {
     async fn save_settings(
         pool: &SqlitePool,
         settings: &TelemetrySettings,
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         sqlx::query!(
             r#"
             INSERT OR REPLACE INTO telemetry_settings (
@@ -192,7 +192,7 @@ impl TelemetryManager {
     pub async fn update_settings(
         &self,
         new_settings: TelemetrySettings,
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         // Acquire write lock FIRST to prevent TOCTOU race conditions
         let mut settings = self.settings.write().await;
 
@@ -210,7 +210,7 @@ impl TelemetryManager {
         error_reporting: bool,
         usage_metrics: bool,
         non_anonymous_metrics: bool,
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         // Acquire write lock FIRST to prevent TOCTOU race conditions
         // This ensures the read-modify-write operation is atomic
         let mut settings = self.settings.write().await;
@@ -237,7 +237,7 @@ impl TelemetryManager {
         error_reporting: bool,
         usage_metrics: bool,
         non_anonymous_metrics: bool,
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let mut settings = self.settings.write().await;
 
         // Generate machine ID if enabling any telemetry
@@ -283,7 +283,7 @@ impl TelemetryManager {
         settings.first_run && !settings.onboarding_completed
     }
 
-    pub async fn delete_all_data(&self) -> Result<u64, Box<dyn std::error::Error>> {
+    pub async fn delete_all_data(&self) -> Result<u64, Box<dyn std::error::Error + Send + Sync>> {
         // Delete all telemetry events
         let result = sqlx::query!("DELETE FROM telemetry_events")
             .execute(&self.pool)
@@ -318,7 +318,7 @@ impl TelemetryManager {
         event_name: &str,
         event_data: Option<serde_json::Value>,
         session_id: Option<String>,
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         // Convert event_data to HashMap if present
         let properties = event_data.and_then(|data| {
             if let serde_json::Value::Object(map) = data {
@@ -335,7 +335,7 @@ impl TelemetryManager {
     }
 
     #[cfg(test)]
-    pub async fn new_with_test_db() -> Result<Self, Box<dyn std::error::Error>> {
+    pub async fn new_with_test_db() -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
         use sqlx::sqlite::SqlitePoolOptions;
 
         // Create in-memory database for testing

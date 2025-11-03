@@ -1,0 +1,118 @@
+// ABOUTME: Middleware for tracking API telemetry events
+// ABOUTME: Automatically logs project CRUD operations, preview server actions, and other API calls
+
+use axum::{body::Body, extract::Request, middleware::Next, response::Response};
+use serde_json::json;
+use std::collections::HashMap;
+use tracing::{error, warn};
+
+/// Middleware that tracks telemetry events for API calls
+pub async fn track_api_calls(request: Request<Body>, next: Next) -> Response {
+    let method = request.method().clone();
+    let uri = request.uri().clone();
+    let path = uri.path().to_string();
+
+    // Call the next handler
+    let response = next.run(request).await;
+
+    // Only track successful operations (2xx status codes)
+    let status = response.status();
+    if !status.is_success() {
+        return response;
+    }
+
+    // Track different types of operations based on path and method
+    let event_name_and_data = match (method.as_str(), path.as_str()) {
+        // Project CRUD operations
+        ("POST", "/api/projects") | ("POST", "/api/projects/") => {
+            Some(("project_created", json!({"action": "create"})))
+        }
+        ("PUT", path) if path.starts_with("/api/projects/") && !path.contains("/tasks") => {
+            let project_id = extract_id_from_path(path, "/api/projects/");
+            Some((
+                "project_updated",
+                json!({"action": "update", "project_id": project_id}),
+            ))
+        }
+        ("DELETE", path) if path.starts_with("/api/projects/") && !path.contains("/tasks") => {
+            let project_id = extract_id_from_path(path, "/api/projects/");
+            Some((
+                "project_deleted",
+                json!({"action": "delete", "project_id": project_id}),
+            ))
+        }
+
+        // Preview server operations
+        ("POST", path) if path.contains("/api/preview/servers/") && path.ends_with("/start") => {
+            Some(("preview_server_started", json!({"action": "start"})))
+        }
+        ("POST", path) if path.contains("/api/preview/servers/") && path.ends_with("/stop") => {
+            Some(("preview_server_stopped", json!({"action": "stop"})))
+        }
+        ("POST", path) if path.contains("/api/preview/servers/") && path.ends_with("/restart") => {
+            Some(("preview_server_restarted", json!({"action": "restart"})))
+        }
+        ("POST", "/api/preview/servers/stop-all") | ("POST", "/api/preview/servers/stop-all/") => {
+            Some(("preview_servers_stopped_all", json!({"action": "stop_all"})))
+        }
+
+        // Ideate operations - just track the main endpoints
+        ("POST", path) if path.starts_with("/api/ideate/") => {
+            let operation = path.strip_prefix("/api/ideate/").unwrap_or("unknown");
+            Some(("ideate_operation", json!({"operation": operation})))
+        }
+
+        // Don't track everything else (health checks, list operations, etc.)
+        _ => None,
+    };
+
+    // Track the event if we have a match
+    if let Some((event_name, event_data)) = event_name_and_data {
+        // Track asynchronously, don't block the response
+        tokio::spawn(async move {
+            if let Err(e) = track_telemetry_event(event_name, event_data).await {
+                // Just log the error, don't fail the request
+                warn!("Failed to track telemetry event {}: {}", event_name, e);
+            }
+        });
+    }
+
+    response
+}
+
+/// Helper function to extract ID from a URL path
+fn extract_id_from_path(path: &str, prefix: &str) -> String {
+    path.strip_prefix(prefix)
+        .and_then(|s| s.split('/').next())
+        .unwrap_or("unknown")
+        .to_string()
+}
+
+/// Track a telemetry event to the database
+async fn track_telemetry_event(
+    event_name: &str,
+    event_data: serde_json::Value,
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    // Get the telemetry database pool
+    let pool = match crate::telemetry::get_database_pool().await {
+        Ok(pool) => pool,
+        Err(e) => {
+            // Telemetry is optional - if it fails, just return OK
+            error!("Failed to get telemetry database pool: {}", e);
+            return Ok(());
+        }
+    };
+
+    // Convert the JSON value to a HashMap
+    let mut properties = HashMap::new();
+    if let serde_json::Value::Object(map) = event_data {
+        for (key, value) in map {
+            properties.insert(key, value);
+        }
+    }
+
+    // Track the event
+    crate::telemetry::events::track_event(&pool, event_name, Some(properties), None).await?;
+
+    Ok(())
+}

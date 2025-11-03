@@ -120,7 +120,9 @@ impl TelemetryCollector {
         info!("Telemetry background task started");
     }
 
-    async fn send_buffered_events_internal(&self) -> Result<(), Box<dyn std::error::Error>> {
+    async fn send_buffered_events_internal(
+        &self,
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let settings = self.manager.get_settings().await;
 
         // Get unsent events (batch of 50)
@@ -234,7 +236,7 @@ impl TelemetryCollector {
 pub async fn send_buffered_events(
     manager: Arc<TelemetryManager>,
     pool: SqlitePool,
-) -> Result<(), Box<dyn std::error::Error>> {
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let endpoint = manager.get_endpoint();
     let collector = TelemetryCollector::new(manager, pool, endpoint);
     collector.send_buffered_events_internal().await
@@ -266,7 +268,7 @@ mod tests {
         pool: &SqlitePool,
         event: &TelemetryEvent,
         retry_count: i64,
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let event_data_json = event.event_data.as_ref().map(|v| v.to_string());
         let event_type_str = match event.event_type {
             EventType::Usage => "usage",

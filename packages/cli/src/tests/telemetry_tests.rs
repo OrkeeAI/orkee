@@ -756,3 +756,70 @@ async fn test_concurrent_settings_updates_no_race_condition() {
         db_settings.non_anonymous_metrics
     );
 }
+
+// ============================================================================
+// Background Collector Tests
+// ============================================================================
+
+#[tokio::test]
+#[serial]
+async fn test_background_collector_starts_and_processes_events() {
+    use crate::telemetry::collector::send_buffered_events;
+    use std::sync::Arc;
+
+    let (pool, _temp_dir) = setup_test_db().await;
+
+    // Set API key to enable telemetry
+    env::set_var("POSTHOG_API_KEY", "phc_test1234567890");
+
+    // Create telemetry manager
+    let manager = Arc::new(TelemetryManager::new(pool.clone()).await.unwrap());
+
+    // Enable telemetry
+    manager
+        .complete_onboarding(true, true, false)
+        .await
+        .unwrap();
+
+    // Create and save an event
+    track_event(&pool, "background_collector_test", None, None)
+        .await
+        .unwrap();
+
+    // Verify event is unsent
+    let unsent_before = get_unsent_events(&pool, 10).await.unwrap();
+    assert_eq!(unsent_before.len(), 1);
+
+    // Call send_buffered_events directly
+    // This simulates what the background task does
+    let result = send_buffered_events(manager.clone(), pool.clone()).await;
+
+    // The function should either succeed or fail gracefully
+    // In test environment, PostHog endpoint won't work, but the function should still run
+    // and either increment retry_count (on HTTP error) or mark as sent (if filtered)
+    assert!(
+        result.is_ok(),
+        "send_buffered_events should not panic: {:?}",
+        result.err()
+    );
+
+    // Verify the event was processed (either marked as sent OR retry_count incremented)
+    let query_result = sqlx::query("SELECT sent_at, retry_count FROM telemetry_events WHERE event_name = 'background_collector_test'")
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+
+    let sent_at: Option<String> = query_result.get("sent_at");
+    let retry_count: i64 = query_result.get("retry_count");
+
+    // Event should have been processed: either marked as sent OR retry incremented
+    assert!(
+        sent_at.is_some() || retry_count >= 1,
+        "Expected event to be processed (sent_at set or retry_count >= 1), got sent_at={:?}, retry_count={}",
+        sent_at,
+        retry_count
+    );
+
+    // Clean up
+    env::remove_var("POSTHOG_API_KEY");
+}

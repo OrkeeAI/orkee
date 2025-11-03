@@ -14,6 +14,7 @@ pub mod preview;
 pub mod settings_handlers;
 pub mod taskmaster;
 pub mod telemetry;
+pub mod telemetry_middleware;
 
 pub async fn create_router() -> Router {
     let (router, _db_state) = create_router_with_options(None, None).await;
@@ -209,6 +210,26 @@ pub async fn create_router_with_options(
     let telemetry_router = match crate::telemetry::init_telemetry_manager().await {
         Ok(manager) => {
             let telemetry_manager = Arc::new(manager);
+
+            // Start background collector task
+            // This spawns an async task that periodically sends buffered telemetry events to PostHog
+            let pool = crate::telemetry::get_database_pool()
+                .await
+                .expect("Failed to get database pool for telemetry collector");
+            let endpoint = telemetry_manager.get_endpoint();
+            let collector = Arc::new(crate::telemetry::TelemetryCollector::new(
+                telemetry_manager.clone(),
+                pool,
+                endpoint,
+            ));
+
+            // Spawn the background task
+            tokio::spawn(async move {
+                use tracing::info;
+                info!("Starting telemetry background collector task");
+                collector.start_background_task().await;
+            });
+
             Router::new()
                 .route("/status", get(telemetry::get_telemetry_status))
                 .route("/settings", get(telemetry::get_telemetry_settings))
@@ -267,7 +288,12 @@ pub async fn create_router_with_options(
             "/api",
             orkee_api::create_ai_proxy_router().with_state(db_state.clone()),
         )
-        .nest("/api/projects", orkee_api::create_projects_router())
+        .nest(
+            "/api/projects",
+            orkee_api::create_projects_router().layer(axum::middleware::from_fn(
+                telemetry_middleware::track_api_calls,
+            )),
+        )
         .nest(
             "/api/projects/{project_id}/tasks",
             orkee_api::create_tasks_router().with_state(db_state.clone()),
@@ -286,7 +312,11 @@ pub async fn create_router_with_options(
         )
         .nest(
             "/api",
-            orkee_api::create_ideate_router().with_state(db_state.clone()),
+            orkee_api::create_ideate_router()
+                .with_state(db_state.clone())
+                .layer(axum::middleware::from_fn(
+                    telemetry_middleware::track_api_calls,
+                )),
         )
         .nest(
             "/api",
@@ -297,7 +327,12 @@ pub async fn create_router_with_options(
             orkee_api::create_graph_router().with_state(db_state.clone()),
         )
         .nest("/api/git", git_router)
-        .nest("/api/preview", preview_router)
+        .nest(
+            "/api/preview",
+            preview_router.layer(axum::middleware::from_fn(
+                telemetry_middleware::track_api_calls,
+            )),
+        )
         .nest("/api/cloud", cloud_router)
         .nest("/api/taskmaster", taskmaster_router)
         .nest("/api/telemetry", telemetry_router)

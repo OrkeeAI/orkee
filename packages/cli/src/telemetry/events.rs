@@ -66,7 +66,10 @@ impl TelemetryEvent {
         self
     }
 
-    pub async fn save_to_db(&self, pool: &SqlitePool) -> Result<(), Box<dyn std::error::Error>> {
+    pub async fn save_to_db(
+        &self,
+        pool: &SqlitePool,
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let event_data_json = self.event_data.as_ref().map(|v| v.to_string());
         let event_type_str = match self.event_type {
             EventType::Usage => "usage",
@@ -108,7 +111,7 @@ pub async fn track_event(
     event_name: &str,
     properties: Option<HashMap<String, Value>>,
     session_id: Option<String>,
-) -> Result<(), Box<dyn std::error::Error>> {
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let mut event = TelemetryEvent::new(EventType::Usage, event_name.to_string());
 
     if let Some(props) = properties {
@@ -130,7 +133,7 @@ pub async fn track_error(
     error_message: &str,
     stack_trace: Option<String>,
     session_id: Option<String>,
-) -> Result<(), Box<dyn std::error::Error>> {
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let mut event = TelemetryEvent::new(EventType::Error, error_name.to_string());
 
     let mut error_data = HashMap::new();
@@ -156,7 +159,7 @@ pub async fn track_error(
 pub async fn get_unsent_events(
     pool: &SqlitePool,
     limit: i64,
-) -> Result<Vec<TelemetryEvent>, Box<dyn std::error::Error>> {
+) -> Result<Vec<TelemetryEvent>, Box<dyn std::error::Error + Send + Sync>> {
     const MAX_RETRY_COUNT: i64 = 3;
 
     let rows = sqlx::query!(
@@ -231,7 +234,7 @@ pub async fn get_unsent_events(
 pub async fn mark_events_as_sent(
     pool: &SqlitePool,
     event_ids: &[String],
-) -> Result<(), Box<dyn std::error::Error>> {
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     if event_ids.is_empty() {
         return Ok(());
     }
@@ -257,7 +260,7 @@ pub async fn mark_events_as_sent(
 pub async fn increment_retry_count(
     pool: &SqlitePool,
     event_ids: &[String],
-) -> Result<(), Box<dyn std::error::Error>> {
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     if event_ids.is_empty() {
         return Ok(());
     }
@@ -283,7 +286,7 @@ pub async fn increment_retry_count(
 pub async fn mark_failed_events_as_sent(
     pool: &SqlitePool,
     event_ids: &[String],
-) -> Result<(), Box<dyn std::error::Error>> {
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     if event_ids.is_empty() {
         return Ok(());
     }
@@ -309,7 +312,7 @@ pub async fn mark_failed_events_as_sent(
 pub async fn cleanup_old_events(
     pool: &SqlitePool,
     days_to_keep: i64,
-) -> Result<u64, Box<dyn std::error::Error>> {
+) -> Result<u64, Box<dyn std::error::Error + Send + Sync>> {
     let result = sqlx::query!(
         r#"
         DELETE FROM telemetry_events
@@ -329,7 +332,7 @@ pub async fn cleanup_old_events(
 pub async fn cleanup_old_unsent_events(
     pool: &SqlitePool,
     days_to_keep: i64,
-) -> Result<u64, Box<dyn std::error::Error>> {
+) -> Result<u64, Box<dyn std::error::Error + Send + Sync>> {
     let result = sqlx::query!(
         r#"
         DELETE FROM telemetry_events
