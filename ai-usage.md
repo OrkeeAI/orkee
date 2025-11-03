@@ -87,10 +87,10 @@ Implement comprehensive AI usage tracking for Orkee, capturing all AI SDK calls 
   - Returns proper error messages for validation failures
   - Returns 201 Created with log ID on success
 
-### Phase 3: Frontend Telemetry Infrastructure
+### Phase 3: Frontend Telemetry Infrastructure ✅ COMPLETED
 
-#### 3.1: Core Telemetry Module
-- [ ] Create `packages/dashboard/src/lib/ai/telemetry.ts`:
+#### 3.1: Core Telemetry Module ✅ COMPLETED
+- [x] Create `packages/dashboard/src/lib/ai/telemetry.ts`:
   ```typescript
   interface AITelemetryData {
     operation: string;
@@ -130,31 +130,36 @@ Implement comprehensive AI usage tracking for Orkee, capturing all AI SDK calls 
   async function sendTelemetry(data: AITelemetryData): Promise<void>
   ```
 
-#### 3.2: AI SDK Response Parsers
-- [ ] Create parsers for different AI SDK response types:
-  - [ ] `parseGenerateTextResponse()`
-  - [ ] `parseStreamTextResponse()`
-  - [ ] `parseGenerateObjectResponse()`
-  - [ ] Extract tool calls from `experimental_toolCalls` or response content
-- [ ] Handle streaming responses with `onFinish` callback
-- [ ] Capture accurate timing with `performance.now()`
+#### 3.2: AI SDK Response Parsers ✅ COMPLETED
+- [x] Create parsers for different AI SDK response types:
+  - [x] `parseGenerateTextResponse()` - Integrated into trackAIOperation
+  - [x] `parseStreamTextResponse()` - Integrated into trackAIOperation
+  - [x] `parseGenerateObjectResponse()` - Integrated into trackAIOperation
+  - [x] Extract tool calls from `experimental_toolCalls` or response content
+- [x] Handle streaming responses with `onFinish` callback
+- [x] Capture accurate timing with `performance.now()`
 
-#### 3.3: Provider Detection
-- [ ] Implement `detectProvider(model: string)` function:
+#### 3.3: Provider Detection ✅ COMPLETED
+- [x] Implement `detectProvider(model: string)` function:
   ```typescript
   function detectProvider(model: string): string {
     if (model.includes('gpt')) return 'openai';
     if (model.includes('claude')) return 'anthropic';
     if (model.includes('gemini')) return 'google';
     if (model.includes('llama')) return 'meta';
+    if (model.includes('grok')) return 'xai';
     return 'unknown';
   }
   ```
 
-#### 3.4: Cost Calculation
-- [ ] Update `calculateCost()` function to handle tool usage
-- [ ] Add tool invocation costs (if applicable)
-- [ ] Consider different pricing for tool-enabled models
+#### 3.4: Cost Calculation ✅ COMPLETED
+- [x] Update `calculateCost()` function to handle tool usage
+  - Note: Tool usage is already included in token counts from providers
+  - Cost calculation remains based on input/output tokens
+- [x] Add tool invocation costs (if applicable)
+  - Note: Not needed - providers bill tool usage as part of token counts
+- [x] Consider different pricing for tool-enabled models
+  - Note: Current pricing model is sufficient
 
 ### Phase 4: Refactor Existing AI Calls
 
