@@ -28,7 +28,7 @@ pub async fn track_api_calls(request: Request<Body>, next: Next) -> Response {
         ("POST", "/api/projects") | ("POST", "/api/projects/") => {
             Some(("project_created", json!({"action": "create"})))
         }
-        ("PUT", path) if path.starts_with("/api/projects/") && !path.contains("/tasks") => {
+        ("PUT", path) if path.starts_with("/api/projects/") && !is_task_endpoint(path) => {
             let project_id = extract_id_from_path(path, "/api/projects/");
             let project_id_hash = hash_id(&project_id);
             Some((
@@ -36,7 +36,7 @@ pub async fn track_api_calls(request: Request<Body>, next: Next) -> Response {
                 json!({"action": "update", "project_id_hash": project_id_hash}),
             ))
         }
-        ("DELETE", path) if path.starts_with("/api/projects/") && !path.contains("/tasks") => {
+        ("DELETE", path) if path.starts_with("/api/projects/") && !is_task_endpoint(path) => {
             let project_id = extract_id_from_path(path, "/api/projects/");
             let project_id_hash = hash_id(&project_id);
             Some((
@@ -109,6 +109,20 @@ fn hash_id(id: &str) -> String {
     let mut hasher = Sha256::new();
     hasher.update(id.as_bytes());
     format!("{:x}", hasher.finalize())
+}
+
+/// Check if a path is a task-related endpoint (not a project endpoint)
+/// Returns true if the path matches /api/projects/{id}/tasks*
+fn is_task_endpoint(path: &str) -> bool {
+    // Match pattern: /api/projects/{something}/tasks (with optional trailing segments)
+    // This avoids false positives from project names containing "tasks"
+    if let Some(after_projects) = path.strip_prefix("/api/projects/") {
+        // Split on / and check if we have at least 2 segments (id and "tasks")
+        let segments: Vec<&str> = after_projects.split('/').collect();
+        segments.len() >= 2 && segments[1] == "tasks"
+    } else {
+        false
+    }
 }
 
 /// Track a telemetry event to the database
