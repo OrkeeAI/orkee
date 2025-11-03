@@ -447,7 +447,7 @@ And here is a third paragraph to test chunking.";
         for chunk in &chunks {
             let word_count = chunk.split_whitespace().count();
             // Allow some flexibility due to natural break points
-            assert!(word_count >= 100 && word_count <= 400);
+            assert!((100..=400).contains(&word_count));
         }
     }
 
