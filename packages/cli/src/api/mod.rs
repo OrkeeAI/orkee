@@ -326,10 +326,11 @@ pub async fn create_router_with_options(
             "/api/executions",
             orkee_api::create_executions_router().with_state(db_state.clone()),
         )
-        .nest(
-            "/api",
-            orkee_api::create_ai_router().with_state(db_state.clone()),
-        )
+        // Phase 6: AI handler routes removed - all AI calls now happen client-side
+        // .nest(
+        //     "/api",
+        //     orkee_api::create_ai_router().with_state(db_state.clone()),
+        // )
         .nest(
             "/api/ai-usage",
             orkee_api::create_ai_usage_router().with_state(db_state.clone()),

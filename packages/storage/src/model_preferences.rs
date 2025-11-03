@@ -1,7 +1,6 @@
 // ABOUTME: Model preferences type definitions and storage
 // ABOUTME: Per-task AI model configuration for Ideate, PRD, and task features
 
-use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use sqlx::{FromRow, SqlitePool};
 
@@ -96,7 +95,15 @@ impl ModelPreferencesStorage {
             None => {
                 // Create default preferences if they don't exist
                 self.create_default_preferences(user_id).await?;
-                self.get_preferences(user_id).await
+
+                // Fetch again after creating (avoiding recursion)
+                sqlx::query_as::<_, ModelPreferences>(
+                    "SELECT * FROM model_preferences WHERE user_id = ?"
+                )
+                .bind(user_id)
+                .fetch_one(&self.pool)
+                .await
+                .map_err(StorageError::Sqlx)
             }
         }
     }
