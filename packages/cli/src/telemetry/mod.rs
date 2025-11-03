@@ -14,13 +14,14 @@ pub use config::{TelemetryConfig, TelemetryManager, TelemetrySettings};
 pub use events::{track_error, track_event, EventType, TelemetryEvent};
 
 /// Initialize the telemetry manager with the shared database connection
-pub async fn init_telemetry_manager() -> Result<TelemetryManager, Box<dyn std::error::Error>> {
+pub async fn init_telemetry_manager(
+) -> Result<TelemetryManager, Box<dyn std::error::Error + Send + Sync>> {
     let pool = get_database_pool().await?;
     TelemetryManager::new(pool).await
 }
 
 /// Get the shared database connection pool
-async fn get_database_pool() -> Result<SqlitePool, Box<dyn std::error::Error>> {
+pub async fn get_database_pool() -> Result<SqlitePool, Box<dyn std::error::Error + Send + Sync>> {
     use sqlx::sqlite::SqlitePoolOptions;
     use std::time::Duration;
 
@@ -48,7 +49,7 @@ async fn get_database_pool() -> Result<SqlitePool, Box<dyn std::error::Error>> {
 }
 
 /// Get the path to the Orkee database
-fn get_database_path() -> Result<PathBuf, Box<dyn std::error::Error>> {
+fn get_database_path() -> Result<PathBuf, Box<dyn std::error::Error + Send + Sync>> {
     let home = dirs::home_dir().ok_or("Failed to find home directory")?;
     Ok(home.join(".orkee").join("orkee.db"))
 }

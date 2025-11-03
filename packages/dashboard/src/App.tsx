@@ -1,5 +1,5 @@
 import { useEffect, useState, lazy, Suspense } from 'react'
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
 import { invoke } from '@tauri-apps/api/core'
@@ -8,20 +8,27 @@ import { Layout } from '@/components/layout/Layout'
 import { ConnectionProvider } from '@/contexts/ConnectionContext'
 import { CloudProvider } from '@/contexts/CloudContext'
 import { ThemeProvider } from '@/contexts/ThemeContext'
-import { TelemetryProvider, useTelemetry } from '@/contexts/TelemetryContext'
+import { TelemetryProvider, useTelemetry, withPageTracking } from '@/contexts/TelemetryContext'
 import { ModelPreferencesProvider } from '@/contexts/ModelPreferencesContext'
 import { queryClient } from '@/lib/queryClient'
 import { PopupCloseHandler } from '@/components/PopupCloseHandler'
 import { CliSetupDialog } from '@/components/CliSetupDialog'
 import { TelemetryOnboardingDialog } from '@/components/TelemetryOnboardingDialog'
+import { TelemetryErrorBoundary } from '@/components/TelemetryErrorBoundary'
 import { isTauriApp } from '@/lib/platform'
 
 // Lazy load page components for code splitting
-const Projects = lazy(() => import('@/pages/Projects'))
-const ProjectDetail = lazy(() => import('@/pages/ProjectDetail'))
-const Settings = lazy(() => import('@/pages/Settings'))
-const Templates = lazy(() => import('@/pages/Templates'))
+const ProjectsBase = lazy(() => import('@/pages/Projects'))
+const ProjectDetailBase = lazy(() => import('@/pages/ProjectDetail'))
+const SettingsBase = lazy(() => import('@/pages/Settings'))
+const TemplatesBase = lazy(() => import('@/pages/Templates'))
 const OAuthCallback = lazy(() => import('@/pages/OAuthCallback'))
+
+// Wrap page components with telemetry tracking
+const Projects = withPageTracking(ProjectsBase, 'projects')
+const ProjectDetail = withPageTracking(ProjectDetailBase, 'project_detail')
+const Settings = withPageTracking(SettingsBase, 'settings')
+const Templates = withPageTracking(TemplatesBase, 'templates')
 
 // Loading fallback component
 function PageLoader() {
@@ -85,16 +92,17 @@ function AppWithTelemetry() {
 
   return (
     <BrowserRouter>
-      <PopupCloseHandler />
-      <TelemetryOnboardingDialog
-        open={showTelemetryDialog}
-        onOpenChange={setShowTelemetryDialog}
-      />
-      <CliSetupDialog
-        open={showCliDialog}
-        onOpenChange={setShowCliDialog}
-      />
-      <Suspense fallback={<PageLoader />}>
+      <ErrorBoundaryWithLocation>
+        <PopupCloseHandler />
+        <TelemetryOnboardingDialog
+          open={showTelemetryDialog}
+          onOpenChange={setShowTelemetryDialog}
+        />
+        <CliSetupDialog
+          open={showCliDialog}
+          onOpenChange={setShowCliDialog}
+        />
+        <Suspense fallback={<PageLoader />}>
         <Routes>
           {/* OAuth callback route - outside Layout */}
           <Route path="/oauth/callback" element={<OAuthCallback />} />
@@ -115,7 +123,18 @@ function AppWithTelemetry() {
           } />
         </Routes>
       </Suspense>
+      </ErrorBoundaryWithLocation>
     </BrowserRouter>
+  );
+}
+
+// Wrapper component to provide location-based key to error boundary
+function ErrorBoundaryWithLocation({ children }: { children: React.ReactNode }) {
+  const location = useLocation();
+  return (
+    <TelemetryErrorBoundary key={location.pathname}>
+      {children}
+    </TelemetryErrorBoundary>
   );
 }
 

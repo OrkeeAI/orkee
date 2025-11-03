@@ -2903,6 +2903,7 @@ dependencies = [
  "futures",
  "git2",
  "governor",
+ "hmac",
  "indicatif",
  "inquire",
  "mockall 0.12.1",
