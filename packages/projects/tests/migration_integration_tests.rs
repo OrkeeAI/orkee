@@ -1596,12 +1596,10 @@ async fn test_model_preferences_default_values() {
     .unwrap();
 
     // Insert preferences with defaults
-    sqlx::query(
-        "INSERT INTO model_preferences (user_id) VALUES ('test-user')",
-    )
-    .execute(&pool)
-    .await
-    .unwrap();
+    sqlx::query("INSERT INTO model_preferences (user_id) VALUES ('test-user')")
+        .execute(&pool)
+        .await
+        .unwrap();
 
     // Verify all defaults are claude-sonnet-4-5-20250929 with anthropic provider
     let (chat_model, chat_provider): (String, String) = sqlx::query_as(
@@ -1672,7 +1670,18 @@ async fn test_model_preferences_all_ten_task_types() {
     .unwrap();
 
     // Verify each task type was set correctly
-    let prefs: (String, String, String, String, String, String, String, String, String, String) = sqlx::query_as(
+    let prefs: (
+        String,
+        String,
+        String,
+        String,
+        String,
+        String,
+        String,
+        String,
+        String,
+        String,
+    ) = sqlx::query_as(
         "SELECT chat_model, prd_generation_model, prd_analysis_model,
                 insight_extraction_model, spec_generation_model, task_suggestions_model,
                 task_analysis_model, spec_refinement_model, research_generation_model,
@@ -1717,10 +1726,7 @@ async fn test_model_preferences_provider_check_constraints() {
     .execute(&pool)
     .await;
 
-    assert!(
-        result.is_err(),
-        "Should reject invalid chat_provider value"
-    );
+    assert!(result.is_err(), "Should reject invalid chat_provider value");
 
     // Verify all 4 valid providers work for chat
     for provider in &["anthropic", "openai", "google", "xai"] {
@@ -1745,11 +1751,7 @@ async fn test_model_preferences_provider_check_constraints() {
         .execute(&pool)
         .await;
 
-        assert!(
-            result.is_ok(),
-            "Should accept valid provider: {}",
-            provider
-        );
+        assert!(result.is_ok(), "Should accept valid provider: {}", provider);
     }
 }
 
@@ -1768,20 +1770,17 @@ async fn test_model_preferences_foreign_key_cascade_delete() {
     .unwrap();
 
     // Insert preferences
-    sqlx::query(
-        "INSERT INTO model_preferences (user_id) VALUES ('test-user')",
-    )
-    .execute(&pool)
-    .await
-    .unwrap();
+    sqlx::query("INSERT INTO model_preferences (user_id) VALUES ('test-user')")
+        .execute(&pool)
+        .await
+        .unwrap();
 
     // Verify preferences exist
-    let count: i64 = sqlx::query_scalar(
-        "SELECT COUNT(*) FROM model_preferences WHERE user_id = 'test-user'",
-    )
-    .fetch_one(&pool)
-    .await
-    .unwrap();
+    let count: i64 =
+        sqlx::query_scalar("SELECT COUNT(*) FROM model_preferences WHERE user_id = 'test-user'")
+            .fetch_one(&pool)
+            .await
+            .unwrap();
     assert_eq!(count, 1);
 
     // Delete user
@@ -1791,12 +1790,11 @@ async fn test_model_preferences_foreign_key_cascade_delete() {
         .unwrap();
 
     // Verify preferences were cascade deleted
-    let count: i64 = sqlx::query_scalar(
-        "SELECT COUNT(*) FROM model_preferences WHERE user_id = 'test-user'",
-    )
-    .fetch_one(&pool)
-    .await
-    .unwrap();
+    let count: i64 =
+        sqlx::query_scalar("SELECT COUNT(*) FROM model_preferences WHERE user_id = 'test-user'")
+            .fetch_one(&pool)
+            .await
+            .unwrap();
     assert_eq!(count, 0, "Preferences should be cascade deleted with user");
 }
 
@@ -1815,20 +1813,17 @@ async fn test_model_preferences_updated_at_trigger() {
     .unwrap();
 
     // Insert preferences
-    sqlx::query(
-        "INSERT INTO model_preferences (user_id) VALUES ('test-user')",
-    )
-    .execute(&pool)
-    .await
-    .unwrap();
+    sqlx::query("INSERT INTO model_preferences (user_id) VALUES ('test-user')")
+        .execute(&pool)
+        .await
+        .unwrap();
 
     // Get initial updated_at
-    let initial_updated_at: String = sqlx::query_scalar(
-        "SELECT updated_at FROM model_preferences WHERE user_id = 'test-user'",
-    )
-    .fetch_one(&pool)
-    .await
-    .unwrap();
+    let initial_updated_at: String =
+        sqlx::query_scalar("SELECT updated_at FROM model_preferences WHERE user_id = 'test-user'")
+            .fetch_one(&pool)
+            .await
+            .unwrap();
 
     // Wait a moment to ensure timestamp difference (SQLite timestamps have 1-second resolution)
     tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
@@ -1843,12 +1838,11 @@ async fn test_model_preferences_updated_at_trigger() {
     .unwrap();
 
     // Get new updated_at
-    let new_updated_at: String = sqlx::query_scalar(
-        "SELECT updated_at FROM model_preferences WHERE user_id = 'test-user'",
-    )
-    .fetch_one(&pool)
-    .await
-    .unwrap();
+    let new_updated_at: String =
+        sqlx::query_scalar("SELECT updated_at FROM model_preferences WHERE user_id = 'test-user'")
+            .fetch_one(&pool)
+            .await
+            .unwrap();
 
     assert_ne!(
         initial_updated_at, new_updated_at,
@@ -1892,10 +1886,7 @@ async fn test_model_preferences_down_migration() {
     .fetch_one(&pool)
     .await
     .unwrap();
-    assert!(
-        !table_exists,
-        "Table should not exist after down migration"
-    );
+    assert!(!table_exists, "Table should not exist after down migration");
 
     // Verify trigger is dropped
     let trigger_exists: bool = sqlx::query_scalar(

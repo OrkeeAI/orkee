@@ -11,9 +11,9 @@ use tracing::{error, info, warn};
 
 use super::response::ok_or_internal_error;
 use orkee_ideate::{
-    extract_insights_with_ai, ChatManager, CreateInsightInput, DiscoveryQuestion,
-    DiscoveryStatus, GeneratePRDFromChatInput, GeneratePRDFromChatResult, MessageRole,
-    QualityMetrics, QuestionCategory, SendMessageInput, TopicCoverage, ValidationResult,
+    extract_insights_with_ai, ChatManager, CreateInsightInput, DiscoveryQuestion, DiscoveryStatus,
+    GeneratePRDFromChatInput, GeneratePRDFromChatResult, MessageRole, QualityMetrics,
+    QuestionCategory, SendMessageInput, TopicCoverage, ValidationResult,
 };
 use orkee_projects::DbState;
 
