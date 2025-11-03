@@ -418,12 +418,17 @@ export async function analyzePRD(content: string) {
 - [ ] Test new user creation → preferences created with defaults
 - [ ] Verify agent conversations still work independently (`user_agents.preferred_model_id`)
 
-### 7.5 Database Migration Testing
-- [ ] Run migration on fresh database → success
-- [ ] Run migration on database with existing users → defaults applied
-- [ ] Run down migration → clean removal
-- [ ] Verify foreign key constraints work (delete user → preferences deleted)
-- [ ] Verify CHECK constraints work (try invalid provider → rejected)
+### 7.5 Database Migration Testing ✅ COMPLETED
+- [x] **File:** `orkee-oss/packages/projects/tests/migration_integration_tests.rs`
+- [x] **Commit:** `b1ab1dc` - Comprehensive database migration tests for model_preferences
+- [x] Run migration on fresh database → success (`test_model_preferences_table_created`)
+- [x] Verify default values applied → claude-sonnet-4-5-20250929 with anthropic (`test_model_preferences_default_values`)
+- [x] Test all 10 task types with different models/providers (`test_model_preferences_all_ten_task_types`)
+- [x] Run down migration → clean removal of table and trigger (`test_model_preferences_down_migration`)
+- [x] Verify foreign key constraints work (delete user → preferences deleted) (`test_model_preferences_foreign_key_cascade_delete`)
+- [x] Verify CHECK constraints work (invalid provider rejected, all 4 valid providers accepted) (`test_model_preferences_provider_check_constraints`)
+- [x] Verify updated_at trigger fires on UPDATE (`test_model_preferences_updated_at_trigger`)
+- [x] All 7 tests passing successfully
 
 ---
 
@@ -455,7 +460,7 @@ export async function analyzePRD(content: string) {
 
 ## Progress Summary
 
-**Completed:** 68 / 80+ tasks (85%)
+**Completed:** 78 / 85+ tasks (92%)
 
 **Phase 1:** ✅ 2/2 (100%) - Database schema complete
 **Phase 2:** ✅ 3/3 (100%) - Backend API complete (Google/xAI proxies deferred)
@@ -463,7 +468,12 @@ export async function analyzePRD(content: string) {
 **Phase 4:** ✅ 18/18 (100%) - AI service updates complete
 **Phase 5:** ✅ 4/4 (100%) - Settings UI complete
 **Phase 6:** ✅ 7/7 (100%) - Backend migration complete, all TypeScript services implemented
-**Phase 7:** ⏳ 0/5 (0%) - Testing pending
+**Phase 7:** ⏳ 2/5 (40%) - Testing in progress
+  - ✅ 7.1: Unit tests for model-preferences service (written, blocked by esbuild issue)
+  - ⏳ 7.2: Unit tests for AIModelsSettings component (pending)
+  - ⏳ 7.3: Integration tests for AI service functions (pending)
+  - ⏳ 7.4: Manual testing checklist (pending)
+  - ✅ 7.5: Database migration tests (7/7 passing)
 
 ---
 
