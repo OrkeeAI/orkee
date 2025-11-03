@@ -10,6 +10,7 @@ use thiserror::Error;
 // Re-export modules
 pub mod factory;
 pub mod legacy;
+pub mod model_preferences;
 pub mod sqlite;
 
 #[cfg(test)]
@@ -34,6 +35,8 @@ pub enum StorageError {
     Encryption(String),
     #[error("Validation error: {0}")]
     Validation(String),
+    #[error("Invalid input: {0}")]
+    InvalidInput(String),
     #[error("Invalid agent ID '{0}': agent not found in packages/agents/config/agents.json")]
     InvalidAgent(String),
     #[error(

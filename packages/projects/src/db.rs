@@ -11,6 +11,7 @@ use orkee_executions::ExecutionStorage;
 use orkee_security::api_tokens::TokenStorage;
 use orkee_security::UserStorage;
 use orkee_settings::SettingsStorage;
+use orkee_storage::model_preferences::ModelPreferencesStorage;
 use orkee_storage::StorageError;
 use orkee_tags::TagStorage;
 use orkee_tasks::storage::TaskStorage;
@@ -27,6 +28,7 @@ pub struct DbState {
     pub ai_usage_log_storage: Arc<AiUsageLogStorage>,
     pub settings_storage: Arc<SettingsStorage>,
     pub token_storage: Arc<TokenStorage>,
+    pub model_preferences_storage: Arc<ModelPreferencesStorage>,
 }
 
 impl DbState {
@@ -40,6 +42,7 @@ impl DbState {
         let ai_usage_log_storage = Arc::new(AiUsageLogStorage::new(pool.clone()));
         let settings_storage = Arc::new(SettingsStorage::new(pool.clone()));
         let token_storage = Arc::new(TokenStorage::new(pool.clone()));
+        let model_preferences_storage = Arc::new(ModelPreferencesStorage::new(pool.clone()));
 
         Ok(Self {
             pool,
@@ -51,6 +54,7 @@ impl DbState {
             ai_usage_log_storage,
             settings_storage,
             token_storage,
+            model_preferences_storage,
         })
     }
 

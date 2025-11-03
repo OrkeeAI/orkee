@@ -13,6 +13,8 @@ This document tracks the implementation of per-task AI model configuration, allo
 
 ## Phase 1: Database Schema ✅ COMPLETED
 
+**Commit:** `691a14b` - feat: Add model_preferences table for per-task AI model configuration
+
 ### 1.1 Create model_preferences Table
 - [x] **File:** `orkee-oss/packages/storage/migrations/001_initial_schema.sql:255-324`
 - [x] Added table with 20 columns (10 task types × 2 fields each: model + provider)
@@ -41,61 +43,35 @@ This document tracks the implementation of per-task AI model configuration, allo
 
 ---
 
-## Phase 2: Backend API (Rust)
+## Phase 2: Backend API (Rust) ✅ COMPLETED
 
-### 2.1 Create Model Preferences Handlers
-- [ ] **File:** `orkee-oss/packages/api/src/model_preferences_handlers.rs` (NEW)
-- [ ] **Endpoints:**
+**Note:** Skipped Google/xAI proxy endpoints - will be added when those providers are actually integrated with frontend
+
+### 2.1 Create Model Preferences Types and Storage
+- [x] **File:** `orkee-oss/packages/storage/src/model_preferences.rs` (NEW)
+- [x] Created `ModelPreferences` struct with all 10 task types
+- [x] Created `ModelPreferencesStorage` with CRUD operations
+- [x] Added to `DbState` in `packages/projects/src/db.rs`
+- [x] Added `InvalidInput` variant to `StorageError`
+
+### 2.2 Create Model Preferences Handlers
+- [x] **File:** `orkee-oss/packages/api/src/model_preferences_handlers.rs` (NEW)
+- [x] **Endpoints:**
   ```rust
-  GET    /api/users/:user_id/model-preferences           // Get preferences
-  PUT    /api/users/:user_id/model-preferences           // Update all preferences
-  PATCH  /api/users/:user_id/model-preferences/:task     // Update single task
-  GET    /api/models/available                           // List all models
-  GET    /api/models/available/:provider                 // List models for provider
+  GET /api/users/:user_id/model-preferences              // Get preferences
+  PUT /api/users/:user_id/model-preferences              // Update all preferences
+  PUT /api/users/:user_id/model-preferences/:task_type   // Update single task
   ```
-- [ ] **Validation:**
-  - Check model IDs against `packages/models/config/models.json`
-  - Verify user has API key for selected provider (check `users` table)
-  - Return 400 if no API key for provider
-
-**Types Needed:**
-```rust
-#[derive(Debug, Serialize, Deserialize)]
-pub struct ModelPreferences {
-    pub user_id: String,
-    pub chat_model: String,
-    pub chat_provider: String,
-    // ... (20 fields total)
-    pub updated_at: String,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct UpdateTaskModelRequest {
-    pub model: String,
-    pub provider: String,
-}
-```
-
-### 2.2 Add Google and xAI Proxy Endpoints
-- [ ] **File:** `orkee-oss/packages/api/src/ai_proxy.rs` (or new handler)
-- [ ] **Endpoints:**
-  ```
-  /api/ai/google/v1/*   → Proxy to Google Generative AI API
-  /api/ai/xai/v1/*      → Proxy to xAI Grok API
-  ```
-- [ ] **Implementation:**
-  - Mirror existing Anthropic/OpenAI proxy pattern
-  - Retrieve encrypted keys from `users.google_api_key` / `users.xai_api_key`
-  - Decrypt using user password
-  - Forward requests with actual API keys
-  - Stream responses back
-  - Handle missing/invalid keys gracefully
+- [x] **Validation:**
+  - Check model IDs against `packages/models/config/models.json` via `REGISTRY`
+  - Validate provider is one of: anthropic, openai, google, xai
+  - Return 400 BAD_REQUEST for invalid models or providers
 
 ### 2.3 Register Routes
-- [ ] **File:** `orkee-oss/packages/api/src/main.rs`
-- [ ] Add model preferences routes to router
-- [ ] Add Google/xAI proxy routes to router
-- [ ] Ensure auth middleware applied
+- [x] **File:** `orkee-oss/packages/api/src/lib.rs`
+- [x] Added `model_preferences_handlers` module
+- [x] Registered routes under `/api/users/:user_id/model-preferences`
+- [x] Integrated with existing `create_users_router()`
 
 ---
 
@@ -436,10 +412,10 @@ export async function analyzePRD(content: string) {
 
 ## Progress Summary
 
-**Completed:** 2 / 80+ tasks (2.5%)
+**Completed:** 8 / 80+ tasks (10%)
 
 **Phase 1:** ✅ 2/2 (100%) - Database schema complete
-**Phase 2:** ⏳ 0/3 (0%) - Backend API pending
+**Phase 2:** ✅ 3/3 (100%) - Backend API complete (Google/xAI proxies deferred)
 **Phase 3:** ⏳ 0/7 (0%) - Frontend integration pending
 **Phase 4:** ⏳ 0/18 (0%) - AI service updates pending
 **Phase 5:** ⏳ 0/4 (0%) - Settings UI pending

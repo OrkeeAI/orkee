@@ -27,6 +27,7 @@ pub mod ideate_handlers;
 pub mod ideate_research_handlers;
 pub mod ideate_roundtable_handlers;
 pub mod ideate_validation_handlers;
+pub mod model_preferences_handlers;
 pub mod models_handlers;
 pub mod prd_handlers;
 pub mod response;
@@ -126,6 +127,19 @@ pub fn create_users_router() -> Router<DbState> {
         .route("/{user_id}/theme", put(users_handlers::update_theme))
         .route("/credentials", put(users_handlers::update_credentials))
         .route("/anthropic-key", get(users_handlers::get_anthropic_key))
+        // Model preferences routes
+        .route(
+            "/{user_id}/model-preferences",
+            get(model_preferences_handlers::get_model_preferences),
+        )
+        .route(
+            "/{user_id}/model-preferences",
+            put(model_preferences_handlers::update_model_preferences),
+        )
+        .route(
+            "/{user_id}/model-preferences/{task_type}",
+            put(model_preferences_handlers::update_task_model),
+        )
 }
 
 /// Creates the tags API router
