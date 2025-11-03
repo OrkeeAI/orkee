@@ -1,11 +1,10 @@
 // ABOUTME: Main chat view component with message display and input
 // ABOUTME: Handles message rendering, auto-scroll, and user input submission
 
-import React, { useRef, useEffect, useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
+import { useRef, useEffect } from 'react';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Send, Loader2 } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
+import { PromptInput } from '@/components/ui/prompt-input';
 import { MessageBubble } from './MessageBubble';
 import type { ChatMessage } from '@/services/chat';
 import type { StreamingMessage } from '../hooks/useStreamingResponse';
@@ -26,7 +25,6 @@ export function ChatView({
   isLoading,
   isSending,
 }: ChatViewProps) {
-  const [input, setInput] = useState('');
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -38,25 +36,19 @@ export function ChatView({
     scrollToBottom();
   }, [messages, streamingMessage]);
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (input.trim() && !isSending) {
-      onSendMessage(input.trim());
-      setInput('');
-    }
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSubmit(e);
+  const handleSubmit = (content: string) => {
+    if (content.trim() && !isSending) {
+      onSendMessage(content);
     }
   };
 
   const allMessages = [...messages];
   if (streamingMessage) {
-    allMessages.push(streamingMessage as ChatMessage);
+    allMessages.push(streamingMessage as unknown as ChatMessage);
   }
+
+  // Determine input status based on current state
+  const inputStatus = isSending ? 'streaming' : 'ready';
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
@@ -84,30 +76,12 @@ export function ChatView({
         </div>
       </ScrollArea>
 
-      <div className="border-t p-4 bg-background">
-        <form onSubmit={handleSubmit} className="flex gap-2">
-          <Textarea
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder={UI_TEXT.INPUT_PLACEHOLDER}
-            className="resize-none min-h-[60px] max-h-[120px]"
-            disabled={isSending}
-          />
-          <Button
-            type="submit"
-            size="icon"
-            disabled={!input.trim() || isSending}
-            className="h-[60px] w-[60px] flex-shrink-0"
-          >
-            {isSending ? (
-              <Loader2 className="h-5 w-5 animate-spin" />
-            ) : (
-              <Send className="h-5 w-5" />
-            )}
-          </Button>
-        </form>
-      </div>
+      <PromptInput
+        onSubmit={handleSubmit}
+        placeholder={UI_TEXT.INPUT_PLACEHOLDER}
+        disabled={isSending}
+        status={inputStatus}
+      />
     </div>
   );
 }
