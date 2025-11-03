@@ -679,7 +679,9 @@ export const PromptInput = ({
 
     // Convert blob URLs to data URLs asynchronously
     Promise.all(
-      files.map(async ({ id: _, ...item }) => {
+      files.map(async (file) => {
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const { id, ...item } = file;
         if (item.url && item.url.startsWith("blob:")) {
           return {
             ...item,
