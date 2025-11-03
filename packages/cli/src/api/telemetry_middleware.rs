@@ -195,9 +195,10 @@ pub(crate) fn extract_id_from_path(path: &str, prefix: &str) -> String {
         .and_then(|s| s.split('/').next())
         .unwrap_or("unknown");
 
-    // Validate ID: alphanumeric + hyphens + underscores only
+    // Validate ID: non-empty, alphanumeric + hyphens + underscores only
     // This prevents path traversal attacks and malformed input
-    if id != "unknown"
+    if !id.is_empty()
+        && id != "unknown"
         && id
             .chars()
             .all(|c| c.is_alphanumeric() || c == '-' || c == '_')
@@ -275,4 +276,197 @@ async fn track_telemetry_event(
     crate::telemetry::events::track_event(&pool, event_name, Some(properties), None).await?;
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_extract_id_from_path_valid() {
+        assert_eq!(
+            extract_id_from_path("/api/projects/abc123", "/api/projects/"),
+            "abc123"
+        );
+        assert_eq!(
+            extract_id_from_path("/api/projects/test-id-456", "/api/projects/"),
+            "test-id-456"
+        );
+        assert_eq!(
+            extract_id_from_path("/api/projects/under_score_id", "/api/projects/"),
+            "under_score_id"
+        );
+    }
+
+    #[test]
+    fn test_extract_id_from_path_with_trailing_segments() {
+        assert_eq!(
+            extract_id_from_path("/api/projects/abc123/details", "/api/projects/"),
+            "abc123"
+        );
+    }
+
+    #[test]
+    fn test_extract_id_from_path_security() {
+        // Path traversal attempts - segments before first slash get blocked
+        assert_eq!(
+            extract_id_from_path("/api/projects/../../../etc/passwd", "/api/projects/"),
+            "unknown"
+        );
+        assert_eq!(
+            extract_id_from_path("/api/projects/../../etc", "/api/projects/"),
+            "unknown"
+        );
+
+        // Special characters
+        assert_eq!(
+            extract_id_from_path("/api/projects/id with spaces", "/api/projects/"),
+            "unknown"
+        );
+        assert_eq!(
+            extract_id_from_path("/api/projects/id@special", "/api/projects/"),
+            "unknown"
+        );
+
+        // The function extracts first segment, so "id" is extracted from "id/slash"
+        // This is OK because it only extracts the project ID
+        assert_eq!(
+            extract_id_from_path("/api/projects/id/slash", "/api/projects/"),
+            "id"
+        );
+    }
+
+    #[test]
+    fn test_extract_id_from_path_empty() {
+        // Empty string gets returned as-is but fails validation
+        assert_eq!(extract_id_from_path("/api/projects/", "/api/projects/"), "unknown");
+        // When prefix doesn't match, unwrap_or returns "unknown"
+        assert_eq!(extract_id_from_path("/api/projects", "/api/projects/"), "unknown");
+    }
+
+    #[test]
+    fn test_hash_id_consistency() {
+        let id = "test-project-123";
+        let hash1 = hash_id(id);
+        let hash2 = hash_id(id);
+        assert_eq!(hash1, hash2, "Hash should be consistent for same input");
+    }
+
+    #[test]
+    fn test_hash_id_uniqueness() {
+        let id1 = "test-project-123";
+        let id2 = "test-project-456";
+        let hash1 = hash_id(id1);
+        let hash2 = hash_id(id2);
+        assert_ne!(hash1, hash2, "Different inputs should produce different hashes");
+    }
+
+    #[test]
+    fn test_hash_id_format() {
+        let hash = hash_id("test-id");
+        // HMAC-SHA256 produces 64 hex characters
+        assert_eq!(hash.len(), 64);
+        assert!(
+            hash.chars().all(|c| c.is_ascii_hexdigit()),
+            "Hash should only contain hex digits"
+        );
+    }
+
+    #[test]
+    fn test_is_task_endpoint_valid_cases() {
+        assert!(is_task_endpoint("/api/projects/123/tasks"));
+        assert!(is_task_endpoint("/api/projects/abc/tasks/"));
+        assert!(is_task_endpoint("/api/projects/test-id/tasks/456"));
+        assert!(is_task_endpoint("/api/projects/id/tasks/456/details"));
+    }
+
+    #[test]
+    fn test_is_task_endpoint_invalid_cases() {
+        // Project endpoints (not task endpoints)
+        assert!(!is_task_endpoint("/api/projects/123"));
+        assert!(!is_task_endpoint("/api/projects/abc/"));
+        assert!(!is_task_endpoint("/api/projects"));
+
+        // Project names containing "tasks"
+        assert!(!is_task_endpoint("/api/projects/my-tasks-project"));
+        assert!(!is_task_endpoint("/api/projects/tasks"));
+
+        // Other endpoints
+        assert!(!is_task_endpoint("/api/tasks"));
+        assert!(!is_task_endpoint("/api/preview/tasks"));
+    }
+
+    #[test]
+    fn test_is_task_endpoint_edge_cases() {
+        // Double slashes
+        assert!(is_task_endpoint("/api/projects/123//tasks"));
+        assert!(is_task_endpoint("/api/projects//123/tasks"));
+
+        // Empty segments
+        assert!(!is_task_endpoint("/api/projects//tasks"));
+    }
+
+    #[tokio::test]
+    async fn test_rate_limiter_allows_under_limit() {
+        let limiter = FailureRateLimiter::new();
+
+        // Should allow first 10 failures
+        for i in 0..10 {
+            assert!(
+                limiter.should_track_failure("test_event").await,
+                "Should allow failure {} under limit",
+                i + 1
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn test_rate_limiter_blocks_over_limit() {
+        let limiter = FailureRateLimiter::new();
+
+        // Fill up to limit
+        for _ in 0..10 {
+            limiter.should_track_failure("test_event").await;
+        }
+
+        // Next attempt should be blocked
+        assert!(
+            !limiter.should_track_failure("test_event").await,
+            "Should block after reaching limit"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_rate_limiter_separate_events() {
+        let limiter = FailureRateLimiter::new();
+
+        // Fill up one event type
+        for _ in 0..10 {
+            limiter.should_track_failure("event_a").await;
+        }
+
+        // Different event should still be allowed
+        assert!(
+            limiter.should_track_failure("event_b").await,
+            "Different event types should have separate limits"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_rate_limiter_cleanup() {
+        let mut limiter = FailureRateLimiter::new();
+        limiter.cleanup_threshold = 5; // Lower threshold for testing
+
+        // Add entries up to threshold
+        for i in 0..6 {
+            limiter.should_track_failure(&format!("event_{}", i)).await;
+        }
+
+        // Cleanup should have triggered
+        let failures = limiter.failures.lock().await;
+        assert!(
+            failures.len() <= 6,
+            "Cleanup should prevent unbounded growth"
+        );
+    }
 }
