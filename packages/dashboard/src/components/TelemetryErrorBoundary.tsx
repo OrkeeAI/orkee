@@ -15,6 +15,27 @@ interface State {
   error: Error | null;
 }
 
+/**
+ * Sanitize a stack trace to remove sensitive information before sending to telemetry
+ */
+function sanitizeStackTrace(stackTrace: string | undefined): string {
+  if (!stackTrace) {
+    return 'No stack trace available';
+  }
+
+  return stackTrace
+    // Strip absolute file paths (e.g., /Users/joe/Projects/orkee -> orkee)
+    .replace(/\/[^/\s]+(?:\/[^/\s]+)*\/([\w-]+\/)/g, '$1')
+    // Remove query parameters from URLs (e.g., ?token=abc123)
+    .replace(/\?[^\s)]+/g, '')
+    // Redact potential email addresses
+    .replace(/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/g, '[EMAIL]')
+    // Redact potential API keys/tokens (sequences of 20+ alphanumeric chars)
+    .replace(/\b[a-zA-Z0-9]{20,}\b/g, '[REDACTED]')
+    // Keep only relative file paths and line numbers
+    .trim();
+}
+
 export class TelemetryErrorBoundary extends Component<Props, State> {
   constructor(props: Props) {
     super(props);
@@ -33,15 +54,17 @@ export class TelemetryErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    // Track the error to telemetry
-    const stackTrace = errorInfo.componentStack || error.stack;
+    // Sanitize stack trace before sending to telemetry to protect sensitive data
+    const rawStackTrace = errorInfo.componentStack || error.stack;
+    const sanitizedStackTrace = sanitizeStackTrace(rawStackTrace);
+
     telemetryService.trackError(
       'react_error_boundary',
       error.message,
-      stackTrace
+      sanitizedStackTrace
     );
 
-    // Log to console for development
+    // Log to console for development (keep full trace for local debugging)
     console.error('Error caught by boundary:', error, errorInfo);
   }
 
