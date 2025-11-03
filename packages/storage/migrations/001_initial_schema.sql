@@ -253,6 +253,77 @@ BEGIN
 END;
 
 -- ============================================================================
+-- MODEL PREFERENCES (Per-Task AI Model Configuration)
+-- ============================================================================
+-- Stores user preferences for which AI models to use for different tasks in
+-- Ideate, PRD generation, and task management features. This is separate from
+-- agent conversations (which use user_agents.preferred_model_id).
+
+CREATE TABLE model_preferences (
+    user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+
+    -- Chat (Ideate mode)
+    chat_model TEXT NOT NULL DEFAULT 'claude-sonnet-4-5-20250929',
+    chat_provider TEXT NOT NULL DEFAULT 'anthropic',
+
+    -- PRD Generation
+    prd_generation_model TEXT NOT NULL DEFAULT 'claude-sonnet-4-5-20250929',
+    prd_generation_provider TEXT NOT NULL DEFAULT 'anthropic',
+
+    -- PRD Analysis
+    prd_analysis_model TEXT NOT NULL DEFAULT 'claude-sonnet-4-5-20250929',
+    prd_analysis_provider TEXT NOT NULL DEFAULT 'anthropic',
+
+    -- Insight Extraction
+    insight_extraction_model TEXT NOT NULL DEFAULT 'claude-sonnet-4-5-20250929',
+    insight_extraction_provider TEXT NOT NULL DEFAULT 'anthropic',
+
+    -- Spec Generation
+    spec_generation_model TEXT NOT NULL DEFAULT 'claude-sonnet-4-5-20250929',
+    spec_generation_provider TEXT NOT NULL DEFAULT 'anthropic',
+
+    -- Task Suggestions
+    task_suggestions_model TEXT NOT NULL DEFAULT 'claude-sonnet-4-5-20250929',
+    task_suggestions_provider TEXT NOT NULL DEFAULT 'anthropic',
+
+    -- Task Analysis
+    task_analysis_model TEXT NOT NULL DEFAULT 'claude-sonnet-4-5-20250929',
+    task_analysis_provider TEXT NOT NULL DEFAULT 'anthropic',
+
+    -- Spec Refinement
+    spec_refinement_model TEXT NOT NULL DEFAULT 'claude-sonnet-4-5-20250929',
+    spec_refinement_provider TEXT NOT NULL DEFAULT 'anthropic',
+
+    -- Research Generation
+    research_generation_model TEXT NOT NULL DEFAULT 'claude-sonnet-4-5-20250929',
+    research_generation_provider TEXT NOT NULL DEFAULT 'anthropic',
+
+    -- Markdown Generation
+    markdown_generation_model TEXT NOT NULL DEFAULT 'claude-sonnet-4-5-20250929',
+    markdown_generation_provider TEXT NOT NULL DEFAULT 'anthropic',
+
+    updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+
+    -- Provider validation constraints
+    CONSTRAINT valid_chat_provider CHECK (chat_provider IN ('anthropic', 'openai', 'google', 'xai')),
+    CONSTRAINT valid_prd_gen_provider CHECK (prd_generation_provider IN ('anthropic', 'openai', 'google', 'xai')),
+    CONSTRAINT valid_prd_analysis_provider CHECK (prd_analysis_provider IN ('anthropic', 'openai', 'google', 'xai')),
+    CONSTRAINT valid_insight_provider CHECK (insight_extraction_provider IN ('anthropic', 'openai', 'google', 'xai')),
+    CONSTRAINT valid_spec_gen_provider CHECK (spec_generation_provider IN ('anthropic', 'openai', 'google', 'xai')),
+    CONSTRAINT valid_task_suggestions_provider CHECK (task_suggestions_provider IN ('anthropic', 'openai', 'google', 'xai')),
+    CONSTRAINT valid_task_analysis_provider CHECK (task_analysis_provider IN ('anthropic', 'openai', 'google', 'xai')),
+    CONSTRAINT valid_spec_refinement_provider CHECK (spec_refinement_provider IN ('anthropic', 'openai', 'google', 'xai')),
+    CONSTRAINT valid_research_provider CHECK (research_generation_provider IN ('anthropic', 'openai', 'google', 'xai')),
+    CONSTRAINT valid_markdown_provider CHECK (markdown_generation_provider IN ('anthropic', 'openai', 'google', 'xai'))
+);
+
+CREATE TRIGGER model_preferences_updated_at AFTER UPDATE ON model_preferences
+FOR EACH ROW WHEN NEW.updated_at = OLD.updated_at
+BEGIN
+    UPDATE model_preferences SET updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE user_id = NEW.user_id;
+END;
+
+-- ============================================================================
 -- TASK MANAGEMENT
 -- ============================================================================
 
