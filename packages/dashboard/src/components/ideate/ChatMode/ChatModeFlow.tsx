@@ -281,9 +281,9 @@ export function ChatModeFlow({
 
   return (
     <div className="h-full flex flex-col">
-      <div className="flex-1 grid grid-cols-12 gap-4 overflow-hidden">
-        <div className="col-span-8 flex flex-col border rounded-lg bg-card">
-          <div className="border-b p-4 space-y-3">
+      <div className="flex-1 grid grid-cols-12 gap-4 min-h-0">
+        <div className="col-span-8 flex flex-col border rounded-lg bg-card min-h-0">
+          <div className="border-b p-4 space-y-3 flex-shrink-0">
             <div>
               <h2 className="text-lg font-semibold">Chat</h2>
               <p className="text-sm text-muted-foreground">
@@ -295,7 +295,7 @@ export function ChatModeFlow({
             <DiscoveryProgress progress={discoveryProgress} />
           </div>
 
-          <div className="flex-1 overflow-hidden">
+          <div className="flex-1 overflow-hidden min-h-0">
             <ChatView
               messages={messages}
               streamingMessage={streamingMessage}
@@ -307,8 +307,8 @@ export function ChatModeFlow({
           </div>
         </div>
 
-        <div className="col-span-4 flex flex-col gap-4 overflow-hidden">
-          <QualityIndicator metrics={qualityMetrics} />
+        <div className="col-span-4 flex flex-col gap-4 min-h-0 overflow-y-auto">
+          <QualityIndicator metrics={qualityMetrics} className="flex-shrink-0" />
 
           {/* Phase 6C: Codebase Context Panel */}
           <CodebaseContextPanel
@@ -317,9 +317,10 @@ export function ChatModeFlow({
             context={codebaseContext}
             isAnalyzing={isAnalyzingCodebase}
             onAnalyze={handleAnalyzeCodebase}
+            className="flex-shrink-0"
           />
 
-          <InsightsSidebar insights={insights} className="flex-1 overflow-hidden" />
+          <InsightsSidebar insights={insights} className="flex-shrink-0" />
         </div>
       </div>
 
