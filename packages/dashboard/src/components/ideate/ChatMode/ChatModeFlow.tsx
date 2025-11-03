@@ -202,12 +202,14 @@ export function ChatModeFlow({
     loadCodebaseContext();
   }, [loadCodebaseContext]);
 
-  // Phase 6C: Track messages and trigger checkpoints every 5 messages
+  // Phase 6C: Track messages silently in background (checkpoint modal disabled - only show when explicitly requested)
+  // Note: Auto-triggering removed - validation tracking happens in background via insights/metrics
+  // To re-enable auto checkpoints, uncomment the showCheckpoint logic below
   useEffect(() => {
     const newMessageCount = messagesSinceLastCheckpoint + 1;
 
     if (newMessageCount >= 5 && messages.length > 0) {
-      // Trigger checkpoint
+      // Background validation tracking - prepare sections but DON'T show modal
       const sections: CheckpointSection[] = [
         {
           name: 'problem',
@@ -227,7 +229,8 @@ export function ChatModeFlow({
       ];
 
       setCheckpointSections(sections);
-      setShowCheckpoint(true);
+      // setShowCheckpoint(true); // DISABLED - only show checkpoint when user explicitly requests
+      setMessagesSinceLastCheckpoint(0); // Reset counter after validation
     } else {
       setMessagesSinceLastCheckpoint(newMessageCount);
     }
