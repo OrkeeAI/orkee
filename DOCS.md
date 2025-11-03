@@ -581,20 +581,49 @@ Configure Server-Sent Events (SSE) for real-time server status updates:
 - **Poor Network Conditions**: Increase `VITE_SSE_RETRY_DELAY` and `VITE_SSE_MAX_RETRIES` for more resilient connections
 - **Low-Latency Networks**: Decrease `VITE_SSE_POLLING_INTERVAL` for faster polling fallback
 
-### Task Master AI Variables (Optional)
+### AI Model Configuration (Optional)
 
-For AI-powered task management features, configure these API keys:
+Orkee supports multiple AI providers for different tasks. Configure model preferences via **Settings > AI Models** in the dashboard to select which AI provider and model to use for each task type (chat, PRD generation, insight extraction, etc.).
+
+**Supported AI Providers:**
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `ANTHROPIC_API_KEY` | **Yes** | Claude API key (format: `sk-ant-api03-...`) |
-| `PERPLEXITY_API_KEY` | Recommended | Perplexity API for research features (format: `pplx-...`) |
-| `OPENAI_API_KEY` | Optional | OpenAI API key (format: `sk-proj-...`) |
-| `GOOGLE_API_KEY` | Optional | Google Gemini API key |
+| `ANTHROPIC_API_KEY` | **Recommended** | Claude API key (format: `sk-ant-api03-...`) - Default for most tasks |
+| `OPENAI_API_KEY` | Optional | OpenAI API key (format: `sk-proj-...`) - GPT-4, GPT-3.5 models |
+| `GOOGLE_API_KEY` | Optional | Google Gemini API key - Gemini Pro, Flash models |
+| `XAI_API_KEY` | Optional | xAI API key - Grok models |
+| `PERPLEXITY_API_KEY` | Optional | Perplexity API for research features (format: `pplx-...`) |
 | `MISTRAL_API_KEY` | Optional | Mistral AI API key |
-| `XAI_API_KEY` | Optional | xAI API key |
 | `GROQ_API_KEY` | Optional | Groq API key |
 | `OPENROUTER_API_KEY` | Optional | OpenRouter API key |
+
+**Task-Specific Model Selection:**
+
+Configure different models for different tasks in Settings > AI Models:
+- **Chat (Ideate)** - Interactive PRD discovery conversations
+- **PRD Generation** - Creating complete PRD documents
+- **PRD Analysis** - Analyzing and improving PRDs
+- **Insight Extraction** - Extracting key insights from chat
+- **Spec Generation** - Creating technical specifications
+- **Task Suggestions** - AI-powered task recommendations
+- **Task Analysis** - Analyzing task complexity and requirements
+- **Spec Refinement** - Improving technical specifications
+- **Research Generation** - Competitive analysis and research
+- **Markdown Generation** - Converting content to markdown format
+
+**Example .env configuration:**
+```bash
+# Configure API keys for the providers you want to use
+ANTHROPIC_API_KEY=sk-ant-api03-...
+OPENAI_API_KEY=sk-proj-...
+GOOGLE_API_KEY=AIza...
+XAI_API_KEY=xai-...
+
+# Then configure model preferences via Settings > AI Models in the dashboard
+```
+
+**Note**: API keys are required only for the providers you select in model preferences. The system will use sensible defaults (Claude Sonnet 4) if no preferences are configured.
 
 ### Cloud Sync Variables (Orkee Cloud)
 
@@ -1184,6 +1213,54 @@ All API responses follow this format:
   }
 }
 ```
+
+### Model Preferences Endpoints
+
+Configure AI models per task type (chat, PRD generation, insight extraction, etc.)
+
+| Method | Endpoint | Purpose |
+|--------|----------|---------|
+| GET | `/api/model-preferences/:user_id` | Get user's model preferences for all tasks |
+| PUT | `/api/model-preferences/:user_id` | Update all model preferences at once |
+| PUT | `/api/model-preferences/:user_id/chat` | Update chat model configuration |
+| PUT | `/api/model-preferences/:user_id/prd-generation` | Update PRD generation model |
+| PUT | `/api/model-preferences/:user_id/prd-analysis` | Update PRD analysis model |
+| PUT | `/api/model-preferences/:user_id/insight-extraction` | Update insight extraction model |
+| PUT | `/api/model-preferences/:user_id/spec-generation` | Update spec generation model |
+| PUT | `/api/model-preferences/:user_id/task-suggestions` | Update task suggestions model |
+| PUT | `/api/model-preferences/:user_id/task-analysis` | Update task analysis model |
+| PUT | `/api/model-preferences/:user_id/spec-refinement` | Update spec refinement model |
+| PUT | `/api/model-preferences/:user_id/research-generation` | Update research generation model |
+| PUT | `/api/model-preferences/:user_id/markdown-generation` | Update markdown generation model |
+
+#### Model Configuration Request
+```json
+{
+  "provider": "anthropic",  // anthropic, openai, google, xai
+  "model": "claude-sonnet-4-20250514"  // Provider-specific model ID
+}
+```
+
+#### Model Preferences Response
+```json
+{
+  "success": true,
+  "data": {
+    "user_id": "default",
+    "chat_model": "claude-sonnet-4-20250514",
+    "chat_provider": "anthropic",
+    "prd_generation_model": "claude-sonnet-4-20250514",
+    "prd_generation_provider": "anthropic",
+    "insight_extraction_model": "claude-sonnet-4-20250514",
+    "insight_extraction_provider": "anthropic",
+    // ... other task configurations
+    "updated_at": "2025-01-01T12:00:00Z"
+  },
+  "error": null
+}
+```
+
+**Note**: Configure model preferences via Settings > AI Models in the dashboard UI. Requires valid API keys for the selected providers (see [Task Master AI Variables](#task-master-ai-variables-optional)).
 
 ### Directory Browsing Endpoints
 
