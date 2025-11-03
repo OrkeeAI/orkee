@@ -213,7 +213,7 @@ pub async fn get_discovery_progress(
 ) -> impl IntoResponse {
     info!("Getting discovery progress for session: {}", session_id);
 
-    let discovery_manager = DiscoveryManager::new(db.pool.clone());
+    let _discovery_manager = DiscoveryManager::new(db.pool.clone());
 
     // Get conversation messages to track actual progress
     let chat_manager = orkee_ideate::ChatManager::new(db.pool.clone());

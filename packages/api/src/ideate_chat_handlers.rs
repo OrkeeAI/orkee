@@ -11,7 +11,7 @@ use tracing::{error, info, warn};
 
 use super::response::ok_or_internal_error;
 use orkee_ideate::{
-    extract_insights_with_ai, ChatInsight, ChatManager, CreateInsightInput, DiscoveryQuestion,
+    extract_insights_with_ai, ChatManager, CreateInsightInput, DiscoveryQuestion,
     DiscoveryStatus, GeneratePRDFromChatInput, GeneratePRDFromChatResult, MessageRole,
     QualityMetrics, QuestionCategory, SendMessageInput, TopicCoverage, ValidationResult,
 };
@@ -464,7 +464,7 @@ pub async fn reanalyze_insights(
     }
 
     // Get existing insights for deduplication
-    let existing_insights = manager.get_insights(&session_id).await.unwrap_or_default();
+    let _existing_insights = manager.get_insights(&session_id).await.unwrap_or_default();
 
     let mut extracted_count = 0;
     let mut error_count = 0;
@@ -545,6 +545,7 @@ pub async fn reanalyze_insights(
 }
 
 /// AI-powered insight extraction with context awareness and deduplication
+#[allow(dead_code)]
 async fn extract_and_save_insights(
     manager: &ChatManager,
     session_id: &str,
