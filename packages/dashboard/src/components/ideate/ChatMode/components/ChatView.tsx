@@ -119,6 +119,11 @@ export function ChatView({
 
   const handleSubmit = async (message: { text?: string; files?: any[] }) => {
     if (message.text?.trim() && !isSending) {
+      console.log('[ChatView.handleSubmit] Submitting message with:', {
+        provider: selectedProvider,
+        model: selectedModel,
+        text: message.text.substring(0, 50) + '...'
+      });
       await onSendMessage(message.text, selectedModel, selectedProvider);
     }
   };

@@ -40,17 +40,16 @@ export async function streamChatResponse(
   selectedModel?: string
 ): Promise<void> {
   try {
+    console.log('streamChatResponse called with:', { selectedProvider, selectedModel });
+
     // Use selected model if provided, otherwise use preferred model
     let modelToUse;
     if (selectedProvider && selectedModel) {
-      // Only anthropic and openai are currently supported for streaming
-      if (selectedProvider === 'anthropic' || selectedProvider === 'openai') {
-        modelToUse = getModel(selectedProvider, selectedModel);
-      } else {
-        console.warn(`Provider ${selectedProvider} not yet supported for streaming, falling back to default`);
-        modelToUse = getPreferredModel().model;
-      }
+      console.log(`Using ${selectedProvider} with model: ${selectedModel}`);
+      // Pass the exact model identifier to the provider
+      modelToUse = getModel(selectedProvider as 'anthropic' | 'openai', selectedModel);
     } else {
+      console.log('No provider/model selected, using preferred model');
       modelToUse = getPreferredModel().model;
     }
 
@@ -66,6 +65,10 @@ export async function streamChatResponse(
       content: userMessage,
     });
 
+    console.log('[chat-ai.streamText] About to call streamText with model:', modelToUse);
+    console.log('[chat-ai.streamText] Model object type:', typeof modelToUse);
+    console.log('[chat-ai.streamText] Model object:', modelToUse);
+
     const { textStream } = await streamText({
       model: modelToUse,
       system: DISCOVERY_PROMPTS.system,
@@ -74,6 +77,8 @@ export async function streamChatResponse(
       maxTokens: 1000,
       abortSignal,
     });
+
+    console.log('[chat-ai.streamText] streamText call completed, streaming response');
 
     let fullText = '';
 

@@ -311,6 +311,11 @@ async fn proxy_ai_request(
         }
     };
 
+    // Debug: Log the request body to see what model is being sent
+    if let Ok(body_str) = std::str::from_utf8(&body_bytes) {
+        info!("Request body: {}", body_str);
+    }
+
     // Validate request body size
     if body_bytes.len() > MAX_REQUEST_SIZE {
         error!(

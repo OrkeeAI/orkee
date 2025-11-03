@@ -59,13 +59,17 @@ export function getModel(provider: 'openai' | 'anthropic', modelName?: string) {
   if (provider === 'openai') {
     const openai = getOpenAIProvider();
     const config = AI_CONFIG.providers.openai;
-    return openai(modelName || config.defaultModel);
+    const selectedModel = modelName || config.defaultModel;
+    console.log(`[providers] Creating OpenAI model instance:`, selectedModel);
+    return openai(selectedModel);
   }
 
   if (provider === 'anthropic') {
     const anthropic = getAnthropicProvider();
     const config = AI_CONFIG.providers.anthropic;
-    return anthropic(modelName || config.defaultModel);
+    const selectedModel = modelName || config.defaultModel;
+    console.log(`[providers] Creating Anthropic model instance:`, selectedModel);
+    return anthropic(selectedModel);
   }
 
   throw new Error(`Unknown provider: ${provider}`);
