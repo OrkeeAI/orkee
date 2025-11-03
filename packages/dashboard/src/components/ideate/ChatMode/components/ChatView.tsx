@@ -1,9 +1,10 @@
 // ABOUTME: Main chat view component with message display and input
 // ABOUTME: Handles message rendering, auto-scroll, and user input submission
 
-import { useRef, useEffect } from 'react';
+import { useRef, useEffect, useState } from 'react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Loader2 } from 'lucide-react';
+import { modelsService, type Model } from '@/services/models';
 import {
   PromptInput,
   PromptInputHeader,
@@ -18,6 +19,11 @@ import {
   PromptInputActionMenuTrigger,
   PromptInputActionMenuContent,
   PromptInputActionAddAttachments,
+  PromptInputModelSelect,
+  PromptInputModelSelectTrigger,
+  PromptInputModelSelectContent,
+  PromptInputModelSelectItem,
+  PromptInputModelSelectValue,
 } from '@/components/ai-elements/prompt-input';
 import { MessageBubble } from './MessageBubble';
 import type { ChatMessage } from '@/services/chat';
@@ -42,6 +48,10 @@ export function ChatView({
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  // Model selection state
+  const [models, setModels] = useState<Model[]>([]);
+  const [selectedModel, setSelectedModel] = useState<string>('');
+
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
@@ -49,6 +59,26 @@ export function ChatView({
   useEffect(() => {
     scrollToBottom();
   }, [messages, streamingMessage]);
+
+  // Load available models
+  useEffect(() => {
+    const loadModels = async () => {
+      try {
+        const response = await modelsService.listModels();
+        const availableModels = response.items.filter(m => m.is_available);
+        setModels(availableModels);
+
+        // Set default model if not already set
+        if (availableModels.length > 0 && !selectedModel) {
+          setSelectedModel(availableModels[0].id);
+        }
+      } catch (error) {
+        console.error('Failed to load models:', error);
+      }
+    };
+
+    loadModels();
+  }, [selectedModel]);
 
   const handleSubmit = (message: { text?: string; files?: any[] }) => {
     if (message.text?.trim() && !isSending) {
@@ -101,6 +131,19 @@ export function ChatView({
         </PromptInputBody>
         <PromptInputFooter>
           <PromptInputTools>
+            <PromptInputModelSelect value={selectedModel} onValueChange={setSelectedModel}>
+              <PromptInputModelSelectTrigger>
+                <PromptInputModelSelectValue placeholder="Select model..." />
+              </PromptInputModelSelectTrigger>
+              <PromptInputModelSelectContent>
+                {models.map((model) => (
+                  <PromptInputModelSelectItem key={model.id} value={model.id}>
+                    {model.display_name}
+                  </PromptInputModelSelectItem>
+                ))}
+              </PromptInputModelSelectContent>
+            </PromptInputModelSelect>
+
             <PromptInputActionMenu>
               <PromptInputActionMenuTrigger />
               <PromptInputActionMenuContent>
