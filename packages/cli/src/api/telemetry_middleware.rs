@@ -5,7 +5,55 @@ use axum::{body::Body, extract::Request, middleware::Next, response::Response};
 use serde_json::json;
 use sha2::{Digest, Sha256};
 use std::collections::HashMap;
+use std::sync::OnceLock;
+use tokio::sync::Mutex;
+use std::time::{Duration, Instant};
 use tracing::{error, warn};
+
+/// Rate limiter for failed request telemetry to prevent unbounded database growth
+struct FailureRateLimiter {
+    // Map of event_name -> (count, window_start)
+    failures: Mutex<HashMap<String, (u32, Instant)>>,
+    max_failures_per_hour: u32,
+    window_duration: Duration,
+}
+
+impl FailureRateLimiter {
+    fn new() -> Self {
+        Self {
+            failures: Mutex::new(HashMap::new()),
+            max_failures_per_hour: 10,
+            window_duration: Duration::from_secs(3600), // 1 hour
+        }
+    }
+
+    async fn should_track_failure(&self, event_name: &str) -> bool {
+        let mut failures = self.failures.lock().await;
+        let now = Instant::now();
+
+        let entry = failures.entry(event_name.to_string()).or_insert((0, now));
+
+        // Reset counter if window has expired
+        if now.duration_since(entry.1) > self.window_duration {
+            *entry = (0, now);
+        }
+
+        // Check if we're under the limit
+        if entry.0 < self.max_failures_per_hour {
+            entry.0 += 1;
+            true
+        } else {
+            false
+        }
+    }
+}
+
+// Global rate limiter instance
+static FAILURE_RATE_LIMITER: OnceLock<FailureRateLimiter> = OnceLock::new();
+
+fn get_failure_rate_limiter() -> &'static FailureRateLimiter {
+    FAILURE_RATE_LIMITER.get_or_init(|| FailureRateLimiter::new())
+}
 
 /// Middleware that tracks telemetry events for API calls
 pub async fn track_api_calls(request: Request<Body>, next: Next) -> Response {
@@ -72,11 +120,22 @@ pub async fn track_api_calls(request: Request<Body>, next: Next) -> Response {
     // Track the event if we have a match
     if let Some((event_name, mut event_data)) = event_name_and_data {
         // Append "_failed" suffix for error responses and add status info
-        let final_event_name = if is_client_error || is_server_error {
+        let is_failure = is_client_error || is_server_error;
+        let final_event_name = if is_failure {
             format!("{}_failed", event_name)
         } else {
             event_name.to_string()
         };
+
+        // Check rate limiter for failed events
+        if is_failure && !get_failure_rate_limiter().should_track_failure(&final_event_name).await {
+            // Rate limit exceeded, skip tracking but log a warning (only once per event)
+            warn!(
+                "Telemetry rate limit exceeded for {}, skipping event to prevent database growth",
+                final_event_name
+            );
+            return response;
+        }
 
         // Add status code, success flag, and error category to event data
         if let serde_json::Value::Object(ref mut map) = event_data {
