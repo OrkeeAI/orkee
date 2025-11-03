@@ -131,7 +131,10 @@ pub(crate) fn is_task_endpoint(path: &str) -> bool {
     // This avoids false positives from project names containing "tasks"
     if let Some(after_projects) = path.strip_prefix("/api/projects/") {
         // Split on / and filter empty segments to handle double slashes
-        let segments: Vec<&str> = after_projects.split('/').filter(|s| !s.is_empty()).collect();
+        let segments: Vec<&str> = after_projects
+            .split('/')
+            .filter(|s| !s.is_empty())
+            .collect();
         segments.len() >= 2 && segments[1] == "tasks"
     } else {
         false
