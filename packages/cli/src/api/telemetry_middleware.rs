@@ -120,8 +120,8 @@ fn is_task_endpoint(path: &str) -> bool {
     // Match pattern: /api/projects/{something}/tasks (with optional trailing segments)
     // This avoids false positives from project names containing "tasks"
     if let Some(after_projects) = path.strip_prefix("/api/projects/") {
-        // Split on / and check if we have at least 2 segments (id and "tasks")
-        let segments: Vec<&str> = after_projects.split('/').collect();
+        // Split on / and filter empty segments to handle double slashes
+        let segments: Vec<&str> = after_projects.split('/').filter(|s| !s.is_empty()).collect();
         segments.len() >= 2 && segments[1] == "tasks"
     } else {
         false
