@@ -1,5 +1,5 @@
 import { useEffect, useState, lazy, Suspense } from 'react'
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
 import { invoke } from '@tauri-apps/api/core'
@@ -92,7 +92,7 @@ function AppWithTelemetry() {
 
   return (
     <BrowserRouter>
-      <TelemetryErrorBoundary>
+      <ErrorBoundaryWithLocation>
         <PopupCloseHandler />
         <TelemetryOnboardingDialog
           open={showTelemetryDialog}
@@ -123,8 +123,18 @@ function AppWithTelemetry() {
           } />
         </Routes>
       </Suspense>
-      </TelemetryErrorBoundary>
+      </ErrorBoundaryWithLocation>
     </BrowserRouter>
+  );
+}
+
+// Wrapper component to provide location-based key to error boundary
+function ErrorBoundaryWithLocation({ children }: { children: React.ReactNode }) {
+  const location = useLocation();
+  return (
+    <TelemetryErrorBoundary key={location.pathname}>
+      {children}
+    </TelemetryErrorBoundary>
   );
 }
 

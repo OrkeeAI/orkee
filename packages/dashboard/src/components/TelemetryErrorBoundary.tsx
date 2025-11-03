@@ -72,13 +72,6 @@ export class TelemetryErrorBoundary extends Component<Props, State> {
     console.error('Error caught by boundary:', error, errorInfo);
   }
 
-  componentDidUpdate(prevProps: Props) {
-    if (this.state.hasError && prevProps.children !== this.props.children) {
-      // Route changed, clear error state
-      this.setState({ hasError: false, error: null });
-    }
-  }
-
   resetError = () => {
     this.setState({
       hasError: false,
