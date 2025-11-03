@@ -174,9 +174,13 @@ pub async fn track_api_calls(request: Request<Body>, next: Next) -> Response {
         }
 
         // Track asynchronously, don't block the response
+        // Note: This task does not retry on failure. Retries are handled by the
+        // TelemetryCollector background task which periodically sends buffered events
+        // to PostHog with exponential backoff. See packages/cli/src/telemetry/collector.rs
         tokio::spawn(async move {
             if let Err(e) = track_telemetry_event(&final_event_name, event_data).await {
                 // Just log the error, don't fail the request
+                // The event is stored in the database and will be retried by the collector
                 warn!(
                     "Failed to track telemetry event {}: {}",
                     final_event_name, e
