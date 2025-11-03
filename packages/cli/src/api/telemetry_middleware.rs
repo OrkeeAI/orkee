@@ -3,6 +3,7 @@
 
 use axum::{body::Body, extract::Request, middleware::Next, response::Response};
 use serde_json::json;
+use sha2::{Digest, Sha256};
 use std::collections::HashMap;
 use tracing::{error, warn};
 
@@ -29,16 +30,18 @@ pub async fn track_api_calls(request: Request<Body>, next: Next) -> Response {
         }
         ("PUT", path) if path.starts_with("/api/projects/") && !path.contains("/tasks") => {
             let project_id = extract_id_from_path(path, "/api/projects/");
+            let project_id_hash = hash_id(&project_id);
             Some((
                 "project_updated",
-                json!({"action": "update", "project_id": project_id}),
+                json!({"action": "update", "project_id_hash": project_id_hash}),
             ))
         }
         ("DELETE", path) if path.starts_with("/api/projects/") && !path.contains("/tasks") => {
             let project_id = extract_id_from_path(path, "/api/projects/");
+            let project_id_hash = hash_id(&project_id);
             Some((
                 "project_deleted",
-                json!({"action": "delete", "project_id": project_id}),
+                json!({"action": "delete", "project_id_hash": project_id_hash}),
             ))
         }
 
@@ -86,6 +89,13 @@ fn extract_id_from_path(path: &str, prefix: &str) -> String {
         .and_then(|s| s.split('/').next())
         .unwrap_or("unknown")
         .to_string()
+}
+
+/// Hash an ID using SHA256 to protect sensitive information in telemetry
+fn hash_id(id: &str) -> String {
+    let mut hasher = Sha256::new();
+    hasher.update(id.as_bytes());
+    format!("{:x}", hasher.finalize())
 }
 
 /// Track a telemetry event to the database
