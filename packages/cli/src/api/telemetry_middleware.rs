@@ -16,6 +16,7 @@ struct FailureRateLimiter {
     failures: Mutex<HashMap<String, (u32, Instant)>>,
     max_failures_per_hour: u32,
     window_duration: Duration,
+    cleanup_threshold: usize,
 }
 
 impl FailureRateLimiter {
@@ -24,12 +25,20 @@ impl FailureRateLimiter {
             failures: Mutex::new(HashMap::new()),
             max_failures_per_hour: 10,
             window_duration: Duration::from_secs(3600), // 1 hour
+            cleanup_threshold: 100, // Clean up when we exceed 100 entries
         }
     }
 
     async fn should_track_failure(&self, event_name: &str) -> bool {
         let mut failures = self.failures.lock().await;
         let now = Instant::now();
+
+        // Periodic cleanup: remove expired entries when map grows large
+        if failures.len() > self.cleanup_threshold {
+            failures.retain(|_, (_, window_start)| {
+                now.duration_since(*window_start) <= self.window_duration
+            });
+        }
 
         let entry = failures.entry(event_name.to_string()).or_insert((0, now));
 
@@ -38,7 +47,7 @@ impl FailureRateLimiter {
             *entry = (0, now);
         }
 
-        // Check if we're under the limit
+        // Atomic check-and-increment to prevent race conditions
         if entry.0 < self.max_failures_per_hour {
             entry.0 += 1;
             true
