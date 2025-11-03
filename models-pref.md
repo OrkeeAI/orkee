@@ -351,17 +351,30 @@ export async function analyzePRD(content: string) {
 - [x] All routes now inactive: /api/ai/analyze-prd, /api/ai/generate-spec, etc.
 - [x] Proxy endpoints remain active for credential management
 
-### 6.7 Update Frontend Components ⏸️ DEFERRED
-- [ ] **Status:** TypeScript service functions do not exist yet
-- [ ] **Current State:** Frontend still calls backend `/api/ai/analyze-prd` (services/prds.ts:209)
-- [ ] **Next Steps:** Create TypeScript equivalents of:
-  - `analyzePRD()` - PRD analysis with capability extraction
+### 6.7 Update Frontend Components ✅ COMPLETED
+- [x] **Commit:** `a437331` - Implement Phase 6.7: TypeScript AI services for PRD operations
+- [x] **File:** `orkee-oss/packages/dashboard/src/services/ai-spec.ts` (NEW)
+- [x] Created TypeScript implementations of 5 AI service functions:
+  - `analyzePRD()` - PRD analysis with capability extraction and automatic task creation
   - `generateSpec()` - Spec generation from requirements
-  - `suggestTasks()` - Task suggestions from specs
-  - `refineSpec()` - Spec refinement with feedback
-  - `validateCompletion()` - Task completion validation
-- [ ] **Note:** This requires significant new development beyond Phase 6 scope
-- [ ] **Recommendation:** Create Phase 7 for TypeScript AI service implementation
+  - `suggestTasks()` - Task suggestions from specifications
+  - `refineSpec()` - Spec refinement based on user feedback
+  - `validateCompletion()` - Task completion validation against scenarios
+- [x] **File:** `orkee-oss/packages/dashboard/src/services/ai-usage.ts` (NEW)
+- [x] Created non-blocking console-based AI usage logging system
+- [x] **File:** `orkee-oss/packages/dashboard/src/services/prds.ts`
+- [x] Updated `analyzePRD()` to use TypeScript AI service (line 209)
+- [x] Added model preferences parameter support
+- [x] Automatic task creation from analysis results
+- [x] **File:** `orkee-oss/packages/dashboard/src/hooks/usePRDs.ts`
+- [x] Updated `useTriggerPRDAnalysis()` to use model preferences
+- [x] **File:** `orkee-oss/packages/dashboard/src/components/specs/PRDView.tsx`
+- [x] Removed model selection dialog
+- [x] Shows selected model in button label
+- [x] Disabled if preferences not loaded
+- [x] All functions use exact prompts/schemas from `packages/api/src/ai_handlers.rs`
+- [x] Proper token usage tracking and cost estimation
+- [x] Non-blocking error handling for task creation and logging
 
 ---
 
@@ -437,14 +450,14 @@ export async function analyzePRD(content: string) {
 
 ## Progress Summary
 
-**Completed:** 61 / 80+ tasks (76%)
+**Completed:** 68 / 80+ tasks (85%)
 
 **Phase 1:** ✅ 2/2 (100%) - Database schema complete
 **Phase 2:** ✅ 3/3 (100%) - Backend API complete (Google/xAI proxies deferred)
 **Phase 3:** ✅ 25/25 (100%) - Frontend integration complete
 **Phase 4:** ✅ 18/18 (100%) - AI service updates complete
 **Phase 5:** ✅ 4/4 (100%) - Settings UI complete
-**Phase 6:** ✅ 6/7 (86%) - Backend migration complete (6.7 deferred - TypeScript services need creation)
+**Phase 6:** ✅ 7/7 (100%) - Backend migration complete, all TypeScript services implemented
 **Phase 7:** ⏳ 0/5 (0%) - Testing pending
 
 ---
