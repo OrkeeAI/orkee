@@ -12,7 +12,7 @@ use tracing::{error, info, warn};
 use super::response::ok_or_internal_error;
 use orkee_ideate::{
     extract_insights_with_ai, ChatManager, CreateInsightInput, DiscoveryQuestion, DiscoveryStatus,
-    GeneratePRDFromChatInput, GeneratePRDFromChatResult, InsightType, MessageRole, QualityMetrics,
+    GeneratePRDFromChatInput, GeneratePRDFromChatResult, MessageRole, QualityMetrics,
     QuestionCategory, SendMessageInput, TopicCoverage, ValidationResult,
 };
 use orkee_projects::DbState;
@@ -51,8 +51,9 @@ pub async fn send_message(
         .add_message(&session_id, role.clone(), input.content.clone(), input.message_type, None)
         .await;
 
-    // Auto-extract insights from assistant messages using AI
-    if role == MessageRole::Assistant {
+    // Auto-extract insights from all messages using AI
+    // Users provide requirements/context, assistants may surface risks/assumptions
+    if role == MessageRole::User || role == MessageRole::Assistant {
         let _ = extract_and_save_insights(&manager, &session_id, &input.content).await;
     }
 
