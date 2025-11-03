@@ -1,13 +1,16 @@
 // ABOUTME: AI Models Settings component for configuring per-task model preferences
-// ABOUTME: Displays 10 task cards for selecting models for Ideate, PRD, and Task features
+// ABOUTME: Displays a compact table with rows for each task type and inline model selection
 
 import { useState, useEffect } from 'react';
-import { Brain, FileText, Search, Lightbulb, Code, CheckSquare, Settings, BookOpen, FileCode } from 'lucide-react';
+import { Brain, FileText, Search, Lightbulb, Code, CheckSquare, Settings, BookOpen, FileCode, AlertTriangle } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { ModelSelector } from './ModelSelector';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Badge } from '@/components/ui/badge';
 import type { ModelInfo } from './ModelInfoBadge';
-import type { TaskType, ModelConfig } from '@/types/models';
+import type { TaskType, ModelConfig, Provider } from '@/types/models';
 import { useModelPreferencesContext } from '@/contexts/ModelPreferencesContext';
+import { useUpdateTaskModelPreference } from '@/services/model-preferences';
+import { usersService } from '@/services/users';
 import { apiClient } from '@/services/api';
 
 /**
@@ -148,92 +151,222 @@ export function AIModelsSettings() {
     );
   }
 
+  const getCategoryBadge = (category: string) => {
+    const colors = {
+      ideate: 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300',
+      prd: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300',
+      spec: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300',
+      research: 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300',
+    };
+    return colors[category as keyof typeof colors] || 'bg-gray-100 text-gray-800';
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="rounded-lg border p-6">
         <h2 className="text-xl font-semibold mb-2">AI Model Preferences</h2>
         <p className="text-muted-foreground text-sm mb-4">
-          Configure which AI models to use for different operations in Ideate, PRD, and Task features.
-          These settings are separate from agent-specific models configured elsewhere.
+          Configure which AI models to use for different operations. Each task type can use a different provider and model.
         </p>
         <Alert>
           <AlertDescription className="text-xs">
             <strong>Important:</strong> Model preferences require API keys to be configured in the Security tab.
-            Agent conversations use separate model settings from <code className="bg-muted px-1 py-0.5 rounded">user_agents.preferred_model_id</code>.
           </AlertDescription>
         </Alert>
       </div>
 
-      {/* Task Cards Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {TASK_CONFIGS.map((task) => (
-          <TaskCard
-            key={task.type}
-            task={task}
-            currentConfig={getModelForTask(task.type)}
-            availableModels={availableModels}
-            userId="default-user"
-          />
-        ))}
+      {/* Compact Table */}
+      <div className="rounded-lg border">
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead className="bg-muted/50">
+              <tr className="border-b">
+                <th className="text-left p-3 font-medium text-sm">Task</th>
+                <th className="text-left p-3 font-medium text-sm">Category</th>
+                <th className="text-left p-3 font-medium text-sm w-48">Provider</th>
+                <th className="text-left p-3 font-medium text-sm w-64">Model</th>
+                <th className="text-center p-3 font-medium text-sm w-24">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {TASK_CONFIGS.map((task) => (
+                <TaskRow
+                  key={task.type}
+                  task={task}
+                  currentConfig={getModelForTask(task.type)}
+                  availableModels={availableModels}
+                  getCategoryBadge={getCategoryBadge}
+                />
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );
 }
 
 /**
- * Individual task card component
+ * Individual task row component
  */
-interface TaskCardProps {
+interface TaskRowProps {
   task: TaskConfig;
   currentConfig: ModelConfig;
   availableModels: ModelInfo[];
-  userId: string;
+  getCategoryBadge: (category: string) => string;
 }
 
-function TaskCard({ task, currentConfig, availableModels, userId }: TaskCardProps) {
-  const [localConfig, setLocalConfig] = useState(currentConfig);
+function TaskRow({ task, currentConfig, availableModels, getCategoryBadge }: TaskRowProps) {
+  const [selectedProvider, setSelectedProvider] = useState<Provider>(currentConfig.provider);
+  const [selectedModel, setSelectedModel] = useState<string>(currentConfig.model);
+  const [hasApiKey, setHasApiKey] = useState(false);
+  const [isCheckingKey, setIsCheckingKey] = useState(true);
 
-  // Sync with prop changes
+  const updateMutation = useUpdateTaskModelPreference('default-user');
+
+  // Check if user has API key for the selected provider
   useEffect(() => {
-    setLocalConfig(currentConfig);
-  }, [currentConfig]);
+    checkApiKey(selectedProvider);
+  }, [selectedProvider]);
 
-  const getCategoryColor = (category: string) => {
-    switch (category) {
-      case 'ideate':
-        return 'bg-purple-50 dark:bg-purple-950/30 border-purple-200 dark:border-purple-800';
-      case 'prd':
-        return 'bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-800';
-      case 'spec':
-        return 'bg-green-50 dark:bg-green-950/30 border-green-200 dark:border-green-800';
-      case 'research':
-        return 'bg-orange-50 dark:bg-orange-950/30 border-orange-200 dark:border-orange-800';
-      default:
-        return 'bg-gray-50 dark:bg-gray-950/30 border-gray-200 dark:border-gray-800';
+  const checkApiKey = async (provider: Provider) => {
+    setIsCheckingKey(true);
+    try {
+      const user = await usersService.getCurrentUser();
+      switch (provider) {
+        case 'anthropic':
+          setHasApiKey(user.has_anthropic_api_key);
+          break;
+        case 'openai':
+          setHasApiKey(user.has_openai_api_key);
+          break;
+        case 'google':
+          setHasApiKey(user.has_google_api_key);
+          break;
+        case 'xai':
+          setHasApiKey(user.has_xai_api_key);
+          break;
+      }
+    } catch (error) {
+      console.error('Failed to check API key:', error);
+      setHasApiKey(false);
+    } finally {
+      setIsCheckingKey(false);
+    }
+  };
+
+  // Filter models by selected provider
+  const modelsForProvider = availableModels.filter(m => m.provider === selectedProvider);
+
+  // Get unique providers from available models
+  const providers = Array.from(new Set(availableModels.map(m => m.provider as Provider)));
+
+  const handleProviderChange = (provider: Provider) => {
+    setSelectedProvider(provider);
+    // Auto-select first model for new provider
+    const firstModel = availableModels.find(m => m.provider === provider);
+    if (firstModel) {
+      setSelectedModel(firstModel.id);
+      handleModelUpdate(provider, firstModel.id);
+    }
+  };
+
+  const handleModelChange = (modelId: string) => {
+    setSelectedModel(modelId);
+    handleModelUpdate(selectedProvider, modelId);
+  };
+
+  const handleModelUpdate = async (provider: Provider, model: string) => {
+    const newConfig: ModelConfig = { provider, model };
+    try {
+      await updateMutation.mutateAsync({ taskType: task.type, config: newConfig });
+    } catch (error) {
+      console.error('Failed to update model preference:', error);
     }
   };
 
   return (
-    <div className={`rounded-lg border p-4 ${getCategoryColor(task.category)}`}>
-      {/* Task Header */}
-      <div className="flex items-start gap-3 mb-4">
-        <div className="mt-0.5 text-foreground">{task.icon}</div>
-        <div className="flex-1">
-          <h3 className="font-semibold text-sm text-foreground">{task.label}</h3>
-          <p className="text-xs text-muted-foreground mt-1">{task.description}</p>
+    <tr className="border-b hover:bg-muted/30 transition-colors">
+      {/* Task Name */}
+      <td className="p-3">
+        <div className="flex items-center gap-2">
+          <div className="text-muted-foreground">{task.icon}</div>
+          <div>
+            <div className="font-medium text-sm">{task.label}</div>
+            <div className="text-xs text-muted-foreground">{task.description}</div>
+          </div>
         </div>
-      </div>
+      </td>
 
-      {/* Model Selector */}
-      <ModelSelector
-        userId={userId}
-        taskType={task.type}
-        taskLabel={task.label}
-        currentConfig={localConfig}
-        availableModels={availableModels}
-        onModelChange={setLocalConfig}
-      />
-    </div>
+      {/* Category Badge */}
+      <td className="p-3">
+        <Badge variant="secondary" className={`${getCategoryBadge(task.category)} text-xs capitalize`}>
+          {task.category}
+        </Badge>
+      </td>
+
+      {/* Provider Select */}
+      <td className="p-3">
+        <Select value={selectedProvider} onValueChange={handleProviderChange} disabled={updateMutation.isPending}>
+          <SelectTrigger className="h-8">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {providers.map((provider) => (
+              <SelectItem key={provider} value={provider}>
+                <div className="flex items-center gap-2 capitalize">
+                  {provider === 'anthropic' && '🟣'}
+                  {provider === 'openai' && '🟢'}
+                  {provider === 'google' && '🔵'}
+                  {provider === 'xai' && '⚪'}
+                  <span>{provider}</span>
+                </div>
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </td>
+
+      {/* Model Select */}
+      <td className="p-3">
+        <Select
+          value={selectedModel}
+          onValueChange={handleModelChange}
+          disabled={updateMutation.isPending || !hasApiKey}
+        >
+          <SelectTrigger className="h-8">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {modelsForProvider.map((model) => (
+              <SelectItem key={model.id} value={model.id}>
+                {model.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </td>
+
+      {/* Status */}
+      <td className="p-3">
+        <div className="flex items-center justify-center">
+          {isCheckingKey ? (
+            <Badge variant="secondary" className="text-xs">
+              Checking...
+            </Badge>
+          ) : hasApiKey ? (
+            <Badge variant="secondary" className="text-xs bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300">
+              Ready
+            </Badge>
+          ) : (
+            <Badge variant="secondary" className="text-xs bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300">
+              <AlertTriangle className="h-3 w-3 mr-1" />
+              No Key
+            </Badge>
+          )}
+        </div>
+      </td>
+    </tr>
   );
 }
