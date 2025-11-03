@@ -9,6 +9,7 @@ import { ConnectionProvider } from '@/contexts/ConnectionContext'
 import { CloudProvider } from '@/contexts/CloudContext'
 import { ThemeProvider } from '@/contexts/ThemeContext'
 import { TelemetryProvider, useTelemetry } from '@/contexts/TelemetryContext'
+import { ModelPreferencesProvider } from '@/contexts/ModelPreferencesContext'
 import { queryClient } from '@/lib/queryClient'
 import { PopupCloseHandler } from '@/components/PopupCloseHandler'
 import { CliSetupDialog } from '@/components/CliSetupDialog'
@@ -125,8 +126,10 @@ function App() {
         <ConnectionProvider>
           <CloudProvider>
             <TelemetryProvider>
-              <AppWithTelemetry />
-              <Toaster richColors position="top-right" />
+              <ModelPreferencesProvider>
+                <AppWithTelemetry />
+                <Toaster richColors position="top-right" />
+              </ModelPreferencesProvider>
             </TelemetryProvider>
           </CloudProvider>
         </ConnectionProvider>
