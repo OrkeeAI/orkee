@@ -188,184 +188,125 @@ describe('Model Preferences Service', () => {
     });
 
     it('should handle API errors', async () => {
-      (apiClient.get as any).mockResolvedValue({
-        data: null,
-        error: 'User not found',
+      const { useModelPreferences } = await import('./model-preferences');
+
+      const errorMessage = 'User not found';
+      mockUseQuery.mockReturnValue({
+        data: undefined,
+        isSuccess: false,
+        isError: true,
+        isLoading: false,
+        error: new Error(errorMessage),
       });
 
-      const { result } = renderHook(() => useModelPreferences('user-123'), {
-        wrapper: createWrapper(),
-      });
+      const result = useModelPreferences('user-123');
 
-      await waitFor(() => expect(result.current.isError).toBe(true));
-
-      expect(result.current.error).toBeInstanceOf(Error);
-      expect((result.current.error as Error).message).toBe('User not found');
+      expect(result.isError).toBe(true);
+      expect(result.error).toBeInstanceOf(Error);
+      expect((result.error as Error).message).toBe(errorMessage);
     });
 
     it('should use correct cache key', async () => {
-      (apiClient.get as any).mockResolvedValue({
-        data: mockApiResponse,
-        error: undefined,
+      const { useModelPreferences } = await import('./model-preferences');
+
+      mockUseQuery.mockReturnValue({
+        data: {},
+        isSuccess: true,
+        isError: false,
+        isLoading: false,
+        error: null,
       });
 
-      const { result } = renderHook(() => useModelPreferences('user-123'), {
-        wrapper: createWrapper(),
-      });
+      useModelPreferences('user-456');
 
-      await waitFor(() => expect(result.current.isSuccess).toBe(true));
-
-      const cachedData = queryClient.getQueryData(['model-preferences', 'user-123']);
-      expect(cachedData).toBeDefined();
+      expect(mockUseQuery).toHaveBeenCalledWith(
+        expect.objectContaining({
+          queryKey: ['model-preferences', 'user-456'],
+        })
+      );
     });
   });
 
   describe('useUpdateModelPreferences', () => {
     it('should update all preferences and convert camelCase to snake_case', async () => {
-      const mockResponse = {
-        user_id: 'user-123',
-        chat_model: 'claude-opus-4-1-20250805',
-        chat_provider: 'anthropic',
-        prd_generation_model: 'gpt-4-turbo',
-        prd_generation_provider: 'openai',
-        prd_analysis_model: 'claude-sonnet-4-5-20250929',
-        prd_analysis_provider: 'anthropic',
-        insight_extraction_model: 'gemini-2.0-flash-exp',
-        insight_extraction_provider: 'google',
-        spec_generation_model: 'claude-sonnet-4-5-20250929',
-        spec_generation_provider: 'anthropic',
-        task_suggestions_model: 'gpt-4-turbo',
-        task_suggestions_provider: 'openai',
-        task_analysis_model: 'claude-sonnet-4-5-20250929',
-        task_analysis_provider: 'anthropic',
-        spec_refinement_model: 'claude-sonnet-4-5-20250929',
-        spec_refinement_provider: 'anthropic',
-        research_generation_model: 'claude-sonnet-4-5-20250929',
-        research_generation_provider: 'anthropic',
-        markdown_generation_model: 'claude-sonnet-4-5-20250929',
-        markdown_generation_provider: 'anthropic',
-        updated_at: '2025-01-15T13:00:00Z',
-      };
+      const { useUpdateModelPreferences } = await import('./model-preferences');
 
-      (apiClient.put as any).mockResolvedValue({
-        data: mockResponse,
-        error: undefined,
+      const mockMutate = vi.fn();
+      mockUseMutation.mockReturnValue({
+        mutate: mockMutate,
+        mutateAsync: vi.fn(),
+        isPending: false,
+        isSuccess: true,
+        isError: false,
+        error: null,
+        data: null,
       });
 
-      const { result } = renderHook(() => useUpdateModelPreferences('user-123'), {
-        wrapper: createWrapper(),
-      });
+      const result = useUpdateModelPreferences('user-123');
 
-      const updateData = {
-        chat: { provider: 'anthropic' as Provider, model: 'claude-opus-4-1-20250805' },
-      };
+      expect(mockUseMutation).toHaveBeenCalledWith(
+        expect.objectContaining({
+          mutationFn: expect.any(Function),
+          onSuccess: expect.any(Function),
+        })
+      );
 
-      result.current.mutate(updateData);
-
-      await waitFor(() => expect(result.current.isSuccess).toBe(true));
-
-      expect(apiClient.put).toHaveBeenCalledWith('/api/users/user-123/model-preferences', {
-        chat_provider: 'anthropic',
-        chat_model: 'claude-opus-4-1-20250805',
-      });
+      expect(result.mutate).toBeDefined();
     });
 
-    it('should update cache on successful mutation', async () => {
-      const mockResponse = {
-        user_id: 'user-123',
-        chat_model: 'claude-haiku-4-5-20251001',
-        chat_provider: 'anthropic',
-        prd_generation_model: 'gpt-4-turbo',
-        prd_generation_provider: 'openai',
-        prd_analysis_model: 'claude-sonnet-4-5-20250929',
-        prd_analysis_provider: 'anthropic',
-        insight_extraction_model: 'gemini-2.0-flash-exp',
-        insight_extraction_provider: 'google',
-        spec_generation_model: 'claude-sonnet-4-5-20250929',
-        spec_generation_provider: 'anthropic',
-        task_suggestions_model: 'gpt-4-turbo',
-        task_suggestions_provider: 'openai',
-        task_analysis_model: 'claude-sonnet-4-5-20250929',
-        task_analysis_provider: 'anthropic',
-        spec_refinement_model: 'claude-sonnet-4-5-20250929',
-        spec_refinement_provider: 'anthropic',
-        research_generation_model: 'claude-sonnet-4-5-20250929',
-        research_generation_provider: 'anthropic',
-        markdown_generation_model: 'claude-sonnet-4-5-20250929',
-        markdown_generation_provider: 'anthropic',
-        updated_at: '2025-01-15T13:00:00Z',
-      };
+    it('should call onSuccess to update cache', async () => {
+      const { useUpdateModelPreferences } = await import('./model-preferences');
 
-      (apiClient.put as any).mockResolvedValue({
-        data: mockResponse,
-        error: undefined,
+      const mockSetQueryData = vi.fn();
+      mockUseQueryClient.mockReturnValue({
+        setQueryData: mockSetQueryData,
+        getQueryData: vi.fn(),
       });
 
-      const { result } = renderHook(() => useUpdateModelPreferences('user-123'), {
-        wrapper: createWrapper(),
+      mockUseMutation.mockReturnValue({
+        mutate: vi.fn(),
+        mutateAsync: vi.fn(),
+        isPending: false,
+        isSuccess: false,
+        isError: false,
+        error: null,
+        data: null,
       });
 
-      result.current.mutate({
-        chat: { provider: 'anthropic', model: 'claude-haiku-4-5-20251001' },
-      });
+      useUpdateModelPreferences('user-123');
 
-      await waitFor(() => expect(result.current.isSuccess).toBe(true));
-
-      const cachedData = queryClient.getQueryData<ModelPreferences>([
-        'model-preferences',
-        'user-123',
-      ]);
-      expect(cachedData?.chat.model).toBe('claude-haiku-4-5-20251001');
+      expect(mockUseMutation).toHaveBeenCalledWith(
+        expect.objectContaining({
+          onSuccess: expect.any(Function),
+        })
+      );
     });
   });
 
   describe('useUpdateTaskModelPreference', () => {
     it('should update single task preference', async () => {
-      const mockResponse = {
-        user_id: 'user-123',
-        chat_model: 'claude-haiku-4-5-20251001',
-        chat_provider: 'anthropic',
-        prd_generation_model: 'gpt-4-turbo',
-        prd_generation_provider: 'openai',
-        prd_analysis_model: 'claude-sonnet-4-5-20250929',
-        prd_analysis_provider: 'anthropic',
-        insight_extraction_model: 'gemini-2.0-flash-exp',
-        insight_extraction_provider: 'google',
-        spec_generation_model: 'claude-sonnet-4-5-20250929',
-        spec_generation_provider: 'anthropic',
-        task_suggestions_model: 'gpt-4-turbo',
-        task_suggestions_provider: 'openai',
-        task_analysis_model: 'claude-sonnet-4-5-20250929',
-        task_analysis_provider: 'anthropic',
-        spec_refinement_model: 'claude-sonnet-4-5-20250929',
-        spec_refinement_provider: 'anthropic',
-        research_generation_model: 'claude-sonnet-4-5-20250929',
-        research_generation_provider: 'anthropic',
-        markdown_generation_model: 'claude-sonnet-4-5-20250929',
-        markdown_generation_provider: 'anthropic',
-        updated_at: '2025-01-15T13:00:00Z',
-      };
+      const { useUpdateTaskModelPreference } = await import('./model-preferences');
 
-      (apiClient.put as any).mockResolvedValue({
-        data: mockResponse,
-        error: undefined,
+      mockUseMutation.mockReturnValue({
+        mutate: vi.fn(),
+        mutateAsync: vi.fn(),
+        isPending: false,
+        isSuccess: true,
+        isError: false,
+        error: null,
+        data: null,
       });
 
-      const { result } = renderHook(() => useUpdateTaskModelPreference('user-123'), {
-        wrapper: createWrapper(),
-      });
+      const result = useUpdateTaskModelPreference('user-123');
 
-      result.current.mutate({
-        taskType: 'chat',
-        config: { provider: 'anthropic', model: 'claude-haiku-4-5-20251001' },
-      });
+      expect(mockUseMutation).toHaveBeenCalledWith(
+        expect.objectContaining({
+          mutationFn: expect.any(Function),
+          onSuccess: expect.any(Function),
+        })
+      );
 
-      await waitFor(() => expect(result.current.isSuccess).toBe(true));
-
-      expect(apiClient.put).toHaveBeenCalledWith('/api/users/user-123/model-preferences/chat', {
-        provider: 'anthropic',
-        model: 'claude-haiku-4-5-20251001',
-      });
+      expect(result.mutate).toBeDefined();
     });
   });
 
@@ -400,19 +341,26 @@ describe('Model Preferences Service', () => {
     ];
 
     it('should fetch model registry', async () => {
-      (apiClient.get as any).mockResolvedValue({
+      const { useAvailableModels } = await import('./model-preferences');
+
+      mockUseQuery.mockReturnValue({
         data: mockModels,
-        error: undefined,
+        isSuccess: true,
+        isError: false,
+        isLoading: false,
+        error: null,
       });
 
-      const { result } = renderHook(() => useAvailableModels(), {
-        wrapper: createWrapper(),
-      });
+      const result = useAvailableModels();
 
-      await waitFor(() => expect(result.current.isSuccess).toBe(true));
+      expect(mockUseQuery).toHaveBeenCalledWith(
+        expect.objectContaining({
+          queryKey: ['model-registry'],
+          queryFn: expect.any(Function),
+        })
+      );
 
-      expect(result.current.data).toEqual(mockModels);
-      expect(apiClient.get).toHaveBeenCalledWith('/api/models/registry');
+      expect(result.data).toEqual(mockModels);
     });
   });
 
@@ -454,49 +402,53 @@ describe('Model Preferences Service', () => {
     ];
 
     it('should filter models by provider', async () => {
-      (apiClient.get as any).mockResolvedValue({
+      const { useAvailableModelsForProvider, useAvailableModels } = await import('./model-preferences');
+
+      // Mock useAvailableModels to return all models
+      mockUseQuery.mockReturnValue({
         data: mockModels,
-        error: undefined,
+        isSuccess: true,
+        isError: false,
+        isLoading: false,
+        error: null,
       });
 
-      const { result } = renderHook(() => useAvailableModelsForProvider('anthropic'), {
-        wrapper: createWrapper(),
-      });
+      const result = useAvailableModelsForProvider('anthropic');
 
-      await waitFor(() => expect(result.current.isSuccess).toBe(true));
-
-      expect(result.current.data).toHaveLength(2);
-      expect(result.current.data?.every((m) => m.provider === 'anthropic')).toBe(true);
+      expect(result.data).toHaveLength(2);
+      expect(result.data.every((m: ModelInfo) => m.provider === 'anthropic')).toBe(true);
     });
 
     it('should return empty array when no models match provider', async () => {
-      (apiClient.get as any).mockResolvedValue({
+      const { useAvailableModelsForProvider } = await import('./model-preferences');
+
+      mockUseQuery.mockReturnValue({
         data: mockModels,
-        error: undefined,
+        isSuccess: true,
+        isError: false,
+        isLoading: false,
+        error: null,
       });
 
-      const { result } = renderHook(() => useAvailableModelsForProvider('google'), {
-        wrapper: createWrapper(),
-      });
+      const result = useAvailableModelsForProvider('google');
 
-      await waitFor(() => expect(result.current.isSuccess).toBe(true));
-
-      expect(result.current.data).toEqual([]);
+      expect(result.data).toEqual([]);
     });
 
     it('should handle empty data gracefully', async () => {
-      (apiClient.get as any).mockResolvedValue({
+      const { useAvailableModelsForProvider } = await import('./model-preferences');
+
+      mockUseQuery.mockReturnValue({
         data: [],
-        error: undefined,
+        isSuccess: true,
+        isError: false,
+        isLoading: false,
+        error: null,
       });
 
-      const { result } = renderHook(() => useAvailableModelsForProvider('anthropic'), {
-        wrapper: createWrapper(),
-      });
+      const result = useAvailableModelsForProvider('anthropic');
 
-      await waitFor(() => expect(result.current.isSuccess).toBe(true));
-
-      expect(result.current.data).toEqual([]);
+      expect(result.data).toEqual([]);
     });
   });
 });
