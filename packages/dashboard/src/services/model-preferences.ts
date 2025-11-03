@@ -91,7 +91,7 @@ export function useModelPreferences(userId: string) {
   return useQuery({
     queryKey: ['model-preferences', userId],
     queryFn: async () => {
-      const response = await apiClient.get<ModelPreferencesResponse>(
+      const response = await apiClient.get<{ success: boolean; data: ModelPreferencesResponse; error: string | null }>(
         `/api/users/${userId}/model-preferences`
       );
 
@@ -99,7 +99,8 @@ export function useModelPreferences(userId: string) {
         throw new Error(response.error);
       }
 
-      return convertToModelPreferences(response.data);
+      // API returns { success, data: {...}, error }, need to unwrap
+      return convertToModelPreferences(response.data.data);
     },
     staleTime: 5 * 60 * 1000, // 5 minutes
     retry: 1,
@@ -125,7 +126,7 @@ export function useUpdateModelPreferences(userId: string) {
         }
       }
 
-      const response = await apiClient.put<ModelPreferencesResponse>(
+      const response = await apiClient.put<{ success: boolean; data: ModelPreferencesResponse; error: string | null }>(
         `/api/users/${userId}/model-preferences`,
         apiPayload
       );
@@ -134,7 +135,8 @@ export function useUpdateModelPreferences(userId: string) {
         throw new Error(response.error);
       }
 
-      return convertToModelPreferences(response.data);
+      // API returns { success, data: {...}, error }, need to unwrap
+      return convertToModelPreferences(response.data.data);
     },
     onSuccess: (data) => {
       queryClient.setQueryData(['model-preferences', userId], data);
@@ -150,7 +152,7 @@ export function useUpdateTaskModelPreference(userId: string) {
 
   return useMutation({
     mutationFn: async ({ taskType, config }: { taskType: TaskType; config: ModelConfig }) => {
-      const response = await apiClient.put<ModelPreferencesResponse>(
+      const response = await apiClient.put<{ success: boolean; data: ModelPreferencesResponse; error: string | null }>(
         `/api/users/${userId}/model-preferences/${taskType}`,
         {
           provider: config.provider,
@@ -162,7 +164,8 @@ export function useUpdateTaskModelPreference(userId: string) {
         throw new Error(response.error);
       }
 
-      return convertToModelPreferences(response.data);
+      // API returns { success, data: {...}, error }, need to unwrap
+      return convertToModelPreferences(response.data.data);
     },
     onSuccess: (data) => {
       queryClient.setQueryData(['model-preferences', userId], data);
