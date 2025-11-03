@@ -55,7 +55,6 @@ export function QualityIndicator({ metrics, className }: QualityIndicatorProps) 
 
   const qualityScore = metrics?.quality_score ?? 0;
   const isReadyForPRD = metrics?.is_ready_for_prd ?? false;
-  const missingAreas = metrics?.missing_areas ?? [];
 
   return (
     <div className={cn('bg-card rounded-lg border p-4 space-y-4', className)}>
@@ -100,22 +99,6 @@ export function QualityIndicator({ metrics, className }: QualityIndicatorProps) 
           ))}
         </div>
       </div>
-
-      {missingAreas.length > 0 && (
-        <div className="pt-2 border-t space-y-2">
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <AlertCircle className="h-4 w-4" />
-            <span>Consider discussing:</span>
-          </div>
-          <ul className="text-sm space-y-1 pl-6">
-            {missingAreas.map((area, index) => (
-              <li key={index} className="text-muted-foreground list-disc">
-                {area}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
     </div>
   );
 }
