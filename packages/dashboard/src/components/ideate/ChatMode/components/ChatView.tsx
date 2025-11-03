@@ -117,7 +117,7 @@ export function ChatView({
     }
   }, [selectedProvider, availableModels, selectedModel]);
 
-  const handleSubmit = async (message: { text?: string; files?: any[] }) => {
+  const handleSubmit = async (message: { text?: string; files?: Array<{ name: string; url: string; type: string }> }) => {
     if (message.text?.trim() && !isSending) {
       console.log('[ChatView.handleSubmit] Submitting message with:', {
         provider: selectedProvider,

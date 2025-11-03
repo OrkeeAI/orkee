@@ -148,7 +148,7 @@ export function useStreamingResponse({
           // abortSignal
           abortControllerRef.current?.signal,
           // provider and model
-          provider as any,
+          provider,
           model
         );
       } catch (error) {

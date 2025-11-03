@@ -188,7 +188,7 @@ export class PRDsService {
     return true;
   }
 
-  async analyzePRD(projectId: string, prdId: string, modelPreferences: any): Promise<PRDAnalysisResult> {
+  async analyzePRD(projectId: string, prdId: string, modelPreferences: unknown): Promise<PRDAnalysisResult> {
     // Fetch the PRD content first
     const prd = await this.getPRD(projectId, prdId);
     if (!prd) {
@@ -207,13 +207,13 @@ export class PRDsService {
     if (result.data.suggestedTasks?.length > 0) {
       const { tasksService } = await import('./tasks');
 
-      for (const [index, task] of result.data.suggestedTasks.entries()) {
+      for (const task of result.data.suggestedTasks) {
         try {
           await tasksService.createTask(projectId, {
             title: task.title,
             description: task.description,
             complexityScore: task.complexity,
-            priority: task.priority as any,
+            priority: task.priority as 'low' | 'medium' | 'high',
             status: 'pending',
           });
           console.log(`[prds.analyzePRD] Created task: ${task.title}`);
