@@ -110,13 +110,15 @@ export function AIModelsSettings() {
     setIsLoadingModels(true);
     setModelsError(null);
     try {
-      const response = await apiClient.get<ModelInfo[]>('/api/models');
+      const response = await apiClient.get<{ data: ModelInfo[]; pagination: unknown }>('/api/models');
 
       if (response.error) {
         throw new Error(response.error);
       }
 
-      setAvailableModels(response.data || []);
+      // Extract the models array from the paginated response
+      const models = response.data?.data || [];
+      setAvailableModels(models);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to fetch models';
       setModelsError(errorMessage);
@@ -200,15 +202,15 @@ function TaskCard({ task, currentConfig, availableModels, userId }: TaskCardProp
   const getCategoryColor = (category: string) => {
     switch (category) {
       case 'ideate':
-        return 'bg-purple-50 border-purple-200';
+        return 'bg-purple-50 dark:bg-purple-950/30 border-purple-200 dark:border-purple-800';
       case 'prd':
-        return 'bg-blue-50 border-blue-200';
+        return 'bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-800';
       case 'spec':
-        return 'bg-green-50 border-green-200';
+        return 'bg-green-50 dark:bg-green-950/30 border-green-200 dark:border-green-800';
       case 'research':
-        return 'bg-orange-50 border-orange-200';
+        return 'bg-orange-50 dark:bg-orange-950/30 border-orange-200 dark:border-orange-800';
       default:
-        return 'bg-gray-50 border-gray-200';
+        return 'bg-gray-50 dark:bg-gray-950/30 border-gray-200 dark:border-gray-800';
     }
   };
 
@@ -216,9 +218,9 @@ function TaskCard({ task, currentConfig, availableModels, userId }: TaskCardProp
     <div className={`rounded-lg border p-4 ${getCategoryColor(task.category)}`}>
       {/* Task Header */}
       <div className="flex items-start gap-3 mb-4">
-        <div className="mt-0.5">{task.icon}</div>
+        <div className="mt-0.5 text-foreground">{task.icon}</div>
         <div className="flex-1">
-          <h3 className="font-semibold text-sm">{task.label}</h3>
+          <h3 className="font-semibold text-sm text-foreground">{task.label}</h3>
           <p className="text-xs text-muted-foreground mt-1">{task.description}</p>
         </div>
       </div>
