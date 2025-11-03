@@ -28,7 +28,7 @@ impl FailureRateLimiter {
             failures: Mutex::new(HashMap::new()),
             max_failures_per_hour: 10,
             window_duration: Duration::from_secs(3600), // 1 hour
-            cleanup_threshold: 100, // Clean up when we exceed 100 entries
+            cleanup_threshold: 100,                     // Clean up when we exceed 100 entries
         }
     }
 
@@ -229,8 +229,8 @@ fn get_hmac_secret() -> &'static [u8] {
 /// Hash an ID using HMAC-SHA256 to protect sensitive information in telemetry
 /// Uses application-specific secret to prevent rainbow table attacks
 pub(crate) fn hash_id(id: &str) -> String {
-    let mut mac = HmacSha256::new_from_slice(get_hmac_secret())
-        .expect("HMAC can take key of any size");
+    let mut mac =
+        HmacSha256::new_from_slice(get_hmac_secret()).expect("HMAC can take key of any size");
     mac.update(id.as_bytes());
     let result = mac.finalize();
     format!("{:x}", result.into_bytes())
@@ -343,9 +343,15 @@ mod tests {
     #[test]
     fn test_extract_id_from_path_empty() {
         // Empty string gets returned as-is but fails validation
-        assert_eq!(extract_id_from_path("/api/projects/", "/api/projects/"), "unknown");
+        assert_eq!(
+            extract_id_from_path("/api/projects/", "/api/projects/"),
+            "unknown"
+        );
         // When prefix doesn't match, unwrap_or returns "unknown"
-        assert_eq!(extract_id_from_path("/api/projects", "/api/projects/"), "unknown");
+        assert_eq!(
+            extract_id_from_path("/api/projects", "/api/projects/"),
+            "unknown"
+        );
     }
 
     #[test]
@@ -362,7 +368,10 @@ mod tests {
         let id2 = "test-project-456";
         let hash1 = hash_id(id1);
         let hash2 = hash_id(id2);
-        assert_ne!(hash1, hash2, "Different inputs should produce different hashes");
+        assert_ne!(
+            hash1, hash2,
+            "Different inputs should produce different hashes"
+        );
     }
 
     #[test]
