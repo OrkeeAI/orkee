@@ -202,15 +202,20 @@ pub async fn update_task_model(
             .into_response();
     }
 
-    let result = db
+    // Update the task model and return full preferences
+    match db
         .model_preferences_storage
         .update_task_model(&user_id, &task_type, &request)
         .await
-        .map(|_| {
-            serde_json::json!({
-                "message": format!("Model for {} updated successfully", task_type)
-            })
-        });
-
-    ok_or_internal_error(result, "Failed to update task model")
+    {
+        Ok(_) => {
+            // Fetch and return the updated preferences
+            let result = db.model_preferences_storage.get_preferences(&user_id).await;
+            ok_or_internal_error(result, "Failed to get updated preferences")
+        }
+        Err(e) => {
+            let result: Result<ModelPreferences, _> = Err(e);
+            ok_or_internal_error(result, "Failed to update task model")
+        }
+    }
 }

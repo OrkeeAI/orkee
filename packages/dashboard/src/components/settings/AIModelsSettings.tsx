@@ -225,6 +225,12 @@ function TaskRow({ task, currentConfig, availableModels, getCategoryBadge }: Tas
 
   const updateMutation = useUpdateTaskModelPreference('default-user');
 
+  // Sync local state with currentConfig when it changes
+  useEffect(() => {
+    setSelectedProvider(currentConfig.provider);
+    setSelectedModel(currentConfig.model);
+  }, [currentConfig.provider, currentConfig.model]);
+
   // Check if user has API key for the selected provider
   useEffect(() => {
     checkApiKey(selectedProvider);
@@ -315,13 +321,7 @@ function TaskRow({ task, currentConfig, availableModels, getCategoryBadge }: Tas
           <SelectContent>
             {providers.map((provider) => (
               <SelectItem key={provider} value={provider}>
-                <div className="flex items-center gap-2 capitalize">
-                  {provider === 'anthropic' && '🟣'}
-                  {provider === 'openai' && '🟢'}
-                  {provider === 'google' && '🔵'}
-                  {provider === 'xai' && '⚪'}
-                  <span>{provider}</span>
-                </div>
+                <span className="capitalize">{provider}</span>
               </SelectItem>
             ))}
           </SelectContent>
