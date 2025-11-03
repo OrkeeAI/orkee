@@ -2,7 +2,7 @@
 // ABOUTME: Handles streaming chats, insight extraction, quality metrics, and PRD generation
 
 import { streamText, generateObject } from 'ai';
-import { getPreferredModel } from '@/lib/ai/providers';
+import { getPreferredModel, getModel } from '@/lib/ai/providers';
 import { z } from 'zod';
 import { chatService, type ChatMessage, type ChatInsight } from './chat';
 
