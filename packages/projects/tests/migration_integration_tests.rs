@@ -1561,3 +1561,352 @@ async fn test_down_migration_is_idempotent() {
         "All tables should remain dropped after second run"
     );
 }
+
+// ============================================================================
+// MODEL PREFERENCES TESTS (Phase 7.5)
+// ============================================================================
+
+#[tokio::test]
+async fn test_model_preferences_table_created() {
+    let pool = setup_migrated_db().await;
+
+    let table_exists: bool = sqlx::query_scalar(
+        "SELECT COUNT(*) > 0 FROM sqlite_master
+         WHERE type='table' AND name='model_preferences'",
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+
+    assert!(table_exists, "model_preferences table should exist");
+}
+
+#[tokio::test]
+async fn test_model_preferences_default_values() {
+    let pool = setup_migrated_db().await;
+
+    // Insert a test user (model_preferences is created via API, not with default user)
+    sqlx::query(
+        "INSERT INTO users (id, name, email, created_at, updated_at)
+         VALUES ('test-user', 'Test User', 'test@example.com',
+                 strftime('%Y-%m-%dT%H:%M:%SZ', 'now'), strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))",
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+
+    // Insert preferences with defaults
+    sqlx::query(
+        "INSERT INTO model_preferences (user_id) VALUES ('test-user')",
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+
+    // Verify all defaults are claude-sonnet-4-5-20250929 with anthropic provider
+    let (chat_model, chat_provider): (String, String) = sqlx::query_as(
+        "SELECT chat_model, chat_provider FROM model_preferences WHERE user_id = 'test-user'",
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+
+    assert_eq!(chat_model, "claude-sonnet-4-5-20250929");
+    assert_eq!(chat_provider, "anthropic");
+
+    let (prd_gen_model, prd_gen_provider): (String, String) = sqlx::query_as(
+        "SELECT prd_generation_model, prd_generation_provider FROM model_preferences WHERE user_id = 'test-user'",
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+
+    assert_eq!(prd_gen_model, "claude-sonnet-4-5-20250929");
+    assert_eq!(prd_gen_provider, "anthropic");
+}
+
+#[tokio::test]
+async fn test_model_preferences_all_ten_task_types() {
+    let pool = setup_migrated_db().await;
+
+    // Insert test user
+    sqlx::query(
+        "INSERT INTO users (id, name, email, created_at, updated_at)
+         VALUES ('test-user', 'Test User', 'test@example.com',
+                 strftime('%Y-%m-%dT%H:%M:%SZ', 'now'), strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))",
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+
+    // Insert preferences with different models for each task
+    sqlx::query(
+        "INSERT INTO model_preferences (
+            user_id,
+            chat_model, chat_provider,
+            prd_generation_model, prd_generation_provider,
+            prd_analysis_model, prd_analysis_provider,
+            insight_extraction_model, insight_extraction_provider,
+            spec_generation_model, spec_generation_provider,
+            task_suggestions_model, task_suggestions_provider,
+            task_analysis_model, task_analysis_provider,
+            spec_refinement_model, spec_refinement_provider,
+            research_generation_model, research_generation_provider,
+            markdown_generation_model, markdown_generation_provider
+        ) VALUES (
+            'test-user',
+            'claude-haiku-4-5-20251001', 'anthropic',
+            'gpt-4-turbo', 'openai',
+            'claude-sonnet-4-5-20250929', 'anthropic',
+            'gemini-2.0-flash-exp', 'google',
+            'grok-2-1212', 'xai',
+            'gpt-4-turbo', 'openai',
+            'claude-sonnet-4-5-20250929', 'anthropic',
+            'claude-opus-4-1-20250805', 'anthropic',
+            'gemini-2.0-flash-exp', 'google',
+            'claude-haiku-4-5-20251001', 'anthropic'
+        )",
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+
+    // Verify each task type was set correctly
+    let prefs: (String, String, String, String, String, String, String, String, String, String) = sqlx::query_as(
+        "SELECT chat_model, prd_generation_model, prd_analysis_model,
+                insight_extraction_model, spec_generation_model, task_suggestions_model,
+                task_analysis_model, spec_refinement_model, research_generation_model,
+                markdown_generation_model
+         FROM model_preferences WHERE user_id = 'test-user'",
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+
+    assert_eq!(prefs.0, "claude-haiku-4-5-20251001");
+    assert_eq!(prefs.1, "gpt-4-turbo");
+    assert_eq!(prefs.2, "claude-sonnet-4-5-20250929");
+    assert_eq!(prefs.3, "gemini-2.0-flash-exp");
+    assert_eq!(prefs.4, "grok-2-1212");
+    assert_eq!(prefs.5, "gpt-4-turbo");
+    assert_eq!(prefs.6, "claude-sonnet-4-5-20250929");
+    assert_eq!(prefs.7, "claude-opus-4-1-20250805");
+    assert_eq!(prefs.8, "gemini-2.0-flash-exp");
+    assert_eq!(prefs.9, "claude-haiku-4-5-20251001");
+}
+
+#[tokio::test]
+async fn test_model_preferences_provider_check_constraints() {
+    let pool = setup_migrated_db().await;
+
+    // Insert test user
+    sqlx::query(
+        "INSERT INTO users (id, name, email, created_at, updated_at)
+         VALUES ('test-user', 'Test User', 'test@example.com',
+                 strftime('%Y-%m-%dT%H:%M:%SZ', 'now'), strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))",
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+
+    // Try to insert invalid provider for chat - should fail
+    let result = sqlx::query(
+        "INSERT INTO model_preferences (user_id, chat_provider)
+         VALUES ('test-user', 'invalid-provider')",
+    )
+    .execute(&pool)
+    .await;
+
+    assert!(
+        result.is_err(),
+        "Should reject invalid chat_provider value"
+    );
+
+    // Verify all 4 valid providers work for chat
+    for provider in &["anthropic", "openai", "google", "xai"] {
+        // First create the user
+        sqlx::query(
+            "INSERT INTO users (id, name, email, created_at, updated_at)
+             VALUES (?, ?, ?, strftime('%Y-%m-%dT%H:%M:%SZ', 'now'), strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))",
+        )
+        .bind(format!("user-{}", provider))
+        .bind(format!("User {}", provider))
+        .bind(format!("{}@example.com", provider))
+        .execute(&pool)
+        .await
+        .unwrap();
+
+        let result = sqlx::query(
+            "INSERT INTO model_preferences (user_id, chat_provider)
+             VALUES (?, ?)",
+        )
+        .bind(format!("user-{}", provider))
+        .bind(provider)
+        .execute(&pool)
+        .await;
+
+        assert!(
+            result.is_ok(),
+            "Should accept valid provider: {}",
+            provider
+        );
+    }
+}
+
+#[tokio::test]
+async fn test_model_preferences_foreign_key_cascade_delete() {
+    let pool = setup_migrated_db().await;
+
+    // Insert test user
+    sqlx::query(
+        "INSERT INTO users (id, name, email, created_at, updated_at)
+         VALUES ('test-user', 'Test User', 'test@example.com',
+                 strftime('%Y-%m-%dT%H:%M:%SZ', 'now'), strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))",
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+
+    // Insert preferences
+    sqlx::query(
+        "INSERT INTO model_preferences (user_id) VALUES ('test-user')",
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+
+    // Verify preferences exist
+    let count: i64 = sqlx::query_scalar(
+        "SELECT COUNT(*) FROM model_preferences WHERE user_id = 'test-user'",
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    assert_eq!(count, 1);
+
+    // Delete user
+    sqlx::query("DELETE FROM users WHERE id = 'test-user'")
+        .execute(&pool)
+        .await
+        .unwrap();
+
+    // Verify preferences were cascade deleted
+    let count: i64 = sqlx::query_scalar(
+        "SELECT COUNT(*) FROM model_preferences WHERE user_id = 'test-user'",
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    assert_eq!(count, 0, "Preferences should be cascade deleted with user");
+}
+
+#[tokio::test]
+async fn test_model_preferences_updated_at_trigger() {
+    let pool = setup_migrated_db().await;
+
+    // Insert test user
+    sqlx::query(
+        "INSERT INTO users (id, name, email, created_at, updated_at)
+         VALUES ('test-user', 'Test User', 'test@example.com',
+                 strftime('%Y-%m-%dT%H:%M:%SZ', 'now'), strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))",
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+
+    // Insert preferences
+    sqlx::query(
+        "INSERT INTO model_preferences (user_id) VALUES ('test-user')",
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+
+    // Get initial updated_at
+    let initial_updated_at: String = sqlx::query_scalar(
+        "SELECT updated_at FROM model_preferences WHERE user_id = 'test-user'",
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+
+    // Wait a moment to ensure timestamp difference (SQLite timestamps have 1-second resolution)
+    tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
+
+    // Update a preference
+    sqlx::query(
+        "UPDATE model_preferences SET chat_model = 'claude-haiku-4-5-20251001'
+         WHERE user_id = 'test-user'",
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+
+    // Get new updated_at
+    let new_updated_at: String = sqlx::query_scalar(
+        "SELECT updated_at FROM model_preferences WHERE user_id = 'test-user'",
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+
+    assert_ne!(
+        initial_updated_at, new_updated_at,
+        "updated_at should change when preferences are updated"
+    );
+}
+
+#[tokio::test]
+async fn test_model_preferences_down_migration() {
+    let pool = setup_migrated_db().await;
+
+    // Verify table exists
+    let table_exists: bool = sqlx::query_scalar(
+        "SELECT COUNT(*) > 0 FROM sqlite_master
+         WHERE type='table' AND name='model_preferences'",
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    assert!(table_exists, "Table should exist before down migration");
+
+    // Read and execute down migration
+    let down_sql =
+        std::fs::read_to_string("../storage/migrations/001_initial_schema.down.sql").unwrap();
+
+    // Execute each statement (SQLite doesn't support multiple statements in one execute)
+    // Use IF EXISTS so missing tables don't cause errors
+    for statement in down_sql.split(';') {
+        let statement = statement.trim();
+        if !statement.is_empty() && !statement.starts_with("--") {
+            // Ignore errors for statements that reference non-existent objects
+            let _ = sqlx::query(statement).execute(&pool).await;
+        }
+    }
+
+    // Verify table is dropped
+    let table_exists: bool = sqlx::query_scalar(
+        "SELECT COUNT(*) > 0 FROM sqlite_master
+         WHERE type='table' AND name='model_preferences'",
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    assert!(
+        !table_exists,
+        "Table should not exist after down migration"
+    );
+
+    // Verify trigger is dropped
+    let trigger_exists: bool = sqlx::query_scalar(
+        "SELECT COUNT(*) > 0 FROM sqlite_master
+         WHERE type='trigger' AND name='model_preferences_updated_at'",
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    assert!(
+        !trigger_exists,
+        "Trigger should not exist after down migration"
+    );
+}
