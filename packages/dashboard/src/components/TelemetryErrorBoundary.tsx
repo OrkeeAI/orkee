@@ -30,8 +30,10 @@ function sanitizeStackTrace(stackTrace: string | undefined): string {
     .replace(/\?[^\s)]+/g, '')
     // Redact potential email addresses
     .replace(/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/g, '[EMAIL]')
-    // Redact potential API keys/tokens (sequences of 20+ alphanumeric chars)
-    .replace(/\b[a-zA-Z0-9]{20,}\b/g, '[REDACTED]')
+    // Redact common API key prefixes (PostHog, Stripe, etc.)
+    .replace(/\b(phc_|phx_|sk_|pk_|rk_)[a-zA-Z0-9_-]{20,}\b/g, '[API_KEY]')
+    // Redact base64-encoded tokens (40+ chars)
+    .replace(/\b[A-Za-z0-9+/]{40,}={0,2}\b/g, '[BASE64_TOKEN]')
     // Keep only relative file paths and line numbers
     .trim();
 }
