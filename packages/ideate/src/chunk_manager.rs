@@ -254,6 +254,7 @@ impl ChunkManager {
                 let status = match status_str.as_str() {
                     "approved" => ChunkStatus::Approved,
                     "rejected" => ChunkStatus::Rejected,
+                    "edited" => ChunkStatus::Edited,
                     "pending" => ChunkStatus::Pending,
                     _ => ChunkStatus::Pending,
                 };
@@ -322,6 +323,7 @@ impl ChunkManager {
                 let status = match status_str.as_str() {
                     "approved" => ChunkStatus::Approved,
                     "rejected" => ChunkStatus::Rejected,
+                    "edited" => ChunkStatus::Edited,
                     "pending" => ChunkStatus::Pending,
                     _ => ChunkStatus::Pending,
                 };
