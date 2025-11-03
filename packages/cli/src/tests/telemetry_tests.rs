@@ -869,11 +869,10 @@ fn test_hash_id_consistency() {
     let hash3 = hash_id("project-124");
     assert_ne!(hash1, hash3);
 
-    // Hash should be deterministic
-    assert_eq!(
-        hash_id("test"),
-        "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08"
-    );
+    // Hash should be deterministic (same input always produces same output)
+    let test_hash1 = hash_id("test");
+    let test_hash2 = hash_id("test");
+    assert_eq!(test_hash1, test_hash2);
 }
 
 #[test]
@@ -882,7 +881,7 @@ fn test_hash_id_output_format() {
 
     let hash = hash_id("project-123");
 
-    // SHA256 hash should be 64 hex characters
+    // HMAC-SHA256 hash should be 64 hex characters
     assert_eq!(hash.len(), 64);
 
     // Should only contain hex characters
