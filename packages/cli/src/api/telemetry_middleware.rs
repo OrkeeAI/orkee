@@ -88,7 +88,10 @@ pub async fn track_api_calls(request: Request<Body>, next: Next) -> Response {
         tokio::spawn(async move {
             if let Err(e) = track_telemetry_event(&final_event_name, event_data).await {
                 // Just log the error, don't fail the request
-                warn!("Failed to track telemetry event {}: {}", final_event_name, e);
+                warn!(
+                    "Failed to track telemetry event {}: {}",
+                    final_event_name, e
+                );
             }
         });
     }
