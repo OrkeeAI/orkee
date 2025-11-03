@@ -7,6 +7,12 @@ use serde::{Deserialize, Serialize};
 use sqlx::{Row, SqlitePool};
 use tracing::{error, info};
 
+/// Target minimum word count for content chunks
+const TARGET_MIN_WORDS: usize = 200;
+
+/// Target maximum word count for content chunks
+const TARGET_MAX_WORDS: usize = 300;
+
 /// Status of a chunk validation
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, sqlx::Type)]
 #[sqlx(type_name = "TEXT", rename_all = "lowercase")]
@@ -54,8 +60,6 @@ impl ChunkManager {
 
     /// Split content into 200-300 word chunks at natural break points
     pub fn chunk_content(content: &str, _section_name: &str) -> Vec<String> {
-        let target_min = 200;
-        let target_max = 300;
         let mut chunks = Vec::new();
         let mut current_chunk = String::new();
         let mut current_word_count = 0;
@@ -78,7 +82,7 @@ impl ChunkManager {
             let para_words = paragraph.split_whitespace().count();
 
             // If adding this paragraph exceeds max, save current chunk
-            if current_word_count + para_words > target_max && current_word_count >= target_min {
+            if current_word_count + para_words > TARGET_MAX_WORDS && current_word_count >= TARGET_MIN_WORDS {
                 chunks.push(current_chunk.trim().to_string());
                 current_chunk = String::new();
                 current_word_count = 0;
