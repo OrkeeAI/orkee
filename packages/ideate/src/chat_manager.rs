@@ -243,17 +243,26 @@ impl ChatManager {
 
         let insights: Vec<ChatInsight> = rows
             .into_iter()
-            .map(|row| ChatInsight {
-                id: row.get("id"),
-                session_id: row.get("session_id"),
-                insight_type: serde_json::from_str(&row.get::<String, _>("insight_type")).unwrap(),
-                insight_text: row.get("insight_text"),
-                confidence_score: row.get("confidence_score"),
-                source_message_ids: row
-                    .get::<Option<String>, _>("source_message_ids")
-                    .and_then(|s| serde_json::from_str(&s).ok()),
-                applied_to_prd: row.get("applied_to_prd"),
-                created_at: row.get("created_at"),
+            .filter_map(|row| {
+                let insight_type_str = row.get::<String, _>("insight_type");
+                match serde_json::from_str(&insight_type_str) {
+                    Ok(insight_type) => Some(ChatInsight {
+                        id: row.get("id"),
+                        session_id: row.get("session_id"),
+                        insight_type,
+                        insight_text: row.get("insight_text"),
+                        confidence_score: row.get("confidence_score"),
+                        source_message_ids: row
+                            .get::<Option<String>, _>("source_message_ids")
+                            .and_then(|s| serde_json::from_str(&s).ok()),
+                        applied_to_prd: row.get("applied_to_prd"),
+                        created_at: row.get("created_at"),
+                    }),
+                    Err(e) => {
+                        error!("Failed to deserialize insight_type '{}': {}", insight_type_str, e);
+                        None
+                    }
+                }
             })
             .collect();
 
