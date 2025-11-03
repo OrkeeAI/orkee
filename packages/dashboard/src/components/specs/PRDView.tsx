@@ -10,8 +10,9 @@ import { Separator } from '@/components/ui/separator';
 import { MarkdownRenderer } from '@/components/MarkdownRenderer';
 import { usePRDs, useDeletePRD, useTriggerPRDAnalysis } from '@/hooks/usePRDs';
 import { useSpecs } from '@/hooks/useSpecs';
+import { useCurrentUser } from '@/hooks/useUsers';
+import { useModelPreferences } from '@/services/model-preferences';
 import { PRDUploadDialog } from '@/components/PRDUploadDialog';
-import { ModelSelectionDialog } from '@/components/ModelSelectionDialog';
 import type { PRD, PRDAnalysisResult } from '@/services/prds';
 
 interface PRDViewProps {
@@ -22,12 +23,12 @@ interface PRDViewProps {
 export function PRDView({ projectId, onViewSpecs }: PRDViewProps) {
   const [selectedPRD, setSelectedPRD] = useState<PRD | null>(null);
   const [showUploadDialog, setShowUploadDialog] = useState(false);
-  const [showModelSelection, setShowModelSelection] = useState(false);
-  const [prdToAnalyze, setPrdToAnalyze] = useState<string | null>(null);
   const [analysisResult, setAnalysisResult] = useState<PRDAnalysisResult | null>(null);
 
   const { data: prds, isLoading, error } = usePRDs(projectId);
   const { data: allSpecs } = useSpecs(projectId);
+  const { data: currentUser } = useCurrentUser();
+  const { data: preferences } = useModelPreferences(currentUser?.id || '');
   const deletePRDMutation = useDeletePRD(projectId);
   const analyzePRDMutation = useTriggerPRDAnalysis(projectId);
 
@@ -47,22 +48,20 @@ export function PRDView({ projectId, onViewSpecs }: PRDViewProps) {
   };
 
   const handleAnalyzeClick = (prdId: string) => {
-    setPrdToAnalyze(prdId);
-    setShowModelSelection(true);
-  };
-
-  const handleAnalyze = (provider: string, model: string) => {
-    if (prdToAnalyze) {
-      console.log(`Analyzing PRD ${prdToAnalyze} with ${provider}/${model}`);
-      analyzePRDMutation.mutate(
-        { prdId: prdToAnalyze, provider, model },
-        {
-          onSuccess: (result) => {
-            setAnalysisResult(result);
-          },
-        }
-      );
+    if (!preferences) {
+      alert('Model preferences not loaded. Please visit Settings → AI Models to configure your preferred models.');
+      return;
     }
+
+    console.log(`Analyzing PRD ${prdId} with user's preferred model for PRD analysis`);
+    analyzePRDMutation.mutate(
+      { prdId },
+      {
+        onSuccess: (result) => {
+          setAnalysisResult(result);
+        },
+      }
+    );
   };
 
   const formatDate = (dateString: string) => {
@@ -223,7 +222,7 @@ export function PRDView({ projectId, onViewSpecs }: PRDViewProps) {
                         variant="outline"
                         size="sm"
                         onClick={() => handleAnalyzeClick(selectedPRD.id)}
-                        disabled={analyzePRDMutation.isPending}
+                        disabled={analyzePRDMutation.isPending || !preferences}
                       >
                         {analyzePRDMutation.isPending ? (
                           <>
@@ -233,7 +232,7 @@ export function PRDView({ projectId, onViewSpecs }: PRDViewProps) {
                         ) : (
                           <>
                             <Sparkles className="mr-2 h-4 w-4" />
-                            Analyze
+                            Analyze with {preferences?.prdAnalysis?.model || 'Default Model'}
                           </>
                         )}
                       </Button>
@@ -326,12 +325,6 @@ export function PRDView({ projectId, onViewSpecs }: PRDViewProps) {
             setSelectedPRD(newPRD);
           }
         }}
-      />
-
-      <ModelSelectionDialog
-        open={showModelSelection}
-        onOpenChange={setShowModelSelection}
-        onConfirm={handleAnalyze}
       />
     </div>
   );

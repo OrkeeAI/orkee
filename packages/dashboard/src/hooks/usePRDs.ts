@@ -3,6 +3,8 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { prdsService } from '@/services/prds';
 import { queryKeys, invalidatePRDQueries, invalidatePRD } from '@/lib/queryClient';
+import { useModelPreferences } from '@/services/model-preferences';
+import { useCurrentUser } from '@/hooks/useUsers';
 import type { PaginationParams } from '@/types/pagination';
 import type {
   PRD,
@@ -209,10 +211,16 @@ export function useAnalyzePRD(projectId: string, prdId: string) {
 
 export function useTriggerPRDAnalysis(projectId: string) {
   const queryClient = useQueryClient();
+  const { data: currentUser } = useCurrentUser();
+  const { data: preferences } = useModelPreferences(currentUser?.id || '');
 
   return useMutation({
-    mutationFn: ({ prdId, provider, model }: { prdId: string; provider: string; model: string }) => 
-      prdsService.analyzePRD(projectId, prdId, provider, model),
+    mutationFn: async ({ prdId }: { prdId: string }) => {
+      if (!preferences) {
+        throw new Error('Model preferences not loaded. Please visit Settings → AI Models');
+      }
+      return prdsService.analyzePRD(projectId, prdId, preferences);
+    },
     onSuccess: (analysisResult, { prdId }) => {
       queryClient.setQueryData(
         queryKeys.prdAnalysis(projectId, prdId),
