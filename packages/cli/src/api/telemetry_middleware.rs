@@ -114,7 +114,7 @@ pub async fn track_api_calls(request: Request<Body>, next: Next) -> Response {
 }
 
 /// Helper function to extract ID from a URL path
-fn extract_id_from_path(path: &str, prefix: &str) -> String {
+pub(crate) fn extract_id_from_path(path: &str, prefix: &str) -> String {
     path.strip_prefix(prefix)
         .and_then(|s| s.split('/').next())
         .unwrap_or("unknown")
