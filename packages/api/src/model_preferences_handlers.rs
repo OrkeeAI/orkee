@@ -71,6 +71,20 @@ pub struct UpdateModelPreferencesRequest {
     pub markdown_generation_provider: String,
 }
 
+/// Validate string length constraints for security
+fn validate_string_length(field_name: &str, value: &str, max_length: usize) -> Result<(), String> {
+    if value.len() > max_length {
+        return Err(format!(
+            "{} exceeds maximum length of {} characters",
+            field_name, max_length
+        ));
+    }
+    if value.is_empty() {
+        return Err(format!("{} cannot be empty", field_name));
+    }
+    Ok(())
+}
+
 /// Update all model preferences for a user
 pub async fn update_model_preferences(
     State(db): State<DbState>,
@@ -79,21 +93,33 @@ pub async fn update_model_preferences(
 ) -> impl IntoResponse {
     info!("Updating model preferences for user: {}", user_id);
 
-    // Validate all model IDs exist in registry
+    // Validate all model IDs exist in registry and check length constraints
     let model_ids = vec![
-        &request.chat_model,
-        &request.prd_generation_model,
-        &request.prd_analysis_model,
-        &request.insight_extraction_model,
-        &request.spec_generation_model,
-        &request.task_suggestions_model,
-        &request.task_analysis_model,
-        &request.spec_refinement_model,
-        &request.research_generation_model,
-        &request.markdown_generation_model,
+        (&request.chat_model, "chat_model"),
+        (&request.prd_generation_model, "prd_generation_model"),
+        (&request.prd_analysis_model, "prd_analysis_model"),
+        (&request.insight_extraction_model, "insight_extraction_model"),
+        (&request.spec_generation_model, "spec_generation_model"),
+        (&request.task_suggestions_model, "task_suggestions_model"),
+        (&request.task_analysis_model, "task_analysis_model"),
+        (&request.spec_refinement_model, "spec_refinement_model"),
+        (&request.research_generation_model, "research_generation_model"),
+        (&request.markdown_generation_model, "markdown_generation_model"),
     ];
 
-    for model_id in model_ids {
+    for (model_id, field_name) in model_ids {
+        // Validate length (max 100 characters for model IDs)
+        if let Err(err) = validate_string_length(field_name, model_id, 100) {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(serde_json::json!({
+                    "error": err
+                })),
+            )
+                .into_response();
+        }
+
+        // Validate model exists in registry
         if REGISTRY.get_model(model_id).is_none() {
             return (
                 StatusCode::BAD_REQUEST,
@@ -107,19 +133,31 @@ pub async fn update_model_preferences(
 
     // Validate providers
     let providers = vec![
-        &request.chat_provider,
-        &request.prd_generation_provider,
-        &request.prd_analysis_provider,
-        &request.insight_extraction_provider,
-        &request.spec_generation_provider,
-        &request.task_suggestions_provider,
-        &request.task_analysis_provider,
-        &request.spec_refinement_provider,
-        &request.research_generation_provider,
-        &request.markdown_generation_provider,
+        (&request.chat_provider, "chat_provider"),
+        (&request.prd_generation_provider, "prd_generation_provider"),
+        (&request.prd_analysis_provider, "prd_analysis_provider"),
+        (&request.insight_extraction_provider, "insight_extraction_provider"),
+        (&request.spec_generation_provider, "spec_generation_provider"),
+        (&request.task_suggestions_provider, "task_suggestions_provider"),
+        (&request.task_analysis_provider, "task_analysis_provider"),
+        (&request.spec_refinement_provider, "spec_refinement_provider"),
+        (&request.research_generation_provider, "research_generation_provider"),
+        (&request.markdown_generation_provider, "markdown_generation_provider"),
     ];
 
-    for provider in providers {
+    for (provider, field_name) in providers {
+        // Validate length (max 50 characters for provider names)
+        if let Err(err) = validate_string_length(field_name, provider, 50) {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(serde_json::json!({
+                    "error": err
+                })),
+            )
+                .into_response();
+        }
+
+        // Validate provider is in allowed list
         if !matches!(provider.as_str(), "anthropic" | "openai" | "google" | "xai") {
             return (
                 StatusCode::BAD_REQUEST,
@@ -177,7 +215,18 @@ pub async fn update_task_model(
         task_type, user_id, request.provider, request.model
     );
 
-    // Validate model ID
+    // Validate model ID length
+    if let Err(err) = validate_string_length("model", &request.model, 100) {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({
+                "error": err
+            })),
+        )
+            .into_response();
+    }
+
+    // Validate model ID exists in registry
     if REGISTRY.get_model(&request.model).is_none() {
         return (
             StatusCode::BAD_REQUEST,
@@ -188,7 +237,18 @@ pub async fn update_task_model(
             .into_response();
     }
 
-    // Validate provider
+    // Validate provider length
+    if let Err(err) = validate_string_length("provider", &request.provider, 50) {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({
+                "error": err
+            })),
+        )
+            .into_response();
+    }
+
+    // Validate provider is in allowed list
     if !matches!(
         request.provider.as_str(),
         "anthropic" | "openai" | "google" | "xai"

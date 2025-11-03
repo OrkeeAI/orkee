@@ -200,46 +200,168 @@ impl ModelPreferencesStorage {
         task_type: &str,
         request: &UpdateTaskModelRequest,
     ) -> Result<(), StorageError> {
-        // Validate task type and build SQL dynamically
-        let (model_column, provider_column) = match task_type {
-            "chat" => ("chat_model", "chat_provider"),
-            "prd_generation" => ("prd_generation_model", "prd_generation_provider"),
-            "prd_analysis" => ("prd_analysis_model", "prd_analysis_provider"),
-            "insight_extraction" => ("insight_extraction_model", "insight_extraction_provider"),
-            "spec_generation" => ("spec_generation_model", "spec_generation_provider"),
-            "task_suggestions" => ("task_suggestions_model", "task_suggestions_provider"),
-            "task_analysis" => ("task_analysis_model", "task_analysis_provider"),
-            "spec_refinement" => ("spec_refinement_model", "spec_refinement_provider"),
-            "research_generation" => ("research_generation_model", "research_generation_provider"),
-            "markdown_generation" => ("markdown_generation_model", "markdown_generation_provider"),
+        // Ensure preferences exist
+        self.get_preferences(user_id).await?;
+
+        // Use match expression with pre-written UPDATE statements to prevent SQL injection
+        match task_type {
+            "chat" => {
+                sqlx::query(
+                    r#"
+                    UPDATE model_preferences
+                    SET chat_model = ?, chat_provider = ?, updated_at = datetime('now', 'utc')
+                    WHERE user_id = ?
+                    "#,
+                )
+                .bind(&request.model)
+                .bind(&request.provider)
+                .bind(user_id)
+                .execute(&self.pool)
+                .await
+                .map_err(StorageError::Sqlx)?;
+            }
+            "prd_generation" => {
+                sqlx::query(
+                    r#"
+                    UPDATE model_preferences
+                    SET prd_generation_model = ?, prd_generation_provider = ?, updated_at = datetime('now', 'utc')
+                    WHERE user_id = ?
+                    "#,
+                )
+                .bind(&request.model)
+                .bind(&request.provider)
+                .bind(user_id)
+                .execute(&self.pool)
+                .await
+                .map_err(StorageError::Sqlx)?;
+            }
+            "prd_analysis" => {
+                sqlx::query(
+                    r#"
+                    UPDATE model_preferences
+                    SET prd_analysis_model = ?, prd_analysis_provider = ?, updated_at = datetime('now', 'utc')
+                    WHERE user_id = ?
+                    "#,
+                )
+                .bind(&request.model)
+                .bind(&request.provider)
+                .bind(user_id)
+                .execute(&self.pool)
+                .await
+                .map_err(StorageError::Sqlx)?;
+            }
+            "insight_extraction" => {
+                sqlx::query(
+                    r#"
+                    UPDATE model_preferences
+                    SET insight_extraction_model = ?, insight_extraction_provider = ?, updated_at = datetime('now', 'utc')
+                    WHERE user_id = ?
+                    "#,
+                )
+                .bind(&request.model)
+                .bind(&request.provider)
+                .bind(user_id)
+                .execute(&self.pool)
+                .await
+                .map_err(StorageError::Sqlx)?;
+            }
+            "spec_generation" => {
+                sqlx::query(
+                    r#"
+                    UPDATE model_preferences
+                    SET spec_generation_model = ?, spec_generation_provider = ?, updated_at = datetime('now', 'utc')
+                    WHERE user_id = ?
+                    "#,
+                )
+                .bind(&request.model)
+                .bind(&request.provider)
+                .bind(user_id)
+                .execute(&self.pool)
+                .await
+                .map_err(StorageError::Sqlx)?;
+            }
+            "task_suggestions" => {
+                sqlx::query(
+                    r#"
+                    UPDATE model_preferences
+                    SET task_suggestions_model = ?, task_suggestions_provider = ?, updated_at = datetime('now', 'utc')
+                    WHERE user_id = ?
+                    "#,
+                )
+                .bind(&request.model)
+                .bind(&request.provider)
+                .bind(user_id)
+                .execute(&self.pool)
+                .await
+                .map_err(StorageError::Sqlx)?;
+            }
+            "task_analysis" => {
+                sqlx::query(
+                    r#"
+                    UPDATE model_preferences
+                    SET task_analysis_model = ?, task_analysis_provider = ?, updated_at = datetime('now', 'utc')
+                    WHERE user_id = ?
+                    "#,
+                )
+                .bind(&request.model)
+                .bind(&request.provider)
+                .bind(user_id)
+                .execute(&self.pool)
+                .await
+                .map_err(StorageError::Sqlx)?;
+            }
+            "spec_refinement" => {
+                sqlx::query(
+                    r#"
+                    UPDATE model_preferences
+                    SET spec_refinement_model = ?, spec_refinement_provider = ?, updated_at = datetime('now', 'utc')
+                    WHERE user_id = ?
+                    "#,
+                )
+                .bind(&request.model)
+                .bind(&request.provider)
+                .bind(user_id)
+                .execute(&self.pool)
+                .await
+                .map_err(StorageError::Sqlx)?;
+            }
+            "research_generation" => {
+                sqlx::query(
+                    r#"
+                    UPDATE model_preferences
+                    SET research_generation_model = ?, research_generation_provider = ?, updated_at = datetime('now', 'utc')
+                    WHERE user_id = ?
+                    "#,
+                )
+                .bind(&request.model)
+                .bind(&request.provider)
+                .bind(user_id)
+                .execute(&self.pool)
+                .await
+                .map_err(StorageError::Sqlx)?;
+            }
+            "markdown_generation" => {
+                sqlx::query(
+                    r#"
+                    UPDATE model_preferences
+                    SET markdown_generation_model = ?, markdown_generation_provider = ?, updated_at = datetime('now', 'utc')
+                    WHERE user_id = ?
+                    "#,
+                )
+                .bind(&request.model)
+                .bind(&request.provider)
+                .bind(user_id)
+                .execute(&self.pool)
+                .await
+                .map_err(StorageError::Sqlx)?;
+            }
             _ => {
                 return Err(StorageError::InvalidInput(format!(
                     "Invalid task type: {}",
                     task_type
                 )))
             }
-        };
-
-        // Ensure preferences exist
-        self.get_preferences(user_id).await?;
-
-        // Update specific task model
-        let sql = format!(
-            r#"
-            UPDATE model_preferences
-            SET {} = ?, {} = ?, updated_at = datetime('now', 'utc')
-            WHERE user_id = ?
-            "#,
-            model_column, provider_column
-        );
-
-        sqlx::query(&sql)
-            .bind(&request.model)
-            .bind(&request.provider)
-            .bind(user_id)
-            .execute(&self.pool)
-            .await
-            .map_err(StorageError::Sqlx)?;
+        }
 
         Ok(())
     }
