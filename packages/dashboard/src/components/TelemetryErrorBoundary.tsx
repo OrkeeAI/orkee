@@ -24,16 +24,18 @@ function sanitizeStackTrace(stackTrace: string | undefined): string {
   }
 
   return stackTrace
-    // Strip absolute file paths (e.g., /Users/joe/Projects/orkee -> orkee)
+    // Strip Unix absolute file paths (e.g., /Users/joe/Projects/orkee -> orkee)
     .replace(/\/[^/\s]+(?:\/[^/\s]+)*\/([\w-]+\/)/g, '$1')
+    // Strip Windows absolute file paths (e.g., C:\Users\joe\Projects -> Projects)
+    .replace(/[A-Z]:\\[^\s]+\\([\w-]+\\)/g, '$1')
     // Remove query parameters from URLs (e.g., ?token=abc123)
     .replace(/\?[^\s)]+/g, '')
     // Redact potential email addresses
     .replace(/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/g, '[EMAIL]')
     // Redact common API key prefixes (PostHog, Stripe, etc.)
     .replace(/\b(phc_|phx_|sk_|pk_|rk_)[a-zA-Z0-9_-]{20,}\b/g, '[API_KEY]')
-    // Redact base64-encoded tokens (40+ chars)
-    .replace(/\b[A-Za-z0-9+/]{40,}={0,2}\b/g, '[BASE64_TOKEN]')
+    // Redact base64-encoded tokens (36+ chars with proper ending)
+    .replace(/\b[A-Za-z0-9+/]{36,}={0,2}\b(?=\s|$)/g, '[BASE64_TOKEN]')
     // Keep only relative file paths and line numbers
     .trim();
 }
