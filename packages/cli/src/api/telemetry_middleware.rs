@@ -172,12 +172,20 @@ pub async fn track_api_calls(request: Request<Body>, next: Next) -> Response {
     response
 }
 
-/// Helper function to extract ID from a URL path
+/// Helper function to extract ID from a URL path with validation
 pub(crate) fn extract_id_from_path(path: &str, prefix: &str) -> String {
-    path.strip_prefix(prefix)
+    let id = path
+        .strip_prefix(prefix)
         .and_then(|s| s.split('/').next())
-        .unwrap_or("unknown")
-        .to_string()
+        .unwrap_or("unknown");
+
+    // Validate ID: alphanumeric + hyphens + underscores only
+    // This prevents path traversal attacks and malformed input
+    if id != "unknown" && id.chars().all(|c| c.is_alphanumeric() || c == '-' || c == '_') {
+        id.to_string()
+    } else {
+        "unknown".to_string()
+    }
 }
 
 /// Hash an ID using SHA256 to protect sensitive information in telemetry
