@@ -102,7 +102,7 @@ export function AIModelsSettings() {
   const [isLoadingModels, setIsLoadingModels] = useState(true);
   const [modelsError, setModelsError] = useState<string | null>(null);
 
-  const { isLoading: isLoadingPreferences, getModelForTask } = useModelPreferencesContext();
+  const { isLoading: isLoadingPreferences, preferences, getModelForTask } = useModelPreferencesContext();
 
   // Fetch available models from registry
   useEffect(() => {
@@ -131,7 +131,8 @@ export function AIModelsSettings() {
     }
   };
 
-  if (isLoadingModels || isLoadingPreferences) {
+  // Wait for both models and preferences to load
+  if (isLoadingModels || isLoadingPreferences || !preferences) {
     return (
       <div className="rounded-lg border p-6">
         <h2 className="text-xl font-semibold mb-4">AI Model Preferences</h2>
