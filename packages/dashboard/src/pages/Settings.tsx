@@ -47,13 +47,13 @@ export function Settings() {
             <LayoutGrid className="h-4 w-4" />
             General
           </TabsTrigger>
-          <TabsTrigger value="ai-models" className="flex items-center gap-2">
-            <Brain className="h-4 w-4" />
-            AI Models
-          </TabsTrigger>
           <TabsTrigger value="security" className="flex items-center gap-2">
             <Key className="h-4 w-4" />
             Security
+          </TabsTrigger>
+          <TabsTrigger value="ai-models" className="flex items-center gap-2">
+            <Brain className="h-4 w-4" />
+            AI Models
           </TabsTrigger>
           <TabsTrigger value="database" className="flex items-center gap-2">
             <Database className="h-4 w-4" />
@@ -78,14 +78,14 @@ export function Settings() {
           <GeneralSettings isMacOS={isMacOS} />
         </TabsContent>
 
-        <TabsContent value="ai-models" className="space-y-6 mt-6">
-          {/* AI Models Settings */}
-          <AIModelsSettings />
-        </TabsContent>
-
         <TabsContent value="security" className="space-y-6 mt-6">
           {/* API Keys Settings */}
           <ApiKeysSettings />
+        </TabsContent>
+
+        <TabsContent value="ai-models" className="space-y-6 mt-6">
+          {/* AI Models Settings */}
+          <AIModelsSettings />
         </TabsContent>
 
         <TabsContent value="database" className="space-y-6 mt-6">
