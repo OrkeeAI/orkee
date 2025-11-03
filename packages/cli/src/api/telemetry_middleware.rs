@@ -6,8 +6,8 @@ use serde_json::json;
 use sha2::{Digest, Sha256};
 use std::collections::HashMap;
 use std::sync::OnceLock;
-use tokio::sync::Mutex;
 use std::time::{Duration, Instant};
+use tokio::sync::Mutex;
 use tracing::{error, warn};
 
 /// Rate limiter for failed request telemetry to prevent unbounded database growth
@@ -128,7 +128,11 @@ pub async fn track_api_calls(request: Request<Body>, next: Next) -> Response {
         };
 
         // Check rate limiter for failed events
-        if is_failure && !get_failure_rate_limiter().should_track_failure(&final_event_name).await {
+        if is_failure
+            && !get_failure_rate_limiter()
+                .should_track_failure(&final_event_name)
+                .await
+        {
             // Rate limit exceeded, skip tracking but log a warning (only once per event)
             warn!(
                 "Telemetry rate limit exceeded for {}, skipping event to prevent database growth",
@@ -181,7 +185,11 @@ pub(crate) fn extract_id_from_path(path: &str, prefix: &str) -> String {
 
     // Validate ID: alphanumeric + hyphens + underscores only
     // This prevents path traversal attacks and malformed input
-    if id != "unknown" && id.chars().all(|c| c.is_alphanumeric() || c == '-' || c == '_') {
+    if id != "unknown"
+        && id
+            .chars()
+            .all(|c| c.is_alphanumeric() || c == '-' || c == '_')
+    {
         id.to_string()
     } else {
         "unknown".to_string()
