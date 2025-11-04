@@ -38,29 +38,40 @@ This document tracks the integration of VibeKit OAuth support into Orkee. This a
 ## Phase 1: Database Schema for OAuth Support (Week 1)
 
 ### Phase 1 Status: Not Started ⏳
-**Completion:** 0/8 tasks
+**Completion:** 0/5 tasks
 
 ### Phase 1 Overview
-Add database tables to support OAuth tokens and sandbox sessions.
+Add database tables to support OAuth tokens and sandbox sessions by modifying the existing initial schema migration (no production users yet, safe to modify).
 
 ### Phase 1 Tasks
 
-#### 1.1 Database Migration
-- [ ] Create `packages/projects/migrations/002_oauth_vibekit.sql`
-- [ ] Add migration to the system
+#### 1.1 Database Schema Updates
+- [ ] Update `packages/storage/migrations/001_initial_schema.sql` to add OAuth tables
+- [ ] Update `packages/storage/migrations/001_initial_schema.down.sql` to drop OAuth tables
 - [ ] Test migration up
 - [ ] Test migration down
 
-#### 1.2 Schema Implementation
+**Note:** Since no production users exist yet, we can safely modify the initial schema migration instead of creating a new migration file.
 
+#### 1.2 Schema Changes to Add
+
+**Location:** Add to `packages/storage/migrations/001_initial_schema.sql` after the `api_tokens` table (line ~703)
+
+**1. Add to users table:**
+```sql
+-- In users table, add after last_login_at:
+auth_preference TEXT DEFAULT 'api_key' CHECK (auth_preference IN ('api_key', 'oauth')),
+```
+
+**2. OAuth tokens table:**
 ```sql
 -- OAuth tokens for AI providers (VibeKit Auth)
 CREATE TABLE oauth_tokens (
     id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
     user_id TEXT NOT NULL,
-    provider TEXT NOT NULL, -- 'claude', 'openai', 'google', 'grok'
-    access_token TEXT NOT NULL, -- Encrypted with ApiKeyEncryption
-    refresh_token TEXT, -- Encrypted with ApiKeyEncryption
+    provider TEXT NOT NULL CHECK (provider IN ('claude', 'openai', 'google', 'grok')),
+    access_token TEXT NOT NULL CHECK (length(access_token) >= 38), -- Encrypted with ApiKeyEncryption
+    refresh_token TEXT CHECK (refresh_token IS NULL OR length(refresh_token) >= 38), -- Encrypted
     expires_at INTEGER NOT NULL, -- Unix timestamp
     token_type TEXT DEFAULT 'Bearer',
     scope TEXT, -- Space-separated scopes
@@ -72,12 +83,29 @@ CREATE TABLE oauth_tokens (
     UNIQUE(user_id, provider)
 );
 
+-- Indexes
+CREATE INDEX idx_oauth_tokens_user ON oauth_tokens(user_id);
+CREATE INDEX idx_oauth_tokens_provider ON oauth_tokens(provider);
+CREATE INDEX idx_oauth_tokens_expires ON oauth_tokens(expires_at);
+
+-- Trigger for updated_at
+CREATE TRIGGER oauth_tokens_updated_at
+    AFTER UPDATE ON oauth_tokens
+    FOR EACH ROW
+    BEGIN
+        UPDATE oauth_tokens SET updated_at = unixepoch()
+        WHERE id = NEW.id;
+    END;
+```
+
+**3. Sandbox sessions table:**
+```sql
 -- Track Dagger sandbox sessions
 CREATE TABLE sandbox_sessions (
     id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
     user_id TEXT NOT NULL,
     project_id TEXT,
-    provider TEXT NOT NULL DEFAULT 'dagger', -- 'dagger' now, expandable later
+    provider TEXT NOT NULL DEFAULT 'dagger' CHECK (provider IN ('dagger')),
     container_id TEXT NOT NULL, -- Dagger container ID
     status TEXT NOT NULL CHECK (status IN ('active', 'paused', 'terminated')),
     host_url TEXT, -- Local URL (e.g., localhost:8080)
@@ -87,25 +115,22 @@ CREATE TABLE sandbox_sessions (
     last_active_at INTEGER NOT NULL DEFAULT (unixepoch()),
     expires_at INTEGER, -- Auto-cleanup after this time
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-    FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE SET NULL
+    FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE SET NULL,
+    CHECK (json_valid(metadata) OR metadata IS NULL)
 );
 
--- Indexes for performance
-CREATE INDEX idx_oauth_tokens_user ON oauth_tokens(user_id);
-CREATE INDEX idx_oauth_tokens_provider ON oauth_tokens(provider);
-CREATE INDEX idx_oauth_tokens_expires ON oauth_tokens(expires_at);
+-- Indexes
 CREATE INDEX idx_sandbox_sessions_user ON sandbox_sessions(user_id);
+CREATE INDEX idx_sandbox_sessions_project ON sandbox_sessions(project_id);
 CREATE INDEX idx_sandbox_sessions_status ON sandbox_sessions(status);
 CREATE INDEX idx_sandbox_sessions_expires ON sandbox_sessions(expires_at);
+```
 
--- Triggers for updated_at
-CREATE TRIGGER oauth_tokens_updated_at
-    AFTER UPDATE ON oauth_tokens
-    FOR EACH ROW
-    BEGIN
-        UPDATE oauth_tokens SET updated_at = unixepoch()
-        WHERE id = NEW.id;
-    END;
+**4. Update down migration:**
+Add to `packages/storage/migrations/001_initial_schema.down.sql` in the SECURITY section:
+```sql
+DROP TABLE IF EXISTS sandbox_sessions;
+DROP TABLE IF EXISTS oauth_tokens;
 ```
 
 #### 1.3 Rust Storage Layer
