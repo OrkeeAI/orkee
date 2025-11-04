@@ -2887,6 +2887,7 @@ dependencies = [
  "async-trait",
  "base64 0.22.1",
  "chrono",
+ "nanoid",
  "open",
  "orkee-core",
  "orkee-storage",
@@ -2901,6 +2902,7 @@ dependencies = [
  "tokio",
  "tokio-test",
  "tracing",
+ "url",
  "urlencoding",
  "uuid",
 ]

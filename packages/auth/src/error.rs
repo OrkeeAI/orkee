@@ -37,6 +37,18 @@ pub enum AuthError {
     #[error("Browser open failed: {0}")]
     BrowserFailed(String),
 
+    #[error("Failed to open browser: {0}")]
+    BrowserOpen(String),
+
+    #[error("Token not found: {0}")]
+    TokenNotFound(String),
+
+    #[error("Token refresh failed: {0}")]
+    RefreshFailed(String),
+
+    #[error("Token exchange failed: {0}")]
+    TokenExchange(String),
+
     #[error("Database error: {0}")]
     Database(#[from] sqlx::Error),
 

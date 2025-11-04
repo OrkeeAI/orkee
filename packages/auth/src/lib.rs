@@ -8,5 +8,5 @@ pub mod oauth;
 pub use error::{AuthError, AuthResult};
 pub use oauth::{
     OAuthProvider, OAuthStorage, OAuthToken, OAuthProviderConfig,
-    CallbackServer, PkceChallenge, TokenResponse,
+    CallbackServer, PkceChallenge, TokenResponse, OAuthManager, ProviderStatus,
 };

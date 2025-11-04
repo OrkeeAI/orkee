@@ -46,8 +46,12 @@ thiserror = "2.0"
 # Browser opening
 open = "5.0"
 
-# URL encoding
+# URL handling
+url = "2.5"
 urlencoding = "2.1"
+
+# ID generation
+nanoid = "0.4"
 
 # Utilities
 tracing = "0.1"
