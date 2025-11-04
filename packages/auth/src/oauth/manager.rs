@@ -362,32 +362,19 @@ impl OAuthManager {
     /// Detect subscription type for provider (if supported)
     async fn detect_subscription_type(
         &self,
-        provider: OAuthProvider,
+        _provider: OAuthProvider,
         _token_response: &TokenResponse,
     ) -> Option<String> {
-        match provider {
-            OAuthProvider::Claude => {
-                // TODO: Call Claude API to detect subscription type
-                // For now, return None
-                None
-            }
-            _ => None,
-        }
+        None
     }
 
     /// Get account email from token info (if available)
     async fn get_account_email(
         &self,
-        provider: OAuthProvider,
+        _provider: OAuthProvider,
         _token_response: &TokenResponse,
     ) -> Option<String> {
-        match provider {
-            OAuthProvider::Claude | OAuthProvider::OpenAI | OAuthProvider::Google => {
-                // TODO: Call provider API to get account info
-                None
-            }
-            _ => None,
-        }
+        None
     }
 
     /// Get default provider configuration
