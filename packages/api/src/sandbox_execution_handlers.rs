@@ -2,24 +2,32 @@
 // ABOUTME: Handles logs, artifacts, and lifecycle operations for containerized executions
 
 use axum::{
-    extract::{Path, Query, State},
+    extract::{ConnectInfo, Path, Query, State},
     http::{header, StatusCode},
-    response::IntoResponse,
+    response::{
+        sse::{Event, Sse},
+        IntoResponse,
+    },
     Json,
 };
+use futures::stream::{self, Stream};
 use serde::{Deserialize, Serialize};
+use std::convert::Infallible;
+use std::net::SocketAddr;
 use std::sync::Arc;
-use tracing::info;
+use tracing::{error, info, warn};
 
-use orkee_sandboxes::{ExecutionOrchestrator, ExecutionStorage, LogEntry};
+use orkee_sandboxes::{ExecutionEvent, ExecutionOrchestrator, ExecutionStorage, LogEntry};
 
 use super::response::ok_or_internal_error;
+use crate::sse::{create_sse_response, GuardedSseStream, SseConnectionTracker};
 
 /// Shared state for sandbox execution operations
 #[derive(Clone)]
 pub struct SandboxExecutionState {
     pub orchestrator: Arc<ExecutionOrchestrator>,
     pub storage: Arc<ExecutionStorage>,
+    pub sse_tracker: SseConnectionTracker,
 }
 
 // ==================== Execution Control ====================
@@ -122,20 +130,165 @@ pub struct StreamLogsParams {
 /// Stream logs via Server-Sent Events (SSE)
 ///
 /// GET /api/sandbox/executions/:execution_id/logs/stream
-///
-/// Note: This is a placeholder for Phase 5 SSE implementation
 pub async fn stream_execution_logs(
-    State(_state): State<SandboxExecutionState>,
-    Path(_execution_id): Path<String>,
-    Query(_params): Query<StreamLogsParams>,
-) -> impl IntoResponse {
-    // TODO: Implement SSE streaming in Phase 5
-    ok_or_internal_error(
-        Err::<&str, _>(orkee_sandboxes::SandboxError::Unknown(
-            "SSE streaming not yet implemented".to_string(),
-        )),
-        "SSE log streaming coming in Phase 5",
-    )
+    ConnectInfo(addr): ConnectInfo<SocketAddr>,
+    State(state): State<SandboxExecutionState>,
+    Path(execution_id): Path<String>,
+    Query(params): Query<StreamLogsParams>,
+) -> Result<Sse<impl Stream<Item = Result<Event, Infallible>>>, StatusCode> {
+    let ip = addr.ip();
+
+    info!(
+        ip = %ip,
+        execution_id = %execution_id,
+        "Client connecting to log stream"
+    );
+
+    // Try to acquire SSE connection slot
+    let guard = match state.sse_tracker.try_acquire(ip) {
+        Ok(g) => g,
+        Err(_) => {
+            warn!(ip = %ip, "SSE connection limit exceeded for log streaming");
+            return Err(StatusCode::TOO_MANY_REQUESTS);
+        }
+    };
+
+    // Get existing logs from database (if last_sequence provided, get logs after it)
+    let existing_logs = match state
+        .storage
+        .get_logs(&execution_id, None, None)
+        .await
+    {
+        Ok((logs, _total)) => {
+            // Filter by last_sequence if provided
+            if let Some(last_seq) = params.last_sequence {
+                logs.into_iter()
+                    .filter(|log| log.sequence_number > last_seq)
+                    .collect()
+            } else {
+                logs
+            }
+        }
+        Err(e) => {
+            error!("Failed to fetch existing logs: {}", e);
+            return Err(StatusCode::INTERNAL_SERVER_ERROR);
+        }
+    };
+
+    info!(
+        "Sending {} existing log entries for execution {}",
+        existing_logs.len(),
+        execution_id
+    );
+
+    // Subscribe to new events
+    let rx = state.orchestrator.subscribe();
+
+    // Create event stream
+    let event_stream = stream::unfold(
+        (rx, Some(existing_logs), execution_id.clone()),
+        |(mut rx, initial_logs_opt, exec_id)| async move {
+            // Send initial logs as first events
+            if let Some(logs) = initial_logs_opt {
+                if !logs.is_empty() {
+                    let log = logs[0].clone();
+                    let remaining = if logs.len() > 1 {
+                        Some(logs[1..].to_vec())
+                    } else {
+                        None
+                    };
+
+                    // Create log event
+                    match serde_json::to_string(&ExecutionEvent::Log { log }) {
+                        Ok(data) => {
+                            let event = Event::default().event("log").data(data);
+                            return Some((Ok(event), (rx, remaining, exec_id)));
+                        }
+                        Err(e) => {
+                            error!("Failed to serialize log event: {}", e);
+                            // Skip to next log
+                            return Some((
+                                Ok(Event::default().comment("serialization error")),
+                                (rx, remaining, exec_id),
+                            ));
+                        }
+                    }
+                }
+            }
+
+            // Wait for new events from broadcast channel
+            match rx.recv().await {
+                Ok(event) => {
+                    // Filter events to only include this execution's events
+                    let should_send = match &event {
+                        ExecutionEvent::Log { log } => log.execution_id == exec_id,
+                        ExecutionEvent::Status { execution_id, .. } => execution_id == &exec_id,
+                        ExecutionEvent::ContainerStatus { execution_id, .. } => {
+                            execution_id == &exec_id
+                        }
+                        ExecutionEvent::ResourceUsage { execution_id, .. } => {
+                            execution_id == &exec_id
+                        }
+                        ExecutionEvent::Complete { execution_id, .. } => execution_id == &exec_id,
+                        ExecutionEvent::Heartbeat { .. } => true, // Always send heartbeats
+                    };
+
+                    if !should_send {
+                        // Skip this event, wait for next one
+                        return Some((
+                            Ok(Event::default().comment("skipped")),
+                            (rx, None, exec_id),
+                        ));
+                    }
+
+                    // Serialize and send event
+                    match serde_json::to_string(&event) {
+                        Ok(data) => {
+                            let event_type = match &event {
+                                ExecutionEvent::Log { .. } => "log",
+                                ExecutionEvent::Status { .. } => "status",
+                                ExecutionEvent::ContainerStatus { .. } => "container_status",
+                                ExecutionEvent::ResourceUsage { .. } => "resource_usage",
+                                ExecutionEvent::Complete { .. } => "complete",
+                                ExecutionEvent::Heartbeat { .. } => "heartbeat",
+                            };
+                            let sse_event = Event::default().event(event_type).data(data);
+                            Some((Ok(sse_event), (rx, None, exec_id)))
+                        }
+                        Err(e) => {
+                            error!("Failed to serialize execution event: {}", e);
+                            Some((
+                                Ok(Event::default().comment("serialization error")),
+                                (rx, None, exec_id),
+                            ))
+                        }
+                    }
+                }
+                Err(tokio::sync::broadcast::error::RecvError::Lagged(n)) => {
+                    warn!(
+                        "SSE client lagged, missed {} events for execution {}",
+                        n, exec_id
+                    );
+                    // Send a sync event
+                    Some((
+                        Ok(Event::default()
+                            .event("sync")
+                            .data(format!("{{\"lagged\":{}}}", n))),
+                        (rx, None, exec_id),
+                    ))
+                }
+                Err(tokio::sync::broadcast::error::RecvError::Closed) => {
+                    info!("Event channel closed for execution {}", exec_id);
+                    None
+                }
+            }
+        },
+    );
+
+    // Wrap stream with guard to ensure cleanup
+    let guarded_stream = GuardedSseStream::new(event_stream, guard);
+
+    Ok(create_sse_response(guarded_stream))
 }
 
 /// Query parameters for log search
