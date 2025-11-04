@@ -70,7 +70,10 @@ pub async fn list_providers() -> impl IntoResponse {
         }),
     ];
 
-    ok_or_internal_error::<Vec<serde_json::Value>, std::convert::Infallible>(Ok(providers), "Failed to list providers")
+    ok_or_internal_error::<Vec<serde_json::Value>, std::convert::Infallible>(
+        Ok(providers),
+        "Failed to list providers",
+    )
 }
 
 /// Get authentication status for all providers
@@ -106,10 +109,7 @@ pub async fn get_token(
     Path(provider): Path<String>,
     CurrentUser { id }: CurrentUser,
 ) -> impl IntoResponse {
-    info!(
-        "Getting token for provider: {} (user: {})",
-        provider, id
-    );
+    info!("Getting token for provider: {} (user: {})", provider, id);
 
     let provider = match parse_provider(&provider) {
         Ok(p) => p,
@@ -146,10 +146,7 @@ pub async fn refresh_token(
     Path(provider): Path<String>,
     CurrentUser { id }: CurrentUser,
 ) -> impl IntoResponse {
-    info!(
-        "Refreshing token for provider: {} (user: {})",
-        provider, id
-    );
+    info!("Refreshing token for provider: {} (user: {})", provider, id);
 
     let provider = match parse_provider(&provider) {
         Ok(p) => p,
@@ -178,10 +175,7 @@ pub async fn logout(
     Path(provider): Path<String>,
     CurrentUser { id }: CurrentUser,
 ) -> impl IntoResponse {
-    info!(
-        "Logging out from provider: {} (user: {})",
-        provider, id
-    );
+    info!("Logging out from provider: {} (user: {})", provider, id);
 
     let provider = match parse_provider(&provider) {
         Ok(p) => p,
