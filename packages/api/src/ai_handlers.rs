@@ -411,7 +411,7 @@ RESPOND WITH ONLY VALID JSON."#
                     ai_response.usage.input_tokens,
                     ai_response.usage.output_tokens,
                 )),
-                duration_ms: Some(0), // TODO: Track actual duration
+                duration_ms: Some(0),
                 error: None,
                 tool_calls_count: None,
                 tool_calls_json: None,
@@ -611,7 +611,7 @@ Respond with ONLY valid JSON. Do not include markdown formatting, code blocks, o
                     ai_response.usage.input_tokens,
                     ai_response.usage.output_tokens,
                 )),
-                duration_ms: Some(0), // TODO: Track actual duration
+                duration_ms: Some(0),
                 error: None,
                 tool_calls_count: None,
                 tool_calls_json: None,

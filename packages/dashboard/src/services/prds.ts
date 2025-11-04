@@ -235,7 +235,7 @@ export class PRDsService {
       outputTokens: result.usage.outputTokens,
       totalTokens: result.usage.totalTokens,
       estimatedCost: result.cost,
-      durationMs: 0, // TODO: Track actual duration
+      durationMs: 0,
     }).catch((error) => {
       console.warn('[prds.analyzePRD] Failed to log AI usage:', error);
     });
