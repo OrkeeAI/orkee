@@ -138,7 +138,7 @@ export class PromptManager {
         const prompt = await this.loadPromptFromPath(promptPath);
         this.promptCache.set(sanitizedId, prompt);
         return prompt;
-      } catch (error) {
+      } catch {
         // Continue to next path
         continue;
       }
@@ -189,7 +189,7 @@ export class PromptManager {
       return files
         .filter(file => file.endsWith('.json'))
         .map(file => path.basename(file, '.json'));
-    } catch (error) {
+    } catch {
       return [];
     }
   }

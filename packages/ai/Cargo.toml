@@ -2,7 +2,7 @@
 name = "orkee-ai"
 version.workspace = true
 edition.workspace = true
-description = "AI service integration and usage tracking for Orkee"
+description = "AI usage tracking and telemetry for Orkee"
 authors.workspace = true
 license.workspace = true
 repository.workspace = true
@@ -15,14 +15,10 @@ orkee-core = { path = "../core" }
 orkee-storage = { path = "../storage" }
 
 sqlx = { version = "0.8.1", default-features = false, features = ["runtime-tokio-rustls", "sqlite", "chrono"] }
-reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "json"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 chrono = { version = "0.4", features = ["serde"] }
 tracing = "0.1"
-thiserror = "2.0"
-futures = "0.3"
-async-stream = "0.3"
 
 [dev-dependencies]
 tempfile = "3.0"

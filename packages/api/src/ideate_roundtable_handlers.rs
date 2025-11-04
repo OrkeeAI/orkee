@@ -10,11 +10,10 @@ use axum::{
     Json,
 };
 use futures::stream::{self, Stream};
-use orkee_ai::AIService;
 use orkee_config::constants;
 use orkee_ideate::{
     CreateExpertPersonaInput, ExpertModerator, RoundtableEvent, RoundtableManager,
-    StartRoundtableRequest, SuggestExpertsRequest, UserInterjectionInput,
+    UserInterjectionInput,
 };
 use orkee_projects::DbState;
 use serde::{Deserialize, Serialize};
@@ -114,30 +113,6 @@ pub async fn create_expert(
     created_or_internal_error(result, "Failed to create expert persona")
 }
 
-/// POST /api/ideate/:session_id/experts/suggest - Get AI-suggested experts
-pub async fn suggest_experts(
-    State(db): State<DbState>,
-    Path(_session_id): Path<String>,
-    Json(request): Json<SuggestExpertsRequest>,
-) -> impl IntoResponse {
-    info!("Suggesting experts for roundtable discussion");
-
-    // Create AI service
-    let ai_service = AIService::new();
-
-    let manager = RoundtableManager::new(db.pool.clone());
-    let moderator = ExpertModerator::new(manager, ai_service);
-
-    let result = moderator.suggest_experts(&request).await;
-
-    ok_or_internal_error(result, "Failed to suggest experts")
-}
-
-// ============================================================================
-// ROUNDTABLE SESSION ENDPOINTS
-// ============================================================================
-
-/// POST /api/ideate/:session_id/roundtable - Create roundtable session
 pub async fn create_roundtable(
     State(db): State<DbState>,
     Path(session_id): Path<String>,
@@ -198,56 +173,9 @@ pub async fn add_participants(
 
     let manager = RoundtableManager::new(db.pool.clone());
 
-    let result = manager
+    let _result = manager
         .add_participants(&roundtable_id, request.expert_ids)
         .await;
-
-    created_or_internal_error(result, "Failed to add participants")
-}
-
-/// GET /api/ideate/roundtable/:roundtable_id/participants - Get participants
-pub async fn get_participants(
-    State(db): State<DbState>,
-    Path(roundtable_id): Path<String>,
-) -> impl IntoResponse {
-    info!("Getting participants for roundtable: {}", roundtable_id);
-
-    let manager = RoundtableManager::new(db.pool.clone());
-
-    let result = manager.get_participants(&roundtable_id).await;
-
-    ok_or_internal_error(result, "Operation failed")
-}
-
-// ============================================================================
-// DISCUSSION ENDPOINTS
-// ============================================================================
-
-/// POST /api/ideate/roundtable/:roundtable_id/start - Start discussion
-pub async fn start_discussion(
-    State(db): State<DbState>,
-    Path(roundtable_id): Path<String>,
-    Json(request): Json<StartRoundtableRequest>,
-) -> impl IntoResponse {
-    info!("Starting discussion for roundtable: {}", roundtable_id);
-
-    // Create AI service
-    let ai_service = AIService::new();
-
-    let manager = RoundtableManager::new(db.pool.clone());
-    let moderator = ExpertModerator::new(manager, ai_service);
-
-    // Run discussion in background
-    let roundtable_id_clone = roundtable_id.clone();
-    let topic = request.topic.clone();
-    tokio::spawn(async move {
-        if let Err(e) = moderator.run_discussion(&roundtable_id_clone, &topic).await {
-            warn!(
-                "Discussion error for roundtable {}: {}",
-                roundtable_id_clone, e
-            );
-        }
-    });
 
     Json(SuccessResponse {
         success: true,
@@ -396,10 +324,8 @@ pub async fn send_interjection(
     info!("Handling interjection for roundtable: {}", roundtable_id);
 
     // Create AI service
-    let ai_service = AIService::new();
-
     let manager = RoundtableManager::new(db.pool.clone());
-    let moderator = ExpertModerator::new(manager, ai_service);
+    let moderator = ExpertModerator::new(manager);
 
     let result = moderator
         .handle_interjection(&roundtable_id, &request.message)
@@ -425,27 +351,6 @@ pub async fn get_messages(
 // ============================================================================
 // INSIGHT ENDPOINTS
 // ============================================================================
-
-/// POST /api/ideate/roundtable/:roundtable_id/insights/extract - Extract insights
-pub async fn extract_insights(
-    State(db): State<DbState>,
-    Path(roundtable_id): Path<String>,
-    Json(request): Json<ExtractInsightsRequest>,
-) -> impl IntoResponse {
-    info!("Extracting insights for roundtable: {}", roundtable_id);
-
-    // Create AI service
-    let ai_service = AIService::new();
-
-    let manager = RoundtableManager::new(db.pool.clone());
-    let moderator = ExpertModerator::new(manager, ai_service);
-
-    let result = moderator
-        .extract_insights(&roundtable_id, request.categories)
-        .await;
-
-    ok_or_internal_error(result, "Failed to extract insights")
-}
 
 /// GET /api/ideate/roundtable/:roundtable_id/insights - Get insights
 pub async fn get_insights(

@@ -9,7 +9,6 @@ use axum::{
 use orkee_projects::DbState;
 
 pub mod agents_handlers;
-pub mod ai_handlers;
 pub mod ai_proxy_handlers;
 pub mod ai_usage_log_handlers;
 pub mod auth;
@@ -317,14 +316,16 @@ pub fn create_ideate_router() -> Router<DbState> {
             get(ideate_handlers::list_ideates),
         )
         // Quick Mode routes
-        .route(
-            "/ideate/{session_id}/quick-generate",
-            post(ideate_handlers::quick_generate),
-        )
-        .route(
-            "/ideate/{session_id}/quick-expand",
-            post(ideate_handlers::quick_expand),
-        )
+        // NOTE: Quick Mode endpoints deprecated - AI operations moved to frontend AI SDK
+        // Frontend should use prd-ai.ts service instead
+        // .route(
+        //     "/ideate/{session_id}/quick-generate",
+        //     post(ideate_handlers::quick_generate),
+        // )
+        // .route(
+        //     "/ideate/{session_id}/quick-expand",
+        //     post(ideate_handlers::quick_expand),
+        // )
         .route(
             "/ideate/{session_id}/preview",
             get(ideate_handlers::get_preview),
@@ -445,10 +446,11 @@ pub fn create_ideate_router() -> Router<DbState> {
             "/ideate/{session_id}/features/dependencies/{dependency_id}",
             delete(ideate_dependency_handlers::delete_dependency),
         )
-        .route(
-            "/ideate/{session_id}/dependencies/analyze",
-            post(ideate_dependency_handlers::analyze_dependencies),
-        )
+        // TODO: Move to frontend AI SDK - see ARCHITECTURE_AUDIT.md Priority 1
+        // .route(
+        //     "/ideate/{session_id}/dependencies/analyze",
+        //     post(ideate_dependency_handlers::analyze_dependencies),
+        // )
         .route(
             "/ideate/{session_id}/dependencies/optimize",
             post(ideate_dependency_handlers::optimize_build_order),
@@ -461,27 +463,31 @@ pub fn create_ideate_router() -> Router<DbState> {
             "/ideate/{session_id}/dependencies/circular",
             get(ideate_dependency_handlers::get_circular_dependencies),
         )
-        .route(
-            "/ideate/{session_id}/features/suggest-visible",
-            get(ideate_dependency_handlers::suggest_quick_wins),
-        )
+        // TODO: Move to frontend AI SDK - see ARCHITECTURE_AUDIT.md Priority 1
+        // .route(
+        //     "/ideate/{session_id}/features/suggest-visible",
+        //     get(ideate_dependency_handlers::suggest_quick_wins),
+        // )
         // Phase 5: Comprehensive Mode - Research & Competitor Analysis routes
-        .route(
-            "/ideate/{session_id}/research/competitors/analyze",
-            post(ideate_research_handlers::analyze_competitor),
-        )
+        // AI operations moved to frontend - use research-ai.ts
+        // .route(
+        //     "/ideate/{session_id}/research/competitors/analyze",
+        //     post(ideate_research_handlers::analyze_competitor),
+        // )
         .route(
             "/ideate/{session_id}/research/competitors",
             get(ideate_research_handlers::get_competitors),
         )
-        .route(
-            "/ideate/{session_id}/research/gaps/analyze",
-            post(ideate_research_handlers::analyze_gaps),
-        )
-        .route(
-            "/ideate/{session_id}/research/patterns/extract",
-            post(ideate_research_handlers::extract_patterns),
-        )
+        // AI operations moved to frontend - use research-ai.ts
+        // .route(
+        //     "/ideate/{session_id}/research/gaps/analyze",
+        //     post(ideate_research_handlers::analyze_gaps),
+        // )
+        // AI operations moved to frontend - use research-ai.ts
+        // .route(
+        //     "/ideate/{session_id}/research/patterns/extract",
+        //     post(ideate_research_handlers::extract_patterns),
+        // )
         .route(
             "/ideate/{session_id}/research/similar-projects",
             post(ideate_research_handlers::add_similar_project),
@@ -490,14 +496,15 @@ pub fn create_ideate_router() -> Router<DbState> {
             "/ideate/{session_id}/research/similar-projects",
             get(ideate_research_handlers::get_similar_projects),
         )
-        .route(
-            "/ideate/{session_id}/research/lessons/extract",
-            post(ideate_research_handlers::extract_lessons),
-        )
-        .route(
-            "/ideate/{session_id}/research/synthesize",
-            post(ideate_research_handlers::synthesize_research),
-        )
+        // AI operations moved to frontend - use research-ai.ts
+        // .route(
+        //     "/ideate/{session_id}/research/lessons/extract",
+        //     post(ideate_research_handlers::extract_lessons),
+        // )
+        // .route(
+        //     "/ideate/{session_id}/research/synthesize",
+        //     post(ideate_research_handlers::synthesize_research),
+        // )
         // Phase 6: Comprehensive Mode - Expert Roundtable routes
         // Expert management
         .route(
@@ -508,10 +515,11 @@ pub fn create_ideate_router() -> Router<DbState> {
             "/ideate/{session_id}/experts",
             post(ideate_roundtable_handlers::create_expert),
         )
-        .route(
-            "/ideate/{session_id}/experts/suggest",
-            post(ideate_roundtable_handlers::suggest_experts),
-        )
+        // AI operations moved to frontend - use roundtable-ai.ts
+        // .route(
+        //     "/ideate/{session_id}/experts/suggest",
+        //     post(ideate_roundtable_handlers::suggest_experts),
+        // )
         // Roundtable session management
         .route(
             "/ideate/{session_id}/roundtable",
@@ -529,15 +537,12 @@ pub fn create_ideate_router() -> Router<DbState> {
             "/ideate/roundtable/{roundtable_id}/participants",
             post(ideate_roundtable_handlers::add_participants),
         )
-        .route(
-            "/ideate/roundtable/{roundtable_id}/participants",
-            get(ideate_roundtable_handlers::get_participants),
-        )
         // Discussion operations
-        .route(
-            "/ideate/roundtable/{roundtable_id}/start",
-            post(ideate_roundtable_handlers::start_discussion),
-        )
+        // AI operations moved to frontend - use roundtable-ai.ts
+        // .route(
+        //     "/ideate/roundtable/{roundtable_id}/start",
+        //     post(ideate_roundtable_handlers::start_discussion),
+        // )
         .route(
             "/ideate/roundtable/{roundtable_id}/stream",
             get(ideate_roundtable_handlers::stream_discussion),
@@ -551,10 +556,12 @@ pub fn create_ideate_router() -> Router<DbState> {
             get(ideate_roundtable_handlers::get_messages),
         )
         // Insight extraction
-        .route(
-            "/ideate/roundtable/{roundtable_id}/insights/extract",
-            post(ideate_roundtable_handlers::extract_insights),
-        )
+        // NOTE: Insight extraction deprecated - AI operations moved to frontend AI SDK
+        // Frontend should use roundtable-ai.ts:extractInsights() instead
+        // .route(
+        //     "/ideate/roundtable/{roundtable_id}/insights/extract",
+        //     post(ideate_roundtable_handlers::extract_insights),
+        // )
         .route(
             "/ideate/roundtable/{roundtable_id}/insights",
             get(ideate_roundtable_handlers::get_insights),
@@ -565,34 +572,38 @@ pub fn create_ideate_router() -> Router<DbState> {
             get(ideate_roundtable_handlers::get_statistics),
         )
         // Phase 7: PRD Generation & Export routes
-        .route(
-            "/ideate/{session_id}/prd/generate",
-            post(ideate_generation_handlers::generate_prd),
-        )
-        .route(
-            "/ideate/{session_id}/prd/fill-sections",
-            post(ideate_generation_handlers::fill_skipped_sections),
-        )
-        .route(
-            "/ideate/{session_id}/prd/regenerate-section",
-            post(ideate_generation_handlers::regenerate_section),
-        )
-        .route(
-            "/ideate/{session_id}/prd/regenerate-template",
-            post(ideate_generation_handlers::regenerate_prd_with_template),
-        )
-        .route(
-            "/ideate/{session_id}/prd/regenerate-template-stream",
-            post(ideate_generation_handlers::regenerate_prd_with_template_stream),
-        )
+        // NOTE: These routes are deprecated - AI operations moved to frontend AI SDK
+        // Frontend should use prd-ai.ts service instead
+        // .route(
+        //     "/ideate/{session_id}/prd/generate",
+        //     post(ideate_generation_handlers::generate_prd),
+        // )
+        // .route(
+        //     "/ideate/{session_id}/prd/fill-sections",
+        //     post(ideate_generation_handlers::fill_skipped_sections),
+        // )
+        // .route(
+        //     "/ideate/{session_id}/prd/regenerate-section",
+        //     post(ideate_generation_handlers::regenerate_section),
+        // )
+        // .route(
+        //     "/ideate/{session_id}/prd/regenerate-template",
+        //     post(ideate_generation_handlers::regenerate_prd_with_template),
+        // )
+        // .route(
+        //     "/ideate/{session_id}/prd/regenerate-template-stream",
+        //     post(ideate_generation_handlers::regenerate_prd_with_template_stream),
+        // )
         .route(
             "/ideate/{session_id}/prd/preview",
             get(ideate_generation_handlers::get_prd_preview),
         )
-        .route(
-            "/ideate/{session_id}/prd/export",
-            post(ideate_generation_handlers::export_prd),
-        )
+        // NOTE: Export requires PRD generation - deprecated for now
+        // Frontend should generate PRD via prd-ai.ts, then export can be added back later
+        // .route(
+        //     "/ideate/{session_id}/prd/export",
+        //     post(ideate_generation_handlers::export_prd),
+        // )
         .route(
             "/ideate/{session_id}/prd/completeness",
             get(ideate_generation_handlers::get_completeness),
@@ -645,10 +656,11 @@ pub fn create_ideate_router() -> Router<DbState> {
             "/ideate/chat/{session_id}/suggested-questions",
             get(ideate_chat_handlers::get_suggested_questions),
         )
-        .route(
-            "/ideate/chat/{session_id}/insights/reanalyze",
-            post(ideate_chat_handlers::reanalyze_insights),
-        )
+        // TODO: Move to frontend AI SDK - see ARCHITECTURE_AUDIT.md Priority 1
+        // .route(
+        //     "/ideate/chat/{session_id}/insights/reanalyze",
+        //     post(ideate_chat_handlers::reanalyze_insights),
+        // )
         .route(
             "/ideate/chat/{session_id}/insights",
             get(ideate_chat_handlers::get_insights),
@@ -704,21 +716,6 @@ pub fn create_ideate_router() -> Router<DbState> {
             post(ideate_validation_handlers::store_validation_feedback),
         )
 }
-
-// Phase 6: AI handler functions moved to frontend TypeScript
-// These routes are no longer needed - all AI calls now happen client-side
-// Keeping router commented for reference during migration
-// pub fn create_ai_router() -> Router<DbState> {
-//     Router::new()
-//         .route("/ai/analyze-prd", post(ai_handlers::analyze_prd))
-//         .route("/ai/generate-spec", post(ai_handlers::generate_spec))
-//         .route("/ai/suggest-tasks", post(ai_handlers::suggest_tasks))
-//         .route("/ai/refine-spec", post(ai_handlers::refine_spec))
-//         .route(
-//             "/ai/validate-completion",
-//             post(ai_handlers::validate_completion),
-//         )
-// }
 
 /// Creates the AI usage logs API router for cost tracking
 pub fn create_ai_usage_router() -> Router<DbState> {

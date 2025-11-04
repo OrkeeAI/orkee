@@ -185,6 +185,97 @@ TypeScript library providing shared task management types and interfaces for the
 #### MCP Server (`packages/mcp-server/`)
 Model Context Protocol server implementation for Claude AI integration.
 
+## AI Architecture
+
+Orkee implements a strict **Chat Mode Pattern** for all AI operations, ensuring clean separation of concerns and secure API key management.
+
+### Architecture Pattern
+
+**✅ CORRECT Pattern (Current):**
+- **Frontend (TypeScript)**: All AI calls via Vercel AI SDK (`generateObject()`, `streamText()`)
+- **AI Proxy**: Frontend routes through `/api/ai/{provider}/*` for secure API key management
+- **Backend (Rust)**: Pure CRUD operations only (save/retrieve data, NO AI calls)
+
+**❌ INCORRECT Pattern (Legacy - Removed Nov 2024):**
+- Backend Rust making HTTP calls to AI providers (fully migrated out)
+
+### Frontend AI Services
+
+All AI operations are implemented as TypeScript services in `packages/dashboard/src/services/`:
+
+| Service | File | Purpose |
+|---------|------|---------|
+| Chat Discovery | `chat-ai.ts` | Interactive PRD discovery conversations (reference implementation) |
+| PRD Generation | `prd-ai.ts` | Generate complete PRD documents from session data |
+| Research Analysis | `research-ai.ts` | Competitor analysis, gap analysis, similar project research |
+| Expert Roundtable | `roundtable-ai.ts` | Multi-expert discussion orchestration and insight extraction |
+| Dependency Analysis | `dependency-ai.ts` | Feature dependency analysis and build order optimization |
+
+**Key Features:**
+- **Streaming Support**: Real-time AI responses using `streamText()`
+- **Structured Output**: Type-safe responses with Zod schema validation
+- **Cost Tracking**: Automatic token usage and cost tracking for all operations
+- **Error Handling**: Consistent error handling with user-friendly messages
+- **Provider Flexibility**: Easy to switch between AI providers (Anthropic, OpenAI, Google, etc.)
+
+### Backend CRUD Handlers
+
+Backend handlers in `packages/api/src/` provide pure CRUD operations:
+
+| Handler File | Purpose |
+|--------------|---------|
+| `ideate_handlers.rs` | Save/retrieve chat messages, features, risks, research |
+| `ideate_generation_handlers.rs` | Save/retrieve PRD sections and content |
+| `ideate_research_handlers.rs` | Save/retrieve competitors and similar projects |
+| `ideate_roundtable_handlers.rs` | Save/retrieve discussion messages and participants |
+| `ideate_dependency_handlers.rs` | Save/retrieve dependencies and build order |
+
+**Design Principle**: Backend handlers are **AI-agnostic** - they have no knowledge of AI operations, prompts, or models.
+
+### AI Package (`packages/ai/`)
+
+After the November 2024 migration, the `orkee-ai` package is now focused solely on:
+- **Usage Tracking**: Recording AI operation costs and token usage
+- **Telemetry**: Analytics and metrics for AI operations
+- **Historical Data**: Querying past AI usage patterns
+
+**Removed from AI Package:**
+- ❌ AIService (Rust HTTP client for Anthropic API)
+- ❌ Structured generation methods
+- ❌ Prompt management
+- ❌ AI response parsing
+
+All AI logic now lives in the frontend TypeScript services.
+
+### Benefits of Chat Mode Pattern
+
+1. **Security**: API keys managed server-side, never exposed to frontend
+2. **Performance**: Streaming responses improve user experience
+3. **Flexibility**: Easy to switch AI providers without backend changes
+4. **Type Safety**: Zod schemas ensure type-safe AI responses
+5. **Developer Experience**: TypeScript AI SDK simpler than Rust async HTTP
+6. **Maintainability**: Clear separation of concerns (CRUD vs AI logic)
+7. **Testing**: Frontend AI logic easier to test and mock
+8. **Cost Tracking**: Centralized tracking of all AI operations
+
+### Migration History
+
+**November 2024**: Complete migration of all AI operations from Rust backend to TypeScript frontend.
+
+**Migrated Features:**
+- PRD Generation (6 AI functions removed from Rust)
+- Insight Extraction (1 function)
+- Research Analysis (5 functions)
+- Expert Roundtable (3 functions)
+- Dependency Analysis (1 function)
+
+**Total Code Changes:**
+- ~2,500 lines of Rust AI code removed
+- ~1,900 lines of TypeScript AI SDK code added
+- 486-line AIService implementation deleted
+
+See `rework-ai.md` in repository root for complete migration details and rationale.
+
 ## Communication Architecture
 
 ### Port Configuration

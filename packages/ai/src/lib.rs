@@ -1,11 +1,7 @@
-// ABOUTME: AI service integration and usage tracking
-// ABOUTME: Anthropic API client and usage log management
+// ABOUTME: AI usage tracking and telemetry
+// ABOUTME: Usage log management for AI operations
 
-pub mod service;
 pub mod usage_logs;
-
-// Re-export service types
-pub use service::{AIResponse, AIService, AIServiceError, AIServiceResult, Usage};
 
 // Re-export usage log types
 pub use usage_logs::{

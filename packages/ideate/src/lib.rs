@@ -75,7 +75,7 @@ pub use github_sync::{
     EntityType, GitHubConfig, GitHubSync, GitHubSyncError, GitHubSyncService, SyncDirection,
     SyncMethod, SyncResult, SyncStatus,
 };
-pub use insight_extractor::extract_insights_with_ai;
+// TODO: extract_insights_with_ai removed - AI functionality moved to frontend (chat-ai.ts:extractInsights)
 pub use manager::IdeateManager;
 pub use prd_aggregator::{AggregatedPRDData, CompletenessMetrics, PRDAggregator};
 pub use prd_generator::PRDGenerator;

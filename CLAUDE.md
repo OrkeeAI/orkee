@@ -49,6 +49,38 @@ Orkee is an AI agent orchestration platform consisting of a Rust CLI server and 
 - **Projects** (`packages/projects/`): Shared Rust library for project management (used by CLI and TUI)
 - **Cloud** (`packages/cloud/`): Optional cloud sync functionality with Orkee Cloud integration, OAuth authentication, and subscription management
 
+### AI Architecture (Chat Mode Pattern)
+
+**Orkee uses a strict separation of concerns for AI operations:**
+
+**✅ CORRECT Pattern:**
+- **Frontend (TypeScript)**: All AI calls via Vercel AI SDK (`generateObject()`, `streamText()`)
+- **AI Proxy**: Frontend routes through `/api/ai/{provider}/*` for secure API key management
+- **Backend (Rust)**: Pure CRUD operations only (save/retrieve data, NO AI calls)
+
+**❌ INCORRECT Pattern (Legacy):**
+- Backend Rust making HTTP calls to AI providers (removed in Nov 2024 migration)
+
+**Implementation Files:**
+
+Frontend AI Services (`packages/dashboard/src/services/`):
+- `chat-ai.ts` - Chat discovery (reference implementation)
+- `prd-ai.ts` - PRD generation from session data
+- `research-ai.ts` - Competitor analysis and gap analysis
+- `roundtable-ai.ts` - Expert roundtable discussions
+- `dependency-ai.ts` - Dependency analysis and optimization
+
+Backend CRUD Handlers (`packages/api/src/`):
+- `ideate_handlers.rs` - Save/retrieve chat messages, features, risks
+- `ideate_generation_handlers.rs` - Save/retrieve PRD sections
+- `ideate_research_handlers.rs` - Save/retrieve competitors, similar projects
+- `ideate_roundtable_handlers.rs` - Save/retrieve discussions, messages
+- `ideate_dependency_handlers.rs` - Save/retrieve dependencies, build order
+
+**Migration Completed:** All AI operations migrated to frontend (November 2024). See `rework-ai.md` for migration details.
+
+**AI Package (`packages/ai/`)**: Now focused solely on usage tracking and telemetry. All AIService code removed.
+
 ### Communication Architecture
 - CLI Server runs on port 4001 by default (configurable via `--api-port` or `ORKEE_API_PORT`)
 - Dashboard dev server runs on port 5173 by default (configurable via `--ui-port` or `ORKEE_UI_PORT`)

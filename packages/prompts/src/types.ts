@@ -15,7 +15,7 @@ export interface Prompt {
   category: PromptCategory;
   template: string;
   parameters: string[];
-  outputSchema?: Record<string, any>;
+  outputSchema?: Record<string, unknown>;
   metadata?: PromptMetadata;
 }
 

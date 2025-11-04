@@ -2,22 +2,47 @@
 
 This document provides comprehensive information about Orkee configuration, environment variables, security settings, and operational details.
 
+## AI Architecture
+
+Orkee uses a strict separation of concerns for AI operations following the **Chat Mode Pattern**:
+
+- **Frontend (TypeScript)**: All AI calls via Vercel AI SDK (`generateObject()`, `streamText()`)
+- **AI Proxy**: Frontend routes through `/api/ai/{provider}/*` for secure API key management
+- **Backend (Rust)**: Pure CRUD operations only (save/retrieve data, NO AI calls)
+
+**Frontend AI Services:**
+- `chat-ai.ts` - Interactive PRD discovery
+- `prd-ai.ts` - PRD document generation
+- `research-ai.ts` - Competitor analysis
+- `roundtable-ai.ts` - Expert discussions
+- `dependency-ai.ts` - Dependency analysis
+
+**Benefits:**
+- Secure API key management (keys never leave backend)
+- Streaming responses for better UX
+- Type-safe AI schemas with Zod validation
+- Consistent error handling and cost tracking
+- Easy to add new AI providers
+
+See `CLAUDE.md` and `rework-ai.md` for technical details and migration history.
+
 ## Table of Contents
 
-1. [Launch Modes](#launch-modes)
-2. [Dashboard Distribution](#dashboard-distribution)
-3. [Bundle Optimization](#bundle-optimization)
-4. [Environment Variables](#environment-variables)
-5. [API Authentication](#api-authentication)
-6. [Cloud Sync Configuration](#cloud-sync-configuration)
-7. [Security Configuration](#security-configuration)
-8. [TLS/HTTPS Configuration](#tlshttps-configuration)
-9. [File Locations & Data Storage](#file-locations--data-storage)
-10. [CLI Commands Reference](#cli-commands-reference)
-11. [API Reference](#api-reference)
-12. [Default Ports & URLs](#default-ports--urls)
-13. [Development vs Production](#development-vs-production)
-14. [Troubleshooting](#troubleshooting)
+1. [AI Architecture](#ai-architecture)
+2. [Launch Modes](#launch-modes)
+3. [Dashboard Distribution](#dashboard-distribution)
+4. [Bundle Optimization](#bundle-optimization)
+5. [Environment Variables](#environment-variables)
+6. [API Authentication](#api-authentication)
+7. [Cloud Sync Configuration](#cloud-sync-configuration)
+8. [Security Configuration](#security-configuration)
+9. [TLS/HTTPS Configuration](#tlshttps-configuration)
+10. [File Locations & Data Storage](#file-locations--data-storage)
+11. [CLI Commands Reference](#cli-commands-reference)
+12. [API Reference](#api-reference)
+13. [Default Ports & URLs](#default-ports--urls)
+14. [Development vs Production](#development-vs-production)
+15. [Troubleshooting](#troubleshooting)
 
 ## Launch Modes
 
