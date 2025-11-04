@@ -533,13 +533,27 @@ Provide a high-confidence suggestion with clear rationale.`;
       provider,
     };
 
-    return {
+    const aiResult = {
       data: result.object,
       usage,
       cost,
       model: modelName,
       provider,
     };
+
+    // Send telemetry
+    const durationMs = Math.round(performance.now() - startTime);
+    await sendAIResultTelemetry(
+      'analyze_orphan_task',
+      null,
+      modelName,
+      provider,
+      usage,
+      cost.estimatedCost,
+      durationMs
+    );
+
+    return aiResult;
   }
 
   /**
@@ -550,6 +564,8 @@ Provide a high-confidence suggestion with clear rationale.`;
     scenarios: Array<{ name: string; when: string; then: string; and?: string[] }>,
     modelPreferences?: ModelConfig
   ): Promise<AIResult<TaskValidation>> {
+    const startTime = performance.now();
+
     // Determine model to use: preferences > default
     const { provider, model, modelName } = modelPreferences
       ? { provider: modelPreferences.provider, model: getModelInstance(modelPreferences.provider, modelPreferences.model), modelName: modelPreferences.model }
@@ -603,13 +619,27 @@ Provide an overall assessment and recommendations.`;
       provider,
     };
 
-    return {
+    const aiResult = {
       data: result.object,
       usage,
       cost,
       model: modelName,
       provider,
     };
+
+    // Send telemetry
+    const durationMs = Math.round(performance.now() - startTime);
+    await sendAIResultTelemetry(
+      'validate_task_completion',
+      null,
+      modelName,
+      provider,
+      usage,
+      cost.estimatedCost,
+      durationMs
+    );
+
+    return aiResult;
   }
 
   /**
@@ -620,6 +650,8 @@ Provide an overall assessment and recommendations.`;
     feedback: string,
     modelPreferences?: ModelConfig
   ): Promise<AIResult<SpecRefinement>> {
+    const startTime = performance.now();
+
     // Determine model to use: preferences > default
     const { provider, model, modelName} = modelPreferences
       ? { provider: modelPreferences.provider, model: getModelInstance(modelPreferences.provider, modelPreferences.model), modelName: modelPreferences.model }
@@ -666,19 +698,35 @@ Prioritize suggestions and explain the rationale.`;
       provider,
     };
 
-    return {
+    const aiResult = {
       data: result.object,
       usage,
       cost,
       model: modelName,
       provider,
     };
+
+    // Send telemetry
+    const durationMs = Math.round(performance.now() - startTime);
+    await sendAIResultTelemetry(
+      'refine_spec',
+      null,
+      modelName,
+      provider,
+      usage,
+      cost.estimatedCost,
+      durationMs
+    );
+
+    return aiResult;
   }
 
   /**
    * Generate markdown spec from capability
    */
   async generateSpecMarkdown(capability: SpecCapability, modelPreferences?: ModelConfig): Promise<AIResult<string>> {
+    const startTime = performance.now();
+
     // Determine model to use: preferences > default
     const { provider, model, modelName} = modelPreferences
       ? { provider: modelPreferences.provider, model: getModelInstance(modelPreferences.provider, modelPreferences.model), modelName: modelPreferences.model }
@@ -739,13 +787,27 @@ Return ONLY the markdown content, no explanations.`;
       provider,
     };
 
-    return {
+    const aiResult = {
       data: result.text,
       usage,
       cost,
       model: modelName,
       provider,
     };
+
+    // Send telemetry
+    const durationMs = Math.round(performance.now() - startTime);
+    await sendAIResultTelemetry(
+      'generate_spec_markdown',
+      null,
+      modelName,
+      provider,
+      usage,
+      cost.estimatedCost,
+      durationMs
+    );
+
+    return aiResult;
   }
 
   /**
@@ -756,6 +818,8 @@ Return ONLY the markdown content, no explanations.`;
     tasks?: Array<{ title: string; description: string; status: string }>,
     modelPreferences?: ModelConfig
   ): Promise<AIResult<string>> {
+    const startTime = performance.now();
+
     // Determine model to use: preferences > default
     const { provider, model, modelName } = modelPreferences
       ? { provider: modelPreferences.provider, model: getModelInstance(modelPreferences.provider, modelPreferences.model), modelName: modelPreferences.model }
@@ -828,13 +892,27 @@ Return ONLY the PRD markdown content, no explanations.`;
       provider,
     };
 
-    return {
+    const aiResult = {
       data: result.text,
       usage,
       cost,
       model: modelName,
       provider,
     };
+
+    // Send telemetry
+    const durationMs = Math.round(performance.now() - startTime);
+    await sendAIResultTelemetry(
+      'regenerate_prd',
+      null,
+      modelName,
+      provider,
+      usage,
+      cost.estimatedCost,
+      durationMs
+    );
+
+    return aiResult;
   }
 }
 
