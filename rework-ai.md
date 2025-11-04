@@ -446,11 +446,11 @@ turbo build
 4. `a5fff8e` - "Priority 1.3 Frontend: Create AI SDK service for PRD generation (766 lines)"
 5. `b79bf99` - "Priority 1.3 Complete: Research Analysis migration (backend 558→333, frontend +389)"
 6. `d4cdbe2` - "Priority 1.4 Complete: Expert Roundtable migration (backend 553→240, frontend +413)"
+7. `58e2d36` - "Priority 1.5 Complete: Generic AI Handlers cleanup (deleted 1,248 lines of dead code)"
 
 ### Planned Commits
-7. Priority 1.3/1.4 Handlers: Update HTTP handlers for frontend AI pattern
-8. Priority 1.5: Handle Generic AI Handlers (verify/delete/migrate)
-9. Cleanup: Delete legacy AIService and verify all migrations
+8. Priority 1.5: Handler Updates - Fix ideate_generation_handlers.rs compilation errors
+9. Priority 1.5: Legacy AIService Cleanup - Delete service.rs and verify migrations
 
 ## Notes
 
