@@ -7,7 +7,7 @@ import { getModelInstance, calculateCost } from '@/lib/ai/config';
 import { z } from 'zod';
 import { chatService, type ChatMessage, type ChatInsight } from './chat';
 import { getModelForTask } from './model-preferences';
-import { trackAIOperationWithCost, detectProvider } from '@/lib/ai/telemetry';
+import { trackAIOperationWithCost } from '@/lib/ai/telemetry';
 
 /**
  * Discovery question prompts for guiding chats

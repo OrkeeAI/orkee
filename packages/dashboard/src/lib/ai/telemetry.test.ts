@@ -10,7 +10,6 @@ import {
   trackAIOperationWithCost,
   sendAIResultTelemetry,
   type AIResponse,
-  type ToolCall,
 } from './telemetry';
 
 describe('extractToolCalls', () => {

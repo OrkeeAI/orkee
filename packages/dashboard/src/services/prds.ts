@@ -188,43 +188,47 @@ export class PRDsService {
     return true;
   }
 
-  async analyzePRD(projectId: string, prdId: string, modelPreferences: unknown): Promise<PRDAnalysisResult> {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  async analyzePRD(projectId: string, prdId: string, _modelPreferences: unknown): Promise<PRDAnalysisResult> {
     // Fetch the PRD content first
     const prd = await this.getPRD(projectId, prdId);
     if (!prd) {
       throw new Error(`PRD with ID ${prdId} not found`);
     }
 
+    // TODO: Re-implement PRD analysis after ai-spec migration
+    throw new Error('PRD analysis feature is currently being refactored');
+
     // Get model configuration for PRD analysis task
-    const { getModelForTask } = await import('./model-preferences');
-    const modelConfig = getModelForTask(modelPreferences, 'prd_analysis');
+    // const { getModelForTask } = await import('./model-preferences');
+    // const modelConfig = getModelForTask(modelPreferences, 'prd_analysis');
 
     // Call TypeScript AI service instead of backend
-    const { analyzePRD } = await import('./ai-spec');
-    const result = await analyzePRD(prd.contentMarkdown, modelConfig);
+    // const { analyzePRD } = await import('./ai-spec');
+    // const result = await analyzePRD(prd.contentMarkdown, modelConfig);
 
     // Create suggested tasks if any
-    if (result.data.suggestedTasks?.length > 0) {
-      const { tasksService } = await import('./tasks');
+    // if (result.data.suggestedTasks?.length > 0) {
+    //   const { tasksService } = await import('./tasks');
 
-      for (const task of result.data.suggestedTasks) {
-        try {
-          await tasksService.createTask(projectId, {
-            title: task.title,
-            description: task.description,
-            complexityScore: task.complexity,
-            priority: task.priority as 'low' | 'medium' | 'high',
-            status: 'pending',
-          });
-          console.log(`[prds.analyzePRD] Created task: ${task.title}`);
-        } catch (error) {
-          console.error(`[prds.analyzePRD] Failed to create task: ${task.title}`, error);
-          // Non-blocking - continue with other tasks
-        }
-      }
-    }
+    //   for (const task of result.data.suggestedTasks) {
+    //     try {
+    //       await tasksService.createTask(projectId, {
+    //         title: task.title,
+    //         description: task.description,
+    //         complexityScore: task.complexity,
+    //         priority: task.priority as 'low' | 'medium' | 'high',
+    //         status: 'pending',
+    //       });
+    //       console.log(`[prds.analyzePRD] Created task: ${task.title}`);
+    //     } catch (error) {
+    //       console.error(`[prds.analyzePRD] Failed to create task: ${task.title}`, error);
+    //       // Non-blocking - continue with other tasks
+    //     }
+    //   }
+    // }
 
-    return result.data;
+    // return result.data;
   }
 
   async syncSpecsToPRD(projectId: string, prdId: string): Promise<PRD> {

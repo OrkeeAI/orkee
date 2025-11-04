@@ -26,7 +26,9 @@ export interface AITelemetryData {
  */
 export interface ToolCall {
   name: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   arguments: Record<string, any>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   result?: any;
   durationMs?: number;
   error?: string;
@@ -42,6 +44,7 @@ export interface AIResponse {
     completionTokens?: number;
     totalTokens?: number;
   };
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   experimental_providerMetadata?: Record<string, any>;
   finishReason?: string;
   id?: string;
@@ -50,10 +53,12 @@ export interface AIResponse {
   text?: string;
 
   // generateObject response
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   object?: any;
 
   // streamText response
   textStream?: AsyncIterable<string>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   onFinish?: (result: any) => void | Promise<void>;
 }
 
@@ -61,11 +66,13 @@ export interface AIResponse {
  * Extract tool calls from AI SDK response
  * Checks multiple possible locations for tool calls depending on SDK version
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function extractToolCalls(response: any): ToolCall[] {
   const toolCalls: ToolCall[] = [];
 
   // Check experimental_toolCalls (newer AI SDK versions)
   if (response.experimental_toolCalls && Array.isArray(response.experimental_toolCalls)) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     response.experimental_toolCalls.forEach((call: any) => {
       toolCalls.push({
         name: call.toolName || call.name,
@@ -77,6 +84,7 @@ export function extractToolCalls(response: any): ToolCall[] {
 
   // Check toolCalls (older AI SDK versions)
   if (response.toolCalls && Array.isArray(response.toolCalls)) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     response.toolCalls.forEach((call: any) => {
       toolCalls.push({
         name: call.name || call.tool,
@@ -118,6 +126,7 @@ export function detectProvider(model: string): string {
  * Extract telemetry data from AI SDK response
  */
 export function extractTelemetryData(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   response: any,
   operation: string,
   model: string,
@@ -228,6 +237,7 @@ export async function trackAIOperation<T extends AIResponse>(
       // For streaming, set up onFinish callback
       const originalOnFinish = result.onFinish;
 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       result.onFinish = async (finalResult: any) => {
         const durationMs = Math.round(performance.now() - startTime);
         const usage = finalResult.usage || {};
@@ -353,6 +363,7 @@ export async function trackAIOperationWithCost<T extends AIResponse>(
     if (result.textStream) {
       const originalOnFinish = result.onFinish;
 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       result.onFinish = async (finalResult: any) => {
         const durationMs = Math.round(performance.now() - startTime);
         const usage = finalResult.usage || {};

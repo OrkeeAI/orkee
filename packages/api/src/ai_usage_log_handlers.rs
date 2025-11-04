@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 use tracing::{error, info};
 
 use super::response::{ok_or_internal_error, ApiResponse};
-use orkee_ai::usage_logs::{AiUsageLog, AiUsageQuery, TimeSeriesDataPoint, ToolUsageStats};
+use orkee_ai::usage_logs::{AiUsageLog, AiUsageQuery};
 use orkee_projects::DbState;
 
 #[derive(Deserialize)]
