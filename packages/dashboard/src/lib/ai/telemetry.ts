@@ -1,6 +1,8 @@
 // ABOUTME: AI telemetry tracking infrastructure for usage monitoring
 // ABOUTME: Wraps AI SDK calls to capture tokens, costs, duration, and tool usage
 
+import { calculateCost } from './config';
+
 /**
  * Telemetry data structure matching backend API
  */
@@ -243,8 +245,11 @@ export async function trackAIOperation<T extends AIResponse>(
         const usage = finalResult.usage || {};
         const toolCalls = extractToolCalls(finalResult);
 
-        // Calculate cost from usage
-        const estimatedCost = usage.totalTokens ? usage.totalTokens * 0.00001 : 0; // Rough estimate
+        // Calculate cost from usage using accurate model pricing
+        const providerType = (provider === 'openai' || provider === 'anthropic') ? provider : 'anthropic';
+        const inputTokens = usage.promptTokens || usage.inputTokens || 0;
+        const outputTokens = usage.completionTokens || usage.outputTokens || 0;
+        const estimatedCost = calculateCost(providerType, model, inputTokens, outputTokens);
 
         const telemetryData: AITelemetryData = {
           operation,
@@ -281,8 +286,11 @@ export async function trackAIOperation<T extends AIResponse>(
       const usage = result.usage || {};
       const toolCalls = extractToolCalls(result);
 
-      // Calculate cost from usage
-      const estimatedCost = usage.totalTokens ? usage.totalTokens * 0.00001 : 0; // Rough estimate
+      // Calculate cost from usage using accurate model pricing
+      const providerType = (provider === 'openai' || provider === 'anthropic') ? provider : 'anthropic';
+      const inputTokens = usage.promptTokens || usage.inputTokens || 0;
+      const outputTokens = usage.completionTokens || usage.outputTokens || 0;
+      const estimatedCost = calculateCost(providerType, model, inputTokens, outputTokens);
 
       const telemetryData: AITelemetryData = {
         operation,

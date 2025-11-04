@@ -85,17 +85,7 @@ impl AiUsageLogStorage {
             sql.push_str(&format!(" AND {}", condition));
         }
 
-        sql.push_str(" ORDER BY created_at DESC");
-
-        if let Some(limit) = query.limit {
-            sql.push_str(&format!(" LIMIT {}", limit));
-        } else {
-            sql.push_str(" LIMIT 100"); // Default limit
-        }
-
-        if let Some(offset) = query.offset {
-            sql.push_str(&format!(" OFFSET {}", offset));
-        }
+        sql.push_str(" ORDER BY created_at DESC LIMIT ? OFFSET ?");
 
         debug!("Fetching AI usage logs with query: {}", sql);
 
@@ -120,6 +110,11 @@ impl AiUsageLogStorage {
         if let Some(provider) = &query.provider {
             db_query = db_query.bind(provider);
         }
+
+        // Bind LIMIT and OFFSET - use defaults if not provided
+        let limit = query.limit.unwrap_or(100);
+        let offset = query.offset.unwrap_or(0);
+        db_query = db_query.bind(limit).bind(offset);
 
         let rows = db_query
             .fetch_all(&self.pool)
@@ -584,12 +579,18 @@ impl AiUsageLogStorage {
         };
 
         // SQLite date/time grouping based on interval
+        // Validate interval to prevent SQL injection
         let date_format = match interval {
             "hour" => "%Y-%m-%d %H:00:00",
             "day" => "%Y-%m-%d 00:00:00",
             "week" => "%Y-W%W",
             "month" => "%Y-%m-01 00:00:00",
-            _ => "%Y-%m-%d 00:00:00",
+            _ => {
+                return Err(StorageError::Database(format!(
+                    "Invalid interval: {}. Must be 'hour', 'day', 'week', or 'month'",
+                    interval
+                )))
+            }
         };
 
         let sql = format!(
