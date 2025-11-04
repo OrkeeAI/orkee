@@ -36,8 +36,8 @@ This document tracks the complete migration from legacy AIService to modern AI S
 
 ## Phase 1: Remove Legacy AIService & Move AI to Frontend (Weeks 1-2)
 
-### Phase 1 Status: Architecture Clarification - Chat Mode Pattern 🔄
-**Completion:** 0% (Previous Rust→proxy work needs to be reverted)
+### Phase 1 Status: Ready to Begin Migration 🚀
+**Completion:** 15% (Audit complete, ready to migrate)
 
 **Correct Architecture** (Like Chat Mode):
 - ✅ **Frontend** - Makes all AI calls using Vercel AI SDK (streamText, generateObject)
@@ -64,57 +64,83 @@ Chat mode **already implements the correct pattern:**
 
 **This is the pattern to replicate for ALL features.**
 
+### 📊 Audit Results Summary
+
+**See `ARCHITECTURE_AUDIT.md` for detailed feature-by-feature analysis.**
+
+**Features Using Correct Pattern (2):**
+- ✅ Chat Mode Discovery - Reference implementation
+- ✅ Spec Workflow - PRD/Task AI already uses AI SDK
+
+**Features Needing Migration (6):**
+- ❌ PRD Generation (6 Rust AI functions)
+- ❌ Insight Extraction (1 function, may be partially done)
+- ❌ Research Analysis (5 functions)
+- ❌ Expert Roundtable (3 functions)
+- ❌ Dependency Analysis (1 function)
+- ❌ Generic AI Handlers (5 handlers, likely duplicates)
+
+**Total Work**: Remove ~21 Rust AI functions, create ~5 TypeScript AI service files
+
 ### Phase 1 Tasks
 
-#### 1.1 Audit Features vs Chat Mode Pattern
-- [ ] Document which features already use chat mode pattern (correct)
-- [ ] Document which features use Rust AI calls (incorrect, needs migration)
-- [ ] For each incorrect feature, identify:
-  - Rust functions making AI calls
-  - Frontend components that need AI SDK integration
-  - Data flow changes needed
+#### 1.1 Audit Features vs Chat Mode Pattern ✅
+- [x] Document which features already use chat mode pattern (correct)
+- [x] Document which features use Rust AI calls (incorrect, needs migration)
+- [x] For each incorrect feature, identify:
+  - [x] Rust functions making AI calls
+  - [x] Frontend components that need AI SDK integration
+  - [x] Data flow changes needed
+- [x] Create comprehensive audit document (`ARCHITECTURE_AUDIT.md`)
 
-#### 1.2 Remove Rust AI Logic (Backend)
-- [ ] Delete `packages/ai/src/service.rs` (entire AIService)
-- [ ] Delete `packages/api/src/ai_handlers.rs` (or convert to CRUD-only)
-- [ ] Remove AI logic from `packages/ideate/src/` files:
-  - [ ] `prd_generator.rs` - Remove all AI calls, keep data management
-  - [ ] `insight_extractor.rs` - Remove AI logic
-  - [ ] `research_analyzer.rs` - Remove AI logic
-  - [ ] `expert_moderator.rs` - Remove AI logic
-  - [ ] `dependency_analyzer.rs` - Remove AI logic
-- [ ] Remove AI logic from API handlers:
-  - [ ] `ideate_dependency_handlers.rs`
-  - [ ] `ideate_research_handlers.rs`
-  - [ ] `ideate_roundtable_handlers.rs`
-  - [ ] `ideate_generation_handlers.rs`
-  - [ ] `ideate_chat_handlers.rs`
+#### 1.2 Priority 1: Simple Migrations (Dependency Analysis + Insight Extraction)
+- [ ] **Dependency Analysis** (`packages/ideate/src/dependency_analyzer.rs`):
+  - [ ] Remove `analyze_dependencies()` AI function
+  - [ ] Keep CRUD: `get_dependencies()`, `create_dependency()`, `delete_dependency()`
+  - [ ] Update handler in `packages/api/src/ideate_dependency_handlers.rs`
+  - [ ] Create `packages/dashboard/src/services/dependency-ai.ts`
+  - [ ] Implement `analyzeDependencies()` using AI SDK `generateObject()`
+- [ ] **Insight Extraction** (`packages/ideate/src/insight_extractor.rs`):
+  - [ ] Verify `chat-ai.ts:extractInsights()` already handles this
+  - [ ] Remove Rust `extract_insights()` if redundant
+  - [ ] Keep CRUD: `save_insight()`, `get_insights()`, `link_insight_to_feature()`
+
+#### 1.3 Priority 2: Medium Complexity (PRD Generation + Research Analysis)
+- [ ] **PRD Generation** (`packages/ideate/src/prd_generator.rs`):
+  - [ ] Remove 6 AI functions: `generate_prd()`, `refine_prd()`, `expand_section()`, `validate_prd()`, `stream_prd_generation()`, `stream_section_expansion()`
+  - [ ] Keep CRUD: `save_prd()`, `get_prd()`, `update_prd()`, `list_prds()`
+  - [ ] Update handler in `packages/api/src/ideate_generation_handlers.rs`
+  - [ ] Create `packages/dashboard/src/services/prd-ai.ts`
+  - [ ] Implement AI SDK calls with streaming support
+- [ ] **Research Analysis** (`packages/ideate/src/research_analyzer.rs`):
+  - [ ] Remove 5 AI functions: `analyze_competitor()`, `analyze_gaps()`, `extract_ui_patterns()`, `extract_lessons()`, `synthesize_research()`
+  - [ ] Keep CRUD: `save_competitor()`, `get_competitors()`, `add_similar_project()`, `get_similar_projects()`
+  - [ ] Update handler in `packages/api/src/ideate_research_handlers.rs`
+  - [ ] Create `packages/dashboard/src/services/research-ai.ts`
+  - [ ] Implement AI SDK calls using `generateObject()`
+
+#### 1.4 Priority 3: Complex Migrations (Expert Roundtable + Generic Handlers)
+- [ ] **Expert Roundtable** (`packages/ideate/src/expert_moderator.rs`):
+  - [ ] Remove 3 AI functions: `run_discussion()`, `handle_interjection()`, `extract_insights()`
+  - [ ] Keep CRUD: `create_roundtable()`, `add_participants()`, `save_message()`, `get_messages()`, `save_insight()`, `get_insights()`
+  - [ ] Update handler in `packages/api/src/ideate_roundtable_handlers.rs`
+  - [ ] Redesign SSE streaming endpoint for frontend-driven discussion
+  - [ ] Create `packages/dashboard/src/services/roundtable-ai.ts`
+  - [ ] Implement multi-turn discussion loop in frontend
+- [ ] **Generic AI Handlers** (`packages/api/src/ai_handlers.rs`):
+  - [ ] Verify these duplicate Spec Workflow functionality
+  - [ ] If yes: Delete entire file and route callers to Spec Workflow
+  - [ ] If no: Identify unique functionality and migrate to frontend
+
+#### 1.5 Cleanup & Verification
+- [ ] Delete `packages/ai/src/service.rs` (entire legacy AIService)
 - [ ] Remove AIService exports from `packages/ai/src/lib.rs`
-- [ ] Keep only: AI proxy endpoints + usage logging
-
-#### 1.3 Add Frontend AI SDK Integration
-- [ ] Install/configure Vercel AI SDK in dashboard package
-- [ ] Create frontend AI service layer (`src/services/ai.ts`)
-- [ ] Implement AI SDK calls for PRD generation
-- [ ] Implement AI SDK calls for research analysis
-- [ ] Implement AI SDK calls for insights extraction
-- [ ] Implement AI SDK calls for dependency analysis
-- [ ] Implement AI SDK calls for roundtable/expert features
-- [ ] Add proper error handling and loading states
-- [ ] Add streaming support where needed
-
-#### 1.4 Update Backend to CRUD-Only
-- [ ] Keep database operations (save PRD, save insights, etc.)
-- [ ] Remove all AI generation logic
-- [ ] Backend handlers become simple: receive data, save to DB, return success
-- [ ] Update API contracts (may need different request/response shapes)
-
-#### 1.5 Testing & Verification
-- [ ] All AI operations work via frontend AI SDK
-- [ ] Backend compiles without AIService dependencies
-- [ ] Frontend can make all necessary AI calls
-- [ ] Data persistence still works
-- [ ] No regression in existing features
+- [ ] Revert incorrect commits (selective revert of Rust→proxy HTTP calls)
+- [ ] Handle uncommitted change in `ideate_dependency_handlers.rs`
+- [ ] Keep only: AI proxy endpoints + usage logging + telemetry
+- [ ] Run full test suite
+- [ ] Verify all features work end-to-end
+- [ ] Update documentation
 
 #### Example Migration Pattern
 
