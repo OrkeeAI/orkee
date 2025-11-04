@@ -12,6 +12,7 @@ pub mod agents_handlers;
 pub mod ai_proxy_handlers;
 pub mod ai_usage_log_handlers;
 pub mod auth;
+pub mod containers_handlers;
 pub mod epic_approaches_handlers;
 pub mod epic_handlers;
 pub mod executions_handlers;
@@ -188,6 +189,17 @@ pub fn create_executions_router() -> Router<DbState> {
             "/reviews/{review_id}",
             delete(executions_handlers::delete_review),
         )
+}
+
+/// Creates the containers API router for Docker container management
+pub fn create_containers_router() -> Router<containers_handlers::ContainerState> {
+    Router::new()
+        .route("/", get(containers_handlers::list_containers))
+        .route("/{id}", get(containers_handlers::get_container))
+        .route("/{id}/stats", get(containers_handlers::get_container_stats))
+        .route("/{id}/restart", post(containers_handlers::restart_container))
+        .route("/{id}/stop", post(containers_handlers::stop_container))
+        .route("/{id}", delete(containers_handlers::delete_container))
 }
 
 /// Creates the PRD API router for Product Requirements Documents
