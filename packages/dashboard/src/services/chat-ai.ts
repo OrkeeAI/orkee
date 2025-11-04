@@ -100,6 +100,7 @@ export async function streamChatResponse(
         temperature: 0.7,
         maxTokens: 1000,
         abortSignal,
+        experimental_telemetry: { isEnabled: true },
       })
     );
 
@@ -194,6 +195,7 @@ For each insight, provide the type, the insight text, and a confidence score (0-
       schema: InsightSchema,
       prompt,
       temperature: 0.3,
+      experimental_telemetry: { isEnabled: true },
     })
   );
 
@@ -294,6 +296,7 @@ Provide:
       schema: QualityMetricsSchema,
       prompt,
       temperature: 0.2,
+      experimental_telemetry: { isEnabled: true },
     })
   );
 
@@ -384,6 +387,7 @@ Be specific and actionable. Use insights from the chat to fill in details.`;
       prompt,
       temperature: 0.4,
       maxTokens: 8000,
+      experimental_telemetry: { isEnabled: true },
     })
   );
 

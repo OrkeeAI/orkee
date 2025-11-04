@@ -369,8 +369,9 @@ export async function trackAIOperationWithCost<T extends AIResponse>(
         const usage = finalResult.usage || {};
         const toolCalls = extractToolCalls(finalResult);
 
-        const inputTokens = usage.promptTokens || 0;
-        const outputTokens = usage.completionTokens || 0;
+        // AI SDK with experimental_telemetry uses inputTokens/outputTokens (not promptTokens/completionTokens)
+        const inputTokens = usage.inputTokens || usage.promptTokens || 0;
+        const outputTokens = usage.outputTokens || usage.completionTokens || 0;
         const estimatedCost = calculateCostFn(inputTokens, outputTokens);
 
         const telemetryData: AITelemetryData = {
@@ -407,8 +408,9 @@ export async function trackAIOperationWithCost<T extends AIResponse>(
       const usage = result.usage || {};
       const toolCalls = extractToolCalls(result);
 
-      const inputTokens = usage.promptTokens || 0;
-      const outputTokens = usage.completionTokens || 0;
+      // AI SDK with experimental_telemetry uses inputTokens/outputTokens (not promptTokens/completionTokens)
+      const inputTokens = usage.inputTokens || usage.promptTokens || 0;
+      const outputTokens = usage.outputTokens || usage.completionTokens || 0;
       const estimatedCost = calculateCostFn(inputTokens, outputTokens);
 
       const telemetryData: AITelemetryData = {
