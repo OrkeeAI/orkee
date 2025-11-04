@@ -12,41 +12,10 @@ use tracing::{error, info};
 
 use super::auth::CurrentUser;
 use super::response::ApiResponse;
-use reqwest::Client;
+use orkee_ai::service::{AIService, AIServiceError};
 use orkee_ai::usage_logs::AiUsageLog;
 use orkee_projects::{get_prd, DbState};
 use orkee_tasks::{TaskCreateInput, TaskPriority};
-
-// Anthropic API response structures (from AI proxy)
-#[derive(Debug, Deserialize)]
-struct AnthropicResponse {
-    #[allow(dead_code)]
-    id: String,
-    content: Vec<ContentBlock>,
-    usage: Usage,
-    #[allow(dead_code)]
-    stop_reason: Option<String>,
-}
-
-#[derive(Debug, Deserialize)]
-struct ContentBlock {
-    #[serde(rename = "type")]
-    #[allow(dead_code)]
-    content_type: String,
-    text: String,
-}
-
-#[derive(Debug, Deserialize)]
-struct Usage {
-    input_tokens: u32,
-    output_tokens: u32,
-}
-
-impl Usage {
-    fn total_tokens(&self) -> u32 {
-        self.input_tokens + self.output_tokens
-    }
-}
 
 // ============================================================================
 // Shared Types (Used for AI analysis)
@@ -196,10 +165,57 @@ pub async fn analyze_prd(
     Json(request): Json<AnalyzePRDRequest>,
 ) -> impl IntoResponse {
     info!("AI PRD analysis requested for PRD: {}", request.prd_id);
+
+    // Get API key from database (with environment variable fallback)
+    let api_key = match db
+        .user_storage
+        .get_api_key(&current_user.id, "anthropic")
+        .await
+    {
+        Ok(Some(key)) => {
+            info!(
+                "Using Anthropic API key from database (starts with: {})",
+                &key.chars().take(8).collect::<String>()
+            );
+            key
+        }
+        Ok(None) => {
+            // Fallback to environment variable
+            match env::var("ANTHROPIC_API_KEY") {
+                Ok(key) => {
+                    info!("Using Anthropic API key from environment variable");
+                    key
+                }
+                Err(_) => {
+                    error!("No Anthropic API key found in database or environment");
+                    return (
+                        StatusCode::BAD_REQUEST,
+                        Json(ApiResponse::<()>::error(
+                            "Anthropic API key not configured. Please set it in Settings → Security or via ANTHROPIC_API_KEY environment variable.".to_string()
+                        ))
+                    ).into_response();
+                }
+            }
+        }
+        Err(e) => {
+            error!("Failed to fetch API key from database: {}", e);
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ApiResponse::<()>::error(format!(
+                    "Failed to retrieve API key: {}",
+                    e
+                ))),
+            )
+                .into_response();
+        }
+    };
+
+    // Initialize AI service with the API key and selected model
     info!(
         "Using model: {} from provider: {}",
         request.model, request.provider
     );
+    let ai_service = AIService::with_api_key_and_model(api_key, request.model.clone());
 
     // Build the prompt matching TypeScript implementation
     let user_prompt = format!(
@@ -290,47 +306,43 @@ RESPOND WITH ONLY VALID JSON."#
             .to_string(),
     );
 
-    // Call AI proxy for structured generation
-    let (analysis_data, usage) = match call_ai_proxy::<PRDAnalysisData>(
-        &current_user.id,
-        &request.model,
-        user_prompt,
-        system_prompt.unwrap_or_default(),
-    )
-    .await
+    // Get the model being used for logging
+    let model_name = ai_service.model().to_string();
+
+    // Make AI call
+    match ai_service
+        .generate_structured::<PRDAnalysisData>(user_prompt, system_prompt)
+        .await
     {
-        Ok(result) => result,
-        Err(response) => return response.into_response(),
-    };
+        Ok(ai_response) => {
+            let token_usage = TokenUsage {
+                input: ai_response.usage.input_tokens,
+                output: ai_response.usage.output_tokens,
+                total: ai_response.usage.total_tokens(),
+            };
 
-    let token_usage = TokenUsage {
-        input: usage.input_tokens,
-        output: usage.output_tokens,
-        total: usage.total_tokens(),
-    };
+            // Get the PRD to obtain project_id
+            let prd = match get_prd(&db.pool, &request.prd_id).await {
+                Ok(prd) => prd,
+                Err(e) => {
+                    error!("Failed to fetch PRD {}: {}", request.prd_id, e);
+                    return (
+                        StatusCode::NOT_FOUND,
+                        ResponseJson(ApiResponse::<()>::error(format!("PRD not found: {}", e))),
+                    )
+                        .into_response();
+                }
+            };
 
-    // Get the PRD to obtain project_id
-    let prd = match get_prd(&db.pool, &request.prd_id).await {
-        Ok(prd) => prd,
-        Err(e) => {
-            error!("Failed to fetch PRD {}: {}", request.prd_id, e);
-            return (
-                StatusCode::NOT_FOUND,
-                Json(ApiResponse::<()>::error(format!("PRD not found: {}", e))),
-            )
-                .into_response();
-        }
-    };
+            let project_id = &prd.project_id;
+            info!("Successfully analyzed PRD for project: {}", project_id);
 
-    let project_id = &prd.project_id;
-    info!("Successfully analyzed PRD for project: {}", project_id);
-
-    // Save suggested tasks to database
-    info!(
-        "Creating {} suggested tasks",
-        analysis_data.suggested_tasks.len()
-    );
-    for (task_index, task_suggestion) in analysis_data.suggested_tasks.iter().enumerate()
+            // Save suggested tasks to database
+            info!(
+                "Creating {} suggested tasks",
+                ai_response.data.suggested_tasks.len()
+            );
+            for (task_index, task_suggestion) in ai_response.data.suggested_tasks.iter().enumerate()
             {
                 // Convert priority string to TaskPriority enum
                 let priority = match task_suggestion.priority.to_lowercase().as_str() {
@@ -384,44 +396,68 @@ RESPOND WITH ONLY VALID JSON."#
                 }
             }
 
-    // Log AI usage to database
-    let usage_log = AiUsageLog {
-        id: nanoid::nanoid!(10),
-        project_id: Some(project_id.to_string()),
-        request_id: None,
-        operation: "analyzePRD".to_string(),
-        provider: "anthropic".to_string(),
-        model: request.model.clone(),
-        input_tokens: Some(usage.input_tokens as i64),
-        output_tokens: Some(usage.output_tokens as i64),
-        total_tokens: Some(usage.total_tokens() as i64),
-        estimated_cost: Some(calculate_cost(
-            usage.input_tokens,
-            usage.output_tokens,
-        )),
-        duration_ms: Some(0),
-        error: None,
-        tool_calls_count: None,
-        tool_calls_json: None,
-        response_metadata: None,
-        created_at: chrono::Utc::now(),
-    };
+            // Log AI usage to database
+            let usage_log = AiUsageLog {
+                id: nanoid::nanoid!(10),
+                project_id: Some(project_id.to_string()),
+                request_id: None,
+                operation: "analyzePRD".to_string(),
+                provider: "anthropic".to_string(),
+                model: model_name,
+                input_tokens: Some(ai_response.usage.input_tokens as i64),
+                output_tokens: Some(ai_response.usage.output_tokens as i64),
+                total_tokens: Some(ai_response.usage.total_tokens() as i64),
+                estimated_cost: Some(calculate_cost(
+                    ai_response.usage.input_tokens,
+                    ai_response.usage.output_tokens,
+                )),
+                duration_ms: Some(0),
+                error: None,
+                tool_calls_count: None,
+                tool_calls_json: None,
+                response_metadata: None,
+                created_at: chrono::Utc::now(),
+            };
 
-    // Save to database (non-blocking)
-    if let Err(e) = db.ai_usage_log_storage.create_log(&usage_log).await {
-        error!("Failed to log AI usage: {}", e);
-        // Continue anyway - logging failure shouldn't block the response
+            // Save to database (non-blocking)
+            if let Err(e) = db.ai_usage_log_storage.create_log(&usage_log).await {
+                error!("Failed to log AI usage: {}", e);
+                // Continue anyway - logging failure shouldn't block the response
+            }
+
+            info!("Successfully saved PRD analysis to database");
+
+            let response = AnalyzePRDResponse {
+                prd_id: request.prd_id,
+                analysis: ai_response.data,
+                token_usage,
+            };
+
+            (StatusCode::OK, ResponseJson(ApiResponse::success(response))).into_response()
+        }
+        Err(e) => {
+            error!("AI PRD analysis failed: {}", e);
+            let error_message = match e {
+                AIServiceError::NoApiKey => {
+                    "Anthropic API key not configured. Please set ANTHROPIC_API_KEY environment variable.".to_string()
+                }
+                AIServiceError::ApiError(msg) => format!("Anthropic API error: {}", msg),
+                AIServiceError::ParseError(msg) => {
+                    format!("Failed to parse AI response. The model may have returned invalid JSON: {}", msg)
+                }
+                AIServiceError::RequestFailed(e) => format!("Request failed: {}", e),
+                AIServiceError::InvalidResponse => {
+                    "Invalid response from AI service".to_string()
+                }
+            };
+
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                ResponseJson(ApiResponse::<()>::error(error_message)),
+            )
+                .into_response()
+        }
     }
-
-    info!("Successfully saved PRD analysis to database");
-
-    let response = AnalyzePRDResponse {
-        prd_id: request.prd_id,
-        analysis: analysis_data,
-        token_usage,
-    };
-
-    (StatusCode::OK, Json(ApiResponse::success(response))).into_response()
 }
 
 /// Calculate cost for Anthropic API usage
@@ -430,102 +466,6 @@ fn calculate_cost(input_tokens: u32, output_tokens: u32) -> f64 {
     let input_cost = (input_tokens as f64 / 1_000_000.0) * 3.0;
     let output_cost = (output_tokens as f64 / 1_000_000.0) * 15.0;
     input_cost + output_cost
-}
-
-/// Helper function to call AI proxy for structured generation
-async fn call_ai_proxy<T: for<'de> Deserialize<'de>>(
-    user_id: &str,
-    model: &str,
-    user_prompt: String,
-    system_prompt: String,
-) -> Result<(T, Usage), (StatusCode, Json<ApiResponse<()>>)> {
-    let client = Client::new();
-
-    // Build Anthropic API request body
-    let request_body = serde_json::json!({
-        "model": model,
-        "max_tokens": 64000,
-        "temperature": 0.7,
-        "messages": [{
-            "role": "user",
-            "content": user_prompt
-        }],
-        "system": system_prompt
-    });
-
-    // Get the API port from environment or use default
-    let api_port = env::var("ORKEE_API_PORT").unwrap_or_else(|_| "4001".to_string());
-    let proxy_url = format!("http://localhost:{}/api/ai/anthropic/v1/messages", api_port);
-
-    info!("Calling AI proxy at: {}", proxy_url);
-
-    // Make HTTP call to our own AI proxy
-    let response = match client
-        .post(&proxy_url)
-        .header("X-User-ID", user_id)
-        .header("Content-Type", "application/json")
-        .json(&request_body)
-        .send()
-        .await
-    {
-        Ok(resp) => resp,
-        Err(e) => {
-            error!("Failed to call AI proxy: {}", e);
-            return Err((
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ApiResponse::<()>::error(format!("Failed to call AI proxy: {}", e))),
-            ));
-        }
-    };
-
-    // Check if the proxy call was successful
-    if !response.status().is_success() {
-        let status = response.status();
-        let error_text = response.text().await.unwrap_or_else(|_| "Unknown error".to_string());
-        error!("AI proxy returned error: {} - {}", status, error_text);
-        return Err((
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(ApiResponse::<()>::error(format!("AI proxy error: {}", error_text))),
-        ));
-    }
-
-    // Parse the Anthropic response
-    let anthropic_response: AnthropicResponse = match response.json().await {
-        Ok(resp) => resp,
-        Err(e) => {
-            error!("Failed to parse Anthropic response: {}", e);
-            return Err((
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ApiResponse::<()>::error(format!("Failed to parse AI response: {}", e))),
-            ));
-        }
-    };
-
-    // Extract JSON from the first content block
-    let text = match anthropic_response.content.first() {
-        Some(block) => &block.text,
-        None => {
-            error!("No content in Anthropic response");
-            return Err((
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ApiResponse::<()>::error("No content in AI response".to_string())),
-            ));
-        }
-    };
-
-    // Parse the structured data from JSON
-    let data: T = match serde_json::from_str(text) {
-        Ok(data) => data,
-        Err(e) => {
-            error!("Failed to parse structured data: {}. Text: {}", e, &text[..text.len().min(500)]);
-            return Err((
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ApiResponse::<()>::error(format!("Failed to parse AI response as JSON: {}", e))),
-            ));
-        }
-    };
-
-    Ok((data, anthropic_response.usage))
 }
 
 // ============================================================================
@@ -541,6 +481,9 @@ pub async fn generate_spec(
         "AI spec generation requested for: {}",
         request.capability_name
     );
+
+    // Initialize AI service
+    let ai_service = AIService::new();
 
     // Build requirements list for the prompt
     let requirements_text = if request.requirements.is_empty() {
@@ -610,91 +553,111 @@ Respond with ONLY valid JSON. Do not include markdown formatting, code blocks, o
             .to_string(),
     );
 
-    // Call AI proxy for structured generation
-    let (data, usage) = match call_ai_proxy::<SpecGenerationData>(
-        "default-user",
-        "claude-sonnet-4-20250514",
-        user_prompt,
-        system_prompt.unwrap_or_default(),
-    )
-    .await
+    // Get the model being used for logging
+    let model_name = ai_service.model().to_string();
+
+    // Make AI call
+    match ai_service
+        .generate_structured::<SpecGenerationData>(user_prompt, system_prompt)
+        .await
     {
-        Ok(result) => result,
-        Err(response) => return response.into_response(),
-    };
+        Ok(ai_response) => {
+            // Convert JSON response to markdown format
+            let mut spec_markdown = format!("# {}\n\n", request.capability_name);
 
-    // Convert JSON response to markdown format
-    let mut spec_markdown = format!("# {}\n\n", request.capability_name);
+            if let Some(purpose) = &request.purpose {
+                spec_markdown.push_str(&format!("## Purpose\n{}\n\n", purpose));
+            }
 
-    if let Some(purpose) = &request.purpose {
-        spec_markdown.push_str(&format!("## Purpose\n{}\n\n", purpose));
-    }
+            spec_markdown.push_str("## Requirements\n\n");
 
-    spec_markdown.push_str("## Requirements\n\n");
+            let mut total_scenarios = 0;
+            for req in &ai_response.data.requirements {
+                spec_markdown.push_str(&format!("### {}\n{}\n\n", req.name, req.description));
 
-    let mut total_scenarios = 0;
-    for req in &data.requirements {
-        spec_markdown.push_str(&format!("### {}\n{}\n\n", req.name, req.description));
+                for scenario in &req.scenarios {
+                    spec_markdown.push_str(&format!("**{}**\n", scenario.name));
+                    spec_markdown.push_str(&format!("WHEN {}\n", scenario.when));
+                    spec_markdown.push_str(&format!("THEN {}\n", scenario.then));
 
-        for scenario in &req.scenarios {
-            spec_markdown.push_str(&format!("**{}**\n", scenario.name));
-            spec_markdown.push_str(&format!("WHEN {}\n", scenario.when));
-            spec_markdown.push_str(&format!("THEN {}\n", scenario.then));
-
-            if let Some(and_conditions) = &scenario.and {
-                for condition in and_conditions {
-                    spec_markdown.push_str(&format!("AND {}\n", condition));
+                    if let Some(and_conditions) = &scenario.and {
+                        for condition in and_conditions {
+                            spec_markdown.push_str(&format!("AND {}\n", condition));
+                        }
+                    }
+                    spec_markdown.push('\n');
+                    total_scenarios += 1;
                 }
             }
-            spec_markdown.push('\n');
-            total_scenarios += 1;
+
+            let token_usage = TokenUsage {
+                input: ai_response.usage.input_tokens,
+                output: ai_response.usage.output_tokens,
+                total: ai_response.usage.total_tokens(),
+            };
+
+            // Log AI usage to database
+            let usage_log = AiUsageLog {
+                id: nanoid::nanoid!(10),
+                project_id: Some(request.capability_name.clone()), // Use capability name as project ID
+                request_id: None,
+                operation: "generateSpec".to_string(),
+                provider: "anthropic".to_string(),
+                model: model_name,
+                input_tokens: Some(ai_response.usage.input_tokens as i64),
+                output_tokens: Some(ai_response.usage.output_tokens as i64),
+                total_tokens: Some(ai_response.usage.total_tokens() as i64),
+                estimated_cost: Some(calculate_cost(
+                    ai_response.usage.input_tokens,
+                    ai_response.usage.output_tokens,
+                )),
+                duration_ms: Some(0),
+                error: None,
+                tool_calls_count: None,
+                tool_calls_json: None,
+                response_metadata: None,
+                created_at: chrono::Utc::now(),
+            };
+
+            // Save to database (non-blocking)
+            if let Err(e) = db.ai_usage_log_storage.create_log(&usage_log).await {
+                error!("Failed to log AI usage: {}", e);
+            }
+
+            let response = GenerateSpecResponse {
+                capability_name: request.capability_name,
+                spec_markdown,
+                requirement_count: ai_response.data.requirements.len(),
+                scenario_count: total_scenarios,
+                token_usage,
+                note: String::new(),
+            };
+
+            (StatusCode::OK, ResponseJson(ApiResponse::success(response))).into_response()
+        }
+        Err(e) => {
+            error!("AI spec generation failed: {}", e);
+            let error_message = match e {
+                AIServiceError::NoApiKey => {
+                    "Anthropic API key not configured. Please set ANTHROPIC_API_KEY environment variable.".to_string()
+                }
+                AIServiceError::ApiError(msg) => format!("Anthropic API error: {}", msg),
+                AIServiceError::ParseError(msg) => {
+                    format!("Failed to parse AI response: {}", msg)
+                }
+                AIServiceError::RequestFailed(e) => format!("Request failed: {}", e),
+                AIServiceError::InvalidResponse => {
+                    "Invalid response from AI service".to_string()
+                }
+            };
+
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                ResponseJson(ApiResponse::<()>::error(error_message)),
+            )
+                .into_response()
         }
     }
-
-    let token_usage = TokenUsage {
-        input: usage.input_tokens,
-        output: usage.output_tokens,
-        total: usage.total_tokens(),
-    };
-
-    // Log AI usage to database
-    let usage_log = AiUsageLog {
-        id: nanoid::nanoid!(10),
-        project_id: Some(request.capability_name.clone()), // Use capability name as project ID
-        request_id: None,
-        operation: "generateSpec".to_string(),
-        provider: "anthropic".to_string(),
-        model: "claude-sonnet-4-20250514".to_string(),
-        input_tokens: Some(usage.input_tokens as i64),
-        output_tokens: Some(usage.output_tokens as i64),
-        total_tokens: Some(usage.total_tokens() as i64),
-        estimated_cost: Some(calculate_cost(
-            usage.input_tokens,
-            usage.output_tokens,
-        )),
-        duration_ms: Some(0),
-        error: None,
-        tool_calls_count: None,
-        tool_calls_json: None,
-        response_metadata: None,
-        created_at: chrono::Utc::now(),
-    };
-
-    // Save to database (non-blocking)
-    if let Err(e) = db.ai_usage_log_storage.create_log(&usage_log).await {
-        error!("Failed to log AI usage: {}", e);
-    }
-
-    let response = GenerateSpecResponse {
-        capability_name: request.capability_name,
-        spec_markdown,
-        requirement_count: data.requirements.len(),
-        scenario_count: total_scenarios,
-        token_usage,
-        note: String::new(),
-    };
-
-    (StatusCode::OK, ResponseJson(ApiResponse::success(response))).into_response()
 }
 
 #[derive(Deserialize)]
@@ -729,6 +692,9 @@ pub async fn suggest_tasks(
         "AI task suggestions requested for capability: {}",
         request.capability_id
     );
+
+    // Initialize AI service
+    let ai_service = AIService::new();
 
     let user_prompt = format!(
         r#"Analyze the following specification and generate actionable development tasks.
@@ -789,74 +755,95 @@ Respond with ONLY valid JSON. Do not include markdown formatting, code blocks, o
             .to_string(),
     );
 
-    // Call AI proxy for structured generation
-    let (data, usage) = match call_ai_proxy::<TaskSuggestionsData>(
-        "default-user",
-        "claude-sonnet-4-20250514",
-        user_prompt,
-        system_prompt.unwrap_or_default(),
-    )
-    .await
+    // Get the model being used for logging
+    let model_name = ai_service.model().to_string();
+
+    // Make AI call
+    match ai_service
+        .generate_structured::<TaskSuggestionsData>(user_prompt, system_prompt)
+        .await
     {
-        Ok(result) => result,
-        Err(response) => return response.into_response(),
-    };
+        Ok(ai_response) => {
+            // Convert AI response to API format
+            let suggested_tasks: Vec<SuggestedTask> = ai_response
+                .data
+                .tasks
+                .into_iter()
+                .map(|task| SuggestedTask {
+                    title: task.title,
+                    description: task.description,
+                    priority: task.priority,
+                    complexity_score: task.complexity_score,
+                    linked_requirements: task.linked_requirements,
+                })
+                .collect();
 
-    // Convert AI response to API format
-    let suggested_tasks: Vec<SuggestedTask> = data
-        .tasks
-        .into_iter()
-        .map(|task| SuggestedTask {
-            title: task.title,
-            description: task.description,
-            priority: task.priority,
-            complexity_score: task.complexity_score,
-            linked_requirements: task.linked_requirements,
-        })
-        .collect();
+            let token_usage = TokenUsage {
+                input: ai_response.usage.input_tokens,
+                output: ai_response.usage.output_tokens,
+                total: ai_response.usage.total_tokens(),
+            };
 
-    let token_usage = TokenUsage {
-        input: usage.input_tokens,
-        output: usage.output_tokens,
-        total: usage.total_tokens(),
-    };
+            // Log AI usage to database
+            let usage_log = AiUsageLog {
+                id: nanoid::nanoid!(10),
+                project_id: Some(request.capability_id.clone()),
+                request_id: None,
+                operation: "suggestTasks".to_string(),
+                provider: "anthropic".to_string(),
+                model: model_name,
+                input_tokens: Some(ai_response.usage.input_tokens as i64),
+                output_tokens: Some(ai_response.usage.output_tokens as i64),
+                total_tokens: Some(ai_response.usage.total_tokens() as i64),
+                estimated_cost: Some(calculate_cost(
+                    ai_response.usage.input_tokens,
+                    ai_response.usage.output_tokens,
+                )),
+                duration_ms: Some(0),
+                error: None,
+                tool_calls_count: None,
+                tool_calls_json: None,
+                response_metadata: None,
+                created_at: chrono::Utc::now(),
+            };
 
-    // Log AI usage to database
-    let usage_log = AiUsageLog {
-        id: nanoid::nanoid!(10),
-        project_id: Some(request.capability_id.clone()),
-        request_id: None,
-        operation: "suggestTasks".to_string(),
-        provider: "anthropic".to_string(),
-        model: "claude-sonnet-4-20250514".to_string(),
-        input_tokens: Some(usage.input_tokens as i64),
-        output_tokens: Some(usage.output_tokens as i64),
-        total_tokens: Some(usage.total_tokens() as i64),
-        estimated_cost: Some(calculate_cost(
-            usage.input_tokens,
-            usage.output_tokens,
-        )),
-        duration_ms: Some(0),
-        error: None,
-        tool_calls_count: None,
-        tool_calls_json: None,
-        response_metadata: None,
-        created_at: chrono::Utc::now(),
-    };
+            // Save to database (non-blocking)
+            if let Err(e) = db.ai_usage_log_storage.create_log(&usage_log).await {
+                error!("Failed to log AI usage: {}", e);
+            }
 
-    // Save to database (non-blocking)
-    if let Err(e) = db.ai_usage_log_storage.create_log(&usage_log).await {
-        error!("Failed to log AI usage: {}", e);
+            let response = SuggestTasksResponse {
+                capability_id: request.capability_id,
+                suggested_tasks,
+                token_usage,
+                note: String::new(),
+            };
+
+            (StatusCode::OK, ResponseJson(ApiResponse::success(response))).into_response()
+        }
+        Err(e) => {
+            error!("AI task suggestion failed: {}", e);
+            let error_message = match e {
+                AIServiceError::NoApiKey => {
+                    "Anthropic API key not configured. Please set ANTHROPIC_API_KEY environment variable.".to_string()
+                }
+                AIServiceError::ApiError(msg) => format!("Anthropic API error: {}", msg),
+                AIServiceError::ParseError(msg) => {
+                    format!("Failed to parse AI response: {}", msg)
+                }
+                AIServiceError::RequestFailed(e) => format!("Request failed: {}", e),
+                AIServiceError::InvalidResponse => {
+                    "Invalid response from AI service".to_string()
+                }
+            };
+
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                ResponseJson(ApiResponse::<()>::error(error_message)),
+            )
+                .into_response()
+        }
     }
-
-    let response = SuggestTasksResponse {
-        capability_id: request.capability_id,
-        suggested_tasks,
-        token_usage,
-        note: String::new(),
-    };
-
-    (StatusCode::OK, ResponseJson(ApiResponse::success(response))).into_response()
 }
 
 #[derive(Deserialize)]
@@ -898,6 +885,9 @@ pub async fn refine_spec(
         "AI spec refinement requested for capability: {}",
         request.capability_id
     );
+
+    // Initialize AI service
+    let ai_service = AIService::new();
 
     let user_prompt = format!(
         r#"Refine the following specification based on user feedback.
@@ -945,62 +935,82 @@ Respond with ONLY valid JSON. Do not include markdown formatting, code blocks, o
             .to_string(),
     );
 
-    // Call AI proxy for structured generation
-    let (data, usage) = match call_ai_proxy::<SpecRefinementData>(
-        "default-user",
-        "claude-sonnet-4-20250514",
-        user_prompt,
-        system_prompt.unwrap_or_default(),
-    )
-    .await
+    // Get the model being used for logging
+    let model_name = ai_service.model().to_string();
+
+    // Make AI call
+    match ai_service
+        .generate_structured::<SpecRefinementData>(user_prompt, system_prompt)
+        .await
     {
-        Ok(result) => result,
-        Err(response) => return response.into_response(),
-    };
+        Ok(ai_response) => {
+            let token_usage = TokenUsage {
+                input: ai_response.usage.input_tokens,
+                output: ai_response.usage.output_tokens,
+                total: ai_response.usage.total_tokens(),
+            };
 
-    let token_usage = TokenUsage {
-        input: usage.input_tokens,
-        output: usage.output_tokens,
-        total: usage.total_tokens(),
-    };
+            // Log AI usage to database
+            let usage_log = AiUsageLog {
+                id: nanoid::nanoid!(10),
+                project_id: Some(request.capability_id.clone()),
+                request_id: None,
+                operation: "refineSpec".to_string(),
+                provider: "anthropic".to_string(),
+                model: model_name,
+                input_tokens: Some(ai_response.usage.input_tokens as i64),
+                output_tokens: Some(ai_response.usage.output_tokens as i64),
+                total_tokens: Some(ai_response.usage.total_tokens() as i64),
+                estimated_cost: Some(calculate_cost(
+                    ai_response.usage.input_tokens,
+                    ai_response.usage.output_tokens,
+                )),
+                duration_ms: Some(0),
+                error: None,
+                tool_calls_count: None,
+                tool_calls_json: None,
+                response_metadata: None,
+                created_at: chrono::Utc::now(),
+            };
 
-    // Log AI usage to database
-    let usage_log = AiUsageLog {
-        id: nanoid::nanoid!(10),
-        project_id: Some(request.capability_id.clone()),
-        request_id: None,
-        operation: "refineSpec".to_string(),
-        provider: "anthropic".to_string(),
-        model: "claude-sonnet-4-20250514".to_string(),
-        input_tokens: Some(usage.input_tokens as i64),
-        output_tokens: Some(usage.output_tokens as i64),
-        total_tokens: Some(usage.total_tokens() as i64),
-        estimated_cost: Some(calculate_cost(
-            usage.input_tokens,
-            usage.output_tokens,
-        )),
-        duration_ms: Some(0),
-        error: None,
-        tool_calls_count: None,
-        tool_calls_json: None,
-        response_metadata: None,
-        created_at: chrono::Utc::now(),
-    };
+            // Save to database (non-blocking)
+            if let Err(e) = db.ai_usage_log_storage.create_log(&usage_log).await {
+                error!("Failed to log AI usage: {}", e);
+            }
 
-    // Save to database (non-blocking)
-    if let Err(e) = db.ai_usage_log_storage.create_log(&usage_log).await {
-        error!("Failed to log AI usage: {}", e);
+            let response = RefineSpecResponse {
+                capability_id: request.capability_id,
+                refined_spec_markdown: ai_response.data.refined_spec,
+                changes_made: ai_response.data.changes_made,
+                token_usage,
+                note: String::new(),
+            };
+
+            (StatusCode::OK, ResponseJson(ApiResponse::success(response))).into_response()
+        }
+        Err(e) => {
+            error!("AI spec refinement failed: {}", e);
+            let error_message = match e {
+                AIServiceError::NoApiKey => {
+                    "Anthropic API key not configured. Please set ANTHROPIC_API_KEY environment variable.".to_string()
+                }
+                AIServiceError::ApiError(msg) => format!("Anthropic API error: {}", msg),
+                AIServiceError::ParseError(msg) => {
+                    format!("Failed to parse AI response: {}", msg)
+                }
+                AIServiceError::RequestFailed(e) => format!("Request failed: {}", e),
+                AIServiceError::InvalidResponse => {
+                    "Invalid response from AI service".to_string()
+                }
+            };
+
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                ResponseJson(ApiResponse::<()>::error(error_message)),
+            )
+                .into_response()
+        }
     }
-
-    let response = RefineSpecResponse {
-        capability_id: request.capability_id,
-        refined_spec_markdown: data.refined_spec,
-        changes_made: data.changes_made,
-        token_usage,
-        note: String::new(),
-    };
-
-    (StatusCode::OK, ResponseJson(ApiResponse::success(response))).into_response()
 }
 
 #[derive(Deserialize)]
@@ -1031,6 +1041,9 @@ pub async fn validate_completion(
     Json(request): Json<ValidateCompletionRequest>,
 ) -> impl IntoResponse {
     info!("AI validation requested for task: {}", request.task_id);
+
+    // Initialize AI service
+    let ai_service = AIService::new();
 
     // Build scenario list for validation
     let scenarios_text = if request.linked_scenarios.is_empty() {
@@ -1106,76 +1119,97 @@ Respond with ONLY valid JSON. Do not include markdown formatting, code blocks, o
             .to_string(),
     );
 
-    // Call AI proxy for structured generation
-    let (data, usage) = match call_ai_proxy::<CompletionValidationData>(
-        "default-user",
-        "claude-sonnet-4-20250514",
-        user_prompt,
-        system_prompt.unwrap_or_default(),
-    )
-    .await
+    // Get the model being used for logging
+    let model_name = ai_service.model().to_string();
+
+    // Make AI call
+    match ai_service
+        .generate_structured::<CompletionValidationData>(user_prompt, system_prompt)
+        .await
     {
-        Ok(result) => result,
-        Err(response) => return response.into_response(),
-    };
+        Ok(ai_response) => {
+            // Convert AI response to API format
+            let validation_results: Vec<ValidationResult> = ai_response
+                .data
+                .validation_results
+                .into_iter()
+                .map(|item| ValidationResult {
+                    scenario: item.scenario,
+                    passed: item.passed,
+                    confidence: item.confidence,
+                    notes: item.notes,
+                })
+                .collect();
 
-    // Convert AI response to API format
-    let validation_results: Vec<ValidationResult> = data
-        .validation_results
-        .into_iter()
-        .map(|item| ValidationResult {
-            scenario: item.scenario,
-            passed: item.passed,
-            confidence: item.confidence,
-            notes: item.notes,
-        })
-        .collect();
+            let token_usage = TokenUsage {
+                input: ai_response.usage.input_tokens,
+                output: ai_response.usage.output_tokens,
+                total: ai_response.usage.total_tokens(),
+            };
 
-    let token_usage = TokenUsage {
-        input: usage.input_tokens,
-        output: usage.output_tokens,
-        total: usage.total_tokens(),
-    };
+            // Log AI usage to database
+            let usage_log = AiUsageLog {
+                id: nanoid::nanoid!(10),
+                project_id: Some(request.task_id.clone()),
+                request_id: None,
+                operation: "validateCompletion".to_string(),
+                provider: "anthropic".to_string(),
+                model: model_name,
+                input_tokens: Some(ai_response.usage.input_tokens as i64),
+                output_tokens: Some(ai_response.usage.output_tokens as i64),
+                total_tokens: Some(ai_response.usage.total_tokens() as i64),
+                estimated_cost: Some(calculate_cost(
+                    ai_response.usage.input_tokens,
+                    ai_response.usage.output_tokens,
+                )),
+                duration_ms: Some(0),
+                error: None,
+                tool_calls_count: None,
+                tool_calls_json: None,
+                response_metadata: None,
+                created_at: chrono::Utc::now(),
+            };
 
-    // Log AI usage to database
-    let usage_log = AiUsageLog {
-        id: nanoid::nanoid!(10),
-        project_id: Some(request.task_id.clone()),
-        request_id: None,
-        operation: "validateCompletion".to_string(),
-        provider: "anthropic".to_string(),
-        model: "claude-sonnet-4-20250514".to_string(),
-        input_tokens: Some(usage.input_tokens as i64),
-        output_tokens: Some(usage.output_tokens as i64),
-        total_tokens: Some(usage.total_tokens() as i64),
-        estimated_cost: Some(calculate_cost(
-            usage.input_tokens,
-            usage.output_tokens,
-        )),
-        duration_ms: Some(0),
-        error: None,
-        tool_calls_count: None,
-        tool_calls_json: None,
-        response_metadata: None,
-        created_at: chrono::Utc::now(),
-    };
+            // Save to database (non-blocking)
+            if let Err(e) = db.ai_usage_log_storage.create_log(&usage_log).await {
+                error!("Failed to log AI usage: {}", e);
+            }
 
-    // Save to database (non-blocking)
-    if let Err(e) = db.ai_usage_log_storage.create_log(&usage_log).await {
-        error!("Failed to log AI usage: {}", e);
+            let response = ValidateCompletionResponse {
+                task_id: request.task_id,
+                is_complete: ai_response.data.is_complete,
+                validation_results,
+                overall_confidence: ai_response.data.overall_confidence,
+                recommendations: ai_response.data.recommendations,
+                token_usage,
+                note: String::new(),
+            };
+
+            (StatusCode::OK, ResponseJson(ApiResponse::success(response))).into_response()
+        }
+        Err(e) => {
+            error!("AI validation failed: {}", e);
+            let error_message = match e {
+                AIServiceError::NoApiKey => {
+                    "Anthropic API key not configured. Please set ANTHROPIC_API_KEY environment variable.".to_string()
+                }
+                AIServiceError::ApiError(msg) => format!("Anthropic API error: {}", msg),
+                AIServiceError::ParseError(msg) => {
+                    format!("Failed to parse AI response: {}", msg)
+                }
+                AIServiceError::RequestFailed(e) => format!("Request failed: {}", e),
+                AIServiceError::InvalidResponse => {
+                    "Invalid response from AI service".to_string()
+                }
+            };
+
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                ResponseJson(ApiResponse::<()>::error(error_message)),
+            )
+                .into_response()
+        }
     }
-
-    let response = ValidateCompletionResponse {
-        task_id: request.task_id,
-        is_complete: data.is_complete,
-        validation_results,
-        overall_confidence: data.overall_confidence,
-        recommendations: data.recommendations,
-        token_usage,
-        note: String::new(),
-    };
-
-    (StatusCode::OK, ResponseJson(ApiResponse::success(response))).into_response()
 }
 
 #[derive(Deserialize)]

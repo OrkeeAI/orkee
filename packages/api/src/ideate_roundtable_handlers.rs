@@ -10,6 +10,7 @@ use axum::{
     Json,
 };
 use futures::stream::{self, Stream};
+use orkee_ai::AIService;
 use orkee_config::constants;
 use orkee_ideate::{
     CreateExpertPersonaInput, ExpertModerator, RoundtableEvent, RoundtableManager,
@@ -28,10 +29,6 @@ use super::response::{created_or_internal_error, ok_or_internal_error, ok_or_not
 // ============================================================================
 // CONFIGURATION & CONSTANTS
 // ============================================================================
-
-// TODO: Replace with proper user authentication
-const DEFAULT_USER_ID: &str = "default-user";
-const DEFAULT_MODEL: &str = "claude-sonnet-4-20250514";
 
 const DEFAULT_SSE_MAX_DURATION_MINUTES: u64 = 30;
 const DEFAULT_SSE_POLL_INTERVAL_SECS: u64 = 1;
@@ -125,12 +122,11 @@ pub async fn suggest_experts(
 ) -> impl IntoResponse {
     info!("Suggesting experts for roundtable discussion");
 
+    // Create AI service
+    let ai_service = AIService::new();
+
     let manager = RoundtableManager::new(db.pool.clone());
-    let moderator = ExpertModerator::new(
-        manager,
-        DEFAULT_USER_ID.to_string(),
-        DEFAULT_MODEL.to_string(),
-    );
+    let moderator = ExpertModerator::new(manager, ai_service);
 
     let result = moderator.suggest_experts(&request).await;
 
@@ -235,12 +231,11 @@ pub async fn start_discussion(
 ) -> impl IntoResponse {
     info!("Starting discussion for roundtable: {}", roundtable_id);
 
+    // Create AI service
+    let ai_service = AIService::new();
+
     let manager = RoundtableManager::new(db.pool.clone());
-    let moderator = ExpertModerator::new(
-        manager,
-        DEFAULT_USER_ID.to_string(),
-        DEFAULT_MODEL.to_string(),
-    );
+    let moderator = ExpertModerator::new(manager, ai_service);
 
     // Run discussion in background
     let roundtable_id_clone = roundtable_id.clone();
@@ -400,12 +395,11 @@ pub async fn send_interjection(
 ) -> impl IntoResponse {
     info!("Handling interjection for roundtable: {}", roundtable_id);
 
+    // Create AI service
+    let ai_service = AIService::new();
+
     let manager = RoundtableManager::new(db.pool.clone());
-    let moderator = ExpertModerator::new(
-        manager,
-        DEFAULT_USER_ID.to_string(),
-        DEFAULT_MODEL.to_string(),
-    );
+    let moderator = ExpertModerator::new(manager, ai_service);
 
     let result = moderator
         .handle_interjection(&roundtable_id, &request.message)
@@ -440,12 +434,11 @@ pub async fn extract_insights(
 ) -> impl IntoResponse {
     info!("Extracting insights for roundtable: {}", roundtable_id);
 
+    // Create AI service
+    let ai_service = AIService::new();
+
     let manager = RoundtableManager::new(db.pool.clone());
-    let moderator = ExpertModerator::new(
-        manager,
-        DEFAULT_USER_ID.to_string(),
-        DEFAULT_MODEL.to_string(),
-    );
+    let moderator = ExpertModerator::new(manager, ai_service);
 
     let result = moderator
         .extract_insights(&roundtable_id, request.categories)

@@ -17,8 +17,6 @@ use orkee_ideate::{
 };
 use orkee_projects::DbState;
 
-const DEFAULT_USER_ID: &str = "default-user";
-
 /// Get chat history for a session
 pub async fn get_history(
     State(db): State<DbState>,
@@ -494,7 +492,7 @@ pub async fn reanalyze_insights(
         let current_insights = manager.get_insights(&session_id).await.unwrap_or_default();
 
         // Extract insights from this message
-        match extract_insights_with_ai(DEFAULT_USER_ID, &message.content, &context, &current_insights).await {
+        match extract_insights_with_ai(&message.content, &context, &current_insights).await {
             Ok(insights) => {
                 info!(
                     "Extracted {} insights from message {}",
@@ -572,7 +570,7 @@ async fn extract_and_save_insights(
     let existing_insights = manager.get_insights(session_id).await.unwrap_or_default();
 
     // Extract insights using AI with deduplication
-    match extract_insights_with_ai(DEFAULT_USER_ID, message_content, &context, &existing_insights).await {
+    match extract_insights_with_ai(message_content, &context, &existing_insights).await {
         Ok(insights) => {
             info!("AI extracted {} new insights", insights.len());
 

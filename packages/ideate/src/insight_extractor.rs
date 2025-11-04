@@ -1,41 +1,11 @@
 // ABOUTME: AI-powered insight extraction from chat messages
 // ABOUTME: Uses Claude to intelligently extract requirements, risks, constraints, assumptions, and decisions
 
-use reqwest::Client;
+use orkee_ai::AIService;
 use serde::{Deserialize, Serialize};
 use tracing::{info, warn};
 
 use crate::{ChatInsight, CreateInsightInput, InsightType, Result};
-
-#[derive(Debug, serde::Deserialize)]
-struct AnthropicResponse {
-    #[allow(dead_code)]
-    id: String,
-    content: Vec<ContentBlock>,
-    usage: Usage,
-    #[allow(dead_code)]
-    stop_reason: Option<String>,
-}
-
-#[derive(Debug, serde::Deserialize)]
-struct ContentBlock {
-    #[serde(rename = "type")]
-    #[allow(dead_code)]
-    content_type: String,
-    text: String,
-}
-
-#[derive(Debug, serde::Deserialize)]
-struct Usage {
-    input_tokens: u32,
-    output_tokens: u32,
-}
-
-impl Usage {
-    fn total_tokens(&self) -> u32 {
-        self.input_tokens + self.output_tokens
-    }
-}
 
 /// AI-extracted insight with metadata
 #[derive(Debug, Deserialize, Serialize)]
@@ -54,7 +24,6 @@ pub struct InsightExtractionResponse {
 
 /// Extract insights from a chat message using AI with deduplication
 pub async fn extract_insights_with_ai(
-    user_id: &str,
     message_content: &str,
     conversation_context: &[String],   // Recent messages for context
     existing_insights: &[ChatInsight], // Existing insights for deduplication
@@ -63,6 +32,8 @@ pub async fn extract_insights_with_ai(
         "Extracting insights with AI from message ({} existing insights for deduplication)",
         existing_insights.len()
     );
+
+    let ai_service = AIService::new(); // Uses default model and env API key
 
     // Build context from recent messages
     let context = if conversation_context.is_empty() {
@@ -123,78 +94,22 @@ If no insights are found, return: {{"insights": []}}
         message_content, context, existing_insights_text
     );
 
-    let system_prompt =
+    let system_prompt = Some(
         "You are an expert at analyzing product requirement discussions and extracting structured insights. \
          Be precise and only extract genuinely relevant insights. NEVER duplicate existing insights - carefully \
          check the EXISTING INSIGHTS section and only extract NEW insights not already captured. \
-         Focus on actionable information that would be useful in a PRD.".to_string();
+         Focus on actionable information that would be useful in a PRD.".to_string()
+    );
 
-    let client = Client::new();
+    match ai_service
+        .generate_structured::<InsightExtractionResponse>(prompt, system_prompt)
+        .await
+    {
+        Ok(response) => {
+            info!("AI extracted {} insights", response.data.insights.len());
 
-    let request_body = serde_json::json!({
-        "model": "claude-3-opus-20240229",
-        "max_tokens": 64000,
-        "temperature": 0.7,
-        "messages": [{
-            "role": "user",
-            "content": prompt
-        }],
-        "system": system_prompt
-    });
-
-    let api_port = std::env::var("ORKEE_API_PORT").unwrap_or_else(|_| "4001".to_string());
-    let proxy_url = format!("http://localhost:{}/api/ai/anthropic/v1/messages", api_port);
-
-    let response = client
-        .post(&proxy_url)
-        .header("x-user-id", user_id)
-        .json(&request_body)
-        .send()
-        .await;
-
-    match response {
-        Ok(resp) => {
-            if !resp.status().is_success() {
-                let status = resp.status();
-                let error_text = resp.text().await.unwrap_or_else(|_| "Unknown error".to_string());
-                warn!(
-                    "AI proxy returned error {}: {}, falling back to empty list",
-                    status, error_text
-                );
-                return Ok(Vec::new());
-            }
-
-            let anthropic_response: AnthropicResponse = match resp.json().await {
-                Ok(r) => r,
-                Err(e) => {
-                    warn!(
-                        "Failed to parse AI response: {}, falling back to empty list",
-                        e
-                    );
-                    return Ok(Vec::new());
-                }
-            };
-
-            let data_text = anthropic_response
-                .content
-                .first()
-                .map(|c| c.text.as_str())
-                .unwrap_or("{}");
-
-            let extraction_response: InsightExtractionResponse = match serde_json::from_str(data_text) {
-                Ok(r) => r,
-                Err(e) => {
-                    warn!(
-                        "Failed to parse insight extraction response: {}, falling back to empty list",
-                        e
-                    );
-                    return Ok(Vec::new());
-                }
-            };
-
-            info!("AI extracted {} insights", extraction_response.insights.len());
-
-            let insights = extraction_response
+            let insights = response
+                .data
                 .insights
                 .into_iter()
                 .filter_map(|insight| {
