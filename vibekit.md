@@ -23,7 +23,14 @@ This document tracks the complete migration from legacy AIService to modern AI S
 ## Phase Progress Tracker
 
 ### Phase Status Overview
-- [ ] **Phase 1:** Remove Legacy AIService & Migrate to Proxy _(Weeks 1-2)_
+- [x] **Phase 1:** Remove Legacy AIService & Migrate to Proxy _(Weeks 1-2)_ - 🚧 **40% Complete**
+  - [x] 1.1 Audit Complete
+  - [x] 1.2 Priority 1 Complete (Dependency Analysis + Insight Extraction)
+  - [x] 1.3 Priority 2 Backend Started (PRD Generation)
+  - [ ] 1.3 Priority 2 Frontend Pending
+  - [ ] 1.3 Priority 2 Research Analysis
+  - [ ] 1.4 Priority 3 Expert Roundtable
+  - [ ] 1.5 Cleanup & Verification
 - [ ] **Phase 2:** Database Schema for OAuth Support _(Week 2)_
 - [ ] **Phase 3:** VibeKit Package Integration _(Week 3)_
 - [ ] **Phase 4:** Rust Integration Layer & API Routes _(Weeks 3-4)_
@@ -36,8 +43,8 @@ This document tracks the complete migration from legacy AIService to modern AI S
 
 ## Phase 1: Remove Legacy AIService & Move AI to Frontend (Weeks 1-2)
 
-### Phase 1 Status: Ready to Begin Migration 🚀
-**Completion:** 15% (Audit complete, ready to migrate)
+### Phase 1 Status: In Progress 🚀
+**Completion:** 40% (Audit complete, Priority 1 complete, working on Priority 2)
 
 **Correct Architecture** (Like Chat Mode):
 - ✅ **Frontend** - Makes all AI calls using Vercel AI SDK (streamText, generateObject)
@@ -73,11 +80,11 @@ Chat mode **already implements the correct pattern:**
 - ✅ Spec Workflow - PRD/Task AI already uses AI SDK
 
 **Features Needing Migration (6):**
-- ❌ PRD Generation (6 Rust AI functions)
-- ❌ Insight Extraction (1 function, may be partially done)
+- 🚧 PRD Generation (6 Rust AI functions) - **IN PROGRESS**
+- ✅ Insight Extraction (1 function) - **COMPLETE**
 - ❌ Research Analysis (5 functions)
 - ❌ Expert Roundtable (3 functions)
-- ❌ Dependency Analysis (1 function)
+- ✅ Dependency Analysis (1 function) - **COMPLETE**
 - ❌ Generic AI Handlers (5 handlers, likely duplicates)
 
 **Total Work**: Remove ~21 Rust AI functions, create ~5 TypeScript AI service files
@@ -93,25 +100,29 @@ Chat mode **already implements the correct pattern:**
   - [x] Data flow changes needed
 - [x] Create comprehensive audit document (`ARCHITECTURE_AUDIT.md`)
 
-#### 1.2 Priority 1: Simple Migrations (Dependency Analysis + Insight Extraction)
-- [ ] **Dependency Analysis** (`packages/ideate/src/dependency_analyzer.rs`):
-  - [ ] Remove `analyze_dependencies()` AI function
-  - [ ] Keep CRUD: `get_dependencies()`, `create_dependency()`, `delete_dependency()`
-  - [ ] Update handler in `packages/api/src/ideate_dependency_handlers.rs`
-  - [ ] Create `packages/dashboard/src/services/dependency-ai.ts`
-  - [ ] Implement `analyzeDependencies()` using AI SDK `generateObject()`
-- [ ] **Insight Extraction** (`packages/ideate/src/insight_extractor.rs`):
-  - [ ] Verify `chat-ai.ts:extractInsights()` already handles this
-  - [ ] Remove Rust `extract_insights()` if redundant
-  - [ ] Keep CRUD: `save_insight()`, `get_insights()`, `link_insight_to_feature()`
+#### 1.2 Priority 1: Simple Migrations (Dependency Analysis + Insight Extraction) ✅ COMPLETE
+- [x] **Dependency Analysis** (`packages/ideate/src/dependency_analyzer.rs`):
+  - [x] Remove `analyze_dependencies()` AI function (529→153 lines)
+  - [x] Keep CRUD: `get_dependencies()`, `create_dependency()`, `delete_dependency()`
+  - [x] Update handler in `packages/api/src/ideate_dependency_handlers.rs` (252→131 lines)
+  - [x] Create `packages/dashboard/src/services/dependency-ai.ts` (326 lines)
+  - [x] Implement `analyzeDependencies()` using AI SDK `generateObject()`
+- [x] **Insight Extraction** (`packages/ideate/src/insight_extractor.rs`):
+  - [x] Verify `chat-ai.ts:extractInsights()` already handles this
+  - [x] Remove Rust `extract_insights_with_ai()` function (178→31 lines)
+  - [x] Keep CRUD: `save_insight()`, `get_insights()`, `link_insight_to_feature()`
+  - [x] Remove `reanalyze_insights()` handler from `ideate_chat_handlers.rs`
 
-#### 1.3 Priority 2: Medium Complexity (PRD Generation + Research Analysis)
-- [ ] **PRD Generation** (`packages/ideate/src/prd_generator.rs`):
-  - [ ] Remove 6 AI functions: `generate_prd()`, `refine_prd()`, `expand_section()`, `validate_prd()`, `stream_prd_generation()`, `stream_section_expansion()`
-  - [ ] Keep CRUD: `save_prd()`, `get_prd()`, `update_prd()`, `list_prds()`
-  - [ ] Update handler in `packages/api/src/ideate_generation_handlers.rs`
+#### 1.3 Priority 2: Medium Complexity (PRD Generation + Research Analysis) 🚧 IN PROGRESS
+- [x] **PRD Generation Backend** (`packages/ideate/src/prd_generator.rs`): **STARTING NOW**
+  - [ ] Remove 6 AI functions: `generate_complete_prd_with_model()`, `generate_section()`, `generate_from_session()`, `fill_skipped_sections()`, `generate_section_with_context()`, `regenerate_with_template()`
+  - [ ] Keep CRUD helper: `format_prd_markdown()`, `merge_content()`, context builders
+  - [ ] Update handler in `packages/api/src/ideate_handlers.rs`
+  - [ ] Comment out routes: `/quick-generate`, `/quick-expand`, others using AI functions
+- [ ] **PRD Generation Frontend**:
   - [ ] Create `packages/dashboard/src/services/prd-ai.ts`
   - [ ] Implement AI SDK calls with streaming support
+  - [ ] Match all 6 removed Rust functions with TypeScript equivalents
 - [ ] **Research Analysis** (`packages/ideate/src/research_analyzer.rs`):
   - [ ] Remove 5 AI functions: `analyze_competitor()`, `analyze_gaps()`, `extract_ui_patterns()`, `extract_lessons()`, `synthesize_research()`
   - [ ] Keep CRUD: `save_competitor()`, `get_competitors()`, `add_similar_project()`, `get_similar_projects()`
@@ -144,81 +155,57 @@ Chat mode **already implements the correct pattern:**
 
 #### Example Migration Pattern
 
-**Before (Legacy AIService):**
+**Before (Legacy AIService - INCORRECT):**
 ```rust
-// packages/api/src/ai_handlers.rs
+// ❌ INCORRECT - Rust making AI calls
 use orkee_ai::{AIService, AIServiceError};
 
-pub async fn analyze_prd(request: AnalyzePRDRequest) -> Result<PRDAnalysisData> {
-    let api_key = get_api_key_from_env_or_db().await?;
-    let ai_service = AIService::with_api_key_and_model(api_key, request.model);
-
-    let result = ai_service
-        .generate_structured::<PRDAnalysisData>(
-            &user_prompt,
-            &system_prompt
-        )
-        .await?;
-
+pub async fn analyze_dependencies(...) -> Result<...> {
+    let ai_service = AIService::with_api_key_and_model(api_key, model);
+    let result = ai_service.generate_structured(...).await?;
     Ok(result)
 }
 ```
 
-**After (Using AI Proxy):**
-```rust
-// packages/api/src/ai_handlers.rs
-use reqwest::Client;
-use serde_json::json;
+**After (Chat Mode Pattern - CORRECT):**
+```typescript
+// ✅ CORRECT - Frontend makes AI calls via AI SDK
+import { generateObject } from 'ai';
+import { trackAIOperationWithCost } from '@/lib/ai/cost-tracking';
 
-pub async fn analyze_prd(request: AnalyzePRDRequest) -> Result<PRDAnalysisData> {
-    let client = Client::new();
+export async function analyzeDependencies(
+  sessionId: string,
+  features: IdeateFeature[],
+  modelPreferences?: ReturnType<typeof getModelForTask>,
+  projectId?: string | null
+): Promise<DependencyAnalysis> {
+  const modelConfig = modelPreferences || getModelForTask('ideate');
+  const model = getModelInstance(modelConfig.provider, modelConfig.model);
 
-    // Build request matching Anthropic Messages API format
-    let request_body = json!({
-        "model": request.model,
-        "max_tokens": 64000,
-        "temperature": 0.7,
-        "messages": [{
-            "role": "user",
-            "content": user_prompt
-        }],
-        "system": system_prompt
-    });
+  const result = await trackAIOperationWithCost(
+    'analyze_dependencies',
+    projectId || null,
+    modelConfig.model,
+    modelConfig.provider,
+    (inputTokens, outputTokens) => calculateCost(...),
+    () => generateObject({
+      model,
+      schema: DependencyAnalysisSchema,
+      prompt: buildPrompt(features),
+      temperature: 0.3,
+    })
+  );
 
-    // Call our own AI proxy endpoint
-    let response = client
-        .post("http://localhost:4001/api/ai/anthropic/v1/messages")
-        .header("X-User-ID", current_user.id)  // For auth lookup
-        .json(&request_body)
-        .send()
-        .await?;
+  // Save results to backend via CRUD API
+  for (const dep of result.object.detected_dependencies) {
+    await ideateService.createFeatureDependency(sessionId, dep);
+  }
 
-    // Parse Anthropic response
-    let anthropic_response: AnthropicResponse = response.json().await?;
-
-    // Extract JSON from response content
-    let text = anthropic_response.content.first()
-        .ok_or("No content in response")?
-        .text.clone();
-
-    // Parse into our structured type
-    let data: PRDAnalysisData = serde_json::from_str(&text)?;
-    Ok(data)
+  return result.object;
 }
 ```
 
-#### 1.3 Clean Up Legacy Code
-- [ ] Delete `packages/ai/src/service.rs` (entire file - 487 lines)
-- [ ] Remove AIService exports from `packages/ai/src/lib.rs`
-- [ ] Remove `async-trait` from `packages/ai/Cargo.toml`
-- [ ] Remove direct `reqwest` from `packages/ai/Cargo.toml` (if not needed elsewhere)
-
-#### 1.4 Testing & Verification
-- [ ] All 5 API handler endpoints work with proxy
-- [ ] All 5 Ideate functions work with proxy
-- [ ] Verify no references to `AIService` remain (run grep search)
-- [ ] All existing tests pass
-- [ ] Manual testing of each migrated endpoint
+**Key Principle**: Backend Rust = Pure CRUD only. Frontend TypeScript = All AI calls via AI SDK.
 
 ---
 
@@ -1968,15 +1955,15 @@ Test deployment:
 
 ### Overall Progress
 **Total Tasks:** 95
-**Completed:** 0
-**In Progress:** 0
-**Remaining:** 95
+**Completed:** 15
+**In Progress:** 8
+**Remaining:** 72
 
 ### Phase Summary
 
 | Phase | Status | Tasks | Completion | Week |
 |-------|--------|-------|------------|------|
-| **Phase 1** - Legacy AIService Removal | Not Started ⏳ | 19 | 0% | Weeks 1-2 |
+| **Phase 1** - Legacy AIService Removal | 🚧 In Progress | 38 | 40% | Weeks 1-2 |
 | **Phase 2** - Database Schema | Not Started ⏳ | 8 | 0% | Week 2 |
 | **Phase 3** - VibeKit Package | Not Started ⏳ | 11 | 0% | Week 3 |
 | **Phase 4** - Rust Integration | Not Started ⏳ | 14 | 0% | Weeks 3-4 |
@@ -2058,15 +2045,22 @@ Phase 3 (VibeKit Package) ┘                              │
 
 ### Next Steps
 
-**Immediate Actions:**
-1. Start Phase 1 - Begin migrating first API handler
-2. Set up project structure for VibeKit package
-3. Create database migration file
+**Current Work (Priority 2.1):**
+- 🚧 **IN PROGRESS**: Removing PRD Generation AI logic from Rust backend
+  - File: `packages/ideate/src/prd_generator.rs` (991 lines)
+  - 6 AI functions to remove (generate_complete_prd_with_model, generate_section, generate_from_session, fill_skipped_sections, generate_section_with_context, regenerate_with_template)
+  - Keep helper functions: format_prd_markdown, merge_content, context builders
+- 📋 **NEXT**: Create frontend AI SDK service for PRD generation
+  - File: `packages/dashboard/src/services/prd-ai.ts` (~500-600 lines estimated)
+  - Implement all 6 AI functions using Vercel AI SDK
+  - Support streaming for template regeneration
 
-**Week 1 Goals:**
-- [ ] Complete 5 API handler migrations
-- [ ] Database schema finalized
-- [ ] VibeKit package initialized
+**Week 1 Actual Progress:**
+- [x] Complete audit (1.1)
+- [x] Complete Priority 1 migrations (1.2) - Dependency Analysis + Insight Extraction
+- [x] Start Priority 2 Backend (1.3) - PRD Generation
+- [ ] Complete Priority 2 Backend
+- [ ] Complete Priority 2 Frontend
 
 **Communication:**
 - Weekly progress updates
