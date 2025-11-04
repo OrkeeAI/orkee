@@ -2,6 +2,7 @@
 // ABOUTME: Wraps AI SDK calls to capture tokens, costs, duration, and tool usage
 
 import { calculateCost } from './config';
+import { getApiBaseUrl } from '@/services/api';
 
 /**
  * Telemetry data structure matching backend API
@@ -161,9 +162,7 @@ export function extractTelemetryData(
  */
 async function sendTelemetry(data: AITelemetryData): Promise<void> {
   try {
-    const apiBaseUrl = window.location.origin.includes('localhost')
-      ? 'http://localhost:4001'
-      : window.location.origin;
+    const apiBaseUrl = await getApiBaseUrl();
 
     const response = await fetch(`${apiBaseUrl}/api/ai-usage`, {
       method: 'POST',
@@ -199,6 +198,76 @@ async function sendTelemetry(data: AITelemetryData): Promise<void> {
 }
 
 /**
+ * Build telemetry data from AI SDK result
+ */
+function buildTelemetryData(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  result: any,
+  operation: string,
+  projectId: string | null,
+  requestId: string,
+  model: string,
+  provider: string,
+  durationMs: number,
+  calculateCostFn: (inputTokens: number, outputTokens: number) => number
+): AITelemetryData {
+  const usage = result.usage || {};
+  const toolCalls = extractToolCalls(result);
+
+  const inputTokens = usage.inputTokens || usage.promptTokens || 0;
+  const outputTokens = usage.outputTokens || usage.completionTokens || 0;
+  const estimatedCost = calculateCostFn(inputTokens, outputTokens);
+
+  return {
+    operation,
+    projectId,
+    requestId,
+    model,
+    provider,
+    inputTokens,
+    outputTokens,
+    totalTokens: usage.totalTokens || inputTokens + outputTokens,
+    estimatedCost,
+    durationMs,
+    toolCallsCount: toolCalls.length,
+    toolCallsJson: toolCalls.length > 0 ? JSON.stringify(toolCalls) : undefined,
+    responseMetadata: JSON.stringify({
+      finishReason: result.finishReason,
+      id: result.id,
+      ...result.experimental_providerMetadata,
+    }),
+  };
+}
+
+/**
+ * Build error telemetry data
+ */
+function buildErrorTelemetryData(
+  error: unknown,
+  operation: string,
+  projectId: string | null,
+  requestId: string,
+  model: string,
+  provider: string,
+  durationMs: number
+): AITelemetryData {
+  return {
+    operation,
+    projectId,
+    requestId,
+    model,
+    provider,
+    inputTokens: 0,
+    outputTokens: 0,
+    totalTokens: 0,
+    estimatedCost: 0,
+    durationMs,
+    toolCallsCount: 0,
+    error: error instanceof Error ? error.message : String(error),
+  };
+}
+
+/**
  * Track an AI operation with automatic telemetry
  *
  * @param operation - Operation name (e.g., 'generate_project_ideas', 'chat_message')
@@ -231,6 +300,12 @@ export async function trackAIOperation<T extends AIResponse>(
   const startTime = performance.now();
   const requestId = crypto.randomUUID();
 
+  // Cost calculation function using legacy approach
+  const calcCost = (inputTokens: number, outputTokens: number) => {
+    const providerType = (provider === 'openai' || provider === 'anthropic') ? provider : 'anthropic';
+    return calculateCost(providerType, model, inputTokens, outputTokens);
+  };
+
   try {
     const result = await aiFunction();
 
@@ -242,34 +317,16 @@ export async function trackAIOperation<T extends AIResponse>(
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       result.onFinish = async (finalResult: any) => {
         const durationMs = Math.round(performance.now() - startTime);
-        const usage = finalResult.usage || {};
-        const toolCalls = extractToolCalls(finalResult);
-
-        // Calculate cost from usage using accurate model pricing
-        const providerType = (provider === 'openai' || provider === 'anthropic') ? provider : 'anthropic';
-        const inputTokens = usage.promptTokens || usage.inputTokens || 0;
-        const outputTokens = usage.completionTokens || usage.outputTokens || 0;
-        const estimatedCost = calculateCost(providerType, model, inputTokens, outputTokens);
-
-        const telemetryData: AITelemetryData = {
+        const telemetryData = buildTelemetryData(
+          finalResult,
           operation,
           projectId,
           requestId,
           model,
           provider,
-          inputTokens: usage.promptTokens || 0,
-          outputTokens: usage.completionTokens || 0,
-          totalTokens: usage.totalTokens || 0,
-          estimatedCost,
           durationMs,
-          toolCallsCount: toolCalls.length,
-          toolCallsJson: toolCalls.length > 0 ? JSON.stringify(toolCalls) : undefined,
-          responseMetadata: JSON.stringify({
-            finishReason: finalResult.finishReason,
-            id: finalResult.id,
-            ...finalResult.experimental_providerMetadata,
-          }),
-        };
+          calcCost
+        );
 
         await sendTelemetry(telemetryData);
 
@@ -283,57 +340,32 @@ export async function trackAIOperation<T extends AIResponse>(
     } else {
       // For non-streaming responses, send telemetry immediately
       const durationMs = Math.round(performance.now() - startTime);
-      const usage = result.usage || {};
-      const toolCalls = extractToolCalls(result);
-
-      // Calculate cost from usage using accurate model pricing
-      const providerType = (provider === 'openai' || provider === 'anthropic') ? provider : 'anthropic';
-      const inputTokens = usage.promptTokens || usage.inputTokens || 0;
-      const outputTokens = usage.completionTokens || usage.outputTokens || 0;
-      const estimatedCost = calculateCost(providerType, model, inputTokens, outputTokens);
-
-      const telemetryData: AITelemetryData = {
+      const telemetryData = buildTelemetryData(
+        result,
         operation,
         projectId,
         requestId,
         model,
         provider,
-        inputTokens: usage.promptTokens || 0,
-        outputTokens: usage.completionTokens || 0,
-        totalTokens: usage.totalTokens || 0,
-        estimatedCost,
         durationMs,
-        toolCallsCount: toolCalls.length,
-        toolCallsJson: toolCalls.length > 0 ? JSON.stringify(toolCalls) : undefined,
-        responseMetadata: JSON.stringify({
-          finishReason: result.finishReason,
-          id: result.id,
-          ...result.experimental_providerMetadata,
-        }),
-      };
+        calcCost
+      );
 
       await sendTelemetry(telemetryData);
 
       return result;
     }
   } catch (error) {
-    // Log failed attempt
     const durationMs = Math.round(performance.now() - startTime);
-
-    const telemetryData: AITelemetryData = {
+    const telemetryData = buildErrorTelemetryData(
+      error,
       operation,
       projectId,
       requestId,
       model,
       provider,
-      inputTokens: 0,
-      outputTokens: 0,
-      totalTokens: 0,
-      estimatedCost: 0,
-      durationMs,
-      toolCallsCount: 0,
-      error: error instanceof Error ? error.message : String(error),
-    };
+      durationMs
+    );
 
     await sendTelemetry(telemetryData);
 
@@ -374,33 +406,16 @@ export async function trackAIOperationWithCost<T extends AIResponse>(
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       result.onFinish = async (finalResult: any) => {
         const durationMs = Math.round(performance.now() - startTime);
-        const usage = finalResult.usage || {};
-        const toolCalls = extractToolCalls(finalResult);
-
-        // AI SDK with experimental_telemetry uses inputTokens/outputTokens (not promptTokens/completionTokens)
-        const inputTokens = usage.inputTokens || usage.promptTokens || 0;
-        const outputTokens = usage.outputTokens || usage.completionTokens || 0;
-        const estimatedCost = calculateCostFn(inputTokens, outputTokens);
-
-        const telemetryData: AITelemetryData = {
+        const telemetryData = buildTelemetryData(
+          finalResult,
           operation,
           projectId,
           requestId,
           model,
           provider,
-          inputTokens,
-          outputTokens,
-          totalTokens: usage.totalTokens || inputTokens + outputTokens,
-          estimatedCost,
           durationMs,
-          toolCallsCount: toolCalls.length,
-          toolCallsJson: toolCalls.length > 0 ? JSON.stringify(toolCalls) : undefined,
-          responseMetadata: JSON.stringify({
-            finishReason: finalResult.finishReason,
-            id: finalResult.id,
-            ...finalResult.experimental_providerMetadata,
-          }),
-        };
+          calculateCostFn
+        );
 
         await sendTelemetry(telemetryData);
 
@@ -413,33 +428,16 @@ export async function trackAIOperationWithCost<T extends AIResponse>(
     } else {
       // Non-streaming response
       const durationMs = Math.round(performance.now() - startTime);
-      const usage = result.usage || {};
-      const toolCalls = extractToolCalls(result);
-
-      // AI SDK with experimental_telemetry uses inputTokens/outputTokens (not promptTokens/completionTokens)
-      const inputTokens = usage.inputTokens || usage.promptTokens || 0;
-      const outputTokens = usage.outputTokens || usage.completionTokens || 0;
-      const estimatedCost = calculateCostFn(inputTokens, outputTokens);
-
-      const telemetryData: AITelemetryData = {
+      const telemetryData = buildTelemetryData(
+        result,
         operation,
         projectId,
         requestId,
         model,
         provider,
-        inputTokens,
-        outputTokens,
-        totalTokens: usage.totalTokens || inputTokens + outputTokens,
-        estimatedCost,
         durationMs,
-        toolCallsCount: toolCalls.length,
-        toolCallsJson: toolCalls.length > 0 ? JSON.stringify(toolCalls) : undefined,
-        responseMetadata: JSON.stringify({
-          finishReason: result.finishReason,
-          id: result.id,
-          ...result.experimental_providerMetadata,
-        }),
-      };
+        calculateCostFn
+      );
 
       await sendTelemetry(telemetryData);
 
@@ -447,21 +445,15 @@ export async function trackAIOperationWithCost<T extends AIResponse>(
     }
   } catch (error) {
     const durationMs = Math.round(performance.now() - startTime);
-
-    const telemetryData: AITelemetryData = {
+    const telemetryData = buildErrorTelemetryData(
+      error,
       operation,
       projectId,
       requestId,
       model,
       provider,
-      inputTokens: 0,
-      outputTokens: 0,
-      totalTokens: 0,
-      estimatedCost: 0,
-      durationMs,
-      toolCallsCount: 0,
-      error: error instanceof Error ? error.message : String(error),
-    };
+      durationMs
+    );
 
     await sendTelemetry(telemetryData);
 

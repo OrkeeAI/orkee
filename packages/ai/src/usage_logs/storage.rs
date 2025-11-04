@@ -580,6 +580,8 @@ impl AiUsageLogStorage {
 
         // SQLite date/time grouping based on interval
         // Validate interval to prevent SQL injection
+        // Note: For 'week', we use %Y-W%W which gives week number (0-53)
+        // This is parsed using ISO week format %G-W%V for correct year boundary handling
         let date_format = match interval {
             "hour" => "%Y-%m-%d %H:00:00",
             "day" => "%Y-%m-%d 00:00:00",
@@ -630,9 +632,20 @@ impl AiUsageLogStorage {
             .filter_map(|row| {
                 let time_bucket: String = row.try_get("time_bucket").ok()?;
                 let timestamp = if interval == "week" {
-                    // For week format, parse differently
-                    chrono::NaiveDate::parse_from_str(&time_bucket, "%Y-W%W")
-                        .ok()?
+                    // Parse week format using ISO 8601 week date format
+                    // Convert %Y-W%W format to %G-W%V for proper ISO week handling
+                    // This handles year boundaries correctly (e.g., 2024-W01 belongs to 2024 even if Dec 31 2023 is in that week)
+
+                    // Parse the week string (format: "2024-W01")
+                    let parts: Vec<&str> = time_bucket.split("-W").collect();
+                    if parts.len() != 2 {
+                        return None;
+                    }
+                    let year: i32 = parts[0].parse().ok()?;
+                    let week: u32 = parts[1].parse().ok()?;
+
+                    // Get Monday of the ISO week (ISO weeks start on Monday)
+                    chrono::NaiveDate::from_isoywd_opt(year, week, chrono::Weekday::Mon)?
                         .and_hms_opt(0, 0, 0)?
                         .and_utc()
                 } else {

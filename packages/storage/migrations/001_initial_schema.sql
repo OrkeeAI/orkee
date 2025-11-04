@@ -641,6 +641,7 @@ CREATE INDEX idx_ai_usage_logs_created ON ai_usage_logs(created_at);
 CREATE INDEX idx_ai_usage_logs_operation ON ai_usage_logs(operation);
 CREATE INDEX idx_ai_usage_logs_provider_model ON ai_usage_logs(provider, model);
 CREATE INDEX idx_ai_usage_logs_provider_model_created ON ai_usage_logs(provider, model, created_at);
+CREATE INDEX idx_ai_usage_logs_project_created ON ai_usage_logs(project_id, created_at);
 CREATE INDEX idx_ai_usage_logs_tool_calls ON ai_usage_logs(tool_calls_count) WHERE tool_calls_count > 0;
 
 -- Note: AI usage logs should be cleaned up via external scheduled job or cron task
