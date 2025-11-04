@@ -2829,17 +2829,13 @@ dependencies = [
 name = "orkee-ai"
 version = "0.0.9"
 dependencies = [
- "async-stream",
  "chrono",
- "futures",
  "orkee-core",
  "orkee-storage",
- "reqwest 0.12.24",
  "serde",
  "serde_json",
  "sqlx",
  "tempfile",
- "thiserror 2.0.17",
  "tokio",
  "tracing",
  "wiremock",
