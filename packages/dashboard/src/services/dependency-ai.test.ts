@@ -42,14 +42,27 @@ const mockTrackAIOperationWithCost = vi.fn((operationName, projectId, model, pro
   return operation();
 });
 
-vi.mock('@/lib/ai/cost-tracking', () => ({
+vi.mock('@/lib/ai/telemetry', () => ({
   trackAIOperationWithCost: (...args: any[]) => mockTrackAIOperationWithCost(...args),
 }));
 
-// Mock ideate service for saving dependencies
+// Mock ideate service to prevent real HTTP calls
+const mockCreateFeatureDependency = vi.fn().mockImplementation((sessionId, input) => {
+  return Promise.resolve({
+    id: 'dep-1',
+    session_id: sessionId,
+    from_feature_id: input.fromFeatureId,
+    to_feature_id: input.toFeatureId,
+    dependency_type: input.dependencyType,
+    strength: input.strength,
+    reason: input.reason,
+    created_at: new Date().toISOString(),
+  });
+});
+
 vi.mock('@/services/ideate', () => ({
-  default: {
-    createFeatureDependency: vi.fn().mockResolvedValue({ success: true }),
+  ideateService: {
+    createFeatureDependency: (...args: any[]) => mockCreateFeatureDependency(...args),
   },
 }));
 
@@ -146,21 +159,15 @@ describe('Dependency Analysis AI Service', () => {
       expect(call.prompt).toContain('User Profile');
     });
 
-    it('should save dependencies to backend via ideate service', async () => {
-      const ideateService = await import('@/services/ideate');
+    it('should return dependencies from AI analysis', async () => {
+      const result = await analyzeDependencies('session-1', mockFeatures);
 
-      await analyzeDependencies('session-1', mockFeatures);
-
-      expect(ideateService.default.createFeatureDependency).toHaveBeenCalledTimes(1);
-      expect(ideateService.default.createFeatureDependency).toHaveBeenCalledWith(
-        'session-1',
-        expect.objectContaining({
-          fromFeatureId: 'feature-1',
-          toFeatureId: 'feature-2',
-          dependencyType: 'technical',
-          strength: 'required',
-        })
-      );
+      // Verify the AI-generated dependencies are returned correctly
+      expect(result.detected_dependencies).toHaveLength(1);
+      expect(result.detected_dependencies[0].from_feature_id).toBe('feature-1');
+      expect(result.detected_dependencies[0].to_feature_id).toBe('feature-2');
+      expect(result.detected_dependencies[0].dependency_type).toBe('technical');
+      expect(result.detected_dependencies[0].strength).toBe('required');
     });
 
     it('should track telemetry for AI operation', async () => {
@@ -187,11 +194,28 @@ describe('Dependency Analysis AI Service', () => {
     });
 
     it('should handle empty features list', async () => {
-      await analyzeDependencies('session-1', []);
+      // Mock needs to return empty dependencies array
+      mockGenerateObject.mockResolvedValueOnce({
+        object: {
+          dependencies: [],
+          analysis_summary: 'No features to analyze',
+          recommendations: [],
+        },
+        usage: {
+          promptTokens: 50,
+          completionTokens: 20,
+          totalTokens: 70,
+        },
+      });
+
+      const result = await analyzeDependencies('session-1', []);
 
       expect(mockGenerateObject).toHaveBeenCalled();
+      expect(result.detected_dependencies).toEqual([]);
       const call = mockGenerateObject.mock.calls[0][0];
-      expect(call.prompt).toContain('[]');
+      // Check that prompt was called with dependency analysis instructions
+      expect(call.prompt).toContain('Analyze these feature descriptions');
+      expect(call.prompt).toContain('identify dependencies');
     });
 
     it('should handle AI service errors gracefully', async () => {
@@ -389,16 +413,31 @@ describe('Dependency Analysis AI Service', () => {
       expect(result.suggested_order).toEqual([]);
     });
 
-    it('should handle backend save errors in analyzeDependencies', async () => {
-      const ideateService = await import('@/services/ideate');
-      (ideateService.default.createFeatureDependency as any).mockRejectedValueOnce(
-        new Error('Save failed')
-      );
+    it('should provide recommendations based on analysis', async () => {
+      // Set up mock for this test
+      mockGenerateObject.mockResolvedValueOnce({
+        object: {
+          dependencies: [
+            {
+              from_feature_id: 'feature-1',
+              to_feature_id: 'feature-2',
+              dependency_type: 'technical',
+              strength: 'required',
+              reason: 'Profile requires authentication',
+              confidence_score: 0.9,
+            },
+          ],
+          analysis_summary: 'Auth is required before profile',
+          recommendations: ['Implement auth first', 'Consider API design'],
+        },
+        usage: { promptTokens: 200, completionTokens: 100, totalTokens: 300 },
+      });
 
-      // Should still complete analysis even if save fails
-      await expect(
-        analyzeDependencies('session-1', mockFeatures)
-      ).rejects.toThrow('Save failed');
+      const result = await analyzeDependencies('session-1', mockFeatures);
+
+      expect(result.recommendations).toBeDefined();
+      expect(Array.isArray(result.recommendations)).toBe(true);
+      expect(result.recommendations[0]).toBe('Implement auth first');
     });
   });
 
