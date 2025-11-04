@@ -143,7 +143,13 @@ async fn try_get_oauth_token(db: &DbState, user_id: &str, provider: &str) -> Opt
     };
 
     // Create OAuth manager
-    let manager = orkee_auth::OAuthManager::new(db.pool.clone());
+    let manager = match orkee_auth::OAuthManager::new(db.pool.clone()) {
+        Ok(m) => m,
+        Err(e) => {
+            warn!("Failed to initialize OAuth manager: {}", e);
+            return None;
+        }
+    };
 
     // Try to get valid OAuth token
     match manager.get_token(user_id, oauth_provider).await {

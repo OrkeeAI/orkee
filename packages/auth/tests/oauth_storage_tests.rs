@@ -90,7 +90,7 @@ fn create_test_token(user_id: &str, provider: OAuthProvider) -> OAuthToken {
 #[tokio::test]
 async fn test_store_and_retrieve_token() {
     let (pool, _temp_dir) = setup_test_db().await;
-    let storage = OAuthStorage::new(pool);
+    let storage = OAuthStorage::new(pool).unwrap();
 
     let token = create_test_token("user-1", OAuthProvider::Claude);
 
@@ -116,7 +116,7 @@ async fn test_store_and_retrieve_token() {
 #[tokio::test]
 async fn test_store_token_upsert() {
     let (pool, _temp_dir) = setup_test_db().await;
-    let storage = OAuthStorage::new(pool);
+    let storage = OAuthStorage::new(pool).unwrap();
 
     let token1 = create_test_token("user-1", OAuthProvider::Claude);
     storage.store_token(&token1).await.unwrap();
@@ -139,7 +139,7 @@ async fn test_store_token_upsert() {
 #[tokio::test]
 async fn test_get_token_not_found() {
     let (pool, _temp_dir) = setup_test_db().await;
-    let storage = OAuthStorage::new(pool);
+    let storage = OAuthStorage::new(pool).unwrap();
 
     let result = storage
         .get_token("nonexistent-user", OAuthProvider::Claude)
@@ -151,7 +151,7 @@ async fn test_get_token_not_found() {
 #[tokio::test]
 async fn test_delete_token() {
     let (pool, _temp_dir) = setup_test_db().await;
-    let storage = OAuthStorage::new(pool);
+    let storage = OAuthStorage::new(pool).unwrap();
 
     let token = create_test_token("user-1", OAuthProvider::OpenAI);
     storage.store_token(&token).await.unwrap();
@@ -180,7 +180,7 @@ async fn test_delete_token() {
 #[tokio::test]
 async fn test_multiple_providers_per_user() {
     let (pool, _temp_dir) = setup_test_db().await;
-    let storage = OAuthStorage::new(pool);
+    let storage = OAuthStorage::new(pool).unwrap();
 
     // Store tokens for multiple providers
     let token_claude = create_test_token("user-1", OAuthProvider::Claude);
@@ -216,7 +216,7 @@ async fn test_multiple_providers_per_user() {
 #[tokio::test]
 async fn test_multiple_users_same_provider() {
     let (pool, _temp_dir) = setup_test_db().await;
-    let storage = OAuthStorage::new(pool);
+    let storage = OAuthStorage::new(pool).unwrap();
 
     let token_user1 = create_test_token("user-1", OAuthProvider::Claude);
     let token_user2 = create_test_token("user-2", OAuthProvider::Claude);
@@ -244,7 +244,7 @@ async fn test_multiple_users_same_provider() {
 #[tokio::test]
 async fn test_store_and_retrieve_provider_config() {
     let (pool, _temp_dir) = setup_test_db().await;
-    let storage = OAuthStorage::new(pool);
+    let storage = OAuthStorage::new(pool).unwrap();
 
     let config = OAuthProviderConfig {
         provider: "claude".to_string(),
@@ -279,7 +279,7 @@ async fn test_store_and_retrieve_provider_config() {
 #[tokio::test]
 async fn test_provider_config_upsert() {
     let (pool, _temp_dir) = setup_test_db().await;
-    let storage = OAuthStorage::new(pool);
+    let storage = OAuthStorage::new(pool).unwrap();
 
     let config1 = OAuthProviderConfig {
         provider: "openai".to_string(),
@@ -325,7 +325,7 @@ async fn test_provider_config_upsert() {
 #[tokio::test]
 async fn test_get_provider_config_not_found() {
     let (pool, _temp_dir) = setup_test_db().await;
-    let storage = OAuthStorage::new(pool);
+    let storage = OAuthStorage::new(pool).unwrap();
 
     let result = storage
         .get_provider_config(OAuthProvider::XAI)
