@@ -161,6 +161,108 @@ cargo run --bin orkee -- dashboard
 # HTTP requests to port 4000 automatically redirect to HTTPS
 ```
 
+## OAuth Authentication
+
+Orkee supports OAuth authentication for AI providers (Claude, OpenAI, Google, xAI), enabling you to use your subscription accounts instead of API keys.
+
+### Benefits
+
+- ✅ **Use Claude Pro/Max subscriptions** - No API costs, leverage your existing subscription
+- ✅ **Unified authentication** - One login for all services
+- ✅ **Secure token management** - Encrypted storage with automatic refresh
+- ✅ **Backward compatible** - Works alongside existing API key authentication
+
+### Quick Setup
+
+```bash
+# Authenticate with a provider (opens browser for OAuth flow)
+orkee login claude
+
+# Check authentication status
+orkee auth status
+
+# Logout from a provider
+orkee logout claude
+
+# Logout from all providers
+orkee logout all
+```
+
+### Supported Providers
+
+| Provider | OAuth Support | Subscription Types |
+|----------|--------------|-------------------|
+| Claude (Anthropic) | ✅ Yes | Pro, Max |
+| OpenAI | ✅ Yes | Plus, Team, Enterprise |
+| Google (Vertex AI) | ✅ Yes | Cloud accounts |
+| xAI (Grok) | ✅ Yes | Premium |
+
+### How OAuth Works
+
+1. **Login**: Run `orkee login <provider>` to start the OAuth flow
+2. **Browser opens**: Authenticate with your provider account
+3. **Token storage**: OAuth tokens are encrypted and stored in `~/.orkee/orkee.db`
+4. **Automatic refresh**: Tokens are refreshed automatically before expiry (5-minute buffer)
+5. **Use in apps**: Dashboard and CLI use OAuth tokens transparently
+
+### Configuration
+
+OAuth behavior can be configured via environment variables:
+
+```bash
+# OAuth client configuration (optional - defaults provided)
+OAUTH_CLAUDE_CLIENT_ID=orkee-cli-oauth-client
+OAUTH_CLAUDE_REDIRECT_URI=http://localhost:3737/callback
+OAUTH_CLAUDE_SCOPES="model:claude account:read"
+
+# OAuth server settings
+OAUTH_CALLBACK_PORT=3737                  # Callback server port
+OAUTH_STATE_TIMEOUT_SECS=600              # 10 minutes
+OAUTH_TOKEN_REFRESH_BUFFER_SECS=300       # 5 minutes
+```
+
+### Authentication Preference
+
+Set your preferred authentication method:
+
+```bash
+# Use OAuth only
+orkee config set auth_preference oauth
+
+# Use API keys only
+orkee config set auth_preference api_key
+
+# Try OAuth first, fall back to API keys (default)
+orkee config set auth_preference hybrid
+```
+
+### Migration from API Keys
+
+Orkee maintains full backward compatibility with API keys:
+
+```bash
+# Check current authentication
+orkee auth status
+
+# Add OAuth alongside existing API keys
+orkee login claude
+
+# Your API key continues to work as fallback
+# Remove API key after successful OAuth (optional)
+orkee config delete ANTHROPIC_API_KEY
+```
+
+### Dashboard Integration
+
+The OAuth settings are accessible via the dashboard:
+
+1. Navigate to **Settings** → **OAuth Authentication**
+2. View authentication status for all providers
+3. See token expiry times and subscription types
+4. Logout from providers via UI buttons
+
+For detailed OAuth setup and troubleshooting, see [OAUTH_SETUP.md](./OAUTH_SETUP.md).
+
 ## Desktop App (Tauri)
 
 The Orkee Desktop App is a native application built with Tauri that provides:
