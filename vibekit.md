@@ -430,7 +430,7 @@ Integrate bollard for Docker container monitoring and management.
 
 ---
 
-## Phase 4: API Endpoints & Execution Logic (Week 3)
+## Phase 4: API Endpoints & Execution Logic (Week 3) ✅
 
 ### Goals
 Implement REST API for execution management and core execution lifecycle.
@@ -438,98 +438,101 @@ Implement REST API for execution management and core execution lifecycle.
 ### Tasks
 
 #### 4.1 Create Execution Handlers
-- [ ] Create `packages/api/src/executions_handlers.rs`:
-  - [ ] `create_execution()` - Start new execution
-  - [ ] `list_executions()` - List with pagination
-  - [ ] `get_execution()` - Get single execution
-  - [ ] `stop_execution()` - Cancel running execution
-  - [ ] `retry_execution()` - Retry failed execution
+- [x] Create `packages/api/src/sandbox_execution_handlers.rs`:
+  - [x] `stop_execution()` - Cancel running execution
+  - [x] `retry_execution()` - Retry failed execution (placeholder for Phase 5)
 
-- [ ] Implement log endpoints:
-  - [ ] `get_execution_logs()` - Paginated logs
-  - [ ] `stream_execution_logs()` - SSE streaming (placeholder)
-  - [ ] `search_logs()` - Search with filters
+- [x] Implement log endpoints:
+  - [x] `get_execution_logs()` - Paginated logs
+  - [x] `stream_execution_logs()` - SSE streaming (placeholder for Phase 5)
+  - [x] `search_logs()` - Search with filters
 
-- [ ] Implement artifact endpoints:
-  - [ ] `list_artifacts()` - List execution outputs
-  - [ ] `get_artifact()` - Get artifact metadata
-  - [ ] `download_artifact()` - Stream file download
-  - [ ] `delete_artifact()` - Remove artifact
+- [x] Implement artifact endpoints:
+  - [x] `list_artifacts()` - List execution outputs
+  - [x] `get_artifact()` - Get artifact metadata
+  - [x] `download_artifact()` - Stream file download
+  - [x] `delete_artifact()` - Remove artifact
+
+**Note**: `create_execution()`, `list_executions()`, and `get_execution()` already exist in `executions_handlers.rs` for the general `agent_executions` table. Sandbox-specific execution creation will be implemented when integrating with CLI server.
 
 #### 4.2 Update API Router
-- [ ] Update `packages/api/src/mod.rs`:
-  - [ ] Add execution routes nested under tasks
-  - [ ] Apply authentication middleware
-  - [ ] Add rate limiting for execution endpoints
-  - [ ] Configure CORS for SSE
+- [x] Update `packages/api/src/lib.rs`:
+  - [x] Add `create_sandbox_executions_router()` function
+  - [ ] Apply authentication middleware (deferred to CLI integration)
+  - [ ] Add rate limiting for execution endpoints (deferred to CLI integration)
+  - [ ] Configure CORS for SSE (deferred to Phase 5)
 
-- [ ] Route structure:
+- [x] Route structure implemented:
   ```
-  /api/projects/:project_id/tasks/:task_id/executions
-    POST   /                          - Create execution
-    GET    /                          - List executions
-    GET    /:execution_id             - Get execution
-    POST   /:execution_id/stop        - Stop execution
-    POST   /:execution_id/retry       - Retry execution
-    GET    /:execution_id/logs        - Get logs (paginated)
-    GET    /:execution_id/logs/stream - Stream logs (SSE)
-    GET    /:execution_id/artifacts   - List artifacts
-    GET    /:execution_id/artifacts/:artifact_id/download - Download
+  /api/sandbox/executions/:execution_id/stop       - Stop execution
+  /api/sandbox/executions/:execution_id/retry      - Retry execution
+  /api/sandbox/executions/:execution_id/logs       - Get logs (paginated)
+  /api/sandbox/executions/:execution_id/logs/stream - Stream logs (SSE placeholder)
+  /api/sandbox/executions/:execution_id/logs/search - Search logs
+  /api/sandbox/executions/:execution_id/artifacts  - List artifacts
+  /api/sandbox/artifacts/:artifact_id              - Get artifact
+  /api/sandbox/artifacts/:artifact_id/download     - Download artifact
+  /api/sandbox/artifacts/:artifact_id              - Delete artifact
   ```
 
 #### 4.3 Implement Execution Lifecycle
-- [ ] Create `packages/sandboxes/src/execution.rs`:
-  - [ ] `ExecutionOrchestrator` struct
-  - [ ] `start_execution()` - Main execution flow
-  - [ ] `monitor_execution()` - Track progress
-  - [ ] `finalize_execution()` - Cleanup and save results
+- [x] Create `packages/sandboxes/src/execution.rs`:
+  - [x] `ExecutionOrchestrator` struct
+  - [x] `start_execution()` - Main execution flow
+  - [x] `monitor_execution()` - Track progress
+  - [x] `finalize_execution()` - Cleanup and save results
+  - [x] `stream_logs()` - Stream logs from container
+  - [x] `collect_artifacts()` - Collect execution artifacts
 
-- [ ] Execution flow:
-  1. [ ] Validate request and check quotas
-  2. [ ] Create execution record in database
-  3. [ ] Spawn Vibekit bridge process
-  4. [ ] Create and start container
-  5. [ ] Execute agent prompt
-  6. [ ] Stream logs to database
-  7. [ ] Collect artifacts
-  8. [ ] Update execution status
-  9. [ ] Cleanup resources
+- [x] Execution flow:
+  1. [x] Validate request and check quotas
+  2. [x] Create execution record in database (via external handler)
+  3. [ ] Spawn Vibekit bridge process (infrastructure ready, full integration in Phase 5)
+  4. [x] Create and start container
+  5. [ ] Execute agent prompt (infrastructure ready, full integration in Phase 5)
+  6. [x] Stream logs to database
+  7. [x] Collect artifacts
+  8. [x] Update execution status
+  9. [x] Cleanup resources
 
 #### 4.4 Database Storage Layer
-- [ ] Create `packages/sandboxes/src/storage.rs`:
-  - [ ] `ExecutionStorage` struct
-  - [ ] CRUD operations for executions
-  - [ ] Log batch insertion
-  - [ ] Artifact tracking
-  - [ ] Status updates
+- [x] Create `packages/sandboxes/src/storage.rs`:
+  - [x] `ExecutionStorage` struct
+  - [x] CRUD operations for logs and artifacts
+  - [x] Log batch insertion
+  - [x] Artifact tracking
+  - [x] Status updates
 
-- [ ] Implement queries:
-  - [ ] Insert execution with Vibekit fields
-  - [ ] Update container status
-  - [ ] Insert logs with sequence numbers
-  - [ ] Query logs by execution
-  - [ ] Store artifact metadata
+- [x] Implement queries:
+  - [x] Insert logs with sequence numbers
+  - [x] Query logs by execution (with pagination)
+  - [x] Search logs with filters
+  - [x] Store artifact metadata
+  - [x] Update container status
+  - [x] Update execution status
+  - [x] Update resource usage
 
 #### 4.5 Testing
-- [ ] API integration tests:
+- [ ] API integration tests (deferred to Phase 7):
   - [ ] Test full execution flow
   - [ ] Test concurrent executions
   - [ ] Test error scenarios
   - [ ] Test resource limits
   - [ ] Test authentication
 
-- [ ] Load testing:
+- [ ] Load testing (deferred to Phase 7):
   - [ ] Test with 10 concurrent executions
   - [ ] Measure API response times
   - [ ] Check database performance
   - [ ] Verify cleanup works under load
 
 ### Deliverables
-- ✅ REST API fully implemented
-- ✅ Execution lifecycle working end-to-end
-- ✅ Database persistence complete
-- ✅ Authentication and authorization working
-- ✅ Integration tests passing
+- ✅ Storage layer implemented (logs and artifacts)
+- ✅ Execution orchestrator implemented with lifecycle management
+- ✅ REST API handlers implemented (stop, retry placeholder, logs, artifacts)
+- ✅ Router configured with sandbox execution routes
+- ⏸️ Full integration testing deferred to Phase 7
+- ⏸️ SSE streaming placeholder - full implementation in Phase 5
 
 ---
 
