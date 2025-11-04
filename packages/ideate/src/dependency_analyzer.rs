@@ -5,7 +5,6 @@ use crate::error::Result;
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use sqlx::{Row, SqlitePool};
-use tracing::info;
 
 /// Type of dependency relationship
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, sqlx::Type)]

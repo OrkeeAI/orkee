@@ -647,10 +647,11 @@ pub fn create_ideate_router() -> Router<DbState> {
             "/ideate/chat/{session_id}/suggested-questions",
             get(ideate_chat_handlers::get_suggested_questions),
         )
-        .route(
-            "/ideate/chat/{session_id}/insights/reanalyze",
-            post(ideate_chat_handlers::reanalyze_insights),
-        )
+        // TODO: Move to frontend AI SDK - see ARCHITECTURE_AUDIT.md Priority 1
+        // .route(
+        //     "/ideate/chat/{session_id}/insights/reanalyze",
+        //     post(ideate_chat_handlers::reanalyze_insights),
+        // )
         .route(
             "/ideate/chat/{session_id}/insights",
             get(ideate_chat_handlers::get_insights),
