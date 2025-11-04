@@ -536,7 +536,7 @@ Implement REST API for execution management and core execution lifecycle.
 
 ---
 
-## Phase 5: Real-time Log Streaming with SSE (Week 3)
+## Phase 5: Real-time Log Streaming with SSE (Week 3) ✅
 
 ### Goals
 Implement Server-Sent Events for real-time log streaming from executions.
@@ -544,89 +544,90 @@ Implement Server-Sent Events for real-time log streaming from executions.
 ### Tasks
 
 #### 5.1 Implement SSE Endpoint
-- [ ] Update `packages/api/src/executions_handlers.rs`:
-  - [ ] `stream_execution_logs()` SSE handler
-  - [ ] Set correct SSE headers
-  - [ ] Query existing logs from database
-  - [ ] Watch for new log entries
-  - [ ] Format as SSE events
-  - [ ] Handle client disconnection
+- [x] Implemented `packages/api/src/sandbox_execution_handlers.rs`:
+  - [x] `stream_execution_logs()` SSE handler with full implementation
+  - [x] Set correct SSE headers via create_sse_response helper
+  - [x] Query existing logs from database with lastSequence support
+  - [x] Subscribe to ExecutionOrchestrator broadcast channel for new log entries
+  - [x] Format as SSE events with proper event types
+  - [x] Handle client disconnection via GuardedSseStream (RAII cleanup)
 
-- [ ] SSE event types:
-  - [ ] `log` - New log entry
-  - [ ] `status` - Execution status change
-  - [ ] `complete` - Execution completed
-  - [ ] `error` - Execution error
-  - [ ] `heartbeat` - Keep-alive
+- [x] SSE event types implemented in `packages/sandboxes/src/types.rs`:
+  - [x] `log` - New log entry with full LogEntry data
+  - [x] `status` - Execution status change
+  - [x] `container_status` - Container status change
+  - [x] `resource_usage` - CPU and memory usage updates
+  - [x] `complete` - Execution completed with success flag
+  - [x] `heartbeat` - Keep-alive events
+  - [x] `sync` - Client lag recovery events
 
 #### 5.2 Log Ingestion Pipeline
-- [ ] Update `packages/sandboxes/src/container.rs`:
-  - [ ] Stream logs from Docker via bollard
-  - [ ] Parse Docker log format
-  - [ ] Extract log level and metadata
-  - [ ] Assign sequence numbers
-  - [ ] Buffer logs for batch insertion
+- [x] Enhanced `packages/sandboxes/src/execution.rs`:
+  - [x] Stream logs from Docker via bollard (already in Phase 4)
+  - [x] Parse Docker log format (already in Phase 4)
+  - [x] Extract log level and metadata (already in Phase 4)
+  - [x] Assign sequence numbers (already in Phase 4)
+  - [x] Broadcast log events in real-time via ExecutionEvent::Log
 
-- [ ] Create log buffer:
-  - [ ] Configurable buffer size (default: 100)
-  - [ ] Auto-flush on size or interval
-  - [ ] Handle backpressure
-  - [ ] Error recovery
+- [x] Log streaming infrastructure:
+  - [x] Logs inserted to database and broadcast simultaneously
+  - [x] Configurable event channel size (ORKEE_EXECUTION_EVENT_CHANNEL_SIZE)
+  - [x] Handle backpressure via tokio broadcast channel
+  - [x] Error recovery with lag detection and sync events
 
 #### 5.3 SSE Infrastructure
-- [ ] Create `packages/api/src/sse.rs` (reuse from preview):
-  - [ ] SSE connection manager
-  - [ ] Client registry
-  - [ ] Auto-reconnect support
-  - [ ] Heartbeat mechanism
-  - [ ] Error handling
+- [x] Created `packages/api/src/sse.rs` with reusable components:
+  - [x] SseConnectionTracker - Per-IP connection rate limiting (configurable via ORKEE_SSE_MAX_CONNECTIONS_PER_IP)
+  - [x] SseConnectionGuard - RAII cleanup pattern
+  - [x] GuardedSseStream - Guaranteed cleanup even if stream drops
+  - [x] create_sse_response() helper with standard keep-alive settings
+  - [x] Comprehensive error handling and logging
 
-- [ ] Implement event broadcasting:
-  - [ ] Broadcast to multiple clients
-  - [ ] Handle slow clients
-  - [ ] Buffer overflow protection
-  - [ ] Graceful degradation
+- [x] Event broadcasting infrastructure:
+  - [x] tokio::sync::broadcast channel in ExecutionOrchestrator (capacity: 200, configurable)
+  - [x] Broadcast to multiple clients simultaneously
+  - [x] Handle slow clients with lag detection (sends sync event instead of disconnecting)
+  - [x] Buffer overflow protection via tokio broadcast semantics
+  - [x] Graceful degradation on serialization errors
 
 #### 5.4 Frontend SSE Client
-- [ ] Create `packages/dashboard/src/services/execution-stream.ts`:
-  - [ ] EventSource connection
-  - [ ] Auto-reconnect logic
-  - [ ] Event parsing
-  - [ ] Error handling
-  - [ ] Connection state management
+- [x] Created `packages/dashboard/src/services/execution-stream.ts`:
+  - [x] ExecutionStreamClient class with EventSource connection
+  - [x] Auto-reconnect logic with exponential backoff (max 5 attempts)
+  - [x] Event parsing for all event types (log, status, complete, heartbeat, sync)
+  - [x] Comprehensive error handling with callbacks
+  - [x] Connection state management (connecting/connected/disconnected/error)
 
-- [ ] React hook for log streaming:
-  ```typescript
-  export function useExecutionLogs(
-    projectId: string,
-    taskId: string,
-    executionId: string
-  ) {
-    const [logs, setLogs] = useState<LogEntry[]>([]);
-    const [status, setStatus] = useState<'connecting' | 'connected' | 'error'>('connecting');
-    // ... SSE logic
-  }
-  ```
+- [x] Created React hook `packages/dashboard/src/hooks/useExecutionLogs.ts`:
+  - [x] useExecutionLogs hook for easy component integration
+  - [x] Auto-connect on mount with cleanup on unmount
+  - [x] State management for logs array, status, completion
+  - [x] Callback support for status changes and completion
+  - [x] Connection state tracking
+  - [x] Manual connect/disconnect/clearLogs controls
+  - [x] Comprehensive JSDoc with usage examples
 
 #### 5.5 Testing
-- [ ] SSE integration tests:
+- [x] Backend compilation tests passed
+- [ ] SSE integration tests (deferred to Phase 7):
   - [ ] Test streaming with real execution
   - [ ] Test reconnection after disconnect
   - [ ] Test multiple concurrent clients
   - [ ] Test log overflow scenarios
 
-- [ ] Performance testing:
+- [ ] Performance testing (deferred to Phase 7):
   - [ ] Stream 1000 logs/second
   - [ ] Test with 50 concurrent SSE clients
   - [ ] Measure latency
   - [ ] Check memory usage
 
 ### Deliverables
-- ✅ SSE endpoint implemented
-- ✅ Real-time log streaming working
-- ✅ Auto-reconnect functioning
-- ✅ Multiple client support
-- ✅ Performance targets met
+- ✅ SSE endpoint fully implemented with lag handling and error recovery
+- ✅ Real-time log streaming infrastructure complete
+- ✅ Auto-reconnect functioning with exponential backoff
+- ✅ Multiple client support via broadcast channel
+- ✅ Frontend React hook ready for UI integration
+- ⏸️ Performance testing deferred to Phase 7 (infrastructure ready)
 
 ---
 
