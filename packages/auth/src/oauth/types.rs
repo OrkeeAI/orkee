@@ -3,9 +3,10 @@
 
 use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
+use std::fmt;
 
 /// OAuth token information stored in database
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct OAuthToken {
     pub id: String,
     pub user_id: String,
@@ -17,6 +18,23 @@ pub struct OAuthToken {
     pub scope: Option<String>,
     pub subscription_type: Option<String>,
     pub account_email: Option<String>,
+}
+
+impl fmt::Debug for OAuthToken {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("OAuthToken")
+            .field("id", &self.id)
+            .field("user_id", &self.user_id)
+            .field("provider", &self.provider)
+            .field("access_token", &"[REDACTED]")
+            .field("refresh_token", &"[REDACTED]")
+            .field("expires_at", &self.expires_at)
+            .field("token_type", &self.token_type)
+            .field("scope", &self.scope)
+            .field("subscription_type", &self.subscription_type)
+            .field("account_email", &self.account_email)
+            .finish()
+    }
 }
 
 impl OAuthToken {
@@ -41,7 +59,7 @@ impl OAuthToken {
 }
 
 /// OAuth provider configuration
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct OAuthProviderConfig {
     pub provider: String,
     pub client_id: String,
@@ -53,16 +71,41 @@ pub struct OAuthProviderConfig {
     pub enabled: bool,
 }
 
+impl fmt::Debug for OAuthProviderConfig {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("OAuthProviderConfig")
+            .field("provider", &self.provider)
+            .field("client_id", &self.client_id)
+            .field("client_secret", &"[REDACTED]")
+            .field("auth_url", &self.auth_url)
+            .field("token_url", &self.token_url)
+            .field("redirect_uri", &self.redirect_uri)
+            .field("scopes", &self.scopes)
+            .field("enabled", &self.enabled)
+            .finish()
+    }
+}
+
 /// PKCE challenge for OAuth flow
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct PkceChallenge {
     pub code_verifier: String,
     pub code_challenge: String,
     pub code_challenge_method: String, // Usually "S256"
 }
 
+impl fmt::Debug for PkceChallenge {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("PkceChallenge")
+            .field("code_verifier", &"[REDACTED]")
+            .field("code_challenge", &self.code_challenge)
+            .field("code_challenge_method", &self.code_challenge_method)
+            .finish()
+    }
+}
+
 /// OAuth state for CSRF protection
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct OAuthState {
     pub state: String,
     pub provider: String,
@@ -70,8 +113,19 @@ pub struct OAuthState {
     pub created_at: DateTime<Utc>,
 }
 
+impl fmt::Debug for OAuthState {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("OAuthState")
+            .field("state", &self.state)
+            .field("provider", &self.provider)
+            .field("pkce_verifier", &"[REDACTED]")
+            .field("created_at", &self.created_at)
+            .finish()
+    }
+}
+
 /// OAuth authorization code exchange request
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Serialize, Deserialize)]
 pub struct TokenExchangeRequest {
     pub code: String,
     pub code_verifier: String,
@@ -80,8 +134,20 @@ pub struct TokenExchangeRequest {
     pub grant_type: String, // Usually "authorization_code"
 }
 
+impl fmt::Debug for TokenExchangeRequest {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("TokenExchangeRequest")
+            .field("code", &"[REDACTED]")
+            .field("code_verifier", &"[REDACTED]")
+            .field("redirect_uri", &self.redirect_uri)
+            .field("client_id", &self.client_id)
+            .field("grant_type", &self.grant_type)
+            .finish()
+    }
+}
+
 /// OAuth token response from provider
-#[derive(Debug, Deserialize)]
+#[derive(Deserialize)]
 pub struct TokenResponse {
     pub access_token: String,
     pub refresh_token: Option<String>,
@@ -90,12 +156,34 @@ pub struct TokenResponse {
     pub scope: Option<String>,
 }
 
+impl fmt::Debug for TokenResponse {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("TokenResponse")
+            .field("access_token", &"[REDACTED]")
+            .field("refresh_token", &"[REDACTED]")
+            .field("expires_in", &self.expires_in)
+            .field("token_type", &self.token_type)
+            .field("scope", &self.scope)
+            .finish()
+    }
+}
+
 /// OAuth refresh token request
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Serialize, Deserialize)]
 pub struct RefreshTokenRequest {
     pub refresh_token: String,
     pub client_id: String,
     pub grant_type: String, // "refresh_token"
+}
+
+impl fmt::Debug for RefreshTokenRequest {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("RefreshTokenRequest")
+            .field("refresh_token", &"[REDACTED]")
+            .field("client_id", &self.client_id)
+            .field("grant_type", &self.grant_type)
+            .finish()
+    }
 }
 
 #[cfg(test)]
