@@ -29,7 +29,7 @@ This document outlines the comprehensive plan to integrate Vibekit SDK into Orke
 The only "vibekit" references should be:
 - `vibekit_session_id` field - specifically for tracking Vibekit SDK sessions
 - `vibekit_version` field - for tracking SDK version
-- Package name: `packages/sandbox` - NOT packages/vibekit
+- Package name: `packages/sandboxes` - NOT packages/vibekit
 
 ---
 
@@ -48,8 +48,8 @@ Since no one is using the app yet, we're taking the simpler approach:
 - Only use "vibekit" prefix for SDK-specific tracking fields (session_id, version)
 
 ### Package Structure
-- **`packages/sandbox/`** - Main Rust package for sandbox orchestration
-- **`packages/sandbox/vibekit-bridge/`** - Node.js bridge for Vibekit SDK
+- **`packages/sandboxes/`** - Main Rust package for sandbox orchestration
+- **`packages/sandboxes/vibekit-bridge/`** - Node.js bridge for Vibekit SDK
 - This keeps the Rust code separate from the TypeScript/Node.js integration
 
 ---
@@ -248,7 +248,7 @@ Implement Node.js bridge for Vibekit TypeScript SDK with IPC communication to Ru
 ### Tasks
 
 #### 2.1 Create Node.js Project
-- [ ] Create `packages/sandbox/vibekit-bridge/` directory
+- [ ] Create `packages/sandboxes/vibekit-bridge/` directory
 - [ ] Initialize Node.js project:
   ```json
   // package.json
@@ -291,27 +291,27 @@ Implement Node.js bridge for Vibekit TypeScript SDK with IPC communication to Ru
   ```
 
 #### 2.2 Implement IPC Communication
-- [ ] Create `packages/sandbox/vibekit-bridge/src/index.ts`:
+- [ ] Create `packages/sandboxes/vibekit-bridge/src/index.ts`:
   - [ ] Parse JSON from stdin
   - [ ] Initialize Vibekit SDK
   - [ ] Handle execution requests
   - [ ] Stream responses to stdout
   - [ ] Handle graceful shutdown
 
-- [ ] Create `packages/sandbox/vibekit-bridge/src/types.ts`:
+- [ ] Create `packages/sandboxes/vibekit-bridge/src/types.ts`:
   - [ ] `ExecutionRequest` interface
   - [ ] `ExecutionResponse` interface
   - [ ] `LogMessage` interface
   - [ ] `IPCMessage` type union
 
-- [ ] Create `packages/sandbox/vibekit-bridge/src/vibekit.ts`:
+- [ ] Create `packages/sandboxes/vibekit-bridge/src/vibekit.ts`:
   - [ ] Vibekit session management
   - [ ] Agent execution logic
   - [ ] Error handling
   - [ ] Resource monitoring
 
 #### 2.3 Implement Rust Bridge
-- [ ] Implement `packages/sandbox/src/node_bridge.rs`:
+- [ ] Implement `packages/sandboxes/src/node_bridge.rs`:
   - [ ] `NodeBridge` struct
   - [ ] `spawn_bridge()` function to start Node.js process
   - [ ] `send_request()` for JSON communication
@@ -357,7 +357,7 @@ Integrate bollard for Docker container monitoring and management.
 ### Tasks
 
 #### 3.1 Implement Container Manager
-- [ ] Create `packages/sandbox/src/container.rs`:
+- [ ] Create `packages/sandboxes/src/container.rs`:
   - [ ] `ContainerManager` struct
   - [ ] `connect_docker()` - Connect to Docker daemon
   - [ ] `create_container()` - Create secure container
@@ -479,7 +479,7 @@ Implement REST API for execution management and core execution lifecycle.
   ```
 
 #### 4.3 Implement Execution Lifecycle
-- [ ] Create `packages/sandbox/src/execution.rs`:
+- [ ] Create `packages/sandboxes/src/execution.rs`:
   - [ ] `ExecutionOrchestrator` struct
   - [ ] `start_execution()` - Main execution flow
   - [ ] `monitor_execution()` - Track progress
@@ -497,7 +497,7 @@ Implement REST API for execution management and core execution lifecycle.
   9. [ ] Cleanup resources
 
 #### 4.4 Database Storage Layer
-- [ ] Create `packages/sandbox/src/storage.rs`:
+- [ ] Create `packages/sandboxes/src/storage.rs`:
   - [ ] `ExecutionStorage` struct
   - [ ] CRUD operations for executions
   - [ ] Log batch insertion
@@ -558,7 +558,7 @@ Implement Server-Sent Events for real-time log streaming from executions.
   - [ ] `heartbeat` - Keep-alive
 
 #### 5.2 Log Ingestion Pipeline
-- [ ] Update `packages/sandbox/src/container.rs`:
+- [ ] Update `packages/sandboxes/src/container.rs`:
   - [ ] Stream logs from Docker via bollard
   - [ ] Parse Docker log format
   - [ ] Extract log level and metadata
