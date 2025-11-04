@@ -34,75 +34,65 @@ This document tracks the complete migration from legacy AIService to modern AI S
 
 ---
 
-## Phase 1: Remove Legacy AIService & Migrate to Proxy (Weeks 1-2)
+## Phase 1: Remove Legacy AIService & Move AI to Frontend (Weeks 1-2)
 
-### Phase 1 Status: In Progress - Extended Scope 🔄
-**Completion:** 14/32 tasks (44%)
+### Phase 1 Status: Architecture Pivot - Restarting 🔄
+**Completion:** 0% (Previous work needs to be reverted)
 
-**Summary**: Successfully migrated all originally scoped functions (ai_handlers.rs + ideate package). Extended Phase 1 scope to include 3 additional API handler files discovered during implementation.
+**Architecture Change**: Original approach (Rust → AI proxy) was incorrect. New approach: Move ALL AI logic to frontend TypeScript using Vercel AI SDK. Backend becomes pure CRUD.
 
 ### Phase 1 Overview
-Completely remove the legacy `AIService` from the Rust codebase and migrate all AI operations to use the existing AI SDK proxy endpoints.
+Remove all AI logic from Rust backend and move to frontend TypeScript/React using Vercel AI SDK. Backend will only handle data persistence (CRUD operations).
 
 ### Phase 1 Tasks
 
-#### 1.1 Migrate API Handlers (`packages/api/src/ai_handlers.rs`) ✅
-- [x] `analyze_prd()` - Line 42-98
-- [x] `generate_spec()` - Line 112-187
-- [x] `suggest_tasks()` - Line 201-276
-- [x] `refine_spec()` - Line 290-365
-- [x] `validate_completion()` - Line 379-454
+#### 1.1 Audit & Document Current AI Usage
+- [ ] List all Rust functions/handlers that make AI calls
+- [ ] List all frontend components that will need AI SDK integration
+- [ ] Document data flow for each AI operation
+- [ ] Identify which operations can be moved to frontend vs need backend support
 
-#### 1.2 Migrate Ideate Package (`packages/ideate/src/`) ✅
-- [x] `prd_generator.rs` - 4 of 6 functions migrated (2 streaming functions skipped - see notes)
-  - [x] `generate_complete_prd_with_model()`
-  - [x] `generate_section()`
-  - [x] `generate_from_session()`
-  - [x] `generate_section_with_context()`
-  - ⚠️ `regenerate_with_template_stream()` - **SKIPPED** (uses streaming API)
-  - ⚠️ `regenerate_with_template()` - **SKIPPED** (uses text generation, not structured)
-- [x] `insight_extractor.rs::extract_insights_with_ai()` - **MIGRATED** (signature changed to accept user_id)
-- [x] `research_analyzer.rs` - All 5 functions migrated:
-  - [x] `analyze_competitor()`
-  - [x] `analyze_gaps()`
-  - [x] `extract_ui_patterns()`
-  - [x] `extract_lessons()`
-  - [x] `synthesize_research()`
-- [x] `expert_moderator.rs` - All 3 functions migrated:
-  - [x] `suggest_experts()`
-  - [x] `extract_insights()`
-  - [x] `generate_expert_response()`
-- [x] `dependency_analyzer.rs::analyze_dependencies()` - **MIGRATED**
-
-#### 1.3 Migrate Additional API Handlers (Extended Scope)
-- [ ] `ideate_dependency_handlers.rs` - 5 functions:
-  - [ ] `analyze_project_dependencies()`
-  - [ ] `analyze_file_dependencies()`
-  - [ ] `analyze_code_dependencies()`
-  - [ ] `get_dependency_analysis()`
-  - [ ] `analyze_dependencies_with_ai()`
-- [ ] `ideate_research_handlers.rs` - 5 functions:
-  - [ ] `analyze_competitor()`
-  - [ ] `analyze_gaps()`
-  - [ ] `extract_ui_patterns()`
-  - [ ] `extract_lessons()`
-  - [ ] `synthesize_research()`
-- [ ] `ideate_roundtable_handlers.rs` - 4 functions:
-  - [ ] `create_roundtable()`
-  - [ ] `generate_expert_response()`
-  - [ ] `extract_insights()`
-  - [ ] `generate_summary()`
-
-#### 1.4 Clean Up Legacy Code
-- [ ] Delete `packages/ai/src/service.rs` (entire legacy AIService implementation)
+#### 1.2 Remove Rust AI Logic (Backend)
+- [ ] Delete `packages/ai/src/service.rs` (entire AIService)
+- [ ] Delete `packages/api/src/ai_handlers.rs` (or convert to CRUD-only)
+- [ ] Remove AI logic from `packages/ideate/src/` files:
+  - [ ] `prd_generator.rs` - Remove all AI calls, keep data management
+  - [ ] `insight_extractor.rs` - Remove AI logic
+  - [ ] `research_analyzer.rs` - Remove AI logic
+  - [ ] `expert_moderator.rs` - Remove AI logic
+  - [ ] `dependency_analyzer.rs` - Remove AI logic
+- [ ] Remove AI logic from API handlers:
+  - [ ] `ideate_dependency_handlers.rs`
+  - [ ] `ideate_research_handlers.rs`
+  - [ ] `ideate_roundtable_handlers.rs`
+  - [ ] `ideate_generation_handlers.rs`
+  - [ ] `ideate_chat_handlers.rs`
 - [ ] Remove AIService exports from `packages/ai/src/lib.rs`
-- [ ] Update `packages/ai/Cargo.toml` dependencies (remove unused async-trait, reqwest if not needed)
+- [ ] Keep only: AI proxy endpoints + usage logging
 
-**Note**: 2 streaming functions in `prd_generator.rs` intentionally skipped (require different API pattern)
+#### 1.3 Add Frontend AI SDK Integration
+- [ ] Install/configure Vercel AI SDK in dashboard package
+- [ ] Create frontend AI service layer (`src/services/ai.ts`)
+- [ ] Implement AI SDK calls for PRD generation
+- [ ] Implement AI SDK calls for research analysis
+- [ ] Implement AI SDK calls for insights extraction
+- [ ] Implement AI SDK calls for dependency analysis
+- [ ] Implement AI SDK calls for roundtable/expert features
+- [ ] Add proper error handling and loading states
+- [ ] Add streaming support where needed
 
-### Migration Strategy
+#### 1.4 Update Backend to CRUD-Only
+- [ ] Keep database operations (save PRD, save insights, etc.)
+- [ ] Remove all AI generation logic
+- [ ] Backend handlers become simple: receive data, save to DB, return success
+- [ ] Update API contracts (may need different request/response shapes)
 
-Each function will be updated to use HTTP client calls to our existing AI proxy instead of direct AIService calls.
+#### 1.5 Testing & Verification
+- [ ] All AI operations work via frontend AI SDK
+- [ ] Backend compiles without AIService dependencies
+- [ ] Frontend can make all necessary AI calls
+- [ ] Data persistence still works
+- [ ] No regression in existing features
 
 #### Example Migration Pattern
 
