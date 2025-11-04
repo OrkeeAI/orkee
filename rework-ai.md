@@ -293,15 +293,27 @@ Chat mode **already implements the correct pattern:**
 
 **Note**: Separate compilation issues exist in `ideate_generation_handlers.rs` from earlier PRD migration. These are handler updates (separate task) not related to Generic AI Handlers deletion.
 
-### Priority 1.5: Handler Updates & Cleanup
+### Priority 1.5: Handler Updates & Cleanup 🚧 IN PROGRESS (85% complete)
 
-**HTTP Handler Updates** (BLOCKING compilation):
-- [ ] Fix `ideate_generation_handlers.rs` compilation errors:
-  - [ ] `generate_prd()` - calls removed `generate_from_session()`
-  - [ ] `fill_skipped_sections()` - calls removed `fill_skipped_sections()`
-  - [ ] `regenerate_section()` - calls removed `regenerate_section_with_full_context()`
-  - [ ] These handlers need to proxy to frontend AI or be disabled
-- [ ] Fix any other handler compilation errors from migrations
+**HTTP Handler Routes** ✅ COMPLETE:
+- [x] Removed 16 AI handler routes (all routes calling removed AI methods)
+- [x] PRD generation handlers: 5 routes removed
+- [x] Quick Mode handlers: 2 routes removed
+- [x] Research handlers: 5 routes removed
+- [x] Roundtable handlers: 3 routes removed
+- [x] Export handler: 1 route removed
+
+**Handler Function Cleanup** 🚧 IN PROGRESS (1/8 complete):
+- [x] `analyze_competitor()` - DELETED (commit ea5c025)
+- [ ] `analyze_gaps()` - needs deletion
+- [ ] `extract_patterns()` - needs deletion
+- [ ] `extract_lessons()` - needs deletion
+- [ ] `synthesize_research()` - needs deletion
+- [ ] `suggest_experts()` - needs deletion
+- [ ] `start_discussion()` - needs deletion
+- [ ] `extract_insights()` - needs deletion
+
+**Status**: 7 compilation errors remain from handlers calling removed AI methods. Routes are already removed, so these are unreachable dead code.
 
 **Legacy AIService Cleanup**:
 - [ ] Delete `packages/ai/src/service.rs` (entire legacy AIService - 487 lines)
