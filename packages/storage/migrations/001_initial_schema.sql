@@ -200,6 +200,10 @@ CREATE TABLE users (
     avatar_url TEXT,
     preferences TEXT,
     last_login_at TEXT,
+
+    -- OAuth authentication preference
+    auth_preference TEXT DEFAULT 'api_key' CHECK (auth_preference IN ('api_key', 'oauth', 'hybrid')),
+
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
 );
@@ -701,6 +705,44 @@ CREATE TABLE api_tokens (
 
 CREATE INDEX idx_api_tokens_active ON api_tokens(is_active);
 CREATE INDEX idx_api_tokens_hash ON api_tokens(token_hash);
+
+-- OAuth Tokens
+-- OAuth tokens for AI providers (encrypted storage)
+CREATE TABLE oauth_tokens (
+    id TEXT PRIMARY KEY CHECK(length(id) >= 8),
+    user_id TEXT NOT NULL,
+    provider TEXT NOT NULL CHECK (provider IN ('claude', 'openai', 'google', 'xai')),
+    access_token TEXT NOT NULL CHECK (length(access_token) >= 38), -- Encrypted
+    refresh_token TEXT CHECK (refresh_token IS NULL OR length(refresh_token) >= 38), -- Encrypted
+    expires_at INTEGER NOT NULL, -- Unix timestamp
+    token_type TEXT DEFAULT 'Bearer',
+    scope TEXT, -- Space-separated scopes
+    subscription_type TEXT, -- 'pro', 'max', 'plus', etc.
+    account_email TEXT, -- From token info
+    created_at INTEGER NOT NULL DEFAULT (unixepoch()),
+    updated_at INTEGER NOT NULL DEFAULT (unixepoch()),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    UNIQUE(user_id, provider)
+);
+
+-- OAuth Provider Configurations
+CREATE TABLE oauth_providers (
+    provider TEXT PRIMARY KEY CHECK (provider IN ('claude', 'openai', 'google', 'xai')),
+    client_id TEXT NOT NULL,
+    client_secret TEXT, -- Encrypted, if needed
+    auth_url TEXT NOT NULL,
+    token_url TEXT NOT NULL,
+    redirect_uri TEXT NOT NULL,
+    scopes TEXT NOT NULL, -- Space-separated
+    enabled BOOLEAN DEFAULT 1,
+    created_at INTEGER NOT NULL DEFAULT (unixepoch()),
+    updated_at INTEGER NOT NULL DEFAULT (unixepoch())
+);
+
+-- OAuth indexes
+CREATE INDEX idx_oauth_tokens_user ON oauth_tokens(user_id);
+CREATE INDEX idx_oauth_tokens_provider ON oauth_tokens(provider);
+CREATE INDEX idx_oauth_tokens_expires ON oauth_tokens(expires_at);
 
 -- ============================================================================
 -- SYSTEM CONFIGURATION
