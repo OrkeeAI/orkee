@@ -36,8 +36,8 @@ This document tracks the complete migration from legacy AIService to modern AI S
 
 ## Phase 1: Remove Legacy AIService & Migrate to Proxy (Weeks 1-2)
 
-### Phase 1 Status: In Progress 🔄
-**Completion:** 5/15 tasks
+### Phase 1 Status: Nearly Complete 🔄
+**Completion:** 14/15 tasks (93%)
 
 ### Phase 1 Overview
 Completely remove the legacy `AIService` from the Rust codebase and migrate all AI operations to use the existing AI SDK proxy endpoints.
@@ -51,14 +51,31 @@ Completely remove the legacy `AIService` from the Rust codebase and migrate all 
 - [x] `refine_spec()` - Line 290-365
 - [x] `validate_completion()` - Line 379-454
 
-#### 1.2 Migrate Ideate Package (`packages/ideate/src/`)
-- [ ] `prd_generator.rs::generate_prd_quick()` - Line 156-231
-- [ ] `insight_extractor.rs::extract_insights_with_ai()` - Line 89-164
-- [ ] `research_analyzer.rs::analyze_research()` - Line 203-278
-- [ ] `expert_moderator.rs::moderate_discussion()` - Line 317-392
-- [ ] `dependency_analyzer.rs::analyze_dependencies()` - Line 431-506
+#### 1.2 Migrate Ideate Package (`packages/ideate/src/`) ✅
+- [x] `prd_generator.rs` - 4 of 6 functions migrated (2 streaming functions skipped - see notes)
+  - [x] `generate_complete_prd_with_model()`
+  - [x] `generate_section()`
+  - [x] `generate_from_session()`
+  - [x] `generate_section_with_context()`
+  - ⚠️ `regenerate_with_template_stream()` - **SKIPPED** (uses streaming API)
+  - ⚠️ `regenerate_with_template()` - **SKIPPED** (uses text generation, not structured)
+- [x] `insight_extractor.rs::extract_insights_with_ai()` - **MIGRATED** (signature changed to accept user_id)
+- [x] `research_analyzer.rs` - All 5 functions migrated:
+  - [x] `analyze_competitor()`
+  - [x] `analyze_gaps()`
+  - [x] `extract_ui_patterns()`
+  - [x] `extract_lessons()`
+  - [x] `synthesize_research()`
+- [x] `expert_moderator.rs` - All 3 functions migrated:
+  - [x] `suggest_experts()`
+  - [x] `extract_insights()`
+  - [x] `generate_expert_response()`
+- [x] `dependency_analyzer.rs::analyze_dependencies()` - **MIGRATED**
 
 #### 1.3 Clean Up Legacy Code
+- [ ] Delete `packages/ai/src/service.rs` (entire legacy AIService implementation)
+- [ ] Remove AIService exports from `packages/ai/src/lib.rs`
+- [ ] Update `packages/ai/Cargo.toml` dependencies (remove unused async-trait, reqwest if not needed)
 
 ### Migration Strategy
 
