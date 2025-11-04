@@ -1,0 +1,25 @@
+{
+  "version": "2025-11-04",
+  "sandboxes": [
+    {
+      "id": "local-docker",
+      "name": "Local Docker",
+      "provider": "local",
+      "description": "Run sandboxes in local Docker containers",
+      "supported_images": [
+        "ubuntu:22.04",
+        "node:20",
+        "python:3.11"
+      ],
+      "default_image": "ubuntu:22.04",
+      "max_concurrent": 5,
+      "resource_limits": {
+        "memory_mb": 2048,
+        "cpu_cores": 2.0,
+        "timeout_seconds": 3600
+      },
+      "is_available": true,
+      "requires_config": false
+    }
+  ]
+}

@@ -20,6 +20,7 @@ members = [
     "packages/projects",
     "packages/cloud",
     "packages/preview",
+    "packages/sandboxes",
     "packages/tui",
     "packages/mcp-server",
     "packages/ideate"
