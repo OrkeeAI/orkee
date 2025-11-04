@@ -705,20 +705,19 @@ pub fn create_ideate_router() -> Router<DbState> {
         )
 }
 
-// Phase 6: AI handler functions moved to frontend TypeScript
-// These routes are no longer needed - all AI calls now happen client-side
-// Keeping router commented for reference during migration
-// pub fn create_ai_router() -> Router<DbState> {
-//     Router::new()
-//         .route("/ai/analyze-prd", post(ai_handlers::analyze_prd))
-//         .route("/ai/generate-spec", post(ai_handlers::generate_spec))
-//         .route("/ai/suggest-tasks", post(ai_handlers::suggest_tasks))
-//         .route("/ai/refine-spec", post(ai_handlers::refine_spec))
-//         .route(
-//             "/ai/validate-completion",
-//             post(ai_handlers::validate_completion),
-//         )
-// }
+/// Creates the AI handler router for structured AI operations
+/// Uses AI proxy to securely manage API keys instead of direct AIService calls
+pub fn create_ai_router() -> Router<DbState> {
+    Router::new()
+        .route("/ai/analyze-prd", post(ai_handlers::analyze_prd))
+        .route("/ai/generate-spec", post(ai_handlers::generate_spec))
+        .route("/ai/suggest-tasks", post(ai_handlers::suggest_tasks))
+        .route("/ai/refine-spec", post(ai_handlers::refine_spec))
+        .route(
+            "/ai/validate-completion",
+            post(ai_handlers::validate_completion),
+        )
+}
 
 /// Creates the AI usage logs API router for cost tracking
 pub fn create_ai_usage_router() -> Router<DbState> {
