@@ -3,6 +3,7 @@
 
 use serde::{Deserialize, Serialize};
 use std::fmt;
+use std::str::FromStr;
 
 use crate::error::{AuthError, AuthResult};
 
@@ -58,20 +59,6 @@ impl OAuthProvider {
         }
     }
 
-    /// Parse provider from string
-    pub fn from_str(s: &str) -> AuthResult<Self> {
-        match s.to_lowercase().as_str() {
-            "claude" => Ok(Self::Claude),
-            "openai" => Ok(Self::OpenAI),
-            "google" => Ok(Self::Google),
-            "xai" => Ok(Self::XAI),
-            _ => Err(AuthError::Configuration(format!(
-                "Unknown provider: {}. Supported: claude, openai, google, xai",
-                s
-            ))),
-        }
-    }
-
     /// Get all supported providers
     pub fn all() -> Vec<Self> {
         vec![Self::Claude, Self::OpenAI, Self::Google, Self::XAI]
@@ -89,11 +76,28 @@ impl fmt::Display for OAuthProvider {
     }
 }
 
+impl FromStr for OAuthProvider {
+    type Err = AuthError;
+
+    fn from_str(s: &str) -> AuthResult<Self> {
+        match s.to_lowercase().as_str() {
+            "claude" => Ok(Self::Claude),
+            "openai" => Ok(Self::OpenAI),
+            "google" => Ok(Self::Google),
+            "xai" => Ok(Self::XAI),
+            _ => Err(AuthError::Configuration(format!(
+                "Unknown provider: {}. Supported: claude, openai, google, xai",
+                s
+            ))),
+        }
+    }
+}
+
 impl TryFrom<String> for OAuthProvider {
     type Error = AuthError;
 
     fn try_from(s: String) -> AuthResult<Self> {
-        Self::from_str(&s)
+        s.parse()
     }
 }
 
@@ -101,7 +105,7 @@ impl TryFrom<&str> for OAuthProvider {
     type Error = AuthError;
 
     fn try_from(s: &str) -> AuthResult<Self> {
-        Self::from_str(s)
+        s.parse()
     }
 }
 
@@ -111,19 +115,10 @@ mod tests {
 
     #[test]
     fn test_provider_parsing() {
-        assert_eq!(
-            OAuthProvider::from_str("claude").unwrap(),
-            OAuthProvider::Claude
-        );
-        assert_eq!(
-            OAuthProvider::from_str("CLAUDE").unwrap(),
-            OAuthProvider::Claude
-        );
-        assert_eq!(
-            OAuthProvider::from_str("openai").unwrap(),
-            OAuthProvider::OpenAI
-        );
-        assert!(OAuthProvider::from_str("invalid").is_err());
+        assert_eq!("claude".parse::<OAuthProvider>().unwrap(), OAuthProvider::Claude);
+        assert_eq!("CLAUDE".parse::<OAuthProvider>().unwrap(), OAuthProvider::Claude);
+        assert_eq!("openai".parse::<OAuthProvider>().unwrap(), OAuthProvider::OpenAI);
+        assert!("invalid".parse::<OAuthProvider>().is_err());
     }
 
     #[test]
