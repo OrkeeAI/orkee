@@ -1,10 +1,8 @@
 // ABOUTME: Execution orchestration for containerized agent runs
 // ABOUTME: Manages complete execution lifecycle from container creation to cleanup
 
-use std::collections::HashMap;
 use std::sync::Arc;
 
-use chrono::Utc;
 use tracing::{error, info, warn};
 
 use crate::container::ContainerManager;

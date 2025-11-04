@@ -2,12 +2,12 @@
 // ABOUTME: Provides connection tracking, rate limiting, and stream helpers for real-time updates
 
 use axum::response::sse::{Event, KeepAlive, Sse};
-use futures::stream::{self, Stream};
+use futures::stream::Stream;
 use std::collections::HashMap;
 use std::convert::Infallible;
 use std::net::IpAddr;
 use std::sync::{Arc, Mutex};
-use tracing::{error, info, warn};
+use tracing::{info, warn};
 
 /// Default maximum concurrent SSE connections per IP address
 /// This prevents a single client from exhausting server resources by opening unlimited connections
