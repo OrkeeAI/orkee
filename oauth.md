@@ -33,18 +33,18 @@ This document outlines the implementation plan for adding OAuth authentication t
 
 ## Phase 1: Database Schema & Core OAuth Infrastructure (Week 1)
 
-### Status: Not Started ⏳
-**Completion:** 0/15 tasks
+### Status: ✅ Completed
+**Completion:** 15/15 tasks
 
 ### 1.1 Database Schema Updates
 
 #### Tasks
-- [ ] Create migration file `packages/storage/migrations/002_oauth_tokens.sql`
-- [ ] Add `oauth_tokens` table with encrypted storage
-- [ ] Add `oauth_providers` configuration table
-- [ ] Add `auth_preference` field to users table
-- [ ] Create down migration `002_oauth_tokens.down.sql`
-- [ ] Test migration up and down
+- [x] ~~Create migration file~~ **Updated existing `001_initial_schema.sql` (no production users)**
+- [x] Add `oauth_tokens` table with encrypted storage
+- [x] Add `oauth_providers` configuration table
+- [x] Add `auth_preference` field to users table
+- [x] Update down migration `001_initial_schema.down.sql`
+- [x] Test migration up and down (all 7 migration tests passing)
 
 #### Schema Design
 
@@ -94,15 +94,20 @@ CREATE INDEX idx_oauth_tokens_expires ON oauth_tokens(expires_at);
 ### 1.2 Core OAuth Module
 
 #### Tasks
-- [ ] Extract reusable OAuth code from `packages/cloud/src/auth.rs`
-- [ ] Create `packages/projects/src/oauth/mod.rs` module
-- [ ] Implement `OAuthProvider` trait with common interface
-- [ ] Add PKCE (Proof Key for Code Exchange) implementation
-- [ ] Implement state parameter for CSRF protection
-- [ ] Create OAuth callback server (reuse port 3737 pattern)
-- [ ] Add OAuth error handling types
-- [ ] Implement browser opening utility
-- [ ] Add token refresh logic with 5-minute buffer
+- [x] ~~Extract reusable OAuth code from `packages/cloud/src/auth.rs`~~ **Created new `packages/auth` package**
+- [x] ~~Create `packages/projects/src/oauth/mod.rs` module~~ **Created `packages/auth/src/oauth/mod.rs`**
+- [x] Implement `OAuthProvider` enum with provider-specific configurations
+- [x] Add PKCE (RFC 7636) implementation with SHA256 challenge
+- [x] Implement state parameter for CSRF protection
+- [x] Create OAuth callback server on port 3737
+- [x] Add comprehensive OAuth error handling types (AuthError, AuthResult)
+- [x] Implement browser opening utility (via `open` crate)
+- [x] Add token refresh logic with 5-minute buffer (in OAuthToken type)
+
+**Implementation Notes:**
+- Created separate `orkee-auth` package for better modularity
+- All 12 unit tests passing (PKCE, provider, callback server)
+- Package structure: error, types, provider, pkce, server, storage modules
 
 #### Implementation Structure
 
