@@ -545,6 +545,28 @@ CREATE TABLE agent_executions (
     test_results TEXT,
     performance_metrics TEXT,
     metadata TEXT,
+
+    -- Sandbox execution fields (generic, not Vibekit-specific)
+    sandbox_provider TEXT CHECK(sandbox_provider IN ('local', 'e2b', 'modal') OR sandbox_provider IS NULL),
+    container_id TEXT,
+    container_image TEXT,
+    container_status TEXT CHECK(container_status IN ('creating', 'running', 'stopped', 'error') OR container_status IS NULL),
+
+    -- Resource usage tracking
+    memory_limit_mb INTEGER,
+    memory_used_mb INTEGER,
+    cpu_limit_cores REAL,
+    cpu_usage_percent REAL,
+
+    -- File system tracking
+    workspace_path TEXT,
+    output_files TEXT, -- JSON array of file paths
+
+    -- SDK-specific metadata (only these two fields reference Vibekit)
+    vibekit_session_id TEXT,  -- Tracks Vibekit SDK session
+    vibekit_version TEXT,     -- SDK version for debugging
+    environment_variables TEXT, -- JSON object
+
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
 );
@@ -562,6 +584,30 @@ BEGIN
     UPDATE agent_executions SET updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now')
     WHERE id = NEW.id;
 END;
+
+-- ============================================================================
+-- Execution Logs Table
+-- ============================================================================
+-- Stores streaming logs from agent executions for real-time viewing and replay
+
+CREATE TABLE execution_logs (
+    id TEXT PRIMARY KEY CHECK(length(id) >= 8),
+    execution_id TEXT NOT NULL REFERENCES agent_executions(id) ON DELETE CASCADE,
+    timestamp TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+    log_level TEXT NOT NULL CHECK(log_level IN ('debug', 'info', 'warn', 'error', 'fatal')),
+    message TEXT NOT NULL,
+    source TEXT, -- 'vibekit', 'agent', 'container', 'system'
+    metadata TEXT, -- JSON object for structured logging
+    stack_trace TEXT,
+    sequence_number INTEGER NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+    UNIQUE(execution_id, sequence_number)
+);
+
+-- Execution logs indexes
+CREATE INDEX idx_execution_logs_execution ON execution_logs(execution_id, sequence_number);
+CREATE INDEX idx_execution_logs_timestamp ON execution_logs(timestamp);
+CREATE INDEX idx_execution_logs_level ON execution_logs(log_level);
 
 CREATE TRIGGER update_task_actual_hours
 AFTER UPDATE ON agent_executions
@@ -583,6 +629,32 @@ BEGIN
     WHERE id = NEW.task_id
       AND status != 'completed';
 END;
+
+-- ============================================================================
+-- Execution Artifacts Table
+-- ============================================================================
+-- Stores output files, screenshots, and other artifacts from agent executions
+
+CREATE TABLE execution_artifacts (
+    id TEXT PRIMARY KEY CHECK(length(id) >= 8),
+    execution_id TEXT NOT NULL REFERENCES agent_executions(id) ON DELETE CASCADE,
+    artifact_type TEXT NOT NULL CHECK(artifact_type IN ('file', 'screenshot', 'test_report', 'coverage', 'output')),
+    file_path TEXT NOT NULL,
+    file_name TEXT NOT NULL,
+    file_size_bytes INTEGER,
+    mime_type TEXT,
+    stored_path TEXT,
+    storage_backend TEXT DEFAULT 'local' CHECK(storage_backend IN ('local', 's3', 'gcs')),
+    description TEXT,
+    metadata TEXT,
+    checksum TEXT,
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
+);
+
+-- Execution artifacts indexes
+CREATE INDEX idx_artifacts_execution ON execution_artifacts(execution_id);
+CREATE INDEX idx_artifacts_type ON execution_artifacts(artifact_type);
+CREATE INDEX idx_artifacts_created ON execution_artifacts(created_at);
 
 -- PR reviews table
 CREATE TABLE pr_reviews (
@@ -961,7 +1033,18 @@ INSERT OR IGNORE INTO system_settings (key, value, category, description, data_t
     ('ideate.temperature', '0.7', 'ai', 'AI temperature for creativity (0-1)', 'number', 0, 0),
     ('ideate.model', 'claude-3-opus-20240229', 'ai', 'AI model for PRD generation', 'string', 0, 0),
     ('ideate.timeout_seconds', '120', 'ai', 'Timeout for PRD generation requests', 'integer', 0, 0),
-    ('ideate.retry_attempts', '3', 'ai', 'Number of retry attempts on AI API failure', 'integer', 0, 0);
+    ('ideate.retry_attempts', '3', 'ai', 'Number of retry attempts on AI API failure', 'integer', 0, 0),
+
+    -- Sandbox Configuration
+    ('sandbox.default_provider', 'local', 'sandbox', 'Default sandbox provider', 'string', 0, 0),
+    ('sandbox.default_image', 'ubuntu:22.04', 'sandbox', 'Default container image', 'string', 0, 0),
+    ('sandbox.max_concurrent', '5', 'sandbox', 'Maximum concurrent executions', 'integer', 0, 0),
+    ('sandbox.default_memory_mb', '2048', 'sandbox', 'Default memory limit (MB)', 'integer', 0, 0),
+    ('sandbox.default_cpu_cores', '2.0', 'sandbox', 'Default CPU cores', 'number', 0, 0),
+    ('sandbox.default_timeout_seconds', '3600', 'sandbox', 'Default execution timeout (seconds)', 'integer', 0, 0),
+    ('sandbox.log_retention_days', '30', 'sandbox', 'Days to retain execution logs', 'integer', 0, 0),
+    ('sandbox.artifact_retention_days', '30', 'sandbox', 'Days to retain execution artifacts', 'integer', 0, 0),
+    ('sandbox.cleanup_interval_minutes', '5', 'sandbox', 'Interval for container cleanup task', 'integer', 0, 0);
 
 -- ============================================================================
 -- IDEATE SCHEMA

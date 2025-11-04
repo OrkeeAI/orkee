@@ -76,6 +76,9 @@ DROP TABLE IF EXISTS ai_usage_logs;
 -- ============================================================================
 -- DROP AGENT EXECUTION TABLES
 -- ============================================================================
+-- Drop child tables first (have FKs to agent_executions)
+DROP TABLE IF EXISTS execution_artifacts;
+DROP TABLE IF EXISTS execution_logs;
 DROP TABLE IF EXISTS pr_reviews;
 DROP TABLE IF EXISTS agent_executions;
 
