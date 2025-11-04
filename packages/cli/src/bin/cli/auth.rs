@@ -6,6 +6,7 @@ use clap::Subcommand;
 use colored::*;
 use inquire::Select;
 use orkee_auth::{OAuthManager, OAuthProvider};
+use orkee_storage::EncryptionMode;
 use std::process;
 
 #[derive(Subcommand)]
@@ -144,6 +145,9 @@ async fn login_command(provider_str: Option<&str>, force: bool) {
                 "Orkee".bold(),
                 provider.to_string().bold()
             );
+
+            // Show encryption security warning
+            show_encryption_warning().await;
         }
         Err(e) => {
             eprintln!("{} Authentication failed: {}", "✗".red().bold(), e);
@@ -328,6 +332,51 @@ async fn refresh_command(provider_str: &str) {
                 format!("orkee login {}", provider).yellow()
             );
             process::exit(1);
+        }
+    }
+}
+
+/// Show encryption security warning if using machine-based encryption
+async fn show_encryption_warning() {
+    // Get database path
+    let db_path = match dirs::home_dir() {
+        Some(home) => home.join(".orkee").join("orkee.db"),
+        None => return, // Can't check, skip warning
+    };
+
+    let database_url = format!("sqlite://{}?mode=rwc", db_path.display());
+
+    // Connect to database to check encryption mode
+    let pool = match sqlx::SqlitePool::connect(&database_url).await {
+        Ok(pool) => pool,
+        Err(_) => return, // Can't check, skip warning
+    };
+
+    // Query encryption mode
+    let mode: Option<String> = match sqlx::query_scalar(
+        "SELECT mode FROM encryption_settings WHERE id = 1"
+    )
+    .fetch_optional(&pool)
+    .await
+    {
+        Ok(mode) => mode,
+        Err(_) => return, // Can't check, skip warning
+    };
+
+    // Only show warning for machine-based encryption
+    if let Some(mode_str) = mode {
+        if mode_str == EncryptionMode::Machine.to_string() {
+            println!();
+            println!("{}", "⚠️  SECURITY WARNING".yellow().bold());
+            println!();
+            println!("   Tokens are encrypted with {}", "machine-based encryption".yellow());
+            println!("   This provides {} - anyone with access to", "transport encryption only".yellow());
+            println!("   {} can decrypt your tokens.", "~/.orkee/orkee.db".yellow());
+            println!();
+            println!("   For production use or shared machines, upgrade to password-based encryption:");
+            println!();
+            println!("      {}", "orkee security set-password".green().bold());
+            println!();
         }
     }
 }

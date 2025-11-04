@@ -205,6 +205,27 @@ orkee logout all
 4. **Automatic refresh**: Tokens are refreshed automatically before expiry (5-minute buffer)
 5. **Use in apps**: Dashboard and CLI use OAuth tokens transparently
 
+### Security Considerations
+
+> **⚠️ IMPORTANT**: By default, Orkee uses **machine-based encryption** which provides transport encryption only.
+>
+> With machine-based encryption:
+> - ✅ Tokens are protected during backup/sync operations
+> - ❌ Anyone with access to `~/.orkee/orkee.db` on your machine can decrypt the tokens
+> - ❌ This is **NOT** true at-rest encryption
+>
+> **For production use or shared machines**, upgrade to password-based encryption:
+>
+> ```bash
+> orkee security set-password    # Enable password-based encryption
+> orkee security status          # Check current encryption mode
+> ```
+>
+> Password-based encryption provides:
+> - ✅ True at-rest encryption - tokens cannot be decrypted without your password
+> - ✅ Suitable for shared machines and production environments
+> - ⚠️ Password cannot be recovered if lost
+
 ### Configuration
 
 OAuth behavior can be configured via environment variables:
