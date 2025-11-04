@@ -9,7 +9,7 @@ This document tracks the migration of all AI operations from legacy Rust AIServi
 **Apply the Chat Mode pattern to ALL features**: Backend Rust = Pure CRUD only. Frontend TypeScript = All AI calls via AI SDK.
 
 ### Status: In Progress 🚧
-**Completion:** 40% complete
+**Completion:** 50% complete
 
 **Timeline:** 2 weeks (Weeks 1-2 of overall VibeKit project)
 
@@ -45,7 +45,7 @@ Chat mode **already implements the correct pattern:**
 - ✅ Spec Workflow - PRD/Task AI already uses AI SDK
 
 **Features Needing Migration (6):**
-- 🚧 PRD Generation (6 Rust AI functions) - **IN PROGRESS**
+- ✅ PRD Generation (6 Rust AI functions) - **BACKEND COMPLETE** (Frontend pending)
 - ✅ Insight Extraction (1 function) - **COMPLETE**
 - ❌ Research Analysis (5 functions)
 - ❌ Expert Roundtable (3 functions)
@@ -67,8 +67,8 @@ Chat mode **already implements the correct pattern:**
   - [x] Insight Extraction Backend (178→31 lines)
   - [x] Insight Extraction Frontend (already done in chat-ai.ts)
 
-- [x] **Priority 1.3:** Medium Complexity Backend Started - **IN PROGRESS**
-  - [x] PRD Generation Backend Started
+- [x] **Priority 1.3:** Medium Complexity Backend - **BACKEND COMPLETE**
+  - [x] PRD Generation Backend Complete (991→599 lines, removed 6 AI functions)
   - [ ] PRD Generation Frontend Pending
   - [ ] Research Analysis Backend
   - [ ] Research Analysis Frontend
@@ -85,15 +85,23 @@ Chat mode **already implements the correct pattern:**
 
 ### Current Work (Priority 1.3)
 
-**🚧 IN PROGRESS**: Removing PRD Generation AI logic from Rust backend
-- File: `packages/ideate/src/prd_generator.rs` (991 lines)
-- 6 AI functions to remove
-- Keep helper functions: format_prd_markdown, merge_content, context builders
+**✅ COMPLETE**: PRD Generation Backend Migration
+- File: `packages/ideate/src/prd_generator.rs` (991→599 lines, -392 lines)
+- ✅ Removed 6 AI functions:
+  - `generate_complete_prd_with_model()`
+  - `generate_section()`
+  - `generate_from_session()`
+  - `fill_skipped_sections()`
+  - `generate_section_with_context()`
+  - `regenerate_with_template()` + streaming version
+- ✅ Kept helper functions: `format_prd_markdown()`, `merge_content()`, `build_context_from_aggregated()`
+- ⚠️ **Note**: 7+ HTTP handlers in `ideate_generation_handlers.rs` and `ideate_handlers.rs` call removed functions and will need updating
 
 **📋 NEXT**: Create frontend AI SDK service for PRD generation
 - File: `packages/dashboard/src/services/prd-ai.ts` (~500-600 lines estimated)
 - Implement all 6 AI functions using Vercel AI SDK
 - Support streaming for template regeneration
+- Update affected HTTP handlers to use new frontend pattern
 
 ## Detailed Migration Tasks
 
@@ -140,21 +148,22 @@ Chat mode **already implements the correct pattern:**
 **Git Commits**:
 - `6fac3ff` - "Priority 1.2 Backend: Remove Insight Extraction AI logic from Rust"
 
-### 🚧 Priority 1.3: Medium Complexity - IN PROGRESS
+### ✅ Priority 1.3: Medium Complexity Backend - COMPLETE
 
-#### PRD Generation 🚧
+#### PRD Generation ✅ (Backend Complete)
 **Backend** (`packages/ideate/src/prd_generator.rs`):
-- [x] **STARTING NOW** - Analyzing file structure
-- [ ] Remove 6 AI functions:
-  - [ ] `generate_complete_prd_with_model()` - Full PRD generation
-  - [ ] `generate_section()` - Individual section generation
-  - [ ] `generate_from_session()` - PRD from aggregated session data
-  - [ ] `fill_skipped_sections()` - AI-fill for skipped sections
-  - [ ] `generate_section_with_context()` - Section generation with full context
-  - [ ] `regenerate_with_template()` + streaming version - Template-based regeneration
-- [ ] Keep CRUD helpers: `format_prd_markdown()`, `merge_content()`, context builders
-- [ ] Update handler in `packages/api/src/ideate_handlers.rs`
-- [ ] Comment out routes: `/quick-generate`, `/quick-expand`, others using AI functions
+- [x] Complete file analysis (991 lines initially)
+- [x] Remove 6 AI functions:
+  - [x] `generate_complete_prd_with_model()` - Full PRD generation
+  - [x] `generate_section()` - Individual section generation
+  - [x] `generate_from_session()` - PRD from aggregated session data
+  - [x] `fill_skipped_sections()` - AI-fill for skipped sections
+  - [x] `generate_section_with_context()` - Section generation with full context
+  - [x] `regenerate_with_template()` + streaming version - Template-based regeneration
+- [x] Keep CRUD helpers: `format_prd_markdown()`, `merge_content()`, `build_context_from_aggregated()`
+- [x] Remove unused prompt builders: `build_session_prd_prompt()`, `build_section_prompt_with_context()`
+- [x] Final size: 599 lines (392 lines removed, ~40% reduction)
+- [ ] **TODO**: Update handlers in `packages/api/src/ideate_generation_handlers.rs` and `ideate_handlers.rs`
 
 **Frontend**:
 - [ ] Create `packages/dashboard/src/services/prd-ai.ts` (~500-600 lines)
@@ -346,16 +355,17 @@ turbo build
 ### Completed Commits
 1. `5ecbb82` - "Priority 1.1 Frontend: Create AI SDK service for dependency analysis"
 2. `6fac3ff` - "Priority 1.2 Backend: Remove Insight Extraction AI logic from Rust"
+3. **PENDING** - "Priority 1.3 Backend: Remove PRD Generation AI logic from Rust (991→599 lines)"
 
 ### Planned Commits
-3. Priority 2.1 Backend: Remove PRD Generation AI logic from Rust
-4. Priority 2.1 Frontend: Create AI SDK service for PRD generation
-5. Priority 2.2 Backend: Remove Research Analysis AI logic from Rust
-6. Priority 2.2 Frontend: Create AI SDK service for research analysis
-7. Priority 3 Backend: Remove Expert Roundtable AI logic from Rust
-8. Priority 3 Frontend: Create AI SDK service for Expert Roundtable
-9. Priority 3: Handle Generic AI Handlers (verify/delete/migrate)
-10. Cleanup: Delete legacy AIService and verify all migrations
+4. Priority 1.3 Frontend: Create AI SDK service for PRD generation
+5. Priority 1.3 Handlers: Update HTTP handlers for frontend AI pattern
+6. Priority 1.4 Backend: Remove Research Analysis AI logic from Rust
+7. Priority 1.4 Frontend: Create AI SDK service for research analysis
+8. Priority 1.5 Backend: Remove Expert Roundtable AI logic from Rust
+9. Priority 1.5 Frontend: Create AI SDK service for Expert Roundtable
+10. Priority 1.6: Handle Generic AI Handlers (verify/delete/migrate)
+11. Cleanup: Delete legacy AIService and verify all migrations
 
 ## Notes
 
