@@ -196,25 +196,27 @@ Implement comprehensive AI usage tracking for Orkee, capturing all AI SDK calls 
 - [x] Verified all active AI calls are tracked
 - [x] Note: `lib/ai/streaming.tsx` hooks (`useStreamObject`, `useStreamText`) are unused and don't need telemetry
 
-### Phase 5: Enhanced Usage Dashboard
+### Phase 5: Enhanced Usage Dashboard ✅ COMPLETED
 
-#### 5.1: Update API Endpoints
-- [ ] Create `GET /api/ai/usage/summary` for dashboard data
-- [ ] Add tool usage statistics endpoint
-- [ ] Add time-series data endpoint for charts
+#### 5.1: Update API Endpoints ✅ COMPLETED
+- [x] Create `GET /api/ai-usage/stats` for aggregate statistics (already existed)
+- [x] Add tool usage statistics endpoint `GET /api/ai-usage/tools`
+- [x] Add time-series data endpoint `GET /api/ai-usage/time-series` for charts
 
-#### 5.2: Update Dashboard Components
-- [ ] `packages/dashboard/src/pages/usage/index.tsx`:
-  - [ ] Add tool calls metrics card
-  - [ ] Show tool breakdown chart
-  - [ ] Display most used tools
-  - [ ] Add tool success/failure rates
+#### 5.2: Update Dashboard Components ✅ COMPLETED
+- [x] `packages/dashboard/src/pages/Usage.tsx`:
+  - [x] Added Overview tab with key metrics cards (requests, tokens, costs, tool calls)
+  - [x] Added model/provider breakdown sections
+  - [x] Display most used tools with success rates
+  - [x] Added Charts & Analytics tab with advanced visualizations
 
-#### 5.3: New Visualizations
-- [ ] Tool usage pie chart
-- [ ] Tool calls over time line chart
-- [ ] Tool performance metrics (avg duration)
-- [ ] Failed tool calls analysis
+#### 5.3: New Visualizations ✅ COMPLETED
+- [x] Tool usage bar charts (call counts, success/failure rates)
+- [x] Tool performance bar chart (avg duration)
+- [x] Time-series line chart for requests, tokens, and costs over time
+- [x] Model distribution pie chart (by token usage)
+- [x] Provider distribution pie chart (by cost)
+- [x] Failed tool calls analysis (visible in success/failure rate bars)
 
 ### Phase 6: Testing & Validation
 
