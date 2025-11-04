@@ -30,3 +30,9 @@ tracing = "0.1"
 
 # Async streams
 async-stream = "0.3"
+
+# Date/time handling
+chrono = "0.4"
+
+# Futures utilities
+futures-util = "0.3"
