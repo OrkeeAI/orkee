@@ -161,36 +161,40 @@ Implement comprehensive AI usage tracking for Orkee, capturing all AI SDK calls 
 - [x] Consider different pricing for tool-enabled models
   - Note: Current pricing model is sufficient
 
-### Phase 4: Refactor Existing AI Calls
+### Phase 4: Refactor Existing AI Calls ✅ COMPLETED
 
-#### 4.1: Update Core AI Services
-- [ ] `packages/dashboard/src/lib/ai/services.ts`:
-  - [ ] Wrap `generateProjectIdeas()`
-  - [ ] Wrap `generateTasks()`
-  - [ ] Wrap `generateProjectDescription()`
-  - [ ] Wrap `generateReadme()`
-  - [ ] Update all other AI functions
+#### 4.1: Update Core AI Services ✅ COMPLETED
+- [x] `packages/dashboard/src/lib/ai/services.ts`:
+  - [x] Added `sendAIResultTelemetry` helper for AIResult<T> pattern
+  - [x] Wrapped all 9 methods: analyzePRD, analyzePRDChunked, generateSpec, suggestTasks, analyzeOrphanTask, validateTaskCompletion, refineSpec, generateSpecMarkdown, regeneratePRD
+  - [x] All methods now track tokens, cost, duration, and send to backend
 
-#### 4.2: Update Chat Services
-- [ ] `packages/dashboard/src/services/chat-ai.ts`:
-  - [ ] Wrap `sendMessage()`
-  - [ ] Wrap streaming responses
-  - [ ] Track tool calls in chat context
+#### 4.2: Update Chat Services ✅ COMPLETED
+- [x] `packages/dashboard/src/services/chat-ai.ts`:
+  - [x] Wrapped `streamChatResponse()` with `trackAIOperationWithCost`
+  - [x] Wrapped `extractInsights()` with `trackAIOperationWithCost`
+  - [x] Wrapped `calculateQualityMetrics()` with `trackAIOperationWithCost`
+  - [x] Wrapped `generatePRDFromChat()` with `trackAIOperationWithCost`
+  - [x] All streaming responses properly track via onFinish callback
 
-#### 4.3: Update Brainstorm Services
-- [ ] `packages/dashboard/src/services/ai-brainstorm.ts`:
-  - [ ] Wrap all brainstorm functions
-  - [ ] Track ideation operations
+#### 4.3: Update PRD Generator Services ✅ COMPLETED
+- [x] `packages/dashboard/src/services/ai/service.ts`:
+  - [x] Added model, provider, estimatedCost fields to AIGenerationResult<T> and AIStreamingResult<T>
+  - [x] Updated `generateStructured()` to accept operation parameter and send telemetry (DRY approach)
+  - [x] Updated `generateStreamedStructured()` similarly with streaming-aware telemetry
+  - [x] Updated all 18 method calls (9 non-streaming + 9 streaming) with operation names:
+    - generateCompletePRD, generateOverview, generateFeatures, generateUX, generateTechnical
+    - generateRoadmap, generateDependencies, generateRisks, generateResearch (+ streaming versions)
+  - [x] All PRD generation operations now fully tracked
 
-#### 4.4: Update Component Hooks
-- [ ] `packages/dashboard/src/pages/ai-chat/hooks.ts`:
-  - [ ] Update `useAIChat()` hook
-  - [ ] Ensure telemetry in all AI operations
+#### 4.4: Clean Up Unused Code ✅ COMPLETED
+- [x] Removed unused `packages/dashboard/src/services/ai-spec.ts` (OpenSpec removal cleanup)
 
-#### 4.5: Search for Additional AI SDK Usage
-- [ ] Grep for `import.*from.*'ai'` to find all usage
-- [ ] Grep for `generateText`, `streamText`, `generateObject`
-- [ ] Ensure no AI calls are missed
+#### 4.5: Search for Additional AI SDK Usage ✅ COMPLETED
+- [x] Searched for `import.*from.*'ai'` - found 5 files
+- [x] Searched for `generateText`, `streamText`, `generateObject`, `streamObject` calls
+- [x] Verified all active AI calls are tracked
+- [x] Note: `lib/ai/streaming.tsx` hooks (`useStreamObject`, `useStreamText`) are unused and don't need telemetry
 
 ### Phase 5: Enhanced Usage Dashboard
 
