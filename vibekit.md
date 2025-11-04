@@ -1,628 +1,1053 @@
-# Dagger Sandbox Integration Plan
+# Vibekit Integration Plan for Orkee
 
-## Project Overview
+## Executive Summary
 
-This document tracks the integration of Dagger for local development sandboxing in Orkee. This allows projects to run in isolated containerized environments for testing and development.
+This document outlines the comprehensive plan to integrate Vibekit SDK into Orkee for containerized AI agent execution. The integration enables users to execute tasks with AI coding agents in secure Docker containers with full observability and tracking.
 
-**Note**: OAuth authentication is tracked separately in `oauth.md`.
+### Key Features
+- Local Docker sandbox execution (cloud providers in future phases)
+- AI agent selection (Claude, OpenAI, Gemini, etc.)
+- Real-time log streaming via SSE
+- Comprehensive execution tracking in SQLite
+- Resource monitoring and limits
+- Artifact collection and download
 
-### High-Level Goals
-- Integrate Dagger for local sandbox execution
-- Support multiple container templates (Node.js, Python, etc.)
-- Track sandbox sessions in database
-- Provide CLI and API for sandbox management
-- Auto-cleanup expired sandbox sessions
+### Architecture Overview
+- **Hybrid Rust + Node.js**: Vibekit TypeScript SDK via Node.js child process, bollard for Docker monitoring
+- **API Design**: RESTful endpoints nested under tasks
+- **Database**: Extend existing tables + new execution tracking tables
+- **Real-time**: Server-Sent Events for log streaming
 
-### Timeline Summary
-**Total Duration:** 2-3 weeks
-- **Week 1:** Phase 1 - Database Schema
-- **Week 2:** Phase 2 - Dagger Integration & CLI Commands
-- **Week 3:** Phase 3 - Dashboard Integration & Testing
+### Important Naming Conventions
+**NO "vibekit_" prefixes in database tables or fields!** Tables are named for their purpose, not the technology:
+- ✅ `execution_logs` - NOT ❌ vibekit_logs
+- ✅ `execution_artifacts` - NOT ❌ vibekit_artifacts
+- ✅ Extend existing `agent_executions` table - NOT ❌ create new vibekit_executions
+- ✅ Field: `sandbox_provider` - NOT ❌ vibekit_provider
+- ✅ Field: `container_id` - NOT ❌ vibekit_container_id
 
-## Phase Progress Tracker
-
-### Phase Status Overview
-- [ ] **Phase 1:** Database Schema for Sandbox Sessions _(Week 1)_
-- [ ] **Phase 2:** Dagger Integration & CLI Commands _(Week 2)_
-- [ ] **Phase 3:** Dashboard Integration & Testing _(Week 3)_
+The only "vibekit" references should be:
+- `vibekit_session_id` field - specifically for tracking Vibekit SDK sessions
+- `vibekit_version` field - for tracking SDK version
+- Package name: `packages/sandbox` - NOT packages/vibekit
 
 ---
 
-## Phase 1: Database Schema for Sandbox Sessions (Week 1)
+## Implementation Approach
 
-### Phase 1 Status: Not Started ⏳
-**Completion:** 0/4 tasks
+### Database Migration Strategy
+Since no one is using the app yet, we're taking the simpler approach:
+1. **Direct updates to `001_initial_schema.sql`** - No need for new migration files
+2. **Direct updates to `001_initial_schema.down.sql`** - Keep down migration in sync
+3. This avoids unnecessary migration complexity during pre-production development
 
-### Phase 1 Overview
-Add database tables to support sandbox session tracking by modifying the existing initial schema migration (no production users yet, safe to modify).
+### Naming Philosophy
+- **Technology-agnostic naming** - Tables and fields describe their purpose, not the implementation
+- **"sandbox" not "vibekit"** - We're building a sandbox execution system that happens to use Vibekit
+- **Generic execution tracking** - The system could work with other SDKs in the future
+- Only use "vibekit" prefix for SDK-specific tracking fields (session_id, version)
 
-### Phase 1 Tasks
+### Package Structure
+- **`packages/sandbox/`** - Main Rust package for sandbox orchestration
+- **`packages/sandbox/vibekit-bridge/`** - Node.js bridge for Vibekit SDK
+- This keeps the Rust code separate from the TypeScript/Node.js integration
+
+---
+
+## Phase 1: Database Schema & Foundation (Week 1)
+
+### Goals
+Establish database schema, create sandbox package structure, and define core types.
+
+### Tasks
 
 #### 1.1 Database Schema Updates
-- [ ] Update `packages/storage/migrations/001_initial_schema.sql` to add sandbox tables
-- [ ] Update `packages/storage/migrations/001_initial_schema.down.sql` to drop sandbox tables
-- [ ] Test migration up
-- [ ] Test migration down
 
-**Note:** Since no production users exist yet, we can safely modify the initial schema migration instead of creating a new migration file.
-
-#### 1.2 Schema Changes to Add
-
-**Location:** Add to `packages/storage/migrations/001_initial_schema.sql` after the `api_tokens` table (line ~703)
-
-**Sandbox sessions table:**
-```sql
--- Track Dagger sandbox sessions
-CREATE TABLE sandbox_sessions (
-    id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
-    user_id TEXT NOT NULL,
-    project_id TEXT,
-    provider TEXT NOT NULL DEFAULT 'dagger' CHECK (provider IN ('dagger')),
-    container_id TEXT NOT NULL, -- Dagger container ID
-    status TEXT NOT NULL CHECK (status IN ('active', 'paused', 'terminated')),
-    host_url TEXT, -- Local URL (e.g., localhost:8080)
-    working_directory TEXT DEFAULT '/app',
-    metadata TEXT, -- JSON blob for provider-specific data
-    created_at INTEGER NOT NULL DEFAULT (unixepoch()),
-    last_active_at INTEGER NOT NULL DEFAULT (unixepoch()),
-    expires_at INTEGER, -- Auto-cleanup after this time
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-    FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE SET NULL,
-    CHECK (json_valid(metadata) OR metadata IS NULL)
-);
-
--- Indexes
-CREATE INDEX idx_sandbox_sessions_user ON sandbox_sessions(user_id);
-CREATE INDEX idx_sandbox_sessions_project ON sandbox_sessions(project_id);
-CREATE INDEX idx_sandbox_sessions_status ON sandbox_sessions(status);
-CREATE INDEX idx_sandbox_sessions_expires ON sandbox_sessions(expires_at);
-```
-
-**Update down migration:**
-Add to `packages/storage/migrations/001_initial_schema.down.sql` in the SECURITY section:
-```sql
-DROP TABLE IF EXISTS sandbox_sessions;
-```
-
----
-
-## Phase 2: Dagger Integration & CLI Commands (Week 2)
-
-### Phase 2 Status: Not Started ⏳
-**Completion:** 0/12 tasks
-
-### Phase 2 Overview
-Implement Dagger for local sandbox execution and add CLI commands for management.
-
-### Phase 2 Tasks
-
-#### 2.1 Prerequisites
-- [ ] Install Docker (required by Dagger)
-- [ ] Install Dagger CLI (optional, for debugging)
-
-#### 2.2 Dagger Implementation
-- [ ] Create `packages/dagger/` TypeScript package
-- [ ] Implement Dagger client wrapper
-- [ ] Add container lifecycle management
-- [ ] Implement port forwarding
-- [ ] Add log streaming
-- [ ] Create Rust-Node.js bridge for Dagger calls
-
-#### 2.3 Rust Storage Layer
-- [ ] Create `packages/projects/src/storage/sandbox_sessions.rs`
-- [ ] Update `packages/projects/src/storage/mod.rs` to export sandbox module
-- [ ] Implement sandbox session CRUD operations
-
-#### 2.4 CLI Commands
-- [ ] Create `packages/cli/src/bin/cli/sandbox.rs`
-- [ ] Implement `orkee sandbox list` command
-- [ ] Implement `orkee sandbox create` command
-- [ ] Implement `orkee sandbox stop` command
-- [ ] Implement `orkee sandbox logs` command
-- [ ] Implement `orkee sandbox clean` command
-
-### Dagger Package Structure
-
-```
-packages/dagger/
-├── package.json
-├── tsconfig.json
-├── src/
-│   ├── index.ts           # Main exports
-│   ├── client.ts          # Dagger client wrapper
-│   ├── sandbox.ts         # Sandbox lifecycle management
-│   ├── bridge.ts          # Rust-Node.js bridge
-│   └── types.ts           # TypeScript type definitions
-└── dist/                  # Compiled JavaScript
-```
-
-### Dagger Client Implementation
-
-```typescript
-// packages/dagger/src/client.ts
-import Client, { connect, Container } from "@dagger.io/dagger";
-import { EventEmitter } from 'events';
-
-export interface SandboxConfig {
-  template?: string;
-  workdir?: string;
-  ports?: number[];
-  environment?: Record<string, string>;
-}
-
-export class DaggerSandbox extends EventEmitter {
-  private client?: Client;
-  private containers: Map<string, Container> = new Map();
-
-  async initialize(): Promise<void> {
-    this.client = await connect({
-      LogOutput: process.stderr,
-    });
-  }
-
-  async createSandbox(config: SandboxConfig = {}): Promise<{
-    id: string;
-    ports: Map<number, number>;
-    url: string;
-  }> {
-    if (!this.client) await this.initialize();
-
-    let container = this.client!
-      .container()
-      .from(config.template || 'node:18-alpine')
-      .withWorkdir(config.workdir || '/app');
-
-    // Expose ports
-    const portMappings = new Map<number, number>();
-    for (const port of config.ports || [3000]) {
-      container = container.withExposedPort(port);
-      const hostPort = 8000 + Math.floor(Math.random() * 1000);
-      portMappings.set(port, hostPort);
-    }
-
-    // Set environment variables
-    for (const [key, value] of Object.entries(config.environment || {})) {
-      container = container.withEnvVariable(key, value);
-    }
-
-    const id = await container.id();
-    this.containers.set(id, container);
-
-    const primaryPort = portMappings.values().next().value || 8080;
-
-    return {
-      id,
-      ports: portMappings,
-      url: `http://localhost:${primaryPort}`,
-    };
-  }
-
-  async stopSandbox(id: string): Promise<void> {
-    const container = this.containers.get(id);
-    if (!container) {
-      throw new Error(`Sandbox ${id} not found`);
-    }
-    this.containers.delete(id);
-  }
-
-  async getLogs(id: string): AsyncIterator<string> {
-    const container = this.containers.get(id);
-    if (!container) {
-      throw new Error(`Sandbox ${id} not found`);
-    }
-    return container.stdout();
-  }
-
-  async cleanup(): Promise<void> {
-    this.containers.clear();
-    if (this.client) {
-      await this.client.close();
-      this.client = undefined;
-    }
-  }
-}
-```
-
-### Rust Bridge Implementation
-
-```rust
-// packages/cli/src/dagger/mod.rs
-use std::path::PathBuf;
-use std::process::Command;
-use serde::{Serialize, Deserialize};
-use anyhow::Result;
-
-#[derive(Serialize)]
-struct BridgeRequest {
-    command: String,
-    payload: serde_json::Value,
-}
-
-#[derive(Deserialize)]
-struct BridgeResponse {
-    success: bool,
-    data: Option<serde_json::Value>,
-    error: Option<String>,
-}
-
-pub struct DaggerBridge {
-    node_script_path: PathBuf,
-}
-
-impl DaggerBridge {
-    pub fn new() -> Result<Self> {
-        let node_script_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .join("../../dagger/dist/bridge.js");
-
-        if !node_script_path.exists() {
-            anyhow::bail!("Dagger bridge not built. Run: cd packages/dagger && bun run build");
-        }
-
-        Ok(Self { node_script_path })
-    }
-
-    async fn call_bridge(&self, request: BridgeRequest) -> Result<BridgeResponse> {
-        let input = serde_json::to_string(&request)?;
-
-        let output = tokio::process::Command::new("node")
-            .arg(&self.node_script_path)
-            .arg(input)
-            .output()
-            .await?;
-
-        if !output.status.success() {
-            let stderr = String::from_utf8_lossy(&output.stderr);
-            anyhow::bail!("Dagger bridge failed: {}", stderr);
-        }
-
-        let response: BridgeResponse = serde_json::from_slice(&output.stdout)?;
-
-        if !response.success {
-            anyhow::bail!("Dagger error: {}", response.error.unwrap_or_default());
-        }
-
-        Ok(response)
-    }
-
-    pub async fn create_sandbox(&self, project_id: String, template: String) -> Result<String> {
-        let request = BridgeRequest {
-            command: "create_sandbox".to_string(),
-            payload: serde_json::json!({
-                "projectId": project_id,
-                "template": template
-            }),
-        };
-
-        let response = self.call_bridge(request).await?;
-        let data = response.data.unwrap_or_default();
-
-        Ok(data["id"].as_str().unwrap_or_default().to_string())
-    }
-
-    pub async fn stop_sandbox(&self, id: String) -> Result<()> {
-        let request = BridgeRequest {
-            command: "stop_sandbox".to_string(),
-            payload: serde_json::json!({ "id": id }),
-        };
-
-        self.call_bridge(request).await?;
-        Ok(())
-    }
-}
-```
-
-### Sandbox Storage Implementation
-
-```rust
-// packages/projects/src/storage/sandbox_sessions.rs
-use sqlx::SqlitePool;
-use chrono::Utc;
-use std::collections::HashMap;
-use anyhow::Result;
-
-pub struct SandboxSessionStorage {
-    pool: SqlitePool,
-}
-
-impl SandboxSessionStorage {
-    pub async fn create_session(
-        &self,
-        user_id: &str,
-        container_id: &str,
-        port_mappings: HashMap<u16, u16>
-    ) -> Result<String> {
-        let id = generate_id();
-        let metadata = serde_json::json!({
-            "ports": port_mappings,
-            "provider": "dagger",
-        });
-
-        sqlx::query!(
-            r#"
-            INSERT INTO sandbox_sessions
-                (id, user_id, provider, container_id, status, metadata, expires_at)
-            VALUES (?, ?, 'dagger', ?, 'active', ?, ?)
-            "#,
-            id, user_id, container_id,
-            serde_json::to_string(&metadata)?,
-            Utc::now().timestamp() + 3600 // 1 hour expiry
-        )
-        .execute(&self.pool)
-        .await?;
-
-        Ok(id)
-    }
-
-    pub async fn cleanup_expired(&self) -> Result<u32> {
-        let result = sqlx::query!(
-            r#"
-            UPDATE sandbox_sessions
-            SET status = 'terminated'
-            WHERE status = 'active'
-              AND expires_at < unixepoch()
-            "#
-        )
-        .execute(&self.pool)
-        .await?;
-
-        Ok(result.rows_affected() as u32)
-    }
-}
-```
-
-### CLI Commands
-
-```rust
-// packages/cli/src/bin/cli/sandbox.rs
-use anyhow::Result;
-use clap::Subcommand;
-
-#[derive(Subcommand)]
-pub enum SandboxCommand {
-    /// List active sandboxes
-    #[command(visible_alias = "ls")]
-    List,
-
-    /// Create a new sandbox
-    Create {
-        /// Project ID to associate with sandbox
-        #[arg(long)]
-        project: Option<String>,
-
-        /// Container template (default: node:18)
-        #[arg(long, default_value = "node:18")]
-        template: String,
-    },
-
-    /// Show sandbox logs
-    Logs {
-        /// Sandbox ID
-        id: String,
-    },
-
-    /// Stop a sandbox
-    Stop {
-        /// Sandbox ID
-        id: String,
-    },
-
-    /// Stop all sandboxes
-    Clean,
-}
-
-pub async fn handle_sandbox(cmd: SandboxCommand) -> Result<()> {
-    match cmd {
-        SandboxCommand::List => list_sandboxes().await,
-        SandboxCommand::Create { project, template } => {
-            create_sandbox(project, template).await
-        }
-        SandboxCommand::Logs { id } => show_logs(&id).await,
-        SandboxCommand::Stop { id } => stop_sandbox(&id).await,
-        SandboxCommand::Clean => clean_all_sandboxes().await,
-    }
-}
-```
-
-### Background Cleanup Task
-
-```rust
-// packages/cli/src/tasks/sandbox_cleanup.rs
-use tokio::time::{interval, Duration};
-
-pub async fn start_sandbox_cleanup_task(storage: SandboxSessionStorage) {
-    let mut interval = interval(Duration::from_secs(300)); // 5 minutes
-
-    loop {
-        interval.tick().await;
-
-        match storage.cleanup_expired().await {
-            Ok(count) if count > 0 => {
-                tracing::info!("Cleaned up {} expired sandboxes", count);
-            }
-            Err(e) => {
-                tracing::error!("Failed to cleanup sandboxes: {}", e);
-            }
-            _ => {}
-        }
-    }
-}
-```
-
----
-
-## Phase 3: Dashboard Integration & Testing (Week 3)
-
-### Phase 3 Status: Not Started ⏳
-**Completion:** 0/8 tasks
-
-### Phase 3 Overview
-Add UI for sandbox management and comprehensive testing.
-
-### Phase 3 Tasks
-
-#### 3.1 Dashboard Components
-- [ ] Create `packages/dashboard/src/components/SandboxManager.tsx`
-- [ ] Implement sandbox list view
-- [ ] Add create/stop controls
-- [ ] Show sandbox logs in UI
-
-#### 3.2 API Endpoints
-- [ ] Create `packages/api/src/sandbox_handlers.rs`
-- [ ] Implement POST `/api/sandbox` - create sandbox
-- [ ] Implement GET `/api/sandbox/:id` - get sandbox status
-- [ ] Implement DELETE `/api/sandbox/:id` - stop sandbox
-- [ ] Add routes to main router
-
-#### 3.3 Testing
-- [ ] Write unit tests for Dagger client
-- [ ] Write integration tests for sandbox lifecycle
-- [ ] Test cleanup task
-- [ ] Manual testing checklist
-
-### Sandbox Manager Component
-
-```tsx
-// packages/dashboard/src/components/SandboxManager.tsx
-import React, { useState, useEffect } from 'react';
-import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
-
-interface Sandbox {
-  id: string;
-  status: 'active' | 'paused' | 'terminated';
-  projectId?: string;
-  hostUrl?: string;
-  createdAt: number;
-}
-
-export function SandboxManager() {
-  const [sandboxes, setSandboxes] = useState<Sandbox[]>([]);
-  const [creating, setCreating] = useState(false);
-
-  const createSandbox = async (template: string = 'node:18') => {
-    setCreating(true);
-    try {
-      const response = await fetch('/api/sandbox', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ template }),
-      });
-
-      const data = await response.json();
-      if (data.success) {
-        await fetchSandboxes();
-      }
-    } finally {
-      setCreating(false);
-    }
-  };
-
-  const stopSandbox = async (id: string) => {
-    await fetch(`/api/sandbox/${id}`, { method: 'DELETE' });
-    await fetchSandboxes();
-  };
-
-  const fetchSandboxes = async () => {
-    const response = await fetch('/api/sandbox');
-    const data = await response.json();
-    setSandboxes(data.sandboxes || []);
-  };
-
-  useEffect(() => {
-    fetchSandboxes();
-    const interval = setInterval(fetchSandboxes, 5000);
-    return () => clearInterval(interval);
-  }, []);
-
-  return (
-    <div className="space-y-4">
-      <div className="flex justify-between items-center">
-        <h3 className="text-lg font-medium">Sandbox Environments</h3>
-        <Button onClick={() => createSandbox()} disabled={creating}>
-          {creating ? 'Creating...' : 'New Sandbox'}
-        </Button>
-      </div>
-
-      {sandboxes.length === 0 ? (
-        <Card className="p-6 text-center text-muted-foreground">
-          No active sandboxes
-        </Card>
-      ) : (
-        <div className="space-y-2">
-          {sandboxes.map(sandbox => (
-            <Card key={sandbox.id} className="p-4">
-              <div className="flex justify-between items-center">
-                <div>
-                  <div className="font-mono text-sm">{sandbox.id.slice(0, 8)}</div>
-                  {sandbox.hostUrl && (
-                    <a
-                      href={sandbox.hostUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-blue-500 hover:underline text-sm"
-                    >
-                      {sandbox.hostUrl}
-                    </a>
-                  )}
-                </div>
-                <Button
-                  size="sm"
-                  variant="destructive"
-                  onClick={() => stopSandbox(sandbox.id)}
-                >
-                  Stop
-                </Button>
-              </div>
-            </Card>
-          ))}
-        </div>
-      )}
-    </div>
+**IMPORTANT**: We're updating the existing migration file directly since no one is using the app yet. This avoids unnecessary migration complexity.
+
+- [ ] Extend `agent_executions` table in `packages/storage/migrations/001_initial_schema.sql`
+
+  Add these fields to the existing `agent_executions` table (before the closing `created_at` and `updated_at` fields):
+  ```sql
+  -- Sandbox execution fields (generic, not Vibekit-specific)
+  sandbox_provider TEXT CHECK(sandbox_provider IN ('local', 'e2b', 'modal') OR sandbox_provider IS NULL),
+  container_id TEXT,
+  container_image TEXT,
+  container_status TEXT CHECK(container_status IN ('creating', 'running', 'stopped', 'error') OR container_status IS NULL),
+
+  -- Resource usage tracking
+  memory_limit_mb INTEGER,
+  memory_used_mb INTEGER,
+  cpu_limit_cores REAL,
+  cpu_usage_percent REAL,
+
+  -- File system tracking
+  workspace_path TEXT,
+  output_files TEXT, -- JSON array of file paths
+
+  -- SDK-specific metadata (only these two fields reference Vibekit)
+  vibekit_session_id TEXT,  -- Tracks Vibekit SDK session
+  vibekit_version TEXT,     -- SDK version for debugging
+  environment_variables TEXT, -- JSON object
+  ```
+
+- [ ] Create `execution_logs` table for streaming and replay
+  ```sql
+  CREATE TABLE execution_logs (
+      id TEXT PRIMARY KEY CHECK(length(id) >= 8),
+      execution_id TEXT NOT NULL REFERENCES agent_executions(id) ON DELETE CASCADE,
+      timestamp TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+      log_level TEXT NOT NULL CHECK(log_level IN ('debug', 'info', 'warn', 'error', 'fatal')),
+      message TEXT NOT NULL,
+      source TEXT, -- 'vibekit', 'agent', 'container', 'system'
+      metadata TEXT, -- JSON object for structured logging
+      stack_trace TEXT,
+      sequence_number INTEGER NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+      UNIQUE(execution_id, sequence_number)
   );
-}
-```
+  ```
+
+- [ ] Create `execution_artifacts` table for outputs
+  ```sql
+  CREATE TABLE execution_artifacts (
+      id TEXT PRIMARY KEY CHECK(length(id) >= 8),
+      execution_id TEXT NOT NULL REFERENCES agent_executions(id) ON DELETE CASCADE,
+      artifact_type TEXT NOT NULL CHECK(artifact_type IN ('file', 'screenshot', 'test_report', 'coverage', 'output')),
+      file_path TEXT NOT NULL,
+      file_name TEXT NOT NULL,
+      file_size_bytes INTEGER,
+      mime_type TEXT,
+      stored_path TEXT,
+      storage_backend TEXT DEFAULT 'local' CHECK(storage_backend IN ('local', 's3', 'gcs')),
+      description TEXT,
+      metadata TEXT,
+      checksum TEXT,
+      created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
+  );
+  ```
+
+- [ ] Add indexes for all new tables
+  - `idx_execution_logs_execution` on `execution_logs(execution_id, sequence_number)`
+  - `idx_execution_logs_timestamp` on `execution_logs(timestamp)`
+  - `idx_execution_logs_level` on `execution_logs(log_level)`
+  - `idx_artifacts_execution` on `execution_artifacts(execution_id)`
+  - `idx_artifacts_type` on `execution_artifacts(artifact_type)`
+  - `idx_artifacts_created` on `execution_artifacts(created_at)`
+
+- [ ] Update `001_initial_schema.down.sql` with DROP statements
+  ```sql
+  -- Add to down migration (in correct order)
+  DROP TABLE IF EXISTS execution_artifacts;
+  DROP TABLE IF EXISTS execution_logs;
+  -- Note: agent_executions columns will be removed when table is dropped
+  ```
+
+- [ ] Add sandbox configuration to `system_settings` seed data
+  ```sql
+  -- Add to INSERT OR IGNORE INTO system_settings
+  ('sandbox.default_provider', 'local', 'sandbox', 'Default sandbox provider', 'string', 0, 0),
+  ('sandbox.default_image', 'ubuntu:22.04', 'sandbox', 'Default container image', 'string', 0, 0),
+  ('sandbox.max_concurrent', '5', 'sandbox', 'Maximum concurrent executions', 'integer', 0, 0),
+  ('sandbox.default_memory_mb', '2048', 'sandbox', 'Default memory limit (MB)', 'integer', 0, 0),
+  ('sandbox.default_cpu_cores', '2.0', 'sandbox', 'Default CPU cores', 'number', 0, 0),
+  ('sandbox.default_timeout_seconds', '3600', 'sandbox', 'Default execution timeout (seconds)', 'integer', 0, 0),
+  ('sandbox.log_retention_days', '30', 'sandbox', 'Days to retain execution logs', 'integer', 0, 0),
+  ('sandbox.artifact_retention_days', '30', 'sandbox', 'Days to retain execution artifacts', 'integer', 0, 0),
+  ('sandbox.cleanup_interval_minutes', '5', 'sandbox', 'Interval for container cleanup task', 'integer', 0, 0)
+  ```
+
+#### 1.2 Create Sandbox Package Structure
+- [ ] Create `packages/sandbox/` directory
+- [ ] Create `packages/sandbox/Cargo.toml` with dependencies:
+  - `bollard = "0.15"` (Docker API)
+  - `tokio = { version = "1", features = ["full"] }`
+  - `serde = { version = "1", features = ["derive"] }`
+  - `serde_json = "1"`
+  - `sqlx = { version = "0.7", features = ["sqlite", "runtime-tokio-rustls"] }`
+  - `thiserror = "1"`
+  - `tracing = "0.1"`
+  - `async-stream = "0.3"`
+
+- [ ] Create package structure:
+  ```
+  packages/sandbox/
+  ├── Cargo.toml
+  ├── src/
+  │   ├── lib.rs           # Public API
+  │   ├── provider.rs      # SandboxProvider enum and registry
+  │   ├── node_bridge.rs   # Node.js child process management
+  │   ├── container.rs     # Container lifecycle via bollard
+  │   ├── types.rs         # Core types
+  │   └── error.rs         # Error types
+  └── config/
+      └── sandboxes.json   # Sandbox provider configurations
+  ```
+
+#### 1.3 Define Core Types
+- [ ] Create `packages/sandbox/src/types.rs`:
+  - [ ] `SandboxProvider` enum (Local, E2B, Modal)
+  - [ ] `ExecutionRequest` struct
+  - [ ] `ExecutionResponse` struct
+  - [ ] `ContainerStatus` enum
+  - [ ] `LogEntry` struct
+  - [ ] `Artifact` struct
+  - [ ] `ResourceLimits` struct
+  - [ ] `ExecutionStatus` enum
+
+- [ ] Create `packages/sandbox/src/error.rs`:
+  - [ ] `SandboxError` enum with thiserror
+  - [ ] Error variants for Docker, Vibekit, Node.js, Resources, Timeout
+
+#### 1.4 Create Configuration
+- [ ] Create `packages/sandbox/config/sandboxes.json`:
+  ```json
+  {
+    "version": "2025-11-04",
+    "sandboxes": [
+      {
+        "id": "local-docker",
+        "name": "Local Docker",
+        "provider": "local",
+        "description": "Run sandboxes in local Docker containers",
+        "supported_images": ["ubuntu:22.04", "node:20", "python:3.11"],
+        "default_image": "ubuntu:22.04",
+        "max_concurrent": 5,
+        "resource_limits": {
+          "memory_mb": 2048,
+          "cpu_cores": 2.0,
+          "timeout_seconds": 3600
+        },
+        "is_available": true,
+        "requires_config": false
+      }
+    ]
+  }
+  ```
+
+#### 1.5 Testing & Validation
+- [ ] Add `packages/sandbox` to workspace `Cargo.toml`
+- [ ] Run database migration and verify tables created
+- [ ] Write schema validation tests
+- [ ] Verify package compiles
+
+### Deliverables
+- ✅ Database schema updated with Vibekit fields
+- ✅ Sandbox package skeleton created
+- ✅ Core type definitions complete
+- ✅ Configuration structure defined
+- ✅ All tests passing
 
 ---
 
-## Testing Checklist
+## Phase 2: Node.js Vibekit Bridge (Week 1-2)
 
-### Manual Testing
-- [ ] `orkee sandbox create` creates Dagger container
-- [ ] Can access sandbox via localhost URL
-- [ ] `orkee sandbox logs` shows container output
-- [ ] `orkee sandbox stop` terminates container
-- [ ] Auto-cleanup works after 1 hour
-- [ ] Dashboard shows sandbox list
-- [ ] Can create/stop sandboxes from UI
+### Goals
+Implement Node.js bridge for Vibekit TypeScript SDK with IPC communication to Rust.
 
-### Integration Tests
-- [ ] Test sandbox creation and deletion
-- [ ] Test expired sandbox cleanup
-- [ ] Test port mapping
-- [ ] Test log streaming
+### Tasks
+
+#### 2.1 Create Node.js Project
+- [ ] Create `packages/sandbox/vibekit-bridge/` directory
+- [ ] Initialize Node.js project:
+  ```json
+  // package.json
+  {
+    "name": "@orkee/vibekit-bridge",
+    "version": "1.0.0",
+    "main": "dist/index.js",
+    "scripts": {
+      "build": "tsc",
+      "dev": "tsx src/index.ts",
+      "test": "jest"
+    },
+    "dependencies": {
+      "@vibe-kit/sdk": "^0.0.70",
+      "@vibe-kit/docker": "^0.0.70"
+    },
+    "devDependencies": {
+      "@types/node": "^20.0.0",
+      "typescript": "^5.0.0",
+      "tsx": "^4.0.0",
+      "jest": "^29.0.0"
+    }
+  }
+  ```
+
+- [ ] Create `tsconfig.json`:
+  ```json
+  {
+    "compilerOptions": {
+      "target": "ES2022",
+      "module": "commonjs",
+      "outDir": "./dist",
+      "rootDir": "./src",
+      "strict": true,
+      "esModuleInterop": true,
+      "skipLibCheck": true,
+      "forceConsistentCasingInFileNames": true
+    }
+  }
+  ```
+
+#### 2.2 Implement IPC Communication
+- [ ] Create `packages/sandbox/vibekit-bridge/src/index.ts`:
+  - [ ] Parse JSON from stdin
+  - [ ] Initialize Vibekit SDK
+  - [ ] Handle execution requests
+  - [ ] Stream responses to stdout
+  - [ ] Handle graceful shutdown
+
+- [ ] Create `packages/sandbox/vibekit-bridge/src/types.ts`:
+  - [ ] `ExecutionRequest` interface
+  - [ ] `ExecutionResponse` interface
+  - [ ] `LogMessage` interface
+  - [ ] `IPCMessage` type union
+
+- [ ] Create `packages/sandbox/vibekit-bridge/src/vibekit.ts`:
+  - [ ] Vibekit session management
+  - [ ] Agent execution logic
+  - [ ] Error handling
+  - [ ] Resource monitoring
+
+#### 2.3 Implement Rust Bridge
+- [ ] Implement `packages/sandbox/src/node_bridge.rs`:
+  - [ ] `NodeBridge` struct
+  - [ ] `spawn_bridge()` function to start Node.js process
+  - [ ] `send_request()` for JSON communication
+  - [ ] `receive_response()` for parsing responses
+  - [ ] Process lifecycle management (start, stop, restart)
+  - [ ] Error recovery logic
+
+- [ ] Implement message serialization:
+  - [ ] Request serialization to JSON
+  - [ ] Response deserialization from JSON
+  - [ ] Stream handling for logs
+  - [ ] Error message parsing
+
+#### 2.4 Testing
+- [ ] Write unit tests for Node.js bridge:
+  - [ ] Mock stdin/stdout
+  - [ ] Test message parsing
+  - [ ] Test error scenarios
+  - [ ] Test graceful shutdown
+
+- [ ] Write unit tests for Rust bridge:
+  - [ ] Mock child process
+  - [ ] Test IPC communication
+  - [ ] Test error recovery
+  - [ ] Test restart logic
+
+- [ ] Integration test: Rust → Node.js → Mock Vibekit
+
+### Deliverables
+- ✅ Node.js Vibekit bridge implemented
+- ✅ Bidirectional IPC working
+- ✅ Error handling robust
+- ✅ Process management complete
+- ✅ All tests passing
+
+---
+
+## Phase 3: Container Management with bollard (Week 2)
+
+### Goals
+Integrate bollard for Docker container monitoring and management.
+
+### Tasks
+
+#### 3.1 Implement Container Manager
+- [ ] Create `packages/sandbox/src/container.rs`:
+  - [ ] `ContainerManager` struct
+  - [ ] `connect_docker()` - Connect to Docker daemon
+  - [ ] `create_container()` - Create secure container
+  - [ ] `start_container()` - Start container
+  - [ ] `stop_container()` - Stop container
+  - [ ] `remove_container()` - Clean up container
+  - [ ] `list_containers()` - List by project/execution
+
+- [ ] Implement container security:
+  - [ ] Resource limits (memory, CPU)
+  - [ ] Capability dropping
+  - [ ] Network isolation
+  - [ ] Read-only rootfs options
+  - [ ] No privileged mode
+
+#### 3.2 Container Monitoring
+- [ ] Implement resource monitoring:
+  - [ ] `get_container_stats()` - CPU and memory usage
+  - [ ] `stream_container_logs()` - Real-time log streaming
+  - [ ] `get_container_info()` - Status and metadata
+  - [ ] Parse Docker events
+
+- [ ] Implement log processing:
+  - [ ] Parse container log format
+  - [ ] Add timestamps and sequence numbers
+  - [ ] Buffer logs for batch insertion
+  - [ ] Handle log overflow
+
+#### 3.3 Container Cleanup
+- [ ] Implement cleanup logic:
+  - [ ] `cleanup_stale_containers()` function
+  - [ ] Detect orphaned containers
+  - [ ] Force stop hung containers
+  - [ ] Remove stopped containers
+  - [ ] Update database status
+
+- [ ] Background cleanup task:
+  - [ ] Schedule periodic cleanup (5 minutes)
+  - [ ] Log cleanup actions
+  - [ ] Handle cleanup errors gracefully
+  - [ ] Respect resource limits
+
+#### 3.4 Container API Endpoints
+- [ ] Add container management endpoints:
+  - [ ] GET `/api/containers` - List all containers
+  - [ ] GET `/api/containers/:id` - Get container details
+  - [ ] GET `/api/containers/:id/stats` - Resource usage
+  - [ ] POST `/api/containers/:id/restart` - Restart container
+  - [ ] POST `/api/containers/:id/stop` - Force stop
+  - [ ] DELETE `/api/containers/:id` - Remove container
+
+#### 3.5 Testing
+- [ ] Unit tests for container manager:
+  - [ ] Mock Docker API calls
+  - [ ] Test resource limit enforcement
+  - [ ] Test cleanup logic
+  - [ ] Test error scenarios
+
+- [ ] Integration tests with Docker:
+  - [ ] Use testcontainers for real Docker
+  - [ ] Test container lifecycle
+  - [ ] Test resource monitoring
+  - [ ] Test concurrent containers
+
+### Deliverables
+- ✅ bollard integration complete
+- ✅ Container lifecycle management working
+- ✅ Resource monitoring implemented
+- ✅ Cleanup task running
+- ✅ Tests with real Docker passing
+
+---
+
+## Phase 4: API Endpoints & Execution Logic (Week 3)
+
+### Goals
+Implement REST API for execution management and core execution lifecycle.
+
+### Tasks
+
+#### 4.1 Create Execution Handlers
+- [ ] Create `packages/api/src/executions_handlers.rs`:
+  - [ ] `create_execution()` - Start new execution
+  - [ ] `list_executions()` - List with pagination
+  - [ ] `get_execution()` - Get single execution
+  - [ ] `stop_execution()` - Cancel running execution
+  - [ ] `retry_execution()` - Retry failed execution
+
+- [ ] Implement log endpoints:
+  - [ ] `get_execution_logs()` - Paginated logs
+  - [ ] `stream_execution_logs()` - SSE streaming (placeholder)
+  - [ ] `search_logs()` - Search with filters
+
+- [ ] Implement artifact endpoints:
+  - [ ] `list_artifacts()` - List execution outputs
+  - [ ] `get_artifact()` - Get artifact metadata
+  - [ ] `download_artifact()` - Stream file download
+  - [ ] `delete_artifact()` - Remove artifact
+
+#### 4.2 Update API Router
+- [ ] Update `packages/api/src/mod.rs`:
+  - [ ] Add execution routes nested under tasks
+  - [ ] Apply authentication middleware
+  - [ ] Add rate limiting for execution endpoints
+  - [ ] Configure CORS for SSE
+
+- [ ] Route structure:
+  ```
+  /api/projects/:project_id/tasks/:task_id/executions
+    POST   /                          - Create execution
+    GET    /                          - List executions
+    GET    /:execution_id             - Get execution
+    POST   /:execution_id/stop        - Stop execution
+    POST   /:execution_id/retry       - Retry execution
+    GET    /:execution_id/logs        - Get logs (paginated)
+    GET    /:execution_id/logs/stream - Stream logs (SSE)
+    GET    /:execution_id/artifacts   - List artifacts
+    GET    /:execution_id/artifacts/:artifact_id/download - Download
+  ```
+
+#### 4.3 Implement Execution Lifecycle
+- [ ] Create `packages/sandbox/src/execution.rs`:
+  - [ ] `ExecutionOrchestrator` struct
+  - [ ] `start_execution()` - Main execution flow
+  - [ ] `monitor_execution()` - Track progress
+  - [ ] `finalize_execution()` - Cleanup and save results
+
+- [ ] Execution flow:
+  1. [ ] Validate request and check quotas
+  2. [ ] Create execution record in database
+  3. [ ] Spawn Vibekit bridge process
+  4. [ ] Create and start container
+  5. [ ] Execute agent prompt
+  6. [ ] Stream logs to database
+  7. [ ] Collect artifacts
+  8. [ ] Update execution status
+  9. [ ] Cleanup resources
+
+#### 4.4 Database Storage Layer
+- [ ] Create `packages/sandbox/src/storage.rs`:
+  - [ ] `ExecutionStorage` struct
+  - [ ] CRUD operations for executions
+  - [ ] Log batch insertion
+  - [ ] Artifact tracking
+  - [ ] Status updates
+
+- [ ] Implement queries:
+  - [ ] Insert execution with Vibekit fields
+  - [ ] Update container status
+  - [ ] Insert logs with sequence numbers
+  - [ ] Query logs by execution
+  - [ ] Store artifact metadata
+
+#### 4.5 Testing
+- [ ] API integration tests:
+  - [ ] Test full execution flow
+  - [ ] Test concurrent executions
+  - [ ] Test error scenarios
+  - [ ] Test resource limits
+  - [ ] Test authentication
+
+- [ ] Load testing:
+  - [ ] Test with 10 concurrent executions
+  - [ ] Measure API response times
+  - [ ] Check database performance
+  - [ ] Verify cleanup works under load
+
+### Deliverables
+- ✅ REST API fully implemented
+- ✅ Execution lifecycle working end-to-end
+- ✅ Database persistence complete
+- ✅ Authentication and authorization working
+- ✅ Integration tests passing
+
+---
+
+## Phase 5: Real-time Log Streaming with SSE (Week 3)
+
+### Goals
+Implement Server-Sent Events for real-time log streaming from executions.
+
+### Tasks
+
+#### 5.1 Implement SSE Endpoint
+- [ ] Update `packages/api/src/executions_handlers.rs`:
+  - [ ] `stream_execution_logs()` SSE handler
+  - [ ] Set correct SSE headers
+  - [ ] Query existing logs from database
+  - [ ] Watch for new log entries
+  - [ ] Format as SSE events
+  - [ ] Handle client disconnection
+
+- [ ] SSE event types:
+  - [ ] `log` - New log entry
+  - [ ] `status` - Execution status change
+  - [ ] `complete` - Execution completed
+  - [ ] `error` - Execution error
+  - [ ] `heartbeat` - Keep-alive
+
+#### 5.2 Log Ingestion Pipeline
+- [ ] Update `packages/sandbox/src/container.rs`:
+  - [ ] Stream logs from Docker via bollard
+  - [ ] Parse Docker log format
+  - [ ] Extract log level and metadata
+  - [ ] Assign sequence numbers
+  - [ ] Buffer logs for batch insertion
+
+- [ ] Create log buffer:
+  - [ ] Configurable buffer size (default: 100)
+  - [ ] Auto-flush on size or interval
+  - [ ] Handle backpressure
+  - [ ] Error recovery
+
+#### 5.3 SSE Infrastructure
+- [ ] Create `packages/api/src/sse.rs` (reuse from preview):
+  - [ ] SSE connection manager
+  - [ ] Client registry
+  - [ ] Auto-reconnect support
+  - [ ] Heartbeat mechanism
+  - [ ] Error handling
+
+- [ ] Implement event broadcasting:
+  - [ ] Broadcast to multiple clients
+  - [ ] Handle slow clients
+  - [ ] Buffer overflow protection
+  - [ ] Graceful degradation
+
+#### 5.4 Frontend SSE Client
+- [ ] Create `packages/dashboard/src/services/execution-stream.ts`:
+  - [ ] EventSource connection
+  - [ ] Auto-reconnect logic
+  - [ ] Event parsing
+  - [ ] Error handling
+  - [ ] Connection state management
+
+- [ ] React hook for log streaming:
+  ```typescript
+  export function useExecutionLogs(
+    projectId: string,
+    taskId: string,
+    executionId: string
+  ) {
+    const [logs, setLogs] = useState<LogEntry[]>([]);
+    const [status, setStatus] = useState<'connecting' | 'connected' | 'error'>('connecting');
+    // ... SSE logic
+  }
+  ```
+
+#### 5.5 Testing
+- [ ] SSE integration tests:
+  - [ ] Test streaming with real execution
+  - [ ] Test reconnection after disconnect
+  - [ ] Test multiple concurrent clients
+  - [ ] Test log overflow scenarios
+
+- [ ] Performance testing:
+  - [ ] Stream 1000 logs/second
+  - [ ] Test with 50 concurrent SSE clients
+  - [ ] Measure latency
+  - [ ] Check memory usage
+
+### Deliverables
+- ✅ SSE endpoint implemented
+- ✅ Real-time log streaming working
+- ✅ Auto-reconnect functioning
+- ✅ Multiple client support
+- ✅ Performance targets met
+
+---
+
+## Phase 6: Dashboard UI Components (Week 4)
+
+### Goals
+Build comprehensive UI for agent execution in the dashboard.
+
+### Tasks
+
+#### 6.1 Task Detail Page Updates
+- [ ] Update `packages/dashboard/src/pages/TaskDetail.tsx`:
+  - [ ] Add "Execute with Agent" section
+  - [ ] Conditionally show based on task status
+  - [ ] Load agent and sandbox options
+  - [ ] Handle execution state
+
+- [ ] Agent selector dropdown:
+  - [ ] Load agents from `/api/agents` endpoint
+  - [ ] Show agent name, description, capabilities
+  - [ ] Default to task's assigned agent
+  - [ ] Save preference per task
+
+- [ ] Sandbox provider dropdown:
+  - [ ] Load providers from `/api/sandboxes`
+  - [ ] Currently only "Local Docker"
+  - [ ] Show resource limits
+  - [ ] Disable if Docker not available
+
+#### 6.2 Execution Modal
+- [ ] Create `packages/dashboard/src/components/ExecutionModal.tsx`:
+  - [ ] Show selected agent and sandbox
+  - [ ] Prompt customization textarea
+  - [ ] Resource limit configuration
+  - [ ] Environment variables input
+  - [ ] Confirmation before start
+
+- [ ] Modal features:
+  - [ ] Validate inputs
+  - [ ] Show estimated cost (future)
+  - [ ] Warning for resource limits
+  - [ ] Loading state during creation
+
+#### 6.3 Execution Viewer Component
+- [ ] Create `packages/dashboard/src/components/ExecutionViewer.tsx`:
+  - [ ] Execution status badge (running/completed/failed)
+  - [ ] Resource usage gauges (CPU, memory)
+  - [ ] Duration timer
+  - [ ] Stop button for running executions
+  - [ ] Retry button for failed executions
+
+- [ ] Real-time updates:
+  - [ ] Poll execution status every 5 seconds
+  - [ ] Update resource usage
+  - [ ] Show container status
+  - [ ] Handle state transitions
+
+#### 6.4 Log Viewer Component
+- [ ] Create `packages/dashboard/src/components/LogViewer.tsx`:
+  - [ ] Virtual scrolling for performance
+  - [ ] Log level filtering (debug/info/warn/error)
+  - [ ] Search functionality
+  - [ ] Export logs button
+  - [ ] Auto-scroll toggle
+
+- [ ] SSE integration:
+  - [ ] Connect to SSE endpoint
+  - [ ] Handle reconnection
+  - [ ] Show connection status
+  - [ ] Buffer logs locally
+
+#### 6.5 Artifact Gallery
+- [ ] Create `packages/dashboard/src/components/ArtifactGallery.tsx`:
+  - [ ] Grid view of artifacts
+  - [ ] Preview images inline
+  - [ ] Download links for files
+  - [ ] File size and type display
+  - [ ] Bulk download option
+
+- [ ] Artifact types:
+  - [ ] Code files with syntax highlighting
+  - [ ] Images with lightbox
+  - [ ] Test reports with formatting
+  - [ ] JSON/YAML with tree view
+
+#### 6.6 Execution History
+- [ ] Create `packages/dashboard/src/components/ExecutionHistory.tsx`:
+  - [ ] List past executions for task
+  - [ ] Status indicators
+  - [ ] Duration and resource usage
+  - [ ] Filter by status/agent/date
+  - [ ] Pagination
+
+- [ ] History item actions:
+  - [ ] View details
+  - [ ] View logs
+  - [ ] Download artifacts
+  - [ ] Retry execution
+
+#### 6.7 Testing
+- [ ] Component unit tests:
+  - [ ] Test with mock data
+  - [ ] Test user interactions
+  - [ ] Test error states
+  - [ ] Test loading states
+
+- [ ] E2E tests:
+  - [ ] Test full execution flow
+  - [ ] Test SSE log streaming
+  - [ ] Test artifact download
+  - [ ] Test error scenarios
+
+### Deliverables
+- ✅ Task detail page updated with execution UI
+- ✅ Execution viewer fully functional
+- ✅ Real-time log streaming working
+- ✅ Artifact gallery complete
+- ✅ All UI tests passing
+
+---
+
+## Phase 7: Testing & Documentation (Week 4)
+
+### Goals
+Comprehensive testing, documentation, and production readiness.
+
+### Tasks
+
+#### 7.1 Integration Testing
+- [ ] End-to-end execution tests:
+  - [ ] Create task → Execute → View logs → Download artifacts
+  - [ ] Test with different agents
+  - [ ] Test resource limits
+  - [ ] Test timeout scenarios
+  - [ ] Test cleanup after completion
+
+- [ ] Error scenario tests:
+  - [ ] Docker daemon unavailable
+  - [ ] Container creation failure
+  - [ ] Node.js bridge crash
+  - [ ] Network interruption
+  - [ ] Database errors
+
+#### 7.2 Performance Testing
+- [ ] Load testing:
+  - [ ] 20 concurrent executions
+  - [ ] 100 SSE clients
+  - [ ] 10,000 logs per execution
+  - [ ] Measure response times
+  - [ ] Check memory usage
+
+- [ ] Stress testing:
+  - [ ] Max out resource limits
+  - [ ] Rapid start/stop cycles
+  - [ ] Large artifact uploads
+  - [ ] Database connection pool
+
+#### 7.3 Security Testing
+- [ ] Container escape testing
+- [ ] Resource limit enforcement
+- [ ] Authentication bypass attempts
+- [ ] SQL injection testing
+- [ ] Path traversal testing
+- [ ] Secret leakage checks
+
+#### 7.4 Documentation
+- [ ] API documentation:
+  - [ ] OpenAPI/Swagger spec
+  - [ ] Example requests/responses
+  - [ ] Error codes
+  - [ ] Rate limits
+
+- [ ] User guide:
+  - [ ] How to execute tasks
+  - [ ] Understanding logs
+  - [ ] Downloading artifacts
+  - [ ] Troubleshooting
+
+- [ ] Developer documentation:
+  - [ ] Architecture overview
+  - [ ] Adding new agents
+  - [ ] Adding sandbox providers
+  - [ ] Contributing guide
+
+#### 7.5 Production Readiness
+- [ ] Monitoring setup:
+  - [ ] Prometheus metrics
+  - [ ] Grafana dashboards
+  - [ ] Alert rules
+  - [ ] Log aggregation
+
+- [ ] Deployment:
+  - [ ] Docker compose configuration
+  - [ ] Kubernetes manifests
+  - [ ] CI/CD pipeline
+  - [ ] Rollback procedure
+
+### Deliverables
+- ✅ All tests passing
+- ✅ Documentation complete
+- ✅ Security review passed
+- ✅ Monitoring configured
+- ✅ Ready for production
+
+---
+
+## Phase 8: Future Enhancements (Post-MVP)
+
+### Future Features to Consider
+
+#### 8.1 Cloud Sandbox Providers
+- [ ] E2B integration
+- [ ] Modal.com integration
+- [ ] AWS Fargate support
+- [ ] Google Cloud Run support
+- [ ] Provider selection logic
+
+#### 8.2 Advanced Execution Features
+- [ ] Execution templates (common tasks)
+- [ ] Scheduled executions (cron)
+- [ ] Execution chaining/pipelines
+- [ ] Parallel execution groups
+- [ ] Conditional execution logic
+
+#### 8.3 Collaboration Features
+- [ ] Multi-agent collaboration
+- [ ] Human-in-the-loop approval
+- [ ] Execution sharing
+- [ ] Team quotas
+- [ ] Audit logging
+
+#### 8.4 Enhanced Monitoring
+- [ ] Execution analytics dashboard
+- [ ] Cost tracking and budgets
+- [ ] Performance profiling
+- [ ] Dependency analysis
+- [ ] Success rate tracking
+
+#### 8.5 Developer Experience
+- [ ] VS Code extension
+- [ ] CLI execution commands
+- [ ] Execution API SDK
+- [ ] Webhook notifications
+- [ ] Slack/Discord integration
+
+---
+
+## Technical Specifications
+
+### API Endpoints
+```
+POST   /api/projects/:project_id/tasks/:task_id/executions
+GET    /api/projects/:project_id/tasks/:task_id/executions
+GET    /api/projects/:project_id/tasks/:task_id/executions/:id
+POST   /api/projects/:project_id/tasks/:task_id/executions/:id/stop
+GET    /api/projects/:project_id/tasks/:task_id/executions/:id/logs
+GET    /api/projects/:project_id/tasks/:task_id/executions/:id/logs/stream
+GET    /api/projects/:project_id/tasks/:task_id/executions/:id/artifacts
+GET    /api/projects/:project_id/tasks/:task_id/executions/:id/artifacts/:artifact_id/download
+```
+
+### Database Schema Summary
+- Extended `agent_executions` table with Vibekit fields
+- New `execution_logs` table for log storage
+- New `execution_artifacts` table for outputs
+- Indexes for performance
+- Foreign key constraints
+
+### Resource Limits (Defaults)
+- Memory: 2048 MB
+- CPU: 2.0 cores
+- Timeout: 3600 seconds (1 hour)
+- Max file size: 100 MB
+- Max artifacts: 50 per execution
+- Max concurrent: 5 per user
+
+### Security Measures
+- Container capability dropping
+- Network isolation
+- Resource quotas
+- Secret redaction in logs
+- Authentication required
+- Rate limiting
 
 ---
 
 ## Success Criteria
 
-### Technical Requirements
-- [ ] Dagger sandbox execution functional
-- [ ] Sandbox sessions tracked in database
-- [ ] Auto-cleanup prevents resource leaks
-- [ ] CLI and dashboard integration complete
+### Functional Requirements
+- [ ] Users can execute tasks with AI agents
+- [ ] Execution runs in isolated Docker containers
+- [ ] Real-time log streaming works
+- [ ] Artifacts can be downloaded
+- [ ] Resource limits are enforced
+- [ ] Cleanup happens automatically
 
-### User Experience Requirements
-- [ ] Sandbox creation < 10 seconds
-- [ ] Clear status display
-- [ ] Simple CLI commands
-- [ ] Working dashboard UI
+### Non-Functional Requirements
+- [ ] Execution starts within 10 seconds
+- [ ] Logs stream with < 500ms latency
+- [ ] Supports 20 concurrent executions
+- [ ] 99% execution success rate
+- [ ] Zero container escapes
+- [ ] No resource leaks after 24 hours
+
+### Quality Metrics
+- [ ] > 80% code coverage
+- [ ] All critical paths tested
+- [ ] Documentation complete
+- [ ] Security review passed
+- [ ] Performance targets met
 
 ---
 
-## Notes
+## Timeline Summary
 
-- OAuth authentication is tracked separately in `oauth.md`
-- Dagger provides local-first sandboxing without cloud costs
-- Uses Node.js bridge from Rust (similar to OAuth approach)
-- Sandbox sessions expire after 1 hour by default
-- Background cleanup task runs every 5 minutes
+### Week 1
+- Phase 1: Database & Foundation ✅
+- Phase 2: Vibekit Bridge (start)
+
+### Week 2
+- Phase 2: Vibekit Bridge (complete) ✅
+- Phase 3: Container Management ✅
+
+### Week 3
+- Phase 4: API Endpoints ✅
+- Phase 5: SSE Streaming ✅
+
+### Week 4
+- Phase 6: Dashboard UI ✅
+- Phase 7: Testing & Documentation ✅
+
+### Total Duration
+**4 weeks** from start to production ready
+
+---
+
+## Risk Mitigation
+
+### Technical Risks
+| Risk | Impact | Mitigation |
+|------|--------|------------|
+| Node.js bridge instability | High | Implement restart logic, health checks |
+| Container resource exhaustion | Medium | Enforce strict limits, monitoring |
+| Log overflow | Medium | Buffer limits, truncation, rotation |
+| Docker daemon failure | High | Graceful degradation, clear errors |
+| Database performance | Medium | Indexes, batch operations, cleanup |
+
+### Operational Risks
+| Risk | Impact | Mitigation |
+|------|--------|------------|
+| Runaway costs (future cloud) | High | Quotas, budgets, alerts |
+| Security breach | Critical | Container isolation, secret management |
+| Data loss | High | Regular backups, transaction logs |
+| User confusion | Medium | Clear UI, documentation, tutorials |
+
+---
+
+## Dependencies
+
+### External Dependencies
+- Docker Engine (required)
+- Node.js 20+ (for bridge)
+- Vibekit SDK (npm package)
+- bollard (Rust Docker client)
+
+### Internal Dependencies
+- Existing agent_executions table
+- Task management system
+- Authentication system
+- SSE infrastructure (from preview servers)
+
+---
+
+## Team & Resources
+
+### Required Skills
+- Rust development (Axum, SQLx, bollard)
+- TypeScript/Node.js (Vibekit SDK)
+- React development (Dashboard UI)
+- Docker expertise (Security, networking)
+- Database design (SQLite, migrations)
+
+### Estimated Effort
+- Backend development: 2 developers × 3 weeks
+- Frontend development: 1 developer × 2 weeks
+- Testing & documentation: 1 developer × 1 week
+- **Total: ~6 developer-weeks**
+
+---
+
+## Approval & Sign-off
+
+### Stakeholders
+- [ ] Engineering Lead approval
+- [ ] Product Manager approval
+- [ ] Security review completed
+- [ ] Infrastructure review completed
+
+### Go/No-Go Criteria
+- [ ] Docker available on target systems
+- [ ] Resource limits acceptable
+- [ ] Security measures sufficient
+- [ ] Performance targets achievable
+- [ ] Timeline acceptable
+
+---
+
+## Appendix
+
+### A. Sample Configuration Files
+[Configuration examples provided in plan above]
+
+### B. API Request/Response Examples
+[To be added during implementation]
+
+### C. Error Codes
+[To be defined during implementation]
+
+### D. Monitoring Metrics
+[To be defined during implementation]
+
+---
+
+**Document Version**: 1.0
+**Last Updated**: 2024-11-04
+**Status**: DRAFT - Awaiting Approval
