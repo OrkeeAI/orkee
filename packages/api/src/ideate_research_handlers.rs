@@ -6,15 +6,12 @@ use axum::{
     response::IntoResponse,
     Json,
 };
-use orkee_ideate::{IdeateManager, ResearchAnalyzer, SimilarProject};
-use orkee_projects::{DbState, StorageError};
-use serde::{Deserialize, Serialize};
-use tracing::{info, warn};
+use orkee_ideate::{ResearchAnalyzer, SimilarProject};
+use orkee_projects::DbState;
+use serde::Deserialize;
+use tracing::info;
 
-use super::response::{created_or_internal_error, ok_or_internal_error, ok_or_not_found};
-
-// TODO: Replace with proper user authentication
-const DEFAULT_USER_ID: &str = "default-user";
+use super::response::{created_or_internal_error, ok_or_internal_error};
 
 /// Request body for analyzing a competitor
 #[derive(Deserialize)]

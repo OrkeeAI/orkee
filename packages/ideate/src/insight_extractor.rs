@@ -22,9 +22,22 @@ pub struct InsightExtractionResponse {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
+
     #[test]
     fn test_insight_extraction_types_compile() {
-        // Just ensure the types compile correctly
-        assert!(true);
+        // Verify ExtractedInsight serialization
+        let insight = ExtractedInsight {
+            insight_type: "requirement".to_string(),
+            insight_text: "User needs authentication".to_string(),
+            confidence: 0.9,
+            reasoning: Some("Mentioned in conversation".to_string()),
+        };
+
+        let json = serde_json::to_string(&insight).unwrap();
+        let deserialized: ExtractedInsight = serde_json::from_str(&json).unwrap();
+
+        assert_eq!(insight.insight_type, deserialized.insight_type);
+        assert_eq!(insight.insight_text, deserialized.insight_text);
     }
 }

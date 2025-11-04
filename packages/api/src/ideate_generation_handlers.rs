@@ -16,11 +16,8 @@ use std::convert::Infallible;
 use tracing::info;
 
 use super::response::{ok_or_internal_error, ok_or_not_found};
-use orkee_ideate::{ExportFormat, ExportOptions, PRDAggregator, PRDGenerator};
+use orkee_ideate::{ExportFormat, PRDAggregator};
 use orkee_projects::DbState;
-
-// TODO: Replace with proper user authentication
-const DEFAULT_USER_ID: &str = "default-user";
 
 /// Request body for generating PRD from session
 #[derive(Deserialize)]

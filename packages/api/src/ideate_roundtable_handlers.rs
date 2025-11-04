@@ -13,7 +13,7 @@ use futures::stream::{self, Stream};
 use orkee_config::constants;
 use orkee_ideate::{
     CreateExpertPersonaInput, ExpertModerator, RoundtableEvent, RoundtableManager,
-    StartRoundtableRequest, SuggestExpertsRequest, UserInterjectionInput,
+    UserInterjectionInput,
 };
 use orkee_projects::DbState;
 use serde::{Deserialize, Serialize};
@@ -173,7 +173,7 @@ pub async fn add_participants(
 
     let manager = RoundtableManager::new(db.pool.clone());
 
-    let result = manager
+    let _result = manager
         .add_participants(&roundtable_id, request.expert_ids)
         .await;
 
