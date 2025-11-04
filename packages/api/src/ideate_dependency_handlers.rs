@@ -1,24 +1,22 @@
-// ABOUTME: HTTP request handlers for PRD dependency analysis and build optimization
-// ABOUTME: Handles dependency CRUD, AI analysis, build order optimization, and visibility analysis
+// ABOUTME: HTTP request handlers for PRD dependency management and build optimization
+// ABOUTME: Handles dependency CRUD, build order optimization, and visibility analysis
 
 use axum::{
     extract::{Path, State},
     response::IntoResponse,
     Json,
 };
-use orkee_ai::AIService;
 use orkee_ideate::{
     BuildOptimizer, CreateDependencyInput, DependencyAnalyzer, DependencyStrength, DependencyType,
     OptimizationStrategy,
 };
-use orkee_projects::{DbState, StorageError};
-use serde::{Deserialize, Serialize};
-use tracing::{info, warn};
+use orkee_projects::DbState;
+use serde::Deserialize;
+use tracing::info;
 
 use super::response::{created_or_internal_error, ok_or_internal_error, ok_or_not_found};
 
-// TODO: Replace with proper user authentication
-const DEFAULT_USER_ID: &str = "default-user";
+// TODO: AI functionality moved to frontend - see packages/dashboard/src/services/dependency-ai.ts (to be created)
 
 /// Request body for creating a dependency
 #[derive(Deserialize)]
@@ -46,8 +44,8 @@ pub async fn get_dependencies(
 ) -> impl IntoResponse {
     info!("Getting dependencies for session: {}", session_id);
 
-    let ai_service = AIService::new();
-    let analyzer = DependencyAnalyzer::new(db.pool.clone(), ai_service);
+    
+    let analyzer = DependencyAnalyzer::new(db.pool.clone());
 
     let result = analyzer.get_dependencies(&session_id).await;
     ok_or_internal_error(result, "Failed to get dependencies")
@@ -64,8 +62,8 @@ pub async fn create_dependency(
         session_id, request.from_feature_id, request.to_feature_id
     );
 
-    let ai_service = AIService::new();
-    let analyzer = DependencyAnalyzer::new(db.pool.clone(), ai_service);
+    
+    let analyzer = DependencyAnalyzer::new(db.pool.clone());
 
     let input = CreateDependencyInput {
         from_feature_id: request.from_feature_id,
@@ -86,60 +84,13 @@ pub async fn delete_dependency(
 ) -> impl IntoResponse {
     info!("Deleting dependency: {}", dependency_id);
 
-    let ai_service = AIService::new();
-    let analyzer = DependencyAnalyzer::new(db.pool.clone(), ai_service);
+    
+    let analyzer = DependencyAnalyzer::new(db.pool.clone());
 
     let result = analyzer.delete_dependency(&dependency_id).await;
     ok_or_internal_error(result, "Failed to delete dependency")
 }
 
-/// Analyze dependencies using AI
-pub async fn analyze_dependencies(
-    State(db): State<DbState>,
-    Path(session_id): Path<String>,
-) -> impl IntoResponse {
-    info!("Analyzing dependencies for session: {}", session_id);
-
-    // Get user's API key from database
-    let user = match db.user_storage.get_user(DEFAULT_USER_ID).await {
-        Ok(u) => u,
-        Err(e) => {
-            warn!("Failed to retrieve user: {}", e);
-            #[derive(Serialize)]
-            struct ErrorResponse {
-                error: String,
-            }
-            return ok_or_internal_error::<ErrorResponse, StorageError>(
-                Err(e),
-                "Failed to retrieve user",
-            );
-        }
-    };
-
-    let api_key = match user.anthropic_api_key {
-        Some(key) => key,
-        None => {
-            warn!("No Anthropic API key found for user");
-            #[derive(Serialize)]
-            struct ApiKeyError {
-                error: String,
-            }
-            return ok_or_internal_error::<ApiKeyError, orkee_ideate::IdeateError>(
-                Err(orkee_ideate::IdeateError::AIService(
-                    "No API key configured. Please add your Anthropic API key in Settings."
-                        .to_string(),
-                )),
-                "API key required",
-            );
-        }
-    };
-
-    let ai_service = AIService::with_api_key(api_key);
-    let analyzer = DependencyAnalyzer::new(db.pool.clone(), ai_service);
-
-    let result = analyzer.analyze_dependencies(&session_id).await;
-    ok_or_internal_error(result, "Failed to analyze dependencies")
-}
 
 /// Optimize build order
 pub async fn optimize_build_order(
@@ -179,73 +130,4 @@ pub async fn get_circular_dependencies(
     let optimizer = BuildOptimizer::new(db.pool.clone());
     let result = optimizer.get_circular_dependencies(&session_id).await;
     ok_or_internal_error(result, "Failed to get circular dependencies")
-}
-
-/// Suggest quick-win features (high value, low dependency)
-pub async fn suggest_quick_wins(
-    State(db): State<DbState>,
-    Path(session_id): Path<String>,
-) -> impl IntoResponse {
-    info!("Suggesting quick-win features for session: {}", session_id);
-
-    #[derive(Serialize)]
-    struct EmptyResponse {
-        quick_wins: Vec<String>,
-    }
-
-    // Get user's API key from database
-    let user = match db.user_storage.get_user(DEFAULT_USER_ID).await {
-        Ok(u) => u,
-        Err(e) => {
-            warn!("Failed to retrieve user: {}", e);
-            return ok_or_internal_error::<EmptyResponse, StorageError>(
-                Err(e),
-                "Failed to retrieve user",
-            );
-        }
-    };
-
-    let api_key = match user.anthropic_api_key {
-        Some(key) => key,
-        None => {
-            warn!("No Anthropic API key found for user");
-            return ok_or_internal_error::<EmptyResponse, StorageError>(
-                Ok(EmptyResponse { quick_wins: vec![] }),
-                "API key required",
-            );
-        }
-    };
-
-    let ai_service = AIService::with_api_key(api_key);
-    let analyzer = DependencyAnalyzer::new(db.pool.clone(), ai_service);
-
-    // Get dependencies first
-    let dependencies = match analyzer.get_dependencies(&session_id).await {
-        Ok(deps) => deps,
-        Err(e) => {
-            return ok_or_internal_error(Err::<Vec<String>, _>(e), "Failed to get dependencies");
-        }
-    };
-
-    // Simple heuristic: features with 0-1 dependencies are quick wins
-    let quick_wins: Vec<String> = dependencies
-        .iter()
-        .fold(std::collections::HashMap::new(), |mut acc, dep| {
-            *acc.entry(&dep.from_feature_id).or_insert(0) += 1;
-            acc
-        })
-        .into_iter()
-        .filter(|(_, count)| *count <= 1)
-        .map(|(id, _)| id.clone())
-        .collect();
-
-    #[derive(Serialize)]
-    struct QuickWinsResponse {
-        quick_wins: Vec<String>,
-    }
-
-    ok_or_internal_error::<QuickWinsResponse, orkee_ideate::IdeateError>(
-        Ok(QuickWinsResponse { quick_wins }),
-        "Failed to suggest quick wins",
-    )
 }

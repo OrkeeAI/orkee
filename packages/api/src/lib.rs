@@ -445,10 +445,11 @@ pub fn create_ideate_router() -> Router<DbState> {
             "/ideate/{session_id}/features/dependencies/{dependency_id}",
             delete(ideate_dependency_handlers::delete_dependency),
         )
-        .route(
-            "/ideate/{session_id}/dependencies/analyze",
-            post(ideate_dependency_handlers::analyze_dependencies),
-        )
+        // TODO: Move to frontend AI SDK - see ARCHITECTURE_AUDIT.md Priority 1
+        // .route(
+        //     "/ideate/{session_id}/dependencies/analyze",
+        //     post(ideate_dependency_handlers::analyze_dependencies),
+        // )
         .route(
             "/ideate/{session_id}/dependencies/optimize",
             post(ideate_dependency_handlers::optimize_build_order),
@@ -461,10 +462,11 @@ pub fn create_ideate_router() -> Router<DbState> {
             "/ideate/{session_id}/dependencies/circular",
             get(ideate_dependency_handlers::get_circular_dependencies),
         )
-        .route(
-            "/ideate/{session_id}/features/suggest-visible",
-            get(ideate_dependency_handlers::suggest_quick_wins),
-        )
+        // TODO: Move to frontend AI SDK - see ARCHITECTURE_AUDIT.md Priority 1
+        // .route(
+        //     "/ideate/{session_id}/features/suggest-visible",
+        //     get(ideate_dependency_handlers::suggest_quick_wins),
+        // )
         // Phase 5: Comprehensive Mode - Research & Competitor Analysis routes
         .route(
             "/ideate/{session_id}/research/competitors/analyze",
