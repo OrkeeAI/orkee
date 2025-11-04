@@ -105,12 +105,30 @@ export async function streamChatResponse(
 
     console.log('[chat-ai.streamText] streamText call completed, streaming response');
 
-    const { textStream } = result;
+    const { textStream, finishReason, usage, onFinish } = result;
     let fullText = '';
 
+    // Consume the stream
     for await (const chunk of textStream) {
       fullText += chunk;
       onChunk(chunk);
+    }
+
+    console.log('[chat-ai.streamText] Stream consumption complete, awaiting finalization');
+
+    // CRITICAL: Wait for all async properties and manually trigger onFinish
+    // The telemetry wrapper replaces onFinish with a function that sends telemetry
+    const finalReason = await finishReason;
+    const finalUsage = await usage;
+
+    console.log('[chat-ai.streamText] Stream finalized:', { finalReason, finalUsage });
+
+    // Manually call onFinish to trigger telemetry tracking
+    if (onFinish) {
+      await onFinish({
+        finishReason: finalReason,
+        usage: finalUsage,
+      });
     }
 
     onComplete(fullText);
