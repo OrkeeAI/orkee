@@ -12,6 +12,10 @@ use crate::prompts;
 use orkee_security::UserStorage;
 use orkee_settings::storage::SettingsStorage;
 
+// TODO: These two streaming functions still use legacy AIService
+// They require streaming proxy support or alternative implementation
+use orkee_ai::AIService;
+
 #[derive(Debug, serde::Deserialize)]
 struct AnthropicResponse {
     #[allow(dead_code)]
