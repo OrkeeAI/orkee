@@ -2853,6 +2853,7 @@ dependencies = [
  "nanoid",
  "orkee-agents",
  "orkee-ai",
+ "orkee-auth",
  "orkee-config",
  "orkee-context",
  "orkee-core",

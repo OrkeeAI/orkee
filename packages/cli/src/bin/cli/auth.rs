@@ -333,7 +333,9 @@ async fn refresh_command(provider_str: &str) {
 }
 
 fn parse_provider(provider_str: &str) -> Result<OAuthProvider, String> {
-    OAuthProvider::from_str(provider_str).map_err(|_| format!("Unknown provider: {}", provider_str))
+    provider_str
+        .parse()
+        .map_err(|_| format!("Unknown provider: {}", provider_str))
 }
 
 fn prompt_provider_selection() -> Result<OAuthProvider, String> {
