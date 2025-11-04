@@ -4,11 +4,42 @@
 use crate::error::{IdeateError, Result};
 use crate::types::IdeateFeature;
 use chrono::Utc;
-use orkee_ai::AIService;
+use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use sqlx::{Row, SqlitePool};
 use std::collections::HashSet;
+use std::env;
 use tracing::{debug, info, warn};
+
+#[derive(Debug, serde::Deserialize)]
+struct AnthropicResponse {
+    #[allow(dead_code)]
+    id: String,
+    content: Vec<ContentBlock>,
+    usage: Usage,
+    #[allow(dead_code)]
+    stop_reason: Option<String>,
+}
+
+#[derive(Debug, serde::Deserialize)]
+struct ContentBlock {
+    #[serde(rename = "type")]
+    #[allow(dead_code)]
+    content_type: String,
+    text: String,
+}
+
+#[derive(Debug, serde::Deserialize)]
+struct Usage {
+    input_tokens: u32,
+    output_tokens: u32,
+}
+
+impl Usage {
+    fn total_tokens(&self) -> u32 {
+        self.input_tokens + self.output_tokens
+    }
+}
 
 /// Type of dependency relationship
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, sqlx::Type)]
@@ -71,12 +102,13 @@ pub struct CreateDependencyInput {
 /// Dependency analyzer with AI integration
 pub struct DependencyAnalyzer {
     db: SqlitePool,
-    ai_service: AIService,
+    user_id: String,
+    model: String,
 }
 
 impl DependencyAnalyzer {
-    pub fn new(db: SqlitePool, ai_service: AIService) -> Self {
-        Self { db, ai_service }
+    pub fn new(db: SqlitePool, user_id: String, model: String) -> Self {
+        Self { db, user_id, model }
     }
 
     /// Analyze features and auto-detect dependencies using AI
@@ -112,18 +144,54 @@ impl DependencyAnalyzer {
             response: String,
         }
 
-        let ai_response = self
-            .ai_service
-            .generate_structured::<RawResponse>(
-                prompt,
-                Some(DEPENDENCY_ANALYSIS_SYSTEM_PROMPT.to_string()),
-            )
-            .await
-            .map_err(|e| {
-                IdeateError::AIService(format!("Failed to analyze dependencies: {}", e))
-            })?;
+        let client = Client::new();
 
-        let response = &ai_response.data.response;
+        let request_body = serde_json::json!({
+            "model": &self.model,
+            "max_tokens": 64000,
+            "temperature": 0.7,
+            "messages": [{
+                "role": "user",
+                "content": prompt
+            }],
+            "system": DEPENDENCY_ANALYSIS_SYSTEM_PROMPT
+        });
+
+        let api_port = env::var("ORKEE_API_PORT").unwrap_or_else(|_| "4001".to_string());
+        let proxy_url = format!("http://localhost:{}/api/ai/anthropic/v1/messages", api_port);
+
+        let http_response = client
+            .post(&proxy_url)
+            .header("x-user-id", &self.user_id)
+            .json(&request_body)
+            .send()
+            .await
+            .map_err(|e| IdeateError::AIService(format!("Failed to call AI proxy: {}", e)))?;
+
+        if !http_response.status().is_success() {
+            let status = http_response.status();
+            let error_text = http_response.text().await.unwrap_or_else(|_| "Unknown error".to_string());
+            return Err(IdeateError::AIService(format!(
+                "AI proxy returned error {}: {}",
+                status, error_text
+            )));
+        }
+
+        let anthropic_response: AnthropicResponse = http_response
+            .json()
+            .await
+            .map_err(|e| IdeateError::AIService(format!("Failed to parse AI response: {}", e)))?;
+
+        let data_text = anthropic_response
+            .content
+            .first()
+            .map(|c| c.text.as_str())
+            .ok_or_else(|| IdeateError::AIService("Empty response from AI".to_string()))?;
+
+        let data: RawResponse = serde_json::from_str(data_text)
+            .map_err(|e| IdeateError::AIService(format!("Failed to parse structured data: {}", e)))?;
+
+        let response = &data.response;
 
         // Parse AI response
         let parsed = self.parse_dependency_response(response, &features, session_id)?;

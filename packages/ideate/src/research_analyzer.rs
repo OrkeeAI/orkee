@@ -4,10 +4,11 @@
 use crate::error::{IdeateError, Result};
 use crate::research_prompts;
 use crate::types::{Competitor, SimilarProject};
-use orkee_ai::AIService;
+use reqwest::Client;
 use scraper::{Html, Selector};
 use serde::{Deserialize, Serialize};
 use sqlx::{Row, SqlitePool};
+use std::env;
 use std::time::Duration;
 use tracing::{debug, error, info};
 
@@ -22,6 +23,36 @@ const _COMPETITOR_CACHE_HOURS: i64 = 24;
 
 /// Cache expiration for pattern extraction (1 hour)
 const _PATTERN_CACHE_HOURS: i64 = 1;
+
+#[derive(Debug, serde::Deserialize)]
+struct AnthropicResponse {
+    #[allow(dead_code)]
+    id: String,
+    content: Vec<ContentBlock>,
+    usage: Usage,
+    #[allow(dead_code)]
+    stop_reason: Option<String>,
+}
+
+#[derive(Debug, serde::Deserialize)]
+struct ContentBlock {
+    #[serde(rename = "type")]
+    #[allow(dead_code)]
+    content_type: String,
+    text: String,
+}
+
+#[derive(Debug, serde::Deserialize)]
+struct Usage {
+    input_tokens: u32,
+    output_tokens: u32,
+}
+
+impl Usage {
+    fn total_tokens(&self) -> u32 {
+        self.input_tokens + self.output_tokens
+    }
+}
 
 /// UI/UX pattern extracted from analysis
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -212,7 +243,8 @@ impl ResearchAnalyzer {
         session_id: &str,
         project_description: &str,
         url: &str,
-        ai_service: &AIService,
+        user_id: &str,
+        model: &str,
     ) -> Result<Competitor> {
         info!("Analyzing competitor: {}", url);
 
@@ -239,16 +271,52 @@ impl ResearchAnalyzer {
             IdeateError::InvalidSection(format!("Failed to load system prompt: {}", e))
         })?;
 
-        let response = ai_service
-            .generate_structured::<Competitor>(prompt, Some(system_prompt))
-            .await
-            .map_err(|e| {
-                error!("AI analysis failed: {}", e);
-                IdeateError::AIService(format!("AI analysis failed: {}", e))
-            })?;
+        let client = Client::new();
 
-        // Get competitor from response
-        let competitor = response.data;
+        let request_body = serde_json::json!({
+            "model": model,
+            "max_tokens": 64000,
+            "temperature": 0.7,
+            "messages": [{
+                "role": "user",
+                "content": prompt
+            }],
+            "system": system_prompt
+        });
+
+        let api_port = env::var("ORKEE_API_PORT").unwrap_or_else(|_| "4001".to_string());
+        let proxy_url = format!("http://localhost:{}/api/ai/anthropic/v1/messages", api_port);
+
+        let response = client
+            .post(&proxy_url)
+            .header("x-user-id", user_id)
+            .json(&request_body)
+            .send()
+            .await
+            .map_err(|e| IdeateError::AIService(format!("Failed to call AI proxy: {}", e)))?;
+
+        if !response.status().is_success() {
+            let status = response.status();
+            let error_text = response.text().await.unwrap_or_else(|_| "Unknown error".to_string());
+            return Err(IdeateError::AIService(format!(
+                "AI proxy returned error {}: {}",
+                status, error_text
+            )));
+        }
+
+        let anthropic_response: AnthropicResponse = response
+            .json()
+            .await
+            .map_err(|e| IdeateError::AIService(format!("Failed to parse AI response: {}", e)))?;
+
+        let data_text = anthropic_response
+            .content
+            .first()
+            .map(|c| c.text.as_str())
+            .ok_or_else(|| IdeateError::AIService("Empty response from AI".to_string()))?;
+
+        let competitor: Competitor = serde_json::from_str(data_text)
+            .map_err(|e| IdeateError::AIService(format!("Failed to parse structured data: {}", e)))?;
 
         // Cache the result
         self.cache_competitor(session_id, &competitor).await?;
@@ -318,7 +386,8 @@ impl ResearchAnalyzer {
         session_id: &str,
         project_description: &str,
         your_features: Vec<String>,
-        ai_service: &AIService,
+        user_id: &str,
+        model: &str,
     ) -> Result<GapAnalysis> {
         info!("Performing gap analysis for session: {}", session_id);
 
@@ -354,15 +423,54 @@ impl ResearchAnalyzer {
             IdeateError::InvalidSection(format!("Failed to load system prompt: {}", e))
         })?;
 
-        let response = ai_service
-            .generate_structured::<GapAnalysis>(prompt, Some(system_prompt))
-            .await
-            .map_err(|e| {
-                error!("Gap analysis failed: {}", e);
-                IdeateError::AIService(format!("Gap analysis failed: {}", e))
-            })?;
+        let client = Client::new();
 
-        Ok(response.data)
+        let request_body = serde_json::json!({
+            "model": model,
+            "max_tokens": 64000,
+            "temperature": 0.7,
+            "messages": [{
+                "role": "user",
+                "content": prompt
+            }],
+            "system": system_prompt
+        });
+
+        let api_port = env::var("ORKEE_API_PORT").unwrap_or_else(|_| "4001".to_string());
+        let proxy_url = format!("http://localhost:{}/api/ai/anthropic/v1/messages", api_port);
+
+        let response = client
+            .post(&proxy_url)
+            .header("x-user-id", user_id)
+            .json(&request_body)
+            .send()
+            .await
+            .map_err(|e| IdeateError::AIService(format!("Failed to call AI proxy: {}", e)))?;
+
+        if !response.status().is_success() {
+            let status = response.status();
+            let error_text = response.text().await.unwrap_or_else(|_| "Unknown error".to_string());
+            return Err(IdeateError::AIService(format!(
+                "AI proxy returned error {}: {}",
+                status, error_text
+            )));
+        }
+
+        let anthropic_response: AnthropicResponse = response
+            .json()
+            .await
+            .map_err(|e| IdeateError::AIService(format!("Failed to parse AI response: {}", e)))?;
+
+        let data_text = anthropic_response
+            .content
+            .first()
+            .map(|c| c.text.as_str())
+            .ok_or_else(|| IdeateError::AIService("Empty response from AI".to_string()))?;
+
+        let data: GapAnalysis = serde_json::from_str(data_text)
+            .map_err(|e| IdeateError::AIService(format!("Failed to parse structured data: {}", e)))?;
+
+        Ok(data)
     }
 
     /// Extract UI/UX patterns from URL
@@ -370,7 +478,8 @@ impl ResearchAnalyzer {
         &self,
         project_description: &str,
         url: &str,
-        ai_service: &AIService,
+        user_id: &str,
+        model: &str,
     ) -> Result<Vec<UIPattern>> {
         info!("Extracting UI patterns from: {}", url);
 
@@ -396,15 +505,54 @@ impl ResearchAnalyzer {
             patterns: Vec<UIPattern>,
         }
 
-        let response = ai_service
-            .generate_structured::<PatternResponse>(prompt, Some(system_prompt))
-            .await
-            .map_err(|e| {
-                error!("Pattern extraction failed: {}", e);
-                IdeateError::AIService(format!("Pattern extraction failed: {}", e))
-            })?;
+        let client = Client::new();
 
-        Ok(response.data.patterns)
+        let request_body = serde_json::json!({
+            "model": model,
+            "max_tokens": 64000,
+            "temperature": 0.7,
+            "messages": [{
+                "role": "user",
+                "content": prompt
+            }],
+            "system": system_prompt
+        });
+
+        let api_port = env::var("ORKEE_API_PORT").unwrap_or_else(|_| "4001".to_string());
+        let proxy_url = format!("http://localhost:{}/api/ai/anthropic/v1/messages", api_port);
+
+        let response = client
+            .post(&proxy_url)
+            .header("x-user-id", user_id)
+            .json(&request_body)
+            .send()
+            .await
+            .map_err(|e| IdeateError::AIService(format!("Failed to call AI proxy: {}", e)))?;
+
+        if !response.status().is_success() {
+            let status = response.status();
+            let error_text = response.text().await.unwrap_or_else(|_| "Unknown error".to_string());
+            return Err(IdeateError::AIService(format!(
+                "AI proxy returned error {}: {}",
+                status, error_text
+            )));
+        }
+
+        let anthropic_response: AnthropicResponse = response
+            .json()
+            .await
+            .map_err(|e| IdeateError::AIService(format!("Failed to parse AI response: {}", e)))?;
+
+        let data_text = anthropic_response
+            .content
+            .first()
+            .map(|c| c.text.as_str())
+            .ok_or_else(|| IdeateError::AIService("Empty response from AI".to_string()))?;
+
+        let data: PatternResponse = serde_json::from_str(data_text)
+            .map_err(|e| IdeateError::AIService(format!("Failed to parse structured data: {}", e)))?;
+
+        Ok(data.patterns)
     }
 
     /// Add similar project
@@ -476,7 +624,8 @@ impl ResearchAnalyzer {
         &self,
         project_description: &str,
         similar_project: &SimilarProject,
-        ai_service: &AIService,
+        user_id: &str,
+        model: &str,
     ) -> Result<Vec<Lesson>> {
         info!("Extracting lessons from: {}", similar_project.name);
 
@@ -501,15 +650,54 @@ impl ResearchAnalyzer {
             lessons: Vec<Lesson>,
         }
 
-        let response = ai_service
-            .generate_structured::<LessonResponse>(prompt, Some(system_prompt))
-            .await
-            .map_err(|e| {
-                error!("Lesson extraction failed: {}", e);
-                IdeateError::AIService(format!("Lesson extraction failed: {}", e))
-            })?;
+        let client = Client::new();
 
-        Ok(response.data.lessons)
+        let request_body = serde_json::json!({
+            "model": model,
+            "max_tokens": 64000,
+            "temperature": 0.7,
+            "messages": [{
+                "role": "user",
+                "content": prompt
+            }],
+            "system": system_prompt
+        });
+
+        let api_port = env::var("ORKEE_API_PORT").unwrap_or_else(|_| "4001".to_string());
+        let proxy_url = format!("http://localhost:{}/api/ai/anthropic/v1/messages", api_port);
+
+        let response = client
+            .post(&proxy_url)
+            .header("x-user-id", user_id)
+            .json(&request_body)
+            .send()
+            .await
+            .map_err(|e| IdeateError::AIService(format!("Failed to call AI proxy: {}", e)))?;
+
+        if !response.status().is_success() {
+            let status = response.status();
+            let error_text = response.text().await.unwrap_or_else(|_| "Unknown error".to_string());
+            return Err(IdeateError::AIService(format!(
+                "AI proxy returned error {}: {}",
+                status, error_text
+            )));
+        }
+
+        let anthropic_response: AnthropicResponse = response
+            .json()
+            .await
+            .map_err(|e| IdeateError::AIService(format!("Failed to parse AI response: {}", e)))?;
+
+        let data_text = anthropic_response
+            .content
+            .first()
+            .map(|c| c.text.as_str())
+            .ok_or_else(|| IdeateError::AIService("Empty response from AI".to_string()))?;
+
+        let data: LessonResponse = serde_json::from_str(data_text)
+            .map_err(|e| IdeateError::AIService(format!("Failed to parse structured data: {}", e)))?;
+
+        Ok(data.lessons)
     }
 
     /// Synthesize all research findings
@@ -517,7 +705,8 @@ impl ResearchAnalyzer {
         &self,
         session_id: &str,
         project_description: &str,
-        ai_service: &AIService,
+        user_id: &str,
+        model: &str,
     ) -> Result<ResearchSynthesis> {
         info!("Synthesizing research for session: {}", session_id);
 
@@ -544,14 +733,53 @@ impl ResearchAnalyzer {
             IdeateError::InvalidSection(format!("Failed to load system prompt: {}", e))
         })?;
 
-        let response = ai_service
-            .generate_structured::<ResearchSynthesis>(prompt, Some(system_prompt))
-            .await
-            .map_err(|e| {
-                error!("Research synthesis failed: {}", e);
-                IdeateError::AIService(format!("Research synthesis failed: {}", e))
-            })?;
+        let client = Client::new();
 
-        Ok(response.data)
+        let request_body = serde_json::json!({
+            "model": model,
+            "max_tokens": 64000,
+            "temperature": 0.7,
+            "messages": [{
+                "role": "user",
+                "content": prompt
+            }],
+            "system": system_prompt
+        });
+
+        let api_port = env::var("ORKEE_API_PORT").unwrap_or_else(|_| "4001".to_string());
+        let proxy_url = format!("http://localhost:{}/api/ai/anthropic/v1/messages", api_port);
+
+        let response = client
+            .post(&proxy_url)
+            .header("x-user-id", user_id)
+            .json(&request_body)
+            .send()
+            .await
+            .map_err(|e| IdeateError::AIService(format!("Failed to call AI proxy: {}", e)))?;
+
+        if !response.status().is_success() {
+            let status = response.status();
+            let error_text = response.text().await.unwrap_or_else(|_| "Unknown error".to_string());
+            return Err(IdeateError::AIService(format!(
+                "AI proxy returned error {}: {}",
+                status, error_text
+            )));
+        }
+
+        let anthropic_response: AnthropicResponse = response
+            .json()
+            .await
+            .map_err(|e| IdeateError::AIService(format!("Failed to parse AI response: {}", e)))?;
+
+        let data_text = anthropic_response
+            .content
+            .first()
+            .map(|c| c.text.as_str())
+            .ok_or_else(|| IdeateError::AIService("Empty response from AI".to_string()))?;
+
+        let data: ResearchSynthesis = serde_json::from_str(data_text)
+            .map_err(|e| IdeateError::AIService(format!("Failed to parse structured data: {}", e)))?;
+
+        Ok(data)
     }
 }

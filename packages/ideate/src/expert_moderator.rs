@@ -4,24 +4,57 @@
 use crate::error::{IdeateError, Result};
 use crate::roundtable::*;
 use crate::roundtable_manager::RoundtableManager;
-use orkee_ai::AIService;
+use reqwest::Client;
 use serde::Deserialize;
+use std::env;
 use tracing::{debug, info};
 
 const MAX_DISCUSSION_ROUNDS: usize = 15; // Maximum number of back-and-forth exchanges
 const MAX_RESPONSE_TOKENS: usize = 500; // Max tokens per expert response
 
+#[derive(Debug, serde::Deserialize)]
+struct AnthropicResponse {
+    #[allow(dead_code)]
+    id: String,
+    content: Vec<ContentBlock>,
+    usage: Usage,
+    #[allow(dead_code)]
+    stop_reason: Option<String>,
+}
+
+#[derive(Debug, serde::Deserialize)]
+struct ContentBlock {
+    #[serde(rename = "type")]
+    #[allow(dead_code)]
+    content_type: String,
+    text: String,
+}
+
+#[derive(Debug, serde::Deserialize)]
+struct Usage {
+    input_tokens: u32,
+    output_tokens: u32,
+}
+
+impl Usage {
+    fn total_tokens(&self) -> u32 {
+        self.input_tokens + self.output_tokens
+    }
+}
+
 /// Expert moderator for orchestrating roundtable discussions
 pub struct ExpertModerator {
     manager: RoundtableManager,
-    ai_service: AIService,
+    user_id: String,
+    model: String,
 }
 
 impl ExpertModerator {
-    pub fn new(manager: RoundtableManager, ai_service: AIService) -> Self {
+    pub fn new(manager: RoundtableManager, user_id: String, model: String) -> Self {
         Self {
             manager,
-            ai_service,
+            user_id,
+            model,
         }
     }
 
@@ -203,17 +236,54 @@ impl ExpertModerator {
             relevance_score: f32,
         }
 
-        let ai_response = self
-            .ai_service
-            .generate_structured::<RawSuggestionResponse>(
-                prompt,
-                Some(EXPERT_SUGGESTION_SYSTEM_PROMPT.to_string()),
-            )
-            .await
-            .map_err(|e| IdeateError::AIService(format!("Failed to suggest experts: {}", e)))?;
+        let client = Client::new();
 
-        let suggestions = ai_response
-            .data
+        let request_body = serde_json::json!({
+            "model": &self.model,
+            "max_tokens": 64000,
+            "temperature": 0.7,
+            "messages": [{
+                "role": "user",
+                "content": prompt
+            }],
+            "system": EXPERT_SUGGESTION_SYSTEM_PROMPT
+        });
+
+        let api_port = env::var("ORKEE_API_PORT").unwrap_or_else(|_| "4001".to_string());
+        let proxy_url = format!("http://localhost:{}/api/ai/anthropic/v1/messages", api_port);
+
+        let response = client
+            .post(&proxy_url)
+            .header("x-user-id", &self.user_id)
+            .json(&request_body)
+            .send()
+            .await
+            .map_err(|e| IdeateError::AIService(format!("Failed to call AI proxy: {}", e)))?;
+
+        if !response.status().is_success() {
+            let status = response.status();
+            let error_text = response.text().await.unwrap_or_else(|_| "Unknown error".to_string());
+            return Err(IdeateError::AIService(format!(
+                "AI proxy returned error {}: {}",
+                status, error_text
+            )));
+        }
+
+        let anthropic_response: AnthropicResponse = response
+            .json()
+            .await
+            .map_err(|e| IdeateError::AIService(format!("Failed to parse AI response: {}", e)))?;
+
+        let data_text = anthropic_response
+            .content
+            .first()
+            .map(|c| c.text.as_str())
+            .ok_or_else(|| IdeateError::AIService("Empty response from AI".to_string()))?;
+
+        let data: RawSuggestionResponse = serde_json::from_str(data_text)
+            .map_err(|e| IdeateError::AIService(format!("Failed to parse structured data: {}", e)))?;
+
+        let suggestions = data
             .suggestions
             .into_iter()
             .map(|s| ExpertSuggestion {
@@ -267,18 +337,56 @@ impl ExpertModerator {
             source_experts: Vec<String>,
         }
 
-        let ai_response = self
-            .ai_service
-            .generate_structured::<RawInsightResponse>(
-                prompt,
-                Some(INSIGHT_EXTRACTION_SYSTEM_PROMPT.to_string()),
-            )
+        let client = Client::new();
+
+        let request_body = serde_json::json!({
+            "model": &self.model,
+            "max_tokens": 64000,
+            "temperature": 0.7,
+            "messages": [{
+                "role": "user",
+                "content": prompt
+            }],
+            "system": INSIGHT_EXTRACTION_SYSTEM_PROMPT
+        });
+
+        let api_port = env::var("ORKEE_API_PORT").unwrap_or_else(|_| "4001".to_string());
+        let proxy_url = format!("http://localhost:{}/api/ai/anthropic/v1/messages", api_port);
+
+        let response = client
+            .post(&proxy_url)
+            .header("x-user-id", &self.user_id)
+            .json(&request_body)
+            .send()
             .await
-            .map_err(|e| IdeateError::AIService(format!("Failed to extract insights: {}", e)))?;
+            .map_err(|e| IdeateError::AIService(format!("Failed to call AI proxy: {}", e)))?;
+
+        if !response.status().is_success() {
+            let status = response.status();
+            let error_text = response.text().await.unwrap_or_else(|_| "Unknown error".to_string());
+            return Err(IdeateError::AIService(format!(
+                "AI proxy returned error {}: {}",
+                status, error_text
+            )));
+        }
+
+        let anthropic_response: AnthropicResponse = response
+            .json()
+            .await
+            .map_err(|e| IdeateError::AIService(format!("Failed to parse AI response: {}", e)))?;
+
+        let data_text = anthropic_response
+            .content
+            .first()
+            .map(|c| c.text.as_str())
+            .ok_or_else(|| IdeateError::AIService("Empty response from AI".to_string()))?;
+
+        let data: RawInsightResponse = serde_json::from_str(data_text)
+            .map_err(|e| IdeateError::AIService(format!("Failed to parse structured data: {}", e)))?;
 
         // Store insights in database
         let mut stored_insights = Vec::new();
-        for raw_insight in ai_response.data.insights {
+        for raw_insight in data.insights {
             let priority = match raw_insight.priority.to_lowercase().as_str() {
                 "low" => InsightPriority::Low,
                 "medium" => InsightPriority::Medium,
@@ -309,7 +417,7 @@ impl ExpertModerator {
 
         Ok(ExtractInsightsResponse {
             insights: stored_insights,
-            summary: Some(ai_response.data.summary),
+            summary: Some(data.summary),
         })
     }
 
@@ -391,18 +499,54 @@ impl ExpertModerator {
             response: String,
         }
 
-        let ai_response = self
-            .ai_service
-            .generate_structured::<ResponseWrapper>(prompt, Some(expert.system_prompt.clone()))
-            .await
-            .map_err(|e| {
-                IdeateError::AIService(format!(
-                    "Failed to generate expert response for {}: {}",
-                    expert.name, e
-                ))
-            })?;
+        let client = Client::new();
 
-        Ok(ai_response.data.response)
+        let request_body = serde_json::json!({
+            "model": &self.model,
+            "max_tokens": 64000,
+            "temperature": 0.7,
+            "messages": [{
+                "role": "user",
+                "content": prompt
+            }],
+            "system": expert.system_prompt.clone()
+        });
+
+        let api_port = env::var("ORKEE_API_PORT").unwrap_or_else(|_| "4001".to_string());
+        let proxy_url = format!("http://localhost:{}/api/ai/anthropic/v1/messages", api_port);
+
+        let response = client
+            .post(&proxy_url)
+            .header("x-user-id", &self.user_id)
+            .json(&request_body)
+            .send()
+            .await
+            .map_err(|e| IdeateError::AIService(format!("Failed to call AI proxy: {}", e)))?;
+
+        if !response.status().is_success() {
+            let status = response.status();
+            let error_text = response.text().await.unwrap_or_else(|_| "Unknown error".to_string());
+            return Err(IdeateError::AIService(format!(
+                "AI proxy returned error {}: {}",
+                status, error_text
+            )));
+        }
+
+        let anthropic_response: AnthropicResponse = response
+            .json()
+            .await
+            .map_err(|e| IdeateError::AIService(format!("Failed to parse AI response: {}", e)))?;
+
+        let data_text = anthropic_response
+            .content
+            .first()
+            .map(|c| c.text.as_str())
+            .ok_or_else(|| IdeateError::AIService("Empty response from AI".to_string()))?;
+
+        let data: ResponseWrapper = serde_json::from_str(data_text)
+            .map_err(|e| IdeateError::AIService(format!("Failed to parse structured data: {}", e)))?;
+
+        Ok(data.response)
     }
 
     /// Format conversation history for context
