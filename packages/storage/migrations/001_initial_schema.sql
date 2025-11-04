@@ -712,8 +712,8 @@ CREATE TABLE oauth_tokens (
     id TEXT PRIMARY KEY CHECK(length(id) >= 8),
     user_id TEXT NOT NULL,
     provider TEXT NOT NULL CHECK (provider IN ('claude', 'openai', 'google', 'xai')),
-    access_token TEXT NOT NULL CHECK (length(access_token) >= 38), -- Encrypted
-    refresh_token TEXT CHECK (refresh_token IS NULL OR length(refresh_token) >= 38), -- Encrypted
+    access_token TEXT NOT NULL, -- Encrypted (length varies based on plaintext)
+    refresh_token TEXT, -- Encrypted (length varies based on plaintext)
     expires_at INTEGER NOT NULL, -- Unix timestamp
     token_type TEXT DEFAULT 'Bearer',
     scope TEXT, -- Space-separated scopes
