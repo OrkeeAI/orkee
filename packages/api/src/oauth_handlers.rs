@@ -4,9 +4,8 @@
 use axum::{
     extract::{Path, State},
     response::IntoResponse,
-    Json,
 };
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use tracing::{error, info};
 
 use super::auth::CurrentUser;
@@ -71,19 +70,19 @@ pub async fn list_providers() -> impl IntoResponse {
         }),
     ];
 
-    ok_or_internal_error(Ok(providers), "Failed to list providers")
+    ok_or_internal_error::<Vec<serde_json::Value>, std::convert::Infallible>(Ok(providers), "Failed to list providers")
 }
 
 /// Get authentication status for all providers
 pub async fn get_auth_status(
     State(db): State<DbState>,
-    CurrentUser(user): CurrentUser,
+    CurrentUser { id }: CurrentUser,
 ) -> impl IntoResponse {
-    info!("Getting authentication status for user: {}", user.id);
+    info!("Getting authentication status for user: {}", id);
 
     let manager = OAuthManager::new(db.pool.clone());
 
-    let result = manager.get_status(&user.id).await.map(|statuses| {
+    let result = manager.get_status(&id).await.map(|statuses| {
         let providers: Vec<ProviderStatusResponse> = statuses
             .into_iter()
             .map(|s| ProviderStatusResponse {
@@ -105,11 +104,11 @@ pub async fn get_auth_status(
 pub async fn get_token(
     State(db): State<DbState>,
     Path(provider): Path<String>,
-    CurrentUser(user): CurrentUser,
+    CurrentUser { id }: CurrentUser,
 ) -> impl IntoResponse {
     info!(
         "Getting token for provider: {} (user: {})",
-        provider, user.id
+        provider, id
     );
 
     let provider = match parse_provider(&provider) {
@@ -123,7 +122,7 @@ pub async fn get_token(
     let manager = OAuthManager::new(db.pool.clone());
 
     let result = manager
-        .get_token(&user.id, provider)
+        .get_token(&id, provider)
         .await
         .and_then(|token_opt| {
             token_opt.ok_or_else(|| {
@@ -145,11 +144,11 @@ pub async fn get_token(
 pub async fn refresh_token(
     State(db): State<DbState>,
     Path(provider): Path<String>,
-    CurrentUser(user): CurrentUser,
+    CurrentUser { id }: CurrentUser,
 ) -> impl IntoResponse {
     info!(
         "Refreshing token for provider: {} (user: {})",
-        provider, user.id
+        provider, id
     );
 
     let provider = match parse_provider(&provider) {
@@ -163,7 +162,7 @@ pub async fn refresh_token(
     let manager = OAuthManager::new(db.pool.clone());
 
     let result = manager
-        .refresh_token(&user.id, provider)
+        .refresh_token(&id, provider)
         .await
         .map(|token| TokenResponse {
             token: token.access_token,
@@ -177,11 +176,11 @@ pub async fn refresh_token(
 pub async fn logout(
     State(db): State<DbState>,
     Path(provider): Path<String>,
-    CurrentUser(user): CurrentUser,
+    CurrentUser { id }: CurrentUser,
 ) -> impl IntoResponse {
     info!(
         "Logging out from provider: {} (user: {})",
-        provider, user.id
+        provider, id
     );
 
     let provider = match parse_provider(&provider) {
@@ -194,7 +193,7 @@ pub async fn logout(
 
     let manager = OAuthManager::new(db.pool.clone());
 
-    let result = manager.logout(&user.id, provider).await.map(
+    let result = manager.logout(&id, provider).await.map(
         |_| serde_json::json!({ "message": format!("Successfully logged out from {}", provider) }),
     );
 

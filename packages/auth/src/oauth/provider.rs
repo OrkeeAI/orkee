@@ -115,9 +115,18 @@ mod tests {
 
     #[test]
     fn test_provider_parsing() {
-        assert_eq!("claude".parse::<OAuthProvider>().unwrap(), OAuthProvider::Claude);
-        assert_eq!("CLAUDE".parse::<OAuthProvider>().unwrap(), OAuthProvider::Claude);
-        assert_eq!("openai".parse::<OAuthProvider>().unwrap(), OAuthProvider::OpenAI);
+        assert_eq!(
+            "claude".parse::<OAuthProvider>().unwrap(),
+            OAuthProvider::Claude
+        );
+        assert_eq!(
+            "CLAUDE".parse::<OAuthProvider>().unwrap(),
+            OAuthProvider::Claude
+        );
+        assert_eq!(
+            "openai".parse::<OAuthProvider>().unwrap(),
+            OAuthProvider::OpenAI
+        );
         assert!("invalid".parse::<OAuthProvider>().is_err());
     }
 
