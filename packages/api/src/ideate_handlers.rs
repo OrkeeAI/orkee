@@ -169,57 +169,23 @@ pub struct QuickGenerateRequest {
 }
 
 /// Generate a complete PRD from the session's initial description (Quick Mode)
+///
+/// ⚠️ DEPRECATED: This handler is disabled - AI operations moved to frontend AI SDK.
+/// Frontend should use `prd-ai.ts:generateCompletePRD()` instead.
+#[allow(dead_code)]
 pub async fn quick_generate(
-    State(db): State<DbState>,
-    Path(session_id): Path<String>,
-    Json(request): Json<QuickGenerateRequest>,
+    State(_db): State<DbState>,
+    Path(_session_id): Path<String>,
+    Json(_request): Json<QuickGenerateRequest>,
 ) -> impl IntoResponse {
-    info!(
-        "Generating complete PRD for session: {} with provider: {:?}, model: {:?}",
-        session_id, request.provider, request.model
-    );
-
-    // Get the session to retrieve the description
-    let manager = IdeateManager::new(db.pool.clone());
-    let session = match manager.get_session(&session_id).await {
-        Ok(s) => s,
-        Err(e) => {
-            return ok_or_internal_error::<serde_json::Value, _>(Err(e), "Ideate session not found")
-        }
-    };
-
-    // Generate PRD using the generator with optional provider and model
-    let generator = PRDGenerator::new(db.pool.clone());
-    let result = generator
-        .generate_complete_prd_with_model(
-            DEFAULT_USER_ID,
-            &session.initial_description,
-            request.provider,
-            request.model,
-        )
-        .await;
-
-    match result {
-        Ok(prd) => {
-            // Persist section data to ideate_ tables
-            if let Err(e) = persist_generated_prd(&manager, &session_id, &prd).await {
-                warn!(
-                    "Failed to persist PRD sections for session {}: {}",
-                    session_id, e
-                );
-                return ok_or_internal_error::<serde_json::Value, _>(
-                    Err(format!("PRD generated but failed to persist: {}", e)),
-                    "Failed to persist PRD",
-                );
-            }
-
-            // Convert to JSON for response
-            let json_value = serde_json::to_value(&prd).unwrap_or_else(|_| serde_json::json!({}));
-            ok_or_internal_error::<_, String>(Ok(json_value), "Failed to generate PRD")
-        }
-        Err(e) => ok_or_internal_error::<serde_json::Value, _>(Err(e), "Failed to generate PRD"),
-    }
+    // This handler is deprecated - route is commented out in lib.rs
+    // Frontend should call prd-ai.ts:generateCompletePRD() directly
+    ok_or_internal_error::<serde_json::Value, _>(
+        Err("This endpoint has been deprecated. Use frontend AI SDK instead."),
+        "This endpoint has been deprecated. Use frontend AI SDK instead.",
+    )
 }
+
 
 /// Persist generated PRD sections to ideate_ database tables
 async fn persist_generated_prd(
@@ -467,37 +433,22 @@ pub struct QuickExpandRequest {
 }
 
 /// Expand a specific section of the PRD
+/// Expand a specific section for Quick Mode
+///
+/// ⚠️ DEPRECATED: This handler is disabled - AI operations moved to frontend AI SDK.
+/// Frontend should use `prd-ai.ts:generateSection()` instead.
+#[allow(dead_code)]
 pub async fn quick_expand(
-    State(db): State<DbState>,
-    Path(session_id): Path<String>,
-    Json(request): Json<QuickExpandRequest>,
+    State(_db): State<DbState>,
+    Path(_session_id): Path<String>,
+    Json(_request): Json<QuickExpandRequest>,
 ) -> impl IntoResponse {
-    info!(
-        "Expanding section '{}' for session: {}",
-        request.section, session_id
-    );
-
-    // Get the session to retrieve the description
-    let manager = IdeateManager::new(db.pool.clone());
-    let session = match manager.get_session(&session_id).await {
-        Ok(s) => s,
-        Err(e) => {
-            return ok_or_internal_error::<serde_json::Value, _>(Err(e), "Ideate session not found")
-        }
-    };
-
-    // Generate specific section
-    let generator = PRDGenerator::new(db.pool.clone());
-    let result = generator
-        .generate_section(
-            DEFAULT_USER_ID,
-            &request.section,
-            &session.initial_description,
-            request.context.as_deref(),
-        )
-        .await;
-
-    ok_or_internal_error(result, "Failed to expand section")
+    // This handler is deprecated - route is commented out in lib.rs
+    // Frontend should call prd-ai.ts:generateSection() directly
+    ok_or_internal_error::<serde_json::Value, _>(
+        Err("This endpoint has been deprecated. Use frontend AI SDK instead."),
+        "This endpoint has been deprecated. Use frontend AI SDK instead.",
+    )
 }
 
 /// Get a preview of the generated PRD in markdown format

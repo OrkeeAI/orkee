@@ -63,6 +63,7 @@ pub struct ExtractLessonsRequest {
 }
 
 /// Analyze a competitor URL
+#[allow(dead_code)]
 pub async fn analyze_competitor(
     State(db): State<DbState>,
     Path(session_id): Path<String>,
@@ -143,6 +144,7 @@ pub async fn get_competitors(
 }
 
 /// Perform gap analysis
+#[allow(dead_code)]
 pub async fn analyze_gaps(
     State(db): State<DbState>,
     Path(session_id): Path<String>,
@@ -209,6 +211,7 @@ pub async fn analyze_gaps(
 }
 
 /// Extract UI/UX patterns from a URL
+#[allow(dead_code)]
 pub async fn extract_patterns(
     State(db): State<DbState>,
     Path(session_id): Path<String>,
@@ -314,6 +317,7 @@ pub async fn get_similar_projects(
 }
 
 /// Extract lessons from a similar project
+#[allow(dead_code)]
 pub async fn extract_lessons(
     State(db): State<DbState>,
     Path(session_id): Path<String>,
@@ -411,6 +415,7 @@ pub async fn extract_lessons(
 }
 
 /// Synthesize all research findings
+#[allow(dead_code)]
 pub async fn synthesize_research(
     State(db): State<DbState>,
     Path(session_id): Path<String>,

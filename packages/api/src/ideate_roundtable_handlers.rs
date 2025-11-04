@@ -115,6 +115,7 @@ pub async fn create_expert(
 }
 
 /// POST /api/ideate/:session_id/experts/suggest - Get AI-suggested experts
+#[allow(dead_code)]
 pub async fn suggest_experts(
     State(db): State<DbState>,
     Path(_session_id): Path<String>,
@@ -123,10 +124,8 @@ pub async fn suggest_experts(
     info!("Suggesting experts for roundtable discussion");
 
     // Create AI service
-    let ai_service = AIService::new();
-
     let manager = RoundtableManager::new(db.pool.clone());
-    let moderator = ExpertModerator::new(manager, ai_service);
+    let moderator = ExpertModerator::new(manager);
 
     let result = moderator.suggest_experts(&request).await;
 
@@ -224,6 +223,7 @@ pub async fn get_participants(
 // ============================================================================
 
 /// POST /api/ideate/roundtable/:roundtable_id/start - Start discussion
+#[allow(dead_code)]
 pub async fn start_discussion(
     State(db): State<DbState>,
     Path(roundtable_id): Path<String>,
@@ -232,10 +232,8 @@ pub async fn start_discussion(
     info!("Starting discussion for roundtable: {}", roundtable_id);
 
     // Create AI service
-    let ai_service = AIService::new();
-
     let manager = RoundtableManager::new(db.pool.clone());
-    let moderator = ExpertModerator::new(manager, ai_service);
+    let moderator = ExpertModerator::new(manager);
 
     // Run discussion in background
     let roundtable_id_clone = roundtable_id.clone();
@@ -396,10 +394,8 @@ pub async fn send_interjection(
     info!("Handling interjection for roundtable: {}", roundtable_id);
 
     // Create AI service
-    let ai_service = AIService::new();
-
     let manager = RoundtableManager::new(db.pool.clone());
-    let moderator = ExpertModerator::new(manager, ai_service);
+    let moderator = ExpertModerator::new(manager);
 
     let result = moderator
         .handle_interjection(&roundtable_id, &request.message)
@@ -427,24 +423,21 @@ pub async fn get_messages(
 // ============================================================================
 
 /// POST /api/ideate/roundtable/:roundtable_id/insights/extract - Extract insights
+///
+/// ⚠️ DEPRECATED: This handler is disabled - AI operations moved to frontend AI SDK.
+/// Frontend should use `roundtable-ai.ts:extractInsights()` instead.
+#[allow(dead_code)]
 pub async fn extract_insights(
-    State(db): State<DbState>,
-    Path(roundtable_id): Path<String>,
-    Json(request): Json<ExtractInsightsRequest>,
+    State(_db): State<DbState>,
+    Path(_roundtable_id): Path<String>,
+    Json(_request): Json<ExtractInsightsRequest>,
 ) -> impl IntoResponse {
-    info!("Extracting insights for roundtable: {}", roundtable_id);
-
-    // Create AI service
-    let ai_service = AIService::new();
-
-    let manager = RoundtableManager::new(db.pool.clone());
-    let moderator = ExpertModerator::new(manager, ai_service);
-
-    let result = moderator
-        .extract_insights(&roundtable_id, request.categories)
-        .await;
-
-    ok_or_internal_error(result, "Failed to extract insights")
+    // This handler is deprecated - route is commented out in lib.rs
+    // Frontend should call roundtable-ai.ts:extractInsights() directly
+    ok_or_internal_error::<serde_json::Value, _>(
+        Err("This endpoint has been deprecated. Use frontend AI SDK instead."),
+        "This endpoint has been deprecated. Use frontend AI SDK instead.",
+    )
 }
 
 /// GET /api/ideate/roundtable/:roundtable_id/insights - Get insights

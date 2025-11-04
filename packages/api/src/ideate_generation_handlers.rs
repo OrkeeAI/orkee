@@ -13,7 +13,7 @@ use futures::stream::Stream;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::convert::Infallible;
-use tracing::{error, info};
+use tracing::info;
 
 use super::response::{ok_or_internal_error, ok_or_not_found};
 use orkee_ideate::{ExportFormat, ExportOptions, PRDAggregator, PRDGenerator};
@@ -30,22 +30,21 @@ pub struct GeneratePRDRequest {
 }
 
 /// Generate PRD from collected session data
+///
+/// ⚠️ DEPRECATED: This handler is disabled - AI operations moved to frontend AI SDK.
+/// Frontend should use `prd-ai.ts:generateFromSession()` instead.
+#[allow(dead_code)]
 pub async fn generate_prd(
-    State(db): State<DbState>,
-    Path(session_id): Path<String>,
-    Json(request): Json<GeneratePRDRequest>,
+    State(_db): State<DbState>,
+    Path(_session_id): Path<String>,
+    Json(_request): Json<GeneratePRDRequest>,
 ) -> impl IntoResponse {
-    info!(
-        "Generating PRD for session: {} (include_skipped: {})",
-        session_id, request.include_skipped
-    );
-
-    let generator = PRDGenerator::new(db.pool.clone());
-    let result = generator
-        .generate_from_session(DEFAULT_USER_ID, &session_id)
-        .await;
-
-    ok_or_internal_error(result, "Failed to generate PRD")
+    // This handler is deprecated - route is commented out in lib.rs
+    // Frontend should call prd-ai.ts:generateFromSession() directly
+    ok_or_internal_error::<(), _>(
+        Err("This endpoint has been deprecated. Use frontend AI SDK instead."),
+        "This endpoint has been deprecated. Use frontend AI SDK instead.",
+    )
 }
 
 /// Request body for filling skipped sections
@@ -55,22 +54,21 @@ pub struct FillSkippedSectionsRequest {
 }
 
 /// AI-fill skipped sections with context
+///
+/// ⚠️ DEPRECATED: This handler is disabled - AI operations moved to frontend AI SDK.
+/// Frontend should use `prd-ai.ts:fillSkippedSections()` instead.
+#[allow(dead_code)]
 pub async fn fill_skipped_sections(
-    State(db): State<DbState>,
-    Path(session_id): Path<String>,
-    Json(request): Json<FillSkippedSectionsRequest>,
+    State(_db): State<DbState>,
+    Path(_session_id): Path<String>,
+    Json(_request): Json<FillSkippedSectionsRequest>,
 ) -> impl IntoResponse {
-    info!(
-        "Filling skipped sections for session: {} (sections: {:?})",
-        session_id, request.sections
-    );
-
-    let generator = PRDGenerator::new(db.pool.clone());
-    let result = generator
-        .fill_skipped_sections(DEFAULT_USER_ID, &session_id, request.sections)
-        .await;
-
-    ok_or_internal_error(result, "Failed to fill skipped sections")
+    // This handler is deprecated - route is commented out in lib.rs
+    // Frontend should call prd-ai.ts:fillSkippedSections() directly
+    ok_or_internal_error::<(), _>(
+        Err("This endpoint has been deprecated. Use frontend AI SDK instead."),
+        "This endpoint has been deprecated. Use frontend AI SDK instead.",
+    )
 }
 
 /// Request body for regenerating a section
@@ -80,22 +78,21 @@ pub struct RegenerateSectionRequest {
 }
 
 /// Regenerate specific section with full context
+///
+/// ⚠️ DEPRECATED: This handler is disabled - AI operations moved to frontend AI SDK.
+/// Frontend should use `prd-ai.ts:generateSectionWithContext()` instead.
+#[allow(dead_code)]
 pub async fn regenerate_section(
-    State(db): State<DbState>,
-    Path(session_id): Path<String>,
-    Json(request): Json<RegenerateSectionRequest>,
+    State(_db): State<DbState>,
+    Path(_session_id): Path<String>,
+    Json(_request): Json<RegenerateSectionRequest>,
 ) -> impl IntoResponse {
-    info!(
-        "Regenerating section '{}' for session: {}",
-        request.section, session_id
-    );
-
-    let generator = PRDGenerator::new(db.pool.clone());
-    let result = generator
-        .regenerate_section_with_full_context(DEFAULT_USER_ID, &session_id, &request.section)
-        .await;
-
-    ok_or_internal_error(result, "Failed to regenerate section")
+    // This handler is deprecated - route is commented out in lib.rs
+    // Frontend should call prd-ai.ts:generateSectionWithContext() directly
+    ok_or_internal_error::<(), _>(
+        Err("This endpoint has been deprecated. Use frontend AI SDK instead."),
+        "This endpoint has been deprecated. Use frontend AI SDK instead.",
+    )
 }
 
 /// Get PRD preview (aggregated data)
@@ -144,60 +141,21 @@ pub struct ExportPRDResponse {
 }
 
 /// Export PRD in specified format
+///
+/// ⚠️ DEPRECATED: This handler is disabled - needs refactoring for frontend AI SDK pattern.
+/// Export functionality will be re-implemented after PRD generation is handled by frontend.
+#[allow(dead_code)]
 pub async fn export_prd(
-    State(db): State<DbState>,
-    Path(session_id): Path<String>,
-    Json(request): Json<ExportPRDRequest>,
+    State(_db): State<DbState>,
+    Path(_session_id): Path<String>,
+    Json(_request): Json<ExportPRDRequest>,
 ) -> impl IntoResponse {
-    info!(
-        "Exporting PRD for session: {} (format: {:?})",
-        session_id, request.format
-    );
-
-    // First generate the PRD
-    let generator = PRDGenerator::new(db.pool.clone());
-    let prd_result = generator
-        .generate_from_session(DEFAULT_USER_ID, &session_id)
-        .await;
-
-    let prd = match prd_result {
-        Ok(p) => p,
-        Err(e) => {
-            return ok_or_internal_error::<ExportPRDResponse, _>(
-                Err(e),
-                "Failed to generate PRD for export",
-            );
-        }
-    };
-
-    // Now export it
-    let export_service = orkee_ideate::ExportService::new(db.pool.clone());
-    let options = ExportOptions {
-        format: request.format,
-        include_toc: request.include_toc,
-        include_metadata: request.include_metadata,
-        include_page_numbers: request.include_page_numbers,
-        custom_css: request.custom_css,
-        title: request.title,
-    };
-
-    let result = export_service
-        .export_prd(&prd, options, Some(&session_id))
-        .await;
-
-    match result {
-        Ok(export_result) => {
-            let response = ExportPRDResponse {
-                format: export_result.format.to_string(),
-                content: export_result.content,
-                file_name: export_result.file_name,
-                mime_type: export_result.mime_type,
-                size_bytes: export_result.size_bytes,
-            };
-            ok_or_internal_error::<ExportPRDResponse, String>(Ok(response), "")
-        }
-        Err(e) => ok_or_internal_error::<ExportPRDResponse, _>(Err(e), "Failed to export PRD"),
-    }
+    // This handler is deprecated - route is commented out in lib.rs
+    // Export functionality needs to be redesigned for frontend AI SDK pattern
+    ok_or_internal_error::<ExportPRDResponse, _>(
+        Err("This endpoint has been deprecated. Export will be re-implemented."),
+        "This endpoint has been deprecated. Export will be re-implemented.",
+    )
 }
 
 /// Get completeness metrics for session
@@ -392,229 +350,43 @@ pub struct RegeneratePRDWithTemplateRequest {
 }
 
 /// Regenerate PRD with a different template's style/format
+///
+/// ⚠️ DEPRECATED: This handler is disabled - AI operations moved to frontend AI SDK.
+/// Frontend should use `prd-ai.ts:regenerateWithTemplateStream()` instead.
+#[allow(dead_code)]
 pub async fn regenerate_prd_with_template(
-    State(db): State<DbState>,
-    Path(session_id): Path<String>,
-    Json(request): Json<RegeneratePRDWithTemplateRequest>,
+    State(_db): State<DbState>,
+    Path(_session_id): Path<String>,
+    Json(_request): Json<RegeneratePRDWithTemplateRequest>,
 ) -> impl IntoResponse {
-    info!(
-        "Regenerating PRD for session: {} with template: {} (provider: {:?}, model: {:?})",
-        session_id, request.template_id, request.provider, request.model
-    );
-
-    let generator = PRDGenerator::new(db.pool.clone());
-    let result = generator
-        .regenerate_with_template(
-            DEFAULT_USER_ID,
-            &session_id,
-            &request.template_id,
-            request.provider.as_deref(),
-            request.model.as_deref(),
-        )
-        .await;
-
-    let markdown = match result {
-        Ok(md) => md,
-        Err(e) => {
-            return ok_or_internal_error::<serde_json::Value, _>(
-                Err(e),
-                "Failed to regenerate PRD with template",
-            )
-        }
-    };
-
-    // Get the session to retrieve project_id and title
-    use orkee_ideate::IdeateManager;
-    let manager = IdeateManager::new(db.pool.clone());
-    let session = match manager.get_session(&session_id).await {
-        Ok(s) => s,
-        Err(e) => {
-            return ok_or_internal_error::<serde_json::Value, _>(Err(e), "Ideate session not found")
-        }
-    };
-
-    // Create PRD in projects system
-    use orkee_projects::{create_prd, PRDSource, PRDStatus};
-
-    // Generate a title based on the template and current timestamp
-    let title = format!("{} ({})", session_id, request.template_id);
-
-    let prd = match create_prd(
-        &db.pool,
-        &session.project_id,
-        &title,
-        &markdown,
-        PRDStatus::Draft,
-        PRDSource::Generated,
-        Some(DEFAULT_USER_ID),
+    // This handler is deprecated - route is commented out in lib.rs
+    // Frontend should call prd-ai.ts:regenerateWithTemplateStream() directly
+    ok_or_internal_error::<serde_json::Value, _>(
+        Err("This endpoint has been deprecated. Use frontend AI SDK instead."),
+        "This endpoint has been deprecated. Use frontend AI SDK instead.",
     )
-    .await
-    {
-        Ok(p) => p,
-        Err(e) => {
-            return ok_or_internal_error::<serde_json::Value, _>(
-                Err(orkee_ideate::IdeateError::AIService(e.to_string())),
-                "Failed to save regenerated PRD",
-            )
-        }
-    };
-
-    // Link the PRD back to the ideate session by setting ideate_session_id
-    let _ = sqlx::query("UPDATE prds SET ideate_session_id = ? WHERE id = ?")
-        .bind(&session_id)
-        .bind(&prd.id)
-        .execute(&db.pool)
-        .await;
-
-    // Return the created PRD
-    let response = serde_json::to_value(&prd).unwrap_or_else(|_| serde_json::json!({}));
-    ok_or_internal_error::<_, String>(Ok(response), "Failed to save regenerated PRD")
 }
 
 /// Regenerate PRD with a different template's style/format (streaming version)
+///
+/// ⚠️ DEPRECATED: This handler is disabled - AI operations moved to frontend AI SDK.
+/// Frontend should use `prd-ai.ts:regenerateWithTemplateStream()` instead.
+#[allow(dead_code)]
 pub async fn regenerate_prd_with_template_stream(
-    State(db): State<DbState>,
-    Path(session_id): Path<String>,
-    Json(request): Json<RegeneratePRDWithTemplateRequest>,
+    State(_db): State<DbState>,
+    Path(_session_id): Path<String>,
+    Json(_request): Json<RegeneratePRDWithTemplateRequest>,
 ) -> Sse<impl Stream<Item = Result<Event, Infallible>>> {
-    info!(
-        "Streaming PRD regeneration for session: {} with template: {} (provider: {:?}, model: {:?})",
-        session_id, request.template_id, request.provider, request.model
-    );
-
+    // This handler is deprecated - route is commented out in lib.rs
+    // Frontend should call prd-ai.ts:regenerateWithTemplateStream() directly
     let stream = async_stream::stream! {
-        let generator = PRDGenerator::new(db.pool.clone());
-
-        // Get the streaming text from AI
-        let text_stream_result = generator
-            .regenerate_with_template_stream(
-                DEFAULT_USER_ID,
-                &session_id,
-                &request.template_id,
-                request.provider.as_deref(),
-                request.model.as_deref(),
-            )
-            .await;
-
-        let text_stream = match text_stream_result {
-            Ok(stream) => stream,
-            Err(e) => {
-                error!("Failed to start PRD regeneration stream: {:?}", e);
-                let error_event = Event::default()
-                    .json_data(json!({
-                        "type": "error",
-                        "message": format!("Failed to regenerate PRD: {}", e)
-                    }))
-                    .unwrap();
-                yield Ok(error_event);
-                return;
-            }
-        };
-
-        // Stream the markdown chunks as they arrive from AI
-        let mut accumulated_markdown = String::new();
-
-        use futures::StreamExt;
-        tokio::pin!(text_stream);
-        while let Some(chunk_result) = text_stream.next().await {
-            match chunk_result {
-                Ok(chunk) => {
-                    accumulated_markdown.push_str(&chunk);
-
-                    let event = Event::default()
-                        .json_data(json!({
-                            "type": "chunk",
-                            "content": chunk
-                        }))
-                        .unwrap();
-
-                    yield Ok(event);
-                }
-                Err(e) => {
-                    error!("Error in stream: {:?}", e);
-                    let error_event = Event::default()
-                        .json_data(json!({
-                            "type": "error",
-                            "message": format!("Streaming error: {}", e)
-                        }))
-                        .unwrap();
-                    yield Ok(error_event);
-                    return;
-                }
-            }
-        }
-
-        let markdown = accumulated_markdown;
-
-        // Get the session to retrieve project_id and title
-        use orkee_ideate::IdeateManager;
-        let manager = IdeateManager::new(db.pool.clone());
-        let session = match manager.get_session(&session_id).await {
-            Ok(s) => s,
-            Err(e) => {
-                error!("Failed to get session: {:?}", e);
-                let error_event = Event::default()
-                    .json_data(json!({
-                        "type": "error",
-                        "message": format!("Failed to get session: {}", e)
-                    }))
-                    .unwrap();
-                yield Ok(error_event);
-                return;
-            }
-        };
-
-        // Create PRD in projects system
-        use orkee_projects::{create_prd, PRDSource, PRDStatus};
-
-        let title = format!("{} ({})", session_id, request.template_id);
-
-        let prd = match create_prd(
-            &db.pool,
-            &session.project_id,
-            &title,
-            &markdown,
-            PRDStatus::Draft,
-            PRDSource::Generated,
-            Some(DEFAULT_USER_ID),
-        )
-        .await
-        {
-            Ok(p) => p,
-            Err(e) => {
-                error!("Failed to save PRD: {:?}", e);
-                let error_event = Event::default()
-                    .json_data(json!({
-                        "type": "error",
-                        "message": format!("Failed to save PRD: {}", e)
-                    }))
-                    .unwrap();
-                yield Ok(error_event);
-                return;
-            }
-        };
-
-        // Link the PRD back to the ideate session
-        let _ = sqlx::query("UPDATE prds SET ideate_session_id = ? WHERE id = ?")
-            .bind(&session_id)
-            .bind(&prd.id)
-            .execute(&db.pool)
-            .await;
-
-        // Send completion event
-        let complete_event = Event::default()
+        let error_event = Event::default()
             .json_data(json!({
-                "type": "complete",
-                "prd_id": prd.id,
-                "markdown": markdown
+                "type": "error",
+                "message": "This endpoint has been deprecated. Use frontend AI SDK instead."
             }))
             .unwrap();
-        yield Ok(complete_event);
-
-        // Send done marker
-        let done_event = Event::default().data("[DONE]");
-        yield Ok(done_event);
+        yield Ok(error_event);
     };
-
     Sse::new(stream).keep_alive(KeepAlive::default())
 }
