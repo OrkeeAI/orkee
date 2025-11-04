@@ -80,3 +80,32 @@ pub struct AiUsageQuery {
     pub limit: Option<i64>,
     pub offset: Option<i64>,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ToolUsageStats {
+    pub tool_name: String,
+    pub call_count: i64,
+    pub success_count: i64,
+    pub failure_count: i64,
+    pub average_duration_ms: f64,
+    pub total_duration_ms: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TimeSeriesDataPoint {
+    pub timestamp: DateTime<Utc>,
+    pub request_count: i64,
+    pub token_count: i64,
+    pub cost: f64,
+    pub tool_call_count: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ToolCallDetail {
+    pub name: String,
+    pub arguments: serde_json::Value,
+    pub result: Option<serde_json::Value>,
+    #[serde(rename = "durationMs")]
+    pub duration_ms: Option<f64>,
+    pub error: Option<String>,
+}

@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 use tracing::{error, info};
 
 use super::response::{ok_or_internal_error, ApiResponse};
-use orkee_ai::usage_logs::{AiUsageLog, AiUsageQuery};
+use orkee_ai::usage_logs::{AiUsageLog, AiUsageQuery, TimeSeriesDataPoint, ToolUsageStats};
 use orkee_projects::DbState;
 
 #[derive(Deserialize)]
@@ -269,4 +269,73 @@ pub async fn create_log(
                 .into_response()
         }
     }
+}
+
+/// Get tool usage statistics
+pub async fn get_tool_stats(
+    State(db): State<DbState>,
+    Query(params): Query<GetStatsQuery>,
+) -> impl IntoResponse {
+    info!(
+        "Getting tool usage stats (project_id: {:?})",
+        params.project_id
+    );
+
+    let query = AiUsageQuery {
+        project_id: params.project_id,
+        start_date: params.start_date,
+        end_date: params.end_date,
+        operation: None,
+        model: None,
+        provider: None,
+        limit: None,
+        offset: None,
+    };
+
+    let result = db.ai_usage_log_storage.get_tool_stats(&query).await;
+    ok_or_internal_error(result, "Failed to get tool usage stats")
+}
+
+#[derive(Deserialize)]
+pub struct GetTimeSeriesQuery {
+    #[serde(rename = "projectId")]
+    pub project_id: Option<String>,
+    #[serde(rename = "startDate")]
+    pub start_date: Option<DateTime<Utc>>,
+    #[serde(rename = "endDate")]
+    pub end_date: Option<DateTime<Utc>>,
+    #[serde(default = "default_interval")]
+    pub interval: String, // 'hour', 'day', 'week', 'month'
+}
+
+fn default_interval() -> String {
+    "day".to_string()
+}
+
+/// Get time-series data for usage charts
+pub async fn get_time_series(
+    State(db): State<DbState>,
+    Query(params): Query<GetTimeSeriesQuery>,
+) -> impl IntoResponse {
+    info!(
+        "Getting time-series data (project_id: {:?}, interval: {})",
+        params.project_id, params.interval
+    );
+
+    let query = AiUsageQuery {
+        project_id: params.project_id,
+        start_date: params.start_date,
+        end_date: params.end_date,
+        operation: None,
+        model: None,
+        provider: None,
+        limit: None,
+        offset: None,
+    };
+
+    let result = db
+        .ai_usage_log_storage
+        .get_time_series(&query, &params.interval)
+        .await;
+    ok_or_internal_error(result, "Failed to get time-series data")
 }
