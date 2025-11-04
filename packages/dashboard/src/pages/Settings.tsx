@@ -24,6 +24,7 @@ import type { MaskedUser } from '@/services/users'
 import { updateSetting, getSettingsByCategory, type SystemSetting } from '@/services/settings'
 import { clearConfigCache } from '@/services/config'
 import { AIModelsSettings } from '@/components/settings/AIModelsSettings'
+import { OAuthSettings } from '@/components/settings/OAuthSettings'
 
 export function Settings() {
   const [isMacOS, setIsMacOS] = useState(false)
@@ -42,7 +43,7 @@ export function Settings() {
       </div>
 
       <Tabs defaultValue="general" className="w-full">
-        <TabsList className="grid w-full grid-cols-7">
+        <TabsList className="grid w-full grid-cols-8">
           <TabsTrigger value="general" className="flex items-center gap-2">
             <LayoutGrid className="h-4 w-4" />
             General
@@ -50,6 +51,10 @@ export function Settings() {
           <TabsTrigger value="security" className="flex items-center gap-2">
             <Key className="h-4 w-4" />
             Security
+          </TabsTrigger>
+          <TabsTrigger value="oauth" className="flex items-center gap-2">
+            <Shield className="h-4 w-4" />
+            OAuth
           </TabsTrigger>
           <TabsTrigger value="ai-models" className="flex items-center gap-2">
             <Brain className="h-4 w-4" />
@@ -81,6 +86,11 @@ export function Settings() {
         <TabsContent value="security" className="space-y-6 mt-6">
           {/* API Keys Settings */}
           <ApiKeysSettings />
+        </TabsContent>
+
+        <TabsContent value="oauth" className="space-y-6 mt-6">
+          {/* OAuth Settings */}
+          <OAuthSettings />
         </TabsContent>
 
         <TabsContent value="ai-models" className="space-y-6 mt-6">
