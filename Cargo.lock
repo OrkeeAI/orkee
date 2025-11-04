@@ -2881,6 +2881,31 @@ dependencies = [
 ]
 
 [[package]]
+name = "orkee-auth"
+version = "0.0.9"
+dependencies = [
+ "async-trait",
+ "base64 0.22.1",
+ "chrono",
+ "open",
+ "orkee-core",
+ "orkee-storage",
+ "rand 0.8.5",
+ "reqwest 0.12.24",
+ "serde",
+ "serde_json",
+ "sha2",
+ "sqlx",
+ "tempfile",
+ "thiserror 2.0.17",
+ "tokio",
+ "tokio-test",
+ "tracing",
+ "urlencoding",
+ "uuid",
+]
+
+[[package]]
 name = "orkee-cli"
 version = "0.0.9"
 dependencies = [
