@@ -14,44 +14,44 @@ This document tracks the integration of VibeKit OAuth support into Orkee. This a
 
 ### Timeline Summary
 **Total Duration:** 4-5 weeks (after AI rework is complete)
-- **Week 1:** Phase 2 - Database Schema
-- **Week 2:** Phase 3 - VibeKit Package & Phase 4 - Rust Integration (Part 1)
-- **Week 3:** Phase 4 - Rust Integration (Part 2) & Phase 5 - CLI Commands
-- **Week 4:** Phase 6 - Dashboard Integration & Phase 7 - Dagger Integration
-- **Week 5:** Phase 8 - Testing & Documentation
+- **Week 1:** Phase 1 - Database Schema
+- **Week 2:** Phase 2 - VibeKit Package & Phase 3 - Rust Integration (Part 1)
+- **Week 3:** Phase 3 - Rust Integration (Part 2) & Phase 4 - CLI Commands
+- **Week 4:** Phase 5 - Dashboard Integration & Phase 6 - Dagger Integration
+- **Week 5:** Phase 7 - Testing & Documentation
 
 ## Phase Progress Tracker
 
 ### Phase Status Overview
-- [ ] **Phase 2:** Database Schema for OAuth Support _(Week 1)_
-- [ ] **Phase 3:** VibeKit Package Integration _(Week 2)_
-- [ ] **Phase 4:** Rust Integration Layer & API Routes _(Weeks 2-3)_
-- [ ] **Phase 5:** CLI Commands _(Week 3)_
-- [ ] **Phase 6:** Dashboard Integration _(Week 4)_
-- [ ] **Phase 7:** Dagger Integration _(Week 4)_
-- [ ] **Phase 8:** Testing & Documentation _(Week 5)_
+- [ ] **Phase 1:** Database Schema for OAuth Support _(Week 1)_
+- [ ] **Phase 2:** VibeKit Package Integration _(Week 2)_
+- [ ] **Phase 3:** Rust Integration Layer & API Routes _(Weeks 2-3)_
+- [ ] **Phase 4:** CLI Commands _(Week 3)_
+- [ ] **Phase 5:** Dashboard Integration _(Week 4)_
+- [ ] **Phase 6:** Dagger Integration _(Week 4)_
+- [ ] **Phase 7:** Testing & Documentation _(Week 5)_
 
 **Prerequisites**: AI architecture rework must be complete (see `rework-ai.md`)
 
 ---
 
-## Phase 2: Database Schema for OAuth Support (Week 1)
+## Phase 1: Database Schema for OAuth Support (Week 1)
 
-### Phase 2 Status: Not Started ⏳
+### Phase 1 Status: Not Started ⏳
 **Completion:** 0/8 tasks
 
-### Phase 2 Overview
+### Phase 1 Overview
 Add database tables to support OAuth tokens and sandbox sessions.
 
-### Phase 2 Tasks
+### Phase 1 Tasks
 
-#### 2.1 Database Migration
+#### 1.1 Database Migration
 - [ ] Create `packages/projects/migrations/002_oauth_vibekit.sql`
 - [ ] Add migration to the system
 - [ ] Test migration up
 - [ ] Test migration down
 
-#### 2.2 Schema Implementation
+#### 1.2 Schema Implementation
 
 ```sql
 -- OAuth tokens for AI providers (VibeKit Auth)
@@ -108,7 +108,7 @@ CREATE TRIGGER oauth_tokens_updated_at
     END;
 ```
 
-#### 2.3 Rust Storage Layer
+#### 1.3 Rust Storage Layer
 - [ ] Create `packages/projects/src/storage/oauth_tokens.rs`
 - [ ] Create `packages/projects/src/storage/sandbox_sessions.rs`
 - [ ] Update `packages/projects/src/storage/mod.rs` to export new modules
@@ -166,24 +166,24 @@ impl OAuthTokenStorage {
 
 ---
 
-## Phase 3: VibeKit Package Integration (Week 3)
+## Phase 2: VibeKit Package Integration (Week 3)
 
-### Phase 3 Status: Not Started ⏳
+### Phase 2 Status: Not Started ⏳
 **Completion:** 0/11 tasks
 
-### Phase 3 Overview
+### Phase 2 Overview
 Create a new TypeScript package that wraps VibeKit SDK for use from Rust.
 
-### Phase 3 Tasks
+### Phase 2 Tasks
 
-#### 3.1 Package Setup
+#### 2.1 Package Setup
 - [ ] Create `packages/vibekit/` directory
 - [ ] Initialize package.json
 - [ ] Configure tsconfig.json
 - [ ] Set up build scripts
 - [ ] Add to turborepo configuration
 
-#### 3.2 Core Implementation Files
+#### 2.2 Core Implementation Files
 - [ ] Create `src/auth.ts` - OAuth token management
 - [ ] Create `src/client.ts` - VibeKit SDK wrapper
 - [ ] Create `src/dagger.ts` - Dagger sandbox provider
@@ -446,17 +446,17 @@ if (require.main === module) {
 
 ---
 
-## Phase 4: Rust Integration Layer & API Routes (Weeks 3-4)
+## Phase 3: Rust Integration Layer & API Routes (Weeks 3-4)
 
-### Phase 4 Status: Not Started ⏳
+### Phase 3 Status: Not Started ⏳
 **Completion:** 0/14 tasks
 
-### Phase 4 Overview
+### Phase 3 Overview
 Integrate the VibeKit TypeScript package into the Rust CLI server.
 
-### Phase 4 Tasks
+### Phase 3 Tasks
 
-#### 4.1 Rust VibeKit Module
+#### 3.1 Rust VibeKit Module
 - [ ] Create `packages/cli/src/vibekit/mod.rs`
 - [ ] Add vibekit module to `packages/cli/src/lib.rs`
 - [ ] Implement VibeKitBridge struct
@@ -464,7 +464,7 @@ Integrate the VibeKit TypeScript package into the Rust CLI server.
 - [ ] Implement create_sandbox method
 - [ ] Add error handling
 
-#### 4.2 API Route Handlers
+#### 3.2 API Route Handlers
 - [ ] Create `packages/api/src/vibekit_handlers.rs`
 - [ ] Implement `execute_handler`
 - [ ] Implement `create_sandbox_handler`
@@ -704,24 +704,24 @@ pub fn create_router(db: DbState) -> Router {
 
 ---
 
-## Phase 5: CLI Commands (Week 4)
+## Phase 4: CLI Commands (Week 4)
 
-### Phase 5 Status: Not Started ⏳
+### Phase 4 Status: Not Started ⏳
 **Completion:** 0/12 tasks
 
-### Phase 5 Overview
+### Phase 4 Overview
 Add intuitive CLI commands for authentication and sandbox management.
 
-### Phase 5 Tasks
+### Phase 4 Tasks
 
-#### 5.1 Authentication Commands
+#### 4.1 Authentication Commands
 - [ ] Create `packages/cli/src/bin/cli/auth.rs`
 - [ ] Implement `handle_login()` function
 - [ ] Implement `handle_logout()` function
 - [ ] Implement `handle_status()` function
 - [ ] Add provider-specific login functions (claude, openai, google, grok)
 
-#### 5.2 Sandbox Commands
+#### 4.2 Sandbox Commands
 - [ ] Create `packages/cli/src/bin/cli/sandbox.rs`
 - [ ] Implement list command
 - [ ] Implement create command
@@ -729,7 +729,7 @@ Add intuitive CLI commands for authentication and sandbox management.
 - [ ] Implement logs command
 - [ ] Implement clean command
 
-#### 5.3 CLI Integration
+#### 4.3 CLI Integration
 - [ ] Update `packages/cli/src/bin/orkee.rs` with new commands
 
 #### auth.rs - Authentication Commands
@@ -1008,31 +1008,31 @@ async fn main() -> Result<()> {
 
 ---
 
-## Phase 6: Dashboard Integration (Weeks 4-5)
+## Phase 5: Dashboard Integration (Weeks 4-5)
 
-### Phase 6 Status: Not Started ⏳
+### Phase 5 Status: Not Started ⏳
 **Completion:** 0/10 tasks
 
-### Phase 6 Overview
+### Phase 5 Overview
 Integrate VibeKit SDK into the React dashboard.
 
-### Phase 6 Tasks
+### Phase 5 Tasks
 
-#### 6.1 Dependencies & Setup
+#### 5.1 Dependencies & Setup
 - [ ] Add VibeKit dependencies to `packages/dashboard/package.json`
 - [ ] Run `bun install`
 
-#### 6.2 OAuth Settings Component
+#### 5.2 OAuth Settings Component
 - [ ] Create `packages/dashboard/src/pages/Settings/OAuth.tsx`
 - [ ] Implement auth status display
 - [ ] Add login/logout functionality
 
-#### 6.3 Sandbox Manager Component
+#### 5.3 Sandbox Manager Component
 - [ ] Create `packages/dashboard/src/components/SandboxManager.tsx`
 - [ ] Implement sandbox list view
 - [ ] Add create/stop controls
 
-#### 6.4 Context & Integration
+#### 5.4 Context & Integration
 - [ ] Create `packages/dashboard/src/contexts/VibeKitContext.tsx`
 - [ ] Update Settings page to include OAuth tab
 
@@ -1377,27 +1377,27 @@ Update `packages/dashboard/src/pages/Ideate/index.tsx`:
 
 ---
 
-## Phase 7: Dagger Integration (Week 5)
+## Phase 6: Dagger Integration (Week 5)
 
-### Phase 7 Status: Not Started ⏳
+### Phase 6 Status: Not Started ⏳
 **Completion:** 0/9 tasks
 
-### Phase 7 Overview
+### Phase 6 Overview
 Implement Dagger for local sandbox execution.
 
-### Phase 7 Tasks
+### Phase 6 Tasks
 
-#### 7.1 Prerequisites
+#### 6.1 Prerequisites
 - [ ] Install Docker (required by Dagger)
 - [ ] Install Dagger CLI (optional, for debugging)
 
-#### 7.2 Dagger Implementation
+#### 6.2 Dagger Implementation
 - [ ] Complete `packages/vibekit/src/dagger.ts` implementation
 - [ ] Add container lifecycle management
 - [ ] Implement port forwarding
 - [ ] Add log streaming
 
-#### 7.3 Database Integration
+#### 6.3 Database Integration
 - [ ] Update sandbox session storage
 - [ ] Implement auto-cleanup task
 - [ ] Add background cleanup scheduler
@@ -1592,17 +1592,17 @@ pub async fn start_sandbox_cleanup_task(storage: SandboxSessionStorage) {
 
 ---
 
-## Phase 8: Testing & Documentation (Week 6)
+## Phase 7: Testing & Documentation (Week 6)
 
-### Phase 8 Status: Not Started ⏳
+### Phase 7 Status: Not Started ⏳
 **Completion:** 0/20 tasks
 
-### Phase 8 Overview
+### Phase 7 Overview
 Comprehensive testing and documentation updates.
 
-### Phase 8 Tasks
+### Phase 7 Tasks
 
-#### 8.1 Unit Tests - Rust
+#### 7.1 Unit Tests - Rust
 - [ ] Create `packages/cli/src/vibekit/tests.rs`
 - [ ] Create `packages/api/src/vibekit_handlers_test.rs`
 - [ ] Create `packages/projects/src/storage/oauth_tokens_test.rs`
@@ -1639,7 +1639,7 @@ mod tests {
 }
 ```
 
-#### 8.2 Unit Tests - TypeScript
+#### 7.2 Unit Tests - TypeScript
 - [ ] Create `packages/vibekit/src/auth.test.ts`
 - [ ] Create `packages/vibekit/src/dagger.test.ts`
 - [ ] Create `packages/dashboard/src/services/vibekit.test.ts`
@@ -1674,7 +1674,7 @@ describe('VibeKitAuth', () => {
 });
 ```
 
-#### 8.3 Integration Tests
+#### 7.3 Integration Tests
 - [ ] Create `packages/cli/tests/integration/vibekit_integration_test.rs`
 - [ ] Test full OAuth flow
 - [ ] Test sandbox creation and deletion
@@ -1726,7 +1726,7 @@ async fn test_oauth_flow_integration() {
 - [ ] DELETE `/api/sandbox/:id` stops sandbox
 - [ ] GET `/api/auth/status` returns all provider status
 
-#### 8.4 Documentation Updates
+#### 7.4 Documentation Updates
 - [ ] Update `README.md` - Remove AIService references
 - [ ] Update `CLAUDE.md` - Add VibeKit integration info
 - [ ] Create `docs/VIBEKIT_INTEGRATION.md`
@@ -1779,13 +1779,13 @@ Test deployment:
 
 | Phase | Status | Tasks | Completion | Week |
 |-------|--------|-------|------------|------|
-| **Phase 2** - Database Schema | Not Started ⏳ | 8 | 0% | Week 1 |
-| **Phase 3** - VibeKit Package | Not Started ⏳ | 11 | 0% | Week 2 |
-| **Phase 4** - Rust Integration | Not Started ⏳ | 14 | 0% | Weeks 2-3 |
-| **Phase 5** - CLI Commands | Not Started ⏳ | 12 | 0% | Week 3 |
-| **Phase 6** - Dashboard Integration | Not Started ⏳ | 10 | 0% | Week 4 |
-| **Phase 7** - Dagger Integration | Not Started ⏳ | 9 | 0% | Week 4 |
-| **Phase 8** - Testing & Documentation | Not Started ⏳ | 12 | 0% | Week 5 |
+| **Phase 1** - Database Schema | Not Started ⏳ | 8 | 0% | Week 1 |
+| **Phase 2** - VibeKit Package | Not Started ⏳ | 11 | 0% | Week 2 |
+| **Phase 3** - Rust Integration | Not Started ⏳ | 14 | 0% | Weeks 2-3 |
+| **Phase 4** - CLI Commands | Not Started ⏳ | 12 | 0% | Week 3 |
+| **Phase 5** - Dashboard Integration | Not Started ⏳ | 10 | 0% | Week 4 |
+| **Phase 6** - Dagger Integration | Not Started ⏳ | 9 | 0% | Week 4 |
+| **Phase 7** - Testing & Documentation | Not Started ⏳ | 12 | 0% | Week 5 |
 
 ### Critical Path Dependencies
 
@@ -1793,19 +1793,19 @@ Test deployment:
 AI Rework (rework-ai.md) ──> Prerequisites Complete
                              │
                              v
-                          Phase 2 (Database) ───────┐
+                          Phase 1 (Database) ───────┐
                                                      │
-                          Phase 3 (VibeKit Package)─┤
+                          Phase 2 (VibeKit Package)─┤
                                                      │
                                                      v
-                          Phase 4 (Rust Integration) ─> Phase 5 (CLI)
+                          Phase 3 (Rust Integration) ─> Phase 4 (CLI)
                                                       │
-                                                      └─> Phase 6 (Dashboard)
+                                                      └─> Phase 5 (Dashboard)
                                                       │
-                                                      └─> Phase 7 (Dagger)
+                                                      └─> Phase 6 (Dagger)
                                                           │
                                                           v
-                                                      Phase 8 (Testing)
+                                                      Phase 7 (Testing)
 ```
 
 ### Key Milestones
