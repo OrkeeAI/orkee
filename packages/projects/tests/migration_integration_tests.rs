@@ -56,6 +56,8 @@ async fn test_all_core_tables_created() {
         "discovery_questions",
         "discovery_sessions",
         "encryption_settings",
+        "execution_artifacts", // Vibekit: Execution output artifacts
+        "execution_logs",      // Vibekit: Execution log streaming
         "ideate_sessions",
         "model_preferences",
         "password_attempts",
@@ -222,6 +224,13 @@ async fn test_critical_indexes_created() {
         "idx_tasks_user_status",
         "idx_prds_project",
         "idx_ai_usage_logs_project",
+        // Vibekit indexes
+        "idx_execution_logs_execution",
+        "idx_execution_logs_timestamp",
+        "idx_execution_logs_level",
+        "idx_artifacts_execution",
+        "idx_artifacts_type",
+        "idx_artifacts_created",
     ];
 
     for critical_index in &critical_indexes {

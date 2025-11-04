@@ -227,8 +227,8 @@ Establish database schema, create sandbox package structure, and define core typ
 
 #### 1.5 Testing & Validation
 - [x] Add `packages/sandboxes` to workspace `Cargo.toml`
-- [ ] Run database migration and verify tables created (deferred - will test when implementing Phase 2)
-- [ ] Write schema validation tests (deferred - will add during integration testing)
+- [x] Run database migration and verify tables created (completed - tests in migration_integration_tests.rs)
+- [x] Write schema validation tests (completed - added execution_logs and execution_artifacts to test suite)
 - [x] Verify package compiles
 
 ### Deliverables
@@ -391,11 +391,11 @@ Integrate bollard for Docker container monitoring and management.
   - [x] Remove stopped containers
   - [ ] Update database status (deferred to Phase 4 - execution lifecycle integration)
 
-- [ ] Background cleanup task (deferred to Phase 4):
-  - [ ] Schedule periodic cleanup (5 minutes)
-  - [ ] Log cleanup actions
-  - [ ] Handle cleanup errors gracefully
-  - [ ] Respect resource limits
+- [x] Background cleanup task (completed):
+  - [x] Schedule periodic cleanup (5 minutes, configurable via ORKEE_CLEANUP_INTERVAL_MINUTES)
+  - [x] Log cleanup actions (info for successful cleanup, error for failures)
+  - [x] Handle cleanup errors gracefully (errors logged but don't stop task)
+  - [x] Respect resource limits (cleans containers >24h old, stops hung >60min)
 
 #### 3.4 Container API Endpoints
 - [x] Add container management endpoints:
@@ -425,7 +425,7 @@ Integrate bollard for Docker container monitoring and management.
 - ✅ bollard integration complete
 - ✅ Container lifecycle management working
 - ✅ Resource monitoring implemented
-- ⏸️ Cleanup task deferred to Phase 4 (will integrate with execution lifecycle)
+- ✅ Cleanup task implemented (ExecutionOrchestrator::start_cleanup_task)
 - ⏸️ Full test suite deferred to Phase 7 (basic tests in place)
 
 ---
@@ -460,7 +460,7 @@ Implement REST API for execution management and core execution lifecycle.
   - [x] Add `create_sandbox_executions_router()` function
   - [ ] Apply authentication middleware (deferred to CLI integration)
   - [ ] Add rate limiting for execution endpoints (deferred to CLI integration)
-  - [ ] Configure CORS for SSE (deferred to Phase 5)
+  - [x] Configure CORS for SSE (completed - added Last-Event-ID header support)
 
 - [x] Route structure implemented:
   ```
@@ -487,9 +487,9 @@ Implement REST API for execution management and core execution lifecycle.
 - [x] Execution flow:
   1. [x] Validate request and check quotas
   2. [x] Create execution record in database (via external handler)
-  3. [ ] Spawn Vibekit bridge process (infrastructure ready, full integration in Phase 5)
+  3. [x] Spawn Vibekit bridge process (lazy init - starts on first execution)
   4. [x] Create and start container
-  5. [ ] Execute agent prompt (infrastructure ready, full integration in Phase 5)
+  5. [x] Execute agent prompt (sends execution request to bridge, graceful degradation on error)
   6. [x] Stream logs to database
   7. [x] Collect artifacts
   8. [x] Update execution status

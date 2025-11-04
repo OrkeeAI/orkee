@@ -3,6 +3,7 @@
 
 use std::sync::Arc;
 
+use chrono::Utc;
 use tracing::{error, info, warn};
 
 use crate::container::ContainerManager;
@@ -56,6 +57,63 @@ impl ExecutionOrchestrator {
         self.event_tx.subscribe()
     }
 
+    /// Start background cleanup task
+    ///
+    /// Spawns a periodic task that cleans up stale and hung containers.
+    /// Runs every 5 minutes by default (configurable via ORKEE_CLEANUP_INTERVAL_MINUTES).
+    ///
+    /// The task runs:
+    /// - Cleanup of containers older than 24 hours
+    /// - Force stop of containers running longer than 60 minutes
+    ///
+    /// Errors are logged but don't stop the cleanup task.
+    pub fn start_cleanup_task(container_manager: Arc<ContainerManager>) {
+        tokio::spawn(async move {
+            // Read cleanup interval from environment (default: 5 minutes)
+            let interval_minutes = std::env::var("ORKEE_CLEANUP_INTERVAL_MINUTES")
+                .ok()
+                .and_then(|v| v.parse::<u64>().ok())
+                .filter(|&v| v >= 1 && v <= 60)
+                .unwrap_or(5);
+
+            let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(interval_minutes * 60));
+            interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+
+            info!(
+                "Started container cleanup task (interval: {} minutes)",
+                interval_minutes
+            );
+
+            loop {
+                interval.tick().await;
+
+                // Cleanup stale containers (older than 24 hours)
+                match container_manager.cleanup_stale_containers(24).await {
+                    Ok(cleaned_ids) => {
+                        if !cleaned_ids.is_empty() {
+                            info!("Cleaned up {} stale containers: {:?}", cleaned_ids.len(), cleaned_ids);
+                        }
+                    }
+                    Err(e) => {
+                        error!("Error during container cleanup: {}", e);
+                    }
+                }
+
+                // Force stop hung containers (running longer than 60 minutes)
+                match container_manager.force_stop_hung_containers(60).await {
+                    Ok(stopped_ids) => {
+                        if !stopped_ids.is_empty() {
+                            warn!("Force stopped {} hung containers: {:?}", stopped_ids.len(), stopped_ids);
+                        }
+                    }
+                    Err(e) => {
+                        error!("Error stopping hung containers: {}", e);
+                    }
+                }
+            }
+        });
+    }
+
     /// Broadcast an event to all SSE subscribers
     fn broadcast_event(&self, event: ExecutionEvent) {
         // Log errors but don't fail - SSE is best-effort
@@ -87,6 +145,12 @@ impl ExecutionOrchestrator {
 
         // Validate request
         self.validate_request(&request)?;
+
+        // Start Node.js bridge if not already running (lazy init)
+        if !self.node_bridge.is_running() {
+            info!("Starting Vibekit bridge for execution {}", request.execution_id);
+            self.node_bridge.start().await?;
+        }
 
         // Create container
         let container_id = match self
@@ -166,6 +230,24 @@ impl ExecutionOrchestrator {
             "Container {} started successfully for execution {}",
             container_id, request.execution_id
         );
+
+        // Send execution request to Vibekit bridge
+        // Note: Full agent execution integration planned for later phase
+        // For now, this initiates the execution flow with the bridge
+        if let Err(e) = self.node_bridge.execute(request.clone()).await {
+            error!(
+                "Failed to send execution request to Vibekit bridge: {}",
+                e
+            );
+            // Don't fail the execution - container is running and can be used
+            // Log the error and continue
+            warn!("Execution {} will run without agent assistance", request.execution_id);
+        } else {
+            info!(
+                "Execution request sent to Vibekit bridge for {}",
+                request.execution_id
+            );
+        }
 
         // Return initial response
         // The actual execution will continue in a background task

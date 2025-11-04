@@ -30,6 +30,29 @@ pub struct SandboxExecutionState {
     pub sse_tracker: SseConnectionTracker,
 }
 
+impl SandboxExecutionState {
+    /// Create new sandbox execution state and start background cleanup task
+    ///
+    /// The cleanup task runs periodically (default: 5 minutes) to:
+    /// - Remove stale containers (older than 24 hours)
+    /// - Force stop hung containers (running longer than 60 minutes)
+    pub fn new(
+        orchestrator: Arc<ExecutionOrchestrator>,
+        storage: Arc<ExecutionStorage>,
+        sse_tracker: SseConnectionTracker,
+        container_manager: Arc<orkee_sandboxes::ContainerManager>,
+    ) -> Self {
+        // Start background cleanup task
+        ExecutionOrchestrator::start_cleanup_task(container_manager);
+
+        Self {
+            orchestrator,
+            storage,
+            sse_tracker,
+        }
+    }
+}
+
 // ==================== Execution Control ====================
 
 /// Request to stop an execution

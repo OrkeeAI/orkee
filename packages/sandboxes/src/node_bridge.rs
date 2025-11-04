@@ -85,7 +85,7 @@ impl NodeBridge {
     }
 
     /// Start the Node.js bridge process
-    pub async fn start(&mut self) -> Result<()> {
+    pub async fn start(&self) -> Result<()> {
         info!("Starting Node.js Vibekit bridge...");
 
         // Check if already running
@@ -171,7 +171,7 @@ impl NodeBridge {
     }
 
     /// Stop the Node.js bridge process
-    pub async fn stop(&mut self) -> Result<()> {
+    pub async fn stop(&self) -> Result<()> {
         info!("Stopping Node.js Vibekit bridge...");
 
         let mut process = self.process.lock().unwrap();
@@ -199,7 +199,7 @@ impl NodeBridge {
     }
 
     /// Restart the bridge process
-    pub async fn restart(&mut self) -> Result<()> {
+    pub async fn restart(&self) -> Result<()> {
         info!("Restarting Node.js Vibekit bridge...");
         self.stop().await?;
         self.start().await?;

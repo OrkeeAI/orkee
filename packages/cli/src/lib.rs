@@ -349,6 +349,7 @@ async fn create_application_router(
         header::HeaderName::from_static("x-csrf-token"), // CSRF protection
         header::HeaderName::from_static("anthropic-version"), // For Anthropic API proxy
         header::HeaderName::from_static("anthropic-dangerous-direct-browser-access"), // For Anthropic SDK browser safety check
+        header::HeaderName::from_static("last-event-id"), // For SSE reconnection support
     ]);
 
     // Create CORS origin configuration
