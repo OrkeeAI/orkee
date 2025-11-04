@@ -399,7 +399,7 @@ RESPOND WITH ONLY VALID JSON."#
             // Log AI usage to database
             let usage_log = AiUsageLog {
                 id: nanoid::nanoid!(10),
-                project_id: project_id.to_string(),
+                project_id: Some(project_id.to_string()),
                 request_id: None,
                 operation: "analyzePRD".to_string(),
                 provider: "anthropic".to_string(),
@@ -599,7 +599,7 @@ Respond with ONLY valid JSON. Do not include markdown formatting, code blocks, o
             // Log AI usage to database
             let usage_log = AiUsageLog {
                 id: nanoid::nanoid!(10),
-                project_id: request.capability_name.clone(), // Use capability name as project ID
+                project_id: Some(request.capability_name.clone()), // Use capability name as project ID
                 request_id: None,
                 operation: "generateSpec".to_string(),
                 provider: "anthropic".to_string(),
@@ -787,7 +787,7 @@ Respond with ONLY valid JSON. Do not include markdown formatting, code blocks, o
             // Log AI usage to database
             let usage_log = AiUsageLog {
                 id: nanoid::nanoid!(10),
-                project_id: request.capability_id.clone(),
+                project_id: Some(request.capability_id.clone()),
                 request_id: None,
                 operation: "suggestTasks".to_string(),
                 provider: "anthropic".to_string(),
@@ -953,7 +953,7 @@ Respond with ONLY valid JSON. Do not include markdown formatting, code blocks, o
             // Log AI usage to database
             let usage_log = AiUsageLog {
                 id: nanoid::nanoid!(10),
-                project_id: request.capability_id.clone(),
+                project_id: Some(request.capability_id.clone()),
                 request_id: None,
                 operation: "refineSpec".to_string(),
                 provider: "anthropic".to_string(),
@@ -1150,7 +1150,7 @@ Respond with ONLY valid JSON. Do not include markdown formatting, code blocks, o
             // Log AI usage to database
             let usage_log = AiUsageLog {
                 id: nanoid::nanoid!(10),
-                project_id: request.task_id.clone(),
+                project_id: Some(request.task_id.clone()),
                 request_id: None,
                 operation: "validateCompletion".to_string(),
                 provider: "anthropic".to_string(),

@@ -618,7 +618,7 @@ END;
 -- AI Usage Tracking
 CREATE TABLE ai_usage_logs (
     id TEXT PRIMARY KEY CHECK(length(id) >= 8),
-    project_id TEXT NOT NULL,
+    project_id TEXT,
     request_id TEXT,
     operation TEXT NOT NULL,
     model TEXT NOT NULL,
@@ -633,7 +633,7 @@ CREATE TABLE ai_usage_logs (
     tool_calls_json TEXT,
     response_metadata TEXT,
     created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
-    FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
+    FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE SET NULL
 );
 
 CREATE INDEX idx_ai_usage_logs_project ON ai_usage_logs(project_id);

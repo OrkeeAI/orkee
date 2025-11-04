@@ -95,7 +95,7 @@ export async function getAiUsageLogs(params?: AiUsageQueryParams): Promise<AiUsa
   if (params?.limit) queryParams.append('limit', params.limit.toString());
   if (params?.offset) queryParams.append('offset', params.offset.toString());
 
-  const url = `/ai-usage/logs${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
+  const url = `/api/ai-usage/logs${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
   return apiClient.get<AiUsageLog[]>(url);
 }
 
@@ -113,7 +113,7 @@ export async function getAiUsageStats(params?: {
   if (params?.startDate) queryParams.append('startDate', params.startDate);
   if (params?.endDate) queryParams.append('endDate', params.endDate);
 
-  const url = `/ai-usage/stats${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
+  const url = `/api/ai-usage/stats${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
   return apiClient.get<AiUsageStats>(url);
 }
 
@@ -158,7 +158,7 @@ export async function getToolUsageStats(params?: {
   if (params?.startDate) queryParams.append('startDate', params.startDate);
   if (params?.endDate) queryParams.append('endDate', params.endDate);
 
-  const url = `/ai-usage/tools${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
+  const url = `/api/ai-usage/tools${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
   return apiClient.get<ToolUsageStats[]>(url);
 }
 
@@ -178,6 +178,6 @@ export async function getTimeSeriesData(params?: {
   if (params?.endDate) queryParams.append('endDate', params.endDate);
   if (params?.interval) queryParams.append('interval', params.interval);
 
-  const url = `/ai-usage/time-series${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
+  const url = `/api/ai-usage/time-series${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
   return apiClient.get<TimeSeriesDataPoint[]>(url);
 }

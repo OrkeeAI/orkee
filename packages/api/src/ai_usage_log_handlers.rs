@@ -230,7 +230,7 @@ pub async fn create_log(
 
     let usage_log = AiUsageLog {
         id: log_id.clone(),
-        project_id: request.project_id.unwrap_or_else(|| "unknown".to_string()),
+        project_id: request.project_id,
         request_id: request.request_id,
         operation: request.operation,
         model: request.model,

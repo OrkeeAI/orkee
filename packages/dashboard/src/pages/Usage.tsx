@@ -46,16 +46,30 @@ export default function Usage() {
           getTimeSeriesData({ interval: 'day' }),
         ]);
 
-        if (statsResponse.data) {
-          setStats(statsResponse.data);
+        if (statsResponse.data && statsResponse.data.data) {
+          // Transform snake_case to camelCase
+          const rawStats = statsResponse.data.data;
+          setStats({
+            totalRequests: rawStats.total_requests,
+            successfulRequests: rawStats.successful_requests,
+            failedRequests: rawStats.failed_requests,
+            totalInputTokens: rawStats.total_input_tokens,
+            totalOutputTokens: rawStats.total_output_tokens,
+            totalTokens: rawStats.total_tokens,
+            totalCost: rawStats.total_cost,
+            averageDurationMs: rawStats.average_duration_ms,
+            byOperation: rawStats.byOperation || [],
+            byModel: rawStats.byModel || [],
+            byProvider: rawStats.byProvider || [],
+          });
         }
 
-        if (toolStatsResponse.data) {
-          setToolStats(toolStatsResponse.data);
+        if (toolStatsResponse.data && toolStatsResponse.data.data) {
+          setToolStats(toolStatsResponse.data.data);
         }
 
-        if (timeSeriesResponse.data) {
-          setTimeSeriesData(timeSeriesResponse.data);
+        if (timeSeriesResponse.data && timeSeriesResponse.data.data) {
+          setTimeSeriesData(timeSeriesResponse.data.data);
         }
       } catch (err) {
         console.error('Failed to load usage data:', err);

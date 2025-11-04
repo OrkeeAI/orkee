@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AiUsageLog {
     pub id: String,
-    pub project_id: String,
+    pub project_id: Option<String>,
     pub request_id: Option<String>,
     pub operation: String,
     pub model: String,
