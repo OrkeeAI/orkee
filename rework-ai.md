@@ -9,7 +9,7 @@ This document tracks the migration of all AI operations from legacy Rust AIServi
 **Apply the Chat Mode pattern to ALL features**: Backend Rust = Pure CRUD only. Frontend TypeScript = All AI calls via AI SDK.
 
 ### Status: In Progress 🚧
-**Completion:** 60% complete
+**Completion:** 70% complete
 
 **Timeline:** 2 weeks (Weeks 1-2 of overall VibeKit project)
 
@@ -47,7 +47,7 @@ Chat mode **already implements the correct pattern:**
 **Features Needing Migration (6):**
 - ✅ PRD Generation (6 Rust AI functions) - **COMPLETE**
 - ✅ Insight Extraction (1 function) - **COMPLETE**
-- ❌ Research Analysis (5 functions)
+- ✅ Research Analysis (5 functions) - **COMPLETE**
 - ❌ Expert Roundtable (3 functions)
 - ✅ Dependency Analysis (1 function) - **COMPLETE**
 - ❌ Generic AI Handlers (5 handlers, likely duplicates)
@@ -70,8 +70,8 @@ Chat mode **already implements the correct pattern:**
 - [x] **Priority 1.3:** Medium Complexity - **COMPLETE**
   - [x] PRD Generation Backend Complete (991→599 lines, removed 6 AI functions)
   - [x] PRD Generation Frontend Complete (+766 lines)
-  - [ ] Research Analysis Backend
-  - [ ] Research Analysis Frontend
+  - [x] Research Analysis Backend Complete (558→333 lines, removed 5 AI functions)
+  - [x] Research Analysis Frontend Complete (+389 lines)
 
 - [ ] **Priority 1.4:** Complex Migrations
   - [ ] Expert Roundtable Backend
@@ -83,9 +83,11 @@ Chat mode **already implements the correct pattern:**
   - [ ] Run full test suite
   - [ ] Update documentation
 
-### Current Work (Priority 1.3) - ✅ COMPLETE
+### Current Work (Priority 1.4)
 
-**✅ COMPLETE**: PRD Generation Backend Migration
+**✅ COMPLETE**: Priority 1.3 - Medium Complexity Migrations
+
+**PRD Generation Backend Migration**
 - File: `packages/ideate/src/prd_generator.rs` (991→599 lines, -392 lines)
 - ✅ Removed 6 AI functions:
   - `generate_complete_prd_with_model()`
@@ -110,9 +112,30 @@ Chat mode **already implements the correct pattern:**
 - ✅ Streaming support for template regeneration
 - ⚠️ **Note**: 7+ HTTP handlers in `ideate_generation_handlers.rs` and `ideate_handlers.rs` call removed Rust functions and will need updating to use frontend pattern
 
-**📋 NEXT**: Priority 1.4 - Research Analysis migration
-- Backend: Remove 5 AI functions from `research_analyzer.rs`
-- Frontend: Create `research-ai.ts` with AI SDK implementations
+**✅ COMPLETE**: Research Analysis Migration
+- Backend: `packages/ideate/src/research_analyzer.rs` (558→333 lines, -225 lines)
+- ✅ Removed 5 AI functions:
+  - `analyze_competitor()` - Competitor analysis
+  - `analyze_gaps()` - Gap analysis
+  - `extract_ui_patterns()` - UI pattern extraction
+  - `extract_lessons()` - Lesson extraction
+  - `synthesize_research()` - Research synthesis
+- ✅ Kept helper functions: `scrape_url()`, `extract_text_from_html()`, caching, CRUD operations
+- ✅ Added public helper: `scrape_competitor_url()` for frontend use
+
+- Frontend: `packages/dashboard/src/services/research-ai.ts` (389 lines)
+- ✅ Implemented all 5 AI functions using Vercel AI SDK:
+  - `analyzeCompetitor()` - Full competitor analysis with `generateObject()`
+  - `analyzeGaps()` - Gap analysis across competitors
+  - `extractUIPatterns()` - UI/UX pattern extraction
+  - `extractLessons()` - Lessons from similar projects
+  - `synthesizeResearch()` - Research synthesis
+- ✅ Full telemetry tracking with cost calculation
+- ✅ Comprehensive Zod schemas for all result types
+
+**📋 NEXT**: Priority 1.4 - Expert Roundtable migration
+- Backend: Remove 3 AI functions from `expert_moderator.rs`
+- Frontend: Create `roundtable-ai.ts` with AI SDK implementations
 
 ## Detailed Migration Tasks
 
@@ -190,21 +213,29 @@ Chat mode **already implements the correct pattern:**
 - [x] Telemetry tracking with cost calculation for all functions
 - [ ] **TODO**: Update HTTP handlers to use frontend pattern
 
-#### Research Analysis
+#### Research Analysis ✅
 **Backend** (`packages/ideate/src/research_analyzer.rs`):
-- [ ] Remove 5 AI functions:
-  - [ ] `analyze_competitor()` - Competitor analysis
-  - [ ] `analyze_gaps()` - Gap analysis
-  - [ ] `extract_ui_patterns()` - UI pattern extraction
-  - [ ] `extract_lessons()` - Lesson extraction
-  - [ ] `synthesize_research()` - Research synthesis
-- [ ] Keep CRUD: `save_competitor()`, `get_competitors()`, `add_similar_project()`, `get_similar_projects()`
-- [ ] Update handler in `packages/api/src/ideate_research_handlers.rs`
+- [x] Remove 5 AI functions (558→333 lines, -225 lines, ~40% reduction):
+  - [x] `analyze_competitor()` - Competitor analysis
+  - [x] `analyze_gaps()` - Gap analysis
+  - [x] `extract_ui_patterns()` - UI pattern extraction
+  - [x] `extract_lessons()` - Lesson extraction
+  - [x] `synthesize_research()` - Research synthesis
+- [x] Keep CRUD: `save_competitor()`, `get_competitors()`, `add_similar_project()`, `get_similar_projects()`
+- [x] Keep scraping helpers: `scrape_url()`, `extract_text_from_html()`, caching functions
+- [x] Added public helper: `scrape_competitor_url()` for frontend use
+- [ ] **TODO**: Update handler in `packages/api/src/ideate_research_handlers.rs`
 
-**Frontend**:
-- [ ] Create `packages/dashboard/src/services/research-ai.ts` (~300-400 lines)
-- [ ] Implement AI SDK calls using `generateObject()`
-- [ ] Match all 5 removed Rust functions
+**Frontend** (`packages/dashboard/src/services/research-ai.ts`):
+- [x] Create `packages/dashboard/src/services/research-ai.ts` (389 lines)
+- [x] Implement AI SDK calls using `generateObject()`
+- [x] Match all 5 removed Rust functions with TypeScript equivalents:
+  - [x] `analyzeCompetitor()` - Competitor analysis with schema validation
+  - [x] `analyzeGaps()` - Gap analysis across competitors
+  - [x] `extractUIPatterns()` - UI/UX pattern extraction
+  - [x] `extractLessons()` - Lessons from similar projects
+  - [x] `synthesizeResearch()` - Research synthesis
+- [x] Telemetry tracking with cost calculation for all functions
 
 ### Priority 1.4: Complex Migrations
 
@@ -370,16 +401,15 @@ turbo build
 1. `5ecbb82` - "Priority 1.1 Frontend: Create AI SDK service for dependency analysis"
 2. `6fac3ff` - "Priority 1.2 Backend: Remove Insight Extraction AI logic from Rust"
 3. `6ce1c00` - "Priority 1.3 Backend: Remove PRD Generation AI logic from Rust (991→599 lines)"
-4. **PENDING** - "Priority 1.3 Frontend: Create AI SDK service for PRD generation (766 lines)"
+4. `a5fff8e` - "Priority 1.3 Frontend: Create AI SDK service for PRD generation (766 lines)"
+5. **PENDING** - "Priority 1.3 Complete: Research Analysis migration (backend 558→333, frontend +389)"
 
 ### Planned Commits
-5. Priority 1.3 Handlers: Update HTTP handlers for frontend AI pattern
-6. Priority 1.4 Backend: Remove Research Analysis AI logic from Rust
-7. Priority 1.4 Frontend: Create AI SDK service for research analysis
-8. Priority 1.5 Backend: Remove Expert Roundtable AI logic from Rust
-9. Priority 1.5 Frontend: Create AI SDK service for Expert Roundtable
-10. Priority 1.6: Handle Generic AI Handlers (verify/delete/migrate)
-11. Cleanup: Delete legacy AIService and verify all migrations
+6. Priority 1.3/1.4 Handlers: Update HTTP handlers for frontend AI pattern
+7. Priority 1.4 Backend: Remove Expert Roundtable AI logic from Rust
+8. Priority 1.4 Frontend: Create AI SDK service for Expert Roundtable
+9. Priority 1.5: Handle Generic AI Handlers (verify/delete/migrate)
+10. Cleanup: Delete legacy AIService and verify all migrations
 
 ## Notes
 
