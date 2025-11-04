@@ -537,10 +537,6 @@ pub fn create_ideate_router() -> Router<DbState> {
             "/ideate/roundtable/{roundtable_id}/participants",
             post(ideate_roundtable_handlers::add_participants),
         )
-        .route(
-            "/ideate/roundtable/{roundtable_id}/participants",
-            get(ideate_roundtable_handlers::get_participants),
-        )
         // Discussion operations
         // AI operations moved to frontend - use roundtable-ai.ts
         // .route(

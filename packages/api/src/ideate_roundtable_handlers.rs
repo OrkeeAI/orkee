@@ -354,24 +354,6 @@ pub async fn get_messages(
 // INSIGHT ENDPOINTS
 // ============================================================================
 
-/// POST /api/ideate/roundtable/:roundtable_id/insights/extract - Extract insights
-///
-/// ⚠️ DEPRECATED: This handler is disabled - AI operations moved to frontend AI SDK.
-/// Frontend should use `roundtable-ai.ts:extractInsights()` instead.
-#[allow(dead_code)]
-pub async fn extract_insights(
-    State(_db): State<DbState>,
-    Path(_roundtable_id): Path<String>,
-    Json(_request): Json<ExtractInsightsRequest>,
-) -> impl IntoResponse {
-    // This handler is deprecated - route is commented out in lib.rs
-    // Frontend should call roundtable-ai.ts:extractInsights() directly
-    ok_or_internal_error::<serde_json::Value, _>(
-        Err("This endpoint has been deprecated. Use frontend AI SDK instead."),
-        "This endpoint has been deprecated. Use frontend AI SDK instead.",
-    )
-}
-
 /// GET /api/ideate/roundtable/:roundtable_id/insights - Get insights
 pub async fn get_insights(
     State(db): State<DbState>,
