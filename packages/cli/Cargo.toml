@@ -25,6 +25,8 @@ anyhow = "1.0"
 orkee-config = { path = "../config" }
 orkee-projects = { path = "../projects" }
 orkee-api = { path = "../api" }
+orkee-auth = { path = "../auth" }
+orkee-storage = { path = "../storage" }
 orkee-cloud = { path = "../cloud", optional = true }
 orkee-preview = { path = "../preview" }
 orkee-tui = { path = "../tui" }

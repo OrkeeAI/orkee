@@ -33,6 +33,23 @@ impl OAuthManager {
         }
     }
 
+    /// Create a new OAuth manager with default database connection
+    pub async fn new_default() -> AuthResult<Self> {
+        // Connect to default database location
+        let db_path = dirs::home_dir()
+            .ok_or_else(|| AuthError::Configuration("Could not determine home directory".to_string()))?
+            .join(".orkee")
+            .join("orkee.db");
+
+        let database_url = format!("sqlite:{}", db_path.display());
+
+        let pool = sqlx::SqlitePool::connect(&database_url)
+            .await
+            .map_err(|e| AuthError::Storage(format!("Failed to connect to database: {}", e)))?;
+
+        Ok(Self::new(pool))
+    }
+
     /// Authenticate with a provider using OAuth flow
     ///
     /// This will:
