@@ -16,7 +16,7 @@ use tracing::{debug, error, info, warn};
 /// IPC request types sent to Node.js bridge
 #[derive(Debug, Clone, Serialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
-enum IPCRequest {
+pub(crate) enum IPCRequest {
     Ping,
     Execute { request: ExecutionRequest },
     Stop { execution_id: String },
@@ -25,7 +25,8 @@ enum IPCRequest {
 /// IPC response types received from Node.js bridge
 #[derive(Debug, Clone, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
-enum IPCResponse {
+#[allow(dead_code)] // Fields will be used in Phase 3+ for execution orchestration
+pub enum IPCResponse {
     Pong,
     ExecutionStarted { response: ExecutionResponse },
     Log { log: LogEntry },
