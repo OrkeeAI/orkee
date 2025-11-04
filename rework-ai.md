@@ -9,7 +9,7 @@ This document tracks the migration of all AI operations from legacy Rust AIServi
 **Apply the Chat Mode pattern to ALL features**: Backend Rust = Pure CRUD only. Frontend TypeScript = All AI calls via AI SDK.
 
 ### Status: In Progress 🚧
-**Completion:** 50% complete
+**Completion:** 60% complete
 
 **Timeline:** 2 weeks (Weeks 1-2 of overall VibeKit project)
 
@@ -45,7 +45,7 @@ Chat mode **already implements the correct pattern:**
 - ✅ Spec Workflow - PRD/Task AI already uses AI SDK
 
 **Features Needing Migration (6):**
-- ✅ PRD Generation (6 Rust AI functions) - **BACKEND COMPLETE** (Frontend pending)
+- ✅ PRD Generation (6 Rust AI functions) - **COMPLETE**
 - ✅ Insight Extraction (1 function) - **COMPLETE**
 - ❌ Research Analysis (5 functions)
 - ❌ Expert Roundtable (3 functions)
@@ -67,9 +67,9 @@ Chat mode **already implements the correct pattern:**
   - [x] Insight Extraction Backend (178→31 lines)
   - [x] Insight Extraction Frontend (already done in chat-ai.ts)
 
-- [x] **Priority 1.3:** Medium Complexity Backend - **BACKEND COMPLETE**
+- [x] **Priority 1.3:** Medium Complexity - **COMPLETE**
   - [x] PRD Generation Backend Complete (991→599 lines, removed 6 AI functions)
-  - [ ] PRD Generation Frontend Pending
+  - [x] PRD Generation Frontend Complete (+766 lines)
   - [ ] Research Analysis Backend
   - [ ] Research Analysis Frontend
 
@@ -83,7 +83,7 @@ Chat mode **already implements the correct pattern:**
   - [ ] Run full test suite
   - [ ] Update documentation
 
-### Current Work (Priority 1.3)
+### Current Work (Priority 1.3) - ✅ COMPLETE
 
 **✅ COMPLETE**: PRD Generation Backend Migration
 - File: `packages/ideate/src/prd_generator.rs` (991→599 lines, -392 lines)
@@ -95,13 +95,24 @@ Chat mode **already implements the correct pattern:**
   - `generate_section_with_context()`
   - `regenerate_with_template()` + streaming version
 - ✅ Kept helper functions: `format_prd_markdown()`, `merge_content()`, `build_context_from_aggregated()`
-- ⚠️ **Note**: 7+ HTTP handlers in `ideate_generation_handlers.rs` and `ideate_handlers.rs` call removed functions and will need updating
 
-**📋 NEXT**: Create frontend AI SDK service for PRD generation
-- File: `packages/dashboard/src/services/prd-ai.ts` (~500-600 lines estimated)
-- Implement all 6 AI functions using Vercel AI SDK
-- Support streaming for template regeneration
-- Update affected HTTP handlers to use new frontend pattern
+**✅ COMPLETE**: PRD Generation Frontend Migration
+- File: `packages/dashboard/src/services/prd-ai.ts` (766 lines)
+- ✅ Implemented all 6 AI functions using Vercel AI SDK:
+  - `generateCompletePRD()` - Full PRD generation with AI SDK `generateObject()`
+  - `generateSection()` - Individual sections with schema validation
+  - `generateFromSession()` - From aggregated data with context builder
+  - `fillSkippedSections()` - Fill skipped sections with AI
+  - `generateSectionWithContext()` - Section with full context
+  - `regenerateWithTemplateStream()` - Template regeneration with streaming support
+- ✅ Public helper function: `buildContextFromAggregated()` for context building
+- ✅ Full telemetry tracking with cost calculation
+- ✅ Streaming support for template regeneration
+- ⚠️ **Note**: 7+ HTTP handlers in `ideate_generation_handlers.rs` and `ideate_handlers.rs` call removed Rust functions and will need updating to use frontend pattern
+
+**📋 NEXT**: Priority 1.4 - Research Analysis migration
+- Backend: Remove 5 AI functions from `research_analyzer.rs`
+- Frontend: Create `research-ai.ts` with AI SDK implementations
 
 ## Detailed Migration Tasks
 
@@ -148,9 +159,9 @@ Chat mode **already implements the correct pattern:**
 **Git Commits**:
 - `6fac3ff` - "Priority 1.2 Backend: Remove Insight Extraction AI logic from Rust"
 
-### ✅ Priority 1.3: Medium Complexity Backend - COMPLETE
+### ✅ Priority 1.3: Medium Complexity - COMPLETE
 
-#### PRD Generation ✅ (Backend Complete)
+#### PRD Generation ✅
 **Backend** (`packages/ideate/src/prd_generator.rs`):
 - [x] Complete file analysis (991 lines initially)
 - [x] Remove 6 AI functions:
@@ -165,16 +176,19 @@ Chat mode **already implements the correct pattern:**
 - [x] Final size: 599 lines (392 lines removed, ~40% reduction)
 - [ ] **TODO**: Update handlers in `packages/api/src/ideate_generation_handlers.rs` and `ideate_handlers.rs`
 
-**Frontend**:
-- [ ] Create `packages/dashboard/src/services/prd-ai.ts` (~500-600 lines)
-- [ ] Implement AI SDK calls with streaming support
-- [ ] Match all 6 removed Rust functions with TypeScript equivalents:
-  - [ ] `generateCompletePRD()` - Full PRD generation
-  - [ ] `generateSection()` - Individual sections
-  - [ ] `generateFromSession()` - From aggregated data
-  - [ ] `fillSkippedSections()` - Fill skipped sections
-  - [ ] `generateSectionWithContext()` - Section with context
-  - [ ] `regenerateWithTemplate()` - Template regeneration (with streaming)
+**Frontend** (`packages/dashboard/src/services/prd-ai.ts`):
+- [x] Create `packages/dashboard/src/services/prd-ai.ts` (766 lines)
+- [x] Implement AI SDK calls with streaming support
+- [x] Match all 6 removed Rust functions with TypeScript equivalents:
+  - [x] `generateCompletePRD()` - Full PRD generation with `generateObject()`
+  - [x] `generateSection()` - Individual sections with schema validation
+  - [x] `generateFromSession()` - From aggregated data
+  - [x] `fillSkippedSections()` - Fill skipped sections
+  - [x] `generateSectionWithContext()` - Section with context
+  - [x] `regenerateWithTemplateStream()` - Template regeneration with streaming
+- [x] Public helper: `buildContextFromAggregated()` for context building
+- [x] Telemetry tracking with cost calculation for all functions
+- [ ] **TODO**: Update HTTP handlers to use frontend pattern
 
 #### Research Analysis
 **Backend** (`packages/ideate/src/research_analyzer.rs`):
@@ -355,10 +369,10 @@ turbo build
 ### Completed Commits
 1. `5ecbb82` - "Priority 1.1 Frontend: Create AI SDK service for dependency analysis"
 2. `6fac3ff` - "Priority 1.2 Backend: Remove Insight Extraction AI logic from Rust"
-3. **PENDING** - "Priority 1.3 Backend: Remove PRD Generation AI logic from Rust (991→599 lines)"
+3. `6ce1c00` - "Priority 1.3 Backend: Remove PRD Generation AI logic from Rust (991→599 lines)"
+4. **PENDING** - "Priority 1.3 Frontend: Create AI SDK service for PRD generation (766 lines)"
 
 ### Planned Commits
-4. Priority 1.3 Frontend: Create AI SDK service for PRD generation
 5. Priority 1.3 Handlers: Update HTTP handlers for frontend AI pattern
 6. Priority 1.4 Backend: Remove Research Analysis AI logic from Rust
 7. Priority 1.4 Frontend: Create AI SDK service for research analysis
