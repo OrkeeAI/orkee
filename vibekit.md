@@ -36,21 +36,43 @@ This document tracks the complete migration from legacy AIService to modern AI S
 
 ## Phase 1: Remove Legacy AIService & Move AI to Frontend (Weeks 1-2)
 
-### Phase 1 Status: Architecture Pivot - Restarting 🔄
-**Completion:** 0% (Previous work needs to be reverted)
+### Phase 1 Status: Architecture Clarification - Chat Mode Pattern 🔄
+**Completion:** 0% (Previous Rust→proxy work needs to be reverted)
 
-**Architecture Change**: Original approach (Rust → AI proxy) was incorrect. New approach: Move ALL AI logic to frontend TypeScript using Vercel AI SDK. Backend becomes pure CRUD.
+**Correct Architecture** (Like Chat Mode):
+- ✅ **Frontend** - Makes all AI calls using Vercel AI SDK (streamText, generateObject)
+- ✅ **AI Proxy** - Frontend AI SDK routes through `/api/ai/{provider}/*` for API key management
+- ✅ **Backend** - Pure CRUD only (save messages, save PRD, etc.)
+- ❌ **NO** Rust→AI proxy HTTP calls (what was incorrectly implemented)
 
 ### Phase 1 Overview
-Remove all AI logic from Rust backend and move to frontend TypeScript/React using Vercel AI SDK. Backend will only handle data persistence (CRUD operations).
+Apply the **Chat Mode pattern** (which already works correctly) to all other features. Backend Rust stays as pure CRUD. Frontend TypeScript makes all AI calls via AI SDK.
+
+### Reference Implementation: Chat Mode ✅
+
+Chat mode **already implements the correct pattern:**
+
+**Backend** (`packages/api/src/ideate_chat_handlers.rs`):
+- `send_message()` - Saves user message to DB, returns immediately
+- `get_history()` - Returns chat history from DB
+- Pure CRUD, NO AI calls
+
+**Frontend** (`packages/dashboard/src/services/chat-ai.ts`):
+- `streamChatResponse()` - Uses AI SDK `streamText()` to stream AI response
+- `extractInsights()` - Uses AI SDK `generateObject()` for structured extraction
+- All AI calls go through AI SDK → AI proxy → Anthropic/OpenAI/etc
+
+**This is the pattern to replicate for ALL features.**
 
 ### Phase 1 Tasks
 
-#### 1.1 Audit & Document Current AI Usage
-- [ ] List all Rust functions/handlers that make AI calls
-- [ ] List all frontend components that will need AI SDK integration
-- [ ] Document data flow for each AI operation
-- [ ] Identify which operations can be moved to frontend vs need backend support
+#### 1.1 Audit Features vs Chat Mode Pattern
+- [ ] Document which features already use chat mode pattern (correct)
+- [ ] Document which features use Rust AI calls (incorrect, needs migration)
+- [ ] For each incorrect feature, identify:
+  - Rust functions making AI calls
+  - Frontend components that need AI SDK integration
+  - Data flow changes needed
 
 #### 1.2 Remove Rust AI Logic (Backend)
 - [ ] Delete `packages/ai/src/service.rs` (entire AIService)
