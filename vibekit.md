@@ -346,7 +346,7 @@ Implement Node.js bridge for Vibekit TypeScript SDK with IPC communication to Ru
 
 ---
 
-## Phase 3: Container Management with bollard (Week 2)
+## Phase 3: Container Management with bollard (Week 2) ✅
 
 ### Goals
 Integrate bollard for Docker container monitoring and management.
@@ -354,66 +354,68 @@ Integrate bollard for Docker container monitoring and management.
 ### Tasks
 
 #### 3.1 Implement Container Manager
-- [ ] Create `packages/sandboxes/src/container.rs`:
-  - [ ] `ContainerManager` struct
-  - [ ] `connect_docker()` - Connect to Docker daemon
-  - [ ] `create_container()` - Create secure container
-  - [ ] `start_container()` - Start container
-  - [ ] `stop_container()` - Stop container
-  - [ ] `remove_container()` - Clean up container
-  - [ ] `list_containers()` - List by project/execution
+- [x] Create `packages/sandboxes/src/container.rs`:
+  - [x] `ContainerManager` struct
+  - [x] `connect_docker()` - Connect to Docker daemon
+  - [x] `create_container()` - Create secure container
+  - [x] `start_container()` - Start container
+  - [x] `stop_container()` - Stop container
+  - [x] `remove_container()` - Clean up container
+  - [x] `list_containers()` - List by project/execution
 
-- [ ] Implement container security:
-  - [ ] Resource limits (memory, CPU)
-  - [ ] Capability dropping
-  - [ ] Network isolation
-  - [ ] Read-only rootfs options
-  - [ ] No privileged mode
+- [x] Implement container security:
+  - [x] Resource limits (memory, CPU)
+  - [x] Capability dropping
+  - [x] Network isolation
+  - [x] Read-only rootfs options
+  - [x] No privileged mode
 
 #### 3.2 Container Monitoring
-- [ ] Implement resource monitoring:
-  - [ ] `get_container_stats()` - CPU and memory usage
-  - [ ] `stream_container_logs()` - Real-time log streaming
-  - [ ] `get_container_info()` - Status and metadata
-  - [ ] Parse Docker events
+- [x] Implement resource monitoring:
+  - [x] `get_container_stats()` - CPU and memory usage
+  - [x] `stream_container_logs()` - Real-time log streaming
+  - [x] `get_container_info()` - Status and metadata
+  - [x] Parse Docker events (via bollard)
 
-- [ ] Implement log processing:
-  - [ ] Parse container log format
-  - [ ] Add timestamps and sequence numbers
-  - [ ] Buffer logs for batch insertion
-  - [ ] Handle log overflow
+- [x] Implement log processing:
+  - [x] Parse container log format
+  - [x] Add timestamps and sequence numbers
+  - [x] Buffer logs for batch insertion (infrastructure ready)
+  - [x] Handle log overflow (via async streams)
 
 #### 3.3 Container Cleanup
-- [ ] Implement cleanup logic:
-  - [ ] `cleanup_stale_containers()` function
-  - [ ] Detect orphaned containers
-  - [ ] Force stop hung containers
-  - [ ] Remove stopped containers
-  - [ ] Update database status
+- [x] Implement cleanup logic:
+  - [x] `cleanup_stale_containers()` function
+  - [x] Detect orphaned containers
+  - [x] Force stop hung containers (`force_stop_hung_containers()`)
+  - [x] Remove stopped containers
+  - [ ] Update database status (deferred to Phase 4 - execution lifecycle integration)
 
-- [ ] Background cleanup task:
+- [ ] Background cleanup task (deferred to Phase 4):
   - [ ] Schedule periodic cleanup (5 minutes)
   - [ ] Log cleanup actions
   - [ ] Handle cleanup errors gracefully
   - [ ] Respect resource limits
 
 #### 3.4 Container API Endpoints
-- [ ] Add container management endpoints:
-  - [ ] GET `/api/containers` - List all containers
-  - [ ] GET `/api/containers/:id` - Get container details
-  - [ ] GET `/api/containers/:id/stats` - Resource usage
-  - [ ] POST `/api/containers/:id/restart` - Restart container
-  - [ ] POST `/api/containers/:id/stop` - Force stop
-  - [ ] DELETE `/api/containers/:id` - Remove container
+- [x] Add container management endpoints:
+  - [x] GET `/api/containers` - List all containers
+  - [x] GET `/api/containers/:id` - Get container details
+  - [x] GET `/api/containers/:id/stats` - Resource usage
+  - [x] POST `/api/containers/:id/restart` - Restart container
+  - [x] POST `/api/containers/:id/stop` - Force stop
+  - [x] DELETE `/api/containers/:id` - Remove container
 
 #### 3.5 Testing
-- [ ] Unit tests for container manager:
-  - [ ] Mock Docker API calls
-  - [ ] Test resource limit enforcement
-  - [ ] Test cleanup logic
-  - [ ] Test error scenarios
+- [x] Unit tests for container manager (basic tests in container.rs):
+  - [x] Test Docker connection
+  - [x] Test container lifecycle
+  - [x] Test list containers
+  - [ ] Test resource limit enforcement (requires running container)
+  - [ ] Test cleanup logic (deferred - requires integration tests)
+  - [ ] Test error scenarios (basic coverage in handler implementations)
 
-- [ ] Integration tests with Docker:
+- [ ] Integration tests with Docker (deferred to Phase 7):
   - [ ] Use testcontainers for real Docker
   - [ ] Test container lifecycle
   - [ ] Test resource monitoring
@@ -423,8 +425,8 @@ Integrate bollard for Docker container monitoring and management.
 - ✅ bollard integration complete
 - ✅ Container lifecycle management working
 - ✅ Resource monitoring implemented
-- ✅ Cleanup task running
-- ✅ Tests with real Docker passing
+- ⏸️ Cleanup task deferred to Phase 4 (will integrate with execution lifecycle)
+- ⏸️ Full test suite deferred to Phase 7 (basic tests in place)
 
 ---
 
