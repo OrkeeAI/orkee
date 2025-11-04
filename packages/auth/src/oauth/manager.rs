@@ -4,6 +4,8 @@
 use chrono::Utc;
 use reqwest::Client;
 use sqlx::SqlitePool;
+use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
 use tracing::{debug, error, info};
 use url::Url;
 
@@ -22,6 +24,8 @@ use crate::{
 pub struct OAuthManager {
     storage: OAuthStorage,
     client: Client,
+    /// Locks to prevent concurrent token refreshes for the same user+provider
+    refresh_locks: Arc<Mutex<HashMap<String, Arc<tokio::sync::Mutex<()>>>>>,
 }
 
 impl OAuthManager {
@@ -31,6 +35,7 @@ impl OAuthManager {
         Ok(Self {
             storage,
             client: Client::new(),
+            refresh_locks: Arc::new(Mutex::new(HashMap::new())),
         })
     }
 
@@ -189,6 +194,31 @@ impl OAuthManager {
         provider: OAuthProvider,
     ) -> AuthResult<OAuthToken> {
         info!("Refreshing token for provider: {}", provider);
+
+        // Create lock key for this user+provider combination
+        let lock_key = format!("{}:{}", user_id, provider);
+
+        // Get or create a lock for this specific user+provider
+        let lock = {
+            let mut locks = self.refresh_locks.lock().unwrap();
+            locks
+                .entry(lock_key.clone())
+                .or_insert_with(|| Arc::new(tokio::sync::Mutex::new(())))
+                .clone()
+        };
+
+        // Acquire the lock to prevent concurrent refreshes
+        let _guard = lock.lock().await;
+        debug!("Acquired refresh lock for {}:{}", user_id, provider);
+
+        // Check token again after acquiring lock - another thread may have refreshed it
+        let current_token = self.storage.get_token(user_id, provider).await?;
+        if let Some(token) = current_token {
+            if token.is_valid() {
+                info!("Token was refreshed by another request, using cached token");
+                return Ok(token);
+            }
+        }
 
         // Get existing token
         let existing_token = self
