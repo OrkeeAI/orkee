@@ -16,6 +16,7 @@ export interface StreamingMessage {
 export interface UseStreamingResponseOptions {
   sessionId: string;
   chatHistory: ChatMessage[];
+  projectId?: string | null;
   onMessageComplete?: (content: string) => void;
   onError?: (error: Error) => void;
 }
@@ -23,6 +24,7 @@ export interface UseStreamingResponseOptions {
 export function useStreamingResponse({
   sessionId,
   chatHistory,
+  projectId,
   onMessageComplete,
   onError,
 }: UseStreamingResponseOptions) {
@@ -149,14 +151,18 @@ export function useStreamingResponse({
           abortControllerRef.current?.signal,
           // provider and model
           provider,
-          model
+          model,
+          // preferences
+          undefined,
+          // projectId
+          projectId
         );
       } catch (error) {
         const err = error instanceof Error ? error : new Error(ERROR_MESSAGES.GENERIC_ERROR);
         handleError(err);
       }
     },
-    [sessionId, chatHistory, onMessageComplete, cleanup, handleError]
+    [sessionId, chatHistory, projectId, onMessageComplete, cleanup, handleError]
   );
 
   const stopStreaming = useCallback(() => {

@@ -41,7 +41,8 @@ export async function streamChatResponse(
   abortSignal?: AbortSignal,
   selectedProvider?: 'anthropic' | 'openai' | 'google' | 'xai',
   selectedModel?: string,
-  preferences?: ReturnType<typeof getModelForTask>
+  preferences?: ReturnType<typeof getModelForTask>,
+  projectId?: string | null
 ): Promise<void> {
   try {
     console.log('streamChatResponse called with:', { selectedProvider, selectedModel });
@@ -88,7 +89,7 @@ export async function streamChatResponse(
     // Wrap streamText call with telemetry tracking
     const result = await trackAIOperationWithCost(
       'chat_stream',
-      null, // Chat doesn't have a project ID
+      projectId || null,
       modelName,
       providerName,
       (inputTokens, outputTokens) => calculateCost(providerName, modelName, inputTokens, outputTokens),
@@ -140,7 +141,8 @@ const InsightSchema = z.object({
 export async function extractInsights(
   sessionId: string,
   chatHistory: ChatMessage[],
-  preferences?: ReturnType<typeof getModelForTask>
+  preferences?: ReturnType<typeof getModelForTask>,
+  projectId?: string | null
 ): Promise<ChatInsight[]> {
   // Use preferences or fall back to default
   const modelConfig = preferences || { provider: 'anthropic' as const, model: 'claude-sonnet-4-5-20250929' };
@@ -165,7 +167,7 @@ For each insight, provide the type, the insight text, and a confidence score (0-
 
   const result = await trackAIOperationWithCost(
     'extract_insights',
-    null, // Chat doesn't have a project ID
+    projectId || null,
     modelConfig.model,
     modelConfig.provider,
     (inputTokens, outputTokens) => calculateCost(modelConfig.provider, modelConfig.model, inputTokens, outputTokens),
@@ -219,7 +221,8 @@ export async function calculateQualityMetrics(
   sessionId: string,
   chatHistory: ChatMessage[],
   insights: ChatInsight[],
-  preferences?: ReturnType<typeof getModelForTask>
+  preferences?: ReturnType<typeof getModelForTask>,
+  projectId?: string | null
 ): Promise<{
   quality_score: number;
   coverage: Record<string, boolean>;
@@ -264,7 +267,7 @@ Provide:
 
   const result = await trackAIOperationWithCost(
     'calculate_quality_metrics',
-    null, // Chat doesn't have a project ID
+    projectId || null,
     modelConfig.model,
     modelConfig.provider,
     (inputTokens, outputTokens) => calculateCost(modelConfig.provider, modelConfig.model, inputTokens, outputTokens),
@@ -315,7 +318,8 @@ export async function generatePRDFromChat(
   title: string,
   chatHistory: ChatMessage[],
   insights: ChatInsight[],
-  preferences?: ReturnType<typeof getModelForTask>
+  preferences?: ReturnType<typeof getModelForTask>,
+  projectId?: string | null
 ): Promise<{ prd_markdown: string; prd_data: z.infer<typeof PRDSchema> }> {
   // Use preferences or fall back to default
   const modelConfig = preferences || { provider: 'anthropic' as const, model: 'claude-sonnet-4-5-20250929' };
@@ -352,7 +356,7 @@ Be specific and actionable. Use insights from the chat to fill in details.`;
 
   const result = await trackAIOperationWithCost(
     'generate_prd_from_chat',
-    null, // Chat doesn't have a project ID
+    projectId || null,
     modelConfig.model,
     modelConfig.provider,
     (inputTokens, outputTokens) => calculateCost(modelConfig.provider, modelConfig.model, inputTokens, outputTokens),
