@@ -353,15 +353,14 @@ async fn show_encryption_warning() {
     };
 
     // Query encryption mode
-    let mode: Option<String> = match sqlx::query_scalar(
-        "SELECT mode FROM encryption_settings WHERE id = 1"
-    )
-    .fetch_optional(&pool)
-    .await
-    {
-        Ok(mode) => mode,
-        Err(_) => return, // Can't check, skip warning
-    };
+    let mode: Option<String> =
+        match sqlx::query_scalar("SELECT mode FROM encryption_settings WHERE id = 1")
+            .fetch_optional(&pool)
+            .await
+        {
+            Ok(mode) => mode,
+            Err(_) => return, // Can't check, skip warning
+        };
 
     // Only show warning for machine-based encryption
     if let Some(mode_str) = mode {
@@ -369,11 +368,22 @@ async fn show_encryption_warning() {
             println!();
             println!("{}", "⚠️  SECURITY WARNING".yellow().bold());
             println!();
-            println!("   Tokens are encrypted with {}", "machine-based encryption".yellow());
-            println!("   This provides {} - anyone with access to", "transport encryption only".yellow());
-            println!("   {} can decrypt your tokens.", "~/.orkee/orkee.db".yellow());
+            println!(
+                "   Tokens are encrypted with {}",
+                "machine-based encryption".yellow()
+            );
+            println!(
+                "   This provides {} - anyone with access to",
+                "transport encryption only".yellow()
+            );
+            println!(
+                "   {} can decrypt your tokens.",
+                "~/.orkee/orkee.db".yellow()
+            );
             println!();
-            println!("   For production use or shared machines, upgrade to password-based encryption:");
+            println!(
+                "   For production use or shared machines, upgrade to password-based encryption:"
+            );
             println!();
             println!("      {}", "orkee security set-password".green().bold());
             println!();
