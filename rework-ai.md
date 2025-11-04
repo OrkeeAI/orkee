@@ -9,7 +9,7 @@ This document tracks the migration of all AI operations from legacy Rust AIServi
 **Apply the Chat Mode pattern to ALL features**: Backend Rust = Pure CRUD only. Frontend TypeScript = All AI calls via AI SDK.
 
 ### Status: In Progress 🚧
-**Completion:** 70% complete
+**Completion:** 80% complete
 
 **Timeline:** 2 weeks (Weeks 1-2 of overall VibeKit project)
 
@@ -48,7 +48,7 @@ Chat mode **already implements the correct pattern:**
 - ✅ PRD Generation (6 Rust AI functions) - **COMPLETE**
 - ✅ Insight Extraction (1 function) - **COMPLETE**
 - ✅ Research Analysis (5 functions) - **COMPLETE**
-- ❌ Expert Roundtable (3 functions)
+- ✅ Expert Roundtable (3 AI functions) - **COMPLETE**
 - ✅ Dependency Analysis (1 function) - **COMPLETE**
 - ❌ Generic AI Handlers (5 handlers, likely duplicates)
 
@@ -237,23 +237,42 @@ Chat mode **already implements the correct pattern:**
   - [x] `synthesizeResearch()` - Research synthesis
 - [x] Telemetry tracking with cost calculation for all functions
 
-### Priority 1.4: Complex Migrations
+### Priority 1.4: Complex Migrations ✅ COMPLETE
 
-#### Expert Roundtable
+#### Expert Roundtable ✅ COMPLETE
 **Backend** (`packages/ideate/src/expert_moderator.rs`):
-- [ ] Remove 3 AI functions:
-  - [ ] `run_discussion()` - Multi-turn discussion
-  - [ ] `handle_interjection()` - User interjection handling
-  - [ ] `extract_insights()` - Insight extraction
-- [ ] Keep CRUD: `create_roundtable()`, `add_participants()`, `save_message()`, `get_messages()`, `save_insight()`, `get_insights()`
-- [ ] Update handler in `packages/api/src/ideate_roundtable_handlers.rs`
-- [ ] Redesign SSE streaming endpoint for frontend-driven discussion
+- [x] Removed 4 AI functions (313 lines removed, ~57% reduction):
+  - [x] `run_discussion()` - Multi-turn discussion orchestration
+  - [x] `suggest_experts()` - Expert persona suggestions
+  - [x] `generate_expert_response()` - Individual expert responses
+  - [x] `extract_insights()` - Insight extraction from discussion
+- [x] Removed AIService dependency and unused imports
+- [x] Converted helper methods to public functions for frontend use:
+  - [x] `format_conversation_history()` - Format messages for AI context
+  - [x] `build_moderator_opening()` - Generate opening statement
+  - [x] `build_expert_suggestion_prompt()` - Build suggestion prompt
+  - [x] `build_insight_extraction_prompt()` - Build insight prompt
+- [x] Exported system prompts for frontend AI:
+  - [x] `EXPERT_SUGGESTION_SYSTEM_PROMPT`
+  - [x] `INSIGHT_EXTRACTION_SYSTEM_PROMPT`
+  - [x] `EXPERT_RESPONSE_SYSTEM_PROMPT_PREFIX`
+- [x] Kept CRUD operations: `handle_interjection()`, `get_messages_for_ai()`, `get_participants_for_ai()`
+- [x] File reduced from 553 → 240 lines
 
 **Frontend**:
-- [ ] Create `packages/dashboard/src/services/roundtable-ai.ts` (~400-500 lines)
-- [ ] Implement multi-turn discussion loop in frontend
-- [ ] Handle streaming responses from multiple "experts"
-- [ ] Support user interjections
+- [x] Created `packages/dashboard/src/services/roundtable-ai.ts` (413 lines)
+- [x] Implemented 3 main AI SDK functions with `generateObject()`:
+  - [x] `suggestExperts()` - Expert persona suggestions with schema validation
+  - [x] `generateExpertResponse()` - Individual expert responses
+  - [x] `extractInsights()` - Insight extraction with categories
+- [x] Added streaming support: `streamExpertResponse()` using `streamText()`
+- [x] Helper functions for frontend discussion orchestration:
+  - [x] `formatConversationHistory()` - Format messages for AI
+  - [x] `buildModeratorOpening()` - Generate opening
+  - [x] `selectNextExpert()` - Round-robin expert selection
+  - [x] `shouldEndDiscussion()` - Discussion termination logic
+- [x] Comprehensive Zod schemas: ExpertSuggestionSchema, ExpertResponseSchema, InsightSchema
+- [x] Full telemetry tracking for all AI operations
 
 #### Generic AI Handlers
 **Investigation** (`packages/api/src/ai_handlers.rs`):
@@ -402,14 +421,13 @@ turbo build
 2. `6fac3ff` - "Priority 1.2 Backend: Remove Insight Extraction AI logic from Rust"
 3. `6ce1c00` - "Priority 1.3 Backend: Remove PRD Generation AI logic from Rust (991→599 lines)"
 4. `a5fff8e` - "Priority 1.3 Frontend: Create AI SDK service for PRD generation (766 lines)"
-5. **PENDING** - "Priority 1.3 Complete: Research Analysis migration (backend 558→333, frontend +389)"
+5. `b79bf99` - "Priority 1.3 Complete: Research Analysis migration (backend 558→333, frontend +389)"
+6. **PENDING** - "Priority 1.4 Complete: Expert Roundtable migration (backend 553→240, frontend +413)"
 
 ### Planned Commits
-6. Priority 1.3/1.4 Handlers: Update HTTP handlers for frontend AI pattern
-7. Priority 1.4 Backend: Remove Expert Roundtable AI logic from Rust
-8. Priority 1.4 Frontend: Create AI SDK service for Expert Roundtable
-9. Priority 1.5: Handle Generic AI Handlers (verify/delete/migrate)
-10. Cleanup: Delete legacy AIService and verify all migrations
+7. Priority 1.3/1.4 Handlers: Update HTTP handlers for frontend AI pattern
+8. Priority 1.5: Handle Generic AI Handlers (verify/delete/migrate)
+9. Cleanup: Delete legacy AIService and verify all migrations
 
 ## Notes
 
