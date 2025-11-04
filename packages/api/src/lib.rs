@@ -34,6 +34,7 @@ pub mod prd_handlers;
 pub mod response;
 pub mod sandbox_execution_handlers;
 pub mod security_handlers;
+pub mod sse;
 pub mod tags_handlers;
 pub mod task_decomposition_handlers;
 pub mod tasks_handlers;
