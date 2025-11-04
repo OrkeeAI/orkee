@@ -476,7 +476,7 @@ pub async fn save_as_prd(
         Ok(p) => p,
         Err(e) => {
             return ok_or_internal_error::<serde_json::Value, _>(
-                Err(orkee_ideate::IdeateError::AIService(e.to_string())),
+                Err(orkee_ideate::IdeateError::AI(e.to_string())),
                 "Failed to save PRD",
             )
         }

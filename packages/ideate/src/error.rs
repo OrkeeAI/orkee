@@ -32,8 +32,8 @@ pub enum IdeateError {
     #[error("Session not ready for PRD generation: {0}")]
     NotReadyForPRD(String),
 
-    #[error("AI service error: {0}")]
-    AIService(String),
+    #[error("AI error: {0}")]
+    AI(String),
 
     #[error("Invalid input: {0}")]
     InvalidInput(String),

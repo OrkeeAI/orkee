@@ -234,26 +234,26 @@ impl PRDAggregator {
         Ok(IdeateSession {
             id: row
                 .try_get("id")
-                .map_err(|e| IdeateError::AIService(e.to_string()))?,
+                .map_err(|e| IdeateError::AI(e.to_string()))?,
             project_id: row
                 .try_get("project_id")
-                .map_err(|e| IdeateError::AIService(e.to_string()))?,
+                .map_err(|e| IdeateError::AI(e.to_string()))?,
             initial_description: row
                 .try_get("initial_description")
-                .map_err(|e| IdeateError::AIService(e.to_string()))?,
+                .map_err(|e| IdeateError::AI(e.to_string()))?,
             mode: {
                 let mode_str: String = row
                     .try_get("mode")
-                    .map_err(|e| IdeateError::AIService(e.to_string()))?;
+                    .map_err(|e| IdeateError::AI(e.to_string()))?;
                 serde_json::from_str(&format!(r#""{}""#, mode_str))
-                    .map_err(|e| IdeateError::AIService(e.to_string()))?
+                    .map_err(|e| IdeateError::AI(e.to_string()))?
             },
             status: {
                 let status_str: String = row
                     .try_get("status")
-                    .map_err(|e| IdeateError::AIService(e.to_string()))?;
+                    .map_err(|e| IdeateError::AI(e.to_string()))?;
                 serde_json::from_str(&format!(r#""{}""#, status_str))
-                    .map_err(|e| IdeateError::AIService(e.to_string()))?
+                    .map_err(|e| IdeateError::AI(e.to_string()))?
             },
             skipped_sections: row
                 .try_get::<Option<String>, _>("skipped_sections")
@@ -575,7 +575,7 @@ impl PRDAggregator {
             .ok()
             .flatten()
             .and_then(|p| serde_json::from_str(&p).ok())
-            .ok_or_else(|| IdeateError::AIService("Invalid build order JSON".to_string()))
+            .ok_or_else(|| IdeateError::AI("Invalid build order JSON".to_string()))
     }
 
     /// Calculate completeness metrics

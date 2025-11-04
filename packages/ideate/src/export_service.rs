@@ -312,7 +312,7 @@ generated_by: Orkee Ideate
         .await
         .map_err(|e| {
             error!("Failed to save export record: {}", e);
-            IdeateError::AIService(format!("Failed to save export record: {}", e))
+            IdeateError::AI(format!("Failed to save export record: {}", e))
         })?;
 
         info!("Saved export record for session {}", session_id);
