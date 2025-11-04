@@ -6,11 +6,7 @@ use nanoid::nanoid;
 use sqlx::{sqlite::SqlitePoolOptions, SqlitePool};
 use tempfile::TempDir;
 
-use orkee_auth::oauth::{
-    manager::OAuthManager,
-    provider::OAuthProvider,
-    types::OAuthToken,
-};
+use orkee_auth::oauth::{manager::OAuthManager, provider::OAuthProvider, types::OAuthToken};
 
 /// Helper to create a test database with schema
 async fn setup_test_db() -> (SqlitePool, TempDir) {
@@ -228,7 +224,10 @@ async fn test_get_status_shows_all_providers() {
         .find(|s| s.provider == OAuthProvider::Claude)
         .unwrap();
     assert!(claude_status.authenticated);
-    assert_eq!(claude_status.account_email, Some("test@example.com".to_string()));
+    assert_eq!(
+        claude_status.account_email,
+        Some("test@example.com".to_string())
+    );
 
     // Check OpenAI status (authenticated)
     let openai_status = statuses
