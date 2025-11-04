@@ -227,10 +227,11 @@ impl OAuthManager {
 
         if !response.status().is_success() {
             let status = response.status();
-            let body = response.text().await.unwrap_or_default();
+            // Don't leak full response body - only log status for security
+            error!("Token refresh failed with status {}", status);
             return Err(AuthError::TokenExchange(format!(
-                "Token refresh failed with status {}: {}",
-                status, body
+                "Token refresh failed with status {}",
+                status
             )));
         }
 
@@ -343,10 +344,11 @@ impl OAuthManager {
 
         if !response.status().is_success() {
             let status = response.status();
-            let body = response.text().await.unwrap_or_default();
+            // Don't leak full response body - only log status for security
+            error!("Token exchange failed with status {}", status);
             return Err(AuthError::TokenExchange(format!(
-                "Token exchange failed with status {}: {}",
-                status, body
+                "Token exchange failed with status {}",
+                status
             )));
         }
 
