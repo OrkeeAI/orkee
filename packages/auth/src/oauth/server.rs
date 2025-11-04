@@ -52,9 +52,9 @@ impl CallbackServer {
 
         // Bind to localhost
         let addr = format!("127.0.0.1:{}", self.port);
-        let listener = TcpListener::bind(&addr).await.map_err(|e| {
-            AuthError::CallbackServer(format!("Failed to bind to {}: {}", addr, e))
-        })?;
+        let listener = TcpListener::bind(&addr)
+            .await
+            .map_err(|e| AuthError::CallbackServer(format!("Failed to bind to {}: {}", addr, e)))?;
 
         info!("📡 Waiting for OAuth callback on {}", addr);
 
@@ -67,9 +67,10 @@ impl CallbackServer {
 
         // Read HTTP request
         let mut buffer = vec![0; 2048];
-        let n = stream.read(&mut buffer).await.map_err(|e| {
-            AuthError::CallbackServer(format!("Failed to read request: {}", e))
-        })?;
+        let n = stream
+            .read(&mut buffer)
+            .await
+            .map_err(|e| AuthError::CallbackServer(format!("Failed to read request: {}", e)))?;
 
         let request = String::from_utf8_lossy(&buffer[..n]);
         debug!("Received request:\n{}", request);
@@ -205,8 +206,7 @@ mod tests {
 
     #[test]
     fn test_extract_error() {
-        let request =
-            "GET /auth/callback?error=access_denied HTTP/1.1\r\nHost: localhost:3737\r\n";
+        let request = "GET /auth/callback?error=access_denied HTTP/1.1\r\nHost: localhost:3737\r\n";
         let error = CallbackServer::extract_error(request);
         assert_eq!(error, Some("access_denied".to_string()));
     }

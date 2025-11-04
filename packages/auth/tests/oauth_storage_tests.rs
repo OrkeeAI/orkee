@@ -6,12 +6,10 @@ use nanoid::nanoid;
 use sqlx::{sqlite::SqlitePoolOptions, SqlitePool};
 use tempfile::TempDir;
 
-use orkee_auth::{
-    oauth::{
-        provider::OAuthProvider,
-        storage::OAuthStorage,
-        types::{OAuthProviderConfig, OAuthToken},
-    },
+use orkee_auth::oauth::{
+    provider::OAuthProvider,
+    storage::OAuthStorage,
+    types::{OAuthProviderConfig, OAuthToken},
 };
 
 /// Helper to create a test database with schema
@@ -143,7 +141,10 @@ async fn test_get_token_not_found() {
     let (pool, _temp_dir) = setup_test_db().await;
     let storage = OAuthStorage::new(pool);
 
-    let result = storage.get_token("nonexistent-user", OAuthProvider::Claude).await.unwrap();
+    let result = storage
+        .get_token("nonexistent-user", OAuthProvider::Claude)
+        .await
+        .unwrap();
     assert!(result.is_none());
 }
 
@@ -163,7 +164,10 @@ async fn test_delete_token() {
     assert!(retrieved.is_some());
 
     // Delete it
-    storage.delete_token("user-1", OAuthProvider::OpenAI).await.unwrap();
+    storage
+        .delete_token("user-1", OAuthProvider::OpenAI)
+        .await
+        .unwrap();
 
     // Verify it's gone
     let retrieved = storage
@@ -323,6 +327,9 @@ async fn test_get_provider_config_not_found() {
     let (pool, _temp_dir) = setup_test_db().await;
     let storage = OAuthStorage::new(pool);
 
-    let result = storage.get_provider_config(OAuthProvider::XAI).await.unwrap();
+    let result = storage
+        .get_provider_config(OAuthProvider::XAI)
+        .await
+        .unwrap();
     assert!(result.is_none());
 }

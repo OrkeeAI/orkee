@@ -10,9 +10,9 @@ pub struct OAuthToken {
     pub id: String,
     pub user_id: String,
     pub provider: String,
-    pub access_token: String,  // Encrypted in database
-    pub refresh_token: Option<String>,  // Encrypted in database
-    pub expires_at: i64,  // Unix timestamp
+    pub access_token: String,          // Encrypted in database
+    pub refresh_token: Option<String>, // Encrypted in database
+    pub expires_at: i64,               // Unix timestamp
     pub token_type: String,
     pub scope: Option<String>,
     pub subscription_type: Option<String>,
@@ -45,7 +45,7 @@ impl OAuthToken {
 pub struct OAuthProviderConfig {
     pub provider: String,
     pub client_id: String,
-    pub client_secret: Option<String>,  // Encrypted in database
+    pub client_secret: Option<String>, // Encrypted in database
     pub auth_url: String,
     pub token_url: String,
     pub redirect_uri: String,
@@ -58,7 +58,7 @@ pub struct OAuthProviderConfig {
 pub struct PkceChallenge {
     pub code_verifier: String,
     pub code_challenge: String,
-    pub code_challenge_method: String,  // Usually "S256"
+    pub code_challenge_method: String, // Usually "S256"
 }
 
 /// OAuth state for CSRF protection
@@ -77,7 +77,7 @@ pub struct TokenExchangeRequest {
     pub code_verifier: String,
     pub redirect_uri: String,
     pub client_id: String,
-    pub grant_type: String,  // Usually "authorization_code"
+    pub grant_type: String, // Usually "authorization_code"
 }
 
 /// OAuth token response from provider
@@ -85,7 +85,7 @@ pub struct TokenExchangeRequest {
 pub struct TokenResponse {
     pub access_token: String,
     pub refresh_token: Option<String>,
-    pub expires_in: i64,  // Seconds
+    pub expires_in: i64, // Seconds
     pub token_type: String,
     pub scope: Option<String>,
 }
@@ -95,7 +95,7 @@ pub struct TokenResponse {
 pub struct RefreshTokenRequest {
     pub refresh_token: String,
     pub client_id: String,
-    pub grant_type: String,  // "refresh_token"
+    pub grant_type: String, // "refresh_token"
 }
 
 #[cfg(test)]

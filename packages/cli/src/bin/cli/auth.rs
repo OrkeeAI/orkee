@@ -1,9 +1,9 @@
 // ABOUTME: CLI commands for OAuth authentication with AI providers
 // ABOUTME: Supports login, logout, status, and token refresh for Claude, OpenAI, Google, and xAI
 
+use chrono::{DateTime, Utc};
 use clap::Subcommand;
 use colored::*;
-use chrono::{DateTime, Utc};
 use inquire::Select;
 use orkee_auth::{OAuthManager, OAuthProvider};
 use std::process;
@@ -54,7 +54,11 @@ async fn login_command(provider_str: Option<&str>, force: bool) {
     let oauth = match OAuthManager::new_default().await {
         Ok(m) => m,
         Err(e) => {
-            eprintln!("{} Failed to initialize OAuth manager: {}", "✗".red().bold(), e);
+            eprintln!(
+                "{} Failed to initialize OAuth manager: {}",
+                "✗".red().bold(),
+                e
+            );
             process::exit(1);
         }
     };
@@ -82,7 +86,9 @@ async fn login_command(provider_str: Option<&str>, force: bool) {
 
     println!(
         "{}",
-        format!("🔐 Authenticating with {}...", provider).bold().cyan()
+        format!("🔐 Authenticating with {}...", provider)
+            .bold()
+            .cyan()
     );
     println!();
 
@@ -151,7 +157,11 @@ async fn logout_command(provider_str: &str) {
     let oauth = match OAuthManager::new_default().await {
         Ok(m) => m,
         Err(e) => {
-            eprintln!("{} Failed to initialize OAuth manager: {}", "✗".red().bold(), e);
+            eprintln!(
+                "{} Failed to initialize OAuth manager: {}",
+                "✗".red().bold(),
+                e
+            );
             process::exit(1);
         }
     };
@@ -218,7 +228,11 @@ async fn status_command() {
     let oauth = match OAuthManager::new_default().await {
         Ok(m) => m,
         Err(e) => {
-            eprintln!("{} Failed to initialize OAuth manager: {}", "✗".red().bold(), e);
+            eprintln!(
+                "{} Failed to initialize OAuth manager: {}",
+                "✗".red().bold(),
+                e
+            );
             process::exit(1);
         }
     };
@@ -284,7 +298,11 @@ async fn refresh_command(provider_str: &str) {
     let oauth = match OAuthManager::new_default().await {
         Ok(m) => m,
         Err(e) => {
-            eprintln!("{} Failed to initialize OAuth manager: {}", "✗".red().bold(), e);
+            eprintln!(
+                "{} Failed to initialize OAuth manager: {}",
+                "✗".red().bold(),
+                e
+            );
             process::exit(1);
         }
     };
@@ -292,7 +310,9 @@ async fn refresh_command(provider_str: &str) {
 
     println!(
         "{}",
-        format!("🔄 Refreshing token for {}...", provider).bold().cyan()
+        format!("🔄 Refreshing token for {}...", provider)
+            .bold()
+            .cyan()
     );
 
     match oauth.refresh_token(user_id, provider).await {
@@ -313,8 +333,7 @@ async fn refresh_command(provider_str: &str) {
 }
 
 fn parse_provider(provider_str: &str) -> Result<OAuthProvider, String> {
-    OAuthProvider::from_str(provider_str)
-        .map_err(|_| format!("Unknown provider: {}", provider_str))
+    OAuthProvider::from_str(provider_str).map_err(|_| format!("Unknown provider: {}", provider_str))
 }
 
 fn prompt_provider_selection() -> Result<OAuthProvider, String> {

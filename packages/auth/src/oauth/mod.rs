@@ -12,4 +12,4 @@ pub use manager::{OAuthManager, ProviderStatus};
 pub use provider::OAuthProvider;
 pub use server::CallbackServer;
 pub use storage::OAuthStorage;
-pub use types::{OAuthToken, OAuthProviderConfig, PkceChallenge, TokenResponse};
+pub use types::{OAuthProviderConfig, OAuthToken, PkceChallenge, TokenResponse};

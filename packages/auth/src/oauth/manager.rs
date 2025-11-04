@@ -37,7 +37,9 @@ impl OAuthManager {
     pub async fn new_default() -> AuthResult<Self> {
         // Connect to default database location
         let db_path = dirs::home_dir()
-            .ok_or_else(|| AuthError::Configuration("Could not determine home directory".to_string()))?
+            .ok_or_else(|| {
+                AuthError::Configuration("Could not determine home directory".to_string())
+            })?
             .join(".orkee")
             .join("orkee.db");
 
@@ -102,7 +104,9 @@ impl OAuthManager {
             .await?;
 
         // Get subscription type (if supported by provider)
-        let subscription_type = self.detect_subscription_type(provider, &token_response).await;
+        let subscription_type = self
+            .detect_subscription_type(provider, &token_response)
+            .await;
 
         // Get account email (if available from token info)
         let account_email = self.get_account_email(provider, &token_response).await;

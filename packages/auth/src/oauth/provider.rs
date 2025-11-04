@@ -111,9 +111,18 @@ mod tests {
 
     #[test]
     fn test_provider_parsing() {
-        assert_eq!(OAuthProvider::from_str("claude").unwrap(), OAuthProvider::Claude);
-        assert_eq!(OAuthProvider::from_str("CLAUDE").unwrap(), OAuthProvider::Claude);
-        assert_eq!(OAuthProvider::from_str("openai").unwrap(), OAuthProvider::OpenAI);
+        assert_eq!(
+            OAuthProvider::from_str("claude").unwrap(),
+            OAuthProvider::Claude
+        );
+        assert_eq!(
+            OAuthProvider::from_str("CLAUDE").unwrap(),
+            OAuthProvider::Claude
+        );
+        assert_eq!(
+            OAuthProvider::from_str("openai").unwrap(),
+            OAuthProvider::OpenAI
+        );
         assert!(OAuthProvider::from_str("invalid").is_err());
     }
 

@@ -7,6 +7,6 @@ pub mod oauth;
 // Re-export main types
 pub use error::{AuthError, AuthResult};
 pub use oauth::{
-    OAuthProvider, OAuthStorage, OAuthToken, OAuthProviderConfig,
-    CallbackServer, PkceChallenge, TokenResponse, OAuthManager, ProviderStatus,
+    CallbackServer, OAuthManager, OAuthProvider, OAuthProviderConfig, OAuthStorage, OAuthToken,
+    PkceChallenge, ProviderStatus, TokenResponse,
 };

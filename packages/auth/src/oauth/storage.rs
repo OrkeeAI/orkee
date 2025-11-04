@@ -6,7 +6,10 @@ use tracing::{debug, error};
 
 use crate::{
     error::{AuthError, AuthResult},
-    oauth::{provider::OAuthProvider, types::{OAuthProviderConfig, OAuthToken}},
+    oauth::{
+        provider::OAuthProvider,
+        types::{OAuthProviderConfig, OAuthToken},
+    },
 };
 
 /// OAuth storage manager for database operations
@@ -70,7 +73,10 @@ impl OAuthStorage {
         user_id: &str,
         provider: OAuthProvider,
     ) -> AuthResult<Option<OAuthToken>> {
-        debug!("Fetching OAuth token for user {} provider {}", user_id, provider);
+        debug!(
+            "Fetching OAuth token for user {} provider {}",
+            user_id, provider
+        );
 
         let row = sqlx::query(
             r#"
@@ -111,7 +117,10 @@ impl OAuthStorage {
 
     /// Delete OAuth token
     pub async fn delete_token(&self, user_id: &str, provider: OAuthProvider) -> AuthResult<()> {
-        debug!("Deleting OAuth token for user {} provider {}", user_id, provider);
+        debug!(
+            "Deleting OAuth token for user {} provider {}",
+            user_id, provider
+        );
 
         sqlx::query(
             r#"

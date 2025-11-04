@@ -239,7 +239,10 @@ async fn proxy_ai_request(
             token
         }
         None => {
-            info!("No OAuth token found, trying API key for {} provider", provider);
+            info!(
+                "No OAuth token found, trying API key for {} provider",
+                provider
+            );
             // Get API key from database with env fallback
             match db.user_storage.get_api_key(user_id, provider).await {
                 Ok(Some(key)) => key,
@@ -257,7 +260,8 @@ async fn proxy_ai_request(
                     error!("Failed to get {} API key: {}", provider, e);
                     return build_error_response(
                         StatusCode::INTERNAL_SERVER_ERROR,
-                        "Failed to retrieve API key. Please check server logs for details.".to_string(),
+                        "Failed to retrieve API key. Please check server logs for details."
+                            .to_string(),
                     );
                 }
             }

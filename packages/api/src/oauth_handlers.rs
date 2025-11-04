@@ -83,23 +83,20 @@ pub async fn get_auth_status(
 
     let manager = OAuthManager::new(db.pool.clone());
 
-    let result = manager
-        .get_status(&user.id)
-        .await
-        .map(|statuses| {
-            let providers: Vec<ProviderStatusResponse> = statuses
-                .into_iter()
-                .map(|s| ProviderStatusResponse {
-                    provider: s.provider.to_string(),
-                    authenticated: s.authenticated,
-                    expires_at: s.expires_at,
-                    account_email: s.account_email,
-                    subscription_type: s.subscription_type,
-                })
-                .collect();
+    let result = manager.get_status(&user.id).await.map(|statuses| {
+        let providers: Vec<ProviderStatusResponse> = statuses
+            .into_iter()
+            .map(|s| ProviderStatusResponse {
+                provider: s.provider.to_string(),
+                authenticated: s.authenticated,
+                expires_at: s.expires_at,
+                account_email: s.account_email,
+                subscription_type: s.subscription_type,
+            })
+            .collect();
 
-            AuthStatusResponse { providers }
-        });
+        AuthStatusResponse { providers }
+    });
 
     ok_or_internal_error(result, "Failed to get authentication status")
 }
@@ -110,16 +107,16 @@ pub async fn get_token(
     Path(provider): Path<String>,
     CurrentUser(user): CurrentUser,
 ) -> impl IntoResponse {
-    info!("Getting token for provider: {} (user: {})", provider, user.id);
+    info!(
+        "Getting token for provider: {} (user: {})",
+        provider, user.id
+    );
 
     let provider = match parse_provider(&provider) {
         Ok(p) => p,
         Err(e) => {
             error!("Invalid provider: {}", e);
-            return ok_or_internal_error(
-                Err::<TokenResponse, _>(e),
-                "Invalid provider",
-            );
+            return ok_or_internal_error(Err::<TokenResponse, _>(e), "Invalid provider");
         }
     };
 
@@ -150,16 +147,16 @@ pub async fn refresh_token(
     Path(provider): Path<String>,
     CurrentUser(user): CurrentUser,
 ) -> impl IntoResponse {
-    info!("Refreshing token for provider: {} (user: {})", provider, user.id);
+    info!(
+        "Refreshing token for provider: {} (user: {})",
+        provider, user.id
+    );
 
     let provider = match parse_provider(&provider) {
         Ok(p) => p,
         Err(e) => {
             error!("Invalid provider: {}", e);
-            return ok_or_internal_error(
-                Err::<TokenResponse, _>(e),
-                "Invalid provider",
-            );
+            return ok_or_internal_error(Err::<TokenResponse, _>(e), "Invalid provider");
         }
     };
 
@@ -182,25 +179,24 @@ pub async fn logout(
     Path(provider): Path<String>,
     CurrentUser(user): CurrentUser,
 ) -> impl IntoResponse {
-    info!("Logging out from provider: {} (user: {})", provider, user.id);
+    info!(
+        "Logging out from provider: {} (user: {})",
+        provider, user.id
+    );
 
     let provider = match parse_provider(&provider) {
         Ok(p) => p,
         Err(e) => {
             error!("Invalid provider: {}", e);
-            return ok_or_internal_error(
-                Err::<serde_json::Value, _>(e),
-                "Invalid provider",
-            );
+            return ok_or_internal_error(Err::<serde_json::Value, _>(e), "Invalid provider");
         }
     };
 
     let manager = OAuthManager::new(db.pool.clone());
 
-    let result = manager
-        .logout(&user.id, provider)
-        .await
-        .map(|_| serde_json::json!({ "message": format!("Successfully logged out from {}", provider) }));
+    let result = manager.logout(&user.id, provider).await.map(
+        |_| serde_json::json!({ "message": format!("Successfully logged out from {}", provider) }),
+    );
 
     ok_or_internal_error(result, "Failed to logout")
 }
