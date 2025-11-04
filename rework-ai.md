@@ -274,20 +274,43 @@ Chat mode **already implements the correct pattern:**
 - [x] Comprehensive Zod schemas: ExpertSuggestionSchema, ExpertResponseSchema, InsightSchema
 - [x] Full telemetry tracking for all AI operations
 
-#### Generic AI Handlers
+#### Generic AI Handlers ✅ COMPLETE
 **Investigation** (`packages/api/src/ai_handlers.rs`):
-- [ ] Verify these duplicate Spec Workflow functionality
-- [ ] If yes: Delete entire file and route callers to Spec Workflow
-- [ ] If no: Identify unique functionality and migrate to frontend
+- [x] Investigated file - contained 5 AI handlers (1,248 lines):
+  - `analyze_prd()` - Analyze PRD and extract capabilities
+  - `generate_spec()` - Generate specification from requirements
+  - `suggest_tasks()` - Suggest tasks from spec
+  - `refine_spec()` - Refine spec with user feedback
+  - `validate_completion()` - Validate task completion
+- [x] Verified these were **dead code**:
+  - Routes already commented out in lib.rs
+  - No frontend references found
+  - Superseded by prd-ai.ts frontend AI SDK implementation
+  - Used legacy AIService pattern (incorrect)
+- [x] Deleted entire file (1,248 lines removed)
+- [x] Removed module declaration from lib.rs
+- [x] Removed commented route creation function
 
-### Priority 1.5: Cleanup & Verification
+**Note**: Separate compilation issues exist in `ideate_generation_handlers.rs` from earlier PRD migration. These are handler updates (separate task) not related to Generic AI Handlers deletion.
 
+### Priority 1.5: Handler Updates & Cleanup
+
+**HTTP Handler Updates** (BLOCKING compilation):
+- [ ] Fix `ideate_generation_handlers.rs` compilation errors:
+  - [ ] `generate_prd()` - calls removed `generate_from_session()`
+  - [ ] `fill_skipped_sections()` - calls removed `fill_skipped_sections()`
+  - [ ] `regenerate_section()` - calls removed `regenerate_section_with_full_context()`
+  - [ ] These handlers need to proxy to frontend AI or be disabled
+- [ ] Fix any other handler compilation errors from migrations
+
+**Legacy AIService Cleanup**:
 - [ ] Delete `packages/ai/src/service.rs` (entire legacy AIService - 487 lines)
 - [ ] Remove AIService exports from `packages/ai/src/lib.rs`
 - [ ] Remove `async-trait` from `packages/ai/Cargo.toml` (if not needed elsewhere)
 - [ ] Remove direct `reqwest` from `packages/ai/Cargo.toml` (if not needed elsewhere)
-- [ ] Revert incorrect commits (selective revert of Rust→proxy HTTP calls)
 - [ ] Keep only: AI proxy endpoints + usage logging + telemetry
+
+**Verification**:
 - [ ] Run full test suite
 - [ ] Verify all features work end-to-end
 - [ ] Update documentation

@@ -9,7 +9,6 @@ use axum::{
 use orkee_projects::DbState;
 
 pub mod agents_handlers;
-pub mod ai_handlers;
 pub mod ai_proxy_handlers;
 pub mod ai_usage_log_handlers;
 pub mod auth;
@@ -707,21 +706,6 @@ pub fn create_ideate_router() -> Router<DbState> {
             post(ideate_validation_handlers::store_validation_feedback),
         )
 }
-
-// Phase 6: AI handler functions moved to frontend TypeScript
-// These routes are no longer needed - all AI calls now happen client-side
-// Keeping router commented for reference during migration
-// pub fn create_ai_router() -> Router<DbState> {
-//     Router::new()
-//         .route("/ai/analyze-prd", post(ai_handlers::analyze_prd))
-//         .route("/ai/generate-spec", post(ai_handlers::generate_spec))
-//         .route("/ai/suggest-tasks", post(ai_handlers::suggest_tasks))
-//         .route("/ai/refine-spec", post(ai_handlers::refine_spec))
-//         .route(
-//             "/ai/validate-completion",
-//             post(ai_handlers::validate_completion),
-//         )
-// }
 
 /// Creates the AI usage logs API router for cost tracking
 pub fn create_ai_usage_router() -> Router<DbState> {
