@@ -36,3 +36,6 @@ chrono = "0.4"
 
 # Futures utilities
 futures-util = "0.3"
+
+# ID generation
+nanoid = "0.4"
