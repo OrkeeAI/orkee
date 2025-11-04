@@ -6,7 +6,7 @@ import { getModelInstance, calculateCost } from '@/lib/ai/config';
 import { getModelForTask } from './model-preferences';
 import { trackAIOperationWithCost } from '@/lib/ai/telemetry';
 import { z } from 'zod';
-import type { IdeateFeature, DependencyType, DependencyStrength, FeatureDependency } from './ideate';
+import type { IdeateFeature, FeatureDependency } from './ideate';
 import { ideateService } from './ideate';
 
 /**

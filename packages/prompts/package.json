@@ -1,6 +1,7 @@
 {
   "name": "@orkee/prompts",
-  "version": "0.1.0",
+  "version": "0.0.9",
+  "type": "module",
   "description": "Centralized AI prompt management for Orkee",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -37,8 +38,12 @@
   "author": "Orkee",
   "license": "MIT",
   "devDependencies": {
+    "@eslint/js": "^9.39.1",
     "@types/node": "^20.0.0",
+    "eslint": "^9.39.1",
+    "globals": "^16.5.0",
     "typescript": "^5.3.3",
+    "typescript-eslint": "^8.46.3",
     "vitest": "^1.0.0"
   },
   "dependencies": {}

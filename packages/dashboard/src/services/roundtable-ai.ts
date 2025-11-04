@@ -10,9 +10,6 @@ import type {
   SuggestExpertsRequest,
   ExpertPersona,
   RoundtableMessage,
-  ExpertSuggestion,
-  RoundtableInsight,
-  InsightPriority,
 } from './ideate';
 
 /**
@@ -85,10 +82,11 @@ export function formatConversationHistory(messages: RoundtableMessage[]): string
 
   for (const message of messages) {
     switch (message.role) {
-      case 'expert':
+      case 'expert': {
         const name = message.expert_name || 'Expert';
         formatted += `${name}: ${message.content}\n\n`;
         break;
+      }
       case 'user':
         formatted += `User: ${message.content}\n\n`;
         break;
