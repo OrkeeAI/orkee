@@ -15,6 +15,6 @@ pub use execution::ExecutionOrchestrator;
 pub use node_bridge::{IPCResponse, NodeBridge};
 pub use storage::ExecutionStorage;
 pub use types::{
-    Artifact, ContainerStatus, ExecutionRequest, ExecutionResponse, ExecutionStatus, LogEntry,
-    ResourceLimits, ResourceUsage, SandboxProvider,
+    Artifact, ContainerStatus, ExecutionEvent, ExecutionRequest, ExecutionResponse,
+    ExecutionStatus, LogEntry, ResourceLimits, ResourceUsage, SandboxProvider,
 };

@@ -171,3 +171,43 @@ pub struct ResourceUsage {
     /// CPU usage percentage (0-100 per core, can exceed 100 for multi-core)
     pub cpu_usage_percent: f64,
 }
+
+/// Events that can be streamed via SSE for real-time updates
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "type", rename_all = "lowercase")]
+pub enum ExecutionEvent {
+    /// New log entry
+    #[serde(rename = "log")]
+    Log { log: LogEntry },
+    /// Execution status changed
+    #[serde(rename = "status")]
+    Status {
+        execution_id: String,
+        status: ExecutionStatus,
+        error_message: Option<String>,
+    },
+    /// Container status changed
+    #[serde(rename = "container_status")]
+    ContainerStatus {
+        execution_id: String,
+        container_id: String,
+        status: ContainerStatus,
+    },
+    /// Resource usage update
+    #[serde(rename = "resource_usage")]
+    ResourceUsage {
+        execution_id: String,
+        memory_used_mb: u64,
+        cpu_usage_percent: f64,
+    },
+    /// Execution completed
+    #[serde(rename = "complete")]
+    Complete {
+        execution_id: String,
+        success: bool,
+        error_message: Option<String>,
+    },
+    /// Heartbeat to keep connection alive
+    #[serde(rename = "heartbeat")]
+    Heartbeat { timestamp: String },
+}

@@ -12,15 +12,21 @@ use crate::error::{Result, SandboxError};
 use crate::node_bridge::NodeBridge;
 use crate::storage::ExecutionStorage;
 use crate::types::{
-    Artifact, ContainerStatus, ExecutionRequest, ExecutionResponse, ExecutionStatus, LogEntry,
-    ResourceUsage,
+    Artifact, ContainerStatus, ExecutionEvent, ExecutionRequest, ExecutionResponse,
+    ExecutionStatus, LogEntry, ResourceUsage,
 };
+
+/// Default capacity for SSE broadcast channel
+/// Can be overridden via ORKEE_EXECUTION_EVENT_CHANNEL_SIZE environment variable
+const DEFAULT_EVENT_CHANNEL_SIZE: usize = 200;
 
 /// Orchestrates execution lifecycle from container creation to cleanup
 pub struct ExecutionOrchestrator {
     container_manager: Arc<ContainerManager>,
     node_bridge: Arc<NodeBridge>,
     storage: Arc<ExecutionStorage>,
+    /// Broadcast channel for real-time events
+    event_tx: tokio::sync::broadcast::Sender<ExecutionEvent>,
 }
 
 impl ExecutionOrchestrator {
@@ -30,10 +36,36 @@ impl ExecutionOrchestrator {
         node_bridge: Arc<NodeBridge>,
         storage: Arc<ExecutionStorage>,
     ) -> Self {
+        // Read channel size from environment with validation
+        let channel_size = std::env::var("ORKEE_EXECUTION_EVENT_CHANNEL_SIZE")
+            .ok()
+            .and_then(|v| v.parse::<usize>().ok())
+            .filter(|&v| v >= 10 && v <= 10000)
+            .unwrap_or(DEFAULT_EVENT_CHANNEL_SIZE);
+
+        let (event_tx, _) = tokio::sync::broadcast::channel(channel_size);
+
         Self {
             container_manager,
             node_bridge,
             storage,
+            event_tx,
+        }
+    }
+
+    /// Subscribe to execution events for SSE streaming
+    pub fn subscribe(&self) -> tokio::sync::broadcast::Receiver<ExecutionEvent> {
+        self.event_tx.subscribe()
+    }
+
+    /// Broadcast an event to all SSE subscribers
+    fn broadcast_event(&self, event: ExecutionEvent) {
+        // Log errors but don't fail - SSE is best-effort
+        if let Err(e) = self.event_tx.send(event) {
+            // Only log if there are no receivers (normal case when no SSE clients)
+            if self.event_tx.receiver_count() > 0 {
+                warn!("Failed to broadcast execution event: {}", e);
+            }
         }
     }
 
@@ -119,6 +151,19 @@ impl ExecutionOrchestrator {
             .update_execution_status(&request.execution_id, &ExecutionStatus::Running.to_string(), None)
             .await?;
 
+        // Broadcast status events
+        self.broadcast_event(ExecutionEvent::ContainerStatus {
+            execution_id: request.execution_id.clone(),
+            container_id: container_id.clone(),
+            status: ContainerStatus::Running,
+        });
+
+        self.broadcast_event(ExecutionEvent::Status {
+            execution_id: request.execution_id.clone(),
+            status: ExecutionStatus::Running,
+            error_message: None,
+        });
+
         info!(
             "Container {} started successfully for execution {}",
             container_id, request.execution_id
@@ -161,6 +206,19 @@ impl ExecutionOrchestrator {
                 Some("Stopped by user"),
             )
             .await?;
+
+        // Broadcast status events
+        self.broadcast_event(ExecutionEvent::ContainerStatus {
+            execution_id: execution_id.to_string(),
+            container_id: container_id.to_string(),
+            status: ContainerStatus::Stopped,
+        });
+
+        self.broadcast_event(ExecutionEvent::Status {
+            execution_id: execution_id.to_string(),
+            status: ExecutionStatus::Cancelled,
+            error_message: Some("Stopped by user".to_string()),
+        });
 
         info!("Execution {} stopped successfully", execution_id);
         Ok(())
@@ -286,6 +344,12 @@ impl ExecutionOrchestrator {
 
             // Insert log into database
             self.storage.insert_log(log_entry.clone()).await?;
+
+            // Broadcast log event to SSE subscribers
+            self.broadcast_event(ExecutionEvent::Log {
+                log: log_entry.clone(),
+            });
+
             logs.push(log_entry);
         }
 
