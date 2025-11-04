@@ -1,11 +1,9 @@
 // ABOUTME: OAuth callback server for handling authorization redirects
 // ABOUTME: Listens on localhost:3737 for OAuth callbacks and extracts authorization codes
 
-use std::sync::Arc;
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
     net::TcpListener,
-    sync::Mutex,
 };
 use tracing::{debug, error, info};
 
@@ -41,13 +39,12 @@ impl CallbackServer {
     /// Start server and wait for OAuth callback
     ///
     /// This blocks until either:
-    /// - An authorization code is received
+    /// - An authorization code and state are received
     /// - An error occurs
     /// - Connection timeout
-    pub async fn wait_for_callback(&self) -> AuthResult<String> {
-        let auth_code = Arc::new(Mutex::new(None::<String>));
-        let auth_code_clone = auth_code.clone();
-
+    ///
+    /// Returns (authorization_code, state)
+    pub async fn wait_for_callback(&self) -> AuthResult<(String, String)> {
         info!("Starting OAuth callback server on port {}", self.port);
 
         // Bind to localhost
@@ -76,17 +73,17 @@ impl CallbackServer {
         debug!("Received request:\n{}", request);
 
         // Extract authorization code and state
-        if let Some(code) = Self::extract_auth_code(&request) {
-            *auth_code_clone.lock().await = Some(code.clone());
-
+        if let (Some(code), Some(state)) =
+            (Self::extract_auth_code(&request), Self::extract_state(&request))
+        {
             // Send success response
             let response = Self::success_response();
             if let Err(e) = stream.write_all(response.as_bytes()).await {
                 error!("Failed to send success response: {}", e);
             }
 
-            info!("✅ Successfully received authorization code");
-            Ok(code)
+            info!("✅ Successfully received authorization code and state");
+            Ok((code, state))
         } else if let Some(error_msg) = Self::extract_error(&request) {
             // OAuth provider returned an error
             let response = Self::error_response(&error_msg);
@@ -98,11 +95,12 @@ impl CallbackServer {
             )))
         } else {
             // No code or error found in request
-            let response = Self::error_response("No authorization code found in request");
+            let response =
+                Self::error_response("No authorization code or state found in request");
             let _ = stream.write_all(response.as_bytes()).await;
 
             Err(AuthError::CallbackServer(
-                "No authorization code found in callback".to_string(),
+                "No authorization code or state found in callback".to_string(),
             ))
         }
     }
@@ -123,6 +121,27 @@ impl CallbackServer {
                     // Code continues to end of query string
                     let parts: Vec<&str> = code_part.split_whitespace().collect();
                     return parts.first().map(|s| s.to_string());
+                }
+            }
+        }
+        None
+    }
+
+    /// Extract state parameter from HTTP request
+    fn extract_state(request: &str) -> Option<String> {
+        // Look for state= parameter in the query string
+        let lines: Vec<&str> = request.lines().collect();
+        if let Some(first_line) = lines.first() {
+            // Find state parameter (could be ?state= or &state=)
+            for pattern in ["?state=", "&state="] {
+                if let Some(state_start) = first_line.find(pattern) {
+                    let state_part = &first_line[state_start + pattern.len()..];
+                    if let Some(state_end) = state_part.find(&['&', ' '][..]) {
+                        return Some(state_part[..state_end].to_string());
+                    } else {
+                        let parts: Vec<&str> = state_part.split_whitespace().collect();
+                        return parts.first().map(|s| s.to_string());
+                    }
                 }
             }
         }
@@ -195,6 +214,22 @@ mod tests {
             "GET /auth/callback?code=abc123&state=xyz789 HTTP/1.1\r\nHost: localhost:3737\r\n";
         let code = CallbackServer::extract_auth_code(request);
         assert_eq!(code, Some("abc123".to_string()));
+    }
+
+    #[test]
+    fn test_extract_state() {
+        let request =
+            "GET /auth/callback?code=abc123&state=xyz789 HTTP/1.1\r\nHost: localhost:3737\r\n";
+        let state = CallbackServer::extract_state(request);
+        assert_eq!(state, Some("xyz789".to_string()));
+    }
+
+    #[test]
+    fn test_extract_state_as_first_param() {
+        let request =
+            "GET /auth/callback?state=xyz789&code=abc123 HTTP/1.1\r\nHost: localhost:3737\r\n";
+        let state = CallbackServer::extract_state(request);
+        assert_eq!(state, Some("xyz789".to_string()));
     }
 
     #[test]

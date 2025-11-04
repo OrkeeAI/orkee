@@ -57,11 +57,13 @@ impl OAuthManager {
     ///
     /// This will:
     /// 1. Generate PKCE challenge
-    /// 2. Build authorization URL
-    /// 3. Open browser for user consent
-    /// 4. Start callback server
-    /// 5. Exchange authorization code for token
-    /// 6. Store encrypted token
+    /// 2. Generate CSRF state parameter
+    /// 3. Build authorization URL
+    /// 4. Open browser for user consent
+    /// 5. Start callback server
+    /// 6. Validate state parameter (CSRF protection)
+    /// 7. Exchange authorization code for token
+    /// 8. Store encrypted token
     pub async fn authenticate(
         &self,
         provider: OAuthProvider,
@@ -73,6 +75,10 @@ impl OAuthManager {
         let pkce = generate_pkce_challenge()?;
         debug!("Generated PKCE challenge");
 
+        // Generate state parameter for CSRF protection
+        let expected_state = nanoid::nanoid!();
+        debug!("Generated state parameter for CSRF protection");
+
         // Get or create provider config
         let config = self
             .storage
@@ -80,8 +86,8 @@ impl OAuthManager {
             .await?
             .unwrap_or_else(|| self.default_provider_config(provider));
 
-        // Build authorization URL
-        let auth_url = self.build_auth_url(&config, &pkce)?;
+        // Build authorization URL with state parameter
+        let auth_url = self.build_auth_url(&config, &pkce, &expected_state)?;
         info!("Opening browser for authentication: {}", auth_url);
 
         // Open browser
@@ -93,10 +99,20 @@ impl OAuthManager {
             )));
         }
 
-        // Start callback server and wait for authorization code
+        // Start callback server and wait for authorization code and state
         let server = CallbackServer::new();
-        let auth_code = server.wait_for_callback().await?;
+        let (auth_code, returned_state) = server.wait_for_callback().await?;
 
+        // Validate state parameter (CSRF protection)
+        if returned_state != expected_state {
+            error!(
+                "State mismatch: expected {}, got {}",
+                expected_state, returned_state
+            );
+            return Err(AuthError::StateMismatch);
+        }
+
+        info!("✅ State validated successfully");
         info!("Received authorization code, exchanging for token");
 
         // Exchange code for token
@@ -280,11 +296,12 @@ impl OAuthManager {
         Ok(statuses)
     }
 
-    /// Build authorization URL with PKCE challenge
+    /// Build authorization URL with PKCE challenge and state parameter
     fn build_auth_url(
         &self,
         config: &crate::oauth::types::OAuthProviderConfig,
         pkce: &crate::oauth::types::PkceChallenge,
+        state: &str,
     ) -> AuthResult<String> {
         let mut url = Url::parse(&config.auth_url)
             .map_err(|e| AuthError::Configuration(format!("Invalid auth URL: {}", e)))?;
@@ -296,7 +313,7 @@ impl OAuthManager {
             .append_pair("scope", &config.scopes.join(" "))
             .append_pair("code_challenge", &pkce.code_challenge)
             .append_pair("code_challenge_method", &pkce.code_challenge_method)
-            .append_pair("state", &nanoid::nanoid!());
+            .append_pair("state", state);
 
         Ok(url.to_string())
     }
