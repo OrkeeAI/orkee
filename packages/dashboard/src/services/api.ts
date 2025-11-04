@@ -272,3 +272,6 @@ export async function apiRequest<T>(
   }
 }
 
+
+// Alias for convenience
+export { apiRequest as api };
