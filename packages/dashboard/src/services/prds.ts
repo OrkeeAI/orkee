@@ -224,22 +224,6 @@ export class PRDsService {
       }
     }
 
-    // Log AI usage (non-blocking)
-    const { logAiUsage } = await import('./ai-usage');
-    logAiUsage({
-      projectId,
-      operation: 'analyzePRD',
-      provider: modelConfig.provider,
-      model: modelConfig.model,
-      inputTokens: result.usage.inputTokens,
-      outputTokens: result.usage.outputTokens,
-      totalTokens: result.usage.totalTokens,
-      estimatedCost: result.cost,
-      durationMs: 0,
-    }).catch((error) => {
-      console.warn('[prds.analyzePRD] Failed to log AI usage:', error);
-    });
-
     return result.data;
   }
 
