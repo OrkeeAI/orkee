@@ -1,6 +1,7 @@
 // ABOUTME: Database storage layer for OAuth tokens and provider configurations
 // ABOUTME: Handles encrypted storage and retrieval of OAuth credentials using SQLx
 
+use orkee_security::ApiKeyEncryption;
 use sqlx::{Row, SqlitePool};
 use tracing::{debug, error};
 
@@ -15,17 +16,38 @@ use crate::{
 /// OAuth storage manager for database operations
 pub struct OAuthStorage {
     pool: SqlitePool,
+    encryption: ApiKeyEncryption,
 }
 
 impl OAuthStorage {
     /// Create new OAuth storage with database pool
-    pub fn new(pool: SqlitePool) -> Self {
-        Self { pool }
+    pub fn new(pool: SqlitePool) -> AuthResult<Self> {
+        // Initialize encryption with machine-based key (default)
+        // Users can upgrade to password-based via `orkee security set-password`
+        let encryption = ApiKeyEncryption::new().map_err(|e| {
+            AuthError::Storage(format!("Failed to initialize encryption: {}", e))
+        })?;
+
+        Ok(Self { pool, encryption })
     }
 
     /// Store OAuth token (encrypted)
     pub async fn store_token(&self, token: &OAuthToken) -> AuthResult<()> {
         debug!("Storing OAuth token for provider: {}", token.provider);
+
+        // Encrypt access token and refresh token
+        let encrypted_access_token = self.encryption.encrypt(&token.access_token).map_err(|e| {
+            error!("Failed to encrypt access token: {}", e);
+            AuthError::Storage(format!("Token encryption failed: {}", e))
+        })?;
+
+        let encrypted_refresh_token = match &token.refresh_token {
+            Some(rt) => Some(self.encryption.encrypt(rt).map_err(|e| {
+                error!("Failed to encrypt refresh token: {}", e);
+                AuthError::Storage(format!("Token encryption failed: {}", e))
+            })?),
+            None => None,
+        };
 
         sqlx::query(
             r#"
@@ -49,8 +71,8 @@ impl OAuthStorage {
         .bind(&token.id)
         .bind(&token.user_id)
         .bind(&token.provider)
-        .bind(&token.access_token)
-        .bind(&token.refresh_token)
+        .bind(&encrypted_access_token)
+        .bind(&encrypted_refresh_token)
         .bind(token.expires_at)
         .bind(&token.token_type)
         .bind(&token.scope)
@@ -63,7 +85,7 @@ impl OAuthStorage {
             AuthError::Storage(format!("Failed to store token: {}", e))
         })?;
 
-        debug!("Successfully stored OAuth token");
+        debug!("Successfully stored encrypted OAuth token");
         Ok(())
     }
 
@@ -93,19 +115,36 @@ impl OAuthStorage {
 
         match row {
             Some(row) => {
+                // Decrypt access token
+                let encrypted_access_token: String = row.try_get("access_token")?;
+                let access_token = self.encryption.decrypt(&encrypted_access_token).map_err(|e| {
+                    error!("Failed to decrypt access token: {}", e);
+                    AuthError::Storage(format!("Token decryption failed: {}", e))
+                })?;
+
+                // Decrypt refresh token if present
+                let encrypted_refresh_token: Option<String> = row.try_get("refresh_token")?;
+                let refresh_token = match encrypted_refresh_token {
+                    Some(encrypted) => Some(self.encryption.decrypt(&encrypted).map_err(|e| {
+                        error!("Failed to decrypt refresh token: {}", e);
+                        AuthError::Storage(format!("Token decryption failed: {}", e))
+                    })?),
+                    None => None,
+                };
+
                 let token = OAuthToken {
                     id: row.try_get("id")?,
                     user_id: row.try_get("user_id")?,
                     provider: row.try_get("provider")?,
-                    access_token: row.try_get("access_token")?,
-                    refresh_token: row.try_get("refresh_token")?,
+                    access_token,
+                    refresh_token,
                     expires_at: row.try_get("expires_at")?,
                     token_type: row.try_get("token_type")?,
                     scope: row.try_get("scope")?,
                     subscription_type: row.try_get("subscription_type")?,
                     account_email: row.try_get("account_email")?,
                 };
-                debug!("Found OAuth token");
+                debug!("Found and decrypted OAuth token");
                 Ok(Some(token))
             }
             None => {

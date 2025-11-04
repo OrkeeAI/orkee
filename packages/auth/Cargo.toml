@@ -13,6 +13,7 @@ name = "orkee_auth"
 [dependencies]
 # Core packages
 orkee-core = { path = "../core" }
+orkee-security = { path = "../security" }
 orkee-storage = { path = "../storage" }
 
 # Database

@@ -83,7 +83,16 @@ pub async fn get_auth_status(
 ) -> impl IntoResponse {
     info!("Getting authentication status for user: {}", id);
 
-    let manager = OAuthManager::new(db.pool.clone());
+    let manager = match OAuthManager::new(db.pool.clone()) {
+        Ok(m) => m,
+        Err(e) => {
+            error!("Failed to initialize OAuth manager: {}", e);
+            return ok_or_internal_error(
+                Err::<AuthStatusResponse, _>(e),
+                "Failed to initialize OAuth manager",
+            );
+        }
+    };
 
     let result = manager.get_status(&id).await.map(|statuses| {
         let providers: Vec<ProviderStatusResponse> = statuses
@@ -119,7 +128,16 @@ pub async fn get_token(
         }
     };
 
-    let manager = OAuthManager::new(db.pool.clone());
+    let manager = match OAuthManager::new(db.pool.clone()) {
+        Ok(m) => m,
+        Err(e) => {
+            error!("Failed to initialize OAuth manager: {}", e);
+            return ok_or_internal_error(
+                Err::<TokenResponse, _>(e),
+                "Failed to initialize OAuth manager",
+            );
+        }
+    };
 
     let result = manager
         .get_token(&id, provider)
@@ -156,7 +174,16 @@ pub async fn refresh_token(
         }
     };
 
-    let manager = OAuthManager::new(db.pool.clone());
+    let manager = match OAuthManager::new(db.pool.clone()) {
+        Ok(m) => m,
+        Err(e) => {
+            error!("Failed to initialize OAuth manager: {}", e);
+            return ok_or_internal_error(
+                Err::<TokenResponse, _>(e),
+                "Failed to initialize OAuth manager",
+            );
+        }
+    };
 
     let result = manager
         .refresh_token(&id, provider)
@@ -185,7 +212,16 @@ pub async fn logout(
         }
     };
 
-    let manager = OAuthManager::new(db.pool.clone());
+    let manager = match OAuthManager::new(db.pool.clone()) {
+        Ok(m) => m,
+        Err(e) => {
+            error!("Failed to initialize OAuth manager: {}", e);
+            return ok_or_internal_error(
+                Err::<serde_json::Value, _>(e),
+                "Failed to initialize OAuth manager",
+            );
+        }
+    };
 
     let result = manager.logout(&id, provider).await.map(
         |_| serde_json::json!({ "message": format!("Successfully logged out from {}", provider) }),

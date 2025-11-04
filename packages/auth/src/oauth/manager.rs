@@ -26,11 +26,12 @@ pub struct OAuthManager {
 
 impl OAuthManager {
     /// Create a new OAuth manager with database pool
-    pub fn new(pool: SqlitePool) -> Self {
-        Self {
-            storage: OAuthStorage::new(pool),
+    pub fn new(pool: SqlitePool) -> AuthResult<Self> {
+        let storage = OAuthStorage::new(pool)?;
+        Ok(Self {
+            storage,
             client: Client::new(),
-        }
+        })
     }
 
     /// Create a new OAuth manager with default database connection
@@ -49,7 +50,7 @@ impl OAuthManager {
             .await
             .map_err(|e| AuthError::Storage(format!("Failed to connect to database: {}", e)))?;
 
-        Ok(Self::new(pool))
+        Self::new(pool)
     }
 
     /// Authenticate with a provider using OAuth flow
