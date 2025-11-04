@@ -324,7 +324,7 @@ Chat mode **already implements the correct pattern:**
 - [ ] Keep only: AI proxy endpoints + usage logging + telemetry
 
 **Verification**:
-- [ ] Run full test suite
+- [x] Run full test suite (all tests pass)
 - [ ] Verify all features work end-to-end
 - [ ] Update documentation
 
