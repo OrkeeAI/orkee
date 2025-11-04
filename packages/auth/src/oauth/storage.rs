@@ -24,9 +24,8 @@ impl OAuthStorage {
     pub fn new(pool: SqlitePool) -> AuthResult<Self> {
         // Initialize encryption with machine-based key (default)
         // Users can upgrade to password-based via `orkee security set-password`
-        let encryption = ApiKeyEncryption::new().map_err(|e| {
-            AuthError::Storage(format!("Failed to initialize encryption: {}", e))
-        })?;
+        let encryption = ApiKeyEncryption::new()
+            .map_err(|e| AuthError::Storage(format!("Failed to initialize encryption: {}", e)))?;
 
         Ok(Self { pool, encryption })
     }
@@ -117,10 +116,13 @@ impl OAuthStorage {
             Some(row) => {
                 // Decrypt access token
                 let encrypted_access_token: String = row.try_get("access_token")?;
-                let access_token = self.encryption.decrypt(&encrypted_access_token).map_err(|e| {
-                    error!("Failed to decrypt access token: {}", e);
-                    AuthError::Storage(format!("Token decryption failed: {}", e))
-                })?;
+                let access_token =
+                    self.encryption
+                        .decrypt(&encrypted_access_token)
+                        .map_err(|e| {
+                            error!("Failed to decrypt access token: {}", e);
+                            AuthError::Storage(format!("Token decryption failed: {}", e))
+                        })?;
 
                 // Decrypt refresh token if present
                 let encrypted_refresh_token: Option<String> = row.try_get("refresh_token")?;

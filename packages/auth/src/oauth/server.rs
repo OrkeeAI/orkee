@@ -73,9 +73,10 @@ impl CallbackServer {
         debug!("Received request:\n{}", request);
 
         // Extract authorization code and state
-        if let (Some(code), Some(state)) =
-            (Self::extract_auth_code(&request), Self::extract_state(&request))
-        {
+        if let (Some(code), Some(state)) = (
+            Self::extract_auth_code(&request),
+            Self::extract_state(&request),
+        ) {
             // Send success response
             let response = Self::success_response();
             if let Err(e) = stream.write_all(response.as_bytes()).await {
@@ -95,8 +96,7 @@ impl CallbackServer {
             )))
         } else {
             // No code or error found in request
-            let response =
-                Self::error_response("No authorization code or state found in request");
+            let response = Self::error_response("No authorization code or state found in request");
             let _ = stream.write_all(response.as_bytes()).await;
 
             Err(AuthError::CallbackServer(
