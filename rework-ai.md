@@ -422,7 +422,7 @@ turbo build
 3. `6ce1c00` - "Priority 1.3 Backend: Remove PRD Generation AI logic from Rust (991→599 lines)"
 4. `a5fff8e` - "Priority 1.3 Frontend: Create AI SDK service for PRD generation (766 lines)"
 5. `b79bf99` - "Priority 1.3 Complete: Research Analysis migration (backend 558→333, frontend +389)"
-6. **PENDING** - "Priority 1.4 Complete: Expert Roundtable migration (backend 553→240, frontend +413)"
+6. `d4cdbe2` - "Priority 1.4 Complete: Expert Roundtable migration (backend 553→240, frontend +413)"
 
 ### Planned Commits
 7. Priority 1.3/1.4 Handlers: Update HTTP handlers for frontend AI pattern
