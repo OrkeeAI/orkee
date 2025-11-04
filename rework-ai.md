@@ -293,27 +293,28 @@ Chat mode **already implements the correct pattern:**
 
 **Note**: Separate compilation issues exist in `ideate_generation_handlers.rs` from earlier PRD migration. These are handler updates (separate task) not related to Generic AI Handlers deletion.
 
-### Priority 1.5: Handler Updates & Cleanup 🚧 IN PROGRESS (85% complete)
+### Priority 1.5: Handler Updates & Cleanup ✅ COMPLETE
 
-**HTTP Handler Routes** ✅ COMPLETE:
+**HTTP Handler Routes** ✅ COMPLETE (commit b9f1d90):
 - [x] Removed 16 AI handler routes (all routes calling removed AI methods)
 - [x] PRD generation handlers: 5 routes removed
 - [x] Quick Mode handlers: 2 routes removed
 - [x] Research handlers: 5 routes removed
 - [x] Roundtable handlers: 3 routes removed
 - [x] Export handler: 1 route removed
+- [x] Removed `get_participants` route (handler never existed)
 
-**Handler Function Cleanup** 🚧 IN PROGRESS (1/8 complete):
-- [x] `analyze_competitor()` - DELETED (commit ea5c025)
-- [ ] `analyze_gaps()` - needs deletion
-- [ ] `extract_patterns()` - needs deletion
-- [ ] `extract_lessons()` - needs deletion
-- [ ] `synthesize_research()` - needs deletion
-- [ ] `suggest_experts()` - needs deletion
-- [ ] `start_discussion()` - needs deletion
-- [ ] `extract_insights()` - needs deletion
+**Handler Function Cleanup** ✅ COMPLETE (commits ea5c025, 977ebc1):
+- [x] `analyze_competitor()` - DELETED (commit ea5c025, 69 lines)
+- [x] `analyze_gaps()` - DELETED (commit 977ebc1, 66 lines)
+- [x] `extract_patterns()` - DELETED (commit 977ebc1, 68 lines)
+- [x] `extract_lessons()` - DELETED (commit 977ebc1, 97 lines)
+- [x] `synthesize_research()` - DELETED (commit 977ebc1, 59 lines)
+- [x] `suggest_experts()` - Already deleted in earlier session
+- [x] `start_discussion()` - Already deleted in earlier session
+- [x] `extract_insights()` - DELETED (commit 977ebc1, 17 lines)
 
-**Status**: 7 compilation errors remain from handlers calling removed AI methods. Routes are already removed, so these are unreachable dead code.
+**Result**: All dead handler code removed. Build succeeds with 0 errors. Total: ~375 lines of dead code deleted.
 
 **Legacy AIService Cleanup**:
 - [ ] Delete `packages/ai/src/service.rs` (entire legacy AIService - 487 lines)
