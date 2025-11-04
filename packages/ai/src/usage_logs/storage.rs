@@ -447,9 +447,13 @@ impl AiUsageLogStorage {
             estimated_cost: row.try_get("estimated_cost").map_err(StorageError::Sqlx)?,
             duration_ms: row.try_get("duration_ms").map_err(StorageError::Sqlx)?,
             error: row.try_get("error").map_err(StorageError::Sqlx)?,
-            tool_calls_count: row.try_get("tool_calls_count").map_err(StorageError::Sqlx)?,
+            tool_calls_count: row
+                .try_get("tool_calls_count")
+                .map_err(StorageError::Sqlx)?,
             tool_calls_json: row.try_get("tool_calls_json").map_err(StorageError::Sqlx)?,
-            response_metadata: row.try_get("response_metadata").map_err(StorageError::Sqlx)?,
+            response_metadata: row
+                .try_get("response_metadata")
+                .map_err(StorageError::Sqlx)?,
             created_at,
         })
     }
@@ -515,7 +519,9 @@ impl AiUsageLogStorage {
                     serde_json::from_str::<Vec<ToolCallDetail>>(&tool_calls_json)
                 {
                     for tool_call in tool_calls {
-                        let entry = tool_stats.entry(tool_call.name.clone()).or_insert((0, 0, 0, 0));
+                        let entry = tool_stats
+                            .entry(tool_call.name.clone())
+                            .or_insert((0, 0, 0, 0));
                         entry.0 += 1; // call_count
                         if tool_call.error.is_none() {
                             entry.1 += 1; // success_count
@@ -532,20 +538,22 @@ impl AiUsageLogStorage {
 
         let stats = tool_stats
             .into_iter()
-            .map(|(tool_name, (call_count, success_count, failure_count, total_duration))| {
-                ToolUsageStats {
-                    tool_name,
-                    call_count,
-                    success_count,
-                    failure_count,
-                    average_duration_ms: if call_count > 0 {
-                        total_duration as f64 / call_count as f64
-                    } else {
-                        0.0
-                    },
-                    total_duration_ms: total_duration,
-                }
-            })
+            .map(
+                |(tool_name, (call_count, success_count, failure_count, total_duration))| {
+                    ToolUsageStats {
+                        tool_name,
+                        call_count,
+                        success_count,
+                        failure_count,
+                        average_duration_ms: if call_count > 0 {
+                            total_duration as f64 / call_count as f64
+                        } else {
+                            0.0
+                        },
+                        total_duration_ms: total_duration,
+                    }
+                },
+            )
             .collect::<Vec<_>>();
 
         Ok(stats)
@@ -627,9 +635,12 @@ impl AiUsageLogStorage {
                         .and_hms_opt(0, 0, 0)?
                         .and_utc()
                 } else {
-                    DateTime::parse_from_str(&format!("{}+00:00", time_bucket), "%Y-%m-%d %H:%M:%S%z")
-                        .ok()?
-                        .with_timezone(&Utc)
+                    DateTime::parse_from_str(
+                        &format!("{}+00:00", time_bucket),
+                        "%Y-%m-%d %H:%M:%S%z",
+                    )
+                    .ok()?
+                    .with_timezone(&Utc)
                 };
 
                 Some(TimeSeriesDataPoint {

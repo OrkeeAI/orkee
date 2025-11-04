@@ -727,10 +727,7 @@ pub fn create_ai_usage_router() -> Router<DbState> {
         .route("/logs", get(ai_usage_log_handlers::list_logs))
         .route("/stats", get(ai_usage_log_handlers::get_stats))
         .route("/tools", get(ai_usage_log_handlers::get_tool_stats))
-        .route(
-            "/time-series",
-            get(ai_usage_log_handlers::get_time_series),
-        )
+        .route("/time-series", get(ai_usage_log_handlers::get_time_series))
 }
 
 /// Creates the AI proxy API router for secure credential management
