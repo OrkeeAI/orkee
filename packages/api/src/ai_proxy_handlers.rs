@@ -127,6 +127,44 @@ fn build_error_response(status: StatusCode, message: String) -> Response<Body> {
         })
 }
 
+/// Try to get OAuth token for a provider
+/// Returns Some(token) if OAuth token exists and is valid, None otherwise
+async fn try_get_oauth_token(db: &DbState, user_id: &str, provider: &str) -> Option<String> {
+    // Parse provider string into OAuthProvider enum
+    let oauth_provider = match provider {
+        "anthropic" => orkee_auth::OAuthProvider::Claude,
+        "openai" => orkee_auth::OAuthProvider::OpenAI,
+        "google" => orkee_auth::OAuthProvider::Google,
+        "xai" => orkee_auth::OAuthProvider::XAI,
+        _ => {
+            warn!("Unknown provider for OAuth: {}", provider);
+            return None;
+        }
+    };
+
+    // Create OAuth manager
+    let manager = orkee_auth::OAuthManager::new(db.pool.clone());
+
+    // Try to get valid OAuth token
+    match manager.get_token(user_id, oauth_provider).await {
+        Ok(Some(token)) => {
+            info!(
+                "Found valid OAuth token for {} (expires: {})",
+                provider, token.expires_at
+            );
+            Some(token.access_token)
+        }
+        Ok(None) => {
+            info!("No valid OAuth token found for {}", provider);
+            None
+        }
+        Err(e) => {
+            warn!("Failed to get OAuth token for {}: {}", provider, e);
+            None
+        }
+    }
+}
+
 /// Proxy requests to Anthropic API with API key from database
 pub async fn proxy_anthropic(
     State(db): State<DbState>,
@@ -194,25 +232,35 @@ async fn proxy_ai_request(
 ) -> Response<Body> {
     info!("Proxying {} API request", provider);
 
-    // Get API key from database with env fallback
-    let api_key = match db.user_storage.get_api_key(user_id, provider).await {
-        Ok(Some(key)) => key,
-        Ok(None) => {
-            error!("{} API key not configured", provider);
-            return build_error_response(
-                StatusCode::UNAUTHORIZED,
-                format!(
-                    "{} API key not configured. Please add it in Settings.",
-                    provider
-                ),
-            );
+    // Try OAuth token first, then fall back to API key
+    let api_key = match try_get_oauth_token(db, user_id, provider).await {
+        Some(token) => {
+            info!("Using OAuth token for {} provider", provider);
+            token
         }
-        Err(e) => {
-            error!("Failed to get {} API key: {}", provider, e);
-            return build_error_response(
-                StatusCode::INTERNAL_SERVER_ERROR,
-                "Failed to retrieve API key. Please check server logs for details.".to_string(),
-            );
+        None => {
+            info!("No OAuth token found, trying API key for {} provider", provider);
+            // Get API key from database with env fallback
+            match db.user_storage.get_api_key(user_id, provider).await {
+                Ok(Some(key)) => key,
+                Ok(None) => {
+                    error!("{} API key or OAuth token not configured", provider);
+                    return build_error_response(
+                        StatusCode::UNAUTHORIZED,
+                        format!(
+                            "{} API key or OAuth token not configured. Please add it in Settings or authenticate with OAuth.",
+                            provider
+                        ),
+                    );
+                }
+                Err(e) => {
+                    error!("Failed to get {} API key: {}", provider, e);
+                    return build_error_response(
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        "Failed to retrieve API key. Please check server logs for details.".to_string(),
+                    );
+                }
+            }
         }
     };
 
