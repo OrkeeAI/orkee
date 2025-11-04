@@ -41,6 +41,7 @@ pub struct RateLimitConfig {
     pub ai_rpm: u32,        // AI proxy endpoints
     pub users_rpm: u32,     // User management (credentials, settings)
     pub security_rpm: u32,  // Security endpoints (password management, encryption)
+    pub oauth_rpm: u32,     // OAuth authentication endpoints
     pub global_rpm: u32,    // Global fallback
     pub burst_size: u32,    // Burst size multiplier
 }
@@ -57,6 +58,7 @@ impl Default for RateLimitConfig {
             ai_rpm: 10,        // Strict limit to prevent cost abuse and DoS
             users_rpm: 10,     // Strict limit for expensive encryption operations
             security_rpm: 10,  // Strict limit to prevent brute-force and DoS on password operations
+            oauth_rpm: 10,     // Strict limit to prevent OAuth abuse
             global_rpm: 30,
             burst_size: 5,
         }
@@ -90,6 +92,7 @@ impl RateLimitLayer {
             EndpointCategory::AI => self.config.ai_rpm,
             EndpointCategory::Users => self.config.users_rpm,
             EndpointCategory::Security => self.config.security_rpm,
+            EndpointCategory::OAuth => self.config.oauth_rpm,
             EndpointCategory::Other => self.config.global_rpm,
         }
     }
@@ -106,6 +109,7 @@ impl RateLimitLayer {
             EndpointCategory::AI => self.config.ai_rpm,
             EndpointCategory::Users => self.config.users_rpm,
             EndpointCategory::Security => self.config.security_rpm,
+            EndpointCategory::OAuth => self.config.oauth_rpm,
             EndpointCategory::Other => self.config.global_rpm,
         };
 
@@ -148,6 +152,7 @@ enum EndpointCategory {
     AI,
     Users,
     Security,
+    OAuth,
     Other,
 }
 
@@ -162,6 +167,7 @@ impl EndpointCategory {
             EndpointCategory::AI => "ai",
             EndpointCategory::Users => "users",
             EndpointCategory::Security => "security",
+            EndpointCategory::OAuth => "oauth",
             EndpointCategory::Other => "other",
         }
     }
@@ -172,6 +178,8 @@ fn categorize_endpoint(path: &str) -> EndpointCategory {
     // Check more specific paths first to avoid false matches
     if path.contains("/security") {
         EndpointCategory::Security
+    } else if path.contains("/auth") {
+        EndpointCategory::OAuth
     } else if path.contains("/health") || path.contains("/status") {
         EndpointCategory::Health
     } else if path.contains("/browse-directories") {
@@ -353,6 +361,7 @@ mod tests {
             ai_rpm: 10,
             users_rpm: 10,
             security_rpm: 10,
+            oauth_rpm: 10,
             global_rpm: 30,
             burst_size: 5,
         };
@@ -395,6 +404,7 @@ mod tests {
         assert_eq!(config.ai_rpm, 10);
         assert_eq!(config.users_rpm, 10);
         assert_eq!(config.security_rpm, 10);
+        assert_eq!(config.oauth_rpm, 10);
         assert_eq!(config.global_rpm, 30);
         assert_eq!(config.burst_size, 5);
     }
@@ -438,6 +448,31 @@ mod tests {
         assert!(matches!(
             categorize_endpoint("/api/security/remove-password"),
             EndpointCategory::Security
+        ));
+    }
+
+    #[test]
+    fn test_oauth_endpoint_categorization() {
+        // OAuth endpoints should be categorized as OAuth
+        assert!(matches!(
+            categorize_endpoint("/api/auth/providers"),
+            EndpointCategory::OAuth
+        ));
+        assert!(matches!(
+            categorize_endpoint("/api/auth/status"),
+            EndpointCategory::OAuth
+        ));
+        assert!(matches!(
+            categorize_endpoint("/api/auth/claude/token"),
+            EndpointCategory::OAuth
+        ));
+        assert!(matches!(
+            categorize_endpoint("/api/auth/openai/refresh"),
+            EndpointCategory::OAuth
+        ));
+        assert!(matches!(
+            categorize_endpoint("/api/auth/google"),
+            EndpointCategory::OAuth
         ));
     }
 }
