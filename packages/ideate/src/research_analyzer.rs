@@ -263,8 +263,6 @@ impl ResearchAnalyzer {
         }
     }
 
-
-
     /// Add similar project
     pub async fn add_similar_project(
         &self,
@@ -328,6 +326,4 @@ impl ResearchAnalyzer {
             Ok(vec![])
         }
     }
-
-
 }

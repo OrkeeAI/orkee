@@ -186,7 +186,6 @@ pub async fn quick_generate(
     )
 }
 
-
 /// Persist generated PRD sections to ideate_ database tables
 async fn persist_generated_prd(
     manager: &IdeateManager,

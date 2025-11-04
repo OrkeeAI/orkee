@@ -177,7 +177,6 @@ pub async fn add_participants(
         .add_participants(&roundtable_id, request.expert_ids)
         .await;
 
-
     Json(SuccessResponse {
         success: true,
         data: serde_json::json!({

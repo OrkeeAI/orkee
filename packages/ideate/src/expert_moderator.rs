@@ -77,13 +77,9 @@ impl ExpertModerator {
     }
 
     /// Get participants for a roundtable (helper for frontend AI)
-    pub async fn get_participants_for_ai(
-        &self,
-        roundtable_id: &str,
-    ) -> Result<Vec<ExpertPersona>> {
+    pub async fn get_participants_for_ai(&self, roundtable_id: &str) -> Result<Vec<ExpertPersona>> {
         self.manager.get_participants(roundtable_id).await
     }
-
 }
 
 // ============================================================================

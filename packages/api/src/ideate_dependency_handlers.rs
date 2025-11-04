@@ -44,7 +44,6 @@ pub async fn get_dependencies(
 ) -> impl IntoResponse {
     info!("Getting dependencies for session: {}", session_id);
 
-    
     let analyzer = DependencyAnalyzer::new(db.pool.clone());
 
     let result = analyzer.get_dependencies(&session_id).await;
@@ -62,7 +61,6 @@ pub async fn create_dependency(
         session_id, request.from_feature_id, request.to_feature_id
     );
 
-    
     let analyzer = DependencyAnalyzer::new(db.pool.clone());
 
     let input = CreateDependencyInput {
@@ -84,13 +82,11 @@ pub async fn delete_dependency(
 ) -> impl IntoResponse {
     info!("Deleting dependency: {}", dependency_id);
 
-    
     let analyzer = DependencyAnalyzer::new(db.pool.clone());
 
     let result = analyzer.delete_dependency(&dependency_id).await;
     ok_or_internal_error(result, "Failed to delete dependency")
 }
-
 
 /// Optimize build order
 pub async fn optimize_build_order(

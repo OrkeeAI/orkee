@@ -109,4 +109,3 @@ pub async fn get_similar_projects(
     let result = analyzer.get_similar_projects(&session_id).await;
     ok_or_internal_error(result, "Failed to get similar projects")
 }
-
