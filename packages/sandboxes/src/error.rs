@@ -41,6 +41,22 @@ pub enum SandboxError {
     #[error("Node.js bridge error: {0}")]
     NodeBridge(String),
 
+    /// Node.js bridge script not found
+    #[error("Bridge script not found: {0}")]
+    BridgeNotFound(String),
+
+    /// Node.js bridge failed to start
+    #[error("Bridge failed to start: {0}")]
+    BridgeStartFailed(String),
+
+    /// Node.js bridge is not running
+    #[error("Bridge is not running")]
+    BridgeNotRunning,
+
+    /// Node.js bridge communication error
+    #[error("Bridge communication error: {0}")]
+    BridgeCommunicationError(String),
+
     /// Node.js process failed to start
     #[error("Node.js process failed to start: {0}")]
     NodeProcessStartFailed(String),
@@ -52,6 +68,10 @@ pub enum SandboxError {
     /// IPC communication error
     #[error("IPC communication error: {0}")]
     IpcError(String),
+
+    /// Serialization error
+    #[error("Serialization error: {0}")]
+    SerializationError(String),
 
     /// Execution timeout
     #[error("Execution timed out after {seconds} seconds")]
