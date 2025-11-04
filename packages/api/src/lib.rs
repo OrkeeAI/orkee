@@ -13,6 +13,7 @@ pub mod ai_proxy_handlers;
 pub mod ai_usage_log_handlers;
 pub mod auth;
 pub mod epic_approaches_handlers;
+pub mod oauth_handlers;
 pub mod epic_handlers;
 pub mod executions_handlers;
 pub mod github_sync_handlers;
@@ -815,4 +816,14 @@ pub fn create_github_sync_router() -> Router<DbState> {
             "/github/sync/status/{project_id}",
             get(github_sync_handlers::get_sync_status),
         )
+}
+
+/// Creates the OAuth API router for OAuth authentication management
+pub fn create_oauth_router() -> Router<DbState> {
+    Router::new()
+        .route("/providers", get(oauth_handlers::list_providers))
+        .route("/status", get(oauth_handlers::get_auth_status))
+        .route("/{provider}/token", post(oauth_handlers::get_token))
+        .route("/{provider}/refresh", post(oauth_handlers::refresh_token))
+        .route("/{provider}", delete(oauth_handlers::logout))
 }
