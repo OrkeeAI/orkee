@@ -32,6 +32,7 @@ pub mod models_handlers;
 pub mod oauth_handlers;
 pub mod prd_handlers;
 pub mod response;
+pub mod sandbox_execution_handlers;
 pub mod security_handlers;
 pub mod tags_handlers;
 pub mod task_decomposition_handlers;
@@ -838,4 +839,48 @@ pub fn create_oauth_router() -> Router<DbState> {
         .route("/{provider}/token", post(oauth_handlers::get_token))
         .route("/{provider}/refresh", post(oauth_handlers::refresh_token))
         .route("/{provider}", delete(oauth_handlers::logout))
+}
+
+/// Creates the sandbox execution API router for containerized agent executions
+pub fn create_sandbox_executions_router() -> Router<sandbox_execution_handlers::SandboxExecutionState> {
+    Router::new()
+        // Execution control
+        .route(
+            "/executions/{execution_id}/stop",
+            post(sandbox_execution_handlers::stop_execution),
+        )
+        .route(
+            "/executions/{execution_id}/retry",
+            post(sandbox_execution_handlers::retry_execution),
+        )
+        // Log operations
+        .route(
+            "/executions/{execution_id}/logs",
+            get(sandbox_execution_handlers::get_execution_logs),
+        )
+        .route(
+            "/executions/{execution_id}/logs/stream",
+            get(sandbox_execution_handlers::stream_execution_logs),
+        )
+        .route(
+            "/executions/{execution_id}/logs/search",
+            get(sandbox_execution_handlers::search_logs),
+        )
+        // Artifact operations
+        .route(
+            "/executions/{execution_id}/artifacts",
+            get(sandbox_execution_handlers::list_artifacts),
+        )
+        .route(
+            "/artifacts/{artifact_id}",
+            get(sandbox_execution_handlers::get_artifact),
+        )
+        .route(
+            "/artifacts/{artifact_id}/download",
+            get(sandbox_execution_handlers::download_artifact),
+        )
+        .route(
+            "/artifacts/{artifact_id}",
+            delete(sandbox_execution_handlers::delete_artifact),
+        )
 }
