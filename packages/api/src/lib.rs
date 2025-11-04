@@ -28,6 +28,7 @@ pub mod ideate_roundtable_handlers;
 pub mod ideate_validation_handlers;
 pub mod model_preferences_handlers;
 pub mod models_handlers;
+pub mod oauth_handlers;
 pub mod prd_handlers;
 pub mod response;
 pub mod security_handlers;
@@ -815,4 +816,14 @@ pub fn create_github_sync_router() -> Router<DbState> {
             "/github/sync/status/{project_id}",
             get(github_sync_handlers::get_sync_status),
         )
+}
+
+/// Creates the OAuth API router for OAuth authentication management
+pub fn create_oauth_router() -> Router<DbState> {
+    Router::new()
+        .route("/providers", get(oauth_handlers::list_providers))
+        .route("/status", get(oauth_handlers::get_auth_status))
+        .route("/{provider}/token", post(oauth_handlers::get_token))
+        .route("/{provider}/refresh", post(oauth_handlers::refresh_token))
+        .route("/{provider}", delete(oauth_handlers::logout))
 }

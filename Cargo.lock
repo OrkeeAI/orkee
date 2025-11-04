@@ -2853,6 +2853,7 @@ dependencies = [
  "nanoid",
  "orkee-agents",
  "orkee-ai",
+ "orkee-auth",
  "orkee-config",
  "orkee-context",
  "orkee-core",
@@ -2881,6 +2882,35 @@ dependencies = [
 ]
 
 [[package]]
+name = "orkee-auth"
+version = "0.0.9"
+dependencies = [
+ "async-trait",
+ "base64 0.22.1",
+ "chrono",
+ "dirs",
+ "nanoid",
+ "open",
+ "orkee-core",
+ "orkee-security",
+ "orkee-storage",
+ "rand 0.8.5",
+ "reqwest 0.12.24",
+ "serde",
+ "serde_json",
+ "sha2",
+ "sqlx",
+ "tempfile",
+ "thiserror 2.0.17",
+ "tokio",
+ "tokio-test",
+ "tracing",
+ "url",
+ "urlencoding",
+ "uuid",
+]
+
+[[package]]
 name = "orkee-cli"
 version = "0.0.9"
 dependencies = [
@@ -2904,10 +2934,12 @@ dependencies = [
  "inquire",
  "mockall 0.12.1",
  "orkee-api",
+ "orkee-auth",
  "orkee-cloud",
  "orkee-config",
  "orkee-preview",
  "orkee-projects",
+ "orkee-storage",
  "orkee-tui",
  "pin-project",
  "portpicker",

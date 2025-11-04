@@ -3,6 +3,7 @@ members = [
     "packages/core",
     "packages/storage",
     "packages/security",
+    "packages/auth",
     "packages/formatter",
     "packages/git_utils",
     "packages/tags",

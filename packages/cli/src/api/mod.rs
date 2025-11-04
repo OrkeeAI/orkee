@@ -354,6 +354,10 @@ pub async fn create_router_with_options(
             orkee_api::create_security_router().with_state(db_state.clone()),
         )
         .nest(
+            "/api/auth",
+            orkee_api::create_oauth_router().with_state(db_state.clone()),
+        )
+        .nest(
             "/api/tags",
             orkee_api::create_tags_router().with_state(db_state.clone()),
         )

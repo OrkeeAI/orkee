@@ -116,6 +116,79 @@ Configure AI-powered task management features:
 | `OLLAMA_API_KEY` | Optional | Ollama API key (for remote servers) |
 | `GITHUB_API_KEY` | Optional | GitHub API for import/export (format: `ghp_...` or `github_pat_...`) |
 
+## OAuth Authentication Variables
+
+Configure OAuth authentication for AI providers (Claude, OpenAI, Google, xAI).
+
+### Core OAuth Settings
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `OAUTH_CALLBACK_PORT` | `3737` | Port for OAuth callback server |
+| `OAUTH_STATE_TIMEOUT_SECS` | `600` | OAuth state parameter timeout (10 minutes) |
+| `OAUTH_TOKEN_REFRESH_BUFFER_SECS` | `300` | Token refresh buffer time (5 minutes before expiry) |
+
+### Provider-Specific OAuth Configuration
+
+Override default OAuth client configurations (optional):
+
+#### Claude OAuth
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `OAUTH_CLAUDE_CLIENT_ID` | `orkee-cli-oauth-client` | Claude OAuth client ID |
+| `OAUTH_CLAUDE_REDIRECT_URI` | `http://localhost:3737/callback` | OAuth redirect URI |
+| `OAUTH_CLAUDE_SCOPES` | `"model:claude account:read"` | OAuth scopes |
+
+#### OpenAI OAuth
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `OAUTH_OPENAI_CLIENT_ID` | `orkee-cli-oauth-client` | OpenAI OAuth client ID |
+| `OAUTH_OPENAI_REDIRECT_URI` | `http://localhost:3737/callback` | OAuth redirect URI |
+
+#### Google OAuth
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `OAUTH_GOOGLE_CLIENT_ID` | `orkee-cli-oauth-client` | Google OAuth client ID |
+| `OAUTH_GOOGLE_REDIRECT_URI` | `http://localhost:3737/callback` | OAuth redirect URI |
+
+#### xAI OAuth
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `OAUTH_XAI_CLIENT_ID` | `orkee-cli-oauth-client` | xAI OAuth client ID |
+| `OAUTH_XAI_REDIRECT_URI` | `http://localhost:3737/callback` | OAuth redirect URI |
+
+:::tip Default Configurations
+Default OAuth configurations are provided for all providers. You only need to set these variables if you have custom OAuth client credentials from the provider.
+:::
+
+:::info OAuth Storage
+OAuth tokens are encrypted and stored in `~/.orkee/orkee.db` using ChaCha20-Poly1305 AEAD encryption. Tokens are automatically refreshed 5 minutes before expiry.
+:::
+
+### OAuth CLI Commands
+
+Manage OAuth authentication via CLI:
+
+```bash
+# Authenticate with a provider
+orkee login claude
+
+# Check authentication status
+orkee auth status
+
+# Refresh token
+orkee auth refresh claude
+
+# Logout
+orkee logout claude
+```
+
+For detailed OAuth setup instructions, see the [OAuth Authentication Guide](../user-guide/oauth-authentication.md).
+
 ## Cloud Sync Variables
 
 Configure Orkee Cloud integration for backup and synchronization:

@@ -30,6 +30,8 @@ Orkee follows a **defense-in-depth** strategy with **zero-trust principles**, im
 | **Container Security** | ✅ Complete | Non-root, hardened | Multi-stage builds |
 | **Deployment Security** | ✅ Complete | Systemd hardening | Production configs |
 | **Audit Logging** | ✅ Complete | Structured logging | Tracing framework |
+| **OAuth Provider Authentication** | ✅ Complete | PKCE + state parameter | AI provider OAuth |
+| **OAuth Token Encryption** | ✅ Complete | ChaCha20-Poly1305 AEAD | Encrypted token storage |
 | **Cloud Authentication** | ✅ Complete | OAuth 2.0 + token storage | Secure auth flow |
 | **Cloud API Security** | ✅ Complete | HTTPS + Bearer tokens | Transport security |
 | **Token Management** | ✅ Complete | Local secure storage | ~/.orkee/auth.toml |
@@ -57,6 +59,10 @@ Orkee follows a **defense-in-depth** strategy with **zero-trust principles**, im
 | **Replay Attacks** | Nonce generation | Crypto secure RNG | ✅ Active |
 | **Unauthorized API Access** | API token authentication | SHA-256 + constant-time | ✅ Active |
 | **Cross-Origin API Abuse** | Token + CORS | Whitelisted origins + tokens | ✅ Active |
+| **OAuth CSRF Attacks** | State parameter | Cryptographically secure random state | ✅ Active |
+| **OAuth Authorization Code Interception** | PKCE | SHA256 code challenge/verifier | ✅ Active |
+| **OAuth Token Theft** | Encrypted storage | ChaCha20-Poly1305 encryption | ✅ Active |
+| **OAuth Token Replay** | Token expiry + refresh | 5-minute refresh buffer | ✅ Active |
 
 ### Trust Boundaries
 
@@ -441,6 +447,153 @@ For complete authentication documentation, see:
 - **[API_SECURITY.md](API_SECURITY.md)** - Complete API authentication guide
 - **[MANUAL_TESTING.md](MANUAL_TESTING.md)** - Manual testing procedures
 - **[DOCS.md](DOCS.md#api-authentication)** - Configuration reference
+
+## OAuth Provider Authentication ✅ IMPLEMENTED
+
+Orkee implements OAuth 2.0 authentication for AI providers (Claude, OpenAI, Google, xAI), allowing users to authenticate with their subscription accounts instead of API keys.
+
+### Security Design
+
+**OAuth Flow Security**:
+- **PKCE (RFC 7636)**: Protection against authorization code interception
+  - SHA256 code challenge generation
+  - 43-character code verifier (256 bits of entropy)
+  - Code challenge sent with authorization request
+  - Code verifier validated during token exchange
+
+- **State Parameter**: CSRF protection
+  - Cryptographically secure random state generation
+  - State validation on callback
+  - 10-minute timeout (configurable via `OAUTH_STATE_TIMEOUT_SECS`)
+
+- **Callback Server**: Localhost-only OAuth callback
+  - Binds to `127.0.0.1:3737` (not `0.0.0.0`)
+  - Temporary server (starts for auth, stops after)
+  - No external network exposure
+
+### Token Security
+
+**Storage**:
+- **Location**: `~/.orkee/orkee.db` (oauth_tokens table)
+- **Encryption**: ChaCha20-Poly1305 AEAD
+  - Unique nonce per token encryption
+  - Per-token encryption (not batch)
+  - Same encryption as API keys
+- **Access Control**: Database file permissions (Unix: 0600)
+
+**Token Management**:
+- **Automatic Refresh**: Tokens refreshed 5 minutes before expiry
+- **Refresh Buffer**: Configurable via `OAUTH_TOKEN_REFRESH_BUFFER_SECS`
+- **Expiry Tracking**: Stored in database, checked on each use
+- **Graceful Degradation**: Falls back to API keys if OAuth token expired
+
+### Provider Security
+
+**Supported Providers**:
+| Provider | OAuth Support | Security Notes |
+|----------|--------------|----------------|
+| Claude (Anthropic) | ✅ Yes | PKCE + state, subscription detection |
+| OpenAI | ✅ Yes | PKCE + state, Plus/Team/Enterprise |
+| Google (Vertex AI) | ✅ Yes | PKCE + state, Cloud accounts |
+| xAI (Grok) | ✅ Yes | PKCE + state, Premium accounts |
+
+**Provider Configurations**:
+- Default client IDs provided (configurable)
+- Redirect URI: `http://localhost:3737/callback`
+- Scopes: Provider-specific (minimal required permissions)
+
+### Implementation Security
+
+**Components**:
+- **Auth Package**: `packages/auth/` - Separate package for OAuth logic
+- **Database Schema**: `oauth_tokens` and `oauth_providers` tables
+- **API Endpoints**: `/api/auth/*` for token management
+- **CLI Commands**: `orkee login`, `orkee logout`, `orkee auth status`
+
+**Security Features**:
+✅ PKCE implementation with SHA256
+✅ State parameter CSRF protection
+✅ Localhost-only callback server
+✅ Encrypted token storage
+✅ Automatic token refresh
+✅ Browser opening with user confirmation
+✅ Token validation on each use
+✅ Graceful error handling
+
+### Testing Coverage
+
+**Unit Tests**: 30+ OAuth-specific tests
+- PKCE generation and verification
+- State parameter handling
+- Token encryption/decryption
+- Token expiry and refresh logic
+- Provider configuration parsing
+- Callback server operation
+
+**Security Tests**:
+- PKCE code challenge determinism
+- State parameter uniqueness
+- Token encryption uniqueness
+- Constant-time operations where applicable
+
+### Threat Mitigation
+
+| Threat | Mitigation | Implementation |
+|--------|------------|----------------|
+| **Authorization Code Interception** | PKCE | Code challenge/verifier prevents reuse |
+| **CSRF Attacks** | State parameter | Random state validated on callback |
+| **Token Theft** | Encryption | ChaCha20-Poly1305 in database |
+| **Man-in-the-Middle** | HTTPS | All OAuth flows over TLS |
+| **Token Replay** | Expiry + Refresh | Automatic refresh, short-lived tokens |
+| **Callback Hijacking** | Localhost-only | Server binds to 127.0.0.1 only |
+
+### Configuration Security
+
+**OAuth Environment Variables**:
+```bash
+# Callback server (localhost-only, no external exposure)
+OAUTH_CALLBACK_PORT=3737
+
+# Security timeouts
+OAUTH_STATE_TIMEOUT_SECS=600        # State parameter timeout
+OAUTH_TOKEN_REFRESH_BUFFER_SECS=300 # Refresh buffer time
+```
+
+**Provider Override** (optional, for custom OAuth clients):
+```bash
+OAUTH_CLAUDE_CLIENT_ID=custom-client-id
+OAUTH_CLAUDE_REDIRECT_URI=http://localhost:3737/callback
+OAUTH_CLAUDE_SCOPES="model:claude account:read"
+```
+
+### Best Practices
+
+**For Users**:
+- Use OAuth for Claude Pro/Max subscriptions (no API costs)
+- Set `auth_preference=hybrid` for fallback to API keys
+- Monitor token expiry via `orkee auth status`
+- Revoke tokens when not in use: `orkee logout <provider>`
+
+**For Developers**:
+- Never log OAuth tokens (implementation sanitizes logs)
+- Always use PKCE for authorization code flows
+- Validate state parameter on callback
+- Refresh tokens before expiry (not after)
+- Encrypt tokens at rest
+
+### Future Enhancements
+
+**Planned Features**:
+- OAuth token rotation (manual and automatic)
+- Multi-device token sync (via Orkee Cloud)
+- Provider-specific scope customization
+- OAuth audit log (successful/failed attempts)
+- Token usage analytics
+
+For detailed OAuth setup and troubleshooting, see:
+- **[OAUTH_SETUP.md](./OAUTH_SETUP.md)** - Complete OAuth setup guide
+- **[SECURITY_AUDIT.md](./SECURITY_AUDIT.md)** - OAuth security audit
+- **[oauth.md](./oauth.md)** - Implementation plan and status
 
 ## Security Configuration
 

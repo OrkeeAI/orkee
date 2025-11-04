@@ -5,6 +5,7 @@ use std::process;
 
 mod cli;
 
+use cli::auth::AuthCommands;
 #[cfg(feature = "cloud")]
 use cli::cloud::CloudCommands;
 use cli::projects::ProjectsCommands;
@@ -75,6 +76,9 @@ enum Commands {
     /// Manage preview servers
     #[command(subcommand)]
     Preview(PreviewCommands),
+    /// Manage OAuth authentication with AI providers
+    #[command(subcommand)]
+    Auth(AuthCommands),
     /// Manage API key encryption security
     #[command(subcommand)]
     Security(SecurityCommands),
@@ -118,6 +122,9 @@ enum Commands {
     /// Manage preview servers
     #[command(subcommand)]
     Preview(PreviewCommands),
+    /// Manage OAuth authentication with AI providers
+    #[command(subcommand)]
+    Auth(AuthCommands),
     /// Manage API key encryption security
     #[command(subcommand)]
     Security(SecurityCommands),
@@ -222,6 +229,10 @@ async fn handle_command(command: Commands) -> Result<(), Box<dyn std::error::Err
             .await
             .map_err(|e| e.to_string().into()),
         Commands::Preview(preview_cmd) => handle_preview_command(preview_cmd).await,
+        Commands::Auth(auth_cmd) => {
+            auth_cmd.execute().await;
+            Ok(())
+        }
         Commands::Security(security_cmd) => {
             security_cmd.execute().await;
             Ok(())

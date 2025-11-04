@@ -274,6 +274,10 @@ orkee projects show <id>
 orkee projects add [--name <name>] [--path <path>] [--description <desc>]
 orkee projects edit <id>
 orkee projects delete <id> [--yes]
+orkee login <provider>                # Authenticate with AI provider (claude, openai, google, xai)
+orkee logout <provider>               # Logout from AI provider (or 'all' for all providers)
+orkee auth status                     # Show authentication status for all providers
+orkee auth refresh <provider>         # Refresh authentication token for a provider
 orkee cloud enable                    # Enable Orkee Cloud sync
 orkee cloud disable                   # Disable cloud sync (local-only mode)
 orkee cloud sync [--project <id>]     # Manually sync to cloud
@@ -554,6 +558,16 @@ System tray menu shows all servers with source indicators:
 - `packages/preview/src/registry.rs`: Global server registry with persistence and cleanup
 - `packages/preview/src/discovery.rs`: External server discovery (port scanning, process detection, framework identification)
 - `packages/preview/src/types.rs`: Type definitions (ServerSource, DevServerStatus, Framework, etc.)
+
+### Auth Package
+- `packages/auth/src/lib.rs`: Public API for OAuth authentication
+- `packages/auth/src/oauth/provider.rs`: OAuthProvider enum with provider-specific configurations
+- `packages/auth/src/oauth/types.rs`: OAuth token types and provider configs
+- `packages/auth/src/oauth/pkce.rs`: PKCE (RFC 7636) implementation with SHA256 challenge
+- `packages/auth/src/oauth/server.rs`: OAuth callback server on port 3737
+- `packages/auth/src/oauth/storage.rs`: Encrypted token storage in SQLite
+- `packages/auth/src/oauth/manager.rs`: Complete OAuth flow orchestration (login, logout, refresh)
+- `packages/auth/src/error.rs`: OAuth-specific error types and handling
 
 ### Cloud Package (Optional)
 - `packages/cloud/src/lib.rs`: Public API for cloud sync functionality
