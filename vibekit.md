@@ -1,215 +1,41 @@
-# VibeKit Integration & Legacy AIService Removal Plan
+# VibeKit OAuth Integration Plan
 
 ## Project Overview
 
-This document tracks the complete migration from legacy AIService to modern AI SDK with VibeKit OAuth support.
+This document tracks the integration of VibeKit OAuth support into Orkee. This allows users to authenticate with AI providers (Claude, OpenAI, Google, xAI) using their existing subscriptions instead of API keys.
+
+**Note**: The AI architecture rework (migrating from Rust AIService to Frontend AI SDK) is tracked separately in `rework-ai.md`.
 
 ### High-Level Goals
-- Completely remove legacy AIService from Rust codebase
-- Migrate all AI operations to use the modern AI SDK proxy
-- Integrate VibeKit directly into existing CLI server (no extra port)
+- Integrate VibeKit OAuth directly into existing CLI server (no extra port)
 - Use Dagger for local sandboxing (expandable to other providers later)
 - Support both API keys and OAuth tokens (hybrid approach)
+- Maintain backward compatibility with existing API key users
 
 ### Timeline Summary
-**Total Duration:** 6 weeks
-- **Weeks 1-2:** Phase 1 - Remove Legacy AIService
-- **Week 2:** Phase 2 - Database Schema
-- **Week 3:** Phase 3 - VibeKit Package & Phase 4 - Rust Integration (Part 1)
-- **Week 4:** Phase 4 - Rust Integration (Part 2) & Phase 5 - CLI Commands
-- **Week 5:** Phase 6 - Dashboard Integration & Phase 7 - Dagger Integration
-- **Week 6:** Phase 8 - Testing & Documentation
+**Total Duration:** 4-5 weeks (after AI rework is complete)
+- **Week 1:** Phase 2 - Database Schema
+- **Week 2:** Phase 3 - VibeKit Package & Phase 4 - Rust Integration (Part 1)
+- **Week 3:** Phase 4 - Rust Integration (Part 2) & Phase 5 - CLI Commands
+- **Week 4:** Phase 6 - Dashboard Integration & Phase 7 - Dagger Integration
+- **Week 5:** Phase 8 - Testing & Documentation
 
 ## Phase Progress Tracker
 
 ### Phase Status Overview
-- [x] **Phase 1:** Remove Legacy AIService & Migrate to Proxy _(Weeks 1-2)_ - 🚧 **40% Complete**
-  - [x] 1.1 Audit Complete
-  - [x] 1.2 Priority 1 Complete (Dependency Analysis + Insight Extraction)
-  - [x] 1.3 Priority 2 Backend Started (PRD Generation)
-  - [ ] 1.3 Priority 2 Frontend Pending
-  - [ ] 1.3 Priority 2 Research Analysis
-  - [ ] 1.4 Priority 3 Expert Roundtable
-  - [ ] 1.5 Cleanup & Verification
-- [ ] **Phase 2:** Database Schema for OAuth Support _(Week 2)_
-- [ ] **Phase 3:** VibeKit Package Integration _(Week 3)_
-- [ ] **Phase 4:** Rust Integration Layer & API Routes _(Weeks 3-4)_
-- [ ] **Phase 5:** CLI Commands _(Week 4)_
-- [ ] **Phase 6:** Dashboard Integration _(Weeks 4-5)_
-- [ ] **Phase 7:** Dagger Integration _(Week 5)_
-- [ ] **Phase 8:** Testing & Documentation _(Week 6)_
+- [ ] **Phase 2:** Database Schema for OAuth Support _(Week 1)_
+- [ ] **Phase 3:** VibeKit Package Integration _(Week 2)_
+- [ ] **Phase 4:** Rust Integration Layer & API Routes _(Weeks 2-3)_
+- [ ] **Phase 5:** CLI Commands _(Week 3)_
+- [ ] **Phase 6:** Dashboard Integration _(Week 4)_
+- [ ] **Phase 7:** Dagger Integration _(Week 4)_
+- [ ] **Phase 8:** Testing & Documentation _(Week 5)_
+
+**Prerequisites**: AI architecture rework must be complete (see `rework-ai.md`)
 
 ---
 
-## Phase 1: Remove Legacy AIService & Move AI to Frontend (Weeks 1-2)
-
-### Phase 1 Status: In Progress 🚀
-**Completion:** 40% (Audit complete, Priority 1 complete, working on Priority 2)
-
-**Correct Architecture** (Like Chat Mode):
-- ✅ **Frontend** - Makes all AI calls using Vercel AI SDK (streamText, generateObject)
-- ✅ **AI Proxy** - Frontend AI SDK routes through `/api/ai/{provider}/*` for API key management
-- ✅ **Backend** - Pure CRUD only (save messages, save PRD, etc.)
-- ❌ **NO** Rust→AI proxy HTTP calls (what was incorrectly implemented)
-
-### Phase 1 Overview
-Apply the **Chat Mode pattern** (which already works correctly) to all other features. Backend Rust stays as pure CRUD. Frontend TypeScript makes all AI calls via AI SDK.
-
-### Reference Implementation: Chat Mode ✅
-
-Chat mode **already implements the correct pattern:**
-
-**Backend** (`packages/api/src/ideate_chat_handlers.rs`):
-- `send_message()` - Saves user message to DB, returns immediately
-- `get_history()` - Returns chat history from DB
-- Pure CRUD, NO AI calls
-
-**Frontend** (`packages/dashboard/src/services/chat-ai.ts`):
-- `streamChatResponse()` - Uses AI SDK `streamText()` to stream AI response
-- `extractInsights()` - Uses AI SDK `generateObject()` for structured extraction
-- All AI calls go through AI SDK → AI proxy → Anthropic/OpenAI/etc
-
-**This is the pattern to replicate for ALL features.**
-
-### 📊 Audit Results Summary
-
-**See `ARCHITECTURE_AUDIT.md` for detailed feature-by-feature analysis.**
-
-**Features Using Correct Pattern (2):**
-- ✅ Chat Mode Discovery - Reference implementation
-- ✅ Spec Workflow - PRD/Task AI already uses AI SDK
-
-**Features Needing Migration (6):**
-- 🚧 PRD Generation (6 Rust AI functions) - **IN PROGRESS**
-- ✅ Insight Extraction (1 function) - **COMPLETE**
-- ❌ Research Analysis (5 functions)
-- ❌ Expert Roundtable (3 functions)
-- ✅ Dependency Analysis (1 function) - **COMPLETE**
-- ❌ Generic AI Handlers (5 handlers, likely duplicates)
-
-**Total Work**: Remove ~21 Rust AI functions, create ~5 TypeScript AI service files
-
-### Phase 1 Tasks
-
-#### 1.1 Audit Features vs Chat Mode Pattern ✅
-- [x] Document which features already use chat mode pattern (correct)
-- [x] Document which features use Rust AI calls (incorrect, needs migration)
-- [x] For each incorrect feature, identify:
-  - [x] Rust functions making AI calls
-  - [x] Frontend components that need AI SDK integration
-  - [x] Data flow changes needed
-- [x] Create comprehensive audit document (`ARCHITECTURE_AUDIT.md`)
-
-#### 1.2 Priority 1: Simple Migrations (Dependency Analysis + Insight Extraction) ✅ COMPLETE
-- [x] **Dependency Analysis** (`packages/ideate/src/dependency_analyzer.rs`):
-  - [x] Remove `analyze_dependencies()` AI function (529→153 lines)
-  - [x] Keep CRUD: `get_dependencies()`, `create_dependency()`, `delete_dependency()`
-  - [x] Update handler in `packages/api/src/ideate_dependency_handlers.rs` (252→131 lines)
-  - [x] Create `packages/dashboard/src/services/dependency-ai.ts` (326 lines)
-  - [x] Implement `analyzeDependencies()` using AI SDK `generateObject()`
-- [x] **Insight Extraction** (`packages/ideate/src/insight_extractor.rs`):
-  - [x] Verify `chat-ai.ts:extractInsights()` already handles this
-  - [x] Remove Rust `extract_insights_with_ai()` function (178→31 lines)
-  - [x] Keep CRUD: `save_insight()`, `get_insights()`, `link_insight_to_feature()`
-  - [x] Remove `reanalyze_insights()` handler from `ideate_chat_handlers.rs`
-
-#### 1.3 Priority 2: Medium Complexity (PRD Generation + Research Analysis) 🚧 IN PROGRESS
-- [x] **PRD Generation Backend** (`packages/ideate/src/prd_generator.rs`): **STARTING NOW**
-  - [ ] Remove 6 AI functions: `generate_complete_prd_with_model()`, `generate_section()`, `generate_from_session()`, `fill_skipped_sections()`, `generate_section_with_context()`, `regenerate_with_template()`
-  - [ ] Keep CRUD helper: `format_prd_markdown()`, `merge_content()`, context builders
-  - [ ] Update handler in `packages/api/src/ideate_handlers.rs`
-  - [ ] Comment out routes: `/quick-generate`, `/quick-expand`, others using AI functions
-- [ ] **PRD Generation Frontend**:
-  - [ ] Create `packages/dashboard/src/services/prd-ai.ts`
-  - [ ] Implement AI SDK calls with streaming support
-  - [ ] Match all 6 removed Rust functions with TypeScript equivalents
-- [ ] **Research Analysis** (`packages/ideate/src/research_analyzer.rs`):
-  - [ ] Remove 5 AI functions: `analyze_competitor()`, `analyze_gaps()`, `extract_ui_patterns()`, `extract_lessons()`, `synthesize_research()`
-  - [ ] Keep CRUD: `save_competitor()`, `get_competitors()`, `add_similar_project()`, `get_similar_projects()`
-  - [ ] Update handler in `packages/api/src/ideate_research_handlers.rs`
-  - [ ] Create `packages/dashboard/src/services/research-ai.ts`
-  - [ ] Implement AI SDK calls using `generateObject()`
-
-#### 1.4 Priority 3: Complex Migrations (Expert Roundtable + Generic Handlers)
-- [ ] **Expert Roundtable** (`packages/ideate/src/expert_moderator.rs`):
-  - [ ] Remove 3 AI functions: `run_discussion()`, `handle_interjection()`, `extract_insights()`
-  - [ ] Keep CRUD: `create_roundtable()`, `add_participants()`, `save_message()`, `get_messages()`, `save_insight()`, `get_insights()`
-  - [ ] Update handler in `packages/api/src/ideate_roundtable_handlers.rs`
-  - [ ] Redesign SSE streaming endpoint for frontend-driven discussion
-  - [ ] Create `packages/dashboard/src/services/roundtable-ai.ts`
-  - [ ] Implement multi-turn discussion loop in frontend
-- [ ] **Generic AI Handlers** (`packages/api/src/ai_handlers.rs`):
-  - [ ] Verify these duplicate Spec Workflow functionality
-  - [ ] If yes: Delete entire file and route callers to Spec Workflow
-  - [ ] If no: Identify unique functionality and migrate to frontend
-
-#### 1.5 Cleanup & Verification
-- [ ] Delete `packages/ai/src/service.rs` (entire legacy AIService)
-- [ ] Remove AIService exports from `packages/ai/src/lib.rs`
-- [ ] Revert incorrect commits (selective revert of Rust→proxy HTTP calls)
-- [ ] Handle uncommitted change in `ideate_dependency_handlers.rs`
-- [ ] Keep only: AI proxy endpoints + usage logging + telemetry
-- [ ] Run full test suite
-- [ ] Verify all features work end-to-end
-- [ ] Update documentation
-
-#### Example Migration Pattern
-
-**Before (Legacy AIService - INCORRECT):**
-```rust
-// ❌ INCORRECT - Rust making AI calls
-use orkee_ai::{AIService, AIServiceError};
-
-pub async fn analyze_dependencies(...) -> Result<...> {
-    let ai_service = AIService::with_api_key_and_model(api_key, model);
-    let result = ai_service.generate_structured(...).await?;
-    Ok(result)
-}
-```
-
-**After (Chat Mode Pattern - CORRECT):**
-```typescript
-// ✅ CORRECT - Frontend makes AI calls via AI SDK
-import { generateObject } from 'ai';
-import { trackAIOperationWithCost } from '@/lib/ai/cost-tracking';
-
-export async function analyzeDependencies(
-  sessionId: string,
-  features: IdeateFeature[],
-  modelPreferences?: ReturnType<typeof getModelForTask>,
-  projectId?: string | null
-): Promise<DependencyAnalysis> {
-  const modelConfig = modelPreferences || getModelForTask('ideate');
-  const model = getModelInstance(modelConfig.provider, modelConfig.model);
-
-  const result = await trackAIOperationWithCost(
-    'analyze_dependencies',
-    projectId || null,
-    modelConfig.model,
-    modelConfig.provider,
-    (inputTokens, outputTokens) => calculateCost(...),
-    () => generateObject({
-      model,
-      schema: DependencyAnalysisSchema,
-      prompt: buildPrompt(features),
-      temperature: 0.3,
-    })
-  );
-
-  // Save results to backend via CRUD API
-  for (const dep of result.object.detected_dependencies) {
-    await ideateService.createFeatureDependency(sessionId, dep);
-  }
-
-  return result.object;
-}
-```
-
-**Key Principle**: Backend Rust = Pure CRUD only. Frontend TypeScript = All AI calls via AI SDK.
-
----
-
-## Phase 2: Database Schema for OAuth Support (Week 2)
+## Phase 2: Database Schema for OAuth Support (Week 1)
 
 ### Phase 2 Status: Not Started ⏳
 **Completion:** 0/8 tasks
@@ -1879,11 +1705,6 @@ async fn test_oauth_flow_integration() {
 
 #### Manual Testing Checklist
 
-##### Legacy AIService Removal
-- [ ] All 10 endpoints work with new proxy implementation
-- [ ] No `AIService` imports remain
-- [ ] Performance is comparable or better
-
 ##### OAuth Authentication
 - [ ] `orkee login claude` successfully imports token
 - [ ] `orkee login status` shows correct status
@@ -1918,17 +1739,10 @@ async fn test_oauth_flow_integration() {
 ### Performance Benchmarks
 
 Create benchmarks:
-- [ ] Legacy AIService vs new proxy
 - [ ] OAuth token refresh performance
 - [ ] Sandbox creation time
 - [ ] Concurrent sandbox handling
-
-```rust
-#[bench]
-fn bench_proxy_vs_legacy(b: &mut Bencher) {
-    // Benchmark comparison
-}
-```
+- [ ] VibeKit bridge call overhead
 
 ### Security Audit
 
@@ -1953,55 +1767,64 @@ Test deployment:
 
 ## Project Summary & Tracking
 
-### Overall Progress
-**Total Tasks:** 95
-**Completed:** 15
-**In Progress:** 8
-**Remaining:** 72
+**Note**: AI architecture rework (Phase 1) is tracked separately in `rework-ai.md`
+
+### Overall Progress (VibeKit OAuth Integration Only)
+**Total Tasks:** 76
+**Completed:** 0
+**In Progress:** 0
+**Remaining:** 76
 
 ### Phase Summary
 
 | Phase | Status | Tasks | Completion | Week |
 |-------|--------|-------|------------|------|
-| **Phase 1** - Legacy AIService Removal | 🚧 In Progress | 38 | 40% | Weeks 1-2 |
-| **Phase 2** - Database Schema | Not Started ⏳ | 8 | 0% | Week 2 |
-| **Phase 3** - VibeKit Package | Not Started ⏳ | 11 | 0% | Week 3 |
-| **Phase 4** - Rust Integration | Not Started ⏳ | 14 | 0% | Weeks 3-4 |
-| **Phase 5** - CLI Commands | Not Started ⏳ | 12 | 0% | Week 4 |
-| **Phase 6** - Dashboard Integration | Not Started ⏳ | 10 | 0% | Weeks 4-5 |
-| **Phase 7** - Dagger Integration | Not Started ⏳ | 9 | 0% | Week 5 |
-| **Phase 8** - Testing & Documentation | Not Started ⏳ | 12 | 0% | Week 6 |
+| **Phase 2** - Database Schema | Not Started ⏳ | 8 | 0% | Week 1 |
+| **Phase 3** - VibeKit Package | Not Started ⏳ | 11 | 0% | Week 2 |
+| **Phase 4** - Rust Integration | Not Started ⏳ | 14 | 0% | Weeks 2-3 |
+| **Phase 5** - CLI Commands | Not Started ⏳ | 12 | 0% | Week 3 |
+| **Phase 6** - Dashboard Integration | Not Started ⏳ | 10 | 0% | Week 4 |
+| **Phase 7** - Dagger Integration | Not Started ⏳ | 9 | 0% | Week 4 |
+| **Phase 8** - Testing & Documentation | Not Started ⏳ | 12 | 0% | Week 5 |
 
 ### Critical Path Dependencies
 
 ```
-Phase 1 (Legacy Removal) ─┐
-                          ├─> Phase 4 (Rust Integration) ─> Phase 5 (CLI)
-Phase 2 (Database) ───────┤                              │
-                          │                              └─> Phase 6 (Dashboard)
-Phase 3 (VibeKit Package) ┘                              │
-                                                         └─> Phase 7 (Dagger)
-                                                             │
-                                                             v
-                                                         Phase 8 (Testing)
+AI Rework (rework-ai.md) ──> Prerequisites Complete
+                             │
+                             v
+                          Phase 2 (Database) ───────┐
+                                                     │
+                          Phase 3 (VibeKit Package)─┤
+                                                     │
+                                                     v
+                          Phase 4 (Rust Integration) ─> Phase 5 (CLI)
+                                                      │
+                                                      └─> Phase 6 (Dashboard)
+                                                      │
+                                                      └─> Phase 7 (Dagger)
+                                                          │
+                                                          v
+                                                      Phase 8 (Testing)
 ```
 
 ### Key Milestones
 
-- [ ] **Week 2 Milestone:** Legacy AIService completely removed
-- [ ] **Week 3 Milestone:** VibeKit package functional
-- [ ] **Week 4 Milestone:** CLI commands working
-- [ ] **Week 5 Milestone:** Dashboard integration complete
-- [ ] **Week 6 Milestone:** All tests passing, ready for production
+- [ ] **Prerequisite:** AI architecture rework complete (see `rework-ai.md`)
+- [ ] **Week 1 Milestone:** Database schema and VibeKit package ready
+- [ ] **Week 2 Milestone:** Rust integration complete
+- [ ] **Week 3 Milestone:** CLI commands working
+- [ ] **Week 4 Milestone:** Dashboard and Dagger integration complete
+- [ ] **Week 5 Milestone:** All tests passing, ready for production
 
 ### Success Criteria
 
 #### Technical Requirements
-- [ ] Zero references to legacy AIService in codebase
-- [ ] All 10 legacy endpoints migrated to AI SDK proxy
-- [ ] OAuth authentication working for all providers
+- [ ] OAuth authentication working for all providers (Claude, OpenAI, Google, xAI)
 - [ ] Dagger sandbox execution functional
 - [ ] No additional ports required (only 4001 and 5173)
+- [ ] Backward compatibility with API key users maintained
+- [ ] Encrypted OAuth token storage working
 
 #### Quality Requirements
 - [ ] All unit tests passing
@@ -2045,22 +1868,21 @@ Phase 3 (VibeKit Package) ┘                              │
 
 ### Next Steps
 
-**Current Work (Priority 2.1):**
-- 🚧 **IN PROGRESS**: Removing PRD Generation AI logic from Rust backend
-  - File: `packages/ideate/src/prd_generator.rs` (991 lines)
-  - 6 AI functions to remove (generate_complete_prd_with_model, generate_section, generate_from_session, fill_skipped_sections, generate_section_with_context, regenerate_with_template)
-  - Keep helper functions: format_prd_markdown, merge_content, context builders
-- 📋 **NEXT**: Create frontend AI SDK service for PRD generation
-  - File: `packages/dashboard/src/services/prd-ai.ts` (~500-600 lines estimated)
-  - Implement all 6 AI functions using Vercel AI SDK
-  - Support streaming for template regeneration
+**Prerequisites (see `rework-ai.md`):**
+- [ ] Complete AI architecture rework
+- [ ] All AI operations migrated to Frontend AI SDK
+- [ ] Legacy AIService removed from codebase
+- [ ] All tests passing
 
-**Week 1 Actual Progress:**
-- [x] Complete audit (1.1)
-- [x] Complete Priority 1 migrations (1.2) - Dependency Analysis + Insight Extraction
-- [x] Start Priority 2 Backend (1.3) - PRD Generation
-- [ ] Complete Priority 2 Backend
-- [ ] Complete Priority 2 Frontend
+**Immediate Actions (Once Prerequisites Complete):**
+1. Start Phase 2 - Create database migration for OAuth tokens
+2. Set up VibeKit package structure
+3. Define OAuth token storage interface
+
+**Week 1 Goals (VibeKit OAuth):**
+- [ ] Database schema finalized and tested
+- [ ] VibeKit package initialized
+- [ ] OAuth token storage implemented
 
 **Communication:**
 - Weekly progress updates
