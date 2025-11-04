@@ -447,3 +447,44 @@ export async function trackAIOperationWithCost<T extends AIResponse>(
     throw error;
   }
 }
+
+/**
+ * Send telemetry data from an AIResult object
+ * Helper for services that return AIResult<T> with usage data
+ *
+ * @param operation - Operation name
+ * @param projectId - Optional project ID
+ * @param model - Model name
+ * @param provider - Provider name
+ * @param usage - Usage data from AIResult
+ * @param estimatedCost - Calculated cost
+ * @param durationMs - Duration in milliseconds
+ * @param error - Optional error message
+ */
+export async function sendAIResultTelemetry(
+  operation: string,
+  projectId: string | null,
+  model: string,
+  provider: string,
+  usage: { inputTokens: number; outputTokens: number; totalTokens: number },
+  estimatedCost: number,
+  durationMs: number,
+  error?: string
+): Promise<void> {
+  const telemetryData: AITelemetryData = {
+    operation,
+    projectId,
+    requestId: crypto.randomUUID(),
+    model,
+    provider,
+    inputTokens: usage.inputTokens,
+    outputTokens: usage.outputTokens,
+    totalTokens: usage.totalTokens,
+    estimatedCost,
+    durationMs,
+    toolCallsCount: 0,
+    error,
+  };
+
+  await sendTelemetry(telemetryData);
+}
