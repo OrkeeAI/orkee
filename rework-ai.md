@@ -316,12 +316,19 @@ Chat mode **already implements the correct pattern:**
 
 **Result**: All dead handler code removed. Build succeeds with 0 errors. Total: ~375 lines of dead code deleted.
 
-**Legacy AIService Cleanup**:
-- [ ] Delete `packages/ai/src/service.rs` (entire legacy AIService - 487 lines)
-- [ ] Remove AIService exports from `packages/ai/src/lib.rs`
-- [ ] Remove `async-trait` from `packages/ai/Cargo.toml` (if not needed elsewhere)
-- [ ] Remove direct `reqwest` from `packages/ai/Cargo.toml` (if not needed elsewhere)
-- [ ] Keep only: AI proxy endpoints + usage logging + telemetry
+**Legacy AIService Cleanup** ✅ COMPLETE (commit 4445bef):
+- [x] Delete `packages/ai/src/service.rs` (entire legacy AIService - 486 lines)
+- [x] Remove AIService exports from `packages/ai/src/lib.rs`
+- [x] Remove unused dependencies from `packages/ai/Cargo.toml`:
+  - Removed `reqwest` (HTTP client for Anthropic API)
+  - Removed `thiserror` (error types for AIServiceError)
+  - Removed `futures` (streaming support)
+  - Removed `async-stream` (async streaming)
+- [x] Remove unused AIService imports from handler files
+- [x] Update package description to reflect new purpose (usage tracking only)
+- [x] Keep only: AI usage tracking + telemetry
+
+**Result**: `orkee-ai` package now focused solely on usage tracking. All AI calls moved to frontend.
 
 **Verification**:
 - [x] Run full test suite (all tests pass)
