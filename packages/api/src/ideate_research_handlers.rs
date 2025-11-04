@@ -6,16 +6,16 @@ use axum::{
     response::IntoResponse,
     Json,
 };
-use orkee_ai::AIService;
 use orkee_ideate::{IdeateManager, ResearchAnalyzer, SimilarProject};
-use orkee_projects::{DbState, StorageError};
-use serde::{Deserialize, Serialize};
+use orkee_projects::DbState;
+use serde::Deserialize;
 use tracing::{info, warn};
 
 use super::response::{created_or_internal_error, ok_or_internal_error, ok_or_not_found};
 
 // TODO: Replace with proper user authentication
 const DEFAULT_USER_ID: &str = "default-user";
+const DEFAULT_MODEL: &str = "claude-sonnet-4-20250514";
 
 /// Request body for analyzing a competitor
 #[derive(Deserialize)]
@@ -87,45 +87,16 @@ pub async fn analyze_competitor(
         .project_description
         .unwrap_or_else(|| session.initial_description.clone());
 
-    // Get user's API key
-    let user = match db.user_storage.get_user(DEFAULT_USER_ID).await {
-        Ok(u) => u,
-        Err(e) => {
-            warn!("Failed to retrieve user: {}", e);
-            #[derive(Serialize)]
-            struct ErrorResponse {
-                error: String,
-            }
-            return ok_or_internal_error::<ErrorResponse, StorageError>(
-                Err(e),
-                "Failed to retrieve user",
-            );
-        }
-    };
-
-    let api_key = match user.anthropic_api_key {
-        Some(key) => key,
-        None => {
-            warn!("No Anthropic API key found for user");
-            #[derive(Serialize)]
-            struct ApiKeyError {
-                error: String,
-            }
-            return ok_or_internal_error::<ApiKeyError, orkee_ideate::IdeateError>(
-                Err(orkee_ideate::IdeateError::AIService(
-                    "No API key configured. Please add your Anthropic API key in Settings."
-                        .to_string(),
-                )),
-                "API key required",
-            );
-        }
-    };
-
-    let ai_service = AIService::with_api_key(api_key);
     let analyzer = ResearchAnalyzer::new(db.pool.clone());
 
     let result = analyzer
-        .analyze_competitor(&session_id, &project_description, &request.url, &ai_service)
+        .analyze_competitor(
+            &session_id,
+            &project_description,
+            &request.url,
+            DEFAULT_USER_ID,
+            DEFAULT_MODEL,
+        )
         .await;
     ok_or_internal_error(result, "Failed to analyze competitor")
 }
@@ -155,46 +126,10 @@ pub async fn analyze_gaps(
     let session = match manager.get_session(&session_id).await {
         Ok(s) => s,
         Err(e) => {
-            warn!("Failed to retrieve session: {}", e);
             return ok_or_not_found::<(), orkee_ideate::IdeateError>(Err(e), "Session not found");
         }
     };
 
-    // Get user's API key
-    let user = match db.user_storage.get_user(DEFAULT_USER_ID).await {
-        Ok(u) => u,
-        Err(e) => {
-            warn!("Failed to retrieve user: {}", e);
-            #[derive(Serialize)]
-            struct ErrorResponse {
-                error: String,
-            }
-            return ok_or_internal_error::<ErrorResponse, StorageError>(
-                Err(e),
-                "Failed to retrieve user",
-            );
-        }
-    };
-
-    let api_key = match user.anthropic_api_key {
-        Some(key) => key,
-        None => {
-            warn!("No Anthropic API key found for user");
-            #[derive(Serialize)]
-            struct ApiKeyError {
-                error: String,
-            }
-            return ok_or_internal_error::<ApiKeyError, orkee_ideate::IdeateError>(
-                Err(orkee_ideate::IdeateError::AIService(
-                    "No API key configured. Please add your Anthropic API key in Settings."
-                        .to_string(),
-                )),
-                "API key required",
-            );
-        }
-    };
-
-    let ai_service = AIService::with_api_key(api_key);
     let analyzer = ResearchAnalyzer::new(db.pool.clone());
 
     let result = analyzer
@@ -202,7 +137,8 @@ pub async fn analyze_gaps(
             &session_id,
             &session.initial_description,
             request.your_features,
-            &ai_service,
+            DEFAULT_USER_ID,
+            DEFAULT_MODEL,
         )
         .await;
     ok_or_internal_error(result, "Failed to analyze gaps")
@@ -224,7 +160,6 @@ pub async fn extract_patterns(
     let session = match manager.get_session(&session_id).await {
         Ok(s) => s,
         Err(e) => {
-            warn!("Failed to retrieve session: {}", e);
             return ok_or_not_found::<(), orkee_ideate::IdeateError>(Err(e), "Session not found");
         }
     };
@@ -233,45 +168,10 @@ pub async fn extract_patterns(
         .project_description
         .unwrap_or_else(|| session.initial_description.clone());
 
-    // Get user's API key
-    let user = match db.user_storage.get_user(DEFAULT_USER_ID).await {
-        Ok(u) => u,
-        Err(e) => {
-            warn!("Failed to retrieve user: {}", e);
-            #[derive(Serialize)]
-            struct ErrorResponse {
-                error: String,
-            }
-            return ok_or_internal_error::<ErrorResponse, StorageError>(
-                Err(e),
-                "Failed to retrieve user",
-            );
-        }
-    };
-
-    let api_key = match user.anthropic_api_key {
-        Some(key) => key,
-        None => {
-            warn!("No Anthropic API key found for user");
-            #[derive(Serialize)]
-            struct ApiKeyError {
-                error: String,
-            }
-            return ok_or_internal_error::<ApiKeyError, orkee_ideate::IdeateError>(
-                Err(orkee_ideate::IdeateError::AIService(
-                    "No API key configured. Please add your Anthropic API key in Settings."
-                        .to_string(),
-                )),
-                "API key required",
-            );
-        }
-    };
-
-    let ai_service = AIService::with_api_key(api_key);
     let analyzer = ResearchAnalyzer::new(db.pool.clone());
 
     let result = analyzer
-        .extract_ui_patterns(&project_description, &request.url, &ai_service)
+        .extract_ui_patterns(&project_description, &request.url, DEFAULT_USER_ID, DEFAULT_MODEL)
         .await;
     ok_or_internal_error(result, "Failed to extract UI patterns")
 }
@@ -343,7 +243,6 @@ pub async fn extract_lessons(
     let similar_projects = match analyzer.get_similar_projects(&session_id).await {
         Ok(projects) => projects,
         Err(e) => {
-            warn!("Failed to get similar projects: {}", e);
             return ok_or_internal_error::<(), orkee_ideate::IdeateError>(
                 Err(e),
                 "Failed to get similar projects",
@@ -357,7 +256,6 @@ pub async fn extract_lessons(
     {
         Some(p) => p,
         None => {
-            warn!("Similar project not found: {}", request.project_name);
             return ok_or_not_found::<(), orkee_ideate::IdeateError>(
                 Err(orkee_ideate::IdeateError::InvalidInput(format!(
                     "Similar project '{}' not found",
@@ -368,44 +266,13 @@ pub async fn extract_lessons(
         }
     };
 
-    // Get user's API key
-    let user = match db.user_storage.get_user(DEFAULT_USER_ID).await {
-        Ok(u) => u,
-        Err(e) => {
-            warn!("Failed to retrieve user: {}", e);
-            #[derive(Serialize)]
-            struct ErrorResponse {
-                error: String,
-            }
-            return ok_or_internal_error::<ErrorResponse, StorageError>(
-                Err(e),
-                "Failed to retrieve user",
-            );
-        }
-    };
-
-    let api_key = match user.anthropic_api_key {
-        Some(key) => key,
-        None => {
-            warn!("No Anthropic API key found for user");
-            #[derive(Serialize)]
-            struct ApiKeyError {
-                error: String,
-            }
-            return ok_or_internal_error::<ApiKeyError, orkee_ideate::IdeateError>(
-                Err(orkee_ideate::IdeateError::AIService(
-                    "No API key configured. Please add your Anthropic API key in Settings."
-                        .to_string(),
-                )),
-                "API key required",
-            );
-        }
-    };
-
-    let ai_service = AIService::with_api_key(api_key);
-
     let result = analyzer
-        .extract_lessons(&project_description, similar_project, &ai_service)
+        .extract_lessons(
+            &project_description,
+            similar_project,
+            DEFAULT_USER_ID,
+            DEFAULT_MODEL,
+        )
         .await;
     ok_or_internal_error(result, "Failed to extract lessons")
 }
@@ -422,50 +289,19 @@ pub async fn synthesize_research(
     let session = match manager.get_session(&session_id).await {
         Ok(s) => s,
         Err(e) => {
-            warn!("Failed to retrieve session: {}", e);
             return ok_or_not_found::<(), orkee_ideate::IdeateError>(Err(e), "Session not found");
         }
     };
 
-    // Get user's API key
-    let user = match db.user_storage.get_user(DEFAULT_USER_ID).await {
-        Ok(u) => u,
-        Err(e) => {
-            warn!("Failed to retrieve user: {}", e);
-            #[derive(Serialize)]
-            struct ErrorResponse {
-                error: String,
-            }
-            return ok_or_internal_error::<ErrorResponse, StorageError>(
-                Err(e),
-                "Failed to retrieve user",
-            );
-        }
-    };
-
-    let api_key = match user.anthropic_api_key {
-        Some(key) => key,
-        None => {
-            warn!("No Anthropic API key found for user");
-            #[derive(Serialize)]
-            struct ApiKeyError {
-                error: String,
-            }
-            return ok_or_internal_error::<ApiKeyError, orkee_ideate::IdeateError>(
-                Err(orkee_ideate::IdeateError::AIService(
-                    "No API key configured. Please add your Anthropic API key in Settings."
-                        .to_string(),
-                )),
-                "API key required",
-            );
-        }
-    };
-
-    let ai_service = AIService::with_api_key(api_key);
     let analyzer = ResearchAnalyzer::new(db.pool.clone());
 
     let result = analyzer
-        .synthesize_research(&session_id, &session.initial_description, &ai_service)
+        .synthesize_research(
+            &session_id,
+            &session.initial_description,
+            DEFAULT_USER_ID,
+            DEFAULT_MODEL,
+        )
         .await;
     ok_or_internal_error(result, "Failed to synthesize research")
 }
