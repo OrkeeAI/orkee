@@ -260,12 +260,92 @@ Orkee provides AI-powered PRD (Product Requirements Document) ideation and Chat-
 - 🎯 **Task Decomposition** - Break down epics into executable tasks
 - 🔍 **Research Tools** - Competitor analysis, similar projects, and technical specs
 
+## AI Usage Tracking & Telemetry
+
+Orkee provides comprehensive tracking of all AI operations, including token usage, costs, and tool invocations:
+
+### Features
+
+- 📊 **Automatic Tracking** - All AI SDK calls are tracked automatically (zero manual logging required)
+- 💰 **Cost Monitoring** - Real-time cost tracking across different AI providers and models
+- 🔧 **Tool Call Analytics** - Track which tools are invoked, success rates, and performance
+- 📈 **Usage Dashboard** - Visual analytics with charts for tokens, costs, and tool usage over time
+- 🎯 **Per-Operation Metrics** - Track specific operations like PRD generation, chat responses, etc.
+
+### Tracked Metrics
+
+For every AI operation, Orkee tracks:
+- **Tokens**: Input, output, and total token counts
+- **Cost**: Estimated cost based on provider pricing
+- **Duration**: Actual request duration (not 0ms!)
+- **Tool Calls**: Which tools were invoked, arguments, results, and success/failure
+- **Model/Provider**: Which AI model and provider was used
+- **Metadata**: Finish reason, response ID, and provider-specific metadata
+
+### Usage Dashboard
+
+Access the Usage tab in the Orkee dashboard to view:
+- **Overview** - Key metrics cards with totals for requests, tokens, costs, and tool calls
+- **Model Breakdown** - Token usage distribution across different AI models
+- **Provider Breakdown** - Cost distribution across providers (Anthropic, OpenAI, etc.)
+- **Tool Analytics** - Most used tools with success rates and performance metrics
+- **Charts & Analytics** - Time-series visualizations for requests, tokens, and costs
+
+### For Developers
+
+All AI operations are automatically wrapped with telemetry tracking. When adding new AI functionality:
+
+**Using the telemetry wrapper:**
+```typescript
+import { trackAIOperation } from '@/lib/ai/telemetry';
+
+// Wrap your AI SDK call
+const result = await trackAIOperation(
+  'operation_name',        // e.g., 'generate_prd', 'chat_response'
+  projectId,               // Project ID or null for global operations
+  () => generateText({     // Your AI SDK call
+    model: anthropic('claude-3-opus'),
+    prompt: 'Your prompt here',
+    tools: { search, calculate }
+  })
+);
+```
+
+**The wrapper automatically:**
+- Tracks token usage and costs
+- Measures actual duration with high precision
+- Extracts tool calls from responses
+- Handles streaming responses via `onFinish` callback
+- Sends telemetry to backend without blocking the operation
+- Logs errors without breaking the AI operation
+
+**Tool call data structure:**
+```typescript
+interface ToolCall {
+  name: string;                    // Tool name (e.g., 'search', 'calculate')
+  arguments: Record<string, any>;  // Tool arguments
+  result?: any;                    // Tool result (if available)
+  durationMs?: number;             // Tool execution time
+  error?: string;                  // Error message if tool failed
+}
+```
+
+### Architecture
+
+- **Frontend Telemetry** - `packages/dashboard/src/lib/ai/telemetry.ts` wraps AI SDK calls
+- **Backend Endpoint** - `POST /api/ai-usage` accepts telemetry data with validation
+- **Database Storage** - SQLite table `ai_usage_logs` with full-text search support
+- **Analytics Endpoints** - Stats, tool usage, and time-series data for charts
+
+All telemetry is asynchronous to ensure zero performance impact on AI operations.
+
 ## Documentation
 
 - [Configuration & Architecture](CLAUDE.md) - Complete development guide and architecture details
 - [Environment Variables & Configuration](DOCS.md) - Environment variables, security, and operational configuration
 - [Production Deployment](DEPLOYMENT.md) - Docker, Nginx, TLS/SSL, and security setup
 - [Security Guidelines](SECURITY.md) - Security policies and vulnerability reporting
+- [AI Usage Implementation Plan](ai-usage.md) - Detailed implementation plan for AI tracking features
 
 ## Development
 
