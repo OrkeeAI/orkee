@@ -242,6 +242,205 @@ orkee projects delete 1 --yes
 orkee projects delete 1 -y
 ```
 
+### OAuth/Auth Commands
+
+Manage OAuth authentication for AI providers (Claude, OpenAI, Google, xAI).
+
+```bash
+orkee login <provider>        # Authenticate with AI provider
+orkee logout <provider>       # Logout from AI provider
+orkee auth status             # Show authentication status
+orkee auth refresh <provider> # Refresh authentication token
+```
+
+#### Login Command
+
+Authenticate with an AI provider using OAuth.
+
+**Syntax:**
+```bash
+orkee login <provider> [options]
+```
+
+**Arguments:**
+- `<provider>`: Provider name (claude, openai, google, xai)
+
+**Options:**
+- `--force`: Force re-authentication even if already logged in
+
+**Examples:**
+```bash
+# Login to Claude
+orkee login claude
+
+# Force re-authentication
+orkee login claude --force
+
+# Login to other providers
+orkee login openai
+orkee login google
+orkee login xai
+```
+
+**What It Does:**
+1. Opens your browser to the provider's OAuth authorization page
+2. Starts a local callback server on port 3737
+3. Exchanges authorization code for access token
+4. Encrypts and stores token in `~/.orkee/orkee.db`
+5. Displays account information (email, subscription type)
+
+**Output Example:**
+```
+🔐 Authenticating with claude...
+📱 Opening browser for authentication...
+✅ Successfully authenticated!
+   Account: user@example.com
+   Subscription: Pro
+   Expires: 2025-12-04 15:30:00
+```
+
+#### Logout Command
+
+Remove OAuth authentication for a provider.
+
+**Syntax:**
+```bash
+orkee logout <provider>
+```
+
+**Arguments:**
+- `<provider>`: Provider name (claude, openai, google, xai) or "all"
+
+**Examples:**
+```bash
+# Logout from Claude
+orkee logout claude
+
+# Logout from all providers
+orkee logout all
+```
+
+**What It Does:**
+- Removes encrypted OAuth tokens from database
+- Reverts to API key authentication (if configured)
+- Does not revoke tokens with the provider (tokens remain valid until expiry)
+
+#### Auth Status Command
+
+Show authentication status for all providers.
+
+**Syntax:**
+```bash
+orkee auth status
+```
+
+**Output Example:**
+```
+OAuth Authentication Status:
+
+✅ claude (Authenticated)
+   Account: user@example.com
+   Subscription: Pro
+   Expires: 2025-12-04 15:30:00 (29 days)
+
+❌ openai (Not authenticated)
+   Use 'orkee login openai' to authenticate
+
+✅ google (Authenticated)
+   Account: user@example.com
+   Subscription: Standard
+   Expires: 2025-11-15 10:00:00 (10 days)
+   ⚠️  Token expires soon! Run 'orkee auth refresh google'
+
+❌ xai (Not authenticated)
+   Use 'orkee login xai' to authenticate
+```
+
+**Status Indicators:**
+- ✅ Green checkmark: Authenticated and valid
+- ⚠️  Yellow warning: Token expiring soon (< 7 days)
+- ❌ Red X: Not authenticated
+
+#### Auth Refresh Command
+
+Manually refresh an OAuth token.
+
+**Syntax:**
+```bash
+orkee auth refresh <provider>
+```
+
+**Arguments:**
+- `<provider>`: Provider name (claude, openai, google, xai)
+
+**Examples:**
+```bash
+# Refresh Claude token
+orkee auth refresh claude
+```
+
+**What It Does:**
+- Uses refresh token to obtain new access token
+- Updates encrypted token in database
+- Extends token expiration time
+
+**Note:** Tokens automatically refresh 5 minutes before expiry. Manual refresh is useful for:
+- Testing token refresh functionality
+- Force-refreshing after provider changes
+- Troubleshooting authentication issues
+
+#### Authentication Preferences
+
+Configure OAuth vs API key priority:
+
+```bash
+# Set authentication preference
+orkee config set auth_preference <mode>
+```
+
+**Modes:**
+- `hybrid` (default): Try OAuth first, fall back to API keys
+- `oauth`: Use OAuth only, error if not authenticated
+- `api_key`: Use API keys only, ignore OAuth tokens
+
+**Examples:**
+```bash
+# Default: OAuth with API key fallback
+orkee config set auth_preference hybrid
+
+# OAuth only
+orkee config set auth_preference oauth
+
+# API keys only
+orkee config set auth_preference api_key
+```
+
+#### OAuth Configuration
+
+**Environment Variables:**
+
+```bash
+# OAuth callback port
+OAUTH_CALLBACK_PORT=3737
+
+# Security timeouts
+OAUTH_STATE_TIMEOUT_SECS=600        # State timeout (10 minutes)
+OAUTH_TOKEN_REFRESH_BUFFER_SECS=300 # Refresh buffer (5 minutes)
+
+# Provider-specific (optional)
+OAUTH_CLAUDE_CLIENT_ID=your-client-id
+OAUTH_CLAUDE_REDIRECT_URI=http://localhost:3737/callback
+OAUTH_CLAUDE_SCOPES="model:claude account:read"
+```
+
+**Database Storage:**
+- **Location**: `~/.orkee/orkee.db`
+- **Tables**: `oauth_tokens`, `oauth_providers`
+- **Encryption**: ChaCha20-Poly1305 AEAD
+- **Security**: Tokens encrypted with unique nonces
+
+For detailed OAuth documentation, see the [OAuth Authentication Guide](./oauth-authentication.md).
+
 ### Cloud Command
 
 Manage Orkee Cloud synchronization and backups.

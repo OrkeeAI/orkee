@@ -650,6 +650,84 @@ XAI_API_KEY=xai-...
 
 **Note**: API keys are required only for the providers you select in model preferences. The system will use sensible defaults (Claude Sonnet 4) if no preferences are configured.
 
+### OAuth Authentication Configuration
+
+Orkee supports OAuth authentication for AI providers, allowing you to use your subscription accounts (Claude Pro/Max, OpenAI Plus, etc.) instead of API keys.
+
+#### OAuth Environment Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `OAUTH_CALLBACK_PORT` | `3737` | Port for OAuth callback server |
+| `OAUTH_STATE_TIMEOUT_SECS` | `600` | OAuth state parameter timeout (10 minutes) |
+| `OAUTH_TOKEN_REFRESH_BUFFER_SECS` | `300` | Token refresh buffer time (5 minutes before expiry) |
+
+#### Provider-Specific OAuth Configuration (Optional)
+
+Override default OAuth client configurations per provider:
+
+```bash
+# Claude OAuth Configuration
+OAUTH_CLAUDE_CLIENT_ID=orkee-cli-oauth-client
+OAUTH_CLAUDE_REDIRECT_URI=http://localhost:3737/callback
+OAUTH_CLAUDE_SCOPES="model:claude account:read"
+
+# OpenAI OAuth Configuration
+OAUTH_OPENAI_CLIENT_ID=orkee-cli-oauth-client
+OAUTH_OPENAI_REDIRECT_URI=http://localhost:3737/callback
+
+# Google OAuth Configuration
+OAUTH_GOOGLE_CLIENT_ID=orkee-cli-oauth-client
+OAUTH_GOOGLE_REDIRECT_URI=http://localhost:3737/callback
+
+# xAI OAuth Configuration
+OAUTH_XAI_CLIENT_ID=orkee-cli-oauth-client
+OAUTH_XAI_REDIRECT_URI=http://localhost:3737/callback
+```
+
+**Note**: Default configurations are provided for all providers. Override only if you have custom OAuth client credentials.
+
+#### OAuth CLI Commands
+
+```bash
+# Authenticate with a provider
+orkee login <provider>        # provider: claude, openai, google, xai
+
+# Check authentication status
+orkee auth status
+
+# Refresh authentication token
+orkee auth refresh <provider>
+
+# Logout from a provider
+orkee logout <provider>       # or 'all' to logout from all providers
+```
+
+#### OAuth Database Storage
+
+OAuth tokens are encrypted and stored in `~/.orkee/orkee.db`:
+- **oauth_tokens** table: Encrypted access/refresh tokens with expiry tracking
+- **oauth_providers** table: Provider configurations and endpoints
+- **Automatic refresh**: Tokens refreshed 5 minutes before expiry
+- **Encryption**: ChaCha20-Poly1305 AEAD with per-token nonces
+
+#### Authentication Preference
+
+Configure authentication priority via `auth_preference` field in users table:
+
+```bash
+# Try OAuth first, fall back to API keys (default)
+orkee config set auth_preference hybrid
+
+# Use OAuth only
+orkee config set auth_preference oauth
+
+# Use API keys only
+orkee config set auth_preference api_key
+```
+
+For detailed OAuth setup instructions, see [OAUTH_SETUP.md](./OAUTH_SETUP.md).
+
 ### Cloud Sync Variables (Orkee Cloud)
 
 Configure Orkee Cloud integration for backup and synchronization:
