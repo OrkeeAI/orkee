@@ -36,8 +36,10 @@ This document tracks the complete migration from legacy AIService to modern AI S
 
 ## Phase 1: Remove Legacy AIService & Migrate to Proxy (Weeks 1-2)
 
-### Phase 1 Status: Nearly Complete 🔄
-**Completion:** 14/15 tasks (93%)
+### Phase 1 Status: Partially Complete - Blocked ⚠️
+**Completion:** 14/18 identified tasks (78%)
+
+**Summary**: Successfully migrated all originally scoped functions (ai_handlers.rs + ideate package). However, discovered additional AIService usage in 3 more API handler files that were not in the original Phase 1 scope. Cannot proceed with cleanup (task 1.3) until these are addressed.
 
 ### Phase 1 Overview
 Completely remove the legacy `AIService` from the Rust codebase and migrate all AI operations to use the existing AI SDK proxy endpoints.
@@ -73,9 +75,18 @@ Completely remove the legacy `AIService` from the Rust codebase and migrate all 
 - [x] `dependency_analyzer.rs::analyze_dependencies()` - **MIGRATED**
 
 #### 1.3 Clean Up Legacy Code
-- [ ] Delete `packages/ai/src/service.rs` (entire legacy AIService implementation)
-- [ ] Remove AIService exports from `packages/ai/src/lib.rs`
-- [ ] Update `packages/ai/Cargo.toml` dependencies (remove unused async-trait, reqwest if not needed)
+- [ ] **BLOCKED** - Cannot delete AIService yet
+
+**Reason**: Found additional API handlers still using AIService that were not in the original Phase 1 scope:
+- `ideate_dependency_handlers.rs` - 5 AIService calls
+- `ideate_research_handlers.rs` - 5 AIService calls
+- `ideate_roundtable_handlers.rs` - 4 AIService calls
+- Plus 2 streaming functions in `prd_generator.rs`
+
+**Next Steps**: Need to decide whether to:
+1. Extend Phase 1 to include these handlers
+2. Move these to a later phase
+3. Keep AIService for streaming/special cases
 
 ### Migration Strategy
 
