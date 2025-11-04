@@ -65,7 +65,7 @@ Establish database schema, create sandbox package structure, and define core typ
 
 **IMPORTANT**: We're updating the existing migration file directly since no one is using the app yet. This avoids unnecessary migration complexity.
 
-- [ ] Extend `agent_executions` table in `packages/storage/migrations/001_initial_schema.sql`
+- [x] Extend `agent_executions` table in `packages/storage/migrations/001_initial_schema.sql`
 
   Add these fields to the existing `agent_executions` table (before the closing `created_at` and `updated_at` fields):
   ```sql
@@ -91,7 +91,7 @@ Establish database schema, create sandbox package structure, and define core typ
   environment_variables TEXT, -- JSON object
   ```
 
-- [ ] Create `execution_logs` table for streaming and replay
+- [x] Create `execution_logs` table for streaming and replay
   ```sql
   CREATE TABLE execution_logs (
       id TEXT PRIMARY KEY CHECK(length(id) >= 8),
@@ -108,7 +108,7 @@ Establish database schema, create sandbox package structure, and define core typ
   );
   ```
 
-- [ ] Create `execution_artifacts` table for outputs
+- [x] Create `execution_artifacts` table for outputs
   ```sql
   CREATE TABLE execution_artifacts (
       id TEXT PRIMARY KEY CHECK(length(id) >= 8),
@@ -127,7 +127,7 @@ Establish database schema, create sandbox package structure, and define core typ
   );
   ```
 
-- [ ] Add indexes for all new tables
+- [x] Add indexes for all new tables
   - `idx_execution_logs_execution` on `execution_logs(execution_id, sequence_number)`
   - `idx_execution_logs_timestamp` on `execution_logs(timestamp)`
   - `idx_execution_logs_level` on `execution_logs(log_level)`
@@ -135,7 +135,7 @@ Establish database schema, create sandbox package structure, and define core typ
   - `idx_artifacts_type` on `execution_artifacts(artifact_type)`
   - `idx_artifacts_created` on `execution_artifacts(created_at)`
 
-- [ ] Update `001_initial_schema.down.sql` with DROP statements
+- [x] Update `001_initial_schema.down.sql` with DROP statements
   ```sql
   -- Add to down migration (in correct order)
   DROP TABLE IF EXISTS execution_artifacts;
@@ -143,7 +143,7 @@ Establish database schema, create sandbox package structure, and define core typ
   -- Note: agent_executions columns will be removed when table is dropped
   ```
 
-- [ ] Add sandbox configuration to `system_settings` seed data
+- [x] Add sandbox configuration to `system_settings` seed data
   ```sql
   -- Add to INSERT OR IGNORE INTO system_settings
   ('sandbox.default_provider', 'local', 'sandbox', 'Default sandbox provider', 'string', 0, 0),
@@ -158,8 +158,8 @@ Establish database schema, create sandbox package structure, and define core typ
   ```
 
 #### 1.2 Create Sandbox Package Structure
-- [ ] Create `packages/sandbox/` directory
-- [ ] Create `packages/sandbox/Cargo.toml` with dependencies:
+- [x] Create `packages/sandboxes/` directory (plural to match workspace conventions)
+- [x] Create `packages/sandboxes/Cargo.toml` with dependencies:
   - `bollard = "0.15"` (Docker API)
   - `tokio = { version = "1", features = ["full"] }`
   - `serde = { version = "1", features = ["derive"] }`
@@ -169,38 +169,38 @@ Establish database schema, create sandbox package structure, and define core typ
   - `tracing = "0.1"`
   - `async-stream = "0.3"`
 
-- [ ] Create package structure:
+- [x] Create package structure (created lib.rs, types.rs, error.rs, and sandboxes.json; provider.rs, node_bridge.rs, and container.rs are for Phase 2 & 3):
   ```
-  packages/sandbox/
+  packages/sandboxes/  (note: plural form)
   ├── Cargo.toml
   ├── src/
-  │   ├── lib.rs           # Public API
-  │   ├── provider.rs      # SandboxProvider enum and registry
-  │   ├── node_bridge.rs   # Node.js child process management
-  │   ├── container.rs     # Container lifecycle via bollard
-  │   ├── types.rs         # Core types
-  │   └── error.rs         # Error types
+  │   ├── lib.rs           # Public API ✅
+  │   ├── provider.rs      # SandboxProvider enum and registry (Phase 2)
+  │   ├── node_bridge.rs   # Node.js child process management (Phase 2)
+  │   ├── container.rs     # Container lifecycle via bollard (Phase 3)
+  │   ├── types.rs         # Core types ✅
+  │   └── error.rs         # Error types ✅
   └── config/
-      └── sandboxes.json   # Sandbox provider configurations
+      └── sandboxes.json   # Sandbox provider configurations ✅
   ```
 
 #### 1.3 Define Core Types
-- [ ] Create `packages/sandbox/src/types.rs`:
-  - [ ] `SandboxProvider` enum (Local, E2B, Modal)
-  - [ ] `ExecutionRequest` struct
-  - [ ] `ExecutionResponse` struct
-  - [ ] `ContainerStatus` enum
-  - [ ] `LogEntry` struct
-  - [ ] `Artifact` struct
-  - [ ] `ResourceLimits` struct
-  - [ ] `ExecutionStatus` enum
+- [x] Create `packages/sandboxes/src/types.rs`:
+  - [x] `SandboxProvider` enum (Local, E2B, Modal)
+  - [x] `ExecutionRequest` struct
+  - [x] `ExecutionResponse` struct
+  - [x] `ContainerStatus` enum
+  - [x] `LogEntry` struct
+  - [x] `Artifact` struct
+  - [x] `ResourceLimits` struct
+  - [x] `ExecutionStatus` enum
 
-- [ ] Create `packages/sandbox/src/error.rs`:
-  - [ ] `SandboxError` enum with thiserror
-  - [ ] Error variants for Docker, Vibekit, Node.js, Resources, Timeout
+- [x] Create `packages/sandboxes/src/error.rs`:
+  - [x] `SandboxError` enum with thiserror
+  - [x] Error variants for Docker, Vibekit, Node.js, Resources, Timeout
 
 #### 1.4 Create Configuration
-- [ ] Create `packages/sandbox/config/sandboxes.json`:
+- [x] Create `packages/sandboxes/config/sandboxes.json`:
   ```json
   {
     "version": "2025-11-04",
@@ -226,10 +226,10 @@ Establish database schema, create sandbox package structure, and define core typ
   ```
 
 #### 1.5 Testing & Validation
-- [ ] Add `packages/sandbox` to workspace `Cargo.toml`
-- [ ] Run database migration and verify tables created
-- [ ] Write schema validation tests
-- [ ] Verify package compiles
+- [x] Add `packages/sandboxes` to workspace `Cargo.toml`
+- [ ] Run database migration and verify tables created (deferred - will test when implementing Phase 2)
+- [ ] Write schema validation tests (deferred - will add during integration testing)
+- [x] Verify package compiles
 
 ### Deliverables
 - ✅ Database schema updated with Vibekit fields
