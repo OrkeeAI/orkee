@@ -1,7 +1,7 @@
 // ABOUTME: PRD generator service for Quick Mode AI-powered generation
 // ABOUTME: Fetches settings from DB, uses Claude API to generate comprehensive PRDs
 
-use orkee_ai::{AIResponse, AIService};
+use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use sqlx::{Pool, Sqlite};
 use tracing::{error, info, warn};
@@ -11,6 +11,36 @@ use crate::prd_aggregator::{AggregatedPRDData, PRDAggregator};
 use crate::prompts;
 use orkee_security::UserStorage;
 use orkee_settings::storage::SettingsStorage;
+
+#[derive(Debug, serde::Deserialize)]
+struct AnthropicResponse {
+    #[allow(dead_code)]
+    id: String,
+    content: Vec<ContentBlock>,
+    usage: Usage,
+    #[allow(dead_code)]
+    stop_reason: Option<String>,
+}
+
+#[derive(Debug, serde::Deserialize)]
+struct ContentBlock {
+    #[serde(rename = "type")]
+    #[allow(dead_code)]
+    content_type: String,
+    text: String,
+}
+
+#[derive(Debug, serde::Deserialize)]
+struct Usage {
+    input_tokens: u32,
+    output_tokens: u32,
+}
+
+impl Usage {
+    fn total_tokens(&self) -> u32 {
+        self.input_tokens + self.output_tokens
+    }
+}
 
 /// AI settings for PRD generation
 #[derive(Debug, Clone)]
@@ -125,42 +155,72 @@ impl PRDGenerator {
 
         // Fetch configuration (for defaults if not provided)
         let settings = self.get_ai_settings().await?;
-        let api_key = self.get_user_api_key(user_id).await?;
 
         // Use provided model or fall back to settings
         let model_to_use = model.unwrap_or(settings.model.clone());
 
         info!("Using model: {}", model_to_use);
 
-        // Create AI service with the selected model
-        let ai_service = AIService::with_api_key_and_model(api_key, model_to_use);
-
         // Generate complete PRD using the AI
         let prompt = prompts::complete_prd_prompt(description).map_err(IdeateError::PromptError)?;
-        let system_prompt = Some(prompts::get_system_prompt().map_err(IdeateError::PromptError)?);
+        let system_prompt = prompts::get_system_prompt().map_err(IdeateError::PromptError)?;
 
-        let response: AIResponse<serde_json::Value> = ai_service
-            .generate_structured(prompt, system_prompt)
+        let client = Client::new();
+
+        let request_body = serde_json::json!({
+            "model": model_to_use,
+            "max_tokens": 64000,
+            "temperature": 0.7,
+            "messages": [{
+                "role": "user",
+                "content": prompt
+            }],
+            "system": system_prompt
+        });
+
+        let api_port = std::env::var("ORKEE_API_PORT").unwrap_or_else(|_| "4001".to_string());
+        let proxy_url = format!("http://localhost:{}/api/ai/anthropic/v1/messages", api_port);
+
+        let response = client
+            .post(&proxy_url)
+            .header("x-user-id", user_id)
+            .json(&request_body)
+            .send()
             .await
-            .map_err(|e| {
-                error!("AI generation failed: {}", e);
-                IdeateError::AIService(format!("Failed to generate PRD: {}", e))
-            })?;
+            .map_err(|e| IdeateError::AIService(format!("Failed to call AI proxy: {}", e)))?;
+
+        if !response.status().is_success() {
+            let status = response.status();
+            let error_text = response.text().await.unwrap_or_else(|_| "Unknown error".to_string());
+            return Err(IdeateError::AIService(format!(
+                "AI proxy returned error {}: {}",
+                status, error_text
+            )));
+        }
+
+        let anthropic_response: AnthropicResponse = response
+            .json()
+            .await
+            .map_err(|e| IdeateError::AIService(format!("Failed to parse AI response: {}", e)))?;
+
+        let data_text = anthropic_response
+            .content
+            .first()
+            .map(|c| c.text.as_str())
+            .ok_or_else(|| IdeateError::AIService("Empty response from AI".to_string()))?;
 
         // Parse the response into GeneratedPRD
-        info!(
-            "AI response JSON: {}",
-            serde_json::to_string_pretty(&response.data)
-                .unwrap_or_else(|_| "Failed to serialize".to_string())
-        );
-        let generated_prd: GeneratedPRD = serde_json::from_value(response.data).map_err(|e| {
+        info!("AI response JSON: {}", data_text);
+        let generated_prd: GeneratedPRD = serde_json::from_str(data_text).map_err(|e| {
             error!("Failed to parse AI response: {}", e);
             IdeateError::AIService(format!("Failed to parse AI response: {}", e))
         })?;
 
+        let usage = anthropic_response.usage;
+
         info!(
             "Successfully generated complete PRD (tokens: {})",
-            response.usage.total_tokens()
+            usage.total_tokens()
         );
 
         Ok(generated_prd)
@@ -178,10 +238,6 @@ impl PRDGenerator {
 
         // Fetch configuration
         let settings = self.get_ai_settings().await?;
-        let api_key = self.get_user_api_key(user_id).await?;
-
-        // Create AI service
-        let ai_service = AIService::with_api_key_and_model(api_key, settings.model.clone());
 
         // Generate prompt based on section
         let prompt = match section {
@@ -205,26 +261,67 @@ impl PRDGenerator {
             IdeateError::InvalidSection(format!("Failed to load prompt: {}", e))
         })?;
 
-        let system_prompt = Some(prompts::get_system_prompt().map_err(|e| {
+        let system_prompt = prompts::get_system_prompt().map_err(|e| {
             error!("Failed to load system prompt: {}", e);
             IdeateError::InvalidSection(format!("Failed to load system prompt: {}", e))
-        })?);
+        })?;
 
-        let response: AIResponse<serde_json::Value> = ai_service
-            .generate_structured(prompt, system_prompt)
+        let client = Client::new();
+
+        let request_body = serde_json::json!({
+            "model": settings.model.clone(),
+            "max_tokens": 64000,
+            "temperature": 0.7,
+            "messages": [{
+                "role": "user",
+                "content": prompt
+            }],
+            "system": system_prompt
+        });
+
+        let api_port = std::env::var("ORKEE_API_PORT").unwrap_or_else(|_| "4001".to_string());
+        let proxy_url = format!("http://localhost:{}/api/ai/anthropic/v1/messages", api_port);
+
+        let response = client
+            .post(&proxy_url)
+            .header("x-user-id", user_id)
+            .json(&request_body)
+            .send()
             .await
-            .map_err(|e| {
-                error!("AI generation failed for section '{}': {}", section, e);
-                IdeateError::AIService(format!("Failed to generate section: {}", e))
-            })?;
+            .map_err(|e| IdeateError::AIService(format!("Failed to call AI proxy: {}", e)))?;
+
+        if !response.status().is_success() {
+            let status = response.status();
+            let error_text = response.text().await.unwrap_or_else(|_| "Unknown error".to_string());
+            return Err(IdeateError::AIService(format!(
+                "AI proxy returned error {}: {}",
+                status, error_text
+            )));
+        }
+
+        let anthropic_response: AnthropicResponse = response
+            .json()
+            .await
+            .map_err(|e| IdeateError::AIService(format!("Failed to parse AI response: {}", e)))?;
+
+        let data_text = anthropic_response
+            .content
+            .first()
+            .map(|c| c.text.as_str())
+            .ok_or_else(|| IdeateError::AIService("Empty response from AI".to_string()))?;
+
+        let data: serde_json::Value = serde_json::from_str(data_text)
+            .map_err(|e| IdeateError::AIService(format!("Failed to parse structured data: {}", e)))?;
+
+        let usage = anthropic_response.usage;
 
         info!(
             "Successfully generated section '{}' (tokens: {})",
             section,
-            response.usage.total_tokens()
+            usage.total_tokens()
         );
 
-        Ok(response.data)
+        Ok(data)
     }
 
     /// Format a generated PRD into markdown
@@ -425,35 +522,71 @@ impl PRDGenerator {
 
         // Fetch AI configuration
         let settings = self.get_ai_settings().await?;
-        let api_key = self.get_user_api_key(user_id).await?;
-        let ai_service = AIService::with_api_key_and_model(api_key, settings.model.clone());
 
         // Build context from all available sections
         let context = self.build_context_from_aggregated(&aggregated);
 
         // Generate PRD using AI with full context
         let prompt = self.build_session_prd_prompt(&aggregated, &context);
-        let system_prompt = Some(prompts::get_system_prompt().map_err(|e| {
+        let system_prompt = prompts::get_system_prompt().map_err(|e| {
             error!("Failed to load system prompt: {}", e);
             IdeateError::InvalidSection(format!("Failed to load system prompt: {}", e))
-        })?);
+        })?;
 
-        let response: AIResponse<serde_json::Value> = ai_service
-            .generate_structured(prompt, system_prompt)
+        let client = Client::new();
+
+        let request_body = serde_json::json!({
+            "model": settings.model.clone(),
+            "max_tokens": 64000,
+            "temperature": 0.7,
+            "messages": [{
+                "role": "user",
+                "content": prompt
+            }],
+            "system": system_prompt
+        });
+
+        let api_port = std::env::var("ORKEE_API_PORT").unwrap_or_else(|_| "4001".to_string());
+        let proxy_url = format!("http://localhost:{}/api/ai/anthropic/v1/messages", api_port);
+
+        let response = client
+            .post(&proxy_url)
+            .header("x-user-id", user_id)
+            .json(&request_body)
+            .send()
             .await
-            .map_err(|e| {
-                error!("Failed to generate PRD from session: {}", e);
-                IdeateError::AIService(format!("Failed to generate PRD: {}", e))
-            })?;
+            .map_err(|e| IdeateError::AIService(format!("Failed to call AI proxy: {}", e)))?;
 
-        let generated_prd: GeneratedPRD = serde_json::from_value(response.data).map_err(|e| {
+        if !response.status().is_success() {
+            let status = response.status();
+            let error_text = response.text().await.unwrap_or_else(|_| "Unknown error".to_string());
+            return Err(IdeateError::AIService(format!(
+                "AI proxy returned error {}: {}",
+                status, error_text
+            )));
+        }
+
+        let anthropic_response: AnthropicResponse = response
+            .json()
+            .await
+            .map_err(|e| IdeateError::AIService(format!("Failed to parse AI response: {}", e)))?;
+
+        let data_text = anthropic_response
+            .content
+            .first()
+            .map(|c| c.text.as_str())
+            .ok_or_else(|| IdeateError::AIService("Empty response from AI".to_string()))?;
+
+        let generated_prd: GeneratedPRD = serde_json::from_str(data_text).map_err(|e| {
             error!("Failed to parse AI response: {}", e);
             IdeateError::AIService(format!("Failed to parse AI response: {}", e))
         })?;
 
+        let usage = anthropic_response.usage;
+
         info!(
             "Successfully generated PRD from session (tokens: {})",
-            response.usage.total_tokens()
+            usage.total_tokens()
         );
 
         Ok(generated_prd)
@@ -509,31 +642,70 @@ impl PRDGenerator {
         info!("Generating section '{}' with context", section);
 
         let settings = self.get_ai_settings().await?;
-        let api_key = self.get_user_api_key(user_id).await?;
-        let ai_service = AIService::with_api_key_and_model(api_key, settings.model.clone());
 
         // Build enhanced prompt with context
         let prompt = self.build_section_prompt_with_context(section, description, context)?;
-        let system_prompt = Some(prompts::get_system_prompt().map_err(|e| {
+        let system_prompt = prompts::get_system_prompt().map_err(|e| {
             error!("Failed to load system prompt: {}", e);
             IdeateError::InvalidSection(format!("Failed to load system prompt: {}", e))
-        })?);
+        })?;
 
-        let response: AIResponse<serde_json::Value> = ai_service
-            .generate_structured(prompt, system_prompt)
+        let client = Client::new();
+
+        let request_body = serde_json::json!({
+            "model": settings.model.clone(),
+            "max_tokens": 64000,
+            "temperature": 0.7,
+            "messages": [{
+                "role": "user",
+                "content": prompt
+            }],
+            "system": system_prompt
+        });
+
+        let api_port = std::env::var("ORKEE_API_PORT").unwrap_or_else(|_| "4001".to_string());
+        let proxy_url = format!("http://localhost:{}/api/ai/anthropic/v1/messages", api_port);
+
+        let response = client
+            .post(&proxy_url)
+            .header("x-user-id", user_id)
+            .json(&request_body)
+            .send()
             .await
-            .map_err(|e| {
-                error!("Failed to generate section '{}': {}", section, e);
-                IdeateError::AIService(format!("Failed to generate section: {}", e))
-            })?;
+            .map_err(|e| IdeateError::AIService(format!("Failed to call AI proxy: {}", e)))?;
+
+        if !response.status().is_success() {
+            let status = response.status();
+            let error_text = response.text().await.unwrap_or_else(|_| "Unknown error".to_string());
+            return Err(IdeateError::AIService(format!(
+                "AI proxy returned error {}: {}",
+                status, error_text
+            )));
+        }
+
+        let anthropic_response: AnthropicResponse = response
+            .json()
+            .await
+            .map_err(|e| IdeateError::AIService(format!("Failed to parse AI response: {}", e)))?;
+
+        let data_text = anthropic_response
+            .content
+            .first()
+            .map(|c| c.text.as_str())
+            .ok_or_else(|| IdeateError::AIService("Empty response from AI".to_string()))?;
+
+        let data: serde_json::Value = serde_json::from_str(data_text)
+            .map_err(|e| IdeateError::AIService(format!("Failed to parse structured data: {}", e)))?;
+
+        let usage = anthropic_response.usage;
 
         info!(
             "Successfully generated section '{}' with context (tokens: {})",
             section,
-            response.usage.total_tokens()
+            usage.total_tokens()
         );
 
-        Ok(response.data)
+        Ok(data)
     }
 
     /// Regenerate a specific section with updated context
