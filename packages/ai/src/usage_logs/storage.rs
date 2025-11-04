@@ -7,6 +7,7 @@ use tracing::debug;
 
 use super::types::{
     AiUsageLog, AiUsageQuery, AiUsageStats, ModelStats, OperationStats, ProviderStats,
+    TimeSeriesDataPoint, ToolCallDetail, ToolUsageStats,
 };
 use orkee_storage::StorageError;
 
@@ -28,8 +29,9 @@ impl AiUsageLogStorage {
             INSERT INTO ai_usage_logs (
                 id, project_id, request_id, operation, model, provider,
                 input_tokens, output_tokens, total_tokens, estimated_cost,
-                duration_ms, error, created_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                duration_ms, error, tool_calls_count, tool_calls_json,
+                response_metadata, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             "#,
         )
         .bind(&log.id)
@@ -44,6 +46,9 @@ impl AiUsageLogStorage {
         .bind(log.estimated_cost)
         .bind(log.duration_ms)
         .bind(&log.error)
+        .bind(log.tool_calls_count)
+        .bind(&log.tool_calls_json)
+        .bind(&log.response_metadata)
         .bind(&created_at_str)
         .execute(&self.pool)
         .await
@@ -80,17 +85,7 @@ impl AiUsageLogStorage {
             sql.push_str(&format!(" AND {}", condition));
         }
 
-        sql.push_str(" ORDER BY created_at DESC");
-
-        if let Some(limit) = query.limit {
-            sql.push_str(&format!(" LIMIT {}", limit));
-        } else {
-            sql.push_str(" LIMIT 100"); // Default limit
-        }
-
-        if let Some(offset) = query.offset {
-            sql.push_str(&format!(" OFFSET {}", offset));
-        }
+        sql.push_str(" ORDER BY created_at DESC LIMIT ? OFFSET ?");
 
         debug!("Fetching AI usage logs with query: {}", sql);
 
@@ -115,6 +110,11 @@ impl AiUsageLogStorage {
         if let Some(provider) = &query.provider {
             db_query = db_query.bind(provider);
         }
+
+        // Bind LIMIT and OFFSET - use defaults if not provided
+        let limit = query.limit.unwrap_or(100);
+        let offset = query.offset.unwrap_or(0);
+        db_query = db_query.bind(limit).bind(offset);
 
         let rows = db_query
             .fetch_all(&self.pool)
@@ -442,7 +442,231 @@ impl AiUsageLogStorage {
             estimated_cost: row.try_get("estimated_cost").map_err(StorageError::Sqlx)?,
             duration_ms: row.try_get("duration_ms").map_err(StorageError::Sqlx)?,
             error: row.try_get("error").map_err(StorageError::Sqlx)?,
+            tool_calls_count: row
+                .try_get("tool_calls_count")
+                .map_err(StorageError::Sqlx)?,
+            tool_calls_json: row.try_get("tool_calls_json").map_err(StorageError::Sqlx)?,
+            response_metadata: row
+                .try_get("response_metadata")
+                .map_err(StorageError::Sqlx)?,
             created_at,
         })
+    }
+
+    /// Get tool usage statistics
+    pub async fn get_tool_stats(
+        &self,
+        query: &AiUsageQuery,
+    ) -> Result<Vec<ToolUsageStats>, StorageError> {
+        let mut where_conditions = Vec::new();
+
+        if query.project_id.is_some() {
+            where_conditions.push("project_id = ?");
+        }
+        if query.start_date.is_some() {
+            where_conditions.push("created_at >= ?");
+        }
+        if query.end_date.is_some() {
+            where_conditions.push("created_at <= ?");
+        }
+
+        let where_clause = if where_conditions.is_empty() {
+            "WHERE tool_calls_json IS NOT NULL".to_string()
+        } else {
+            format!(
+                "WHERE tool_calls_json IS NOT NULL AND {}",
+                where_conditions.join(" AND ")
+            )
+        };
+
+        let sql = format!(
+            r#"
+            SELECT id, tool_calls_json
+            FROM ai_usage_logs
+            {}
+            "#,
+            where_clause
+        );
+
+        let mut db_query = sqlx::query(&sql);
+        if let Some(project_id) = &query.project_id {
+            db_query = db_query.bind(project_id);
+        }
+        if let Some(start_date) = &query.start_date {
+            db_query = db_query.bind(start_date);
+        }
+        if let Some(end_date) = &query.end_date {
+            db_query = db_query.bind(end_date);
+        }
+
+        let rows = db_query
+            .fetch_all(&self.pool)
+            .await
+            .map_err(StorageError::Sqlx)?;
+
+        // Parse tool calls and aggregate statistics
+        let mut tool_stats: std::collections::HashMap<String, (i64, i64, i64, i64)> =
+            std::collections::HashMap::new();
+
+        for row in rows {
+            if let Ok(tool_calls_json) = row.try_get::<String, _>("tool_calls_json") {
+                if let Ok(tool_calls) =
+                    serde_json::from_str::<Vec<ToolCallDetail>>(&tool_calls_json)
+                {
+                    for tool_call in tool_calls {
+                        let entry = tool_stats
+                            .entry(tool_call.name.clone())
+                            .or_insert((0, 0, 0, 0));
+                        entry.0 += 1; // call_count
+                        if tool_call.error.is_none() {
+                            entry.1 += 1; // success_count
+                        } else {
+                            entry.2 += 1; // failure_count
+                        }
+                        if let Some(duration) = tool_call.duration_ms {
+                            entry.3 += duration as i64; // total_duration_ms
+                        }
+                    }
+                }
+            }
+        }
+
+        let stats = tool_stats
+            .into_iter()
+            .map(
+                |(tool_name, (call_count, success_count, failure_count, total_duration))| {
+                    ToolUsageStats {
+                        tool_name,
+                        call_count,
+                        success_count,
+                        failure_count,
+                        average_duration_ms: if call_count > 0 {
+                            total_duration as f64 / call_count as f64
+                        } else {
+                            0.0
+                        },
+                        total_duration_ms: total_duration,
+                    }
+                },
+            )
+            .collect::<Vec<_>>();
+
+        Ok(stats)
+    }
+
+    /// Get time-series data for charting
+    pub async fn get_time_series(
+        &self,
+        query: &AiUsageQuery,
+        interval: &str, // 'hour', 'day', 'week', 'month'
+    ) -> Result<Vec<TimeSeriesDataPoint>, StorageError> {
+        let mut where_conditions = Vec::new();
+
+        if query.project_id.is_some() {
+            where_conditions.push("project_id = ?");
+        }
+        if query.start_date.is_some() {
+            where_conditions.push("created_at >= ?");
+        }
+        if query.end_date.is_some() {
+            where_conditions.push("created_at <= ?");
+        }
+
+        let where_clause = if where_conditions.is_empty() {
+            String::new()
+        } else {
+            format!("WHERE {}", where_conditions.join(" AND "))
+        };
+
+        // SQLite date/time grouping based on interval
+        // Validate interval to prevent SQL injection
+        // Note: For 'week', we use %Y-W%W which gives week number (0-53)
+        // This is parsed using ISO week format %G-W%V for correct year boundary handling
+        let date_format = match interval {
+            "hour" => "%Y-%m-%d %H:00:00",
+            "day" => "%Y-%m-%d 00:00:00",
+            "week" => "%Y-W%W",
+            "month" => "%Y-%m-01 00:00:00",
+            _ => {
+                return Err(StorageError::Database(format!(
+                    "Invalid interval: {}. Must be 'hour', 'day', 'week', or 'month'",
+                    interval
+                )))
+            }
+        };
+
+        let sql = format!(
+            r#"
+            SELECT
+                strftime('{}', created_at) as time_bucket,
+                COUNT(*) as request_count,
+                COALESCE(SUM(total_tokens), 0) as token_count,
+                COALESCE(SUM(estimated_cost), 0.0) as cost,
+                COALESCE(SUM(tool_calls_count), 0) as tool_call_count
+            FROM ai_usage_logs
+            {}
+            GROUP BY time_bucket
+            ORDER BY time_bucket ASC
+            "#,
+            date_format, where_clause
+        );
+
+        let mut db_query = sqlx::query(&sql);
+        if let Some(project_id) = &query.project_id {
+            db_query = db_query.bind(project_id);
+        }
+        if let Some(start_date) = &query.start_date {
+            db_query = db_query.bind(start_date);
+        }
+        if let Some(end_date) = &query.end_date {
+            db_query = db_query.bind(end_date);
+        }
+
+        let rows = db_query
+            .fetch_all(&self.pool)
+            .await
+            .map_err(StorageError::Sqlx)?;
+
+        let data_points = rows
+            .iter()
+            .filter_map(|row| {
+                let time_bucket: String = row.try_get("time_bucket").ok()?;
+                let timestamp = if interval == "week" {
+                    // Parse week format using ISO 8601 week date format
+                    // Convert %Y-W%W format to %G-W%V for proper ISO week handling
+                    // This handles year boundaries correctly (e.g., 2024-W01 belongs to 2024 even if Dec 31 2023 is in that week)
+
+                    // Parse the week string (format: "2024-W01")
+                    let parts: Vec<&str> = time_bucket.split("-W").collect();
+                    if parts.len() != 2 {
+                        return None;
+                    }
+                    let year: i32 = parts[0].parse().ok()?;
+                    let week: u32 = parts[1].parse().ok()?;
+
+                    // Get Monday of the ISO week (ISO weeks start on Monday)
+                    chrono::NaiveDate::from_isoywd_opt(year, week, chrono::Weekday::Mon)?
+                        .and_hms_opt(0, 0, 0)?
+                        .and_utc()
+                } else {
+                    DateTime::parse_from_str(
+                        &format!("{}+00:00", time_bucket),
+                        "%Y-%m-%d %H:%M:%S%z",
+                    )
+                    .ok()?
+                    .with_timezone(&Utc)
+                };
+
+                Some(TimeSeriesDataPoint {
+                    timestamp,
+                    request_count: row.try_get("request_count").unwrap_or(0),
+                    token_count: row.try_get("token_count").unwrap_or(0),
+                    cost: row.try_get("cost").unwrap_or(0.0),
+                    tool_call_count: row.try_get("tool_call_count").unwrap_or(0),
+                })
+            })
+            .collect();
+
+        Ok(data_points)
     }
 }

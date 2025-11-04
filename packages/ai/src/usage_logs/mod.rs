@@ -7,4 +7,5 @@ pub mod types;
 pub use storage::AiUsageLogStorage;
 pub use types::{
     AiUsageLog, AiUsageQuery, AiUsageStats, ModelStats, OperationStats, ProviderStats,
+    TimeSeriesDataPoint, ToolCallDetail, ToolUsageStats,
 };

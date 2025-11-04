@@ -2,11 +2,12 @@
 // ABOUTME: Handles streaming chats, insight extraction, quality metrics, and PRD generation
 
 import { streamText, generateObject } from 'ai';
-import { getModel } from '@/lib/ai/providers';
-import { getModelInstance } from '@/lib/ai/config';
+import { getModel, getPreferredModel } from '@/lib/ai/providers';
+import { getModelInstance, calculateCost } from '@/lib/ai/config';
 import { z } from 'zod';
 import { chatService, type ChatMessage, type ChatInsight } from './chat';
 import { getModelForTask } from './model-preferences';
+import { trackAIOperationWithCost } from '@/lib/ai/telemetry';
 
 /**
  * Discovery question prompts for guiding chats
@@ -40,22 +41,33 @@ export async function streamChatResponse(
   abortSignal?: AbortSignal,
   selectedProvider?: 'anthropic' | 'openai' | 'google' | 'xai',
   selectedModel?: string,
-  preferences?: ReturnType<typeof getModelForTask>
+  preferences?: ReturnType<typeof getModelForTask>,
+  projectId?: string | null
 ): Promise<void> {
   try {
     console.log('streamChatResponse called with:', { selectedProvider, selectedModel });
 
     // Determine model to use: explicit selection > preferences > default
     let modelToUse;
+    let providerName: 'anthropic' | 'openai' | 'google' | 'xai';
+    let modelName: string;
+
     if (selectedProvider && selectedModel) {
       console.log(`Using explicit selection: ${selectedProvider} with model: ${selectedModel}`);
       modelToUse = getModel(selectedProvider, selectedModel);
+      providerName = selectedProvider;
+      modelName = selectedModel;
     } else if (preferences) {
       console.log(`Using model preferences: ${preferences.provider} with model: ${preferences.model}`);
       modelToUse = getModelInstance(preferences.provider, preferences.model);
+      providerName = preferences.provider;
+      modelName = preferences.model;
     } else {
       console.log('No provider/model selected or preferences provided, using default model');
-      modelToUse = getPreferredModel().model;
+      const preferred = getPreferredModel();
+      modelToUse = preferred.model;
+      providerName = preferred.provider;
+      modelName = preferred.modelName;
     }
 
     // Build chat context
@@ -74,22 +86,50 @@ export async function streamChatResponse(
     console.log('[chat-ai.streamText] Model object type:', typeof modelToUse);
     console.log('[chat-ai.streamText] Model object:', modelToUse);
 
-    const { textStream } = await streamText({
-      model: modelToUse,
-      system: DISCOVERY_PROMPTS.system,
-      messages,
-      temperature: 0.7,
-      maxTokens: 1000,
-      abortSignal,
-    });
+    // Wrap streamText call with telemetry tracking
+    const result = await trackAIOperationWithCost(
+      'chat_stream',
+      projectId || null,
+      modelName,
+      providerName,
+      (inputTokens, outputTokens) => calculateCost(providerName, modelName, inputTokens, outputTokens),
+      () => streamText({
+        model: modelToUse,
+        system: DISCOVERY_PROMPTS.system,
+        messages,
+        temperature: 0.7,
+        maxTokens: 1000,
+        abortSignal,
+        experimental_telemetry: { isEnabled: true },
+      })
+    );
 
     console.log('[chat-ai.streamText] streamText call completed, streaming response');
 
+    const { textStream, finishReason, usage, onFinish } = result;
     let fullText = '';
 
+    // Consume the stream
     for await (const chunk of textStream) {
       fullText += chunk;
       onChunk(chunk);
+    }
+
+    console.log('[chat-ai.streamText] Stream consumption complete, awaiting finalization');
+
+    // CRITICAL: Wait for all async properties and manually trigger onFinish
+    // The telemetry wrapper replaces onFinish with a function that sends telemetry
+    const finalReason = await finishReason;
+    const finalUsage = await usage;
+
+    console.log('[chat-ai.streamText] Stream finalized:', { finalReason, finalUsage });
+
+    // Manually call onFinish to trigger telemetry tracking
+    if (onFinish) {
+      await onFinish({
+        finishReason: finalReason,
+        usage: finalUsage,
+      });
     }
 
     onComplete(fullText);
@@ -120,7 +160,8 @@ const InsightSchema = z.object({
 export async function extractInsights(
   sessionId: string,
   chatHistory: ChatMessage[],
-  preferences?: ReturnType<typeof getModelForTask>
+  preferences?: ReturnType<typeof getModelForTask>,
+  projectId?: string | null
 ): Promise<ChatInsight[]> {
   // Use preferences or fall back to default
   const modelConfig = preferences || { provider: 'anthropic' as const, model: 'claude-sonnet-4-5-20250929' };
@@ -143,12 +184,20 @@ Identify:
 
 For each insight, provide the type, the insight text, and a confidence score (0-1).`;
 
-  const result = await generateObject({
-    model,
-    schema: InsightSchema,
-    prompt,
-    temperature: 0.3,
-  });
+  const result = await trackAIOperationWithCost(
+    'extract_insights',
+    projectId || null,
+    modelConfig.model,
+    modelConfig.provider,
+    (inputTokens, outputTokens) => calculateCost(modelConfig.provider, modelConfig.model, inputTokens, outputTokens),
+    () => generateObject({
+      model,
+      schema: InsightSchema,
+      prompt,
+      temperature: 0.3,
+      experimental_telemetry: { isEnabled: true },
+    })
+  );
 
   // Convert to ChatInsight format and save to backend
   const insights: ChatInsight[] = [];
@@ -192,7 +241,8 @@ export async function calculateQualityMetrics(
   sessionId: string,
   chatHistory: ChatMessage[],
   insights: ChatInsight[],
-  preferences?: ReturnType<typeof getModelForTask>
+  preferences?: ReturnType<typeof getModelForTask>,
+  projectId?: string | null
 ): Promise<{
   quality_score: number;
   coverage: Record<string, boolean>;
@@ -235,12 +285,20 @@ Provide:
 4. Assessment of whether this is ready for PRD generation
 5. Boolean indicating readiness`;
 
-  const result = await generateObject({
-    model,
-    schema: QualityMetricsSchema,
-    prompt,
-    temperature: 0.2,
-  });
+  const result = await trackAIOperationWithCost(
+    'calculate_quality_metrics',
+    projectId || null,
+    modelConfig.model,
+    modelConfig.provider,
+    (inputTokens, outputTokens) => calculateCost(modelConfig.provider, modelConfig.model, inputTokens, outputTokens),
+    () => generateObject({
+      model,
+      schema: QualityMetricsSchema,
+      prompt,
+      temperature: 0.2,
+      experimental_telemetry: { isEnabled: true },
+    })
+  );
 
   return {
     quality_score: result.object.score,
@@ -281,7 +339,8 @@ export async function generatePRDFromChat(
   title: string,
   chatHistory: ChatMessage[],
   insights: ChatInsight[],
-  preferences?: ReturnType<typeof getModelForTask>
+  preferences?: ReturnType<typeof getModelForTask>,
+  projectId?: string | null
 ): Promise<{ prd_markdown: string; prd_data: z.infer<typeof PRDSchema> }> {
   // Use preferences or fall back to default
   const modelConfig = preferences || { provider: 'anthropic' as const, model: 'claude-sonnet-4-5-20250929' };
@@ -316,13 +375,21 @@ Create a structured PRD with:
 
 Be specific and actionable. Use insights from the chat to fill in details.`;
 
-  const result = await generateObject({
-    model,
-    schema: PRDSchema,
-    prompt,
-    temperature: 0.4,
-    maxTokens: 8000,
-  });
+  const result = await trackAIOperationWithCost(
+    'generate_prd_from_chat',
+    projectId || null,
+    modelConfig.model,
+    modelConfig.provider,
+    (inputTokens, outputTokens) => calculateCost(modelConfig.provider, modelConfig.model, inputTokens, outputTokens),
+    () => generateObject({
+      model,
+      schema: PRDSchema,
+      prompt,
+      temperature: 0.4,
+      maxTokens: 8000,
+      experimental_telemetry: { isEnabled: true },
+    })
+  );
 
   const prd = result.object;
 

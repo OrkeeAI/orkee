@@ -63,6 +63,23 @@ export interface AiUsageQueryParams {
   offset?: number;
 }
 
+export interface ToolUsageStats {
+  tool_name: string;
+  call_count: number;
+  success_count: number;
+  failure_count: number;
+  average_duration_ms: number;
+  total_duration_ms: number;
+}
+
+export interface TimeSeriesDataPoint {
+  timestamp: string;
+  request_count: number;
+  token_count: number;
+  cost: number;
+  tool_call_count: number;
+}
+
 /**
  * Fetches AI usage logs with optional filtering
  */
@@ -78,7 +95,7 @@ export async function getAiUsageLogs(params?: AiUsageQueryParams): Promise<AiUsa
   if (params?.limit) queryParams.append('limit', params.limit.toString());
   if (params?.offset) queryParams.append('offset', params.offset.toString());
 
-  const url = `/ai-usage/logs${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
+  const url = `/api/ai-usage/logs${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
   return apiClient.get<AiUsageLog[]>(url);
 }
 
@@ -96,7 +113,7 @@ export async function getAiUsageStats(params?: {
   if (params?.startDate) queryParams.append('startDate', params.startDate);
   if (params?.endDate) queryParams.append('endDate', params.endDate);
 
-  const url = `/ai-usage/stats${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
+  const url = `/api/ai-usage/stats${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
   return apiClient.get<AiUsageStats>(url);
 }
 
@@ -125,4 +142,42 @@ export function formatDuration(ms: number | undefined | null): string {
   if (ms === undefined || ms === null) return '0ms';
   if (ms < 1000) return `${ms.toFixed(0)}ms`;
   return `${(ms / 1000).toFixed(2)}s`;
+}
+
+/**
+ * Fetches tool usage statistics
+ */
+export async function getToolUsageStats(params?: {
+  projectId?: string;
+  startDate?: string;
+  endDate?: string;
+}): Promise<ToolUsageStats[]> {
+  const queryParams = new URLSearchParams();
+
+  if (params?.projectId) queryParams.append('projectId', params.projectId);
+  if (params?.startDate) queryParams.append('startDate', params.startDate);
+  if (params?.endDate) queryParams.append('endDate', params.endDate);
+
+  const url = `/api/ai-usage/tools${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
+  return apiClient.get<ToolUsageStats[]>(url);
+}
+
+/**
+ * Fetches time-series data for usage charts
+ */
+export async function getTimeSeriesData(params?: {
+  projectId?: string;
+  startDate?: string;
+  endDate?: string;
+  interval?: 'hour' | 'day' | 'week' | 'month';
+}): Promise<TimeSeriesDataPoint[]> {
+  const queryParams = new URLSearchParams();
+
+  if (params?.projectId) queryParams.append('projectId', params.projectId);
+  if (params?.startDate) queryParams.append('startDate', params.startDate);
+  if (params?.endDate) queryParams.append('endDate', params.endDate);
+  if (params?.interval) queryParams.append('interval', params.interval);
+
+  const url = `/api/ai-usage/time-series${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
+  return apiClient.get<TimeSeriesDataPoint[]>(url);
 }

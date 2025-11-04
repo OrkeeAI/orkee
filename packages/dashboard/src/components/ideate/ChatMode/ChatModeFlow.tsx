@@ -28,8 +28,9 @@ export interface ChatModeFlowProps {
 
 export function ChatModeFlow({
   sessionId,
+  projectId,
   onPRDGenerated,
-}: Omit<ChatModeFlowProps, 'projectId'>) {
+}: ChatModeFlowProps) {
   const [insights, setInsights] = useState<ChatInsight[]>([]);
   const [isGeneratingPRD, setIsGeneratingPRD] = useState(false);
   const [prdError, setPrdError] = useState<Error | null>(null);
@@ -68,6 +69,7 @@ export function ChatModeFlow({
   const { streamingMessage, isStreaming, startStreaming, stopStreaming } = useStreamingResponse({
     sessionId,
     chatHistory: messages,
+    projectId,
     onMessageComplete: async (content: string) => {
       try {
         // Save assistant message to backend
@@ -83,7 +85,7 @@ export function ChatModeFlow({
           const insightPreferences = getModelForTask(modelPreferences, 'insight_extraction');
           console.log('[ChatModeFlow] Extracting insights with model:', insightPreferences);
 
-          await extractInsights(sessionId, messages, insightPreferences);
+          await extractInsights(sessionId, messages, insightPreferences, projectId);
           console.log('[ChatModeFlow] Insights extracted successfully');
         } catch (insightError) {
           // Don't block on insight extraction failure - log and continue

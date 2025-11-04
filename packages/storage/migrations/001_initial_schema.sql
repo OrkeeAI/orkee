@@ -618,7 +618,7 @@ END;
 -- AI Usage Tracking
 CREATE TABLE ai_usage_logs (
     id TEXT PRIMARY KEY CHECK(length(id) >= 8),
-    project_id TEXT NOT NULL,
+    project_id TEXT,
     request_id TEXT,
     operation TEXT NOT NULL,
     model TEXT NOT NULL,
@@ -629,8 +629,11 @@ CREATE TABLE ai_usage_logs (
     estimated_cost REAL,
     duration_ms INTEGER,
     error TEXT,
+    tool_calls_count INTEGER DEFAULT 0,
+    tool_calls_json TEXT,
+    response_metadata TEXT,
     created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
-    FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
+    FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE SET NULL
 );
 
 CREATE INDEX idx_ai_usage_logs_project ON ai_usage_logs(project_id);
@@ -638,6 +641,8 @@ CREATE INDEX idx_ai_usage_logs_created ON ai_usage_logs(created_at);
 CREATE INDEX idx_ai_usage_logs_operation ON ai_usage_logs(operation);
 CREATE INDEX idx_ai_usage_logs_provider_model ON ai_usage_logs(provider, model);
 CREATE INDEX idx_ai_usage_logs_provider_model_created ON ai_usage_logs(provider, model, created_at);
+CREATE INDEX idx_ai_usage_logs_project_created ON ai_usage_logs(project_id, created_at);
+CREATE INDEX idx_ai_usage_logs_tool_calls ON ai_usage_logs(tool_calls_count) WHERE tool_calls_count > 0;
 
 -- Note: AI usage logs should be cleaned up via external scheduled job or cron task
 -- Recommended retention: 30-90 days depending on usage patterns

@@ -736,6 +736,65 @@ user_id = "user-123"
 | `orkee cloud list` | List cloud projects |
 | `orkee cloud restore --project <id>` | Restore project from cloud |
 
+## AI Usage Tracking
+
+Orkee provides comprehensive tracking of all AI operations, including token usage, costs, and tool invocations.
+
+### Features
+
+- **Automatic Tracking**: All AI SDK calls tracked automatically (zero manual logging)
+- **Cost Monitoring**: Real-time cost tracking across AI providers (Anthropic, OpenAI, Google, xAI)
+- **Tool Analytics**: Track tool invocations, success rates, and performance metrics
+- **Usage Dashboard**: Visual analytics with charts for tokens, costs, and tool usage over time
+- **Per-Operation Metrics**: Track specific operations (PRD generation, chat, analysis, etc.)
+
+### Tracked Metrics
+
+For every AI operation, Orkee automatically tracks:
+- **Tokens**: Input, output, and total token counts
+- **Cost**: Estimated cost based on provider pricing
+- **Duration**: Actual request duration with high-precision timing
+- **Tool Calls**: Which tools were invoked, arguments, results, and success/failure status
+- **Model/Provider**: Which AI model and provider was used
+- **Metadata**: Finish reason, response ID, and provider-specific metadata
+
+### Accessing Usage Data
+
+View comprehensive usage analytics in the **Usage** tab of the Orkee dashboard:
+
+**Overview Tab:**
+- Key metrics cards (total requests, tokens, costs, tool calls)
+- Model breakdown by token usage
+- Provider breakdown by cost
+- Most used tools with success rates
+
+**Charts & Analytics Tab:**
+- Time-series visualizations for requests, tokens, and costs
+- Tool usage bar charts (call counts, success/failure rates)
+- Tool performance metrics (average duration)
+- Model distribution pie chart
+- Provider cost distribution
+
+### Database Storage
+
+All usage data is stored locally in `~/.orkee/orkee.db` in the `ai_usage_logs` table:
+- Full-text search support for querying historical data
+- Tool call data stored as JSON with full arguments and results
+- Response metadata for debugging and analysis
+- No data sent externally - completely local tracking
+
+### API Endpoints
+
+Access usage data programmatically:
+- `GET /api/ai-usage/stats` - Aggregate statistics
+- `GET /api/ai-usage/tools` - Tool usage breakdown
+- `GET /api/ai-usage/time-series` - Historical data for charts
+- `POST /api/ai-usage` - Log telemetry (used automatically by frontend)
+
+### For Developers
+
+When adding new AI functionality, all tracking happens automatically via telemetry wrappers. See the [AI Usage Implementation Plan](ai-usage.md) for technical details and the developer guide in README.md.
+
 ## Telemetry
 
 Orkee includes optional, privacy-first telemetry to help improve the product. All telemetry is **opt-in** and disabled by default.

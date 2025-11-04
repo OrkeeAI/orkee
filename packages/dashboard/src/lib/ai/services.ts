@@ -36,6 +36,7 @@ import {
   withTimeout,
   mergePRDAnalyses,
 } from './utils';
+import { sendAIResultTelemetry } from './telemetry';
 
 /**
  * Result type including cost information
@@ -96,6 +97,8 @@ export class AISpecService {
    * Internal implementation of PRD analysis
    */
   private async _analyzePRDImpl(prdContent: string, modelPreferences?: ModelConfig): Promise<AIResult<PRDAnalysis>> {
+    const startTime = performance.now();
+
     // Determine model to use: preferences > default
     const { provider, model, modelName } = modelPreferences
       ? { provider: modelPreferences.provider, model: getModelInstance(modelPreferences.provider, modelPreferences.model), modelName: modelPreferences.model }
@@ -182,6 +185,18 @@ ${prdContent}`;
     // Cache the result
     aiCache.set('analyzePRD', { prdContent }, aiResult);
 
+    // Send telemetry
+    const durationMs = Math.round(performance.now() - startTime);
+    await sendAIResultTelemetry(
+      'analyze_prd',
+      null, // PRD analysis doesn't have a project ID
+      modelName,
+      provider,
+      usage,
+      cost.estimatedCost,
+      durationMs
+    );
+
     return aiResult;
   }
 
@@ -189,11 +204,13 @@ ${prdContent}`;
    * Process a large PRD by chunking it and merging results
    */
   private async analyzePRDChunked(prdContent: string, modelPreferences?: ModelConfig): Promise<AIResult<PRDAnalysis>> {
+    const startTime = performance.now();
+
     // Determine model to use: preferences > default
     const { provider, model, modelName } = modelPreferences
       ? { provider: modelPreferences.provider, model: getModelInstance(modelPreferences.provider, modelPreferences.model), modelName: modelPreferences.model }
       : getPreferredModel();
-    const { chunkSize, timeoutMs } = AI_CONFIG.sizeLimits;
+    const { chunkSize, timeoutMs} = AI_CONFIG.sizeLimits;
 
     // Split PRD into semantic chunks
     const chunks = chunkText(prdContent, chunkSize);
@@ -289,6 +306,18 @@ Guidelines:
     // Cache the merged result
     aiCache.set('analyzePRD', { prdContent }, aiResult);
 
+    // Send telemetry
+    const durationMs = Math.round(performance.now() - startTime);
+    await sendAIResultTelemetry(
+      'analyze_prd_chunked',
+      null, // PRD analysis doesn't have a project ID
+      modelName,
+      provider,
+      aiResult.usage,
+      cost.estimatedCost,
+      durationMs
+    );
+
     return aiResult;
   }
 
@@ -301,6 +330,8 @@ Guidelines:
     requirements?: string[],
     modelPreferences?: ModelConfig
   ): Promise<AIResult<SpecCapability>> {
+    const startTime = performance.now();
+
     // Determine model to use: preferences > default
     const { provider, model, modelName } = modelPreferences
       ? { provider: modelPreferences.provider, model: getModelInstance(modelPreferences.provider, modelPreferences.model), modelName: modelPreferences.model }
@@ -345,13 +376,27 @@ Purpose: ${purpose}`;
       provider,
     };
 
-    return {
+    const aiResult = {
       data: result.object,
       usage,
       cost,
       model: modelName,
       provider,
     };
+
+    // Send telemetry
+    const durationMs = Math.round(performance.now() - startTime);
+    await sendAIResultTelemetry(
+      'generate_spec',
+      null,
+      modelName,
+      provider,
+      usage,
+      cost.estimatedCost,
+      durationMs
+    );
+
+    return aiResult;
   }
 
   /**
@@ -362,6 +407,8 @@ Purpose: ${purpose}`;
     existingTasks?: string[],
     modelPreferences?: ModelConfig
   ): Promise<AIResult<TaskSuggestion[]>> {
+    const startTime = performance.now();
+
     // Determine model to use: preferences > default
     const { provider, model, modelName } = modelPreferences
       ? { provider: modelPreferences.provider, model: getModelInstance(modelPreferences.provider, modelPreferences.model), modelName: modelPreferences.model }
@@ -409,13 +456,27 @@ ${capability.requirements.map((r, i) => `${i + 1}. ${r.name}: ${r.content}`).joi
       provider,
     };
 
-    return {
+    const aiResult = {
       data: result.object,
       usage,
       cost,
       model: modelName,
       provider,
     };
+
+    // Send telemetry
+    const durationMs = Math.round(performance.now() - startTime);
+    await sendAIResultTelemetry(
+      'suggest_tasks',
+      null,
+      modelName,
+      provider,
+      usage,
+      cost.estimatedCost,
+      durationMs
+    );
+
+    return aiResult;
   }
 
   /**
@@ -426,6 +487,8 @@ ${capability.requirements.map((r, i) => `${i + 1}. ${r.name}: ${r.content}`).joi
     existingCapabilities: Array<{ id: string; name: string; purpose: string }>,
     modelPreferences?: ModelConfig
   ): Promise<AIResult<OrphanTaskAnalysis>> {
+    const startTime = performance.now();
+
     // Determine model to use: preferences > default
     const { provider, model, modelName } = modelPreferences
       ? { provider: modelPreferences.provider, model: getModelInstance(modelPreferences.provider, modelPreferences.model), modelName: modelPreferences.model }
@@ -470,13 +533,27 @@ Provide a high-confidence suggestion with clear rationale.`;
       provider,
     };
 
-    return {
+    const aiResult = {
       data: result.object,
       usage,
       cost,
       model: modelName,
       provider,
     };
+
+    // Send telemetry
+    const durationMs = Math.round(performance.now() - startTime);
+    await sendAIResultTelemetry(
+      'analyze_orphan_task',
+      null,
+      modelName,
+      provider,
+      usage,
+      cost.estimatedCost,
+      durationMs
+    );
+
+    return aiResult;
   }
 
   /**
@@ -487,6 +564,8 @@ Provide a high-confidence suggestion with clear rationale.`;
     scenarios: Array<{ name: string; when: string; then: string; and?: string[] }>,
     modelPreferences?: ModelConfig
   ): Promise<AIResult<TaskValidation>> {
+    const startTime = performance.now();
+
     // Determine model to use: preferences > default
     const { provider, model, modelName } = modelPreferences
       ? { provider: modelPreferences.provider, model: getModelInstance(modelPreferences.provider, modelPreferences.model), modelName: modelPreferences.model }
@@ -540,13 +619,27 @@ Provide an overall assessment and recommendations.`;
       provider,
     };
 
-    return {
+    const aiResult = {
       data: result.object,
       usage,
       cost,
       model: modelName,
       provider,
     };
+
+    // Send telemetry
+    const durationMs = Math.round(performance.now() - startTime);
+    await sendAIResultTelemetry(
+      'validate_task_completion',
+      null,
+      modelName,
+      provider,
+      usage,
+      cost.estimatedCost,
+      durationMs
+    );
+
+    return aiResult;
   }
 
   /**
@@ -557,6 +650,8 @@ Provide an overall assessment and recommendations.`;
     feedback: string,
     modelPreferences?: ModelConfig
   ): Promise<AIResult<SpecRefinement>> {
+    const startTime = performance.now();
+
     // Determine model to use: preferences > default
     const { provider, model, modelName} = modelPreferences
       ? { provider: modelPreferences.provider, model: getModelInstance(modelPreferences.provider, modelPreferences.model), modelName: modelPreferences.model }
@@ -603,19 +698,35 @@ Prioritize suggestions and explain the rationale.`;
       provider,
     };
 
-    return {
+    const aiResult = {
       data: result.object,
       usage,
       cost,
       model: modelName,
       provider,
     };
+
+    // Send telemetry
+    const durationMs = Math.round(performance.now() - startTime);
+    await sendAIResultTelemetry(
+      'refine_spec',
+      null,
+      modelName,
+      provider,
+      usage,
+      cost.estimatedCost,
+      durationMs
+    );
+
+    return aiResult;
   }
 
   /**
    * Generate markdown spec from capability
    */
   async generateSpecMarkdown(capability: SpecCapability, modelPreferences?: ModelConfig): Promise<AIResult<string>> {
+    const startTime = performance.now();
+
     // Determine model to use: preferences > default
     const { provider, model, modelName} = modelPreferences
       ? { provider: modelPreferences.provider, model: getModelInstance(modelPreferences.provider, modelPreferences.model), modelName: modelPreferences.model }
@@ -676,13 +787,27 @@ Return ONLY the markdown content, no explanations.`;
       provider,
     };
 
-    return {
+    const aiResult = {
       data: result.text,
       usage,
       cost,
       model: modelName,
       provider,
     };
+
+    // Send telemetry
+    const durationMs = Math.round(performance.now() - startTime);
+    await sendAIResultTelemetry(
+      'generate_spec_markdown',
+      null,
+      modelName,
+      provider,
+      usage,
+      cost.estimatedCost,
+      durationMs
+    );
+
+    return aiResult;
   }
 
   /**
@@ -693,6 +818,8 @@ Return ONLY the markdown content, no explanations.`;
     tasks?: Array<{ title: string; description: string; status: string }>,
     modelPreferences?: ModelConfig
   ): Promise<AIResult<string>> {
+    const startTime = performance.now();
+
     // Determine model to use: preferences > default
     const { provider, model, modelName } = modelPreferences
       ? { provider: modelPreferences.provider, model: getModelInstance(modelPreferences.provider, modelPreferences.model), modelName: modelPreferences.model }
@@ -765,13 +892,27 @@ Return ONLY the PRD markdown content, no explanations.`;
       provider,
     };
 
-    return {
+    const aiResult = {
       data: result.text,
       usage,
       cost,
       model: modelName,
       provider,
     };
+
+    // Send telemetry
+    const durationMs = Math.round(performance.now() - startTime);
+    await sendAIResultTelemetry(
+      'regenerate_prd',
+      null,
+      modelName,
+      provider,
+      usage,
+      cost.estimatedCost,
+      durationMs
+    );
+
+    return aiResult;
   }
 }
 
