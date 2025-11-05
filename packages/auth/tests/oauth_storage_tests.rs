@@ -6,10 +6,7 @@ use nanoid::nanoid;
 use sqlx::{sqlite::SqlitePoolOptions, SqlitePool};
 use tempfile::TempDir;
 
-use orkee_auth::oauth::{
-    storage::OAuthStorage,
-    types::{OAuthProvider, OAuthProviderConfig, OAuthToken},
-};
+use orkee_auth::oauth::{storage::OAuthStorage, types::{OAuthProvider, OAuthToken}};
 
 /// Helper to create a test database with schema
 async fn setup_test_db() -> (SqlitePool, TempDir) {
@@ -40,26 +37,6 @@ async fn setup_test_db() -> (SqlitePool, TempDir) {
             created_at INTEGER NOT NULL DEFAULT (unixepoch()),
             updated_at INTEGER NOT NULL DEFAULT (unixepoch()),
             UNIQUE(user_id, provider)
-        )
-        "#,
-    )
-    .execute(&pool)
-    .await
-    .unwrap();
-
-    sqlx::query(
-        r#"
-        CREATE TABLE oauth_providers (
-            provider TEXT PRIMARY KEY,
-            client_id TEXT NOT NULL,
-            client_secret TEXT,
-            auth_url TEXT NOT NULL,
-            token_url TEXT NOT NULL,
-            redirect_uri TEXT NOT NULL,
-            scopes TEXT NOT NULL,
-            enabled BOOLEAN DEFAULT 1,
-            created_at INTEGER NOT NULL DEFAULT (unixepoch()),
-            updated_at INTEGER NOT NULL DEFAULT (unixepoch())
         )
         "#,
     )
@@ -238,97 +215,4 @@ async fn test_multiple_users_same_provider() {
     assert_eq!(retrieved_user1.user_id, "user-1");
     assert_eq!(retrieved_user2.user_id, "user-2");
     assert_ne!(retrieved_user1.access_token, retrieved_user2.access_token);
-}
-
-#[tokio::test]
-async fn test_store_and_retrieve_provider_config() {
-    let (pool, _temp_dir) = setup_test_db().await;
-    let storage = OAuthStorage::new(pool).unwrap();
-
-    let config = OAuthProviderConfig {
-        provider: "claude".to_string(),
-        client_id: "test-client-id".to_string(),
-        client_secret: Some("test-client-secret".to_string()),
-        auth_url: "https://test.auth.url".to_string(),
-        token_url: "https://test.token.url".to_string(),
-        redirect_uri: "http://localhost:3737/callback".to_string(),
-        scopes: vec!["scope1".to_string(), "scope2".to_string()],
-        enabled: true,
-    };
-
-    // Store config
-    storage.store_provider_config(&config).await.unwrap();
-
-    // Retrieve config
-    let retrieved = storage
-        .get_provider_config(OAuthProvider::Claude)
-        .await
-        .unwrap()
-        .unwrap();
-
-    assert_eq!(retrieved.provider, config.provider);
-    assert_eq!(retrieved.client_id, config.client_id);
-    assert_eq!(retrieved.client_secret, config.client_secret);
-    assert_eq!(retrieved.auth_url, config.auth_url);
-    assert_eq!(retrieved.token_url, config.token_url);
-    assert_eq!(retrieved.scopes, config.scopes);
-    assert_eq!(retrieved.enabled, config.enabled);
-}
-
-#[tokio::test]
-async fn test_provider_config_upsert() {
-    let (pool, _temp_dir) = setup_test_db().await;
-    let storage = OAuthStorage::new(pool).unwrap();
-
-    let config1 = OAuthProviderConfig {
-        provider: "openai".to_string(),
-        client_id: "old-client-id".to_string(),
-        client_secret: None,
-        auth_url: "https://old.auth.url".to_string(),
-        token_url: "https://old.token.url".to_string(),
-        redirect_uri: "http://localhost:3737/callback".to_string(),
-        scopes: vec!["scope1".to_string()],
-        enabled: true,
-    };
-
-    storage.store_provider_config(&config1).await.unwrap();
-
-    // Update config
-    let config2 = OAuthProviderConfig {
-        provider: "openai".to_string(),
-        client_id: "new-client-id".to_string(),
-        client_secret: Some("new-secret".to_string()),
-        auth_url: "https://new.auth.url".to_string(),
-        token_url: "https://new.token.url".to_string(),
-        redirect_uri: "http://localhost:8080/callback".to_string(),
-        scopes: vec!["scope1".to_string(), "scope2".to_string()],
-        enabled: false,
-    };
-
-    storage.store_provider_config(&config2).await.unwrap();
-
-    // Should have the new config
-    let retrieved = storage
-        .get_provider_config(OAuthProvider::OpenAI)
-        .await
-        .unwrap()
-        .unwrap();
-
-    assert_eq!(retrieved.client_id, "new-client-id");
-    assert_eq!(retrieved.client_secret, Some("new-secret".to_string()));
-    assert_eq!(retrieved.auth_url, "https://new.auth.url");
-    assert_eq!(retrieved.scopes.len(), 2);
-    assert!(!retrieved.enabled);
-}
-
-#[tokio::test]
-async fn test_get_provider_config_not_found() {
-    let (pool, _temp_dir) = setup_test_db().await;
-    let storage = OAuthStorage::new(pool).unwrap();
-
-    let result = storage
-        .get_provider_config(OAuthProvider::XAI)
-        .await
-        .unwrap();
-    assert!(result.is_none());
 }

@@ -103,34 +103,6 @@ impl OAuthToken {
     }
 }
 
-/// OAuth provider configuration
-#[derive(Clone, Serialize, Deserialize)]
-pub struct OAuthProviderConfig {
-    pub provider: String,
-    pub client_id: String,
-    pub client_secret: Option<String>, // Encrypted in database
-    pub auth_url: String,
-    pub token_url: String,
-    pub redirect_uri: String,
-    pub scopes: Vec<String>,
-    pub enabled: bool,
-}
-
-impl fmt::Debug for OAuthProviderConfig {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("OAuthProviderConfig")
-            .field("provider", &self.provider)
-            .field("client_id", &self.client_id)
-            .field("client_secret", &"[REDACTED]")
-            .field("auth_url", &self.auth_url)
-            .field("token_url", &self.token_url)
-            .field("redirect_uri", &self.redirect_uri)
-            .field("scopes", &self.scopes)
-            .field("enabled", &self.enabled)
-            .finish()
-    }
-}
-
 /// PKCE challenge for OAuth flow
 #[derive(Clone)]
 pub struct PkceChallenge {
