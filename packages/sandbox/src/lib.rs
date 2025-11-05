@@ -1,10 +1,20 @@
 // ABOUTME: Sandbox provider registry for loading and managing sandbox provider configurations
 // ABOUTME: Loads provider definitions from config/providers.json at runtime
 
+pub mod cost;
+pub mod executor;
+pub mod health;
+pub mod manager;
+pub mod monitor;
 pub mod providers;
 pub mod settings;
 pub mod storage;
 
+pub use cost::{CostBreakdown, CostCalculator};
+pub use executor::{CommandExecutor, ExecuteCommandRequest, ExecutionResult, ExecutorError};
+pub use health::{HealthCheck, HealthChecker, HealthStatus};
+pub use manager::{CreateSandboxRequest, ManagerError, SandboxManager};
+pub use monitor::{AggregatedMetrics, ResourceMonitor, ResourceSnapshot};
 pub use providers::{DockerProvider, Provider as SandboxProvider};
 pub use settings::{ProviderSettings, SandboxSettings, SettingsManager};
 pub use storage::{
