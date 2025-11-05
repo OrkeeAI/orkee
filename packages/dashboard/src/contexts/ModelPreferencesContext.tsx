@@ -1,6 +1,7 @@
 // ABOUTME: React Context provider for model preferences with React Query integration
 // ABOUTME: Provides access to user model preferences and convenient hooks for AI model selection
 
+/* eslint-disable react-refresh/only-export-components */
 import React, { createContext, useContext } from 'react';
 import { useModelPreferences, getModelForTask } from '@/services/model-preferences';
 import type { ModelPreferences, TaskType, ModelConfig } from '@/types/models';
