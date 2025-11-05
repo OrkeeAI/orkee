@@ -770,6 +770,153 @@ BEGIN
 END;
 
 -- ============================================================================
+-- SANDBOX SETTINGS (Database-driven configuration)
+-- ============================================================================
+-- All settings manageable via Dashboard > Settings > Advanced > Configuration > Sandboxes
+
+CREATE TABLE sandbox_settings (
+    id INTEGER PRIMARY KEY CHECK (id = 1), -- Singleton record
+
+    -- General Settings
+    enabled BOOLEAN DEFAULT TRUE,
+    default_provider TEXT DEFAULT 'local' CHECK(default_provider IN ('local', 'beam', 'cloudflare', 'daytona', 'e2b', 'flyio', 'modal', 'northflank')),
+    default_image TEXT DEFAULT 'orkee-sandbox:latest',
+
+    -- Resource Limits (apply to all sandboxes)
+    max_concurrent_local INTEGER DEFAULT 10,
+    max_concurrent_cloud INTEGER DEFAULT 50,
+    max_cpu_cores_per_sandbox INTEGER DEFAULT 16,
+    max_memory_gb_per_sandbox INTEGER DEFAULT 64,
+    max_disk_gb_per_sandbox INTEGER DEFAULT 100,
+    max_gpu_per_sandbox INTEGER DEFAULT 1,
+
+    -- Lifecycle Settings
+    auto_stop_idle_minutes INTEGER DEFAULT 120,
+    max_runtime_hours INTEGER DEFAULT 24,
+    cleanup_interval_minutes INTEGER DEFAULT 10,
+    preserve_stopped_sandboxes BOOLEAN DEFAULT FALSE,
+    auto_restart_failed BOOLEAN DEFAULT FALSE,
+    max_restart_attempts INTEGER DEFAULT 3,
+
+    -- Cost Management
+    cost_tracking_enabled BOOLEAN DEFAULT TRUE,
+    cost_alert_threshold REAL DEFAULT 10.00,
+    max_cost_per_sandbox REAL DEFAULT 50.00,
+    max_total_cost REAL DEFAULT 500.00,
+    auto_stop_at_cost_limit BOOLEAN DEFAULT TRUE,
+
+    -- Network Settings
+    default_network_mode TEXT DEFAULT 'isolated' CHECK(default_network_mode IN ('none', 'isolated', 'host', 'custom')),
+    allow_public_endpoints BOOLEAN DEFAULT FALSE,
+    require_auth_for_web BOOLEAN DEFAULT TRUE,
+
+    -- Security Settings
+    allow_privileged_containers BOOLEAN DEFAULT FALSE,
+    require_non_root_user BOOLEAN DEFAULT TRUE,
+    enable_security_scanning BOOLEAN DEFAULT TRUE,
+    allowed_base_images TEXT, -- JSON array of allowed images
+    blocked_commands TEXT, -- JSON array of blocked commands
+
+    -- Monitoring
+    resource_monitoring_interval_seconds INTEGER DEFAULT 30,
+    health_check_interval_seconds INTEGER DEFAULT 60,
+    log_retention_days INTEGER DEFAULT 7,
+    metrics_retention_days INTEGER DEFAULT 30,
+
+    -- Templates
+    allow_custom_templates BOOLEAN DEFAULT TRUE,
+    require_template_approval BOOLEAN DEFAULT FALSE,
+    share_templates_globally BOOLEAN DEFAULT FALSE,
+
+    updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+    updated_by TEXT,
+
+    CHECK (json_valid(allowed_base_images) OR allowed_base_images IS NULL),
+    CHECK (json_valid(blocked_commands) OR blocked_commands IS NULL)
+);
+
+-- Provider-specific settings (one record per provider)
+CREATE TABLE sandbox_provider_settings (
+    provider TEXT PRIMARY KEY CHECK(provider IN ('local', 'beam', 'cloudflare', 'daytona', 'e2b', 'flyio', 'modal', 'northflank')),
+
+    -- Status
+    enabled BOOLEAN DEFAULT FALSE,
+    configured BOOLEAN DEFAULT FALSE,
+    validated_at TEXT,
+    validation_error TEXT,
+
+    -- Credentials (encrypted)
+    api_key TEXT CHECK(api_key IS NULL OR length(api_key) >= 38),
+    api_secret TEXT CHECK(api_secret IS NULL OR length(api_secret) >= 38),
+    api_endpoint TEXT,
+
+    -- Provider-specific IDs
+    workspace_id TEXT,
+    project_id TEXT,
+    account_id TEXT,
+    organization_id TEXT,
+    app_name TEXT,
+    namespace_id TEXT,
+
+    -- Defaults
+    default_region TEXT,
+    default_instance_type TEXT,
+    default_image TEXT,
+
+    -- Resource defaults for this provider
+    default_cpu_cores REAL,
+    default_memory_mb INTEGER,
+    default_disk_gb INTEGER,
+    default_gpu_type TEXT,
+
+    -- Cost overrides (if different from providers.json)
+    cost_per_hour REAL,
+    cost_per_gb_memory REAL,
+    cost_per_vcpu REAL,
+    cost_per_gpu_hour REAL,
+
+    -- Limits for this provider
+    max_sandboxes INTEGER,
+    max_runtime_hours INTEGER,
+    max_total_cost REAL,
+
+    -- Additional configuration (JSON)
+    custom_config TEXT,
+
+    updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+    updated_by TEXT,
+
+    CHECK (json_valid(custom_config) OR custom_config IS NULL)
+);
+
+-- Create triggers for settings updates
+CREATE TRIGGER sandbox_settings_updated_at AFTER UPDATE ON sandbox_settings
+FOR EACH ROW WHEN NEW.updated_at = OLD.updated_at
+BEGIN
+    UPDATE sandbox_settings SET updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE id = 1;
+END;
+
+CREATE TRIGGER sandbox_provider_settings_updated_at AFTER UPDATE ON sandbox_provider_settings
+FOR EACH ROW WHEN NEW.updated_at = OLD.updated_at
+BEGIN
+    UPDATE sandbox_provider_settings SET updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE provider = NEW.provider;
+END;
+
+-- Insert default settings
+INSERT OR IGNORE INTO sandbox_settings (id) VALUES (1);
+
+-- Insert provider records (disabled by default)
+INSERT OR IGNORE INTO sandbox_provider_settings (provider, enabled) VALUES
+    ('local', TRUE),  -- Local is enabled by default
+    ('beam', FALSE),
+    ('cloudflare', FALSE),
+    ('daytona', FALSE),
+    ('e2b', FALSE),
+    ('flyio', FALSE),
+    ('modal', FALSE),
+    ('northflank', FALSE);
+
+-- ============================================================================
 -- TELEMETRY
 -- ============================================================================
 
