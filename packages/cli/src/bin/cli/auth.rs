@@ -226,7 +226,7 @@ async fn status_command() {
                 println!();
             }
 
-            println!("Use {} to authenticate", "orkee login <provider>".yellow());
+            println!("Use {} to authenticate", "orkee auth login <provider>".yellow());
         }
         Err(e) => {
             eprintln!("{} Failed to get status: {}", "✗".red().bold(), e);
