@@ -66,7 +66,6 @@ DROP TABLE IF EXISTS encryption_settings;
 
 -- Drop OAuth tables
 DROP TABLE IF EXISTS oauth_tokens;
-DROP TABLE IF EXISTS oauth_providers;
 
 -- ============================================================================
 -- DROP AI USAGE TABLES
