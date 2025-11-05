@@ -1371,15 +1371,15 @@ All other configuration is stored in the database and managed through the UI.
 ### Phase 1: Foundation (Week 1)
 - [x] Create packages/agents with config/agents.json
 - [x] Create packages/sandbox with config/providers.json
-- [x] Add sandbox tables to migration
+- [x] Add sandbox tables to migration (sandboxes, sandbox_executions, sandbox_env_vars, sandbox_volumes)
 - [x] Add sandbox_settings tables to migration
 - [x] Add sandbox_provider_settings tables to migration
 - [x] Implement SettingsManager for database config
 - [x] Implement agent registry
 - [x] Implement provider registry
+- [x] Create storage layer (SandboxStorage with full CRUD operations)
 - [ ] Create Docker provider with bollard
 - [ ] Build default Docker image
-- [ ] Create storage layer
 
 ### Phase 2: Core Features (Week 2)
 - [ ] Sandbox lifecycle manager using database settings
