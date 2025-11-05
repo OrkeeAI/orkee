@@ -270,8 +270,6 @@ Authentication status can be viewed in the dashboard:
 3. See token expiry times
 4. Manage authentication via CLI commands
 
-For detailed OAuth setup and troubleshooting, see [OAUTH_SETUP.md](./OAUTH_SETUP.md).
-
 ## Desktop App (Tauri)
 
 The Orkee Desktop App is a native application built with Tauri that provides:
