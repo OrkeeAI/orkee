@@ -11,6 +11,9 @@ use orkee_storage::EncryptionMode;
 use std::fs;
 use std::process::{self, Command, Stdio};
 
+/// Claude API tokens are valid for 1 year from creation
+const CLAUDE_TOKEN_VALIDITY_SECONDS: i64 = 365 * 24 * 60 * 60;
+
 #[derive(Subcommand)]
 pub enum AuthCommands {
     /// Authenticate with an AI provider using OAuth
@@ -410,7 +413,7 @@ async fn store_claude_token(token: &str) -> Result<(), String> {
         provider: "claude".to_string(),
         access_token: token.to_string(),
         refresh_token: None, // Claude tokens don't refresh
-        expires_at: Utc::now().timestamp() + (365 * 24 * 60 * 60), // 1 year
+        expires_at: Utc::now().timestamp() + CLAUDE_TOKEN_VALIDITY_SECONDS,
         token_type: "Bearer".to_string(),
         scope: Some("model:claude account:read".to_string()),
         subscription_type: None, // Could detect later via API
