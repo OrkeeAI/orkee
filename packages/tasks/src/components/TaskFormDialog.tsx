@@ -83,14 +83,20 @@ export const TaskFormDialog: React.FC<TaskFormDialogProps> = ({
       try {
         const apiBaseUrl = await getApiBaseUrl();
         const response = await fetch(`${apiBaseUrl}/api/tags`);
-        const data = await response.json();
-        if (data.success) {
+        const apiResponse = await response.json();
+
+        // API returns: { success: true, data: { data: [...], pagination: {...} } }
+        if (apiResponse.success && apiResponse.data?.data && Array.isArray(apiResponse.data.data)) {
           // Filter out archived tags
-          const activeTags = data.data.filter((tag: Tag) => !tag.archivedAt);
+          const activeTags = apiResponse.data.data.filter((tag: Tag) => !tag.archivedAt);
           setTags(activeTags);
+        } else {
+          console.warn('Tags API returned unexpected format:', apiResponse);
+          setTags([]);
         }
       } catch (error) {
         console.error('Failed to load tags:', error);
+        setTags([]);
       } finally {
         setLoadingTags(false);
       }
