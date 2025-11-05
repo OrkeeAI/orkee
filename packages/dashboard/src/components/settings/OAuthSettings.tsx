@@ -14,26 +14,8 @@ export function OAuthSettings() {
     {
       id: 'claude',
       name: 'Claude (Anthropic)',
-      description: 'Use your Claude Pro/Max subscription for API access',
+      description: 'Use your Claude Pro/Max subscription - requires Claude CLI',
       icon: '🤖',
-    },
-    {
-      id: 'openai',
-      name: 'OpenAI',
-      description: 'Authenticate with your OpenAI account',
-      icon: '🟢',
-    },
-    {
-      id: 'google',
-      name: 'Google AI',
-      description: 'Use Google AI services with OAuth',
-      icon: '🔵',
-    },
-    {
-      id: 'xai',
-      name: 'xAI (Grok)',
-      description: 'Authenticate with xAI for Grok access',
-      icon: '⚡',
     },
   ];
 
@@ -66,9 +48,9 @@ export function OAuthSettings() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Shield className="h-5 w-5" />
-              OAuth Authentication
+              AI Provider Authentication
             </CardTitle>
-            <CardDescription>Loading OAuth status...</CardDescription>
+            <CardDescription>Loading authentication status...</CardDescription>
           </CardHeader>
         </Card>
       </div>
@@ -81,10 +63,10 @@ export function OAuthSettings() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Shield className="h-5 w-5" />
-            OAuth Authentication
+            AI Provider Authentication
           </CardTitle>
           <CardDescription>
-            Authenticate with AI providers using OAuth instead of API keys
+            Authenticate with Claude using OAuth tokens from the Claude CLI
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
@@ -92,13 +74,23 @@ export function OAuthSettings() {
           <Alert>
             <Terminal className="h-4 w-4" />
             <AlertDescription>
-              <p className="font-medium mb-2">How to authenticate:</p>
-              <ol className="text-sm space-y-1 list-decimal list-inside">
-                <li>Open your terminal</li>
-                <li>Run <code className="px-1.5 py-0.5 bg-gray-100 rounded text-xs">orkee login &lt;provider&gt;</code></li>
-                <li>Your browser will open for authentication</li>
-                <li>Authorize Orkee to access your account</li>
-                <li>Return here to see your connection status</li>
+              <p className="font-medium mb-2">How to authenticate with Claude:</p>
+              <ol className="text-sm space-y-2 list-decimal list-inside">
+                <li className="pl-1">
+                  Install Claude CLI:
+                  <code className="ml-2 px-1.5 py-0.5 bg-gray-100 rounded text-xs font-mono">
+                    npm install -g @anthropic-ai/claude-code
+                  </code>
+                </li>
+                <li className="pl-1">
+                  Run{' '}
+                  <code className="px-1.5 py-0.5 bg-gray-100 rounded text-xs font-mono">
+                    orkee auth login claude
+                  </code>
+                </li>
+                <li className="pl-1">Your browser will open for authentication with Anthropic</li>
+                <li className="pl-1">The generated OAuth token will be imported automatically</li>
+                <li className="pl-1">Return here to see your connection status</li>
               </ol>
             </AlertDescription>
           </Alert>
@@ -173,8 +165,8 @@ export function OAuthSettings() {
 
                           {!isAuthenticated && (
                             <div className="mt-2">
-                              <code className="text-xs bg-gray-100 px-2 py-1 rounded">
-                                orkee login {provider.id}
+                              <code className="text-xs bg-gray-100 px-2 py-1 rounded font-mono">
+                                orkee auth login {provider.id}
                               </code>
                             </div>
                           )}
@@ -212,20 +204,23 @@ export function OAuthSettings() {
               <div className="grid grid-cols-2 gap-3 text-sm">
                 <div>
                   <p className="text-muted-foreground mb-1">Authenticate:</p>
-                  <code className="text-xs bg-white px-2 py-1 rounded block">orkee login &lt;provider&gt;</code>
+                  <code className="text-xs bg-white px-2 py-1 rounded block font-mono">orkee auth login claude</code>
                 </div>
                 <div>
                   <p className="text-muted-foreground mb-1">Check Status:</p>
-                  <code className="text-xs bg-white px-2 py-1 rounded block">orkee auth status</code>
+                  <code className="text-xs bg-white px-2 py-1 rounded block font-mono">orkee auth status</code>
                 </div>
                 <div>
-                  <p className="text-muted-foreground mb-1">Refresh Token:</p>
-                  <code className="text-xs bg-white px-2 py-1 rounded block">orkee auth refresh &lt;provider&gt;</code>
+                  <p className="text-muted-foreground mb-1">Import from File:</p>
+                  <code className="text-xs bg-white px-2 py-1 rounded block font-mono">orkee auth login claude --file token.txt</code>
                 </div>
                 <div>
                   <p className="text-muted-foreground mb-1">Logout:</p>
-                  <code className="text-xs bg-white px-2 py-1 rounded block">orkee logout &lt;provider&gt;</code>
+                  <code className="text-xs bg-white px-2 py-1 rounded block font-mono">orkee auth logout claude</code>
                 </div>
+              </div>
+              <div className="mt-3 pt-3 border-t text-xs text-muted-foreground">
+                <p>💡 Claude tokens expire after 1 year and cannot be refreshed. Re-authenticate when expired.</p>
               </div>
             </CardContent>
           </Card>
