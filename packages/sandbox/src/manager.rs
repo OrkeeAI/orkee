@@ -519,8 +519,9 @@ impl SandboxManager {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::providers::ProviderInfo;
+    use crate::providers::{ContainerStatus, PortMapping, ProviderInfo, VolumeMount};
     use async_trait::async_trait;
+    use std::collections::HashMap;
 
     // Mock provider for testing
     struct MockProvider;
@@ -535,7 +536,17 @@ mod tests {
             Ok(ProviderInfo {
                 name: "Mock".to_string(),
                 version: "1.0.0".to_string(),
-                api_version: "v1".to_string(),
+                provider_type: "mock".to_string(),
+                capabilities: crate::providers::ProviderCapabilities {
+                    gpu_support: false,
+                    persistent_storage: true,
+                    network_isolation: true,
+                    resource_limits: true,
+                    exec_support: true,
+                    file_transfer: true,
+                    metrics: true,
+                },
+                status: crate::providers::ProviderStatus::Ready,
             })
         }
 
@@ -587,6 +598,7 @@ mod tests {
 
         async fn list_containers(
             &self,
+            _include_stopped: bool,
         ) -> std::result::Result<Vec<ContainerInfo>, ProviderError> {
             Ok(vec![])
         }
@@ -595,8 +607,7 @@ mod tests {
             &self,
             _container_id: &str,
             _command: Vec<String>,
-            _working_dir: Option<String>,
-            _env_vars: HashMap<String, String>,
+            _env_vars: Option<HashMap<String, String>>,
         ) -> std::result::Result<crate::providers::ExecResult, ProviderError> {
             Ok(crate::providers::ExecResult {
                 exit_code: 0,
@@ -609,7 +620,7 @@ mod tests {
             &self,
             _container_id: &str,
             _follow: bool,
-            _timestamps: bool,
+            _since: Option<chrono::DateTime<chrono::Utc>>,
         ) -> std::result::Result<crate::providers::OutputStream, ProviderError> {
             let (_tx, rx) = tokio::sync::mpsc::unbounded_channel();
             Ok(crate::providers::OutputStream { receiver: rx })
@@ -649,6 +660,7 @@ mod tests {
         async fn pull_image(
             &self,
             _image: &str,
+            _force: bool,
         ) -> std::result::Result<(), ProviderError> {
             Ok(())
         }

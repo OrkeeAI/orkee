@@ -679,6 +679,7 @@ fn extract_tar_archive(data: &[u8], dest_path: &str) -> std::io::Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::providers::{PortMapping, VolumeMount};
 
     #[tokio::test]
     async fn test_docker_provider_creation() {

@@ -289,8 +289,9 @@ impl CostCalculator {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{ProviderCapabilities, ProviderLimits};
+    use crate::{Provider, ProviderCapabilities, ProviderLimits, ProviderPricing};
     use chrono::Duration;
+    use std::collections::HashMap;
 
     fn create_test_provider() -> Provider {
         Provider {
