@@ -4,12 +4,12 @@
 
 ## Progress Summary
 
-- **Overall**: 19/37 tasks completed (51%)
+- **Overall**: 25/37 tasks completed (68%)
 - **Phase 1 (Database)**: 4/4 tasks ✅
 - **Phase 2 (Remove Code)**: 4/4 tasks ✅
 - **Phase 3 (OAuth Manager)**: 8/8 tasks ✅
 - **Phase 4 (Storage)**: 3/3 tasks ✅
-- **Phase 5 (CLI)**: 0/6 tasks
+- **Phase 5 (CLI)**: 6/6 tasks ✅
 - **Phase 6 (Testing)**: 0/6 tasks
 - **Phase 7 (Docs)**: 0/6 tasks
 
@@ -235,13 +235,13 @@ use crate::error::{AuthError, AuthResult};
 - [x] Remove `get_provider_config()` from `storage.rs` (lines 220-262)
 - [x] Keep all token storage methods (they work correctly)
 
-### Phase 5: Update CLI Commands ⏳
-- [ ] Update `login_command()` in `auth.rs` to handle Claude token import
-- [ ] Add support for `orkee auth login claude` (auto-runs setup)
-- [ ] Add support for `orkee auth login claude --file token.txt`
-- [ ] Add error handling for non-Claude providers
-- [ ] Add token extraction logic from claude setup-token output
-- [ ] Update help text and command descriptions
+### Phase 5: Update CLI Commands ✅
+- [x] Update `login_command()` in `auth.rs` to handle Claude token import
+- [x] Add support for `orkee auth login claude` (auto-runs setup)
+- [x] Add support for `orkee auth login claude --file token.txt`
+- [x] Add error handling for non-Claude providers
+- [x] Add token extraction logic from claude setup-token output
+- [x] Update help text and command descriptions
 
 #### Complete Implementation for login_command()
 
