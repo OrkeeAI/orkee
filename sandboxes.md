@@ -264,7 +264,7 @@ Orkee Sandboxes provide isolated execution environments for AI agents to perform
         "max_runtime_hours": null
       },
       "default_config": {
-        "image": "orkee-sandbox:latest",
+        "image": "orkee/sandbox:latest",
         "memory_mb": 4096,
         "cpu_cores": 2
       },
@@ -550,7 +550,7 @@ CREATE TABLE sandbox_settings (
     -- General Settings
     enabled BOOLEAN DEFAULT TRUE,
     default_provider TEXT DEFAULT 'local' CHECK(default_provider IN ('local', 'beam', 'cloudflare', 'daytona', 'e2b', 'flyio', 'modal', 'northflank')),
-    default_image TEXT DEFAULT 'orkee-sandbox:latest',
+    default_image TEXT DEFAULT 'orkee/sandbox:latest',
 
     -- Resource Limits (apply to all sandboxes)
     max_concurrent_local INTEGER DEFAULT 10,
@@ -1013,7 +1013,7 @@ export function SandboxSettings() {
                   onChange={(e) =>
                     setSettings({ ...settings, default_image: e.target.value })
                   }
-                  placeholder="orkee-sandbox:latest"
+                  placeholder="orkee/sandbox:latest"
                 />
               </div>
             </CardContent>

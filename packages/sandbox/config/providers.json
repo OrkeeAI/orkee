@@ -28,7 +28,7 @@
         "max_runtime_hours": null
       },
       "default_config": {
-        "image": "orkee-sandbox:latest",
+        "image": "orkee/sandbox:latest",
         "memory_mb": 4096,
         "cpu_cores": 2
       },

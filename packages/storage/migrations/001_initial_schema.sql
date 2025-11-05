@@ -780,7 +780,7 @@ CREATE TABLE sandbox_settings (
     -- General Settings
     enabled BOOLEAN DEFAULT TRUE,
     default_provider TEXT DEFAULT 'local' CHECK(default_provider IN ('local', 'beam', 'cloudflare', 'daytona', 'e2b', 'flyio', 'modal', 'northflank')),
-    default_image TEXT DEFAULT 'orkee-sandbox:latest',
+    default_image TEXT DEFAULT 'orkee/sandbox:latest',
 
     -- Resource Limits (apply to all sandboxes)
     max_concurrent_local INTEGER DEFAULT 10,
