@@ -7,12 +7,29 @@ import { buildPaginationQuery } from '@/types/pagination';
 
 export type AgentType = 'system' | 'ai' | 'human';
 
+export interface AgentModelRef {
+  model_id: string;
+  is_default: boolean;
+  is_recommended: boolean;
+  display_order: number;
+}
+
+export interface AgentConfig {
+  temperature: number;
+  max_tokens: number;
+  system_prompt: string | null;
+}
+
 export interface Agent {
   id: string;
   type: AgentType;
-  displayName: string;
-  description: string | null;
-  capabilities: string[];
+  name: string;
+  description: string;
+  avatar_url: string | null;
+  required_providers: string[];
+  supported_models: AgentModelRef[];
+  default_config: AgentConfig;
+  is_available: boolean;
 }
 
 export interface UserAgent {

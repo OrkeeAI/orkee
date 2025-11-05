@@ -1,5 +1,5 @@
-// ABOUTME: Frontend service for model operations
-// ABOUTME: Handles listing and managing AI models with pricing information
+// ABOUTME: Frontend service for AI model operations
+// ABOUTME: Handles listing and retrieving AI model configurations
 
 import { apiRequest } from './api';
 import type { PaginationParams, PaginatedResponse } from '@/types/pagination';
@@ -9,7 +9,7 @@ export interface Model {
   id: string;
   provider: string;
   model: string;
-  display_name: string;
+  name: string;
   description: string;
   cost_per_1k_input_tokens: number;
   cost_per_1k_output_tokens: number;
@@ -44,22 +44,6 @@ export class ModelsService {
 
     if (!response.success || !response.data) {
       throw new Error(response.error || 'Failed to fetch model');
-    }
-
-    return response.data;
-  }
-
-  async listModelsByProvider(
-    provider: string,
-    pagination?: PaginationParams
-  ): Promise<PaginatedResponse<Model>> {
-    const query = pagination ? buildPaginationQuery(pagination) : '';
-    const response = await apiRequest<ApiResponse<PaginatedResponse<Model>>>(
-      `/api/models/provider/${provider}${query}`
-    );
-
-    if (!response.success || !response.data) {
-      throw new Error(response.error || 'Failed to fetch models for provider');
     }
 
     return response.data;

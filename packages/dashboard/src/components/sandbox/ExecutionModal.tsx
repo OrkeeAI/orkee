@@ -35,6 +35,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import { agentsService } from '@/services/agents';
+import { modelsService } from '@/services/models';
 import { sandboxService } from '@/services/sandbox';
 import { executionsService, type AgentExecutionCreateInput } from '@/services/executions';
 import { toast } from 'sonner';
@@ -55,6 +56,7 @@ export function ExecutionModal({
   onExecutionCreated,
 }: ExecutionModalProps) {
   const [agentId, setAgentId] = useState<string>('');
+  const [modelId, setModelId] = useState<string>('');
   const [sandboxId, setSandboxId] = useState<string>('local-docker');
   const [prompt, setPrompt] = useState(defaultPrompt);
   const [memoryLimit, setMemoryLimit] = useState('2048');
@@ -69,7 +71,15 @@ export function ExecutionModal({
     queryFn: () => agentsService.listAgents(),
   });
 
-  const agents = agentsData?.items || [];
+  const agents = agentsData?.data || [];
+
+  // Load all models
+  const { data: modelsData, isLoading: loadingModels } = useQuery({
+    queryKey: ['models'],
+    queryFn: () => modelsService.listModels({ limit: 100 }),
+  });
+
+  const allModels = modelsData?.data || [];
 
   // Load sandbox configs
   const { data: sandboxConfigs = [], isLoading: loadingSandboxes } = useQuery({
@@ -85,6 +95,29 @@ export function ExecutionModal({
       setAgentId(agents[0].id);
     }
   }, [agents, agentId]);
+
+  // Set default model when agent changes
+  useEffect(() => {
+    const selectedAgent = agents.find((a) => a.id === agentId);
+    if (selectedAgent && selectedAgent.supported_models.length > 0) {
+      // Find the default model or use the first one
+      const defaultModel = selectedAgent.supported_models.find((m) => m.is_default);
+      const modelToUse = defaultModel || selectedAgent.supported_models[0];
+      setModelId(modelToUse.model_id);
+    }
+  }, [agentId, agents]);
+
+  const selectedAgent = agents.find((a) => a.id === agentId);
+
+  // Get available models for the selected agent (with full model details)
+  const availableModels = (selectedAgent?.supported_models || [])
+    .map((modelRef) => allModels.find((m) => m.id === modelRef.model_id))
+    .filter((m): m is NonNullable<typeof m> => m !== undefined)
+    .sort((a, b) => {
+      const aRef = selectedAgent?.supported_models.find((m) => m.model_id === a.id);
+      const bRef = selectedAgent?.supported_models.find((m) => m.model_id === b.id);
+      return (aRef?.display_order || 999) - (bRef?.display_order || 999);
+    });
 
   // Reset form when dialog closes
   useEffect(() => {
@@ -133,6 +166,7 @@ export function ExecutionModal({
       const input: AgentExecutionCreateInput = {
         taskId,
         agentId,
+        model: modelId || undefined,
         prompt,
         // Note: sandbox-specific fields will be added to the execution record
         // by the backend based on the sandbox configuration
@@ -176,9 +210,9 @@ export function ExecutionModal({
                   <SelectItem key={agent.id} value={agent.id}>
                     <div className="flex items-center gap-2">
                       <span>{agent.name}</span>
-                      {agent.capabilities && agent.capabilities.length > 0 && (
+                      {agent.required_providers && agent.required_providers.length > 0 && (
                         <Badge variant="outline" className="text-xs">
-                          {agent.capabilities[0]}
+                          {agent.required_providers[0]}
                         </Badge>
                       )}
                     </div>
@@ -189,6 +223,43 @@ export function ExecutionModal({
             {agents.find((a) => a.id === agentId)?.description && (
               <p className="text-xs text-muted-foreground">
                 {agents.find((a) => a.id === agentId)?.description}
+              </p>
+            )}
+          </div>
+
+          {/* Model Selection */}
+          <div className="space-y-2">
+            <Label htmlFor="model">Model</Label>
+            <Select value={modelId} onValueChange={setModelId} disabled={loadingModels || !agentId}>
+              <SelectTrigger id="model">
+                <SelectValue placeholder="Select a model" />
+              </SelectTrigger>
+              <SelectContent>
+                {availableModels.map((model) => {
+                  const modelRef = selectedAgent?.supported_models.find((m) => m.model_id === model.id);
+                  return (
+                    <SelectItem key={model.id} value={model.id}>
+                      <div className="flex items-center gap-2">
+                        <span>{model.name}</span>
+                        {modelRef?.is_default && (
+                          <Badge variant="secondary" className="text-xs">
+                            Default
+                          </Badge>
+                        )}
+                        {modelRef?.is_recommended && (
+                          <Badge variant="outline" className="text-xs">
+                            Recommended
+                          </Badge>
+                        )}
+                      </div>
+                    </SelectItem>
+                  );
+                })}
+              </SelectContent>
+            </Select>
+            {availableModels.find((m) => m.id === modelId) && (
+              <p className="text-xs text-muted-foreground">
+                {availableModels.find((m) => m.id === modelId)?.description}
               </p>
             )}
           </div>
@@ -336,7 +407,7 @@ export function ExecutionModal({
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isCreating}>
             Cancel
           </Button>
-          <Button onClick={handleSubmit} disabled={isCreating || !agentId || !prompt.trim()}>
+          <Button onClick={handleSubmit} disabled={isCreating || !agentId || !modelId || !prompt.trim()}>
             {isCreating ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />

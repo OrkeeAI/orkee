@@ -36,12 +36,12 @@
       "is_available": true
     },
     {
-      "id": "aider",
-      "name": "Aider",
+      "id": "opencode",
+      "name": "OpenCode",
       "type": "ai",
-      "description": "AI pair programming in your terminal - works with multiple providers",
+      "description": "Code execution agent in headless mode - automatically creates, edits, and deletes files in sandbox environment",
       "avatar_url": null,
-      "required_providers": ["anthropic", "openai"],
+      "required_providers": ["anthropic", "openai", "google", "xai"],
       "supported_models": [
         {
           "model_id": "claude-sonnet-4-5-20250929",
@@ -50,20 +50,26 @@
           "display_order": 1
         },
         {
-          "model_id": "gpt-4o",
+          "model_id": "gpt-5",
           "is_default": false,
           "is_recommended": true,
           "display_order": 2
         },
         {
-          "model_id": "claude-opus-4-1-20250805",
+          "model_id": "gemini-2.5-pro",
           "is_default": false,
-          "is_recommended": false,
+          "is_recommended": true,
           "display_order": 3
+        },
+        {
+          "model_id": "grok-4-latest",
+          "is_default": false,
+          "is_recommended": true,
+          "display_order": 4
         }
       ],
       "default_config": {
-        "temperature": 0.5,
+        "temperature": 0.7,
         "max_tokens": 8192,
         "system_prompt": null
       },

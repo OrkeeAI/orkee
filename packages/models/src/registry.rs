@@ -242,28 +242,32 @@ mod tests {
             "claude-code should support opus-4.1"
         );
 
-        // Valid combinations for aider (multi-provider agent)
+        // Valid combinations for opencode (multi-provider agent)
         assert!(
-            registry.validate_agent_model("aider", "claude-sonnet-4-5-20250929"),
-            "aider should support sonnet-4.5"
+            registry.validate_agent_model("opencode", "claude-sonnet-4-5-20250929"),
+            "opencode should support sonnet-4.5"
         );
         assert!(
-            registry.validate_agent_model("aider", "gpt-4o"),
-            "aider should support gpt-4o"
+            registry.validate_agent_model("opencode", "gpt-5"),
+            "opencode should support gpt-5"
         );
         assert!(
-            registry.validate_agent_model("aider", "claude-opus-4-1-20250805"),
-            "aider should support opus-4.1"
+            registry.validate_agent_model("opencode", "gemini-2.5-pro"),
+            "opencode should support gemini-2.5-pro"
+        );
+        assert!(
+            registry.validate_agent_model("opencode", "grok-4-latest"),
+            "opencode should support grok-4-latest"
         );
 
         // Invalid combinations - models not in agent's supported list
         assert!(
-            !registry.validate_agent_model("aider", "claude-haiku-4-5-20251001"),
-            "aider should not support haiku-4.5 (not in its supported models list)"
+            !registry.validate_agent_model("opencode", "claude-haiku-4-5-20251001"),
+            "opencode should not support haiku-4.5 (not in its supported models list)"
         );
         assert!(
-            !registry.validate_agent_model("claude-code", "gpt-4o"),
-            "claude-code should not support gpt-4o (Claude-only agent)"
+            !registry.validate_agent_model("claude-code", "gpt-5"),
+            "claude-code should not support gpt-5 (Claude-only agent)"
         );
 
         // Invalid combinations - nonexistent agent or model
@@ -272,7 +276,7 @@ mod tests {
             "nonexistent agent should not validate"
         );
         assert!(
-            !registry.validate_agent_model("aider", "nonexistent-model"),
+            !registry.validate_agent_model("opencode", "nonexistent-model"),
             "nonexistent model should not validate"
         );
     }
