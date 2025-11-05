@@ -1369,14 +1369,14 @@ All other configuration is stored in the database and managed through the UI.
 ## Implementation Checklist
 
 ### Phase 1: Foundation (Week 1)
-- [ ] Create packages/agents with config/agents.json
-- [ ] Create packages/sandbox with config/providers.json
-- [ ] Add sandbox tables to migration
-- [ ] Add sandbox_settings tables to migration
-- [ ] Add sandbox_provider_settings tables to migration
-- [ ] Implement SettingsManager for database config
-- [ ] Implement agent registry
-- [ ] Implement provider registry
+- [x] Create packages/agents with config/agents.json
+- [x] Create packages/sandbox with config/providers.json
+- [x] Add sandbox tables to migration
+- [x] Add sandbox_settings tables to migration
+- [x] Add sandbox_provider_settings tables to migration
+- [x] Implement SettingsManager for database config
+- [x] Implement agent registry
+- [x] Implement provider registry
 - [ ] Create Docker provider with bollard
 - [ ] Build default Docker image
 - [ ] Create storage layer
