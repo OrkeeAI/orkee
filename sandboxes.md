@@ -1352,7 +1352,31 @@ async fn update_settings(
 
 ### Docker Image
 
-[Previous Dockerfile remains the same]
+The sandbox uses a single unified Docker image based on [vibekit's approach](https://github.com/superagent-ai/vibekit):
+
+**Location**: `packages/sandbox/docker/Dockerfile`
+
+**Key Features**:
+- **Base**: Bun 1.x for lightweight and fast package management
+- **Multiple AI Agents**: Installs Claude Code, Codex, Gemini, OpenCode, and Grok CLI tools globally
+- **Dev Tools**: Git, Python 3, build-essential for native module compilation
+- **Persistent Container**: Uses `tail -f /dev/null` to keep container running
+- **Exposed Ports**: 3001 and 8080 for local development
+
+**Build & Run**:
+```bash
+# Build image
+cd packages/sandbox/docker
+./build.sh
+
+# Or manually
+docker build -t orkee/sandbox:latest .
+
+# Run sandbox
+docker run -it --rm -v $(pwd):/workspace orkee/sandbox:latest
+```
+
+**Image Name**: `orkee/sandbox:latest` (configured in providers.json and database defaults)
 
 ### Minimal Environment Variables
 
@@ -1365,6 +1389,133 @@ ORKEE_DB_PATH=~/.orkee/orkee.db
 ```
 
 All other configuration is stored in the database and managed through the UI.
+
+## Phase 1 Implementation Summary
+
+### What Was Built
+
+**Phase 1 Foundation** has been completed with the following implementations:
+
+#### 1. Package Structure (`packages/agents/`)
+- **Agent Registry** (`src/lib.rs`): Loads and manages AI agent definitions from JSON config
+- **Agent Configuration** (`config/agents.json`): Defines 5 agents (Claude, Codex, Gemini, Grok, OpenCode)
+- **Public API**: Exports `AgentRegistry`, `Agent`, and `AgentError` types
+- **Capabilities**: Agent discovery, model support, provider compatibility checks
+
+#### 2. Package Structure (`packages/sandbox/`)
+- **Provider Registry** (`src/lib.rs`): Loads and manages sandbox provider definitions
+- **Provider Configuration** (`config/providers.json`): Defines 8 providers (Local Docker + 7 cloud)
+- **Settings Manager** (`src/settings.rs`): Singleton pattern for database configuration management
+- **Storage Layer** (`src/storage.rs`): Complete CRUD operations for sandboxes and executions
+- **Docker Provider** (`src/providers/docker.rs`): Full bollard-based Docker implementation
+- **Provider Trait** (`src/providers/mod.rs`): Abstract interface for all provider backends
+
+#### 3. Database Schema (Migration 001)
+**Sandbox Tables**:
+- `sandboxes`: Core sandbox instances with status, provider, resource config
+- `sandbox_executions`: Execution history with agent/model tracking, costs, duration
+- `sandbox_env_vars`: Environment variables for each sandbox
+- `sandbox_volumes`: Volume mounts for persistent storage
+
+**Configuration Tables**:
+- `sandbox_settings`: Global settings (enabled, default provider/image, resource limits, monitoring intervals)
+- `sandbox_provider_settings`: Per-provider configuration (enabled status, auth credentials, API endpoints, custom configs)
+
+**Indexes**: Added for efficient querying by sandbox_id, status, provider, and timestamps
+
+#### 4. Docker Provider Implementation
+**Full Provider Trait Implementation**:
+- Container lifecycle: `create_container()`, `start()`, `stop()`, `remove()`
+- Container info: `get_container_info()`, `list_containers()`
+- Execution: `exec_command()` with stdin/stdout/stderr capture
+- Streaming: `stream_logs()` with follow and timestamp support
+- File operations: `copy_to_container()`, `copy_from_container()` with tar archives
+- Monitoring: `get_metrics()` for CPU, memory, network stats
+- Image management: `pull_image()`, `image_exists()` checks
+
+**Container Configuration**:
+- Port mappings with host/container binding
+- Volume mounts (read-only and read-write)
+- Environment variables
+- Resource limits (CPU shares, memory, storage quotas)
+- Network configuration
+- Custom labels for Orkee sandbox tracking
+
+#### 5. Docker Image
+**Unified Sandbox Image** (`packages/sandbox/docker/Dockerfile`):
+- Based on Bun 1.x runtime
+- Pre-installs 5 AI agent CLIs (Claude, Codex, Gemini, OpenCode, Grok)
+- Includes vibekit CLI globally
+- Essential dev tools (git, python3, build-essential)
+- Workspace directory at `/workspace`
+- Persistent container with `tail -f /dev/null`
+- Build script: `./build.sh` for easy image creation
+
+#### 6. Storage Layer Implementation
+**SandboxStorage** provides full CRUD operations:
+- `create_sandbox()` / `get_sandbox()` / `list_sandboxes()` / `delete_sandbox()`
+- `update_sandbox_status()` with error message tracking
+- `create_execution()` / `get_execution()` / `list_executions()`
+- `update_execution_status()` with output capture
+- `add_env_var()` / `get_env_vars()` / `update_env_var()` / `remove_env_var()`
+- `add_volume()` / `get_volumes()` / `remove_volume()`
+- All operations use SQLite with proper error handling
+
+#### 7. Settings Manager
+**Singleton Pattern** for database configuration:
+- `SettingsManager::get_sandbox_settings()`: Global sandbox settings
+- `SettingsManager::update_sandbox_settings()`: Update via UI/API
+- `SettingsManager::get_provider_settings()`: Provider-specific config
+- `SettingsManager::update_provider_settings()`: Per-provider auth and config
+- Thread-safe access using `Arc<Mutex<>>`
+- Automatic initialization on first access
+
+### File Structure Created
+```
+packages/
+├── agents/
+│   ├── config/
+│   │   └── agents.json          # 5 agent definitions
+│   └── src/
+│       └── lib.rs               # Agent registry implementation
+├── sandbox/
+│   ├── config/
+│   │   └── providers.json       # 8 provider definitions
+│   ├── docker/
+│   │   ├── Dockerfile           # Unified sandbox image
+│   │   └── build.sh            # Build script
+│   └── src/
+│       ├── lib.rs              # Public API exports
+│       ├── settings.rs         # Settings manager
+│       ├── storage.rs          # Storage layer (1000+ LOC)
+│       └── providers/
+│           ├── mod.rs          # Provider trait (300+ LOC)
+│           └── docker.rs       # Docker implementation (700+ LOC)
+└── storage/
+    └── migrations/
+        └── 001_initial_schema.sql  # Sandbox tables added
+```
+
+### What's Ready for Phase 2
+
+With Phase 1 complete, the following components are ready for Phase 2 integration:
+
+**✅ Ready**:
+- Database schema with all sandbox tables
+- Storage layer with full CRUD operations
+- Docker provider with complete container management
+- Settings manager for database-driven configuration
+- Agent and provider registries
+- Docker image for sandbox execution
+
+**🚧 Needs Implementation** (Phase 2):
+- Sandbox lifecycle manager (orchestrates storage + provider)
+- Command executor with streaming output
+- API endpoints for sandbox operations
+- SSE/WebSocket streaming for real-time output
+- Resource monitoring background task
+- Token usage and cost calculation
+- Integration tests for provider operations
 
 ## Implementation Checklist
 
@@ -1379,7 +1530,7 @@ All other configuration is stored in the database and managed through the UI.
 - [x] Implement provider registry
 - [x] Create storage layer (SandboxStorage with full CRUD operations)
 - [x] Create Docker provider with bollard
-- [x] Build Docker images (base, claude-code, aider)
+- [x] Build unified Docker image (simplified from separate base/agent images to single multi-agent image)
 
 ### Phase 2: Core Features (Week 2)
 - [ ] Sandbox lifecycle manager using database settings
