@@ -83,11 +83,10 @@ impl fmt::Debug for OAuthToken {
 }
 
 impl OAuthToken {
-    /// Check if token is expired with 5-minute buffer
+    /// Check if token is expired (no buffer)
     pub fn is_expired(&self) -> bool {
         let now = Utc::now().timestamp();
-        let buffer = Duration::minutes(5).num_seconds();
-        self.expires_at < now + buffer
+        self.expires_at < now
     }
 
     /// Check if token is valid (not expired)
@@ -95,111 +94,11 @@ impl OAuthToken {
         !self.is_expired()
     }
 
-    /// Check if token needs refresh (within 5-minute buffer)
+    /// Check if token needs refresh (within 5-minute buffer before expiry)
     pub fn needs_refresh(&self) -> bool {
         let now = Utc::now().timestamp();
         let buffer = Duration::minutes(5).num_seconds();
         self.expires_at < now + buffer
-    }
-}
-
-/// PKCE challenge for OAuth flow
-#[derive(Clone)]
-pub struct PkceChallenge {
-    pub code_verifier: String,
-    pub code_challenge: String,
-    pub code_challenge_method: String, // Usually "S256"
-}
-
-impl fmt::Debug for PkceChallenge {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("PkceChallenge")
-            .field("code_verifier", &"[REDACTED]")
-            .field("code_challenge", &self.code_challenge)
-            .field("code_challenge_method", &self.code_challenge_method)
-            .finish()
-    }
-}
-
-/// OAuth state for CSRF protection
-#[derive(Clone, Serialize, Deserialize)]
-pub struct OAuthState {
-    pub state: String,
-    pub provider: String,
-    pub pkce_verifier: String,
-    pub created_at: DateTime<Utc>,
-}
-
-impl fmt::Debug for OAuthState {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("OAuthState")
-            .field("state", &self.state)
-            .field("provider", &self.provider)
-            .field("pkce_verifier", &"[REDACTED]")
-            .field("created_at", &self.created_at)
-            .finish()
-    }
-}
-
-/// OAuth authorization code exchange request
-#[derive(Serialize, Deserialize)]
-pub struct TokenExchangeRequest {
-    pub code: String,
-    pub code_verifier: String,
-    pub redirect_uri: String,
-    pub client_id: String,
-    pub grant_type: String, // Usually "authorization_code"
-}
-
-impl fmt::Debug for TokenExchangeRequest {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("TokenExchangeRequest")
-            .field("code", &"[REDACTED]")
-            .field("code_verifier", &"[REDACTED]")
-            .field("redirect_uri", &self.redirect_uri)
-            .field("client_id", &self.client_id)
-            .field("grant_type", &self.grant_type)
-            .finish()
-    }
-}
-
-/// OAuth token response from provider
-#[derive(Deserialize)]
-pub struct TokenResponse {
-    pub access_token: String,
-    pub refresh_token: Option<String>,
-    pub expires_in: i64, // Seconds
-    pub token_type: String,
-    pub scope: Option<String>,
-}
-
-impl fmt::Debug for TokenResponse {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("TokenResponse")
-            .field("access_token", &"[REDACTED]")
-            .field("refresh_token", &"[REDACTED]")
-            .field("expires_in", &self.expires_in)
-            .field("token_type", &self.token_type)
-            .field("scope", &self.scope)
-            .finish()
-    }
-}
-
-/// OAuth refresh token request
-#[derive(Serialize, Deserialize)]
-pub struct RefreshTokenRequest {
-    pub refresh_token: String,
-    pub client_id: String,
-    pub grant_type: String, // "refresh_token"
-}
-
-impl fmt::Debug for RefreshTokenRequest {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("RefreshTokenRequest")
-            .field("refresh_token", &"[REDACTED]")
-            .field("client_id", &self.client_id)
-            .field("grant_type", &self.grant_type)
-            .finish()
     }
 }
 
@@ -235,10 +134,11 @@ mod tests {
     #[test]
     fn test_token_needs_refresh_within_buffer() {
         // Token expires in 4 minutes (within 5-minute buffer)
+        // Token is still valid but needs refresh
         let token = create_test_token(240);
-        assert!(!token.is_valid());
-        assert!(token.is_expired());
-        assert!(token.needs_refresh());
+        assert!(token.is_valid()); // Still valid
+        assert!(!token.is_expired()); // Not expired yet
+        assert!(token.needs_refresh()); // But should refresh soon
     }
 
     #[test]
@@ -280,26 +180,31 @@ mod tests {
 
     #[test]
     fn test_token_expired_consistency() {
-        // is_expired() and is_valid() should be opposite
+        // is_expired() and is_valid() should always be opposite
         let valid_token = create_test_token(600);
         assert_eq!(valid_token.is_expired(), !valid_token.is_valid());
 
-        let expired_token = create_test_token(240);
+        let expired_token = create_test_token(-60);
         assert_eq!(expired_token.is_expired(), !expired_token.is_valid());
     }
 
     #[test]
-    fn test_token_needs_refresh_matches_expired() {
-        // needs_refresh() and is_expired() should always match
-        // (both use same logic with 5-minute buffer)
-        let token1 = create_test_token(600);
-        assert_eq!(token1.needs_refresh(), token1.is_expired());
+    fn test_token_needs_refresh_independent_of_expired() {
+        // needs_refresh() uses buffer, is_expired() does not
+        // Token with 4 minutes left: not expired but needs refresh
+        let token1 = create_test_token(240);
+        assert!(!token1.is_expired()); // Not expired
+        assert!(token1.needs_refresh()); // But needs refresh
 
-        let token2 = create_test_token(240);
-        assert_eq!(token2.needs_refresh(), token2.is_expired());
+        // Token with 10 minutes left: not expired and no refresh needed
+        let token2 = create_test_token(600);
+        assert!(!token2.is_expired());
+        assert!(!token2.needs_refresh());
 
-        let token3 = create_test_token(300);
-        assert_eq!(token3.needs_refresh(), token3.is_expired());
+        // Token expired 1 minute ago: expired and needs refresh
+        let token3 = create_test_token(-60);
+        assert!(token3.is_expired());
+        assert!(token3.needs_refresh());
     }
 
     #[test]
@@ -308,16 +213,19 @@ mod tests {
         let buffer_seconds = Duration::minutes(5).num_seconds();
         assert_eq!(buffer_seconds, 300);
 
-        // Token expiring at buffer_seconds + 1 should be valid
+        // Token expiring at buffer_seconds + 1 should be valid and not need refresh
         let token_valid = create_test_token(buffer_seconds + 1);
         assert!(token_valid.is_valid());
+        assert!(!token_valid.needs_refresh());
 
         // Token expiring at exactly buffer_seconds is still valid (< not <=)
         let token_at_edge = create_test_token(buffer_seconds);
         assert!(token_at_edge.is_valid());
+        assert!(!token_at_edge.needs_refresh());
 
-        // Token expiring at buffer_seconds - 1 should need refresh
-        let token_expired = create_test_token(buffer_seconds - 1);
-        assert!(token_expired.needs_refresh());
+        // Token expiring at buffer_seconds - 1 should still be valid but need refresh
+        let token_needs_refresh = create_test_token(buffer_seconds - 1);
+        assert!(token_needs_refresh.is_valid());
+        assert!(token_needs_refresh.needs_refresh());
     }
 }

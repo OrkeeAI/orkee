@@ -7,6 +7,4 @@ pub mod types;
 
 pub use manager::{OAuthManager, ProviderStatus};
 pub use storage::OAuthStorage;
-pub use types::{
-    OAuthProvider, OAuthToken, RefreshTokenRequest, TokenExchangeRequest, TokenResponse,
-};
+pub use types::{OAuthProvider, OAuthToken};
