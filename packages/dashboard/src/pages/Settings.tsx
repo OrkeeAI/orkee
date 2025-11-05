@@ -28,12 +28,6 @@ import { AIModelsSettings } from '@/components/settings/AIModelsSettings'
 import { OAuthSettings } from '@/components/settings/OAuthSettings'
 
 export function Settings() {
-  const [isMacOS, setIsMacOS] = useState(false)
-
-  useEffect(() => {
-    setIsMacOS(navigator.platform.toLowerCase().includes('mac'))
-  }, [])
-
   return (
     <div className="space-y-6">
       <div>
@@ -68,8 +62,8 @@ export function Settings() {
         </TabsList>
 
         <TabsContent value="general" className="space-y-6 mt-6">
-          {/* General Settings - Editor & CLI */}
-          <GeneralSettings isMacOS={isMacOS} />
+          {/* General Settings - Editor */}
+          <GeneralSettings />
         </TabsContent>
 
         <TabsContent value="authentication" className="space-y-6 mt-6">
@@ -96,8 +90,8 @@ export function Settings() {
   )
 }
 
-// General Settings Component (combines Editor and CLI)
-function GeneralSettings({ isMacOS }: { isMacOS: boolean }) {
+// General Settings Component
+function GeneralSettings() {
   const [editorSettings, setEditorSettings] = useState<EditorSettings>(getDefaultEditorSettings());
   const [isTestingEditor, setIsTestingEditor] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
