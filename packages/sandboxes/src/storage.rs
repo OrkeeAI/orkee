@@ -48,26 +48,20 @@ impl ExecutionStorage {
         .bind(&log.stack_trace)
         .bind(log.sequence_number)
         .execute(&*self.pool)
-        .await
-        ?;
+        .await?;
 
         Ok(())
     }
 
     /// Insert multiple log entries in a batch
     pub async fn insert_logs_batch(&self, logs: Vec<LogEntry>) -> Result<()> {
-        let mut tx = self
-            .pool
-            .begin()
-            .await
-            ?;
+        let mut tx = self.pool.begin().await?;
 
         for log in logs {
             let metadata_json = log
                 .metadata
                 .map(|m| serde_json::to_string(&m))
-                .transpose()
-                ?;
+                .transpose()?;
 
             sqlx::query(
                 r#"
@@ -87,13 +81,10 @@ impl ExecutionStorage {
             .bind(&log.stack_trace)
             .bind(log.sequence_number)
             .execute(&mut *tx)
-            .await
-            ?;
+            .await?;
         }
 
-        tx.commit()
-            .await
-            ?;
+        tx.commit().await?;
 
         Ok(())
     }
@@ -106,13 +97,11 @@ impl ExecutionStorage {
         offset: Option<i64>,
     ) -> Result<(Vec<LogEntry>, i64)> {
         // Get total count
-        let total: i64 = sqlx::query_scalar(
-            "SELECT COUNT(*) FROM execution_logs WHERE execution_id = ?",
-        )
-        .bind(execution_id)
-        .fetch_one(&*self.pool)
-        .await
-        ?;
+        let total: i64 =
+            sqlx::query_scalar("SELECT COUNT(*) FROM execution_logs WHERE execution_id = ?")
+                .bind(execution_id)
+                .fetch_one(&*self.pool)
+                .await?;
 
         // Get logs with pagination
         let limit = limit.unwrap_or(100);
@@ -132,15 +121,13 @@ impl ExecutionStorage {
         .bind(limit)
         .bind(offset)
         .fetch_all(&*self.pool)
-        .await
-        ?;
+        .await?;
 
         let logs = rows
             .into_iter()
             .map(|row| {
                 let metadata_str: Option<String> = row.get("metadata");
-                let metadata = metadata_str
-                    .and_then(|s| serde_json::from_str(&s).ok());
+                let metadata = metadata_str.and_then(|s| serde_json::from_str(&s).ok());
 
                 LogEntry {
                     id: row.get("id"),
@@ -192,10 +179,7 @@ impl ExecutionStorage {
         let offset = offset.unwrap_or(0);
 
         // Build count query
-        let count_query = format!(
-            "SELECT COUNT(*) FROM execution_logs WHERE {}",
-            where_clause
-        );
+        let count_query = format!("SELECT COUNT(*) FROM execution_logs WHERE {}", where_clause);
 
         // Build select query
         let select_query = format!(
@@ -215,10 +199,7 @@ impl ExecutionStorage {
         for param in &params {
             count_q = count_q.bind(param);
         }
-        let total: i64 = count_q
-            .fetch_one(&*self.pool)
-            .await
-            ?;
+        let total: i64 = count_q.fetch_one(&*self.pool).await?;
 
         // Execute select query
         let mut select_q = sqlx::query(&select_query);
@@ -227,17 +208,13 @@ impl ExecutionStorage {
         }
         select_q = select_q.bind(limit).bind(offset);
 
-        let rows = select_q
-            .fetch_all(&*self.pool)
-            .await
-            ?;
+        let rows = select_q.fetch_all(&*self.pool).await?;
 
         let logs = rows
             .into_iter()
             .map(|row| {
                 let metadata_str: Option<String> = row.get("metadata");
-                let metadata = metadata_str
-                    .and_then(|s| serde_json::from_str(&s).ok());
+                let metadata = metadata_str.and_then(|s| serde_json::from_str(&s).ok());
 
                 LogEntry {
                     id: row.get("id"),
@@ -264,8 +241,7 @@ impl ExecutionStorage {
             .metadata
             .as_ref()
             .map(|m| serde_json::to_string(m))
-            .transpose()
-            ?;
+            .transpose()?;
 
         sqlx::query(
             r#"
@@ -289,8 +265,7 @@ impl ExecutionStorage {
         .bind(metadata_json)
         .bind(&artifact.checksum)
         .execute(&*self.pool)
-        .await
-        ?;
+        .await?;
 
         Ok(artifact)
     }
@@ -309,15 +284,13 @@ impl ExecutionStorage {
         )
         .bind(execution_id)
         .fetch_all(&*self.pool)
-        .await
-        ?;
+        .await?;
 
         let artifacts = rows
             .into_iter()
             .map(|row| {
                 let metadata_str: Option<String> = row.get("metadata");
-                let metadata = metadata_str
-                    .and_then(|s| serde_json::from_str(&s).ok());
+                let metadata = metadata_str.and_then(|s| serde_json::from_str(&s).ok());
 
                 Artifact {
                     id: row.get("id"),
@@ -353,13 +326,11 @@ impl ExecutionStorage {
         )
         .bind(artifact_id)
         .fetch_optional(&*self.pool)
-        .await
-        ?
+        .await?
         .ok_or_else(|| SandboxError::ArtifactNotFound(artifact_id.to_string()))?;
 
         let metadata_str: Option<String> = row.get("metadata");
-        let metadata = metadata_str
-            .and_then(|s| serde_json::from_str(&s).ok());
+        let metadata = metadata_str.and_then(|s| serde_json::from_str(&s).ok());
 
         Ok(Artifact {
             id: row.get("id"),
@@ -383,8 +354,7 @@ impl ExecutionStorage {
         sqlx::query("DELETE FROM execution_artifacts WHERE id = ?")
             .bind(artifact_id)
             .execute(&*self.pool)
-            .await
-            ?;
+            .await?;
 
         Ok(())
     }
@@ -410,8 +380,7 @@ impl ExecutionStorage {
         .bind(Utc::now().to_rfc3339())
         .bind(execution_id)
         .execute(&*self.pool)
-        .await
-        ?;
+        .await?;
 
         Ok(())
     }
@@ -435,8 +404,7 @@ impl ExecutionStorage {
         .bind(Utc::now().to_rfc3339())
         .bind(execution_id)
         .execute(&*self.pool)
-        .await
-        ?;
+        .await?;
 
         Ok(())
     }
@@ -460,8 +428,7 @@ impl ExecutionStorage {
         .bind(Utc::now().to_rfc3339())
         .bind(execution_id)
         .execute(&*self.pool)
-        .await
-        ?;
+        .await?;
 
         Ok(())
     }
@@ -485,8 +452,7 @@ impl ExecutionStorage {
         .bind(Utc::now().to_rfc3339())
         .bind(execution_id)
         .execute(&*self.pool)
-        .await
-        ?;
+        .await?;
 
         Ok(())
     }

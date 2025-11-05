@@ -76,7 +76,8 @@ impl ExecutionOrchestrator {
                 .filter(|&v| v >= 1 && v <= 60)
                 .unwrap_or(5);
 
-            let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(interval_minutes * 60));
+            let mut interval =
+                tokio::time::interval(tokio::time::Duration::from_secs(interval_minutes * 60));
             interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
 
             info!(
@@ -91,7 +92,11 @@ impl ExecutionOrchestrator {
                 match container_manager.cleanup_stale_containers(24).await {
                     Ok(cleaned_ids) => {
                         if !cleaned_ids.is_empty() {
-                            info!("Cleaned up {} stale containers: {:?}", cleaned_ids.len(), cleaned_ids);
+                            info!(
+                                "Cleaned up {} stale containers: {:?}",
+                                cleaned_ids.len(),
+                                cleaned_ids
+                            );
                         }
                     }
                     Err(e) => {
@@ -103,7 +108,11 @@ impl ExecutionOrchestrator {
                 match container_manager.force_stop_hung_containers(60).await {
                     Ok(stopped_ids) => {
                         if !stopped_ids.is_empty() {
-                            warn!("Force stopped {} hung containers: {:?}", stopped_ids.len(), stopped_ids);
+                            warn!(
+                                "Force stopped {} hung containers: {:?}",
+                                stopped_ids.len(),
+                                stopped_ids
+                            );
                         }
                     }
                     Err(e) => {
@@ -148,15 +157,15 @@ impl ExecutionOrchestrator {
 
         // Start Node.js bridge if not already running (lazy init)
         if !self.node_bridge.is_running() {
-            info!("Starting Vibekit bridge for execution {}", request.execution_id);
+            info!(
+                "Starting Vibekit bridge for execution {}",
+                request.execution_id
+            );
             self.node_bridge.start().await?;
         }
 
         // Create container
-        let container_id = match self
-            .create_container(&request)
-            .await
-        {
+        let container_id = match self.create_container(&request).await {
             Ok(id) => {
                 self.storage
                     .update_container_status(
@@ -210,7 +219,11 @@ impl ExecutionOrchestrator {
             .await?;
 
         self.storage
-            .update_execution_status(&request.execution_id, &ExecutionStatus::Running.to_string(), None)
+            .update_execution_status(
+                &request.execution_id,
+                &ExecutionStatus::Running.to_string(),
+                None,
+            )
             .await?;
 
         // Broadcast status events
@@ -235,13 +248,13 @@ impl ExecutionOrchestrator {
         // Note: Full agent execution integration planned for later phase
         // For now, this initiates the execution flow with the bridge
         if let Err(e) = self.node_bridge.execute(request.clone()).await {
-            error!(
-                "Failed to send execution request to Vibekit bridge: {}",
-                e
-            );
+            error!("Failed to send execution request to Vibekit bridge: {}", e);
             // Don't fail the execution - container is running and can be used
             // Log the error and continue
-            warn!("Execution {} will run without agent assistance", request.execution_id);
+            warn!(
+                "Execution {} will run without agent assistance",
+                request.execution_id
+            );
         } else {
             info!(
                 "Execution request sent to Vibekit bridge for {}",
@@ -311,7 +324,10 @@ impl ExecutionOrchestrator {
         container_id: &str,
     ) -> Result<ResourceUsage> {
         // Get container stats
-        let stats = self.container_manager.get_container_stats(container_id).await?;
+        let stats = self
+            .container_manager
+            .get_container_stats(container_id)
+            .await?;
 
         // Update resource usage in database
         self.storage
@@ -337,7 +353,11 @@ impl ExecutionOrchestrator {
             .await?;
 
         // Clean up container
-        if let Err(e) = self.container_manager.remove_container(container_id, false).await {
+        if let Err(e) = self
+            .container_manager
+            .remove_container(container_id, false)
+            .await
+        {
             warn!(
                 "Failed to remove container {} for execution {}: {}",
                 container_id, execution_id, e

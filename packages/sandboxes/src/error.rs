@@ -24,10 +24,7 @@ pub enum SandboxError {
 
     /// Container exceeded resource limits
     #[error("Container exceeded {resource} limit: {details}")]
-    ResourceLimitExceeded {
-        resource: String,
-        details: String,
-    },
+    ResourceLimitExceeded { resource: String, details: String },
 
     /// Vibekit SDK errors
     #[error("Vibekit SDK error: {0}")]

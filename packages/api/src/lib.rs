@@ -199,7 +199,10 @@ pub fn create_containers_router() -> Router<containers_handlers::ContainerState>
         .route("/", get(containers_handlers::list_containers))
         .route("/{id}", get(containers_handlers::get_container))
         .route("/{id}/stats", get(containers_handlers::get_container_stats))
-        .route("/{id}/restart", post(containers_handlers::restart_container))
+        .route(
+            "/{id}/restart",
+            post(containers_handlers::restart_container),
+        )
         .route("/{id}/stop", post(containers_handlers::stop_container))
         .route("/{id}", delete(containers_handlers::delete_container))
 }
@@ -843,7 +846,8 @@ pub fn create_oauth_router() -> Router<DbState> {
 }
 
 /// Creates the sandbox execution API router for containerized agent executions
-pub fn create_sandbox_executions_router() -> Router<sandbox_execution_handlers::SandboxExecutionState> {
+pub fn create_sandbox_executions_router(
+) -> Router<sandbox_execution_handlers::SandboxExecutionState> {
     Router::new()
         // Execution control
         .route(

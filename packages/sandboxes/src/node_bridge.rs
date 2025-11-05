@@ -28,12 +28,29 @@ pub(crate) enum IPCRequest {
 #[allow(dead_code)] // Fields will be used in Phase 3+ for execution orchestration
 pub enum IPCResponse {
     Pong,
-    ExecutionStarted { response: ExecutionResponse },
-    Log { log: LogEntry },
-    Artifact { artifact: Artifact },
-    ResourceUpdate { execution_id: String, usage: ResourceUsage },
-    ExecutionComplete { execution_id: String, status: ExecutionStatus, error_message: Option<String> },
-    Error { execution_id: Option<String>, error: String, details: Option<String> },
+    ExecutionStarted {
+        response: ExecutionResponse,
+    },
+    Log {
+        log: LogEntry,
+    },
+    Artifact {
+        artifact: Artifact,
+    },
+    ResourceUpdate {
+        execution_id: String,
+        usage: ResourceUsage,
+    },
+    ExecutionComplete {
+        execution_id: String,
+        status: ExecutionStatus,
+        error_message: Option<String>,
+    },
+    Error {
+        execution_id: Option<String>,
+        error: String,
+        details: Option<String>,
+    },
 }
 
 /// Node.js bridge process manager
@@ -80,7 +97,8 @@ impl NodeBridge {
         }
 
         Err(SandboxError::BridgeNotFound(
-            "Could not find Vibekit bridge script. Tried: packages/sandboxes/vibekit/src/index.ts".to_string(),
+            "Could not find Vibekit bridge script. Tried: packages/sandboxes/vibekit/src/index.ts"
+                .to_string(),
         ))
     }
 
@@ -156,7 +174,10 @@ impl NodeBridge {
                             )));
                         }
                         _ => {
-                            warn!("Unexpected response while waiting for ready: {:?}", response);
+                            warn!(
+                                "Unexpected response while waiting for ready: {:?}",
+                                response
+                            );
                         }
                     }
                 }
@@ -252,7 +273,8 @@ impl NodeBridge {
             writeln!(stdin, "{}", message)
                 .map_err(|e| SandboxError::BridgeCommunicationError(e.to_string()))?;
 
-            stdin.flush()
+            stdin
+                .flush()
                 .map_err(|e| SandboxError::BridgeCommunicationError(e.to_string()))?;
 
             Ok(())

@@ -53,9 +53,7 @@ impl From<ContainerInfo> for ContainerInfoDto {
 /// List all Orkee-managed containers
 ///
 /// GET /api/containers
-pub async fn list_containers(
-    State(state): State<ContainerState>,
-) -> impl IntoResponse {
+pub async fn list_containers(State(state): State<ContainerState>) -> impl IntoResponse {
     info!("Listing all Orkee-managed containers");
 
     let result = state

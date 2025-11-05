@@ -157,9 +157,7 @@ where
 }
 
 /// Helper to create SSE response with standard keep-alive settings
-pub fn create_sse_response<S>(
-    stream: S,
-) -> Sse<impl Stream<Item = Result<Event, Infallible>>>
+pub fn create_sse_response<S>(stream: S) -> Sse<impl Stream<Item = Result<Event, Infallible>>>
 where
     S: Stream<Item = Result<Event, Infallible>> + Send + 'static,
 {

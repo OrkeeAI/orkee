@@ -177,11 +177,7 @@ pub async fn stream_execution_logs(
     };
 
     // Get existing logs from database (if last_sequence provided, get logs after it)
-    let existing_logs = match state
-        .storage
-        .get_logs(&execution_id, None, None)
-        .await
-    {
+    let existing_logs = match state.storage.get_logs(&execution_id, None, None).await {
         Ok((logs, _total)) => {
             // Filter by last_sequence if provided
             if let Some(last_seq) = params.last_sequence {
@@ -404,11 +400,7 @@ pub async fn download_artifact(
     let stored_path = match artifact.stored_path {
         Some(path) => path,
         None => {
-            return (
-                StatusCode::NOT_FOUND,
-                "Artifact file not found on storage",
-            )
-                .into_response();
+            return (StatusCode::NOT_FOUND, "Artifact file not found on storage").into_response();
         }
     };
 
@@ -463,11 +455,7 @@ pub async fn delete_artifact(
     // Delete the file if it exists
     if let Some(stored_path) = &artifact.stored_path {
         if let Err(e) = tokio::fs::remove_file(stored_path).await {
-            tracing::warn!(
-                "Failed to delete artifact file {}: {}",
-                stored_path,
-                e
-            );
+            tracing::warn!("Failed to delete artifact file {}: {}", stored_path, e);
         }
     }
 

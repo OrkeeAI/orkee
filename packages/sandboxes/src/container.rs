@@ -54,12 +54,11 @@ impl ContainerManager {
     /// On Windows: npipe:////./pipe/docker_engine
     async fn connect_docker() -> Result<Docker> {
         #[cfg(unix)]
-        let docker = Docker::connect_with_socket_defaults()
-            .map_err(|e| SandboxError::Docker(e))?;
+        let docker = Docker::connect_with_socket_defaults().map_err(|e| SandboxError::Docker(e))?;
 
         #[cfg(windows)]
-        let docker = Docker::connect_with_named_pipe_defaults()
-            .map_err(|e| SandboxError::Docker(e))?;
+        let docker =
+            Docker::connect_with_named_pipe_defaults().map_err(|e| SandboxError::Docker(e))?;
 
         // Verify connection by pinging Docker
         docker.ping().await.map_err(|e| {
@@ -185,14 +184,19 @@ impl ContainerManager {
     /// Stop a container gracefully
     ///
     /// Sends SIGTERM first, then SIGKILL after timeout
-    pub async fn stop_container(&self, container_id: &str, timeout_secs: Option<i64>) -> Result<()> {
+    pub async fn stop_container(
+        &self,
+        container_id: &str,
+        timeout_secs: Option<i64>,
+    ) -> Result<()> {
         debug!("Stopping container {}", container_id);
 
         let options = StopContainerOptions {
             t: timeout_secs.unwrap_or(10), // 10 second grace period
         };
 
-        match self.docker
+        match self
+            .docker
             .stop_container(container_id, Some(options))
             .await
         {
@@ -209,7 +213,7 @@ impl ContainerManager {
                     error!("Failed to stop container {}: {}", container_id, e);
                     Err(SandboxError::Docker(e))
                 }
-            }
+            },
         }?;
 
         info!("Stopped container {}", container_id);
@@ -226,7 +230,8 @@ impl ContainerManager {
             ..Default::default()
         };
 
-        match self.docker
+        match self
+            .docker
             .remove_container(container_id, Some(options))
             .await
         {
@@ -243,7 +248,7 @@ impl ContainerManager {
                     error!("Failed to remove container {}: {}", container_id, e);
                     Err(SandboxError::Docker(e))
                 }
-            }
+            },
         }?;
 
         info!("Removed container {}", container_id);
@@ -259,10 +264,7 @@ impl ContainerManager {
         let mut filters = HashMap::new();
 
         // Filter for Orkee-managed containers
-        filters.insert(
-            "label".to_string(),
-            vec![format!("{}=true", ORKEE_LABEL)],
-        );
+        filters.insert("label".to_string(), vec![format!("{}=true", ORKEE_LABEL)]);
 
         // Add project filter if specified
         if let Some(pid) = project_id {
@@ -292,7 +294,12 @@ impl ContainerManager {
             .into_iter()
             .map(|c| ContainerInfo {
                 id: c.id.unwrap_or_default(),
-                name: c.names.unwrap_or_default().first().cloned().unwrap_or_default(),
+                name: c
+                    .names
+                    .unwrap_or_default()
+                    .first()
+                    .cloned()
+                    .unwrap_or_default(),
                 image: c.image.unwrap_or_default(),
                 status: c.status.unwrap_or_default(),
                 state: c.state.unwrap_or_default(),
@@ -421,7 +428,10 @@ impl ContainerManager {
     /// - Orphaned (no corresponding execution record)
     /// - In error state
     pub async fn cleanup_stale_containers(&self, max_age_hours: u64) -> Result<Vec<String>> {
-        info!("Starting container cleanup (max_age_hours={})", max_age_hours);
+        info!(
+            "Starting container cleanup (max_age_hours={})",
+            max_age_hours
+        );
 
         let all_containers = self.list_containers(None, None).await?;
         let mut cleaned_ids = Vec::new();
@@ -473,7 +483,10 @@ impl ContainerManager {
     /// Finds containers that have been in "stopping" state for too long
     /// and forcefully kills them
     pub async fn force_stop_hung_containers(&self, timeout_minutes: u64) -> Result<Vec<String>> {
-        info!("Checking for hung containers (timeout={}min)", timeout_minutes);
+        info!(
+            "Checking for hung containers (timeout={}min)",
+            timeout_minutes
+        );
 
         let all_containers = self.list_containers(None, None).await?;
         let mut stopped_ids = Vec::new();
@@ -491,7 +504,10 @@ impl ContainerManager {
                             match self.remove_container(&container.id, true).await {
                                 Ok(_) => stopped_ids.push(container.id),
                                 Err(e) => {
-                                    error!("Failed to force stop container {}: {}", container.id, e);
+                                    error!(
+                                        "Failed to force stop container {}: {}",
+                                        container.id, e
+                                    );
                                 }
                             }
                         }
@@ -545,19 +561,14 @@ impl ContainerManager {
 
     /// Parse Docker stats into ResourceUsage
     fn parse_stats(&self, stats: &Stats) -> ResourceUsage {
-        let memory_used_mb = stats
-            .memory_stats
-            .usage
-            .unwrap_or(0) as u64
-            / 1024
-            / 1024;
+        let memory_used_mb = stats.memory_stats.usage.unwrap_or(0) as u64 / 1024 / 1024;
 
         // Calculate CPU percentage
         let cpu_stats = &stats.cpu_stats;
         let precpu_stats = &stats.precpu_stats;
 
-        let cpu_delta = cpu_stats.cpu_usage.total_usage as f64
-            - precpu_stats.cpu_usage.total_usage as f64;
+        let cpu_delta =
+            cpu_stats.cpu_usage.total_usage as f64 - precpu_stats.cpu_usage.total_usage as f64;
         let system_delta = cpu_stats.system_cpu_usage.unwrap_or(0) as f64
             - precpu_stats.system_cpu_usage.unwrap_or(0) as f64;
 
@@ -644,7 +655,10 @@ mod tests {
         assert_eq!(status, ContainerStatus::Running);
 
         // Stop container
-        manager.stop_container(&container_id, Some(5)).await.unwrap();
+        manager
+            .stop_container(&container_id, Some(5))
+            .await
+            .unwrap();
 
         // Remove container
         manager.remove_container(&container_id, true).await.unwrap();
