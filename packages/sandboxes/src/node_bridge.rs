@@ -14,8 +14,10 @@ use tokio::sync::mpsc;
 use tracing::{debug, error, info, warn};
 
 /// IPC request types sent to Node.js bridge
+/// TODO: Consider boxing ExecutionRequest to reduce enum size
 #[derive(Debug, Clone, Serialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
+#[allow(clippy::large_enum_variant)]
 pub(crate) enum IPCRequest {
     Ping,
     Execute { request: ExecutionRequest },
@@ -258,6 +260,8 @@ impl NodeBridge {
     }
 
     /// Receive the next response from the bridge
+    /// TODO: Use async-aware Mutex (tokio::sync::Mutex) instead of std::sync::Mutex
+    #[allow(clippy::await_holding_lock)]
     pub async fn receive_response(&self) -> Option<IPCResponse> {
         let mut rx = self.response_rx.lock().unwrap();
         rx.recv().await

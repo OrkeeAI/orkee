@@ -20,7 +20,6 @@ import {
   ArtifactGallery,
   ExecutionHistory,
 } from '@/components/sandbox';
-import type { AgentExecution } from '@/services/executions';
 
 interface TaskExecutionSectionProps {
   taskId: string;
@@ -42,9 +41,9 @@ export function TaskExecutionSection({ taskId, defaultPrompt }: TaskExecutionSec
     setShowExecution(true);
   };
 
-  const handleRetryExecution = (_execution: AgentExecution) => {
+  const handleRetryExecution = () => {
     // Open modal with the same prompt from the failed execution
-    // TODO: Use execution.prompt as defaultPrompt when retry is implemented
+    // TODO: Accept execution parameter and use execution.prompt as defaultPrompt when retry is implemented
     setIsExecutionModalOpen(true);
   };
 

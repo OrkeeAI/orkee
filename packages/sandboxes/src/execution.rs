@@ -519,6 +519,8 @@ impl ExecutionOrchestrator {
 
 impl ExecutionStatus {
     /// Convert enum to string representation
+    /// TODO: Implement Display trait instead of inherent to_string method
+    #[allow(clippy::inherent_to_string, clippy::wrong_self_convention)]
     fn to_string(&self) -> String {
         match self {
             ExecutionStatus::Pending => "pending".to_string(),
@@ -532,6 +534,8 @@ impl ExecutionStatus {
 
 impl ContainerStatus {
     /// Convert enum to string representation
+    /// TODO: Implement Display trait instead of inherent to_string method
+    #[allow(clippy::inherent_to_string, clippy::wrong_self_convention)]
     fn to_string(&self) -> String {
         match self {
             ContainerStatus::Creating => "creating".to_string(),
