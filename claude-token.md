@@ -665,7 +665,7 @@ After successful import, the system checks encryption mode and shows:
 echo "sk-ant-test-token-12345" > /tmp/test-token.txt
 
 # Test file import
-cargo run --package orkee-cli --bin orkee -- auth import claude --file /tmp/test-token.txt
+cargo run --package orkee-cli --bin orkee -- auth login claude --file /tmp/test-token.txt
 
 # Verify storage
 cargo run --package orkee-cli --bin orkee -- auth status
@@ -775,7 +775,7 @@ cat /tmp/claude-output.txt | grep "sk-ant"
 ```bash
 # Clean token file
 echo "sk-ant-..." | tr -d '\n' > /tmp/clean-token.txt
-orkee auth import claude --file /tmp/clean-token.txt
+orkee auth login claude --file /tmp/clean-token.txt
 ```
 
 ### Encryption Initialization Fails
