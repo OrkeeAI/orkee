@@ -327,6 +327,14 @@ impl OAuthManager {
         Ok(statuses)
     }
 
+    /// Import a token directly (e.g., from external setup commands like claude setup-token)
+    pub async fn import_token(&self, token: OAuthToken) -> AuthResult<()> {
+        info!("Importing token for provider: {}", token.provider);
+        self.storage.store_token(&token).await?;
+        info!("✅ Successfully imported token for {}", token.provider);
+        Ok(())
+    }
+
     /// Build authorization URL with PKCE challenge and state parameter
     fn build_auth_url(
         &self,

@@ -8,6 +8,7 @@ use inquire::Select;
 use orkee_auth::{OAuthManager, OAuthProvider};
 use orkee_storage::EncryptionMode;
 use std::process;
+use uuid::Uuid;
 
 #[derive(Subcommand)]
 pub enum AuthCommands {
@@ -35,6 +36,16 @@ pub enum AuthCommands {
         /// Provider to refresh (claude, openai, google, xai)
         provider: String,
     },
+
+    /// Import OAuth token from external source (e.g., claude setup-token)
+    Import {
+        /// Provider to import token for (claude, openai, google, xai)
+        provider: String,
+
+        /// Path to token JSON file (default: runs claude setup-token)
+        #[arg(long)]
+        file: Option<String>,
+    },
 }
 
 impl AuthCommands {
@@ -46,6 +57,9 @@ impl AuthCommands {
             AuthCommands::Logout { provider } => logout_command(provider).await,
             AuthCommands::Status => status_command().await,
             AuthCommands::Refresh { provider } => refresh_command(provider).await,
+            AuthCommands::Import { provider, file } => {
+                import_command(provider, file.as_deref()).await
+            }
         }
     }
 }
@@ -334,6 +348,180 @@ async fn refresh_command(provider_str: &str) {
             process::exit(1);
         }
     }
+}
+
+async fn import_command(provider_str: &str, file_path: Option<&str>) {
+    let provider = match parse_provider(provider_str) {
+        Ok(p) => p,
+        Err(e) => {
+            eprintln!("{} {}", "✗".red().bold(), e);
+            process::exit(1);
+        }
+    };
+
+    // Initialize OAuth manager
+    let oauth = match OAuthManager::new_default().await {
+        Ok(m) => m,
+        Err(e) => {
+            eprintln!(
+                "{} Failed to initialize OAuth manager: {}",
+                "✗".red().bold(),
+                e
+            );
+            process::exit(1);
+        }
+    };
+    let user_id = "default-user"; // TODO: Get actual user ID
+
+    println!(
+        "{}",
+        format!("📥 Importing token for {}...", provider)
+            .bold()
+            .cyan()
+    );
+    println!();
+
+    // Get token either from file or by running the provider's setup command
+    let token_str = match file_path {
+        Some(path) => {
+            // Read token from file
+            println!("📄 Reading token from file: {}", path.cyan());
+            match std::fs::read_to_string(path) {
+                Ok(contents) => contents.trim().to_string(),
+                Err(e) => {
+                    eprintln!("{} Failed to read token file: {}", "✗".red().bold(), e);
+                    process::exit(1);
+                }
+            }
+        }
+        None => {
+            // Run provider-specific setup command
+            let setup_command = match provider {
+                OAuthProvider::Claude => "claude setup-token",
+                _ => {
+                    eprintln!(
+                        "{} Import is only supported for Claude (use 'orkee login {}' instead)",
+                        "✗".red().bold(),
+                        provider
+                    );
+                    process::exit(1);
+                }
+            };
+
+            println!("🚀 Running {}...", setup_command.yellow());
+            println!();
+
+            match run_setup_command(setup_command).await {
+                Ok(token) => token,
+                Err(e) => {
+                    eprintln!("{} Failed to run setup command: {}", "✗".red().bold(), e);
+                    eprintln!();
+                    eprintln!("You can also manually provide a token file:");
+                    eprintln!("  {}", format!("orkee auth import {} --file <path>", provider).yellow());
+                    process::exit(1);
+                }
+            }
+        }
+    };
+
+    // Parse the token
+    let token_str = token_str.trim();
+    if token_str.is_empty() {
+        eprintln!("{} Token is empty", "✗".red().bold());
+        process::exit(1);
+    }
+
+    // Validate token format (Claude tokens start with sk-ant-)
+    if provider == OAuthProvider::Claude && !token_str.starts_with("sk-ant-") {
+        eprintln!(
+            "{} Invalid token format. Claude tokens should start with 'sk-ant-'",
+            "✗".red().bold()
+        );
+        process::exit(1);
+    }
+
+    // Create OAuthToken from the session key
+    // Claude session keys are valid for 1 year
+    let expires_at = chrono::Utc::now().timestamp() + (365 * 24 * 60 * 60);
+
+    let token = orkee_auth::oauth::types::OAuthToken {
+        id: Uuid::new_v4().to_string(),
+        user_id: user_id.to_string(),
+        provider: provider.to_string(),
+        access_token: token_str.to_string(),
+        refresh_token: None, // Session keys don't have refresh tokens
+        expires_at,
+        token_type: "Bearer".to_string(),
+        scope: Some("model:claude account:read".to_string()),
+        subscription_type: None, // We don't know subscription type from session key
+        account_email: None,    // We don't know email from session key
+    };
+
+    // Store the token
+    match oauth.import_token(token).await {
+        Ok(_) => {
+            println!("{} Successfully imported token!", "✓".green().bold());
+            println!();
+            println!("   Provider: {}", provider.to_string().cyan());
+            println!("   Expires: {}", format_timestamp(expires_at).cyan());
+            println!();
+            println!(
+                "You can now use {} with your {} account",
+                "Orkee".bold(),
+                provider.to_string().bold()
+            );
+
+            // Show encryption security warning
+            show_encryption_warning().await;
+        }
+        Err(e) => {
+            eprintln!("{} Failed to store token: {}", "✗".red().bold(), e);
+            process::exit(1);
+        }
+    }
+}
+
+/// Run a provider's token setup command and capture the output
+async fn run_setup_command(command: &str) -> Result<String, String> {
+    use std::process::{Command, Stdio};
+
+    // Split command into program and args
+    let parts: Vec<&str> = command.split_whitespace().collect();
+    if parts.is_empty() {
+        return Err("Invalid command".to_string());
+    }
+
+    let program = parts[0];
+    let args = &parts[1..];
+
+    // Run the command and capture output
+    let output = Command::new(program)
+        .args(args)
+        .stdin(Stdio::inherit())  // Allow interactive input
+        .stdout(Stdio::piped())   // Capture stdout
+        .stderr(Stdio::inherit()) // Show stderr to user
+        .output()
+        .map_err(|e| format!("Failed to execute {}: {}", program, e))?;
+
+    if !output.status.success() {
+        return Err(format!(
+            "Command failed with exit code: {}",
+            output.status.code().unwrap_or(-1)
+        ));
+    }
+
+    // Parse the output to extract the token
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // Look for the token line (format: "sk-ant-...")
+    for line in stdout.lines() {
+        let line = line.trim();
+        if line.starts_with("sk-ant-") {
+            return Ok(line.to_string());
+        }
+    }
+
+    Err("Could not find token in command output".to_string())
 }
 
 /// Show encryption security warning if using machine-based encryption
