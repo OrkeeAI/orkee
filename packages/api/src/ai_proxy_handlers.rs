@@ -12,6 +12,7 @@ use tracing::{error, info, warn};
 use url::Url;
 
 use super::auth::CurrentUser;
+use orkee_auth::oauth::OAuthProvider;
 use orkee_projects::DbState;
 
 // Request body size limit: 10MB
@@ -132,10 +133,10 @@ fn build_error_response(status: StatusCode, message: String) -> Response<Body> {
 async fn try_get_oauth_token(db: &DbState, user_id: &str, provider: &str) -> Option<String> {
     // Parse provider string into OAuthProvider enum
     let oauth_provider = match provider {
-        "anthropic" => orkee_auth::OAuthProvider::Claude,
-        "openai" => orkee_auth::OAuthProvider::OpenAI,
-        "google" => orkee_auth::OAuthProvider::Google,
-        "xai" => orkee_auth::OAuthProvider::XAI,
+        "anthropic" => OAuthProvider::Claude,
+        "openai" => OAuthProvider::OpenAI,
+        "google" => OAuthProvider::Google,
+        "xai" => OAuthProvider::XAI,
         _ => {
             warn!("Unknown provider for OAuth: {}", provider);
             return None;

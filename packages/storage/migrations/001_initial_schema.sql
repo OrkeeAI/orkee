@@ -797,20 +797,6 @@ CREATE TABLE oauth_tokens (
     UNIQUE(user_id, provider)
 );
 
--- OAuth Provider Configurations
-CREATE TABLE oauth_providers (
-    provider TEXT PRIMARY KEY CHECK (provider IN ('claude', 'openai', 'google', 'xai')),
-    client_id TEXT NOT NULL,
-    client_secret TEXT, -- Encrypted, if needed
-    auth_url TEXT NOT NULL,
-    token_url TEXT NOT NULL,
-    redirect_uri TEXT NOT NULL,
-    scopes TEXT NOT NULL, -- Space-separated
-    enabled BOOLEAN DEFAULT 1,
-    created_at INTEGER NOT NULL DEFAULT (unixepoch()),
-    updated_at INTEGER NOT NULL DEFAULT (unixepoch())
-);
-
 -- OAuth indexes
 CREATE INDEX idx_oauth_tokens_user ON oauth_tokens(user_id);
 CREATE INDEX idx_oauth_tokens_provider ON oauth_tokens(provider);

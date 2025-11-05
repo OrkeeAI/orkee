@@ -54,7 +54,7 @@ export function Settings() {
           </TabsTrigger>
           <TabsTrigger value="oauth" className="flex items-center gap-2">
             <Shield className="h-4 w-4" />
-            OAuth
+            Authentication
           </TabsTrigger>
           <TabsTrigger value="ai-models" className="flex items-center gap-2">
             <Brain className="h-4 w-4" />

@@ -7,10 +7,10 @@ import { Toaster } from 'sonner'
 import { Layout } from '@/components/layout/Layout'
 import { ConnectionProvider } from '@/contexts/ConnectionContext'
 import { CloudProvider } from '@/contexts/CloudContext'
+import { AuthProvider } from '@/contexts/AuthContext'
 import { ThemeProvider } from '@/contexts/ThemeContext'
 import { TelemetryProvider, useTelemetry, withPageTracking } from '@/contexts/TelemetryContext'
 import { ModelPreferencesProvider } from '@/contexts/ModelPreferencesContext'
-import { AuthProvider } from '@/contexts/AuthContext'
 import { queryClient } from '@/lib/queryClient'
 import { PopupCloseHandler } from '@/components/PopupCloseHandler'
 import { CliSetupDialog } from '@/components/CliSetupDialog'
@@ -147,16 +147,16 @@ function App() {
     <ThemeProvider>
       <QueryClientProvider client={queryClient}>
         <ConnectionProvider>
-          <AuthProvider>
-            <CloudProvider>
+          <CloudProvider>
+            <AuthProvider>
               <TelemetryProvider>
                 <ModelPreferencesProvider>
                   <AppWithTelemetry />
                   <Toaster richColors position="top-right" />
                 </ModelPreferencesProvider>
               </TelemetryProvider>
-            </CloudProvider>
-          </AuthProvider>
+            </AuthProvider>
+          </CloudProvider>
         </ConnectionProvider>
         {/* Only show devtools in development */}
         {import.meta.env.DEV && <ReactQueryDevtools initialIsOpen={false} />}

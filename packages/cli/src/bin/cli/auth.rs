@@ -5,10 +5,14 @@ use chrono::{DateTime, Utc};
 use clap::Subcommand;
 use colored::*;
 use inquire::Select;
-use orkee_auth::{OAuthManager, OAuthProvider};
+use orkee_auth::oauth::OAuthProvider;
+use orkee_auth::{OAuthManager, OAuthToken};
 use orkee_storage::EncryptionMode;
-use std::process;
-use uuid::Uuid;
+use std::fs;
+use std::process::{self, Command, Stdio};
+
+/// Claude API tokens are valid for 1 year from creation
+const CLAUDE_TOKEN_VALIDITY_SECONDS: i64 = 365 * 24 * 60 * 60;
 
 #[derive(Subcommand)]
 pub enum AuthCommands {
@@ -16,6 +20,10 @@ pub enum AuthCommands {
     Login {
         /// Provider to authenticate with (claude, openai, google, xai)
         provider: Option<String>,
+
+        /// Import token from file (Claude only)
+        #[arg(long)]
+        file: Option<String>,
 
         /// Force re-authentication even if valid token exists
         #[arg(long)]
@@ -36,51 +44,24 @@ pub enum AuthCommands {
         /// Provider to refresh (claude, openai, google, xai)
         provider: String,
     },
-
-    /// Import OAuth token from external source (e.g., claude setup-token)
-    Import {
-        /// Provider to import token for (claude, openai, google, xai)
-        provider: String,
-
-        /// Path to token JSON file (default: runs claude setup-token)
-        #[arg(long)]
-        file: Option<String>,
-    },
 }
 
 impl AuthCommands {
     pub async fn execute(&self) {
         match self {
-            AuthCommands::Login { provider, force } => {
-                login_command(provider.as_deref(), *force).await
-            }
+            AuthCommands::Login {
+                provider,
+                file,
+                force,
+            } => login_command(provider.as_deref(), file.as_deref(), *force).await,
             AuthCommands::Logout { provider } => logout_command(provider).await,
             AuthCommands::Status => status_command().await,
             AuthCommands::Refresh { provider } => refresh_command(provider).await,
-            AuthCommands::Import { provider, file } => {
-                import_command(provider, file.as_deref()).await
-            }
         }
     }
 }
 
-async fn login_command(provider_str: Option<&str>, force: bool) {
-    // Initialize OAuth manager
-    let oauth = match OAuthManager::new_default().await {
-        Ok(m) => m,
-        Err(e) => {
-            eprintln!(
-                "{} Failed to initialize OAuth manager: {}",
-                "✗".red().bold(),
-                e
-            );
-            process::exit(1);
-        }
-    };
-
-    // Get default user ID
-    let user_id = "default-user"; // TODO: Get actual user ID from session
-
+async fn login_command(provider_str: Option<&str>, file: Option<&str>, _force: bool) {
     // Parse or prompt for provider
     let provider = match provider_str {
         Some(p) => match parse_provider(p) {
@@ -99,72 +80,23 @@ async fn login_command(provider_str: Option<&str>, force: bool) {
         },
     };
 
-    println!(
-        "{}",
-        format!("🔐 Authenticating with {}...", provider)
-            .bold()
-            .cyan()
-    );
-    println!();
-
-    // Check if already authenticated
-    if !force {
-        match oauth.get_token(user_id, provider).await {
-            Ok(Some(token)) if token.is_valid() => {
-                println!(
-                    "{} Already authenticated with {}",
-                    "✓".green().bold(),
-                    provider.to_string().bold()
-                );
-                if let Some(email) = token.account_email {
-                    println!("  Account: {}", email.cyan());
-                }
-                if let Some(subscription) = token.subscription_type {
-                    println!("  Subscription: {}", subscription.cyan());
-                }
-                println!();
-                println!(
-                    "  Use {} to re-authenticate",
-                    "orkee login <provider> --force".yellow()
-                );
-                return;
-            }
-            Ok(_) => {
-                // Token expired or invalid, continue with authentication
-            }
-            Err(e) => {
-                eprintln!("{} Warning: {}", "⚠".yellow().bold(), e);
+    // Handle Claude token import
+    match provider {
+        OAuthProvider::Claude => {
+            if let Some(file_path) = file {
+                import_claude_from_file(file_path).await;
+            } else {
+                import_claude_from_setup().await;
             }
         }
-    }
-
-    // Perform OAuth authentication
-    println!("📱 Opening browser for authentication...");
-    println!();
-
-    match oauth.authenticate(provider, user_id).await {
-        Ok(token) => {
-            println!("{} Successfully authenticated!", "✓".green().bold());
-            println!();
-            if let Some(email) = token.account_email {
-                println!("   Account: {}", email.cyan());
-            }
-            if let Some(subscription) = token.subscription_type {
-                println!("   Subscription: {}", subscription.cyan());
-            }
-            println!("   Expires: {}", format_timestamp(token.expires_at).cyan());
-            println!();
-            println!(
-                "You can now use {} with your {} account",
-                "Orkee".bold(),
+        OAuthProvider::OpenAI | OAuthProvider::Google | OAuthProvider::XAI => {
+            eprintln!(
+                "{} {} OAuth not yet implemented",
+                "✗".red().bold(),
                 provider.to_string().bold()
             );
-
-            // Show encryption security warning
-            show_encryption_warning().await;
-        }
-        Err(e) => {
-            eprintln!("{} Authentication failed: {}", "✗".red().bold(), e);
+            eprintln!();
+            eprintln!("Please use API keys in Settings instead.");
             process::exit(1);
         }
     }
@@ -294,7 +226,10 @@ async fn status_command() {
                 println!();
             }
 
-            println!("Use {} to authenticate", "orkee login <provider>".yellow());
+            println!(
+                "Use {} to authenticate",
+                "orkee auth login <provider>".yellow()
+            );
         }
         Err(e) => {
             eprintln!("{} Failed to get status: {}", "✗".red().bold(), e);
@@ -312,216 +247,188 @@ async fn refresh_command(provider_str: &str) {
         }
     };
 
-    // Initialize OAuth manager
-    let oauth = match OAuthManager::new_default().await {
-        Ok(m) => m,
-        Err(e) => {
-            eprintln!(
-                "{} Failed to initialize OAuth manager: {}",
-                "✗".red().bold(),
-                e
-            );
-            process::exit(1);
-        }
-    };
-    let user_id = "default-user"; // TODO: Get actual user ID
+    // Claude tokens cannot be refreshed
+    if provider == OAuthProvider::Claude {
+        eprintln!(
+            "{} Claude tokens cannot be refreshed. They expire after 1 year.",
+            "✗".red().bold()
+        );
+        eprintln!();
+        eprintln!("To get a new token, run:");
+        eprintln!("   {}", "orkee auth login claude".yellow());
+        eprintln!();
+        eprintln!("This will generate a new 1-year token.");
+        process::exit(1);
+    }
 
+    eprintln!(
+        "{} {} OAuth refresh not yet implemented",
+        "✗".red().bold(),
+        provider.to_string().bold()
+    );
+    eprintln!();
+    eprintln!("Please use API keys in Settings instead.");
+    process::exit(1);
+}
+
+async fn import_claude_from_setup() {
     println!(
         "{}",
-        format!("🔄 Refreshing token for {}...", provider)
+        "🔐 Running 'claude setup-token' to generate authentication token..."
             .bold()
             .cyan()
     );
+    println!("   This will open your browser for authentication.");
+    println!();
 
-    match oauth.refresh_token(user_id, provider).await {
-        Ok(token) => {
-            println!("{} Token refreshed successfully!", "✓".green().bold());
-            println!("   Expires: {}", format_timestamp(token.expires_at).cyan());
-        }
+    // Run claude setup-token
+    let output = match Command::new("claude")
+        .arg("setup-token")
+        .stdin(Stdio::inherit()) // Allow browser interaction
+        .stdout(Stdio::piped()) // Capture token output
+        .stderr(Stdio::inherit()) // Show progress to user
+        .output()
+    {
+        Ok(output) => output,
         Err(e) => {
-            eprintln!("{} Token refresh failed: {}", "✗".red().bold(), e);
-            eprintln!();
-            eprintln!(
-                "Try re-authenticating with: {}",
-                format!("orkee login {}", provider).yellow()
-            );
-            process::exit(1);
+            if e.kind() == std::io::ErrorKind::NotFound {
+                eprintln!("{} Claude CLI not found", "✗".red().bold());
+                eprintln!();
+                eprintln!("Please install it first:");
+                eprintln!("  {}", "npm install -g @anthropic-ai/claude-code".yellow());
+                process::exit(1);
+            } else {
+                eprintln!(
+                    "{} Failed to run 'claude setup-token': {}",
+                    "✗".red().bold(),
+                    e
+                );
+                process::exit(1);
+            }
         }
-    }
-}
+    };
 
-async fn import_command(provider_str: &str, file_path: Option<&str>) {
-    let provider = match parse_provider(provider_str) {
-        Ok(p) => p,
+    if !output.status.success() {
+        eprintln!(
+            "{} claude setup-token failed. Please try again.",
+            "✗".red().bold()
+        );
+        process::exit(1);
+    }
+
+    // Extract token from output
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let token = match extract_claude_token(&stdout) {
+        Ok(t) => t,
         Err(e) => {
             eprintln!("{} {}", "✗".red().bold(), e);
             process::exit(1);
         }
     };
 
-    // Initialize OAuth manager
-    let oauth = match OAuthManager::new_default().await {
-        Ok(m) => m,
-        Err(e) => {
-            eprintln!(
-                "{} Failed to initialize OAuth manager: {}",
-                "✗".red().bold(),
-                e
-            );
-            process::exit(1);
-        }
-    };
-    let user_id = "default-user"; // TODO: Get actual user ID
+    // Store token
+    if let Err(e) = store_claude_token(&token).await {
+        eprintln!("{} Failed to store token: {}", "✗".red().bold(), e);
+        process::exit(1);
+    }
 
+    println!();
+    println!(
+        "{} Claude authentication token imported successfully!",
+        "✓".green().bold()
+    );
+    println!("   Token expires in 1 year.");
+
+    show_encryption_warning().await;
+}
+
+async fn import_claude_from_file(file_path: &str) {
     println!(
         "{}",
-        format!("📥 Importing token for {}...", provider)
+        format!("📄 Importing Claude token from file: {}", file_path)
             .bold()
             .cyan()
     );
-    println!();
 
-    // Get token either from file or by running the provider's setup command
-    let token_str = match file_path {
-        Some(path) => {
-            // Read token from file
-            println!("📄 Reading token from file: {}", path.cyan());
-            match std::fs::read_to_string(path) {
-                Ok(contents) => contents.trim().to_string(),
-                Err(e) => {
-                    eprintln!("{} Failed to read token file: {}", "✗".red().bold(), e);
-                    process::exit(1);
-                }
-            }
-        }
-        None => {
-            // Run provider-specific setup command
-            let setup_command = match provider {
-                OAuthProvider::Claude => "claude setup-token",
-                _ => {
-                    eprintln!(
-                        "{} Import is only supported for Claude (use 'orkee login {}' instead)",
-                        "✗".red().bold(),
-                        provider
-                    );
-                    process::exit(1);
-                }
-            };
-
-            println!("🚀 Running {}...", setup_command.yellow());
-            println!();
-
-            match run_setup_command(setup_command).await {
-                Ok(token) => token,
-                Err(e) => {
-                    eprintln!("{} Failed to run setup command: {}", "✗".red().bold(), e);
-                    eprintln!();
-                    eprintln!("You can also manually provide a token file:");
-                    eprintln!("  {}", format!("orkee auth import {} --file <path>", provider).yellow());
-                    process::exit(1);
-                }
-            }
-        }
-    };
-
-    // Parse the token
-    let token_str = token_str.trim();
-    if token_str.is_empty() {
-        eprintln!("{} Token is empty", "✗".red().bold());
-        process::exit(1);
-    }
-
-    // Validate token format (Claude tokens start with sk-ant-)
-    if provider == OAuthProvider::Claude && !token_str.starts_with("sk-ant-") {
-        eprintln!(
-            "{} Invalid token format. Claude tokens should start with 'sk-ant-'",
-            "✗".red().bold()
-        );
-        process::exit(1);
-    }
-
-    // Create OAuthToken from the session key
-    // Claude session keys are valid for 1 year
-    let expires_at = chrono::Utc::now().timestamp() + (365 * 24 * 60 * 60);
-
-    let token = orkee_auth::oauth::types::OAuthToken {
-        id: Uuid::new_v4().to_string(),
-        user_id: user_id.to_string(),
-        provider: provider.to_string(),
-        access_token: token_str.to_string(),
-        refresh_token: None, // Session keys don't have refresh tokens
-        expires_at,
-        token_type: "Bearer".to_string(),
-        scope: Some("model:claude account:read".to_string()),
-        subscription_type: None, // We don't know subscription type from session key
-        account_email: None,    // We don't know email from session key
-    };
-
-    // Store the token
-    match oauth.import_token(token).await {
-        Ok(_) => {
-            println!("{} Successfully imported token!", "✓".green().bold());
-            println!();
-            println!("   Provider: {}", provider.to_string().cyan());
-            println!("   Expires: {}", format_timestamp(expires_at).cyan());
-            println!();
-            println!(
-                "You can now use {} with your {} account",
-                "Orkee".bold(),
-                provider.to_string().bold()
-            );
-
-            // Show encryption security warning
-            show_encryption_warning().await;
-        }
+    let token = match fs::read_to_string(file_path) {
+        Ok(content) => content.trim().to_string(),
         Err(e) => {
-            eprintln!("{} Failed to store token: {}", "✗".red().bold(), e);
+            eprintln!("{} Failed to read file: {}", "✗".red().bold(), e);
             process::exit(1);
         }
+    };
+
+    // Validate token format
+    if !token.starts_with("sk-ant-oat01-") {
+        eprintln!("{} Invalid token format", "✗".red().bold());
+        eprintln!();
+        eprintln!("Claude OAuth tokens should start with 'sk-ant-oat01-'.");
+        eprintln!("If you have an API key (sk-ant-api03-), use Settings instead.");
+        process::exit(1);
     }
+
+    // Store token
+    if let Err(e) = store_claude_token(&token).await {
+        eprintln!("{} Failed to store token: {}", "✗".red().bold(), e);
+        process::exit(1);
+    }
+
+    println!();
+    println!(
+        "{} Claude authentication token imported successfully!",
+        "✓".green().bold()
+    );
+    println!("   Token expires in 1 year.");
+
+    show_encryption_warning().await;
 }
 
-/// Run a provider's token setup command and capture the output
-async fn run_setup_command(command: &str) -> Result<String, String> {
-    use std::process::{Command, Stdio};
-
-    // Split command into program and args
-    let parts: Vec<&str> = command.split_whitespace().collect();
-    if parts.is_empty() {
-        return Err("Invalid command".to_string());
-    }
-
-    let program = parts[0];
-    let args = &parts[1..];
-
-    // Run the command and capture output
-    let output = Command::new(program)
-        .args(args)
-        .stdin(Stdio::inherit())  // Allow interactive input
-        .stdout(Stdio::piped())   // Capture stdout
-        .stderr(Stdio::inherit()) // Show stderr to user
-        .output()
-        .map_err(|e| format!("Failed to execute {}: {}", program, e))?;
-
-    if !output.status.success() {
-        return Err(format!(
-            "Command failed with exit code: {}",
-            output.status.code().unwrap_or(-1)
-        ));
-    }
-
-    // Parse the output to extract the token
-    let stdout = String::from_utf8_lossy(&output.stdout);
-
-    // Look for the token line (format: "sk-ant-...")
-    for line in stdout.lines() {
-        let line = line.trim();
-        if line.starts_with("sk-ant-") {
-            return Ok(line.to_string());
+fn extract_claude_token(output: &str) -> Result<String, String> {
+    // Look for token in output (appears after success message)
+    for line in output.lines() {
+        let trimmed = line.trim();
+        if trimmed.starts_with("sk-ant-oat01-") {
+            return Ok(trimmed.to_string());
         }
     }
 
-    Err("Could not find token in command output".to_string())
+    Err("Could not find token in command output.\n\
+         The token should start with 'sk-ant-oat01-'.\n\
+         Please try running 'claude setup-token' manually and use --file option."
+        .to_string())
+}
+
+async fn store_claude_token(token: &str) -> Result<(), String> {
+    let manager = OAuthManager::new_default()
+        .await
+        .map_err(|e| format!("Failed to initialize OAuth manager: {}", e))?;
+
+    // Generate a simple ID for the token (first 21 chars of the token)
+    let token_id = if token.len() >= 21 {
+        token[..21].to_string()
+    } else {
+        token.to_string()
+    };
+
+    let oauth_token = OAuthToken {
+        id: token_id,
+        user_id: "default-user".to_string(), // TODO: Implement user system
+        provider: "claude".to_string(),
+        access_token: token.to_string(),
+        refresh_token: None, // Claude tokens don't refresh
+        expires_at: Utc::now().timestamp() + CLAUDE_TOKEN_VALIDITY_SECONDS,
+        token_type: "Bearer".to_string(),
+        scope: Some("model:claude account:read".to_string()),
+        subscription_type: None, // Could detect later via API
+        account_email: None,     // Could detect later via API
+    };
+
+    manager
+        .import_token(oauth_token)
+        .await
+        .map_err(|e| format!("Failed to store token: {}", e))?;
+
+    Ok(())
 }
 
 /// Show encryption security warning if using machine-based encryption
