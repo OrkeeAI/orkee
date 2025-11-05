@@ -11,6 +11,7 @@ members = [
     "packages/tasks",
     "packages/models",
     "packages/agents",
+    "packages/sandbox",
     "packages/executions",
     "packages/ai",
     "packages/context",

@@ -1,0 +1,296 @@
+{
+  "version": "2025-01-01",
+  "providers": [
+    {
+      "id": "local",
+      "name": "Local Docker",
+      "display_name": "Local",
+      "description": "Docker containers running on local machine via Dagger",
+      "provider_type": "docker",
+      "capabilities": {
+        "gpu": false,
+        "persistent_storage": true,
+        "public_urls": false,
+        "ssh_access": false,
+        "auto_scaling": false,
+        "regions": []
+      },
+      "pricing": {
+        "base_cost": 0,
+        "per_hour": 0,
+        "per_gb_memory": 0,
+        "per_vcpu": 0
+      },
+      "limits": {
+        "max_memory_gb": 32,
+        "max_vcpus": 16,
+        "max_storage_gb": 100,
+        "max_runtime_hours": null
+      },
+      "default_config": {
+        "image": "orkee-sandbox:latest",
+        "memory_mb": 4096,
+        "cpu_cores": 2
+      },
+      "is_available": true,
+      "requires_auth": false
+    },
+    {
+      "id": "beam",
+      "name": "Beam",
+      "display_name": "Beam",
+      "description": "Serverless GPU infrastructure for AI workloads",
+      "provider_type": "serverless",
+      "capabilities": {
+        "gpu": true,
+        "persistent_storage": true,
+        "public_urls": true,
+        "ssh_access": false,
+        "auto_scaling": true,
+        "regions": ["us-east-1", "us-west-2", "eu-west-1"]
+      },
+      "pricing": {
+        "base_cost": 0,
+        "per_hour": 0.10,
+        "per_gb_memory": 0.01,
+        "per_vcpu": 0.05,
+        "gpu_per_hour": {
+          "T4": 0.65,
+          "A10": 1.50,
+          "A100": 3.50
+        }
+      },
+      "limits": {
+        "max_memory_gb": 512,
+        "max_vcpus": 96,
+        "max_storage_gb": 1000,
+        "max_runtime_hours": 720
+      },
+      "default_config": {
+        "image": "beam-default",
+        "memory_mb": 8192,
+        "cpu_cores": 4,
+        "gpu_type": null
+      },
+      "is_available": true,
+      "requires_auth": true,
+      "auth_fields": ["api_key", "workspace_id"]
+    },
+    {
+      "id": "cloudflare",
+      "name": "Cloudflare Workers",
+      "display_name": "Cloudflare",
+      "description": "Edge compute platform with global distribution",
+      "provider_type": "edge",
+      "capabilities": {
+        "gpu": false,
+        "persistent_storage": false,
+        "public_urls": true,
+        "ssh_access": false,
+        "auto_scaling": true,
+        "regions": ["global"]
+      },
+      "pricing": {
+        "base_cost": 0,
+        "per_million_requests": 0.50,
+        "per_gb_bandwidth": 0.09,
+        "included_requests": 10000000,
+        "included_bandwidth_gb": 10
+      },
+      "limits": {
+        "max_memory_mb": 128,
+        "max_execution_time_ms": 30000,
+        "max_script_size_kb": 10240
+      },
+      "default_config": {
+        "runtime": "javascript",
+        "memory_mb": 128
+      },
+      "is_available": true,
+      "requires_auth": true,
+      "auth_fields": ["account_id", "api_token"]
+    },
+    {
+      "id": "daytona",
+      "name": "Daytona",
+      "display_name": "Daytona",
+      "description": "Development environment management platform",
+      "provider_type": "workspace",
+      "capabilities": {
+        "gpu": false,
+        "persistent_storage": true,
+        "public_urls": true,
+        "ssh_access": true,
+        "auto_scaling": false,
+        "regions": ["us-east-1", "eu-central-1"]
+      },
+      "pricing": {
+        "base_cost": 5.00,
+        "per_hour": 0.20,
+        "per_gb_storage": 0.10
+      },
+      "limits": {
+        "max_memory_gb": 64,
+        "max_vcpus": 32,
+        "max_storage_gb": 500,
+        "max_runtime_hours": 720
+      },
+      "default_config": {
+        "workspace_class": "standard",
+        "ide": "vscode",
+        "memory_mb": 8192,
+        "cpu_cores": 4
+      },
+      "is_available": true,
+      "requires_auth": true,
+      "auth_fields": ["api_key", "workspace_url"]
+    },
+    {
+      "id": "e2b",
+      "name": "E2B",
+      "display_name": "E2B",
+      "description": "Secure sandboxes for running untrusted code",
+      "provider_type": "sandbox",
+      "capabilities": {
+        "gpu": false,
+        "persistent_storage": false,
+        "public_urls": false,
+        "ssh_access": false,
+        "auto_scaling": true,
+        "regions": ["us-east-1", "eu-west-1"]
+      },
+      "pricing": {
+        "base_cost": 0,
+        "per_hour": 0.00015,
+        "per_execution": 0.0001
+      },
+      "limits": {
+        "max_memory_gb": 8,
+        "max_vcpus": 4,
+        "max_runtime_seconds": 3600,
+        "max_file_size_mb": 100
+      },
+      "default_config": {
+        "template": "base",
+        "memory_mb": 2048,
+        "cpu_cores": 2,
+        "timeout_seconds": 300
+      },
+      "is_available": true,
+      "requires_auth": true,
+      "auth_fields": ["api_key"]
+    },
+    {
+      "id": "flyio",
+      "name": "Fly.io",
+      "display_name": "Fly.io",
+      "description": "Deploy app servers close to your users",
+      "provider_type": "container",
+      "capabilities": {
+        "gpu": false,
+        "persistent_storage": true,
+        "public_urls": true,
+        "ssh_access": true,
+        "auto_scaling": true,
+        "regions": ["iad", "lax", "sea", "ams", "fra", "syd", "nrt", "sin"]
+      },
+      "pricing": {
+        "base_cost": 0,
+        "per_hour": 0.0068,
+        "per_gb_memory": 0.00135,
+        "per_gb_storage": 0.15
+      },
+      "limits": {
+        "max_memory_gb": 256,
+        "max_vcpus": 64,
+        "max_storage_gb": 500,
+        "max_runtime_hours": null
+      },
+      "default_config": {
+        "machine_size": "shared-cpu-1x",
+        "memory_mb": 256,
+        "cpu_type": "shared"
+      },
+      "is_available": true,
+      "requires_auth": true,
+      "auth_fields": ["api_token", "app_name"]
+    },
+    {
+      "id": "modal",
+      "name": "Modal",
+      "display_name": "Modal",
+      "description": "Serverless platform for data/ML teams",
+      "provider_type": "serverless",
+      "capabilities": {
+        "gpu": true,
+        "persistent_storage": true,
+        "public_urls": true,
+        "ssh_access": false,
+        "auto_scaling": true,
+        "regions": ["us-east-1", "us-west-2", "eu-west-1"]
+      },
+      "pricing": {
+        "base_cost": 0,
+        "per_cpu_hour": 0.192,
+        "per_gb_hour": 0.024,
+        "gpu_per_hour": {
+          "T4": 0.76,
+          "A10G": 1.36,
+          "A100": 3.88,
+          "H100": 11.94
+        }
+      },
+      "limits": {
+        "max_memory_gb": 768,
+        "max_vcpus": 96,
+        "max_storage_gb": 1000,
+        "max_runtime_hours": 720
+      },
+      "default_config": {
+        "cpu": 2.0,
+        "memory_mb": 4096,
+        "gpu": null,
+        "image": "debian-slim"
+      },
+      "is_available": true,
+      "requires_auth": true,
+      "auth_fields": ["token_id", "token_secret"]
+    },
+    {
+      "id": "northflank",
+      "name": "Northflank",
+      "display_name": "Northflank",
+      "description": "Developer platform for deploying microservices",
+      "provider_type": "kubernetes",
+      "capabilities": {
+        "gpu": true,
+        "persistent_storage": true,
+        "public_urls": true,
+        "ssh_access": false,
+        "auto_scaling": true,
+        "regions": ["us-east", "us-west", "europe", "asia-pacific"]
+      },
+      "pricing": {
+        "base_cost": 10.00,
+        "per_vcpu": 20.00,
+        "per_gb_memory": 5.00,
+        "per_gb_storage": 0.25
+      },
+      "limits": {
+        "max_memory_gb": 128,
+        "max_vcpus": 32,
+        "max_storage_gb": 1000,
+        "max_runtime_hours": null
+      },
+      "default_config": {
+        "plan": "developer",
+        "cpu_cores": 0.5,
+        "memory_mb": 512,
+        "replicas": 1
+      },
+      "is_available": true,
+      "requires_auth": true,
+      "auth_fields": ["api_token", "project_id"]
+    }
+  ]
+}
