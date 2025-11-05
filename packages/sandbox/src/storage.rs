@@ -272,7 +272,12 @@ impl SandboxStorage {
         }
     }
 
-    pub async fn list_sandboxes(&self, user_id: Option<&str>, project_id: Option<&str>) -> Result<Vec<Sandbox>> {
+    pub async fn list_sandboxes(
+        &self,
+        user_id: Option<&str>,
+        project_id: Option<&str>,
+        status: Option<SandboxStatus>,
+    ) -> Result<Vec<Sandbox>> {
         let mut query = String::from(
             r#"
             SELECT id, name, provider, agent_id, status, container_id, port,
@@ -286,11 +291,18 @@ impl SandboxStorage {
             "#,
         );
 
+        let mut param_count = 0;
         if user_id.is_some() {
-            query.push_str(" AND user_id = ?1");
+            param_count += 1;
+            query.push_str(&format!(" AND user_id = ?{}", param_count));
         }
         if project_id.is_some() {
-            query.push_str(" AND project_id = ?2");
+            param_count += 1;
+            query.push_str(&format!(" AND project_id = ?{}", param_count));
+        }
+        if status.is_some() {
+            param_count += 1;
+            query.push_str(&format!(" AND status = ?{}", param_count));
         }
         query.push_str(" ORDER BY created_at DESC");
 
@@ -301,6 +313,9 @@ impl SandboxStorage {
         }
         if let Some(pid) = project_id {
             q = q.bind(pid);
+        }
+        if let Some(s) = &status {
+            q = q.bind(s.as_str());
         }
 
         let rows = q.fetch_all(&self.pool).await?;

@@ -207,7 +207,7 @@ impl HealthChecker {
 
     /// Check for sandboxes stuck in transition states
     async fn check_stuck_sandbox(
-        manager: &Arc<SandboxManager>,
+        _manager: &Arc<SandboxManager>,
         checks: &Arc<RwLock<HashMap<String, Vec<HealthCheck>>>>,
         sandbox: &Sandbox,
     ) {

@@ -2,7 +2,6 @@
 // ABOUTME: Defines abstract interface for container/VM lifecycle management
 
 use async_trait::async_trait;
-use serde_json::Value;
 use std::collections::HashMap;
 use thiserror::Error;
 

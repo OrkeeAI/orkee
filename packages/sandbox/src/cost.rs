@@ -1,11 +1,10 @@
 // ABOUTME: Cost calculation utilities for sandbox resource usage
 // ABOUTME: Calculates costs based on provider pricing and resource consumption
 
-use crate::{Provider, ProviderPricing, ProviderRegistry};
+use crate::ProviderRegistry;
 use crate::storage::{Sandbox, SandboxExecution};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CostBreakdown {

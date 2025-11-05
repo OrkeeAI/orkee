@@ -2,7 +2,6 @@
 // ABOUTME: Background task that periodically collects metrics from running sandboxes
 
 use crate::manager::SandboxManager;
-use crate::providers::ContainerMetrics;
 use crate::settings::SettingsManager;
 use crate::storage::{Sandbox, SandboxStatus};
 use chrono::Utc;

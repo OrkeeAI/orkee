@@ -3,8 +3,8 @@
 
 use super::{
     ContainerConfig, ContainerInfo, ContainerMetrics, ContainerStatus, ExecResult, OutputChunk,
-    OutputStream, PortMapping, Provider, ProviderCapabilities, ProviderError, ProviderInfo,
-    ProviderStatus, Result, StreamType, VolumeMount,
+    OutputStream, Provider, ProviderCapabilities, ProviderError, ProviderInfo,
+    ProviderStatus, Result, StreamType,
 };
 use async_trait::async_trait;
 use bollard::{
@@ -485,7 +485,7 @@ impl Provider for DockerProvider {
         dest_path: &str,
     ) -> Result<()> {
         use bollard::container::UploadToContainerOptions;
-        use std::fs;
+        
         use std::path::Path;
 
         info!(

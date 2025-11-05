@@ -2,7 +2,7 @@
 // ABOUTME: Manages complete sandbox lifecycle from creation to termination with database settings
 
 use crate::providers::{
-    ContainerConfig, ContainerInfo, ContainerStatus, PortMapping, Provider, ProviderError,
+    ContainerConfig, ContainerInfo, PortMapping, Provider, ProviderError,
     VolumeMount,
 };
 use crate::settings::SettingsManager;
@@ -128,38 +128,41 @@ impl SandboxManager {
         }
 
         // Validate resource limits
-        let cpu_cores = request.cpu_cores.unwrap_or(
+        let cpu_cores: f32 = request.cpu_cores.unwrap_or_else(|| {
             provider_settings
                 .default_cpu_cores
-                .unwrap_or(sandbox_settings.max_cpu_cores_per_sandbox as f32),
-        );
-        let memory_mb = request.memory_mb.unwrap_or(
+                .map(|v| v as f32)
+                .unwrap_or(sandbox_settings.max_cpu_cores_per_sandbox as f32)
+        });
+        let memory_mb: u32 = request.memory_mb.unwrap_or_else(|| {
             provider_settings
                 .default_memory_mb
-                .unwrap_or(sandbox_settings.max_memory_gb_per_sandbox * 1024) as u32,
-        );
-        let storage_gb = request.storage_gb.unwrap_or(
+                .map(|v| v as u32)
+                .unwrap_or((sandbox_settings.max_memory_gb_per_sandbox * 1024) as u32)
+        });
+        let storage_gb: u32 = request.storage_gb.unwrap_or_else(|| {
             provider_settings
                 .default_disk_gb
-                .unwrap_or(sandbox_settings.max_disk_gb_per_sandbox) as u32,
-        );
+                .map(|v| v as u32)
+                .unwrap_or(sandbox_settings.max_disk_gb_per_sandbox as u32)
+        });
 
         // Check resource limits
-        if cpu_cores as i32 > sandbox_settings.max_cpu_cores_per_sandbox {
+        if cpu_cores as i64 > sandbox_settings.max_cpu_cores_per_sandbox {
             return Err(ManagerError::ResourceLimitExceeded(format!(
                 "CPU cores {} exceeds limit of {}",
                 cpu_cores, sandbox_settings.max_cpu_cores_per_sandbox
             )));
         }
 
-        if memory_mb / 1024 > sandbox_settings.max_memory_gb_per_sandbox as u32 {
+        if (memory_mb / 1024) as i64 > sandbox_settings.max_memory_gb_per_sandbox {
             return Err(ManagerError::ResourceLimitExceeded(format!(
                 "Memory {}MB exceeds limit of {}GB",
                 memory_mb, sandbox_settings.max_memory_gb_per_sandbox
             )));
         }
 
-        if storage_gb > sandbox_settings.max_disk_gb_per_sandbox as u32 {
+        if storage_gb as i64 > sandbox_settings.max_disk_gb_per_sandbox {
             return Err(ManagerError::ResourceLimitExceeded(format!(
                 "Storage {}GB exceeds limit of {}GB",
                 storage_gb, sandbox_settings.max_disk_gb_per_sandbox
@@ -272,7 +275,6 @@ impl SandboxManager {
                     self.storage.add_volume(vol).await?;
                 }
 
-                updated_sandbox.container_id = Some(container_id);
                 Ok(updated_sandbox)
             }
             Err(e) => {
@@ -436,7 +438,7 @@ impl SandboxManager {
         user_id: Option<&str>,
         status: Option<SandboxStatus>,
     ) -> Result<Vec<Sandbox>> {
-        Ok(self.storage.list_sandboxes(user_id, status).await?)
+        Ok(self.storage.list_sandboxes(user_id, None, status).await?)
     }
 
     /// Get container info from provider

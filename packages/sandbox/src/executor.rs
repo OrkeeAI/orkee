@@ -2,7 +2,7 @@
 // ABOUTME: Handles command execution, output streaming, and execution tracking
 
 use crate::manager::{ManagerError, SandboxManager};
-use crate::providers::{ExecResult, OutputChunk, OutputStream, StreamType};
+use crate::providers::{OutputChunk, StreamType};
 use crate::storage::{ExecutionStatus, SandboxExecution, SandboxStatus};
 use chrono::Utc;
 use std::collections::HashMap;
@@ -103,13 +103,13 @@ impl CommandExecutor {
 
         // Get provider and execute command
         let provider = self.manager.get_provider(&sandbox.provider).await?;
+        let env_vars = if request.env_vars.is_empty() {
+            None
+        } else {
+            Some(request.env_vars)
+        };
         let result = provider
-            .exec_command(
-                container_id,
-                request.command,
-                request.working_dir,
-                request.env_vars,
-            )
+            .exec_command(container_id, request.command, env_vars)
             .await
             .map_err(|e| ExecutorError::ExecutionFailed(e.to_string()))?;
 
@@ -210,13 +210,13 @@ impl CommandExecutor {
         tokio::spawn(async move {
             // Execute command (this is a simplified version - in real implementation
             // we would need to stream output as it's generated)
+            let env_vars = if request_clone.env_vars.is_empty() {
+                None
+            } else {
+                Some(request_clone.env_vars)
+            };
             let result = provider_clone
-                .exec_command(
-                    &container_id,
-                    request_clone.command,
-                    request_clone.working_dir,
-                    request_clone.env_vars,
-                )
+                .exec_command(&container_id, request_clone.command, env_vars)
                 .await;
 
             match result {
@@ -242,7 +242,7 @@ impl CommandExecutor {
                     // Update execution status
                     let stdout = String::from_utf8_lossy(&exec_result.stdout).to_string();
                     let stderr = String::from_utf8_lossy(&exec_result.stderr).to_string();
-                    let completed_at = Utc::now();
+                    let _completed_at = Utc::now();
                     let status = if exec_result.exit_code == 0 {
                         ExecutionStatus::Completed
                     } else {
@@ -290,7 +290,7 @@ impl CommandExecutor {
         &self,
         sandbox_id: &str,
         follow: bool,
-        timestamps: bool,
+        since: Option<chrono::DateTime<chrono::Utc>>,
     ) -> Result<mpsc::UnboundedReceiver<OutputChunk>> {
         // Check sandbox exists
         let sandbox = self.manager.get_sandbox(sandbox_id).await?;
@@ -306,7 +306,7 @@ impl CommandExecutor {
 
         // Get log stream from provider
         let mut log_stream = provider
-            .stream_logs(&container_id, follow, timestamps)
+            .stream_logs(&container_id, follow, since)
             .await
             .map_err(|e| ExecutorError::StreamError(e.to_string()))?;
 
