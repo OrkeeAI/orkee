@@ -1541,8 +1541,8 @@ With Phase 1 complete, the following components are ready for Phase 2 integratio
 - [x] Resource monitoring with database intervals (`monitor.rs`)
 - [x] Health checks using database settings (`health.rs`)
 - [x] Fix remaining compilation errors (API signature mismatches)
-- [ ] Settings API endpoints
-- [ ] Provider settings API endpoints
+- [x] Settings API endpoints
+- [x] Provider settings API endpoints
 
 ### Phase 3: Settings UI (Week 3)
 - [ ] Create Settings > Advanced > Configuration > Sandboxes page
