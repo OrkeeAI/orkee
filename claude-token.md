@@ -4,10 +4,10 @@
 
 ## Progress Summary
 
-- **Overall**: 8/37 tasks completed (22%)
+- **Overall**: 16/37 tasks completed (43%)
 - **Phase 1 (Database)**: 4/4 tasks ✅
 - **Phase 2 (Remove Code)**: 4/4 tasks ✅
-- **Phase 3 (OAuth Manager)**: 0/8 tasks
+- **Phase 3 (OAuth Manager)**: 8/8 tasks ✅
 - **Phase 4 (Storage)**: 0/3 tasks
 - **Phase 5 (CLI)**: 0/6 tasks
 - **Phase 6 (Testing)**: 0/6 tasks
@@ -155,15 +155,15 @@ pub enum AuthError {
 }
 ```
 
-### Phase 3: Simplify OAuth Manager ⏳
-- [ ] Remove `authenticate()` method from `manager.rs` (lines 61-155)
-- [ ] Remove `refresh_token()` method (lines 190-291)
-- [ ] Remove `build_auth_url()` method (lines 330-350)
-- [ ] Remove `exchange_code_for_token()` method (lines 352-390)
-- [ ] Remove `detect_subscription_type()` method (lines 392-399)
-- [ ] Remove `get_account_email()` method (lines 401-408)
-- [ ] Remove `default_provider_config()` method (lines 410-426)
-- [ ] Add new `import_token()` method for direct token import
+### Phase 3: Simplify OAuth Manager ✅
+- [x] Remove `authenticate()` method from `manager.rs` (lines 61-155)
+- [x] Remove `refresh_token()` method (lines 190-291)
+- [x] Remove `build_auth_url()` method (lines 330-350)
+- [x] Remove `exchange_code_for_token()` method (lines 352-390)
+- [x] Remove `detect_subscription_type()` method (lines 392-399)
+- [x] Remove `get_account_email()` method (lines 401-408)
+- [x] Remove `default_provider_config()` method (lines 410-426)
+- [x] Add new `import_token()` method for direct token import
 
 #### New import_token() Method
 
