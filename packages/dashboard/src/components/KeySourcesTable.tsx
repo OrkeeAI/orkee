@@ -141,6 +141,7 @@ export function KeySourcesTable({ onEditKey }: KeySourcesTableProps) {
                           onClick={() => onEditKey(keyStatus.key as 'openai' | 'anthropic' | 'google' | 'xai')}
                           className="h-7 w-7 p-0"
                           title={isConfigured ? 'Update API key' : 'Add API key'}
+                          aria-label={`${isConfigured ? 'Update' : 'Add'} ${getKeyLabel(keyStatus.key)} API key`}
                         >
                           <Edit className="h-3.5 w-3.5" />
                         </Button>

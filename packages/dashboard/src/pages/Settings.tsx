@@ -5,7 +5,7 @@ import { cloudService, formatLastSync } from '@/services/cloud'
 import { fetchConfig } from '@/services/config'
 import { exportDatabase, importDatabase, type ImportResult } from '@/services/database'
 import { Cloud, User, RefreshCw, Download, Upload, Code2, ExternalLink, Database, AlertTriangle, Shield, Trash2, Key, Check, Terminal, Sliders, LayoutGrid, Brain, Lock, Server, Settings as SettingsIcon, Gauge, ShieldCheck, Eye } from 'lucide-react'
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { SUPPORTED_EDITORS, getDefaultEditorSettings, findEditorById } from '@/lib/editor-utils'
 import type { EditorSettings } from '@/lib/editor-utils'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -26,6 +26,7 @@ import { updateSetting, getSettingsByCategory, type SystemSetting } from '@/serv
 import { clearConfigCache } from '@/services/config'
 import { AIModelsSettings } from '@/components/settings/AIModelsSettings'
 import { OAuthSettings } from '@/components/settings/OAuthSettings'
+import { useToast } from '@/hooks/use-toast'
 
 export function Settings() {
   return (
@@ -535,11 +536,11 @@ function AuthenticationSettings() {
 
 // API Keys Settings Component
 function ApiKeysSettings() {
+  const { toast } = useToast();
   const [user, setUser] = useState<MaskedUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   // Modal state
   const [modalOpen, setModalOpen] = useState(false);
@@ -551,8 +552,8 @@ function ApiKeysSettings() {
   const [gatewayUrl, setGatewayUrl] = useState('');
   const [gatewayKey, setGatewayKey] = useState('');
 
-  // Provider configurations
-  const providers = [
+  // Provider configurations - memoized to avoid recreating on every render
+  const providers = useMemo(() => [
     {
       id: 'openai' as const,
       name: 'OpenAI',
@@ -581,7 +582,7 @@ function ApiKeysSettings() {
       placeholder: 'xai-...',
       hasKey: user?.has_xai_api_key,
     },
-  ];
+  ], [user]);
 
   // Load user credentials on mount
   useEffect(() => {
@@ -615,7 +616,6 @@ function ApiKeysSettings() {
 
     setIsSaving(true);
     setError(null);
-    setSuccessMessage(null);
 
     try {
       const fieldMap = {
@@ -636,8 +636,10 @@ function ApiKeysSettings() {
       setModalOpen(false);
       setSelectedProvider(null);
 
-      setSuccessMessage('API key updated successfully');
-      setTimeout(() => setSuccessMessage(null), 3000);
+      toast({
+        title: 'API key updated',
+        description: `${providers.find(p => p.id === selectedProvider)?.name} API key has been saved successfully`,
+      });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save API key');
       console.error('Failed to save API key:', err);
@@ -649,7 +651,6 @@ function ApiKeysSettings() {
   const handleSaveGateway = async () => {
     setIsSaving(true);
     setError(null);
-    setSuccessMessage(null);
 
     try {
       const updates: Record<string, string | boolean> = {
@@ -663,8 +664,10 @@ function ApiKeysSettings() {
       setUser(updatedUser);
       setGatewayKey('');
 
-      setSuccessMessage('Gateway settings updated successfully');
-      setTimeout(() => setSuccessMessage(null), 3000);
+      toast({
+        title: 'Gateway settings updated',
+        description: 'AI Gateway configuration has been saved successfully',
+      });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save gateway settings');
       console.error('Failed to save gateway settings:', err);
@@ -694,19 +697,23 @@ function ApiKeysSettings() {
           </AlertDescription>
         </Alert>
 
+        {/* Encryption Settings Callout */}
+        <Alert className="bg-blue-50 border-blue-200">
+          <Lock className="h-4 w-4 text-blue-600" />
+          <AlertDescription>
+            <p className="font-medium text-blue-900 mb-1">Encryption Settings</p>
+            <p className="text-sm text-blue-800">
+              For enhanced security, consider upgrading to password-based encryption.
+              Visit <span className="font-medium">Advanced → Encryption</span> to manage your encryption settings and password protection.
+            </p>
+          </AlertDescription>
+        </Alert>
+
         {/* Error Display */}
         {error && (
           <Alert variant="destructive">
             <AlertTriangle className="h-4 w-4" />
             <AlertDescription>{error}</AlertDescription>
-          </Alert>
-        )}
-
-        {/* Success Display */}
-        {successMessage && (
-          <Alert>
-            <Check className="h-4 w-4" />
-            <AlertDescription>{successMessage}</AlertDescription>
           </Alert>
         )}
 
@@ -786,7 +793,17 @@ function ApiKeysSettings() {
         </div>
 
         {/* API Key Modal */}
-        <Dialog open={modalOpen} onOpenChange={setModalOpen}>
+        <Dialog
+          open={modalOpen}
+          onOpenChange={(open) => {
+            setModalOpen(open);
+            if (!open) {
+              // Reset state when closing modal via ESC or backdrop click
+              setSelectedProvider(null);
+              setApiKeyInput('');
+            }
+          }}
+        >
           <DialogContent>
             <DialogHeader>
               <DialogTitle>
