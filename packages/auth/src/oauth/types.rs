@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::str::FromStr;
 
-use crate::error::{AuthError, AuthResult};
+use crate::error::AuthError;
 
 /// Supported OAuth providers
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -40,6 +40,13 @@ impl FromStr for OAuthProvider {
             "xai" => Ok(Self::XAI),
             _ => Err(AuthError::InvalidProvider(format!("Unknown provider: {}", s))),
         }
+    }
+}
+
+impl OAuthProvider {
+    /// Get all supported providers
+    pub fn all() -> Vec<Self> {
+        vec![Self::Claude, Self::OpenAI, Self::Google, Self::XAI]
     }
 }
 

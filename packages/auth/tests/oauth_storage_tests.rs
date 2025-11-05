@@ -7,9 +7,8 @@ use sqlx::{sqlite::SqlitePoolOptions, SqlitePool};
 use tempfile::TempDir;
 
 use orkee_auth::oauth::{
-    provider::OAuthProvider,
     storage::OAuthStorage,
-    types::{OAuthProviderConfig, OAuthToken},
+    types::{OAuthProvider, OAuthProviderConfig, OAuthToken},
 };
 
 /// Helper to create a test database with schema

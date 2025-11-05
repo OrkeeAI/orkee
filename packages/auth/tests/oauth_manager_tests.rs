@@ -6,7 +6,10 @@ use nanoid::nanoid;
 use sqlx::{sqlite::SqlitePoolOptions, SqlitePool};
 use tempfile::TempDir;
 
-use orkee_auth::oauth::{manager::OAuthManager, provider::OAuthProvider, types::OAuthToken};
+use orkee_auth::oauth::{
+    manager::OAuthManager,
+    types::{OAuthProvider, OAuthToken},
+};
 
 /// Helper to create a test database with schema
 async fn setup_test_db() -> (SqlitePool, TempDir) {
