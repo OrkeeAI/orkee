@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Loader2, AlertCircle } from 'lucide-react';
 import { getApiBaseUrl } from '@/services/api';
 import { getApiToken } from '@/lib/platform';
+import { TaskExecutionSection } from '@/components/tasks/TaskExecutionSection';
 
 interface TasksTabProps {
   projectId: string;
@@ -112,6 +113,12 @@ export function TasksTab({ projectId, projectPath, taskSource }: TasksTabProps) 
         onTaskUpdate={handleTaskUpdate}
         onTaskCreate={handleTaskCreate}
         onTaskDelete={handleTaskDelete}
+        renderExecutionSection={(task) => (
+          <TaskExecutionSection
+            taskId={task.id}
+            defaultPrompt={task.description || `Complete task: ${task.title}`}
+          />
+        )}
       />
     </div>
   );

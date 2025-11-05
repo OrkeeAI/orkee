@@ -733,11 +733,11 @@ Tasks are viewed within ProjectDetail page using Shadcn Sheet components.
   - [ ] Test artifact download
   - [ ] Test error scenarios
 
-- [ ] Integration with task workflow (pending):
-  - [ ] Add execution UI to task sheets in ProjectDetail
-  - [ ] Wire up ExecutionModal trigger
-  - [ ] Connect ExecutionViewer to task context
-  - [ ] Test full workflow end-to-end
+- [x] Integration with task workflow (completed):
+  - [x] Add execution UI to task sheets in TaskDetailsSheet
+  - [x] Wire up ExecutionModal trigger via TaskExecutionSection
+  - [x] Connect ExecutionViewer to task context with tabs
+  - [x] Test full workflow compilation end-to-end
 
 ### Deliverables
 - ✅ Sandbox service layer complete
@@ -747,7 +747,10 @@ Tasks are viewed within ProjectDetail page using Shadcn Sheet components.
 - ✅ ArtifactGallery component complete
 - ✅ ExecutionHistory component complete
 - ✅ All components compile successfully
-- ⏸️ Integration into ProjectDetail task sheets (next step)
+- ✅ Integration into TaskDetailsSheet via executionSection prop
+- ✅ TaskExecutionSection component with collapsible UI
+- ✅ Dashboard build successful
+- ⏸️ End-to-end workflow testing deferred to manual testing
 - ⏸️ Full test suite deferred to Phase 7
 
 ---

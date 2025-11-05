@@ -25,6 +25,7 @@ interface KanbanBoardProps {
   onTaskCreate?: (task: Partial<Task>) => void;
   onTaskDelete?: (taskId: string) => void;
   onRefresh?: () => void;
+  renderExecutionSection?: (task: Task) => React.ReactNode; // Optional execution UI renderer
 }
 
 interface ColumnConfig {
@@ -41,6 +42,7 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
   onTaskCreate,
   onTaskDelete,
   onRefresh,
+  renderExecutionSection,
 }) => {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [selectedTag, setSelectedTag] = useState<string>('all');
@@ -283,6 +285,7 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
         onOpenChange={setIsSheetOpen}
         onUpdate={onTaskUpdate}
         onDelete={onTaskDelete}
+        executionSection={selectedTask && renderExecutionSection ? renderExecutionSection(selectedTask) : undefined}
       />
     </div>
   );

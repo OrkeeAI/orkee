@@ -2,8 +2,7 @@
 // ABOUTME: Shows execution history with filtering, status indicators, and quick actions
 
 import { useState } from 'react';
-import { useQuery } from '@tantml:parameter>
-<parameter name="react-query';
+import { useQuery } from '@tanstack/react-query';
 import {
   History,
   Clock,

@@ -29,6 +29,7 @@ interface TaskDetailsSheetProps {
   onOpenChange: (open: boolean) => void;
   onUpdate?: (taskId: string, updates: Partial<Task>) => void;
   onDelete?: (taskId: string) => void;
+  executionSection?: React.ReactNode; // Optional execution UI section
 }
 
 export const TaskDetailsSheet: React.FC<TaskDetailsSheetProps> = ({
@@ -37,6 +38,7 @@ export const TaskDetailsSheet: React.FC<TaskDetailsSheetProps> = ({
   onOpenChange,
   onUpdate,
   onDelete,
+  executionSection,
 }) => {
   const [showDetails, setShowDetails] = useState(false);
   const [showMetadata, setShowMetadata] = useState(false);
@@ -278,7 +280,7 @@ export const TaskDetailsSheet: React.FC<TaskDetailsSheetProps> = ({
                 {showMetadata ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
                 Metadata ({Object.keys(task.metadata).length} fields)
               </button>
-              
+
               {showMetadata && (
                 <div className="mt-2 space-y-1 text-xs">
                   {Object.entries(task.metadata)
@@ -295,6 +297,13 @@ export const TaskDetailsSheet: React.FC<TaskDetailsSheetProps> = ({
                     ))}
                 </div>
               )}
+            </div>
+          )}
+
+          {/* Optional Execution Section (provided by dashboard) */}
+          {executionSection && (
+            <div className="pt-3 border-t border-gray-200 dark:border-gray-700">
+              {executionSection}
             </div>
           )}
         </div>
