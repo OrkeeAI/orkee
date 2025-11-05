@@ -78,13 +78,13 @@ export function OAuthSettings() {
               <ol className="text-sm space-y-2 list-decimal list-inside">
                 <li className="pl-1">
                   Install Claude CLI:
-                  <code className="ml-2 px-1.5 py-0.5 bg-gray-100 rounded text-xs font-mono">
+                  <code className="ml-2 px-1.5 py-0.5 bg-muted border rounded text-xs font-mono">
                     npm install -g @anthropic-ai/claude-code
                   </code>
                 </li>
                 <li className="pl-1">
                   Run{' '}
-                  <code className="px-1.5 py-0.5 bg-gray-100 rounded text-xs font-mono">
+                  <code className="px-1.5 py-0.5 bg-muted border rounded text-xs font-mono">
                     orkee auth login claude
                   </code>
                 </li>
@@ -165,7 +165,7 @@ export function OAuthSettings() {
 
                           {!isAuthenticated && (
                             <div className="mt-2">
-                              <code className="text-xs bg-gray-100 px-2 py-1 rounded font-mono">
+                              <code className="text-xs bg-muted border px-2 py-1 rounded font-mono">
                                 orkee auth login {provider.id}
                               </code>
                             </div>
@@ -193,7 +193,7 @@ export function OAuthSettings() {
           </div>
 
           {/* CLI Reference */}
-          <Card className="bg-gray-50">
+          <Card className="bg-muted/50">
             <CardHeader>
               <CardTitle className="text-sm flex items-center gap-2">
                 <Terminal className="h-4 w-4" />
@@ -204,19 +204,19 @@ export function OAuthSettings() {
               <div className="grid grid-cols-2 gap-3 text-sm">
                 <div>
                   <p className="text-foreground font-medium mb-1">Authenticate:</p>
-                  <code className="text-xs bg-white px-2 py-1 rounded block font-mono">orkee auth login claude</code>
+                  <code className="text-xs bg-background border px-2 py-1 rounded block font-mono">orkee auth login claude</code>
                 </div>
                 <div>
                   <p className="text-foreground font-medium mb-1">Check Status:</p>
-                  <code className="text-xs bg-white px-2 py-1 rounded block font-mono">orkee auth status</code>
+                  <code className="text-xs bg-background border px-2 py-1 rounded block font-mono">orkee auth status</code>
                 </div>
                 <div>
                   <p className="text-foreground font-medium mb-1">Import from File:</p>
-                  <code className="text-xs bg-white px-2 py-1 rounded block font-mono">orkee auth login claude --file token.txt</code>
+                  <code className="text-xs bg-background border px-2 py-1 rounded block font-mono">orkee auth login claude --file token.txt</code>
                 </div>
                 <div>
                   <p className="text-foreground font-medium mb-1">Logout:</p>
-                  <code className="text-xs bg-white px-2 py-1 rounded block font-mono">orkee auth logout claude</code>
+                  <code className="text-xs bg-background border px-2 py-1 rounded block font-mono">orkee auth logout claude</code>
                 </div>
               </div>
               <div className="mt-3 pt-3 border-t text-xs text-muted-foreground">
