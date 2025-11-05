@@ -2,8 +2,13 @@
 // ABOUTME: Loads provider definitions from config/providers.json at runtime
 
 pub mod settings;
+pub mod storage;
 
 pub use settings::{ProviderSettings, SandboxSettings, SettingsManager};
+pub use storage::{
+    EnvVar, ExecutionStatus, Sandbox, SandboxExecution, SandboxStatus, SandboxStorage,
+    StorageError, Volume,
+};
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
