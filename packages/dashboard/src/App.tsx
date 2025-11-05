@@ -7,6 +7,7 @@ import { Toaster } from 'sonner'
 import { Layout } from '@/components/layout/Layout'
 import { ConnectionProvider } from '@/contexts/ConnectionContext'
 import { CloudProvider } from '@/contexts/CloudContext'
+import { AuthProvider } from '@/contexts/AuthContext'
 import { ThemeProvider } from '@/contexts/ThemeContext'
 import { TelemetryProvider, useTelemetry, withPageTracking } from '@/contexts/TelemetryContext'
 import { ModelPreferencesProvider } from '@/contexts/ModelPreferencesContext'
@@ -147,12 +148,14 @@ function App() {
       <QueryClientProvider client={queryClient}>
         <ConnectionProvider>
           <CloudProvider>
-            <TelemetryProvider>
-              <ModelPreferencesProvider>
-                <AppWithTelemetry />
-                <Toaster richColors position="top-right" />
-              </ModelPreferencesProvider>
-            </TelemetryProvider>
+            <AuthProvider>
+              <TelemetryProvider>
+                <ModelPreferencesProvider>
+                  <AppWithTelemetry />
+                  <Toaster richColors position="top-right" />
+                </ModelPreferencesProvider>
+              </TelemetryProvider>
+            </AuthProvider>
           </CloudProvider>
         </ConnectionProvider>
         {/* Only show devtools in development */}
