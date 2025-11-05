@@ -917,6 +917,112 @@ INSERT OR IGNORE INTO sandbox_provider_settings (provider, enabled) VALUES
     ('northflank', FALSE);
 
 -- ============================================================================
+-- SANDBOX EXECUTION TABLES
+-- ============================================================================
+-- Tables for tracking sandbox instances and executions
+-- ============================================================================
+
+-- Sandboxes table - tracks sandbox instances
+CREATE TABLE sandboxes (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    provider TEXT NOT NULL REFERENCES sandbox_provider_settings(provider),
+    agent_id TEXT NOT NULL,  -- References agents.json config
+    status TEXT NOT NULL CHECK (status IN ('creating', 'starting', 'running', 'stopping', 'stopped', 'error', 'terminated')),
+    container_id TEXT,  -- Provider-specific container/instance ID
+    port INTEGER,  -- Port for accessing the sandbox
+
+    -- Resource configuration
+    cpu_cores REAL DEFAULT 1,
+    memory_mb INTEGER DEFAULT 2048,
+    storage_gb INTEGER DEFAULT 10,
+    gpu_enabled BOOLEAN DEFAULT FALSE,
+    gpu_model TEXT,
+
+    -- Networking
+    public_url TEXT,
+    ssh_enabled BOOLEAN DEFAULT FALSE,
+    ssh_key TEXT,
+
+    -- Metadata
+    created_at TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+    started_at TEXT,
+    stopped_at TEXT,
+    terminated_at TEXT,
+    error_message TEXT,
+    cost_estimate REAL,
+
+    -- Project association
+    project_id TEXT REFERENCES projects(id) ON DELETE SET NULL,
+    user_id TEXT REFERENCES users(id) ON DELETE CASCADE,
+
+    -- Additional configuration stored as JSON
+    config TEXT,  -- JSON object with provider-specific config
+    metadata TEXT  -- JSON object with additional metadata
+);
+
+-- Sandbox executions table - tracks commands run in sandboxes
+CREATE TABLE sandbox_executions (
+    id TEXT PRIMARY KEY,
+    sandbox_id TEXT NOT NULL REFERENCES sandboxes(id) ON DELETE CASCADE,
+    command TEXT NOT NULL,
+    working_directory TEXT DEFAULT '/',
+    status TEXT NOT NULL CHECK (status IN ('queued', 'running', 'completed', 'failed', 'cancelled')),
+
+    -- Execution details
+    started_at TEXT,
+    completed_at TEXT,
+    exit_code INTEGER,
+    stdout TEXT,
+    stderr TEXT,
+
+    -- Resource tracking
+    cpu_time_seconds REAL,
+    memory_peak_mb INTEGER,
+
+    -- Metadata
+    created_at TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+    created_by TEXT REFERENCES users(id) ON DELETE SET NULL,
+    agent_execution_id TEXT  -- Links to agent_executions if run by an agent
+);
+
+-- Environment variables for sandboxes
+CREATE TABLE sandbox_env_vars (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    sandbox_id TEXT NOT NULL REFERENCES sandboxes(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    value TEXT NOT NULL,
+    is_secret BOOLEAN DEFAULT FALSE,
+    created_at TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+    UNIQUE(sandbox_id, name)
+);
+
+-- Volume mounts for sandboxes
+CREATE TABLE sandbox_volumes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    sandbox_id TEXT NOT NULL REFERENCES sandboxes(id) ON DELETE CASCADE,
+    host_path TEXT NOT NULL,
+    container_path TEXT NOT NULL,
+    read_only BOOLEAN DEFAULT FALSE,
+    created_at TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+    UNIQUE(sandbox_id, container_path)
+);
+
+-- Create indexes for sandbox tables
+CREATE INDEX idx_sandboxes_provider ON sandboxes(provider);
+CREATE INDEX idx_sandboxes_status ON sandboxes(status);
+CREATE INDEX idx_sandboxes_project_id ON sandboxes(project_id);
+CREATE INDEX idx_sandboxes_user_id ON sandboxes(user_id);
+CREATE INDEX idx_sandboxes_created_at ON sandboxes(created_at);
+
+CREATE INDEX idx_sandbox_executions_sandbox_id ON sandbox_executions(sandbox_id);
+CREATE INDEX idx_sandbox_executions_status ON sandbox_executions(status);
+CREATE INDEX idx_sandbox_executions_created_at ON sandbox_executions(created_at);
+
+CREATE INDEX idx_sandbox_env_vars_sandbox_id ON sandbox_env_vars(sandbox_id);
+CREATE INDEX idx_sandbox_volumes_sandbox_id ON sandbox_volumes(sandbox_id);
+
+-- ============================================================================
 -- TELEMETRY
 -- ============================================================================
 

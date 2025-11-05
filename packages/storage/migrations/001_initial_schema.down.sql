@@ -60,6 +60,13 @@ DROP TABLE IF EXISTS sync_snapshots;
 -- ============================================================================
 -- DROP SANDBOX TABLES
 -- ============================================================================
+-- Drop execution-related tables (in reverse order due to foreign keys)
+DROP TABLE IF EXISTS sandbox_volumes;
+DROP TABLE IF EXISTS sandbox_env_vars;
+DROP TABLE IF EXISTS sandbox_executions;
+DROP TABLE IF EXISTS sandboxes;
+
+-- Drop configuration tables
 DROP TABLE IF EXISTS sandbox_provider_settings;
 DROP TABLE IF EXISTS sandbox_settings;
 
