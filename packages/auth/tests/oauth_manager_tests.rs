@@ -317,3 +317,88 @@ async fn test_multiple_users_separate_tokens() {
         .unwrap();
     assert!(user2_after_user1_logout.is_some());
 }
+
+#[tokio::test]
+async fn test_import_token_rejects_invalid_claude_token_format() {
+    let (pool, _temp_dir) = setup_test_db().await;
+    let manager = OAuthManager::new(pool).unwrap();
+
+    // Try to import a token that doesn't start with sk-ant-
+    let mut token = create_test_token("user-1", OAuthProvider::Claude);
+    token.access_token = "invalid-token-format".to_string();
+
+    let result = manager.import_token(token).await;
+
+    // Should fail with InvalidToken error
+    assert!(result.is_err());
+    assert!(matches!(
+        result.unwrap_err(),
+        orkee_auth::AuthError::InvalidToken(_)
+    ));
+}
+
+#[tokio::test]
+async fn test_import_token_accepts_valid_oauth_token() {
+    let (pool, _temp_dir) = setup_test_db().await;
+    let manager = OAuthManager::new(pool.clone()).unwrap();
+
+    // Valid OAuth token format
+    let mut token = create_test_token("user-1", OAuthProvider::Claude);
+    token.access_token = "sk-ant-oat01-validoauthtokenhere".to_string();
+
+    let result = manager.import_token(token.clone()).await;
+
+    // Should succeed
+    assert!(result.is_ok());
+
+    // Verify token was stored
+    let storage = orkee_auth::oauth::storage::OAuthStorage::new(pool).unwrap();
+    let stored = storage
+        .get_token("user-1", OAuthProvider::Claude)
+        .await
+        .unwrap();
+    assert!(stored.is_some());
+    assert_eq!(stored.unwrap().access_token, token.access_token);
+}
+
+#[tokio::test]
+async fn test_import_token_accepts_api_key_with_warning() {
+    let (pool, _temp_dir) = setup_test_db().await;
+    let manager = OAuthManager::new(pool.clone()).unwrap();
+
+    // API key format (not OAuth token, but valid Claude key)
+    let mut token = create_test_token("user-1", OAuthProvider::Claude);
+    token.access_token = "sk-ant-api03-validapikeyhere".to_string();
+
+    let result = manager.import_token(token.clone()).await;
+
+    // Should succeed (with warning logged, but we can't test log output directly)
+    assert!(result.is_ok());
+
+    // Verify token was still stored
+    let storage = orkee_auth::oauth::storage::OAuthStorage::new(pool).unwrap();
+    let stored = storage
+        .get_token("user-1", OAuthProvider::Claude)
+        .await
+        .unwrap();
+    assert!(stored.is_some());
+}
+
+#[tokio::test]
+async fn test_import_token_rejects_unknown_provider() {
+    let (pool, _temp_dir) = setup_test_db().await;
+    let manager = OAuthManager::new(pool).unwrap();
+
+    // Unknown provider
+    let mut token = create_test_token("user-1", OAuthProvider::Claude);
+    token.provider = "unknown-provider".to_string();
+
+    let result = manager.import_token(token).await;
+
+    // Should fail with InvalidProvider error
+    assert!(result.is_err());
+    assert!(matches!(
+        result.unwrap_err(),
+        orkee_auth::AuthError::InvalidProvider(_)
+    ));
+}
