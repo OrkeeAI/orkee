@@ -250,6 +250,7 @@ impl OAuthStorage {
                     redirect_uri: row.try_get("redirect_uri")?,
                     scopes,
                     enabled: row.try_get("enabled")?,
+                    extra_params: vec![], // Not stored in DB, use provider defaults
                 };
                 debug!("Found provider config");
                 Ok(Some(config))

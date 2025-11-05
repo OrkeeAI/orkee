@@ -337,7 +337,15 @@ impl OAuthManager {
         let mut url = Url::parse(&config.auth_url)
             .map_err(|e| AuthError::Configuration(format!("Invalid auth URL: {}", e)))?;
 
-        url.query_pairs_mut()
+        let mut pairs = url.query_pairs_mut();
+
+        // Add provider-specific extra params first (e.g., Claude requires ?code=true)
+        for (key, value) in &config.extra_params {
+            pairs.append_pair(key, value);
+        }
+
+        // Standard OAuth parameters
+        pairs
             .append_pair("client_id", &config.client_id)
             .append_pair("redirect_uri", &config.redirect_uri)
             .append_pair("response_type", "code")
@@ -345,6 +353,8 @@ impl OAuthManager {
             .append_pair("code_challenge", &pkce.code_challenge)
             .append_pair("code_challenge_method", &pkce.code_challenge_method)
             .append_pair("state", state);
+
+        drop(pairs);
 
         Ok(url.to_string())
     }
@@ -412,16 +422,20 @@ impl OAuthManager {
         &self,
         provider: OAuthProvider,
     ) -> crate::oauth::types::OAuthProviderConfig {
-        let server = CallbackServer::new();
         crate::oauth::types::OAuthProviderConfig {
             provider: provider.to_string(),
-            client_id: provider.default_client_id().to_string(),
+            client_id: provider.default_client_id(),
             client_secret: None,
             auth_url: provider.auth_url().to_string(),
             token_url: provider.token_url().to_string(),
-            redirect_uri: server.callback_url(),
+            redirect_uri: provider.redirect_uri().to_string(),
             scopes: provider.scopes().iter().map(|s| s.to_string()).collect(),
             enabled: true,
+            extra_params: provider
+                .auth_url_extra_params()
+                .iter()
+                .map(|(k, v)| (k.to_string(), v.to_string()))
+                .collect(),
         }
     }
 }

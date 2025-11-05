@@ -21,7 +21,7 @@ impl OAuthProvider {
     /// Get authorization URL for this provider
     pub fn auth_url(&self) -> &str {
         match self {
-            Self::Claude => "https://console.anthropic.com/oauth/authorize",
+            Self::Claude => "https://claude.ai/oauth/authorize",
             Self::OpenAI => "https://platform.openai.com/oauth/authorize",
             Self::Google => "https://accounts.google.com/o/oauth2/v2/auth",
             Self::XAI => "https://x.ai/oauth/authorize",
@@ -31,7 +31,7 @@ impl OAuthProvider {
     /// Get token exchange URL for this provider
     pub fn token_url(&self) -> &str {
         match self {
-            Self::Claude => "https://api.anthropic.com/oauth/token",
+            Self::Claude => "https://console.anthropic.com/v1/oauth/token",
             Self::OpenAI => "https://api.openai.com/oauth/token",
             Self::Google => "https://oauth2.googleapis.com/token",
             Self::XAI => "https://api.x.ai/oauth/token",
@@ -41,21 +41,49 @@ impl OAuthProvider {
     /// Get default scopes for this provider
     pub fn scopes(&self) -> &[&str] {
         match self {
-            Self::Claude => &["model:claude", "account:read"],
+            Self::Claude => &["org:create_api_key", "user:profile", "user:inference"],
             Self::OpenAI => &["model.read", "model.request"],
             Self::Google => &["https://www.googleapis.com/auth/cloud-platform"],
             Self::XAI => &["models:read", "models:write"],
         }
     }
 
-    /// Get client ID for this provider
-    /// Note: This should be configured via environment or database
-    pub fn default_client_id(&self) -> &str {
+    /// Get client ID for this provider from environment variables
+    /// Falls back to known public client IDs
+    pub fn default_client_id(&self) -> String {
+        let env_var = match self {
+            Self::Claude => "ANTHROPIC_OAUTH_CLIENT_ID",
+            Self::OpenAI => "OPENAI_OAUTH_CLIENT_ID",
+            Self::Google => "GOOGLE_OAUTH_CLIENT_ID",
+            Self::XAI => "XAI_OAUTH_CLIENT_ID",
+        };
+
+        std::env::var(env_var).unwrap_or_else(|_| {
+            // Fallback to known public client IDs (from VibeKit SDK)
+            match self {
+                Self::Claude => "9d1c250a-e61b-44d9-88ed-5944d1962f5e".to_string(), // VibeKit public client
+                Self::OpenAI => "orkee-cli-openai".to_string(),
+                Self::Google => "orkee-cli-google".to_string(),
+                Self::XAI => "orkee-cli-xai".to_string(),
+            }
+        })
+    }
+
+    /// Get redirect URI for this provider
+    pub fn redirect_uri(&self) -> &str {
         match self {
-            Self::Claude => "orkee-cli-claude",
-            Self::OpenAI => "orkee-cli-openai",
-            Self::Google => "orkee-cli-google",
-            Self::XAI => "orkee-cli-xai",
+            Self::Claude => "https://console.anthropic.com/oauth/code/callback",
+            Self::OpenAI => "http://localhost:3737/oauth/callback",
+            Self::Google => "http://localhost:3737/oauth/callback",
+            Self::XAI => "http://localhost:3737/oauth/callback",
+        }
+    }
+
+    /// Get additional query parameters for auth URL
+    pub fn auth_url_extra_params(&self) -> Vec<(&str, &str)> {
+        match self {
+            Self::Claude => vec![("code", "true")], // Claude requires ?code=true
+            _ => vec![],
         }
     }
 

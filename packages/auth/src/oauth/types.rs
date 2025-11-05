@@ -69,6 +69,8 @@ pub struct OAuthProviderConfig {
     pub redirect_uri: String,
     pub scopes: Vec<String>,
     pub enabled: bool,
+    #[serde(default)]
+    pub extra_params: Vec<(String, String)>, // Provider-specific params (e.g., Claude's ?code=true)
 }
 
 impl fmt::Debug for OAuthProviderConfig {
