@@ -43,14 +43,14 @@ const data = {
       icon: FolderOpen,
     },
     {
-      title: "Templates",
-      url: "/templates",
-      icon: FileText,
-    },
-    {
       title: "Usage",
       url: "/usage",
       icon: Activity,
+    },
+    {
+      title: "Templates",
+      url: "/templates",
+      icon: FileText,
     },
     {
       title: "Settings",
