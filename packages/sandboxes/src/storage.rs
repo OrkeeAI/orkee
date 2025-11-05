@@ -28,7 +28,7 @@ impl ExecutionStorage {
             .metadata
             .map(|m| serde_json::to_string(&m))
             .transpose()
-            .map_err(|e| SandboxError::Json(e))?;
+            .map_err(SandboxError::Json)?;
 
         sqlx::query(
             r#"
@@ -240,7 +240,7 @@ impl ExecutionStorage {
         let metadata_json = artifact
             .metadata
             .as_ref()
-            .map(|m| serde_json::to_string(m))
+            .map(serde_json::to_string)
             .transpose()?;
 
         sqlx::query(

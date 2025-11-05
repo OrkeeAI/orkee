@@ -163,7 +163,7 @@ export class SandboxService {
     const query = params
       ? `?${new URLSearchParams(
           Object.entries(params)
-            .filter(([_, v]) => v !== undefined)
+            .filter(([, v]) => v !== undefined)
             .map(([k, v]) => [k, String(v)])
         ).toString()}`
       : '';
@@ -188,7 +188,7 @@ export class SandboxService {
   ): Promise<LogsResponse> {
     const query = new URLSearchParams(
       Object.entries(params)
-        .filter(([_, v]) => v !== undefined)
+        .filter(([, v]) => v !== undefined)
         .map(([k, v]) => [k, String(v)])
     ).toString();
 

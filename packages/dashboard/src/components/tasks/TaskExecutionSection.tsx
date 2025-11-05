@@ -42,8 +42,9 @@ export function TaskExecutionSection({ taskId, defaultPrompt }: TaskExecutionSec
     setShowExecution(true);
   };
 
-  const handleRetryExecution = (execution: AgentExecution) => {
+  const handleRetryExecution = (_execution: AgentExecution) => {
     // Open modal with the same prompt from the failed execution
+    // TODO: Use execution.prompt as defaultPrompt when retry is implemented
     setIsExecutionModalOpen(true);
   };
 

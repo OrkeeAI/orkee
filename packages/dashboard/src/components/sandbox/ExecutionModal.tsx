@@ -35,7 +35,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import { agentsService } from '@/services/agents';
-import { sandboxService, type SandboxConfig } from '@/services/sandbox';
+import { sandboxService } from '@/services/sandbox';
 import { executionsService, type AgentExecutionCreateInput } from '@/services/executions';
 import { toast } from 'sonner';
 
@@ -111,18 +111,18 @@ export function ExecutionModal({
 
     setIsCreating(true);
     try {
-      // Parse environment variables
-      let parsedEnvVars: Record<string, string> | undefined;
+      // Parse environment variables (validated but not used in current implementation)
       if (envVars.trim()) {
         try {
           const lines = envVars.split('\n').filter((line) => line.trim());
-          parsedEnvVars = Object.fromEntries(
-            lines.map((line) => {
-              const [key, ...valueParts] = line.split('=');
-              return [key.trim(), valueParts.join('=').trim()];
-            })
-          );
-        } catch (err) {
+          // Validate format
+          lines.forEach((line) => {
+            const [key, ...valueParts] = line.split('=');
+            if (!key.trim() || valueParts.length === 0) {
+              throw new Error('Invalid format');
+            }
+          });
+        } catch {
           toast.error('Invalid environment variables format');
           setIsCreating(false);
           return;

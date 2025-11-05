@@ -27,7 +27,6 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useExecutionLogs } from '@/hooks/useExecutionLogs';
-import type { LogEntry } from '@/services/execution-stream';
 
 interface LogViewerProps {
   executionId: string;
@@ -52,7 +51,6 @@ export function LogViewer({
     connectionState,
     isComplete,
     isFailed,
-    clearLogs,
   } = useExecutionLogs({
     executionId,
     autoConnect: true,

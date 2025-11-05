@@ -13,15 +13,8 @@ use bollard::{
     Docker,
 };
 use futures_util::stream::StreamExt;
-use std::{collections::HashMap, sync::Arc, time::SystemTime};
-use tokio::sync::RwLock;
+use std::{collections::HashMap, time::SystemTime};
 use tracing::{debug, error, info, warn};
-
-/// Maximum log buffer size before forcing a flush
-const LOG_BUFFER_SIZE: usize = 100;
-
-/// Default log buffer flush interval in seconds
-const LOG_BUFFER_FLUSH_INTERVAL_SECS: u64 = 5;
 
 /// Labels applied to all Orkee containers for tracking
 const ORKEE_LABEL: &str = "orkee.managed";
@@ -32,8 +25,6 @@ const ORKEE_EXECUTION_LABEL: &str = "orkee.execution_id";
 pub struct ContainerManager {
     /// Docker client
     docker: Docker,
-    /// Log buffer for batch insertion
-    log_buffer: Arc<RwLock<Vec<LogEntry>>>,
 }
 
 impl ContainerManager {
@@ -41,10 +32,7 @@ impl ContainerManager {
     pub async fn new() -> Result<Self> {
         let docker = Self::connect_docker().await?;
 
-        Ok(Self {
-            docker,
-            log_buffer: Arc::new(RwLock::new(Vec::new())),
-        })
+        Ok(Self { docker })
     }
 
     /// Connect to Docker daemon
@@ -54,7 +42,7 @@ impl ContainerManager {
     /// On Windows: npipe:////./pipe/docker_engine
     async fn connect_docker() -> Result<Docker> {
         #[cfg(unix)]
-        let docker = Docker::connect_with_socket_defaults().map_err(|e| SandboxError::Docker(e))?;
+        let docker = Docker::connect_with_socket_defaults().map_err(SandboxError::Docker)?;
 
         #[cfg(windows)]
         let docker =
@@ -561,7 +549,7 @@ impl ContainerManager {
 
     /// Parse Docker stats into ResourceUsage
     fn parse_stats(&self, stats: &Stats) -> ResourceUsage {
-        let memory_used_mb = stats.memory_stats.usage.unwrap_or(0) as u64 / 1024 / 1024;
+        let memory_used_mb = stats.memory_stats.usage.unwrap_or(0) / 1024 / 1024;
 
         // Calculate CPU percentage
         let cpu_stats = &stats.cpu_stats;

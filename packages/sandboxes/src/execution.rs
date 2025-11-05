@@ -39,7 +39,7 @@ impl ExecutionOrchestrator {
         let channel_size = std::env::var("ORKEE_EXECUTION_EVENT_CHANNEL_SIZE")
             .ok()
             .and_then(|v| v.parse::<usize>().ok())
-            .filter(|&v| v >= 10 && v <= 10000)
+            .filter(|&v| (10..=10000).contains(&v))
             .unwrap_or(DEFAULT_EVENT_CHANNEL_SIZE);
 
         let (event_tx, _) = tokio::sync::broadcast::channel(channel_size);
@@ -73,7 +73,7 @@ impl ExecutionOrchestrator {
             let interval_minutes = std::env::var("ORKEE_CLEANUP_INTERVAL_MINUTES")
                 .ok()
                 .and_then(|v| v.parse::<u64>().ok())
-                .filter(|&v| v >= 1 && v <= 60)
+                .filter(|&v| (1..=60).contains(&v))
                 .unwrap_or(5);
 
             let mut interval =
@@ -391,7 +391,7 @@ impl ExecutionOrchestrator {
                 execution_id: execution_id.to_string(),
                 artifact_type: "file".to_string(),
                 file_path: path.clone(),
-                file_name: path.split('/').last().unwrap_or(&path).to_string(),
+                file_name: path.split('/').next_back().unwrap_or(&path).to_string(),
                 file_size_bytes: None,
                 mime_type: None,
                 stored_path: None,
