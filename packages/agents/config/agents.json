@@ -1,181 +1,163 @@
 {
-  "version": "2025-10-26",
+  "version": "2025-01-01",
   "agents": [
     {
-      "id": "claude-code",
-      "name": "Claude Code",
-      "type": "ai",
-      "description": "Anthropic's official CLI for Claude - pair programming in your terminal",
-      "avatar_url": null,
-      "required_providers": ["anthropic"],
-      "supported_models": [
-        {
-          "model_id": "claude-sonnet-4-5-20250929",
-          "is_default": true,
-          "is_recommended": true,
-          "display_order": 1
-        },
-        {
-          "model_id": "claude-haiku-4-5-20251001",
-          "is_default": false,
-          "is_recommended": true,
-          "display_order": 2
-        },
-        {
-          "model_id": "claude-opus-4-1-20250805",
-          "is_default": false,
-          "is_recommended": true,
-          "display_order": 3
-        }
-      ],
-      "default_config": {
-        "temperature": 0.7,
-        "max_tokens": 4096,
-        "system_prompt": null
+      "id": "claude",
+      "name": "Claude",
+      "provider": "anthropic",
+      "description": "Anthropic's Claude for advanced reasoning and coding",
+      "capabilities": {
+        "coding": true,
+        "debugging": true,
+        "testing": true,
+        "documentation": true,
+        "refactoring": true,
+        "architecture": true,
+        "extended_context": true
       },
-      "is_available": true
-    },
-    {
-      "id": "aider",
-      "name": "Aider",
-      "type": "ai",
-      "description": "AI pair programming in your terminal - works with multiple providers",
-      "avatar_url": null,
-      "required_providers": ["anthropic", "openai"],
+      "supported_providers": ["anthropic"],
       "supported_models": [
-        {
-          "model_id": "claude-sonnet-4-5-20250929",
-          "is_default": true,
-          "is_recommended": true,
-          "display_order": 1
-        },
-        {
-          "model_id": "gpt-4o",
-          "is_default": false,
-          "is_recommended": true,
-          "display_order": 2
-        },
-        {
-          "model_id": "claude-opus-4-1-20250805",
-          "is_default": false,
-          "is_recommended": false,
-          "display_order": 3
-        }
+        "claude-sonnet-4-5-20250929",
+        "claude-haiku-4-5-20251001",
+        "claude-opus-4-1-20250805"
       ],
-      "default_config": {
-        "temperature": 0.5,
-        "max_tokens": 8192,
-        "system_prompt": null
-      },
-      "is_available": true
+      "default_model": "claude-sonnet-4-5-20250929",
+      "system_prompt": "You are Claude, an AI assistant created by Anthropic to be helpful, harmless, and honest. You excel at coding, debugging, and software architecture.",
+      "temperature_range": [0.0, 1.0],
+      "default_temperature": 0.7,
+      "max_tokens": 64000,
+      "is_available": true,
+      "requires_auth": true,
+      "auth_type": "api_key"
     },
     {
       "id": "codex",
-      "name": "Codex CLI",
-      "type": "ai",
-      "description": "OpenAI's terminal-based coding agent with file reading, modification, and command execution capabilities",
-      "avatar_url": null,
-      "required_providers": ["openai"],
-      "supported_models": [
-        {
-          "model_id": "gpt-5-codex",
-          "is_default": true,
-          "is_recommended": true,
-          "display_order": 1
-        },
-        {
-          "model_id": "gpt-5",
-          "is_default": false,
-          "is_recommended": true,
-          "display_order": 2
-        },
-        {
-          "model_id": "gpt-5-mini",
-          "is_default": false,
-          "is_recommended": true,
-          "display_order": 3
-        },
-        {
-          "model_id": "gpt-4o",
-          "is_default": false,
-          "is_recommended": false,
-          "display_order": 4
-        }
-      ],
-      "default_config": {
-        "temperature": 0.7,
-        "max_tokens": 4096,
-        "system_prompt": null
+      "name": "Codex",
+      "provider": "openai",
+      "description": "OpenAI's specialized coding model",
+      "capabilities": {
+        "coding": true,
+        "completion": true,
+        "debugging": true,
+        "testing": true,
+        "documentation": true,
+        "code_generation": true,
+        "code_explanation": true
       },
-      "is_available": true
+      "supported_providers": ["openai"],
+      "supported_models": [
+        "gpt-5-codex",
+        "gpt-5",
+        "gpt-5-mini",
+        "gpt-4o",
+        "gpt-4-turbo-preview"
+      ],
+      "default_model": "gpt-5-codex",
+      "system_prompt": "You are Codex, OpenAI's expert coding assistant. Focus on writing clean, efficient, and well-documented code.",
+      "temperature_range": [0.0, 2.0],
+      "default_temperature": 0.5,
+      "max_tokens": 128000,
+      "is_available": true,
+      "requires_auth": true,
+      "auth_type": "api_key"
     },
     {
-      "id": "gemini-cli",
-      "name": "Gemini CLI",
-      "type": "ai",
-      "description": "Google's terminal-based AI agent with multimodal capabilities, code execution, and Google Search grounding",
-      "avatar_url": null,
-      "required_providers": ["google"],
-      "supported_models": [
-        {
-          "model_id": "gemini-2.5-pro",
-          "is_default": true,
-          "is_recommended": true,
-          "display_order": 1
-        },
-        {
-          "model_id": "gemini-2.5-flash",
-          "is_default": false,
-          "is_recommended": true,
-          "display_order": 2
-        },
-        {
-          "model_id": "gemini-2.5-flash-lite",
-          "is_default": false,
-          "is_recommended": true,
-          "display_order": 3
-        }
-      ],
-      "default_config": {
-        "temperature": 0.7,
-        "max_tokens": 8192,
-        "system_prompt": null
+      "id": "gemini",
+      "name": "Gemini",
+      "provider": "google",
+      "description": "Google's multimodal AI with extended context",
+      "capabilities": {
+        "coding": true,
+        "debugging": true,
+        "testing": true,
+        "documentation": true,
+        "multimodal": true,
+        "web_search": true,
+        "code_execution": true,
+        "extended_context": true
       },
-      "is_available": true
+      "supported_providers": ["google"],
+      "supported_models": [
+        "gemini-2.5-pro",
+        "gemini-2.5-flash",
+        "gemini-2.5-flash-lite"
+      ],
+      "default_model": "gemini-2.5-pro",
+      "system_prompt": "You are Gemini, Google's advanced AI assistant. You excel at understanding large codebases and can execute code directly.",
+      "temperature_range": [0.0, 2.0],
+      "default_temperature": 0.7,
+      "max_tokens": 65536,
+      "max_context": 1048576,
+      "is_available": true,
+      "requires_auth": true,
+      "auth_type": "api_key"
     },
     {
-      "id": "grok-cli",
-      "name": "Grok CLI",
-      "type": "ai",
-      "description": "xAI's conversational AI CLI with intelligent text editing and tool usage capabilities",
-      "avatar_url": null,
-      "required_providers": ["xai"],
-      "supported_models": [
-        {
-          "model_id": "grok-4-fast",
-          "is_default": true,
-          "is_recommended": true,
-          "display_order": 1
-        },
-        {
-          "model_id": "grok-4-latest",
-          "is_default": false,
-          "is_recommended": true,
-          "display_order": 2
-        },
-        {
-          "model_id": "grok-3-latest",
-          "is_default": false,
-          "is_recommended": false,
-          "display_order": 3
-        }
-      ],
-      "default_config": {
-        "temperature": 0.7,
-        "max_tokens": 4096,
-        "system_prompt": null
+      "id": "grok",
+      "name": "Grok",
+      "provider": "xai",
+      "description": "xAI's Grok with real-time knowledge and humor",
+      "capabilities": {
+        "coding": true,
+        "debugging": true,
+        "testing": true,
+        "documentation": true,
+        "real_time_knowledge": true,
+        "web_search": true,
+        "extended_thinking": true
       },
-      "is_available": true
+      "supported_providers": ["xai"],
+      "supported_models": [
+        "grok-4-latest",
+        "grok-4-fast",
+        "grok-3-latest"
+      ],
+      "default_model": "grok-4-latest",
+      "system_prompt": "You are Grok, xAI's witty and capable AI assistant. You have real-time knowledge and aren't afraid to tackle complex problems with a bit of humor.",
+      "temperature_range": [0.0, 2.0],
+      "default_temperature": 0.8,
+      "max_tokens": 128000,
+      "max_context": 256000,
+      "is_available": true,
+      "requires_auth": true,
+      "auth_type": "api_key"
+    },
+    {
+      "id": "opencode",
+      "name": "OpenCode",
+      "provider": "multi",
+      "description": "Flexible coding agent supporting multiple model backends",
+      "capabilities": {
+        "coding": true,
+        "debugging": true,
+        "testing": true,
+        "documentation": true,
+        "refactoring": true,
+        "multi_model": true,
+        "model_switching": true,
+        "cost_optimization": true
+      },
+      "supported_providers": ["anthropic", "openai", "google", "xai"],
+      "supported_models": [
+        "claude-sonnet-4-5-20250929",
+        "claude-haiku-4-5-20251001",
+        "gpt-5-codex",
+        "gpt-5",
+        "gpt-4o",
+        "gemini-2.5-pro",
+        "gemini-2.5-flash",
+        "grok-4-latest",
+        "grok-4-fast"
+      ],
+      "default_model": "claude-sonnet-4-5-20250929",
+      "system_prompt": "You are OpenCode, a versatile coding assistant that can work with multiple AI models. Adapt your approach based on the model's strengths.",
+      "temperature_range": [0.0, 2.0],
+      "default_temperature": 0.6,
+      "max_tokens": 128000,
+      "model_selection_strategy": "cost_performance",
+      "is_available": true,
+      "requires_auth": true,
+      "auth_type": "multi"
     }
   ]
 }
