@@ -1,9 +1,10 @@
 import { Link, useLocation } from 'react-router-dom'
-import { 
+import {
   FolderOpen,
   Settings,
   Menu,
-  X
+  X,
+  Box
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -20,6 +21,11 @@ const sidebarItems: SidebarItem[] = [
     title: "Projects",
     href: "/projects",
     icon: FolderOpen
+  },
+  {
+    title: "Sandboxes",
+    href: "/sandboxes",
+    icon: Box
   },
   {
     title: "Settings",

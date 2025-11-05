@@ -224,3 +224,276 @@ export async function validateProvider(provider: string): Promise<ValidationResu
 export async function toggleProvider(provider: string, enabled: boolean): Promise<ProviderSettings> {
   return updateProviderSettings(provider, { enabled })
 }
+
+// ============================================================================
+// Sandbox Instance Management (Phase 5)
+// ============================================================================
+
+export interface Sandbox {
+  id: string
+  name: string
+  provider: string
+  status: 'creating' | 'running' | 'stopped' | 'error' | 'terminating'
+  created_at: string
+  updated_at: string
+  started_at: string | null
+  stopped_at: string | null
+
+  // Container/instance info
+  container_id: string | null
+  image: string
+  provider_instance_id: string | null
+
+  // Configuration
+  cpu_cores: number
+  memory_mb: number
+  disk_gb: number
+  gpu_type: string | null
+  network_mode: string
+
+  // Agent/Model info
+  agent_id: string | null
+  model: string | null
+
+  // Cost tracking
+  cost_per_hour: number
+  total_cost: number
+
+  // Template
+  template_id: string | null
+
+  error_message: string | null
+}
+
+export interface SandboxExecution {
+  id: string
+  sandbox_id: string
+  command: string
+  status: 'pending' | 'running' | 'completed' | 'failed'
+  exit_code: number | null
+  output: string | null
+  error: string | null
+  started_at: string
+  completed_at: string | null
+  duration_seconds: number | null
+
+  // Agent tracking
+  agent_id: string | null
+  model: string | null
+
+  // Cost tracking
+  input_tokens: number | null
+  output_tokens: number | null
+  cost: number | null
+}
+
+export interface ResourceMetrics {
+  cpu_usage_percent: number
+  memory_usage_mb: number
+  memory_limit_mb: number
+  disk_usage_gb: number
+  disk_limit_gb: number
+  network_rx_bytes: number
+  network_tx_bytes: number
+  timestamp: string
+}
+
+export interface SandboxFile {
+  path: string
+  name: string
+  is_directory: boolean
+  size: number
+  modified_at: string
+}
+
+export interface CreateSandboxRequest {
+  name: string
+  provider?: string
+  image?: string
+  cpu_cores?: number
+  memory_mb?: number
+  disk_gb?: number
+  gpu_type?: string | null
+  network_mode?: string
+  agent_id?: string | null
+  model?: string | null
+  template_id?: string | null
+  env_vars?: Record<string, string>
+  volumes?: { host_path: string; container_path: string; read_only: boolean }[]
+}
+
+export interface ExecuteCommandRequest {
+  command: string
+  agent_id?: string | null
+  model?: string | null
+}
+
+// List all sandboxes
+export async function listSandboxes(): Promise<Sandbox[]> {
+  const response = await apiRequest<Sandbox[]>('/api/sandboxes')
+  if (response.success && response.data) {
+    return response.data
+  }
+  throw new Error(response.error || 'Failed to list sandboxes')
+}
+
+// Get sandbox details
+export async function getSandbox(id: string): Promise<Sandbox> {
+  const response = await apiRequest<Sandbox>(`/api/sandboxes/${id}`)
+  if (response.success && response.data) {
+    return response.data
+  }
+  throw new Error(response.error || 'Failed to get sandbox')
+}
+
+// Create a new sandbox
+export async function createSandbox(request: CreateSandboxRequest): Promise<Sandbox> {
+  const response = await apiRequest<Sandbox>(
+    '/api/sandboxes',
+    {
+      method: 'POST',
+      body: JSON.stringify(request),
+    }
+  )
+  if (response.success && response.data) {
+    return response.data
+  }
+  throw new Error(response.error || 'Failed to create sandbox')
+}
+
+// Start a sandbox
+export async function startSandbox(id: string): Promise<Sandbox> {
+  const response = await apiRequest<Sandbox>(
+    `/api/sandboxes/${id}/start`,
+    {
+      method: 'POST',
+    }
+  )
+  if (response.success && response.data) {
+    return response.data
+  }
+  throw new Error(response.error || 'Failed to start sandbox')
+}
+
+// Stop a sandbox
+export async function stopSandbox(id: string): Promise<Sandbox> {
+  const response = await apiRequest<Sandbox>(
+    `/api/sandboxes/${id}/stop`,
+    {
+      method: 'POST',
+    }
+  )
+  if (response.success && response.data) {
+    return response.data
+  }
+  throw new Error(response.error || 'Failed to stop sandbox')
+}
+
+// Restart a sandbox
+export async function restartSandbox(id: string): Promise<Sandbox> {
+  const response = await apiRequest<Sandbox>(
+    `/api/sandboxes/${id}/restart`,
+    {
+      method: 'POST',
+    }
+  )
+  if (response.success && response.data) {
+    return response.data
+  }
+  throw new Error(response.error || 'Failed to restart sandbox')
+}
+
+// Delete a sandbox
+export async function deleteSandbox(id: string): Promise<void> {
+  const response = await apiRequest<void>(
+    `/api/sandboxes/${id}`,
+    {
+      method: 'DELETE',
+    }
+  )
+  if (!response.success) {
+    throw new Error(response.error || 'Failed to delete sandbox')
+  }
+}
+
+// Execute a command in a sandbox
+export async function executeCommand(id: string, request: ExecuteCommandRequest): Promise<SandboxExecution> {
+  const response = await apiRequest<SandboxExecution>(
+    `/api/sandboxes/${id}/execute`,
+    {
+      method: 'POST',
+      body: JSON.stringify(request),
+    }
+  )
+  if (response.success && response.data) {
+    return response.data
+  }
+  throw new Error(response.error || 'Failed to execute command')
+}
+
+// Get sandbox executions
+export async function getSandboxExecutions(id: string): Promise<SandboxExecution[]> {
+  const response = await apiRequest<SandboxExecution[]>(`/api/sandboxes/${id}/executions`)
+  if (response.success && response.data) {
+    return response.data
+  }
+  throw new Error(response.error || 'Failed to get executions')
+}
+
+// Get resource metrics
+export async function getSandboxMetrics(id: string): Promise<ResourceMetrics> {
+  const response = await apiRequest<ResourceMetrics>(`/api/sandboxes/${id}/metrics`)
+  if (response.success && response.data) {
+    return response.data
+  }
+  throw new Error(response.error || 'Failed to get metrics')
+}
+
+// List files in sandbox
+export async function listSandboxFiles(id: string, path: string = '/'): Promise<SandboxFile[]> {
+  const response = await apiRequest<SandboxFile[]>(
+    `/api/sandboxes/${id}/files?path=${encodeURIComponent(path)}`
+  )
+  if (response.success && response.data) {
+    return response.data
+  }
+  throw new Error(response.error || 'Failed to list files')
+}
+
+// Read file from sandbox
+export async function readSandboxFile(id: string, path: string): Promise<string> {
+  const response = await apiRequest<{content: string}>(
+    `/api/sandboxes/${id}/files/read?path=${encodeURIComponent(path)}`
+  )
+  if (response.success && response.data) {
+    return response.data.content
+  }
+  throw new Error(response.error || 'Failed to read file')
+}
+
+// Write file to sandbox
+export async function writeSandboxFile(id: string, path: string, content: string): Promise<void> {
+  const response = await apiRequest<void>(
+    `/api/sandboxes/${id}/files/write`,
+    {
+      method: 'POST',
+      body: JSON.stringify({ path, content }),
+    }
+  )
+  if (!response.success) {
+    throw new Error(response.error || 'Failed to write file')
+  }
+}
+
+// Delete file from sandbox
+export async function deleteSandboxFile(id: string, path: string): Promise<void> {
+  const response = await apiRequest<void>(
+    `/api/sandboxes/${id}/files?path=${encodeURIComponent(path)}`,
+    {
+      method: 'DELETE',
+    }
+  )
+  if (!response.success) {
+    throw new Error(response.error || 'Failed to delete file')
+  }
+}

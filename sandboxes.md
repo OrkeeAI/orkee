@@ -1569,14 +1569,14 @@ With Phase 1 complete, the following components are ready for Phase 2 integratio
 **Note**: All cloud providers are currently stub implementations that return `NotSupported` errors. Only the Local Docker provider is fully functional. Each stub includes clear TODO comments and helpful error messages for future implementation.
 
 ### Phase 5: Dashboard (Week 5)
-- [ ] Sandboxes page component
-- [ ] Sandbox card component
-- [ ] Terminal component with xterm.js
-- [ ] File browser component
-- [ ] Resource monitor graphs
-- [ ] Cost tracking dashboard (uses database settings)
-- [ ] Agent/model selector
-- [ ] Template management UI
+- [x] Sandboxes page component
+- [x] Sandbox card component
+- [x] Terminal component with xterm.js
+- [x] File browser component
+- [x] Resource monitor graphs
+- [x] Cost tracking dashboard (uses database settings)
+- [x] Agent/model selector
+- [x] Template management UI (basic placeholder)
 
 ### Phase 6: Advanced Features (Week 6)
 - [ ] Template system with database storage
