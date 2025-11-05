@@ -1,7 +1,7 @@
 // ABOUTME: Core type definitions for OAuth authentication
 // ABOUTME: Includes OAuth tokens, provider configurations, and type definitions
 
-use chrono::{DateTime, Duration, Utc};
+use chrono::{Duration, Utc};
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::str::FromStr;
