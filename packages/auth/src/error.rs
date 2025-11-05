@@ -19,9 +19,6 @@ pub enum AuthError {
     #[error("Storage error: {0}")]
     Storage(String),
 
-    #[error("Network error: {0}")]
-    Network(String),
-
     #[error("Invalid configuration: {0}")]
     Configuration(String),
 
@@ -36,9 +33,6 @@ pub enum AuthError {
 
     #[error("Database error: {0}")]
     Database(#[from] sqlx::Error),
-
-    #[error("HTTP request error: {0}")]
-    Http(#[from] reqwest::Error),
 
     #[error("JSON serialization error: {0}")]
     Json(#[from] serde_json::Error),
