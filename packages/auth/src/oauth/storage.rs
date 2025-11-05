@@ -7,10 +7,7 @@ use tracing::{debug, error};
 
 use crate::{
     error::{AuthError, AuthResult},
-    oauth::{
-        provider::OAuthProvider,
-        types::{OAuthProviderConfig, OAuthToken},
-    },
+    oauth::types::{OAuthProvider, OAuthToken},
 };
 
 /// OAuth storage manager for database operations
@@ -176,88 +173,5 @@ impl OAuthStorage {
 
         debug!("Deleted OAuth token");
         Ok(())
-    }
-
-    /// Store provider configuration
-    pub async fn store_provider_config(&self, config: &OAuthProviderConfig) -> AuthResult<()> {
-        debug!("Storing provider config for: {}", config.provider);
-
-        let scopes = config.scopes.join(" ");
-
-        sqlx::query(
-            r#"
-            INSERT INTO oauth_providers (
-                provider, client_id, client_secret, auth_url, token_url,
-                redirect_uri, scopes, enabled, created_at, updated_at
-            )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, unixepoch(), unixepoch())
-            ON CONFLICT(provider) DO UPDATE SET
-                client_id = excluded.client_id,
-                client_secret = excluded.client_secret,
-                auth_url = excluded.auth_url,
-                token_url = excluded.token_url,
-                redirect_uri = excluded.redirect_uri,
-                scopes = excluded.scopes,
-                enabled = excluded.enabled,
-                updated_at = unixepoch()
-            "#,
-        )
-        .bind(&config.provider)
-        .bind(&config.client_id)
-        .bind(&config.client_secret)
-        .bind(&config.auth_url)
-        .bind(&config.token_url)
-        .bind(&config.redirect_uri)
-        .bind(scopes)
-        .bind(config.enabled)
-        .execute(&self.pool)
-        .await?;
-
-        debug!("Successfully stored provider config");
-        Ok(())
-    }
-
-    /// Get provider configuration
-    pub async fn get_provider_config(
-        &self,
-        provider: OAuthProvider,
-    ) -> AuthResult<Option<OAuthProviderConfig>> {
-        debug!("Fetching provider config for: {}", provider);
-
-        let row = sqlx::query(
-            r#"
-            SELECT provider, client_id, client_secret, auth_url, token_url,
-                   redirect_uri, scopes, enabled
-            FROM oauth_providers
-            WHERE provider = ?
-            "#,
-        )
-        .bind(provider.to_string())
-        .fetch_optional(&self.pool)
-        .await?;
-
-        match row {
-            Some(row) => {
-                let scopes_str: String = row.try_get("scopes")?;
-                let scopes: Vec<String> = scopes_str.split_whitespace().map(String::from).collect();
-
-                let config = OAuthProviderConfig {
-                    provider: row.try_get("provider")?,
-                    client_id: row.try_get("client_id")?,
-                    client_secret: row.try_get("client_secret")?,
-                    auth_url: row.try_get("auth_url")?,
-                    token_url: row.try_get("token_url")?,
-                    redirect_uri: row.try_get("redirect_uri")?,
-                    scopes,
-                    enabled: row.try_get("enabled")?,
-                };
-                debug!("Found provider config");
-                Ok(Some(config))
-            }
-            None => {
-                debug!("No provider config found");
-                Ok(None)
-            }
-        }
     }
 }

@@ -1,15 +1,10 @@
-// ABOUTME: OAuth module providing authentication flows for AI providers
-// ABOUTME: Includes PKCE, callback server, token storage, and provider configurations
+// ABOUTME: OAuth module for token management and storage
+// ABOUTME: Provides direct token import and encrypted storage for AI provider tokens
 
 pub mod manager;
-pub mod pkce;
-pub mod provider;
-pub mod server;
 pub mod storage;
 pub mod types;
 
 pub use manager::{OAuthManager, ProviderStatus};
-pub use provider::OAuthProvider;
-pub use server::CallbackServer;
 pub use storage::OAuthStorage;
-pub use types::{OAuthProviderConfig, OAuthToken, PkceChallenge, TokenResponse};
+pub use types::{OAuthProvider, OAuthToken};
