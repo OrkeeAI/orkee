@@ -47,26 +47,6 @@ async fn setup_test_db() -> (SqlitePool, TempDir) {
     .await
     .unwrap();
 
-    sqlx::query(
-        r#"
-        CREATE TABLE oauth_providers (
-            provider TEXT PRIMARY KEY,
-            client_id TEXT NOT NULL,
-            client_secret TEXT,
-            auth_url TEXT NOT NULL,
-            token_url TEXT NOT NULL,
-            redirect_uri TEXT NOT NULL,
-            scopes TEXT NOT NULL,
-            enabled BOOLEAN DEFAULT 1,
-            created_at INTEGER NOT NULL DEFAULT (unixepoch()),
-            updated_at INTEGER NOT NULL DEFAULT (unixepoch())
-        )
-        "#,
-    )
-    .execute(&pool)
-    .await
-    .unwrap();
-
     // Create encryption settings table for ApiKeyEncryption
     sqlx::query(
         r#"
