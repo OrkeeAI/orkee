@@ -203,19 +203,19 @@ export function OAuthSettings() {
             <CardContent className="space-y-2">
               <div className="grid grid-cols-2 gap-3 text-sm">
                 <div>
-                  <p className="text-muted-foreground mb-1">Authenticate:</p>
+                  <p className="text-foreground font-medium mb-1">Authenticate:</p>
                   <code className="text-xs bg-white px-2 py-1 rounded block font-mono">orkee auth login claude</code>
                 </div>
                 <div>
-                  <p className="text-muted-foreground mb-1">Check Status:</p>
+                  <p className="text-foreground font-medium mb-1">Check Status:</p>
                   <code className="text-xs bg-white px-2 py-1 rounded block font-mono">orkee auth status</code>
                 </div>
                 <div>
-                  <p className="text-muted-foreground mb-1">Import from File:</p>
+                  <p className="text-foreground font-medium mb-1">Import from File:</p>
                   <code className="text-xs bg-white px-2 py-1 rounded block font-mono">orkee auth login claude --file token.txt</code>
                 </div>
                 <div>
-                  <p className="text-muted-foreground mb-1">Logout:</p>
+                  <p className="text-foreground font-medium mb-1">Logout:</p>
                   <code className="text-xs bg-white px-2 py-1 rounded block font-mono">orkee auth logout claude</code>
                 </div>
               </div>
