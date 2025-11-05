@@ -51,5 +51,3 @@ export function MarkdownRenderer({
     </div>
   );
 }
-
-export { sanitizationSchema };

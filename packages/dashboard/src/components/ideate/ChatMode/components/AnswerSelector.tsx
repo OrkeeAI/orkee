@@ -89,6 +89,7 @@ export function AnswerSelector({
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [answerFormat, formattedOptions, selectedOption, disabled]);
 
   const handleSubmit = () => {

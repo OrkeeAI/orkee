@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import React, { useEffect, useState, useCallback } from 'react';
 import { AuthContext, ProviderAuthStatus } from '@/lib/auth-context';
 import { api } from '@/services/api';

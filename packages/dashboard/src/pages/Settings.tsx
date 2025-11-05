@@ -4,9 +4,9 @@ import { useCloudAuth, useCloudSync } from '@/hooks/useCloud'
 import { cloudService, formatLastSync } from '@/services/cloud'
 import { fetchConfig } from '@/services/config'
 import { exportDatabase, importDatabase, type ImportResult } from '@/services/database'
-import { Cloud, User, RefreshCw, Download, Upload, Code2, ExternalLink, Database, AlertTriangle, Shield, Trash2, Key, Check, Terminal, Sliders, LayoutGrid, Brain } from 'lucide-react'
-import { useState, useEffect, useRef } from 'react'
-import { SUPPORTED_EDITORS, getDefaultEditorSettings, findEditorById } from '@/lib/editor-utils'
+import { Cloud, User, RefreshCw, Download, Upload, Code2, ExternalLink, Database, AlertTriangle, Shield, Trash2, Key, Check, Terminal, Sliders, LayoutGrid, Brain, Lock, Server, Settings as SettingsIcon, Gauge, ShieldCheck, Eye } from 'lucide-react'
+import { useState, useEffect, useRef, useMemo } from 'react'
+import { SUPPORTED_EDITORS, getDefaultEditorSettings } from '@/lib/editor-utils'
 import type { EditorSettings } from '@/lib/editor-utils'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
@@ -14,6 +14,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { CliInstallationSettings } from '@/components/CliInstallationSettings'
 import { SecurityStatusSection } from '@/components/SecurityStatusSection'
 import { KeySourcesTable } from '@/components/KeySourcesTable'
@@ -25,14 +26,27 @@ import { updateSetting, getSettingsByCategory, type SystemSetting } from '@/serv
 import { clearConfigCache } from '@/services/config'
 import { AIModelsSettings } from '@/components/settings/AIModelsSettings'
 import { OAuthSettings } from '@/components/settings/OAuthSettings'
+import { useToast } from '@/hooks/use-toast'
+import { TelemetryErrorBoundary } from '@/components/TelemetryErrorBoundary'
+
+// Section error fallback component
+function SectionErrorFallback({ error, resetError, sectionName }: { error: Error; resetError: () => void; sectionName: string }) {
+  return (
+    <Alert variant="destructive">
+      <AlertTriangle className="h-4 w-4" />
+      <AlertDescription>
+        <p className="font-medium mb-2">Error loading {sectionName}</p>
+        <p className="text-sm mb-3">{error.message}</p>
+        <Button onClick={resetError} variant="outline" size="sm">
+          <RefreshCw className="mr-2 h-4 w-4" />
+          Retry
+        </Button>
+      </AlertDescription>
+    </Alert>
+  );
+}
 
 export function Settings() {
-  const [isMacOS, setIsMacOS] = useState(false)
-
-  useEffect(() => {
-    setIsMacOS(navigator.platform.toLowerCase().includes('mac'))
-  }, [])
-
   return (
     <div className="space-y-6">
       <div>
@@ -43,30 +57,18 @@ export function Settings() {
       </div>
 
       <Tabs defaultValue="general" className="w-full">
-        <TabsList className="grid w-full grid-cols-8">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="general" className="flex items-center gap-2">
             <LayoutGrid className="h-4 w-4" />
             General
           </TabsTrigger>
-          <TabsTrigger value="security" className="flex items-center gap-2">
-            <Key className="h-4 w-4" />
-            Security
-          </TabsTrigger>
-          <TabsTrigger value="oauth" className="flex items-center gap-2">
+          <TabsTrigger value="authentication" className="flex items-center gap-2">
             <Shield className="h-4 w-4" />
             Authentication
           </TabsTrigger>
           <TabsTrigger value="ai-models" className="flex items-center gap-2">
             <Brain className="h-4 w-4" />
             AI Models
-          </TabsTrigger>
-          <TabsTrigger value="database" className="flex items-center gap-2">
-            <Database className="h-4 w-4" />
-            Database
-          </TabsTrigger>
-          <TabsTrigger value="privacy" className="flex items-center gap-2">
-            <Shield className="h-4 w-4" />
-            Privacy
           </TabsTrigger>
           <TabsTrigger value="cloud" className="flex items-center gap-2">
             <Cloud className="h-4 w-4" />
@@ -79,51 +81,46 @@ export function Settings() {
         </TabsList>
 
         <TabsContent value="general" className="space-y-6 mt-6">
-          {/* General Settings - Editor & CLI */}
-          <GeneralSettings isMacOS={isMacOS} />
+          {/* General Settings - Editor */}
+          <TelemetryErrorBoundary fallback={(error, reset) => <SectionErrorFallback error={error} resetError={reset} sectionName="General Settings" />}>
+            <GeneralSettings />
+          </TelemetryErrorBoundary>
         </TabsContent>
 
-        <TabsContent value="security" className="space-y-6 mt-6">
-          {/* API Keys Settings */}
-          <ApiKeysSettings />
-        </TabsContent>
-
-        <TabsContent value="oauth" className="space-y-6 mt-6">
-          {/* OAuth Settings */}
-          <OAuthSettings />
+        <TabsContent value="authentication" className="space-y-6 mt-6">
+          {/* Authentication Settings - API Keys & OAuth */}
+          <TelemetryErrorBoundary fallback={(error, reset) => <SectionErrorFallback error={error} resetError={reset} sectionName="Authentication Settings" />}>
+            <AuthenticationSettings />
+          </TelemetryErrorBoundary>
         </TabsContent>
 
         <TabsContent value="ai-models" className="space-y-6 mt-6">
           {/* AI Models Settings */}
-          <AIModelsSettings />
-        </TabsContent>
-
-        <TabsContent value="database" className="space-y-6 mt-6">
-          {/* Database Settings */}
-          <DatabaseSettings />
-        </TabsContent>
-
-        <TabsContent value="privacy" className="space-y-6 mt-6">
-          {/* Privacy & Telemetry Settings */}
-          <PrivacySettings />
+          <TelemetryErrorBoundary fallback={(error, reset) => <SectionErrorFallback error={error} resetError={reset} sectionName="AI Models Settings" />}>
+            <AIModelsSettings />
+          </TelemetryErrorBoundary>
         </TabsContent>
 
         <TabsContent value="cloud" className="space-y-6 mt-6">
           {/* Cloud Settings - Always shown now */}
-          <CloudSettings />
+          <TelemetryErrorBoundary fallback={(error, reset) => <SectionErrorFallback error={error} resetError={reset} sectionName="Cloud Settings" />}>
+            <CloudSettings />
+          </TelemetryErrorBoundary>
         </TabsContent>
 
         <TabsContent value="advanced" className="space-y-6 mt-6">
           {/* Advanced Configuration Settings */}
-          <AdvancedSettings />
+          <TelemetryErrorBoundary fallback={(error, reset) => <SectionErrorFallback error={error} resetError={reset} sectionName="Advanced Settings" />}>
+            <AdvancedSettings />
+          </TelemetryErrorBoundary>
         </TabsContent>
       </Tabs>
     </div>
   )
 }
 
-// General Settings Component (combines Editor and CLI)
-function GeneralSettings({ isMacOS }: { isMacOS: boolean }) {
+// General Settings Component
+function GeneralSettings() {
   const [editorSettings, setEditorSettings] = useState<EditorSettings>(getDefaultEditorSettings());
   const [isTestingEditor, setIsTestingEditor] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -316,253 +313,92 @@ function GeneralSettings({ isMacOS }: { isMacOS: boolean }) {
           </div>
         </div>
       </div>
-
-      {/* CLI Installation Section (macOS only) */}
-      {isMacOS && (
-        <div className="rounded-lg border p-6">
-          <div className="flex items-center gap-2 mb-4">
-            <Terminal className="h-5 w-5 text-primary" />
-            <h2 className="text-xl font-semibold">CLI Installation</h2>
-          </div>
-          <CliInstallationSettings />
-        </div>
-      )}
     </div>
   );
 }
 
-// Editor Settings Component (kept for legacy, not directly used)
-function EditorSettings() {
-  const [editorSettings, setEditorSettings] = useState<EditorSettings>(getDefaultEditorSettings());
-  const [isTestingEditor, setIsTestingEditor] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
-
-  // Load editor settings on mount
-  useEffect(() => {
-    loadEditorSettings();
-  }, []);
-
-  const loadEditorSettings = async () => {
-    try {
-      const stored = localStorage.getItem('orkee-editor-settings');
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        setEditorSettings({ ...getDefaultEditorSettings(), ...parsed });
-      }
-    } catch (error) {
-      console.error('Failed to load editor settings:', error);
-    }
-  };
-
-  const saveEditorSettings = async (newSettings: EditorSettings) => {
-    setIsSaving(true);
-    try {
-      localStorage.setItem('orkee-editor-settings', JSON.stringify(newSettings));
-      setEditorSettings(newSettings);
-    } catch (error) {
-      console.error('Failed to save editor settings:', error);
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  const handleEditorChange = (editorId: string) => {
-    const newSettings = {
-      ...editorSettings,
-      defaultEditor: editorId,
-    };
-    saveEditorSettings(newSettings);
-  };
-
-  const handleCustomCommandChange = (command: string) => {
-    const newSettings = {
-      ...editorSettings,
-      customCommand: command,
-    };
-    saveEditorSettings(newSettings);
-  };
-
-  const handleToggleChange = (field: keyof EditorSettings, value: boolean) => {
-    const newSettings = {
-      ...editorSettings,
-      [field]: value,
-    };
-    saveEditorSettings(newSettings);
-  };
-
-  const handleTestEditor = async () => {
-    setIsTestingEditor(true);
-    try {
-      const response = await fetch('/api/projects/open-in-editor', {
-        method: 'GET',
-      });
-      const result = await response.json();
-      
-      if (result.success) {
-        alert(`✅ ${result.message}\n\nDetected: ${result.detectedCommand || 'N/A'}`);
-      } else {
-        alert(`❌ ${result.message}`);
-      }
-    } catch (error) {
-      alert('❌ Failed to test editor configuration');
-      console.error('Test editor error:', error);
-    } finally {
-      setIsTestingEditor(false);
-    }
-  };
-
-  const selectedEditor = findEditorById(editorSettings.defaultEditor);
-
+// Authentication Settings Component (combines API Keys and OAuth)
+function AuthenticationSettings() {
   return (
     <div className="rounded-lg border p-6">
       <div className="flex items-center gap-2 mb-4">
-        <Code2 className="h-5 w-5 text-primary" />
-        <h2 className="text-xl font-semibold">Code Editor</h2>
+        <Shield className="h-5 w-5 text-primary" />
+        <h2 className="text-xl font-semibold">Authentication</h2>
       </div>
 
-      <div className="space-y-6">
-        {/* Editor Selection */}
-        <div className="space-y-3">
-          <Label htmlFor="editor-select">Default Editor</Label>
-          <p className="text-sm text-muted-foreground mb-3">
-            Choose your preferred code editor for opening projects
-          </p>
-          <Select 
-            value={editorSettings.defaultEditor} 
-            onValueChange={handleEditorChange}
-            disabled={isSaving}
-          >
-            <SelectTrigger>
-              <SelectValue>
-                <div className="flex items-center gap-2">
-                  <span>{selectedEditor?.icon}</span>
-                  <span>{selectedEditor?.name || "Select editor..."}</span>
-                </div>
-              </SelectValue>
-            </SelectTrigger>
-            <SelectContent className="max-h-[300px]">
-              {SUPPORTED_EDITORS.map((editor) => (
-                <SelectItem key={editor.id} value={editor.id}>
-                  <div className="flex items-center gap-2">
-                    <span>{editor.icon}</span>
-                    <span>{editor.name}</span>
-                    {/* Platform indicators */}
-                    {editor.platformRestricted?.includes('darwin') && editor.platformRestricted.length === 1 && (
-                      <Badge variant="secondary" className="ml-auto text-xs">macOS</Badge>
-                    )}
-                    {editor.platformRestricted?.includes('win32') && editor.platformRestricted.length === 1 && (
-                      <Badge variant="secondary" className="ml-auto text-xs">Windows</Badge>
-                    )}
-                    {editor.platformRestricted?.includes('linux') && editor.platformRestricted.length === 1 && (
-                      <Badge variant="secondary" className="ml-auto text-xs">Linux</Badge>
-                    )}
-                  </div>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+      <Tabs defaultValue="api-keys" className="w-full">
+        <TabsList className="inline-flex">
+          <TabsTrigger value="api-keys" className="flex items-center gap-2">
+            <Key className="h-3.5 w-3.5" />
+            API Keys
+          </TabsTrigger>
+          <TabsTrigger value="ai-providers" className="flex items-center gap-2">
+            <Shield className="h-3.5 w-3.5" />
+            AI Providers
+          </TabsTrigger>
+        </TabsList>
 
-        {/* Custom Command Input */}
-        {editorSettings.defaultEditor === 'custom' && (
-          <div className="space-y-3">
-            <Label htmlFor="custom-command">Custom Command</Label>
-            <p className="text-sm text-muted-foreground mb-3">
-              Enter the full path or command to launch your editor
-            </p>
-            <Input
-              id="custom-command"
-              type="text"
-              placeholder="e.g., /usr/local/bin/myeditor"
-              value={editorSettings.customCommand}
-              onChange={(e) => handleCustomCommandChange(e.target.value)}
-              disabled={isSaving}
-            />
-          </div>
-        )}
+        <TabsContent value="api-keys" className="space-y-6 mt-6">
+          <ApiKeysSettings />
+        </TabsContent>
 
-        {/* Editor Options */}
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="space-y-0.5">
-              <Label htmlFor="auto-detect">Auto-detect Editor</Label>
-              <p className="text-sm text-muted-foreground">
-                Automatically detect if the selected editor is installed
-              </p>
-            </div>
-            <Switch
-              id="auto-detect"
-              checked={editorSettings.autoDetect}
-              onCheckedChange={(value) => handleToggleChange('autoDetect', value)}
-              disabled={isSaving}
-            />
-          </div>
-
-          <div className="flex items-center justify-between">
-            <div className="space-y-0.5">
-              <Label htmlFor="new-window">Open in New Window</Label>
-              <p className="text-sm text-muted-foreground">
-                Always open projects in a new editor window
-              </p>
-            </div>
-            <Switch
-              id="new-window"
-              checked={editorSettings.openInNewWindow}
-              onCheckedChange={(value) => handleToggleChange('openInNewWindow', value)}
-              disabled={isSaving}
-            />
-          </div>
-        </div>
-
-        {/* Test Button */}
-        <div className="pt-4 border-t">
-          <Button 
-            variant="outline" 
-            onClick={handleTestEditor}
-            className="w-full"
-            disabled={!editorSettings.defaultEditor || isTestingEditor || isSaving}
-          >
-            {isTestingEditor ? (
-              <>
-                <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-                Testing...
-              </>
-            ) : (
-              <>
-                <ExternalLink className="mr-2 h-4 w-4" />
-                Test Editor Configuration
-              </>
-            )}
-          </Button>
-          <p className="text-xs text-muted-foreground mt-2 text-center">
-            Tests if your selected editor can be launched successfully
-          </p>
-        </div>
-      </div>
+        <TabsContent value="ai-providers" className="space-y-6 mt-6">
+          <OAuthSettings />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
 
 // API Keys Settings Component
 function ApiKeysSettings() {
+  const { toast } = useToast();
   const [user, setUser] = useState<MaskedUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  // Modal state
+  const [modalOpen, setModalOpen] = useState(false);
+  const [selectedProvider, setSelectedProvider] = useState<'openai' | 'anthropic' | 'google' | 'xai' | null>(null);
+  const [apiKeyInput, setApiKeyInput] = useState('');
 
   // Form state
-  const [openaiKey, setOpenaiKey] = useState('');
-  const [anthropicKey, setAnthropicKey] = useState('');
-  const [googleKey, setGoogleKey] = useState('');
-  const [xaiKey, setXaiKey] = useState('');
   const [gatewayEnabled, setGatewayEnabled] = useState(false);
   const [gatewayUrl, setGatewayUrl] = useState('');
   const [gatewayKey, setGatewayKey] = useState('');
 
-  // Password management dialog state
-  const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
-  const [passwordDialogMode, setPasswordDialogMode] = useState<'set' | 'change' | 'remove'>('set');
+  // Provider configurations - memoized to avoid recreating on every render
+  const providers = useMemo(() => [
+    {
+      id: 'openai' as const,
+      name: 'OpenAI',
+      icon: '🤖',
+      placeholder: 'sk-...',
+      hasKey: user?.has_openai_api_key,
+    },
+    {
+      id: 'anthropic' as const,
+      name: 'Anthropic',
+      icon: '🧠',
+      placeholder: 'sk-ant-...',
+      hasKey: user?.has_anthropic_api_key,
+    },
+    {
+      id: 'google' as const,
+      name: 'Google AI',
+      icon: '🔍',
+      placeholder: 'AIza...',
+      hasKey: user?.has_google_api_key,
+    },
+    {
+      id: 'xai' as const,
+      name: 'xAI',
+      icon: '✖️',
+      placeholder: 'xai-...',
+      hasKey: user?.has_xai_api_key,
+    },
+  ], [user]);
 
   // Load user credentials on mount
   useEffect(() => {
@@ -585,81 +421,107 @@ function ApiKeysSettings() {
     }
   };
 
-  const handleSave = async () => {
+  const openProviderModal = (providerId: 'openai' | 'anthropic' | 'google' | 'xai') => {
+    setSelectedProvider(providerId);
+    setApiKeyInput('');
+    setModalOpen(true);
+  };
+
+  const handleSaveApiKey = async () => {
+    if (!selectedProvider || !apiKeyInput.trim()) return;
+
     setIsSaving(true);
     setError(null);
-    setSuccessMessage(null);
 
     try {
-      // Build update payload with only non-empty values
-      // IMPORTANT: Backend expects camelCase field names!
-      const updates: Record<string, string | boolean> = {};
+      const fieldMap = {
+        openai: 'openaiApiKey',
+        anthropic: 'anthropicApiKey',
+        google: 'googleApiKey',
+        xai: 'xaiApiKey',
+      };
 
-      if (openaiKey.trim()) updates.openaiApiKey = openaiKey.trim();
-      if (anthropicKey.trim()) updates.anthropicApiKey = anthropicKey.trim();
-      if (googleKey.trim()) updates.googleApiKey = googleKey.trim();
-      if (xaiKey.trim()) updates.xaiApiKey = xaiKey.trim();
-
-      updates.aiGatewayEnabled = gatewayEnabled;
-      if (gatewayUrl.trim()) updates.aiGatewayUrl = gatewayUrl.trim();
-      if (gatewayKey.trim()) updates.aiGatewayKey = gatewayKey.trim();
+      const updates: Record<string, string> = {
+        [fieldMap[selectedProvider]]: apiKeyInput.trim(),
+      };
 
       const updatedUser = await usersService.updateCredentials(updates);
       setUser(updatedUser);
 
-      // Clear form fields
-      setOpenaiKey('');
-      setAnthropicKey('');
-      setGoogleKey('');
-      setXaiKey('');
-      setGatewayKey('');
+      setApiKeyInput('');
+      setModalOpen(false);
+      setSelectedProvider(null);
 
-      setSuccessMessage('API keys updated successfully');
-      setTimeout(() => setSuccessMessage(null), 3000);
+      toast({
+        title: 'API key updated',
+        description: `${providers.find(p => p.id === selectedProvider)?.name} API key has been saved successfully`,
+      });
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to save credentials');
-      console.error('Failed to save credentials:', err);
+      setError(err instanceof Error ? err.message : 'Failed to save API key');
+      console.error('Failed to save API key:', err);
     } finally {
       setIsSaving(false);
     }
   };
 
-  const openPasswordDialog = (mode: 'set' | 'change' | 'remove') => {
-    setPasswordDialogMode(mode);
-    setPasswordDialogOpen(true);
+  const handleSaveGateway = async () => {
+    setIsSaving(true);
+    setError(null);
+
+    try {
+      const updates: Record<string, string | boolean> = {
+        aiGatewayEnabled: gatewayEnabled,
+      };
+
+      if (gatewayUrl.trim()) updates.aiGatewayUrl = gatewayUrl.trim();
+      if (gatewayKey.trim()) updates.aiGatewayKey = gatewayKey.trim();
+
+      const updatedUser = await usersService.updateCredentials(updates);
+      setUser(updatedUser);
+      setGatewayKey('');
+
+      toast({
+        title: 'Gateway settings updated',
+        description: 'AI Gateway configuration has been saved successfully',
+      });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to save gateway settings');
+      console.error('Failed to save gateway settings:', err);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   if (isLoading) {
     return (
-      <div className="rounded-lg border p-6">
-        <div className="flex items-center gap-2 mb-4">
-          <Key className="h-5 w-5 text-primary" />
-          <h2 className="text-xl font-semibold">API Keys</h2>
-        </div>
+      <div className="space-y-4">
         <p className="text-muted-foreground">Loading...</p>
       </div>
     );
   }
 
   return (
-    <div className="rounded-lg border p-6">
-      <div className="flex items-center gap-2 mb-4">
-        <Key className="h-5 w-5 text-primary" />
-        <h2 className="text-xl font-semibold">API Keys & Security</h2>
-      </div>
-
-      <div className="space-y-6">
-        {/* Security Status Section */}
-        <SecurityStatusSection onManagePassword={openPasswordDialog} />
-
+    <div className="space-y-6">
         {/* Key Sources Table */}
-        <KeySourcesTable />
+        <KeySourcesTable onEditKey={openProviderModal} />
 
         <Alert>
           <Shield className="h-4 w-4" />
           <AlertDescription>
             API keys are encrypted and stored in your local database. Environment variables override database keys.
-            Leave fields empty to keep existing keys unchanged.
+            Click the edit icon to add or update a key.
+          </AlertDescription>
+        </Alert>
+
+        {/* Encryption Settings Callout */}
+        <Alert className="bg-blue-50 border-blue-200">
+          <Lock className="h-4 w-4 text-blue-600" />
+          <AlertDescription>
+            <p className="font-medium text-blue-900 mb-1">Encryption Settings</p>
+            <p className="text-sm text-blue-800">
+              For enhanced security, consider upgrading to password-based encryption.
+              Visit <span className="font-medium">Advanced → Encryption</span> to manage your encryption settings and password protection.
+            </p>
           </AlertDescription>
         </Alert>
 
@@ -670,103 +532,6 @@ function ApiKeysSettings() {
             <AlertDescription>{error}</AlertDescription>
           </Alert>
         )}
-
-        {/* Success Display */}
-        {successMessage && (
-          <Alert>
-            <Check className="h-4 w-4" />
-            <AlertDescription>{successMessage}</AlertDescription>
-          </Alert>
-        )}
-
-        {/* AI Provider Keys */}
-        <div className="space-y-4">
-          <h3 className="text-sm font-medium">Update API Keys</h3>
-
-          {/* OpenAI */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <Label htmlFor="openai-key">OpenAI API Key</Label>
-              {user?.has_openai_api_key && (
-                <Badge variant="secondary" className="text-xs">
-                  <Check className="h-3 w-3 mr-1" />
-                  Configured
-                </Badge>
-              )}
-            </div>
-            <Input
-              id="openai-key"
-              type="password"
-              placeholder="sk-..."
-              value={openaiKey}
-              onChange={(e) => setOpenaiKey(e.target.value)}
-              disabled={isSaving}
-            />
-          </div>
-
-          {/* Anthropic */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <Label htmlFor="anthropic-key">Anthropic API Key</Label>
-              {user?.has_anthropic_api_key && (
-                <Badge variant="secondary" className="text-xs">
-                  <Check className="h-3 w-3 mr-1" />
-                  Configured
-                </Badge>
-              )}
-            </div>
-            <Input
-              id="anthropic-key"
-              type="password"
-              placeholder="sk-ant-..."
-              value={anthropicKey}
-              onChange={(e) => setAnthropicKey(e.target.value)}
-              disabled={isSaving}
-            />
-          </div>
-
-          {/* Google */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <Label htmlFor="google-key">Google AI API Key</Label>
-              {user?.has_google_api_key && (
-                <Badge variant="secondary" className="text-xs">
-                  <Check className="h-3 w-3 mr-1" />
-                  Configured
-                </Badge>
-              )}
-            </div>
-            <Input
-              id="google-key"
-              type="password"
-              placeholder="AIza..."
-              value={googleKey}
-              onChange={(e) => setGoogleKey(e.target.value)}
-              disabled={isSaving}
-            />
-          </div>
-
-          {/* xAI */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <Label htmlFor="xai-key">xAI API Key</Label>
-              {user?.has_xai_api_key && (
-                <Badge variant="secondary" className="text-xs">
-                  <Check className="h-3 w-3 mr-1" />
-                  Configured
-                </Badge>
-              )}
-            </div>
-            <Input
-              id="xai-key"
-              type="password"
-              placeholder="xai-..."
-              value={xaiKey}
-              onChange={(e) => setXaiKey(e.target.value)}
-              disabled={isSaving}
-            />
-          </div>
-        </div>
 
         {/* AI Gateway Settings */}
         <div className="space-y-4 pt-4 border-t">
@@ -822,10 +587,10 @@ function ApiKeysSettings() {
           )}
         </div>
 
-        {/* Save Button */}
+        {/* Save Gateway Button */}
         <div className="pt-4 border-t">
           <Button
-            onClick={handleSave}
+            onClick={handleSaveGateway}
             disabled={isSaving}
             className="w-full"
           >
@@ -837,20 +602,74 @@ function ApiKeysSettings() {
             ) : (
               <>
                 <Key className="mr-2 h-4 w-4" />
-                Save API Keys
+                Save Gateway Settings
               </>
             )}
           </Button>
         </div>
-      </div>
 
-      {/* Password Management Dialog */}
-      <PasswordManagementDialog
-        open={passwordDialogOpen}
-        onOpenChange={setPasswordDialogOpen}
-        mode={passwordDialogMode}
-      />
-    </div>
+        {/* API Key Modal */}
+        <Dialog
+          open={modalOpen}
+          onOpenChange={(open) => {
+            setModalOpen(open);
+            // Only reset state if not currently saving to avoid race condition
+            if (!open && !isSaving) {
+              // Reset state when closing modal via ESC or backdrop click
+              setSelectedProvider(null);
+              setApiKeyInput('');
+            }
+          }}
+        >
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>
+                {selectedProvider && `Update ${providers.find(p => p.id === selectedProvider)?.name} API Key`}
+              </DialogTitle>
+              <DialogDescription>
+                Enter your API key below. It will be encrypted and stored securely in your local database.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label htmlFor="api-key-input">API Key</Label>
+                <Input
+                  id="api-key-input"
+                  type="password"
+                  placeholder={providers.find(p => p.id === selectedProvider)?.placeholder}
+                  value={apiKeyInput}
+                  onChange={(e) => setApiKeyInput(e.target.value)}
+                  disabled={isSaving}
+                />
+              </div>
+            </div>
+
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => setModalOpen(false)}
+                disabled={isSaving}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleSaveApiKey}
+                disabled={isSaving || !apiKeyInput.trim()}
+              >
+                {isSaving ? (
+                  <>
+                    <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  'Save API Key'
+                )}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </div>
   );
 }
 
@@ -923,13 +742,7 @@ function DatabaseSettings() {
   };
 
   return (
-    <div className="rounded-lg border p-6">
-      <div className="flex items-center gap-2 mb-4">
-        <Database className="h-5 w-5 text-primary" />
-        <h2 className="text-xl font-semibold">Database Backup</h2>
-      </div>
-
-      <div className="space-y-6">
+    <div className="space-y-6">
         {/* Export Section */}
         <div className="space-y-3">
           <h3 className="text-sm font-medium">Export Database</h3>
@@ -1046,7 +859,6 @@ function DatabaseSettings() {
             </AlertDescription>
           </Alert>
         )}
-      </div>
     </div>
   );
 }
@@ -1115,15 +927,9 @@ function PrivacySettings() {
   // Show loading state while fetching settings
   if (loading) {
     return (
-      <div className="rounded-lg border p-6">
-        <div className="flex items-center gap-2 mb-4">
-          <Shield className="h-5 w-5 text-primary" />
-          <h2 className="text-xl font-semibold">Privacy & Telemetry</h2>
-        </div>
-        <div className="flex items-center justify-center py-8">
-          <RefreshCw className="h-6 w-6 animate-spin text-muted-foreground" />
-          <span className="ml-2 text-muted-foreground">Loading settings...</span>
-        </div>
+      <div className="flex items-center justify-center py-8">
+        <RefreshCw className="h-6 w-6 animate-spin text-muted-foreground" />
+        <span className="ml-2 text-muted-foreground">Loading settings...</span>
       </div>
     );
   }
@@ -1131,18 +937,12 @@ function PrivacySettings() {
   // Show error state if context failed to load
   if (contextError) {
     return (
-      <div className="rounded-lg border p-6">
-        <div className="flex items-center gap-2 mb-4">
-          <Shield className="h-5 w-5 text-primary" />
-          <h2 className="text-xl font-semibold">Privacy & Telemetry</h2>
-        </div>
-        <Alert variant="destructive">
-          <AlertTriangle className="h-4 w-4" />
-          <AlertDescription>
-            Failed to load telemetry settings: {contextError}
-          </AlertDescription>
-        </Alert>
-      </div>
+      <Alert variant="destructive">
+        <AlertTriangle className="h-4 w-4" />
+        <AlertDescription>
+          Failed to load telemetry settings: {contextError}
+        </AlertDescription>
+      </Alert>
     );
   }
 
@@ -1151,13 +951,7 @@ function PrivacySettings() {
   }
 
   return (
-    <div className="rounded-lg border p-6">
-      <div className="flex items-center gap-2 mb-4">
-        <Shield className="h-5 w-5 text-primary" />
-        <h2 className="text-xl font-semibold">Privacy & Telemetry</h2>
-      </div>
-
-      <div className="space-y-6">
+    <div className="space-y-6">
         <Alert>
           <Shield className="h-4 w-4" />
           <AlertDescription>
@@ -1262,7 +1056,6 @@ function PrivacySettings() {
               : 'All telemetry is disabled'}
           </p>
         </div>
-      </div>
     </div>
   );
 }
@@ -1554,41 +1347,135 @@ function CloudSettings() {
 
 // Advanced Settings Component with nested tabs
 function AdvancedSettings() {
+  const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
+  const [passwordDialogMode, setPasswordDialogMode] = useState<'set' | 'change' | 'remove'>('set');
+  const [isMacOS, setIsMacOS] = useState(false);
+
+  useEffect(() => {
+    setIsMacOS(navigator.platform.toLowerCase().includes('mac'));
+  }, []);
+
+  const openPasswordDialog = (mode: 'set' | 'change' | 'remove') => {
+    setPasswordDialogMode(mode);
+    setPasswordDialogOpen(true);
+  };
+
   return (
     <div className="rounded-lg border p-6">
       <div className="flex items-center gap-2 mb-4">
         <Sliders className="h-5 w-5 text-primary" />
-        <h2 className="text-xl font-semibold">Advanced Configuration</h2>
-      </div>
-      
-      <div className="text-sm text-muted-foreground mb-6">
-        Configure server, security, and runtime settings for Orkee. 
-        Changes marked with <Badge variant="secondary" className="text-xs mx-1">Requires Restart</Badge> need an application restart to take effect.
+        <h2 className="text-xl font-semibold">Advanced</h2>
       </div>
 
-      <Tabs defaultValue="server" className="w-full">
-        <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="server">Server</TabsTrigger>
-          <TabsTrigger value="security">Security</TabsTrigger>
-          <TabsTrigger value="rate_limiting">Rate Limiting</TabsTrigger>
-          <TabsTrigger value="tls">TLS/HTTPS</TabsTrigger>
+      <Tabs defaultValue="configuration" className="w-full">
+        <TabsList className="inline-flex">
+          <TabsTrigger value="configuration" className="flex items-center gap-2">
+            <SettingsIcon className="h-3.5 w-3.5" />
+            Configuration
+          </TabsTrigger>
+          <TabsTrigger value="backup" className="flex items-center gap-2">
+            <Database className="h-3.5 w-3.5" />
+            Backup
+          </TabsTrigger>
+          <TabsTrigger value="privacy" className="flex items-center gap-2">
+            <Eye className="h-3.5 w-3.5" />
+            Telemetry
+          </TabsTrigger>
+          <TabsTrigger value="encryption" className="flex items-center gap-2">
+            <Lock className="h-3.5 w-3.5" />
+            Encryption
+          </TabsTrigger>
+          {isMacOS && (
+            <TabsTrigger value="cli" className="flex items-center gap-2">
+              <Terminal className="h-3.5 w-3.5" />
+              CLI
+            </TabsTrigger>
+          )}
         </TabsList>
 
-        <TabsContent value="server" className="space-y-4 mt-4">
-          <ServerConfigSection />
+        <TabsContent value="configuration" className="space-y-6 mt-6">
+          <div className="text-sm text-muted-foreground mb-4">
+            Configure server, security, and runtime settings for Orkee.
+            Changes marked with <Badge variant="secondary" className="text-xs mx-1">Requires Restart</Badge> need an application restart to take effect.
+          </div>
+
+          <Tabs defaultValue="server" className="w-full">
+            <TabsList className="grid w-full grid-cols-4">
+              <TabsTrigger value="server" className="flex items-center gap-2">
+                <Server className="h-3.5 w-3.5" />
+                Server
+              </TabsTrigger>
+              <TabsTrigger value="security" className="flex items-center gap-2">
+                <ShieldCheck className="h-3.5 w-3.5" />
+                Security
+              </TabsTrigger>
+              <TabsTrigger value="rate_limiting" className="flex items-center gap-2">
+                <Gauge className="h-3.5 w-3.5" />
+                Rate Limiting
+              </TabsTrigger>
+              <TabsTrigger value="tls" className="flex items-center gap-2">
+                <Lock className="h-3.5 w-3.5" />
+                TLS/HTTPS
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="server" className="space-y-4 mt-4">
+              <ServerConfigSection />
+            </TabsContent>
+
+            <TabsContent value="security" className="space-y-4 mt-4">
+              <SecurityConfigSection />
+            </TabsContent>
+
+            <TabsContent value="rate_limiting" className="space-y-4 mt-4">
+              <RateLimitingConfigSection />
+            </TabsContent>
+
+            <TabsContent value="tls" className="space-y-4 mt-4">
+              <TlsConfigSection />
+            </TabsContent>
+          </Tabs>
         </TabsContent>
 
-        <TabsContent value="security" className="space-y-4 mt-4">
-          <SecurityConfigSection />
+        <TabsContent value="backup" className="space-y-6 mt-6">
+          <div className="text-sm text-muted-foreground mb-4">
+            Export and import your Orkee database for backup and migration.
+          </div>
+
+          <DatabaseSettings />
         </TabsContent>
 
-        <TabsContent value="rate_limiting" className="space-y-4 mt-4">
-          <RateLimitingConfigSection />
+        <TabsContent value="privacy" className="space-y-6 mt-6">
+          <div className="text-sm text-muted-foreground mb-4">
+            Manage privacy settings and telemetry preferences.
+          </div>
+
+          <PrivacySettings />
         </TabsContent>
 
-        <TabsContent value="tls" className="space-y-4 mt-4">
-          <TlsConfigSection />
+        <TabsContent value="encryption" className="space-y-6 mt-6">
+          <div className="text-sm text-muted-foreground mb-4">
+            Manage encryption settings for your API keys and sensitive data.
+          </div>
+
+          <SecurityStatusSection onManagePassword={openPasswordDialog} />
+
+          <PasswordManagementDialog
+            open={passwordDialogOpen}
+            onOpenChange={setPasswordDialogOpen}
+            mode={passwordDialogMode}
+          />
         </TabsContent>
+
+        {isMacOS && (
+          <TabsContent value="cli" className="space-y-6 mt-6">
+            <div className="text-sm text-muted-foreground mb-4">
+              Install and manage the Orkee CLI command for terminal access.
+            </div>
+
+            <CliInstallationSettings />
+          </TabsContent>
+        )}
       </Tabs>
     </div>
   );

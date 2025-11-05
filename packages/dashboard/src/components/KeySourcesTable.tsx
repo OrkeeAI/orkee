@@ -3,11 +3,15 @@
 
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Database, Server, AlertTriangle, RefreshCw, Check, X, Info } from 'lucide-react';
+import { Database, Server, AlertTriangle, RefreshCw, Check, X, Info, Edit } from 'lucide-react';
 import { useKeysStatus } from '@/hooks/useSecurity';
 import { Button } from '@/components/ui/button';
 
-export function KeySourcesTable() {
+interface KeySourcesTableProps {
+  onEditKey?: (providerId: 'openai' | 'anthropic' | 'google' | 'xai') => void;
+}
+
+export function KeySourcesTable({ onEditKey }: KeySourcesTableProps) {
   const { data: keysStatus, isLoading, error, refetch } = useKeysStatus();
 
   if (isLoading) {
@@ -76,12 +80,14 @@ export function KeySourcesTable() {
               <th className="text-left text-xs font-medium p-3">Provider</th>
               <th className="text-center text-xs font-medium p-3">Status</th>
               <th className="text-center text-xs font-medium p-3">Source</th>
+              {onEditKey && <th className="text-center text-xs font-medium p-3">Actions</th>}
             </tr>
           </thead>
           <tbody className="divide-y">
             {keysStatus?.keys.map((keyStatus) => {
               const isConfigured = keyStatus.configured;
               const source = keyStatus.source;
+              const canEdit = onEditKey && keyStatus.key !== 'ai_gateway' && source !== 'environment';
 
               return (
                 <tr key={keyStatus.key} className="hover:bg-muted/30 transition-colors">
@@ -126,6 +132,24 @@ export function KeySourcesTable() {
                       <span className="text-xs text-muted-foreground">-</span>
                     )}
                   </td>
+                  {onEditKey && (
+                    <td className="p-3 text-center">
+                      {canEdit ? (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => onEditKey(keyStatus.key as 'openai' | 'anthropic' | 'google' | 'xai')}
+                          className="h-7 w-7 p-0"
+                          title={isConfigured ? 'Update API key' : 'Add API key'}
+                          aria-label={`${isConfigured ? 'Update' : 'Add'} ${getKeyLabel(keyStatus.key)} API key`}
+                        >
+                          <Edit className="h-3.5 w-3.5" />
+                        </Button>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">-</span>
+                      )}
+                    </td>
+                  )}
                 </tr>
               );
             })}
