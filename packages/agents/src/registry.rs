@@ -18,26 +18,32 @@ pub enum AgentError {
 type Result<T> = std::result::Result<T, AgentError>;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AgentModel {
+    pub model_id: String,
+    pub is_default: bool,
+    pub is_recommended: bool,
+    pub display_order: i32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AgentDefaultConfig {
+    pub temperature: f32,
+    pub max_tokens: u32,
+    pub system_prompt: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Agent {
     pub id: String,
     pub name: String,
-    pub provider: String,
+    #[serde(rename = "type")]
+    pub agent_type: String,
     pub description: String,
-    pub capabilities: HashMap<String, bool>,
-    pub supported_providers: Vec<String>,
-    pub supported_models: Vec<String>,
-    pub default_model: String,
-    pub system_prompt: String,
-    pub temperature_range: [f32; 2],
-    pub default_temperature: f32,
-    pub max_tokens: u32,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub max_context: Option<u32>,
+    pub avatar_url: Option<String>,
+    pub required_providers: Vec<String>,
+    pub supported_models: Vec<AgentModel>,
+    pub default_config: AgentDefaultConfig,
     pub is_available: bool,
-    pub requires_auth: bool,
-    pub auth_type: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub model_selection_strategy: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -79,7 +85,7 @@ impl AgentRegistry {
     pub fn list_by_provider(&self, provider: &str) -> Vec<&Agent> {
         self.agents
             .values()
-            .filter(|agent| agent.provider == provider || agent.supported_providers.contains(&provider.to_string()))
+            .filter(|agent| agent.required_providers.contains(&provider.to_string()))
             .collect()
     }
 
@@ -90,7 +96,10 @@ impl AgentRegistry {
 
     /// Get the default model for an agent
     pub fn get_default_model(&self, agent_id: &str) -> Option<&str> {
-        self.agents.get(agent_id).map(|a| a.default_model.as_str())
+        self.agents
+            .get(agent_id)
+            .and_then(|a| a.supported_models.iter().find(|m| m.is_default))
+            .map(|m| m.model_id.as_str())
     }
 
     /// Validate that an agent ID references a valid agent
@@ -106,8 +115,8 @@ impl AgentRegistry {
     pub fn validate_model_for_agent(&self, agent_id: &str, model: &str) -> Result<()> {
         let agent = self.get(agent_id)
             .ok_or_else(|| AgentError::NotFound(agent_id.to_string()))?;
-        
-        if agent.supported_models.contains(&model.to_string()) {
+
+        if agent.supported_models.iter().any(|m| m.model_id == model) {
             Ok(())
         } else {
             Err(AgentError::InvalidConfig(
@@ -136,9 +145,9 @@ mod tests {
     #[test]
     fn test_get_agent() {
         let registry = AgentRegistry::new().unwrap();
-        let claude = registry.get("claude");
+        let claude = registry.get("claude-code");
         assert!(claude.is_some());
-        assert_eq!(claude.unwrap().name, "Claude");
+        assert_eq!(claude.unwrap().name, "Claude Code");
     }
 
     #[test]
@@ -158,14 +167,14 @@ mod tests {
     #[test]
     fn test_validate_agent_id() {
         let registry = AgentRegistry::new().unwrap();
-        assert!(registry.validate_agent_id("claude").is_ok());
+        assert!(registry.validate_agent_id("claude-code").is_ok());
         assert!(registry.validate_agent_id("invalid").is_err());
     }
 
     #[test]
     fn test_validate_model_for_agent() {
         let registry = AgentRegistry::new().unwrap();
-        assert!(registry.validate_model_for_agent("claude", "claude-sonnet-4-5-20250929").is_ok());
-        assert!(registry.validate_model_for_agent("claude", "gpt-5").is_err());
+        assert!(registry.validate_model_for_agent("claude-code", "claude-sonnet-4-5-20250929").is_ok());
+        assert!(registry.validate_model_for_agent("claude-code", "gpt-5").is_err());
     }
 }

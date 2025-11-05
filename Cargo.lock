@@ -3261,6 +3261,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "orkee-sandbox"
+version = "0.0.9"
+dependencies = [
+ "chrono",
+ "orkee-storage",
+ "serde",
+ "serde_json",
+ "sqlx",
+ "tempfile",
+ "thiserror 2.0.17",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "orkee-security"
 version = "0.0.9"
 dependencies = [

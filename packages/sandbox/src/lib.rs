@@ -1,6 +1,10 @@
 // ABOUTME: Sandbox provider registry for loading and managing sandbox provider configurations
 // ABOUTME: Loads provider definitions from config/providers.json at runtime
 
+pub mod settings;
+
+pub use settings::{ProviderSettings, SandboxSettings, SettingsManager};
+
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use thiserror::Error;
