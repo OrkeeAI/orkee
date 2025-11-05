@@ -4,13 +4,13 @@
 
 ## Progress Summary
 
-- **Overall**: 25/37 tasks completed (68%)
+- **Overall**: 31/37 tasks completed (84%)
 - **Phase 1 (Database)**: 4/4 tasks ✅
 - **Phase 2 (Remove Code)**: 4/4 tasks ✅
 - **Phase 3 (OAuth Manager)**: 8/8 tasks ✅
 - **Phase 4 (Storage)**: 3/3 tasks ✅
 - **Phase 5 (CLI)**: 6/6 tasks ✅
-- **Phase 6 (Testing)**: 0/6 tasks
+- **Phase 6 (Testing)**: 6/6 tasks ✅
 - **Phase 7 (Docs)**: 0/6 tasks
 
 **Estimated Time**: ~2.5 hours
@@ -400,13 +400,13 @@ async fn refresh_command(provider_str: &str) -> Result<(), String> {
 }
 ```
 
-### Phase 6: Testing & Verification ⏳
-- [ ] Test `orkee auth login claude` (auto-setup flow)
-- [ ] Test `orkee auth login claude --file` (file import)
-- [ ] Verify token encryption in database
-- [ ] Test `orkee auth status` shows Claude correctly
-- [ ] Test `orkee auth logout claude` removes token
-- [ ] Test error cases (invalid token, missing CLI, etc.)
+### Phase 6: Testing & Verification ✅
+- [x] Test `orkee auth login claude` (auto-setup flow)
+- [x] Test `orkee auth login claude --file` (file import)
+- [x] Verify token encryption in database
+- [x] Test `orkee auth status` shows Claude correctly
+- [x] Test `orkee auth logout claude` removes token
+- [x] Test error cases (invalid token, missing CLI, etc.)
 
 #### Test Commands and Expected Output
 
