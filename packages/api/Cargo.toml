@@ -29,6 +29,7 @@ orkee-ai = { path = "../ai" }
 orkee-models = { path = "../models" }
 orkee-ideate = { path = "../ideate" }
 orkee-auth = { path = "../auth" }
+orkee-sandbox = { path = "../sandbox" }
 
 # Database
 sqlx = { version = "0.8", features = ["runtime-tokio", "sqlite", "macros"] }

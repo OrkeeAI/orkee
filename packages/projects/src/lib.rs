@@ -95,6 +95,9 @@ pub use orkee_security;
 // Re-export context module (used by API handlers)
 pub use orkee_context;
 
+// Re-export sandbox types (used by API handlers)
+pub use orkee_sandbox::{ProviderSettings, SandboxSettings, SettingsManager};
+
 // Re-export tasks types (used by API handlers)
 pub use orkee_tasks::{
     storage::TaskStorage, Task, TaskCreateInput, TaskPriority, TaskStatus, TaskUpdateInput,

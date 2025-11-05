@@ -31,6 +31,7 @@ pub mod models_handlers;
 pub mod oauth_handlers;
 pub mod prd_handlers;
 pub mod response;
+pub mod sandbox_handlers;
 pub mod security_handlers;
 pub mod tags_handlers;
 pub mod task_decomposition_handlers;
@@ -826,4 +827,29 @@ pub fn create_oauth_router() -> Router<DbState> {
         .route("/{provider}/token", post(oauth_handlers::get_token))
         .route("/{provider}/refresh", post(oauth_handlers::refresh_token))
         .route("/{provider}", delete(oauth_handlers::logout))
+}
+
+/// Creates the Sandbox API router for sandbox settings management
+pub fn create_sandbox_router() -> Router<DbState> {
+    Router::new()
+        // Sandbox settings endpoints
+        .route("/settings", get(sandbox_handlers::get_sandbox_settings))
+        .route("/settings", put(sandbox_handlers::update_sandbox_settings))
+        // Provider settings endpoints
+        .route(
+            "/providers",
+            get(sandbox_handlers::list_provider_settings),
+        )
+        .route(
+            "/providers/{provider}",
+            get(sandbox_handlers::get_provider_settings),
+        )
+        .route(
+            "/providers/{provider}",
+            put(sandbox_handlers::update_provider_settings),
+        )
+        .route(
+            "/providers/{provider}",
+            delete(sandbox_handlers::delete_provider_settings),
+        )
 }

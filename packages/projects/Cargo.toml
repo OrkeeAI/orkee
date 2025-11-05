@@ -47,6 +47,9 @@ orkee-ai = { path = "../ai" }
 # Context package
 orkee-context = { path = "../context" }
 
+# Sandbox package
+orkee-sandbox = { path = "../sandbox" }
+
 # Database
 sqlx = { version = "0.8.1", default-features = false, features = ["runtime-tokio-rustls", "sqlite", "uuid", "chrono", "migrate", "macros", "json"] }
 
