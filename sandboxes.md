@@ -1533,13 +1533,14 @@ With Phase 1 complete, the following components are ready for Phase 2 integratio
 - [x] Build unified Docker image (simplified from separate base/agent images to single multi-agent image)
 
 ### Phase 2: Core Features (Week 2)
-- [ ] Sandbox lifecycle manager using database settings
-- [ ] Command executor with streaming
-- [ ] Agent/model tracking in executions
-- [ ] Token usage and cost calculation
-- [ ] File operations (read/write/delete)
-- [ ] Resource monitoring with database intervals
-- [ ] Health checks using database settings
+- [x] Sandbox lifecycle manager using database settings (`manager.rs`)
+- [x] Command executor with streaming (`executor.rs`)
+- [x] Agent/model tracking in executions (integrated in manager)
+- [x] Token usage and cost calculation (`cost.rs`)
+- [x] File operations (read/write/delete) (via provider trait)
+- [x] Resource monitoring with database intervals (`monitor.rs`)
+- [x] Health checks using database settings (`health.rs`)
+- [ ] Fix remaining compilation errors (API signature mismatches)
 - [ ] Settings API endpoints
 - [ ] Provider settings API endpoints
 
