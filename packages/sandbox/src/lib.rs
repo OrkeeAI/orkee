@@ -1,9 +1,11 @@
 // ABOUTME: Sandbox provider registry for loading and managing sandbox provider configurations
 // ABOUTME: Loads provider definitions from config/providers.json at runtime
 
+pub mod providers;
 pub mod settings;
 pub mod storage;
 
+pub use providers::{DockerProvider, Provider as SandboxProvider};
 pub use settings::{ProviderSettings, SandboxSettings, SettingsManager};
 pub use storage::{
     EnvVar, ExecutionStatus, Sandbox, SandboxExecution, SandboxStatus, SandboxStorage,
