@@ -4,7 +4,7 @@ import { useCloudAuth, useCloudSync } from '@/hooks/useCloud'
 import { cloudService, formatLastSync } from '@/services/cloud'
 import { fetchConfig } from '@/services/config'
 import { exportDatabase, importDatabase, type ImportResult } from '@/services/database'
-import { Cloud, User, RefreshCw, Download, Upload, Code2, ExternalLink, Database, AlertTriangle, Shield, Trash2, Key, Check, Terminal, Sliders, LayoutGrid, Brain, Lock, Server, Settings as SettingsIcon, Gauge, ShieldCheck, Eye } from 'lucide-react'
+import { Cloud, User, RefreshCw, Download, Upload, Code2, ExternalLink, Database, AlertTriangle, Shield, Trash2, Key, Check, Terminal, Sliders, LayoutGrid, Brain, Lock, Server, Settings as SettingsIcon, Gauge, ShieldCheck, Eye, Box } from 'lucide-react'
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { SUPPORTED_EDITORS, getDefaultEditorSettings } from '@/lib/editor-utils'
 import type { EditorSettings } from '@/lib/editor-utils'
@@ -26,6 +26,7 @@ import { updateSetting, getSettingsByCategory, type SystemSetting } from '@/serv
 import { clearConfigCache } from '@/services/config'
 import { AIModelsSettings } from '@/components/settings/AIModelsSettings'
 import { OAuthSettings } from '@/components/settings/OAuthSettings'
+import { SandboxSettings } from '@/components/settings/SandboxSettings'
 import { useToast } from '@/hooks/use-toast'
 import { TelemetryErrorBoundary } from '@/components/TelemetryErrorBoundary'
 
@@ -1400,7 +1401,7 @@ function AdvancedSettings() {
           </div>
 
           <Tabs defaultValue="server" className="w-full">
-            <TabsList className="grid w-full grid-cols-4">
+            <TabsList className="grid w-full grid-cols-5">
               <TabsTrigger value="server" className="flex items-center gap-2">
                 <Server className="h-3.5 w-3.5" />
                 Server
@@ -1416,6 +1417,10 @@ function AdvancedSettings() {
               <TabsTrigger value="tls" className="flex items-center gap-2">
                 <Lock className="h-3.5 w-3.5" />
                 TLS/HTTPS
+              </TabsTrigger>
+              <TabsTrigger value="sandboxes" className="flex items-center gap-2">
+                <Box className="h-3.5 w-3.5" />
+                Sandboxes
               </TabsTrigger>
             </TabsList>
 
@@ -1433,6 +1438,10 @@ function AdvancedSettings() {
 
             <TabsContent value="tls" className="space-y-4 mt-4">
               <TlsConfigSection />
+            </TabsContent>
+
+            <TabsContent value="sandboxes" className="space-y-4 mt-4">
+              <SandboxSettings />
             </TabsContent>
           </Tabs>
         </TabsContent>
