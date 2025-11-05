@@ -165,7 +165,10 @@ pub async fn refresh_token(
     Path(provider): Path<String>,
     CurrentUser { id }: CurrentUser,
 ) -> impl IntoResponse {
-    info!("Refresh token requested for provider: {} (user: {})", provider, id);
+    info!(
+        "Refresh token requested for provider: {} (user: {})",
+        provider, id
+    );
 
     // Token refresh is not yet implemented
     // Claude tokens cannot be refreshed - they must be re-imported

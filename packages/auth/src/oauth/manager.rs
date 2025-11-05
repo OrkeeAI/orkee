@@ -6,7 +6,10 @@ use tracing::{debug, info};
 
 use crate::{
     error::{AuthError, AuthResult},
-    oauth::{storage::OAuthStorage, types::{OAuthProvider, OAuthToken}},
+    oauth::{
+        storage::OAuthStorage,
+        types::{OAuthProvider, OAuthToken},
+    },
 };
 
 /// OAuth manager for handling token storage and retrieval

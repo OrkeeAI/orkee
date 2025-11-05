@@ -266,16 +266,21 @@ async fn refresh_command(provider_str: &str) {
 }
 
 async fn import_claude_from_setup() {
-    println!("{}", "🔐 Running 'claude setup-token' to generate authentication token...".bold().cyan());
+    println!(
+        "{}",
+        "🔐 Running 'claude setup-token' to generate authentication token..."
+            .bold()
+            .cyan()
+    );
     println!("   This will open your browser for authentication.");
     println!();
 
     // Run claude setup-token
     let output = match Command::new("claude")
         .arg("setup-token")
-        .stdin(Stdio::inherit())   // Allow browser interaction
-        .stdout(Stdio::piped())    // Capture token output
-        .stderr(Stdio::inherit())  // Show progress to user
+        .stdin(Stdio::inherit()) // Allow browser interaction
+        .stdout(Stdio::piped()) // Capture token output
+        .stderr(Stdio::inherit()) // Show progress to user
         .output()
     {
         Ok(output) => output,
@@ -287,14 +292,21 @@ async fn import_claude_from_setup() {
                 eprintln!("  {}", "npm install -g @anthropic-ai/claude-code".yellow());
                 process::exit(1);
             } else {
-                eprintln!("{} Failed to run 'claude setup-token': {}", "✗".red().bold(), e);
+                eprintln!(
+                    "{} Failed to run 'claude setup-token': {}",
+                    "✗".red().bold(),
+                    e
+                );
                 process::exit(1);
             }
         }
     };
 
     if !output.status.success() {
-        eprintln!("{} claude setup-token failed. Please try again.", "✗".red().bold());
+        eprintln!(
+            "{} claude setup-token failed. Please try again.",
+            "✗".red().bold()
+        );
         process::exit(1);
     }
 
@@ -315,14 +327,22 @@ async fn import_claude_from_setup() {
     }
 
     println!();
-    println!("{} Claude authentication token imported successfully!", "✓".green().bold());
+    println!(
+        "{} Claude authentication token imported successfully!",
+        "✓".green().bold()
+    );
     println!("   Token expires in 1 year.");
 
     show_encryption_warning().await;
 }
 
 async fn import_claude_from_file(file_path: &str) {
-    println!("{}", format!("📄 Importing Claude token from file: {}", file_path).bold().cyan());
+    println!(
+        "{}",
+        format!("📄 Importing Claude token from file: {}", file_path)
+            .bold()
+            .cyan()
+    );
 
     let token = match fs::read_to_string(file_path) {
         Ok(content) => content.trim().to_string(),
@@ -348,7 +368,10 @@ async fn import_claude_from_file(file_path: &str) {
     }
 
     println!();
-    println!("{} Claude authentication token imported successfully!", "✓".green().bold());
+    println!(
+        "{} Claude authentication token imported successfully!",
+        "✓".green().bold()
+    );
     println!("   Token expires in 1 year.");
 
     show_encryption_warning().await;
@@ -363,11 +386,10 @@ fn extract_claude_token(output: &str) -> Result<String, String> {
         }
     }
 
-    Err(
-        "Could not find token in command output.\n\
+    Err("Could not find token in command output.\n\
          The token should start with 'sk-ant-oat01-'.\n\
-         Please try running 'claude setup-token' manually and use --file option.".to_string()
-    )
+         Please try running 'claude setup-token' manually and use --file option."
+        .to_string())
 }
 
 async fn store_claude_token(token: &str) -> Result<(), String> {
@@ -384,15 +406,15 @@ async fn store_claude_token(token: &str) -> Result<(), String> {
 
     let oauth_token = OAuthToken {
         id: token_id,
-        user_id: "default-user".to_string(),  // TODO: Implement user system
+        user_id: "default-user".to_string(), // TODO: Implement user system
         provider: "claude".to_string(),
         access_token: token.to_string(),
-        refresh_token: None,  // Claude tokens don't refresh
+        refresh_token: None, // Claude tokens don't refresh
         expires_at: Utc::now().timestamp() + (365 * 24 * 60 * 60), // 1 year
         token_type: "Bearer".to_string(),
         scope: Some("model:claude account:read".to_string()),
-        subscription_type: None,  // Could detect later via API
-        account_email: None,      // Could detect later via API
+        subscription_type: None, // Could detect later via API
+        account_email: None,     // Could detect later via API
     };
 
     manager

@@ -38,7 +38,10 @@ impl FromStr for OAuthProvider {
             "openai" => Ok(Self::OpenAI),
             "google" => Ok(Self::Google),
             "xai" => Ok(Self::XAI),
-            _ => Err(AuthError::InvalidProvider(format!("Unknown provider: {}", s))),
+            _ => Err(AuthError::InvalidProvider(format!(
+                "Unknown provider: {}",
+                s
+            ))),
         }
     }
 }
