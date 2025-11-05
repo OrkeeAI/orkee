@@ -1378,8 +1378,8 @@ All other configuration is stored in the database and managed through the UI.
 - [x] Implement agent registry
 - [x] Implement provider registry
 - [x] Create storage layer (SandboxStorage with full CRUD operations)
-- [ ] Create Docker provider with bollard
-- [ ] Build default Docker image
+- [x] Create Docker provider with bollard
+- [x] Build Docker images (base, claude-code, aider)
 
 ### Phase 2: Core Features (Week 2)
 - [ ] Sandbox lifecycle manager using database settings
