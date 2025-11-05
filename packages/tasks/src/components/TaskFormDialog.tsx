@@ -7,6 +7,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
   DialogFooter,
 } from './ui/dialog';
 
@@ -171,13 +172,18 @@ export const TaskFormDialog: React.FC<TaskFormDialogProps> = ({
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{isEditMode ? 'Edit Task' : 'Create New Task'}</DialogTitle>
+          <DialogDescription>
+            {isEditMode
+              ? 'Update the task details below.'
+              : 'Fill in the details to create a new task.'}
+          </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* Title */}
           <div className="space-y-2">
-            <label htmlFor="title" className="text-sm font-medium">
-              Title <span className="text-red-500">*</span>
+            <label htmlFor="title" className="text-sm font-medium text-foreground">
+              Title <span className="text-destructive">*</span>
             </label>
             <input
               id="title"
@@ -185,14 +191,14 @@ export const TaskFormDialog: React.FC<TaskFormDialogProps> = ({
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               required
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800"
+              className="w-full px-3 py-2 bg-background text-foreground border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring placeholder:text-muted-foreground"
               placeholder="Enter task title"
             />
           </div>
 
           {/* Description */}
           <div className="space-y-2">
-            <label htmlFor="description" className="text-sm font-medium">
+            <label htmlFor="description" className="text-sm font-medium text-foreground">
               Description
             </label>
             <textarea
@@ -200,7 +206,7 @@ export const TaskFormDialog: React.FC<TaskFormDialogProps> = ({
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               rows={3}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800"
+              className="w-full px-3 py-2 bg-background text-foreground border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring placeholder:text-muted-foreground resize-none"
               placeholder="Enter task description"
             />
           </div>
@@ -208,14 +214,14 @@ export const TaskFormDialog: React.FC<TaskFormDialogProps> = ({
           {/* Status and Priority Row */}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <label htmlFor="status" className="text-sm font-medium">
+              <label htmlFor="status" className="text-sm font-medium text-foreground">
                 Status
               </label>
               <select
                 id="status"
                 value={status}
                 onChange={(e) => setStatus(e.target.value as TaskStatus)}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800"
+                className="w-full px-3 py-2 bg-background text-foreground border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
               >
                 <option value={TaskStatus.Pending}>Pending</option>
                 <option value={TaskStatus.InProgress}>In Progress</option>
@@ -228,14 +234,14 @@ export const TaskFormDialog: React.FC<TaskFormDialogProps> = ({
             </div>
 
             <div className="space-y-2">
-              <label htmlFor="priority" className="text-sm font-medium">
+              <label htmlFor="priority" className="text-sm font-medium text-foreground">
                 Priority
               </label>
               <select
                 id="priority"
                 value={priority}
                 onChange={(e) => setPriority(e.target.value as TaskPriority)}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800"
+                className="w-full px-3 py-2 bg-background text-foreground border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
               >
                 <option value={TaskPriority.Low}>Low</option>
                 <option value={TaskPriority.Medium}>Medium</option>
@@ -248,7 +254,7 @@ export const TaskFormDialog: React.FC<TaskFormDialogProps> = ({
           {/* Tag and Agent Row */}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <label htmlFor="tag" className="text-sm font-medium">
+              <label htmlFor="tag" className="text-sm font-medium text-foreground">
                 Tag
               </label>
               <select
@@ -256,7 +262,7 @@ export const TaskFormDialog: React.FC<TaskFormDialogProps> = ({
                 value={tagId}
                 onChange={(e) => setTagId(e.target.value)}
                 disabled={loadingTags}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 disabled:opacity-50"
+                className="w-full px-3 py-2 bg-background text-foreground border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <option value="">No tag</option>
                 {tags.map((tag) => (
@@ -268,7 +274,7 @@ export const TaskFormDialog: React.FC<TaskFormDialogProps> = ({
             </div>
 
             <div className="space-y-2">
-              <label htmlFor="assignedAgent" className="text-sm font-medium">
+              <label htmlFor="assignedAgent" className="text-sm font-medium text-foreground">
                 Assigned Agent ID
               </label>
               <input
@@ -276,7 +282,7 @@ export const TaskFormDialog: React.FC<TaskFormDialogProps> = ({
                 type="text"
                 value={assignedAgentId}
                 onChange={(e) => setAssignedAgentId(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800"
+                className="w-full px-3 py-2 bg-background text-foreground border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring placeholder:text-muted-foreground"
                 placeholder="Optional agent ID"
               />
             </div>
@@ -284,7 +290,7 @@ export const TaskFormDialog: React.FC<TaskFormDialogProps> = ({
 
           {/* Complexity Slider */}
           <div className="space-y-2">
-            <label htmlFor="complexity" className="text-sm font-medium">
+            <label htmlFor="complexity" className="text-sm font-medium text-foreground">
               Complexity: {complexityScore} ({getComplexityLabel(complexityScore)})
             </label>
             <input
@@ -294,9 +300,9 @@ export const TaskFormDialog: React.FC<TaskFormDialogProps> = ({
               max="10"
               value={complexityScore}
               onChange={(e) => setComplexityScore(parseInt(e.target.value))}
-              className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
+              className="w-full h-2 bg-secondary rounded-lg appearance-none cursor-pointer accent-primary"
             />
-            <div className="flex justify-between text-xs text-gray-500">
+            <div className="flex justify-between text-xs text-muted-foreground">
               <span>1 (Trivial)</span>
               <span>5 (Moderate)</span>
               <span>10 (Very Complex)</span>
@@ -305,7 +311,7 @@ export const TaskFormDialog: React.FC<TaskFormDialogProps> = ({
 
           {/* Due Date */}
           <div className="space-y-2">
-            <label htmlFor="dueDate" className="text-sm font-medium">
+            <label htmlFor="dueDate" className="text-sm font-medium text-foreground">
               Due Date
             </label>
             <input
@@ -313,20 +319,20 @@ export const TaskFormDialog: React.FC<TaskFormDialogProps> = ({
               type="date"
               value={dueDate}
               onChange={(e) => setDueDate(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800"
+              className="w-full px-3 py-2 bg-background text-foreground border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
             />
           </div>
 
           {/* Advanced Fields - Collapsible */}
           <details className="space-y-2">
-            <summary className="text-sm font-medium cursor-pointer">
-              Advanced Options
+            <summary className="text-sm font-medium text-foreground cursor-pointer hover:text-primary">
+              ▸ Advanced Options
             </summary>
 
             <div className="mt-3 space-y-4 pl-4">
               {/* Details */}
               <div className="space-y-2">
-                <label htmlFor="details" className="text-sm font-medium">
+                <label htmlFor="details" className="text-sm font-medium text-foreground">
                   Details
                 </label>
                 <textarea
@@ -334,14 +340,14 @@ export const TaskFormDialog: React.FC<TaskFormDialogProps> = ({
                   value={details}
                   onChange={(e) => setDetails(e.target.value)}
                   rows={3}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800"
+                  className="w-full px-3 py-2 bg-background text-foreground border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring placeholder:text-muted-foreground resize-none"
                   placeholder="Additional implementation details"
                 />
               </div>
 
               {/* Test Strategy */}
               <div className="space-y-2">
-                <label htmlFor="testStrategy" className="text-sm font-medium">
+                <label htmlFor="testStrategy" className="text-sm font-medium text-foreground">
                   Test Strategy
                 </label>
                 <textarea
@@ -349,14 +355,14 @@ export const TaskFormDialog: React.FC<TaskFormDialogProps> = ({
                   value={testStrategy}
                   onChange={(e) => setTestStrategy(e.target.value)}
                   rows={3}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800"
+                  className="w-full px-3 py-2 bg-background text-foreground border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring placeholder:text-muted-foreground resize-none"
                   placeholder="How to test this task"
                 />
               </div>
 
               {/* Acceptance Criteria */}
               <div className="space-y-2">
-                <label htmlFor="acceptanceCriteria" className="text-sm font-medium">
+                <label htmlFor="acceptanceCriteria" className="text-sm font-medium text-foreground">
                   Acceptance Criteria
                 </label>
                 <textarea
@@ -364,7 +370,7 @@ export const TaskFormDialog: React.FC<TaskFormDialogProps> = ({
                   value={acceptanceCriteria}
                   onChange={(e) => setAcceptanceCriteria(e.target.value)}
                   rows={3}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800"
+                  className="w-full px-3 py-2 bg-background text-foreground border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring placeholder:text-muted-foreground resize-none"
                   placeholder="What defines this task as complete"
                 />
               </div>
@@ -375,13 +381,13 @@ export const TaskFormDialog: React.FC<TaskFormDialogProps> = ({
             <button
               type="button"
               onClick={() => onOpenChange(false)}
-              className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="px-4 py-2 text-sm font-medium text-foreground bg-background border border-input rounded-md hover:bg-accent hover:text-accent-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-colors"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="px-4 py-2 text-sm font-medium text-primary-foreground bg-primary rounded-md hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-ring transition-colors"
             >
               {isEditMode ? 'Update Task' : 'Create Task'}
             </button>

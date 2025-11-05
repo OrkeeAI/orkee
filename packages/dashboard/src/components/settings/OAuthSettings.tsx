@@ -95,7 +95,7 @@ export function OAuthSettings() {
               <p className="font-medium mb-2">How to authenticate:</p>
               <ol className="text-sm space-y-1 list-decimal list-inside">
                 <li>Open your terminal</li>
-                <li>Run <code className="px-1.5 py-0.5 bg-gray-100 rounded text-xs">orkee login &lt;provider&gt;</code></li>
+                <li>Run <code className="px-1.5 py-0.5 bg-muted rounded text-xs font-mono">orkee login &lt;provider&gt;</code></li>
                 <li>Your browser will open for authentication</li>
                 <li>Authorize Orkee to access your account</li>
                 <li>Return here to see your connection status</li>
@@ -119,7 +119,7 @@ export function OAuthSettings() {
               const isExpiringSoon = status?.expiresAt && (status.expiresAt - Math.floor(Date.now() / 1000)) < 3600;
 
               return (
-                <Card key={provider.id} className={isAuthenticated ? 'border-green-200 bg-green-50/30' : ''}>
+                <Card key={provider.id} className={isAuthenticated ? 'border-green-500/50 bg-green-500/5' : ''}>
                   <CardContent className="pt-6">
                     <div className="flex items-start justify-between">
                       <div className="flex items-start gap-3 flex-1">
@@ -161,8 +161,8 @@ export function OAuthSettings() {
                               )}
                               {status.expiresAt && (
                                 <div className="flex items-center gap-2 text-sm">
-                                  <Clock className={`h-3 w-3 ${isExpiringSoon ? 'text-orange-500' : 'text-muted-foreground'}`} />
-                                  <span className={isExpiringSoon ? 'text-orange-600 font-medium' : 'text-muted-foreground'}>
+                                  <Clock className={`h-3 w-3 ${isExpiringSoon ? 'text-orange-500 dark:text-orange-400' : 'text-muted-foreground'}`} />
+                                  <span className={isExpiringSoon ? 'text-orange-600 dark:text-orange-400 font-medium' : 'text-muted-foreground'}>
                                     Expires in {formatExpiryTime(status.expiresAt)}
                                     {isExpiringSoon && ' (refresh recommended)'}
                                   </span>
@@ -173,7 +173,7 @@ export function OAuthSettings() {
 
                           {!isAuthenticated && (
                             <div className="mt-2">
-                              <code className="text-xs bg-gray-100 px-2 py-1 rounded">
+                              <code className="text-xs bg-muted px-2 py-1 rounded font-mono">
                                 orkee login {provider.id}
                               </code>
                             </div>
@@ -201,7 +201,7 @@ export function OAuthSettings() {
           </div>
 
           {/* CLI Reference */}
-          <Card className="bg-gray-50">
+          <Card className="bg-muted/50">
             <CardHeader>
               <CardTitle className="text-sm flex items-center gap-2">
                 <Terminal className="h-4 w-4" />
@@ -212,19 +212,19 @@ export function OAuthSettings() {
               <div className="grid grid-cols-2 gap-3 text-sm">
                 <div>
                   <p className="text-muted-foreground mb-1">Authenticate:</p>
-                  <code className="text-xs bg-white px-2 py-1 rounded block">orkee login &lt;provider&gt;</code>
+                  <code className="text-xs bg-background border px-2 py-1 rounded block font-mono">orkee login &lt;provider&gt;</code>
                 </div>
                 <div>
                   <p className="text-muted-foreground mb-1">Check Status:</p>
-                  <code className="text-xs bg-white px-2 py-1 rounded block">orkee auth status</code>
+                  <code className="text-xs bg-background border px-2 py-1 rounded block font-mono">orkee auth status</code>
                 </div>
                 <div>
                   <p className="text-muted-foreground mb-1">Refresh Token:</p>
-                  <code className="text-xs bg-white px-2 py-1 rounded block">orkee auth refresh &lt;provider&gt;</code>
+                  <code className="text-xs bg-background border px-2 py-1 rounded block font-mono">orkee auth refresh &lt;provider&gt;</code>
                 </div>
                 <div>
                   <p className="text-muted-foreground mb-1">Logout:</p>
-                  <code className="text-xs bg-white px-2 py-1 rounded block">orkee logout &lt;provider&gt;</code>
+                  <code className="text-xs bg-background border px-2 py-1 rounded block font-mono">orkee logout &lt;provider&gt;</code>
                 </div>
               </div>
             </CardContent>
