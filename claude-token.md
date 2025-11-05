@@ -4,11 +4,11 @@
 
 ## Progress Summary
 
-- **Overall**: 16/37 tasks completed (43%)
+- **Overall**: 19/37 tasks completed (51%)
 - **Phase 1 (Database)**: 4/4 tasks ✅
 - **Phase 2 (Remove Code)**: 4/4 tasks ✅
 - **Phase 3 (OAuth Manager)**: 8/8 tasks ✅
-- **Phase 4 (Storage)**: 0/3 tasks
+- **Phase 4 (Storage)**: 3/3 tasks ✅
 - **Phase 5 (CLI)**: 0/6 tasks
 - **Phase 6 (Testing)**: 0/6 tasks
 - **Phase 7 (Docs)**: 0/6 tasks
@@ -230,10 +230,10 @@ use crate::oauth::types::{OAuthToken, ProviderStatus};
 use crate::error::{AuthError, AuthResult};
 ```
 
-### Phase 4: Simplify OAuth Storage ⏳
-- [ ] Remove `store_provider_config()` from `storage.rs` (lines 181-218)
-- [ ] Remove `get_provider_config()` from `storage.rs` (lines 220-262)
-- [ ] Keep all token storage methods (they work correctly)
+### Phase 4: Simplify OAuth Storage ✅
+- [x] Remove `store_provider_config()` from `storage.rs` (lines 181-218)
+- [x] Remove `get_provider_config()` from `storage.rs` (lines 220-262)
+- [x] Keep all token storage methods (they work correctly)
 
 ### Phase 5: Update CLI Commands ⏳
 - [ ] Update `login_command()` in `auth.rs` to handle Claude token import
