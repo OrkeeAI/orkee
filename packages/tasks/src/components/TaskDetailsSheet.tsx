@@ -70,6 +70,9 @@ export const TaskDetailsSheet: React.FC<TaskDetailsSheetProps> = ({
     <Sheet open={isOpen} onOpenChange={onOpenChange}>
       <SheetContent className="w-[95%] sm:w-[70%] md:w-[70%] lg:w-[70%] max-w-none overflow-y-auto">
         <SheetHeader className="space-y-2">
+          <SheetDescription className="sr-only">
+            {task.description || 'Task details and information'}
+          </SheetDescription>
           <div className="flex items-start justify-between">
             <SheetTitle className="text-lg pr-2">{task.title}</SheetTitle>
             <div className="flex gap-1 flex-shrink-0">
