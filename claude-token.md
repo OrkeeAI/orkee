@@ -4,9 +4,9 @@
 
 ## Progress Summary
 
-- **Overall**: 4/37 tasks completed (11%)
+- **Overall**: 8/37 tasks completed (22%)
 - **Phase 1 (Database)**: 4/4 tasks ✅
-- **Phase 2 (Remove Code)**: 0/4 tasks
+- **Phase 2 (Remove Code)**: 4/4 tasks ✅
 - **Phase 3 (OAuth Manager)**: 0/8 tasks
 - **Phase 4 (Storage)**: 0/3 tasks
 - **Phase 5 (CLI)**: 0/6 tasks
@@ -105,11 +105,11 @@ DROP TABLE IF EXISTS oauth_providers;  -- DELETE THIS LINE
 
 The oauth_tokens table drop should remain (line 68).
 
-### Phase 2: Remove OAuth Server Code ⏳
-- [ ] Delete `packages/auth/src/oauth/server.rs` (258 lines - OAuth callback server)
-- [ ] Delete `packages/auth/src/oauth/pkce.rs` (128 lines - PKCE implementation)
-- [ ] Delete `packages/auth/src/oauth/provider.rs` (146 lines - Provider configs)
-- [ ] Remove unused imports from remaining OAuth files
+### Phase 2: Remove OAuth Server Code ✅
+- [x] Delete `packages/auth/src/oauth/server.rs` (258 lines - OAuth callback server)
+- [x] Delete `packages/auth/src/oauth/pkce.rs` (128 lines - PKCE implementation)
+- [x] Delete `packages/auth/src/oauth/provider.rs` (146 lines - Provider configs)
+- [x] Remove unused imports from remaining OAuth files
 
 #### Update packages/auth/src/oauth/mod.rs
 
