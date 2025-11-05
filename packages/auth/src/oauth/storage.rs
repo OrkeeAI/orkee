@@ -7,10 +7,7 @@ use tracing::{debug, error};
 
 use crate::{
     error::{AuthError, AuthResult},
-    oauth::{
-        provider::OAuthProvider,
-        types::{OAuthProviderConfig, OAuthToken},
-    },
+    oauth::types::{OAuthProvider, OAuthProviderConfig, OAuthToken},
 };
 
 /// OAuth storage manager for database operations

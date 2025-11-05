@@ -43,6 +43,12 @@ pub enum AuthError {
     #[error("Token not found: {0}")]
     TokenNotFound(String),
 
+    #[error("Invalid token: {0}")]
+    InvalidToken(String),
+
+    #[error("Invalid provider: {0}")]
+    InvalidProvider(String),
+
     #[error("Token refresh failed: {0}")]
     RefreshFailed(String),
 

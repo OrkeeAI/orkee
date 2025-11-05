@@ -12,11 +12,8 @@ use url::Url;
 use crate::{
     error::{AuthError, AuthResult},
     oauth::{
-        pkce::generate_pkce_challenge,
-        provider::OAuthProvider,
-        server::CallbackServer,
         storage::OAuthStorage,
-        types::{OAuthToken, RefreshTokenRequest, TokenExchangeRequest, TokenResponse},
+        types::{OAuthProvider, OAuthToken, RefreshTokenRequest, TokenExchangeRequest, TokenResponse},
     },
 };
 

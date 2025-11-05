@@ -1,9 +1,47 @@
 // ABOUTME: Core type definitions for OAuth authentication
-// ABOUTME: Includes OAuth tokens, provider configurations, and PKCE challenge types
+// ABOUTME: Includes OAuth tokens, provider configurations, and type definitions
 
 use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
 use std::fmt;
+use std::str::FromStr;
+
+use crate::error::{AuthError, AuthResult};
+
+/// Supported OAuth providers
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum OAuthProvider {
+    Claude,
+    OpenAI,
+    Google,
+    XAI,
+}
+
+impl fmt::Display for OAuthProvider {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Claude => write!(f, "claude"),
+            Self::OpenAI => write!(f, "openai"),
+            Self::Google => write!(f, "google"),
+            Self::XAI => write!(f, "xai"),
+        }
+    }
+}
+
+impl FromStr for OAuthProvider {
+    type Err = AuthError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_lowercase().as_str() {
+            "claude" => Ok(Self::Claude),
+            "openai" => Ok(Self::OpenAI),
+            "google" => Ok(Self::Google),
+            "xai" => Ok(Self::XAI),
+            _ => Err(AuthError::InvalidProvider(format!("Unknown provider: {}", s))),
+        }
+    }
+}
 
 /// OAuth token information stored in database
 #[derive(Clone, Serialize, Deserialize)]
