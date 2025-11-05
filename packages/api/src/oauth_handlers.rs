@@ -10,7 +10,8 @@ use tracing::{error, info};
 
 use super::auth::CurrentUser;
 use super::response::ok_or_internal_error;
-use orkee_auth::{OAuthManager, OAuthProvider};
+use orkee_auth::oauth::OAuthProvider;
+use orkee_auth::OAuthManager;
 use orkee_projects::DbState;
 
 /// Response for authentication status
@@ -160,40 +161,20 @@ pub async fn get_token(
 
 /// Refresh token for a provider
 pub async fn refresh_token(
-    State(db): State<DbState>,
+    State(_db): State<DbState>,
     Path(provider): Path<String>,
     CurrentUser { id }: CurrentUser,
 ) -> impl IntoResponse {
-    info!("Refreshing token for provider: {} (user: {})", provider, id);
+    info!("Refresh token requested for provider: {} (user: {})", provider, id);
 
-    let provider = match parse_provider(&provider) {
-        Ok(p) => p,
-        Err(e) => {
-            error!("Invalid provider: {}", e);
-            return ok_or_internal_error(Err::<TokenResponse, _>(e), "Invalid provider");
-        }
-    };
-
-    let manager = match OAuthManager::new(db.pool.clone()) {
-        Ok(m) => m,
-        Err(e) => {
-            error!("Failed to initialize OAuth manager: {}", e);
-            return ok_or_internal_error(
-                Err::<TokenResponse, _>(e),
-                "Failed to initialize OAuth manager",
-            );
-        }
-    };
-
-    let result = manager
-        .refresh_token(&id, provider)
-        .await
-        .map(|token| TokenResponse {
-            token: token.access_token,
-            expires_at: token.expires_at,
-        });
-
-    ok_or_internal_error(result, "Failed to refresh token")
+    // Token refresh is not yet implemented
+    // Claude tokens cannot be refreshed - they must be re-imported
+    // Other providers would need OAuth implementation
+    error!("Token refresh not yet implemented");
+    ok_or_internal_error(
+        Err::<TokenResponse, _>("Token refresh not yet implemented".to_string()),
+        "Token refresh not yet implemented",
+    )
 }
 
 /// Logout from a provider (delete stored token)
