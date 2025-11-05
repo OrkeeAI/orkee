@@ -27,6 +27,24 @@ import { clearConfigCache } from '@/services/config'
 import { AIModelsSettings } from '@/components/settings/AIModelsSettings'
 import { OAuthSettings } from '@/components/settings/OAuthSettings'
 import { useToast } from '@/hooks/use-toast'
+import { TelemetryErrorBoundary } from '@/components/TelemetryErrorBoundary'
+
+// Section error fallback component
+function SectionErrorFallback({ error, resetError, sectionName }: { error: Error; resetError: () => void; sectionName: string }) {
+  return (
+    <Alert variant="destructive">
+      <AlertTriangle className="h-4 w-4" />
+      <AlertDescription>
+        <p className="font-medium mb-2">Error loading {sectionName}</p>
+        <p className="text-sm mb-3">{error.message}</p>
+        <Button onClick={resetError} variant="outline" size="sm">
+          <RefreshCw className="mr-2 h-4 w-4" />
+          Retry
+        </Button>
+      </AlertDescription>
+    </Alert>
+  );
+}
 
 export function Settings() {
   return (
@@ -64,27 +82,37 @@ export function Settings() {
 
         <TabsContent value="general" className="space-y-6 mt-6">
           {/* General Settings - Editor */}
-          <GeneralSettings />
+          <TelemetryErrorBoundary fallback={(error, reset) => <SectionErrorFallback error={error} resetError={reset} sectionName="General Settings" />}>
+            <GeneralSettings />
+          </TelemetryErrorBoundary>
         </TabsContent>
 
         <TabsContent value="authentication" className="space-y-6 mt-6">
           {/* Authentication Settings - API Keys & OAuth */}
-          <AuthenticationSettings />
+          <TelemetryErrorBoundary fallback={(error, reset) => <SectionErrorFallback error={error} resetError={reset} sectionName="Authentication Settings" />}>
+            <AuthenticationSettings />
+          </TelemetryErrorBoundary>
         </TabsContent>
 
         <TabsContent value="ai-models" className="space-y-6 mt-6">
           {/* AI Models Settings */}
-          <AIModelsSettings />
+          <TelemetryErrorBoundary fallback={(error, reset) => <SectionErrorFallback error={error} resetError={reset} sectionName="AI Models Settings" />}>
+            <AIModelsSettings />
+          </TelemetryErrorBoundary>
         </TabsContent>
 
         <TabsContent value="cloud" className="space-y-6 mt-6">
           {/* Cloud Settings - Always shown now */}
-          <CloudSettings />
+          <TelemetryErrorBoundary fallback={(error, reset) => <SectionErrorFallback error={error} resetError={reset} sectionName="Cloud Settings" />}>
+            <CloudSettings />
+          </TelemetryErrorBoundary>
         </TabsContent>
 
         <TabsContent value="advanced" className="space-y-6 mt-6">
           {/* Advanced Configuration Settings */}
-          <AdvancedSettings />
+          <TelemetryErrorBoundary fallback={(error, reset) => <SectionErrorFallback error={error} resetError={reset} sectionName="Advanced Settings" />}>
+            <AdvancedSettings />
+          </TelemetryErrorBoundary>
         </TabsContent>
       </Tabs>
     </div>
@@ -797,7 +825,8 @@ function ApiKeysSettings() {
           open={modalOpen}
           onOpenChange={(open) => {
             setModalOpen(open);
-            if (!open) {
+            // Only reset state if not currently saving to avoid race condition
+            if (!open && !isSaving) {
               // Reset state when closing modal via ESC or backdrop click
               setSelectedProvider(null);
               setApiKeyInput('');
