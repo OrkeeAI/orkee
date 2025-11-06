@@ -115,8 +115,15 @@ pub async fn build_command(
     let image_tag = tag.unwrap_or_else(|| "latest".to_string());
     let full_image = format!("{}/{}:{}", docker_username, image_name, image_tag);
 
-    // Determine Dockerfile path
-    let dockerfile_path = dockerfile.unwrap_or_else(|| "Dockerfile".to_string());
+    // Determine build context and Dockerfile path
+    // If using default, set both to packages/sandbox/docker/
+    let (dockerfile_path, build_context) = match dockerfile {
+        Some(path) => (path, ".".to_string()),
+        None => (
+            "packages/sandbox/docker/Dockerfile".to_string(),
+            "packages/sandbox/docker".to_string(),
+        ),
+    };
 
     println!("🐋 Building sandbox image: {}", full_image);
     println!("📄 Using Dockerfile: {}", dockerfile_path);
@@ -130,7 +137,7 @@ pub async fn build_command(
         .arg(&dockerfile_path)
         .arg("--label")
         .arg("orkee.sandbox=true")
-        .arg(".")
+        .arg(build_context)
         .status()
         .context("Failed to execute docker build command")?;
 

@@ -64,7 +64,7 @@ We still need CLI commands to build and push sandbox images:
 
 #### Required Commands
 ```bash
-# Build a sandbox image
+# Build a sandbox image (uses packages/sandbox/docker/Dockerfile by default)
 orkee sandbox build [--name <name>] [--tag <tag>] [--dockerfile <path>]
 
 # Push image to Docker Hub
@@ -81,7 +81,8 @@ orkee sandbox config set-image <image:tag>
 
 **1. Add `sandbox build` command** (`packages/cli/src/bin/cli/sandbox.rs`)
 - Wrapper around `docker build`
-- Optionally use Dockerfile from project or default template
+- Uses `packages/sandbox/docker/Dockerfile` by default
+- Can specify custom Dockerfile with `--dockerfile` flag
 - Tag image with convention: `username/orkee-sandbox:tag`
 
 **2. Add `sandbox push` command** (`packages/cli/src/bin/cli/sandbox.rs`)
