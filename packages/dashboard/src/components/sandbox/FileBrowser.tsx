@@ -1,9 +1,8 @@
 // ABOUTME: File browser component for navigating sandbox filesystem
 // ABOUTME: Supports file viewing, editing, and basic file operations
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { useToast } from '@/hooks/use-toast'
 import {
@@ -15,14 +14,11 @@ import {
 } from '@/services/sandbox'
 import {
   File,
-  Folder,
   FolderOpen,
   ChevronRight,
   Home,
   RefreshCw,
-  Plus,
   Trash2,
-  Eye,
   Edit,
 } from 'lucide-react'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -42,11 +38,7 @@ export function FileBrowser({ sandboxId }: FileBrowserProps) {
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
 
-  useEffect(() => {
-    loadFiles(currentPath)
-  }, [sandboxId, currentPath])
-
-  const loadFiles = async (path: string) => {
+  const loadFiles = useCallback(async (path: string) => {
     setLoading(true)
     try {
       const fileList = await listSandboxFiles(sandboxId, path)
@@ -61,7 +53,11 @@ export function FileBrowser({ sandboxId }: FileBrowserProps) {
     } finally {
       setLoading(false)
     }
-  }
+  }, [sandboxId, toast])
+
+  useEffect(() => {
+    loadFiles(currentPath)
+  }, [sandboxId, currentPath, loadFiles])
 
   const handleFileClick = async (file: SandboxFile) => {
     if (file.is_directory) {

@@ -1,7 +1,7 @@
 // ABOUTME: Resource monitoring component for sandbox metrics visualization
 // ABOUTME: Displays CPU, memory, disk, and network usage with real-time graphs
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { getSandboxMetrics, type ResourceMetrics } from '@/services/sandbox'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts'
@@ -28,14 +28,7 @@ export function ResourceMonitor({ sandboxId }: ResourceMonitorProps) {
   const [metricsHistory, setMetricsHistory] = useState<MetricsHistory[]>([])
   const [loading, setLoading] = useState(false)
 
-  useEffect(() => {
-    loadMetrics()
-    const interval = setInterval(loadMetrics, 5000) // Update every 5 seconds
-
-    return () => clearInterval(interval)
-  }, [sandboxId])
-
-  const loadMetrics = async () => {
+  const loadMetrics = useCallback(async () => {
     try {
       const metrics = await getSandboxMetrics(sandboxId)
       setCurrentMetrics(metrics)
@@ -60,7 +53,14 @@ export function ResourceMonitor({ sandboxId }: ResourceMonitorProps) {
     } catch (error) {
       console.error('Failed to load metrics:', error)
     }
-  }
+  }, [sandboxId])
+
+  useEffect(() => {
+    loadMetrics()
+    const interval = setInterval(loadMetrics, 5000) // Update every 5 seconds
+
+    return () => clearInterval(interval)
+  }, [loadMetrics])
 
   const handleRefresh = async () => {
     setLoading(true)

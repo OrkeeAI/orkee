@@ -20,7 +20,8 @@ import {
   Play,
   FileText,
   DollarSign,
-  Layers
+  Layers,
+  Activity
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -36,6 +37,7 @@ import { SpecsTab } from '@/components/SpecsTab';
 import { CostDashboard } from '@/components/CostDashboard';
 import { ContextTab } from '@/components/ContextTab';
 import { GitHubSettings } from '@/components/settings/GitHubSettings';
+import { ProjectSandboxes } from '@/components/sandbox/ProjectSandboxes';
 import { useProject } from '@/hooks/useProjects';
 import { useCommitHistory } from '@/services/git';
 
@@ -197,6 +199,10 @@ export function ProjectDetail() {
             <Layers className="h-4 w-4 shrink-0" />
             <span className="hidden sm:inline">Context</span>
           </TabsTrigger>
+          <TabsTrigger value="sandboxes" className="flex-1 flex items-center justify-center gap-1.5">
+            <Activity className="h-4 w-4 shrink-0" />
+            <span className="hidden sm:inline">Sandboxes</span>
+          </TabsTrigger>
           <TabsTrigger value="ai-usage" className="flex-1 flex items-center justify-center gap-1.5">
             <DollarSign className="h-4 w-4 shrink-0" />
             <span className="hidden sm:inline">Usage</span>
@@ -225,10 +231,6 @@ export function ProjectDetail() {
 
         <TabsContent value="context" className="space-y-4">
           <ContextTab projectId={project.id} projectPath={project.projectRoot} />
-        </TabsContent>
-
-        <TabsContent value="ai-usage" className="space-y-4">
-          <CostDashboard projectId={project.id} />
         </TabsContent>
 
         <TabsContent value="overview" className="space-y-4">
@@ -435,6 +437,14 @@ export function ProjectDetail() {
               )}
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="sandboxes" className="space-y-4">
+          <ProjectSandboxes projectId={project.id} projectName={project.name} />
+        </TabsContent>
+
+        <TabsContent value="ai-usage" className="space-y-4">
+          <CostDashboard projectId={project.id} />
         </TabsContent>
 
         <TabsContent value="preview" className="space-y-4">

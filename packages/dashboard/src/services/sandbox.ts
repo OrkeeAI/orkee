@@ -130,7 +130,7 @@ export interface ValidationResult {
 
 // Get sandbox settings
 export async function getSandboxSettings(): Promise<SandboxSettings> {
-  const response = await apiRequest<SandboxSettings>('/api/sandbox-settings')
+  const response = await apiRequest<SandboxSettings>('/api/sandbox/settings')
   if (response.success && response.data) {
     return response.data
   }
@@ -140,7 +140,7 @@ export async function getSandboxSettings(): Promise<SandboxSettings> {
 // Update sandbox settings
 export async function updateSandboxSettings(settings: Partial<SandboxSettings>): Promise<SandboxSettings> {
   const response = await apiRequest<SandboxSettings>(
-    '/api/sandbox-settings',
+    '/api/sandbox/settings',
     {
       method: 'PUT',
       body: JSON.stringify(settings),
@@ -154,7 +154,7 @@ export async function updateSandboxSettings(settings: Partial<SandboxSettings>):
 
 // Get all provider settings
 export async function getAllProviderSettings(): Promise<ProviderSettings[]> {
-  const response = await apiRequest<ProviderSettings[]>('/api/sandbox-providers/settings')
+  const response = await apiRequest<ProviderSettings[]>('/api/sandbox/providers')
   if (response.success && response.data) {
     return response.data
   }
@@ -163,7 +163,7 @@ export async function getAllProviderSettings(): Promise<ProviderSettings[]> {
 
 // Get specific provider settings
 export async function getProviderSettings(provider: string): Promise<ProviderSettings> {
-  const response = await apiRequest<ProviderSettings>(`/api/sandbox-providers/${provider}/settings`)
+  const response = await apiRequest<ProviderSettings>(`/api/sandbox/providers/${provider}`)
   if (response.success && response.data) {
     return response.data
   }
@@ -176,7 +176,7 @@ export async function updateProviderSettings(
   settings: Partial<ProviderSettings>
 ): Promise<ProviderSettings> {
   const response = await apiRequest<ProviderSettings>(
-    `/api/sandbox-providers/${provider}/settings`,
+    `/api/sandbox/providers/${provider}`,
     {
       method: 'PUT',
       body: JSON.stringify(settings),
@@ -194,7 +194,7 @@ export async function updateProviderCredentials(
   credentials: ProviderCredentials
 ): Promise<ProviderSettings> {
   const response = await apiRequest<ProviderSettings>(
-    `/api/sandbox-providers/${provider}/credentials`,
+    `/api/sandbox/providers/${provider}/credentials`,
     {
       method: 'PUT',
       body: JSON.stringify(credentials),
@@ -209,7 +209,7 @@ export async function updateProviderCredentials(
 // Validate provider configuration
 export async function validateProvider(provider: string): Promise<ValidationResult> {
   const response = await apiRequest<ValidationResult>(
-    `/api/sandbox-providers/${provider}/validate`,
+    `/api/sandbox/providers/${provider}/validate`,
     {
       method: 'POST',
     }
@@ -261,6 +261,10 @@ export interface Sandbox {
 
   // Template
   template_id: string | null
+
+  // Project association
+  project_id: string | null
+  description: string | null
 
   error_message: string | null
 }

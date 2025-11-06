@@ -1,7 +1,7 @@
 // ABOUTME: Terminal component using xterm.js for sandbox command execution
 // ABOUTME: Provides interactive terminal with command history and output display
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useCallback } from 'react'
 import { Terminal as XTerm } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
 import { WebLinksAddon } from '@xterm/addon-web-links'
@@ -9,7 +9,7 @@ import '@xterm/xterm/css/xterm.css'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useToast } from '@/hooks/use-toast'
-import { executeCommand, getSandboxExecutions, type SandboxExecution } from '@/services/sandbox'
+import { executeCommand, getSandboxExecutions } from '@/services/sandbox'
 import { Send, RotateCcw, Trash2 } from 'lucide-react'
 
 interface TerminalProps {
@@ -25,7 +25,6 @@ export function Terminal({ sandboxId, agentId, model }: TerminalProps) {
   const fitAddonRef = useRef<FitAddon | null>(null)
   const [command, setCommand] = useState('')
   const [isExecuting, setIsExecuting] = useState(false)
-  const [executions, setExecutions] = useState<SandboxExecution[]>([])
 
   // Initialize terminal
   useEffect(() => {
@@ -70,12 +69,11 @@ export function Terminal({ sandboxId, agentId, model }: TerminalProps) {
       window.removeEventListener('resize', handleResize)
       term.dispose()
     }
-  }, [sandboxId])
+  }, [sandboxId, loadExecutions])
 
-  const loadExecutions = async () => {
+  const loadExecutions = useCallback(async () => {
     try {
       const execs = await getSandboxExecutions(sandboxId)
-      setExecutions(execs)
 
       // Display recent executions in terminal
       if (xtermRef.current && execs.length > 0) {
@@ -96,7 +94,7 @@ export function Terminal({ sandboxId, agentId, model }: TerminalProps) {
     } catch (error) {
       console.error('Failed to load executions:', error)
     }
-  }
+  }, [sandboxId])
 
   const handleExecuteCommand = async () => {
     if (!command.trim()) return

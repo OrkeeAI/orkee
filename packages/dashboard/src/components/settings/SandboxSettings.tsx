@@ -1,7 +1,7 @@
 // ABOUTME: Sandbox configuration settings component with provider management
 // ABOUTME: Handles sandbox settings, provider credentials, resource limits, lifecycle, costs, and security
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -17,14 +17,6 @@ import {
   Check,
   RefreshCw,
   X,
-  Server,
-  Cloud,
-  Cpu,
-  HardDrive,
-  Clock,
-  DollarSign,
-  Shield,
-  Settings,
 } from 'lucide-react'
 import {
   getSandboxSettings,
@@ -47,11 +39,7 @@ export function SandboxSettings() {
   const [selectedProvider, setSelectedProvider] = useState<string | null>(null)
   const [showProviderConfig, setShowProviderConfig] = useState(false)
 
-  useEffect(() => {
-    fetchSettings()
-  }, [])
-
-  const fetchSettings = async () => {
+  const fetchSettings = useCallback(async () => {
     try {
       const [settingsData, providersData] = await Promise.all([
         getSandboxSettings(),
@@ -69,7 +57,11 @@ export function SandboxSettings() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [toast])
+
+  useEffect(() => {
+    fetchSettings()
+  }, [fetchSettings])
 
   const saveSettings = async () => {
     if (!settings) return

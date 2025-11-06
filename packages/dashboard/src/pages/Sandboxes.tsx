@@ -1,7 +1,7 @@
 // ABOUTME: Main sandboxes page for managing sandbox instances
 // ABOUTME: Provides sandbox list, creation, detail view with terminal/files/monitoring
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -30,14 +30,11 @@ import { TemplateManagement } from '@/components/sandbox/TemplateManagement'
 import {
   Plus,
   RefreshCw,
-  X,
   ChevronLeft,
   Server,
   Terminal as TerminalIcon,
   FolderOpen,
   BarChart3,
-  DollarSign,
-  FileText,
 } from 'lucide-react'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
@@ -61,32 +58,55 @@ export default function Sandboxes() {
     model: null,
   })
 
-  useEffect(() => {
-    loadData()
-  }, [])
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     setLoading(true)
     try {
-      const [sandboxList, settingsData, providerData] = await Promise.all([
+      const results = await Promise.allSettled([
         listSandboxes(),
         getSandboxSettings(),
         getAllProviderSettings(),
       ])
-      setSandboxes(sandboxList)
-      setSettings(settingsData)
-      setProviders(providerData.filter((p) => p.enabled))
+
+      // Handle sandboxes result
+      if (results[0].status === 'fulfilled') {
+        setSandboxes(results[0].value)
+      } else {
+        console.error('Failed to load sandboxes:', results[0].reason)
+      }
+
+      // Handle settings result
+      if (results[1].status === 'fulfilled') {
+        setSettings(results[1].value)
+      } else {
+        console.error('Failed to load settings:', results[1].reason)
+      }
+
+      // Handle providers result
+      if (results[2].status === 'fulfilled') {
+        setProviders(results[2].value.filter((p) => p.enabled))
+      } else {
+        console.error('Failed to load providers:', results[2].reason)
+        toast({
+          title: 'Failed to load providers',
+          description: results[2].reason instanceof Error ? results[2].reason.message : 'Unknown error',
+          variant: 'destructive',
+        })
+      }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to load data'
       toast({
-        title: 'Failed to load sandboxes',
+        title: 'Failed to load data',
         description: errorMessage,
         variant: 'destructive',
       })
     } finally {
       setLoading(false)
     }
-  }
+  }, [toast])
+
+  useEffect(() => {
+    loadData()
+  }, [loadData])
 
   const handleCreateSandbox = async () => {
     if (!newSandbox.name.trim()) {
