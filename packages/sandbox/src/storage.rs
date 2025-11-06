@@ -46,6 +46,7 @@ impl SandboxStatus {
         }
     }
 
+    #[allow(clippy::should_implement_trait)]
     pub fn from_str(s: &str) -> Result<Self> {
         match s {
             "creating" => Ok(Self::Creating),
@@ -120,6 +121,7 @@ impl ExecutionStatus {
         }
     }
 
+    #[allow(clippy::should_implement_trait)]
     pub fn from_str(s: &str) -> Result<Self> {
         match s {
             "queued" => Ok(Self::Queued),
@@ -383,15 +385,18 @@ impl SandboxStorage {
         Ok(())
     }
 
-    pub async fn update_sandbox_container(&self, id: &str, container_id: &str, port: Option<u16>) -> Result<()> {
-        let result = sqlx::query(
-            "UPDATE sandboxes SET container_id = ?1, port = ?2 WHERE id = ?3"
-        )
-        .bind(container_id)
-        .bind(port.map(|p| p as i32))
-        .bind(id)
-        .execute(&self.pool)
-        .await?;
+    pub async fn update_sandbox_container(
+        &self,
+        id: &str,
+        container_id: &str,
+        port: Option<u16>,
+    ) -> Result<()> {
+        let result = sqlx::query("UPDATE sandboxes SET container_id = ?1, port = ?2 WHERE id = ?3")
+            .bind(container_id)
+            .bind(port.map(|p| p as i32))
+            .bind(id)
+            .execute(&self.pool)
+            .await?;
 
         if result.rows_affected() == 0 {
             return Err(StorageError::NotFound(id.to_string()));
@@ -417,7 +422,10 @@ impl SandboxStorage {
     // EXECUTION OPERATIONS
     // ========================================================================
 
-    pub async fn create_execution(&self, mut execution: SandboxExecution) -> Result<SandboxExecution> {
+    pub async fn create_execution(
+        &self,
+        mut execution: SandboxExecution,
+    ) -> Result<SandboxExecution> {
         // Generate ID if not provided
         if execution.id.is_empty() {
             execution.id = format!("exec_{}", uuid::Uuid::new_v4().to_string().replace("-", ""));
@@ -587,13 +595,11 @@ impl SandboxStorage {
     }
 
     pub async fn delete_env_var(&self, sandbox_id: &str, name: &str) -> Result<()> {
-        sqlx::query(
-            "DELETE FROM sandbox_env_vars WHERE sandbox_id = ?1 AND name = ?2"
-        )
-        .bind(sandbox_id)
-        .bind(name)
-        .execute(&self.pool)
-        .await?;
+        sqlx::query("DELETE FROM sandbox_env_vars WHERE sandbox_id = ?1 AND name = ?2")
+            .bind(sandbox_id)
+            .bind(name)
+            .execute(&self.pool)
+            .await?;
 
         Ok(())
     }
@@ -676,22 +682,27 @@ impl SandboxStorage {
             created_at: DateTime::parse_from_rfc3339(&row.get::<String, _>("created_at"))
                 .unwrap()
                 .with_timezone(&Utc),
-            started_at: row.get::<Option<String>, _>("started_at")
+            started_at: row
+                .get::<Option<String>, _>("started_at")
                 .and_then(|s| DateTime::parse_from_rfc3339(&s).ok())
                 .map(|dt| dt.with_timezone(&Utc)),
-            stopped_at: row.get::<Option<String>, _>("stopped_at")
+            stopped_at: row
+                .get::<Option<String>, _>("stopped_at")
                 .and_then(|s| DateTime::parse_from_rfc3339(&s).ok())
                 .map(|dt| dt.with_timezone(&Utc)),
-            terminated_at: row.get::<Option<String>, _>("terminated_at")
+            terminated_at: row
+                .get::<Option<String>, _>("terminated_at")
                 .and_then(|s| DateTime::parse_from_rfc3339(&s).ok())
                 .map(|dt| dt.with_timezone(&Utc)),
             error_message: row.get("error_message"),
             cost_estimate: row.get("cost_estimate"),
             project_id: row.get("project_id"),
             user_id: row.get("user_id"),
-            config: row.get::<Option<String>, _>("config")
+            config: row
+                .get::<Option<String>, _>("config")
                 .and_then(|s| serde_json::from_str(&s).ok()),
-            metadata: row.get::<Option<String>, _>("metadata")
+            metadata: row
+                .get::<Option<String>, _>("metadata")
                 .and_then(|s| serde_json::from_str(&s).ok()),
         })
     }
@@ -705,17 +716,21 @@ impl SandboxStorage {
             command: row.get("command"),
             working_directory: row.get("working_directory"),
             status: ExecutionStatus::from_str(&row.get::<String, _>("status"))?,
-            started_at: row.get::<Option<String>, _>("started_at")
+            started_at: row
+                .get::<Option<String>, _>("started_at")
                 .and_then(|s| DateTime::parse_from_rfc3339(&s).ok())
                 .map(|dt| dt.with_timezone(&Utc)),
-            completed_at: row.get::<Option<String>, _>("completed_at")
+            completed_at: row
+                .get::<Option<String>, _>("completed_at")
                 .and_then(|s| DateTime::parse_from_rfc3339(&s).ok())
                 .map(|dt| dt.with_timezone(&Utc)),
             exit_code: row.get("exit_code"),
             stdout: row.get("stdout"),
             stderr: row.get("stderr"),
             cpu_time_seconds: row.get("cpu_time_seconds"),
-            memory_peak_mb: row.get::<Option<i32>, _>("memory_peak_mb").map(|m| m as u32),
+            memory_peak_mb: row
+                .get::<Option<i32>, _>("memory_peak_mb")
+                .map(|m| m as u32),
             created_at: DateTime::parse_from_rfc3339(&row.get::<String, _>("created_at"))
                 .unwrap()
                 .with_timezone(&Utc),
@@ -790,7 +805,7 @@ mod tests {
         // Make sure local provider exists
         sqlx::query(
             "INSERT OR REPLACE INTO sandbox_provider_settings (provider, enabled, updated_at)
-             VALUES ('local', TRUE, datetime('now'))"
+             VALUES ('local', TRUE, datetime('now'))",
         )
         .execute(&pool)
         .await
@@ -876,13 +891,19 @@ mod tests {
         let created = storage.create_sandbox(sandbox).await.unwrap();
 
         // Update to running
-        storage.update_sandbox_status(&created.id, SandboxStatus::Running, None).await.unwrap();
+        storage
+            .update_sandbox_status(&created.id, SandboxStatus::Running, None)
+            .await
+            .unwrap();
         let running = storage.get_sandbox(&created.id).await.unwrap();
         assert_eq!(running.status, SandboxStatus::Running);
         assert!(running.started_at.is_some());
 
         // Update to stopped
-        storage.update_sandbox_status(&created.id, SandboxStatus::Stopped, None).await.unwrap();
+        storage
+            .update_sandbox_status(&created.id, SandboxStatus::Stopped, None)
+            .await
+            .unwrap();
         let stopped = storage.get_sandbox(&created.id).await.unwrap();
         assert_eq!(stopped.status, SandboxStatus::Stopped);
         assert!(stopped.stopped_at.is_some());
@@ -947,13 +968,16 @@ mod tests {
         assert!(!created_exec.id.is_empty());
 
         // Update execution status
-        storage.update_execution_status(
-            &created_exec.id,
-            ExecutionStatus::Completed,
-            Some(0),
-            Some("Hello World".to_string()),
-            None,
-        ).await.unwrap();
+        storage
+            .update_execution_status(
+                &created_exec.id,
+                ExecutionStatus::Completed,
+                Some(0),
+                Some("Hello World".to_string()),
+                None,
+            )
+            .await
+            .unwrap();
 
         let updated = storage.get_execution(&created_exec.id).await.unwrap();
         assert_eq!(updated.status, ExecutionStatus::Completed);

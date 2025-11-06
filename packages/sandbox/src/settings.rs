@@ -1,10 +1,10 @@
 // ABOUTME: Sandbox settings storage layer using SQLite
 // ABOUTME: Handles CRUD operations for sandbox and provider-specific configurations
 
-use sqlx::{Row, SqlitePool};
-use serde::{Deserialize, Serialize};
-use tracing::debug;
 use orkee_storage::StorageError;
+use serde::{Deserialize, Serialize};
+use sqlx::{Row, SqlitePool};
+use tracing::debug;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SandboxSettings {
@@ -139,7 +139,11 @@ impl SettingsManager {
     }
 
     /// Update sandbox settings
-    pub async fn update_sandbox_settings(&self, settings: &SandboxSettings, updated_by: Option<&str>) -> Result<(), StorageError> {
+    pub async fn update_sandbox_settings(
+        &self,
+        settings: &SandboxSettings,
+        updated_by: Option<&str>,
+    ) -> Result<(), StorageError> {
         debug!("Updating sandbox settings");
 
         sqlx::query(
@@ -183,7 +187,7 @@ impl SettingsManager {
                 updated_by = ?,
                 updated_at = datetime('now', 'utc')
             WHERE id = 1
-            "#
+            "#,
         )
         .bind(settings.enabled as i64)
         .bind(&settings.default_provider)
@@ -211,8 +215,18 @@ impl SettingsManager {
         .bind(settings.allow_privileged_containers as i64)
         .bind(settings.require_non_root_user as i64)
         .bind(settings.enable_security_scanning as i64)
-        .bind(settings.allowed_base_images.as_ref().map(|v| serde_json::to_string(v).ok()).flatten())
-        .bind(settings.blocked_commands.as_ref().map(|v| serde_json::to_string(v).ok()).flatten())
+        .bind(
+            settings
+                .allowed_base_images
+                .as_ref()
+                .and_then(|v| serde_json::to_string(v).ok()),
+        )
+        .bind(
+            settings
+                .blocked_commands
+                .as_ref()
+                .and_then(|v| serde_json::to_string(v).ok()),
+        )
         .bind(settings.resource_monitoring_interval_seconds)
         .bind(settings.health_check_interval_seconds)
         .bind(settings.log_retention_days)
@@ -229,7 +243,10 @@ impl SettingsManager {
     }
 
     /// Get provider settings
-    pub async fn get_provider_settings(&self, provider: &str) -> Result<ProviderSettings, StorageError> {
+    pub async fn get_provider_settings(
+        &self,
+        provider: &str,
+    ) -> Result<ProviderSettings, StorageError> {
         debug!("Fetching provider settings for: {}", provider);
 
         let row = sqlx::query("SELECT * FROM sandbox_provider_settings WHERE provider = ?")
@@ -259,7 +276,11 @@ impl SettingsManager {
     }
 
     /// Update provider settings
-    pub async fn update_provider_settings(&self, settings: &ProviderSettings, updated_by: Option<&str>) -> Result<(), StorageError> {
+    pub async fn update_provider_settings(
+        &self,
+        settings: &ProviderSettings,
+        updated_by: Option<&str>,
+    ) -> Result<(), StorageError> {
         debug!("Updating provider settings for: {}", settings.provider);
 
         sqlx::query(
@@ -335,7 +356,7 @@ impl SettingsManager {
         .bind(settings.max_sandboxes)
         .bind(settings.max_runtime_hours)
         .bind(settings.max_total_cost)
-        .bind(settings.custom_config.as_ref().map(|v| serde_json::to_string(v).ok()).flatten())
+        .bind(settings.custom_config.as_ref().and_then(|v| serde_json::to_string(v).ok()))
         .bind(updated_by)
         .execute(&self.pool)
         .await
@@ -357,7 +378,10 @@ impl SettingsManager {
         Ok(())
     }
 
-    fn row_to_sandbox_settings(&self, row: &sqlx::sqlite::SqliteRow) -> Result<SandboxSettings, StorageError> {
+    fn row_to_sandbox_settings(
+        &self,
+        row: &sqlx::sqlite::SqliteRow,
+    ) -> Result<SandboxSettings, StorageError> {
         Ok(SandboxSettings {
             enabled: row.try_get::<i64, _>("enabled")? != 0,
             default_provider: row.try_get("default_provider")?,
@@ -391,7 +415,8 @@ impl SettingsManager {
             blocked_commands: row
                 .try_get::<Option<String>, _>("blocked_commands")?
                 .and_then(|s| serde_json::from_str(&s).ok()),
-            resource_monitoring_interval_seconds: row.try_get("resource_monitoring_interval_seconds")?,
+            resource_monitoring_interval_seconds: row
+                .try_get("resource_monitoring_interval_seconds")?,
             health_check_interval_seconds: row.try_get("health_check_interval_seconds")?,
             log_retention_days: row.try_get("log_retention_days")?,
             metrics_retention_days: row.try_get("metrics_retention_days")?,
@@ -403,7 +428,10 @@ impl SettingsManager {
         })
     }
 
-    fn row_to_provider_settings(&self, row: &sqlx::sqlite::SqliteRow) -> Result<ProviderSettings, StorageError> {
+    fn row_to_provider_settings(
+        &self,
+        row: &sqlx::sqlite::SqliteRow,
+    ) -> Result<ProviderSettings, StorageError> {
         Ok(ProviderSettings {
             provider: row.try_get("provider")?,
             enabled: row.try_get::<i64, _>("enabled")? != 0,
@@ -447,9 +475,7 @@ mod tests {
     use super::*;
 
     async fn create_test_db() -> SqlitePool {
-        let pool = SqlitePool::connect("sqlite::memory:")
-            .await
-            .unwrap();
+        let pool = SqlitePool::connect("sqlite::memory:").await.unwrap();
 
         // Run migrations
         sqlx::migrate!("../storage/migrations")
@@ -479,7 +505,10 @@ mod tests {
         settings.max_concurrent_local = 20;
         settings.default_provider = "beam".to_string();
 
-        manager.update_sandbox_settings(&settings, Some("test-user")).await.unwrap();
+        manager
+            .update_sandbox_settings(&settings, Some("test-user"))
+            .await
+            .unwrap();
 
         let updated = manager.get_sandbox_settings().await.unwrap();
         assert_eq!(updated.max_concurrent_local, 20);
@@ -513,13 +542,20 @@ mod tests {
         let mut settings = manager.get_provider_settings("beam").await.unwrap();
         settings.enabled = true;
         settings.configured = true;
-        settings.api_key = Some("test-api-key-1234567890123456789012345678901234567890".to_string());
+        settings.api_key =
+            Some("test-api-key-1234567890123456789012345678901234567890".to_string());
 
-        manager.update_provider_settings(&settings, Some("test-user")).await.unwrap();
+        manager
+            .update_provider_settings(&settings, Some("test-user"))
+            .await
+            .unwrap();
 
         let updated = manager.get_provider_settings("beam").await.unwrap();
         assert!(updated.enabled);
         assert!(updated.configured);
-        assert_eq!(updated.api_key, Some("test-api-key-1234567890123456789012345678901234567890".to_string()));
+        assert_eq!(
+            updated.api_key,
+            Some("test-api-key-1234567890123456789012345678901234567890".to_string())
+        );
     }
 }
