@@ -325,10 +325,22 @@ pub async fn config_set_docker_username_command(username: Option<String>) -> Res
 
 // Helper function to check if user is logged in to Docker
 fn is_docker_logged_in() -> Result<bool> {
+    // Check Docker config file for authentication
+    if let Ok(home) = std::env::var("HOME") {
+        let config_path = format!("{}/.docker/config.json", home);
+        if let Ok(content) = std::fs::read_to_string(config_path) {
+            // Check if Docker Hub auth exists in config
+            // Docker Hub can be under several keys
+            return Ok(
+                content.contains("https://index.docker.io/v1/")
+                    || content.contains("index.docker.io")
+            );
+        }
+    }
+
+    // Fallback: try docker info (may not work on all versions)
     let output = Command::new("docker")
         .arg("info")
-        .arg("--format")
-        .arg("{{.Username}}")
         .output()
         .context("Failed to execute docker info command")?;
 
@@ -336,8 +348,9 @@ fn is_docker_logged_in() -> Result<bool> {
         return Ok(false);
     }
 
-    let username = String::from_utf8_lossy(&output.stdout);
-    Ok(!username.trim().is_empty())
+    let info_str = String::from_utf8_lossy(&output.stdout);
+    // Look for Username field in output
+    Ok(info_str.contains("Username:"))
 }
 
 // Helper function to get Docker Hub username
