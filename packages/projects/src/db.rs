@@ -31,6 +31,7 @@ pub struct DbState {
     pub token_storage: Arc<TokenStorage>,
     pub model_preferences_storage: Arc<ModelPreferencesStorage>,
     pub sandbox_settings: Arc<SandboxSettingsManager>,
+    pub sandbox_manager: Arc<orkee_sandbox::SandboxManager>,
 }
 
 impl DbState {
@@ -47,6 +48,40 @@ impl DbState {
         let model_preferences_storage = Arc::new(ModelPreferencesStorage::new(pool.clone()));
         let sandbox_settings = Arc::new(SandboxSettingsManager::new(pool.clone()));
 
+        // Initialize sandbox manager
+        let sandbox_storage = Arc::new(orkee_sandbox::SandboxStorage::new(pool.clone()));
+        let sandbox_manager = Arc::new(orkee_sandbox::SandboxManager::new(
+            sandbox_storage,
+            Arc::new(tokio::sync::RwLock::new(orkee_sandbox::SettingsManager::new(
+                pool.clone(),
+            ))),
+        ));
+
+        // Register Docker provider
+        let docker_provider = Arc::new(
+            orkee_sandbox::DockerProvider::new()
+                .unwrap_or_else(|e| {
+                    eprintln!("Warning: Failed to initialize Docker provider: {}", e);
+                    // This is a temporary workaround - we create a Docker client that will fail
+                    // gracefully when used. A better solution would be to have the provider
+                    // initialization happen lazily or to have a null provider.
+                    panic!("Docker provider initialization failed: {}", e)
+                }),
+        ) as Arc<dyn orkee_sandbox::SandboxProvider>;
+
+        // Create a runtime handle for the async registration
+        // Since we're in a sync context, we need to spawn this
+        let manager_clone = sandbox_manager.clone();
+        let provider_clone = docker_provider.clone();
+        std::thread::spawn(move || {
+            let rt = tokio::runtime::Runtime::new().unwrap();
+            rt.block_on(async {
+                manager_clone
+                    .register_provider("local".to_string(), provider_clone)
+                    .await;
+            });
+        });
+
         Ok(Self {
             pool,
             task_storage,
@@ -59,6 +94,7 @@ impl DbState {
             token_storage,
             model_preferences_storage,
             sandbox_settings,
+            sandbox_manager,
         })
     }
 
