@@ -15,19 +15,20 @@ interface CostTrackingProps {
 }
 
 export function CostTracking({ sandboxes, maxTotalCost, costAlertThreshold }: CostTrackingProps) {
-  const totalCost = sandboxes.reduce((sum, sandbox) => sum + sandbox.total_cost, 0)
+  const totalCost = sandboxes.reduce((sum, sandbox) => sum + (sandbox.total_cost || 0), 0)
   const costPercentage = (totalCost / maxTotalCost) * 100
 
   const costByProvider = sandboxes.reduce((acc, sandbox) => {
-    acc[sandbox.provider] = (acc[sandbox.provider] || 0) + sandbox.total_cost
+    acc[sandbox.provider] = (acc[sandbox.provider] || 0) + (sandbox.total_cost || 0)
     return acc
   }, {} as Record<string, number>)
 
   const topSandboxesByCost = [...sandboxes]
-    .sort((a, b) => b.total_cost - a.total_cost)
+    .sort((a, b) => (b.total_cost || 0) - (a.total_cost || 0))
     .slice(0, 5)
 
-  const formatCost = (cost: number): string => {
+  const formatCost = (cost: number | undefined | null): string => {
+    if (cost === undefined || cost === null) return '$0.00'
     return `$${cost.toFixed(2)}`
   }
 

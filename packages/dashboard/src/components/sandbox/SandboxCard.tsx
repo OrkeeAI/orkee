@@ -162,7 +162,8 @@ export function SandboxCard({ sandbox, onUpdate, onClick }: SandboxCardProps) {
     }
   }
 
-  const formatCost = (cost: number): string => {
+  const formatCost = (cost: number | undefined | null): string => {
+    if (cost === undefined || cost === null) return '$0.00'
     return `$${cost.toFixed(2)}`
   }
 
