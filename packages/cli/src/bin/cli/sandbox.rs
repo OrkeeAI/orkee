@@ -97,8 +97,20 @@ pub async fn build_command(
     tag: Option<String>,
     dockerfile: Option<String>,
 ) -> Result<()> {
-    // Determine image name
-    let docker_username = get_docker_username()?;
+    use inquire::Text;
+
+    // Try to get Docker username, or prompt for it
+    let docker_username = match get_docker_username() {
+        Ok(username) => username,
+        Err(_) => {
+            println!("⚠️  Could not detect Docker Hub username.");
+            println!("   Please enter your Docker Hub username to tag the image:");
+            Text::new("Docker Hub username:")
+                .prompt()
+                .context("Failed to read username input")?
+        }
+    };
+
     let image_name = name.unwrap_or_else(|| "orkee-sandbox".to_string());
     let image_tag = tag.unwrap_or_else(|| "latest".to_string());
     let full_image = format!("{}/{}:{}", docker_username, image_name, image_tag);
@@ -259,26 +271,39 @@ fn is_docker_logged_in() -> Result<bool> {
 }
 
 // Helper function to get Docker Hub username
+// Returns Ok(username) if detected, Err if not available
 fn get_docker_username() -> Result<String> {
+    // Try to read from Docker config file first
+    if let Ok(home) = std::env::var("HOME") {
+        let config_path = format!("{}/.docker/config.json", home);
+        if let Ok(_content) = std::fs::read_to_string(config_path) {
+            // Try to parse and extract username from config
+            // This is a simple approach - Docker config doesn't always have the username
+            // so we'll fall back to prompting
+            // TODO: Parse JSON config if needed
+        }
+    }
+
+    // Try docker info command (may not work on all Docker versions)
     let output = Command::new("docker")
         .arg("info")
-        .arg("--format")
-        .arg("{{.Username}}")
-        .output()
-        .context("Failed to execute docker info command")?;
+        .output();
 
-    if !output.status.success() {
-        anyhow::bail!(
-            "Failed to get Docker username. Are you logged in?\nRun: orkee auth login docker"
-        );
+    if let Ok(output) = output {
+        let info_str = String::from_utf8_lossy(&output.stdout);
+        // Try to find username in output
+        for line in info_str.lines() {
+            if line.trim().starts_with("Username:") {
+                if let Some(username) = line.split(':').nth(1) {
+                    let username = username.trim();
+                    if !username.is_empty() {
+                        return Ok(username.to_string());
+                    }
+                }
+            }
+        }
     }
 
-    let username = String::from_utf8_lossy(&output.stdout);
-    let username = username.trim();
-
-    if username.is_empty() {
-        anyhow::bail!("Not logged in to Docker Hub.\nRun: orkee auth login docker");
-    }
-
-    Ok(username.to_string())
+    // Could not detect username
+    anyhow::bail!("Could not detect Docker Hub username")
 }

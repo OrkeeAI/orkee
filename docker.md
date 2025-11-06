@@ -99,11 +99,12 @@ orkee sandbox config set-image <image:tag>
 
 #### Usage Flow
 ```bash
-# 1. Login to Docker Hub (one-time)
+# 1. (Optional) Login to Docker Hub
 orkee auth login docker
 
 # 2. Build your sandbox image
 orkee sandbox build --name my-sandbox --tag v1.0
+# Note: If Docker username cannot be detected, you'll be prompted to enter it
 
 # 3. Push to Docker Hub
 orkee sandbox push username/orkee-sandbox:v1.0
@@ -114,6 +115,24 @@ orkee sandbox config set-image username/orkee-sandbox:v1.0
 # 5. Create sandboxes using your image
 # (Now automatically uses your default image)
 ```
+
+### Docker Username Detection
+
+The `orkee sandbox build` command needs your Docker Hub username to tag images. It attempts to detect your username automatically by:
+
+1. Checking `docker info` output for username field
+2. Parsing Docker config file (future enhancement)
+
+If automatic detection fails, you will be prompted to enter your username interactively:
+
+```bash
+$ orkee sandbox build
+⚠️  Could not detect Docker Hub username.
+   Please enter your Docker Hub username to tag the image:
+Docker Hub username: your-username
+```
+
+The username is only used for tagging the image (e.g., `username/orkee-sandbox:latest`) and is not stored.
 
 ---
 
