@@ -202,12 +202,15 @@ impl SandboxManager {
         // Get provider
         let provider = self.get_provider(&request.provider).await?;
 
-        // Get default image
-        let image = request.image.unwrap_or_else(|| {
-            provider_settings
-                .default_image
-                .unwrap_or_else(|| "orkee/sandbox:latest".to_string())
-        });
+        // Get default image with fallback chain:
+        // 1. Request image (explicit override)
+        // 2. Provider default image (provider-specific)
+        // 3. Global default image (sandbox settings)
+        // 4. Hardcoded fallback
+        let image = request
+            .image
+            .or(provider_settings.default_image.clone())
+            .unwrap_or_else(|| sandbox_settings.default_image.clone());
 
         // Create container configuration
         let mut labels = HashMap::new();
