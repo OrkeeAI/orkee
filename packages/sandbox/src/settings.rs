@@ -12,6 +12,7 @@ pub struct SandboxSettings {
     pub enabled: bool,
     pub default_provider: String,
     pub default_image: String,
+    pub docker_username: Option<String>,
 
     // Resource Limits
     pub max_concurrent_local: i64,
@@ -152,6 +153,7 @@ impl SettingsManager {
                 enabled = ?,
                 default_provider = ?,
                 default_image = ?,
+                docker_username = ?,
                 max_concurrent_local = ?,
                 max_concurrent_cloud = ?,
                 max_cpu_cores_per_sandbox = ?,
@@ -192,6 +194,7 @@ impl SettingsManager {
         .bind(settings.enabled as i64)
         .bind(&settings.default_provider)
         .bind(&settings.default_image)
+        .bind(&settings.docker_username)
         .bind(settings.max_concurrent_local)
         .bind(settings.max_concurrent_cloud)
         .bind(settings.max_cpu_cores_per_sandbox)
@@ -386,6 +389,7 @@ impl SettingsManager {
             enabled: row.try_get::<i64, _>("enabled")? != 0,
             default_provider: row.try_get("default_provider")?,
             default_image: row.try_get("default_image")?,
+            docker_username: row.try_get("docker_username")?,
             max_concurrent_local: row.try_get("max_concurrent_local")?,
             max_concurrent_cloud: row.try_get("max_concurrent_cloud")?,
             max_cpu_cores_per_sandbox: row.try_get("max_cpu_cores_per_sandbox")?,

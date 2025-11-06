@@ -98,16 +98,42 @@ pub async fn build_command(
     dockerfile: Option<String>,
 ) -> Result<()> {
     use inquire::Text;
+    use orkee_projects::DbState;
 
-    // Try to get Docker username, or prompt for it
-    let docker_username = match get_docker_username() {
-        Ok(username) => username,
-        Err(_) => {
-            println!("⚠️  Could not detect Docker Hub username.");
-            println!("   Please enter your Docker Hub username to tag the image:");
-            Text::new("Docker Hub username:")
-                .prompt()
-                .context("Failed to read username input")?
+    // Initialize database
+    let db = DbState::init().await?;
+    let mut settings = db.sandbox_settings.get_sandbox_settings().await?;
+
+    // Try to get Docker username from settings, docker info, or prompt
+    let docker_username = if let Some(username) = &settings.docker_username {
+        username.clone()
+    } else {
+        match get_docker_username() {
+            Ok(username) => {
+                // Save to settings for future use
+                settings.docker_username = Some(username.clone());
+                db.sandbox_settings
+                    .update_sandbox_settings(&settings, Some("cli"))
+                    .await?;
+                println!("✅ Saved Docker Hub username to settings");
+                username
+            }
+            Err(_) => {
+                println!("⚠️  Could not detect Docker Hub username.");
+                println!("   Please enter your Docker Hub username to tag the image:");
+                let username = Text::new("Docker Hub username:")
+                    .prompt()
+                    .context("Failed to read username input")?;
+
+                // Save to settings for future use
+                settings.docker_username = Some(username.clone());
+                db.sandbox_settings
+                    .update_sandbox_settings(&settings, Some("cli"))
+                    .await?;
+                println!("✅ Saved Docker Hub username to settings");
+
+                username
+            }
         }
     };
 
@@ -226,6 +252,7 @@ pub async fn config_show_command() -> Result<()> {
     println!("Enabled:         {}", settings.enabled);
     println!("Provider:        {}", settings.default_provider);
     println!("Image:           {}", settings.default_image);
+    println!("Docker Username: {}", settings.docker_username.as_deref().unwrap_or("(not set)"));
     println!("Max Concurrent:  {} local, {} cloud",
         settings.max_concurrent_local,
         settings.max_concurrent_cloud);
