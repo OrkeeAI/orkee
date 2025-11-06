@@ -46,6 +46,12 @@ pub enum SandboxConfigCommands {
         /// Image name (e.g., username/orkee-sandbox:v1.0)
         image: String,
     },
+
+    /// Set Docker Hub username
+    SetDockerUsername {
+        /// Docker Hub username (leave empty to clear)
+        username: Option<String>,
+    },
 }
 
 impl SandboxCommands {
@@ -83,6 +89,12 @@ impl SandboxCommands {
                 }
                 SandboxConfigCommands::SetImage { image } => {
                     if let Err(e) = config_set_image_command(image.clone()).await {
+                        eprintln!("Error: {}", e);
+                        std::process::exit(1);
+                    }
+                }
+                SandboxConfigCommands::SetDockerUsername { username } => {
+                    if let Err(e) = config_set_docker_username_command(username.clone()).await {
                         eprintln!("Error: {}", e);
                         std::process::exit(1);
                     }
@@ -283,6 +295,30 @@ pub async fn config_set_image_command(image: String) -> Result<()> {
         .await?;
 
     println!("✅ Default sandbox image set to: {}", image);
+
+    Ok(())
+}
+
+pub async fn config_set_docker_username_command(username: Option<String>) -> Result<()> {
+    use orkee_projects::DbState;
+
+    let db = DbState::init().await?;
+
+    // Get current settings
+    let mut settings = db.sandbox_settings.get_sandbox_settings().await?;
+
+    // Update username
+    settings.docker_username = username.clone();
+
+    // Save
+    db.sandbox_settings
+        .update_sandbox_settings(&settings, Some("cli"))
+        .await?;
+
+    match username {
+        Some(name) => println!("✅ Docker Hub username set to: {}", name),
+        None => println!("✅ Docker Hub username cleared"),
+    }
 
     Ok(())
 }
