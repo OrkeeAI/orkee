@@ -9,6 +9,7 @@ use cli::auth::AuthCommands;
 #[cfg(feature = "cloud")]
 use cli::cloud::CloudCommands;
 use cli::projects::ProjectsCommands;
+use cli::sandbox::SandboxCommands;
 use cli::security::SecurityCommands;
 use orkee_cli::dashboard::downloader::ensure_dashboard;
 use orkee_cli::dashboard::DashboardMode;
@@ -79,6 +80,9 @@ enum Commands {
     /// Manage OAuth authentication with AI providers
     #[command(subcommand)]
     Auth(AuthCommands),
+    /// Manage sandbox images
+    #[command(subcommand)]
+    Sandbox(SandboxCommands),
     /// Manage API key encryption security
     #[command(subcommand)]
     Security(SecurityCommands),
@@ -125,6 +129,9 @@ enum Commands {
     /// Manage OAuth authentication with AI providers
     #[command(subcommand)]
     Auth(AuthCommands),
+    /// Manage sandbox images
+    #[command(subcommand)]
+    Sandbox(SandboxCommands),
     /// Manage API key encryption security
     #[command(subcommand)]
     Security(SecurityCommands),
@@ -231,6 +238,10 @@ async fn handle_command(command: Commands) -> Result<(), Box<dyn std::error::Err
         Commands::Preview(preview_cmd) => handle_preview_command(preview_cmd).await,
         Commands::Auth(auth_cmd) => {
             auth_cmd.execute().await;
+            Ok(())
+        }
+        Commands::Sandbox(sandbox_cmd) => {
+            sandbox_cmd.execute().await;
             Ok(())
         }
         Commands::Security(security_cmd) => {
