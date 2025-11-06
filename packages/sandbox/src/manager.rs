@@ -236,12 +236,19 @@ impl SandboxManager {
             Ok(container_id) => {
                 // Update sandbox with container ID and status
                 let mut updated_sandbox = sandbox.clone();
-                updated_sandbox.container_id = Some(container_id);
+                updated_sandbox.container_id = Some(container_id.clone());
                 updated_sandbox.status = SandboxStatus::Running;
                 updated_sandbox.started_at = Some(Utc::now());
 
+                // Atomically update container ID and status in database
+                // This ensures both fields are updated together, preventing inconsistent state
                 self.storage
-                    .update_sandbox_status(&sandbox.id, SandboxStatus::Running, None)
+                    .update_sandbox_with_container(
+                        &sandbox.id,
+                        &container_id,
+                        SandboxStatus::Running,
+                        None,
+                    )
                     .await?;
 
                 // Store environment variables

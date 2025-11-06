@@ -280,6 +280,59 @@ pub async fn stop_sandbox(
 ) -> impl IntoResponse {
     info!("Stopping sandbox: {}", id);
 
+    // Get sandbox first to check its state
+    let sandbox = match db.sandbox_manager.get_sandbox(&id).await {
+        Ok(s) => s,
+        Err(e) => {
+            return ok_or_internal_error::<serde_json::Value, _>(Err(e), "Failed to get sandbox");
+        }
+    };
+
+    // Check if container exists
+    if sandbox.container_id.is_none() {
+        error!(
+            "Cannot stop sandbox {}: no container ID (status: {:?})",
+            id, sandbox.status
+        );
+        let result: Result<serde_json::Value, orkee_sandbox::ManagerError> =
+            Err(orkee_sandbox::ManagerError::ConfigError(
+                "Sandbox has no container. Please delete the sandbox.".to_string(),
+            ));
+        return ok_or_internal_error(result, "Failed to stop sandbox");
+    }
+
+    // Check if sandbox is in a stoppable state
+    use orkee_sandbox::SandboxStatus;
+    match sandbox.status {
+        SandboxStatus::Running => {
+            // Stoppable state - proceed
+        }
+        SandboxStatus::Stopped => {
+            // Already stopped
+            let result: Result<serde_json::Value, orkee_sandbox::ManagerError> =
+                Ok(serde_json::json!({"message": "Sandbox is already stopped"}));
+            return ok_or_internal_error(result, "Sandbox already stopped");
+        }
+        SandboxStatus::Error | SandboxStatus::Creating => {
+            error!("Cannot stop sandbox {} in state {:?}", id, sandbox.status);
+            let result: Result<serde_json::Value, orkee_sandbox::ManagerError> =
+                Err(orkee_sandbox::ManagerError::InvalidStateTransition(format!(
+                    "Cannot stop sandbox in state {:?}. Please delete the sandbox.",
+                    sandbox.status
+                )));
+            return ok_or_internal_error(result, "Failed to stop sandbox");
+        }
+        _ => {
+            error!("Cannot stop sandbox {} in state {:?}", id, sandbox.status);
+            let result: Result<serde_json::Value, orkee_sandbox::ManagerError> =
+                Err(orkee_sandbox::ManagerError::InvalidStateTransition(format!(
+                    "Cannot stop sandbox in state {:?}",
+                    sandbox.status
+                )));
+            return ok_or_internal_error(result, "Failed to stop sandbox");
+        }
+    }
+
     let timeout = 10; // 10 second timeout
     let result = db
         .sandbox_manager
@@ -296,6 +349,62 @@ pub async fn restart_sandbox(
     Path(id): Path<String>,
 ) -> impl IntoResponse {
     info!("Restarting sandbox: {}", id);
+
+    // Get sandbox first to check its state
+    let sandbox = match db.sandbox_manager.get_sandbox(&id).await {
+        Ok(s) => s,
+        Err(e) => {
+            return ok_or_internal_error::<serde_json::Value, _>(
+                Err(e),
+                "Failed to get sandbox",
+            );
+        }
+    };
+
+    // Check if container exists
+    if sandbox.container_id.is_none() {
+        error!(
+            "Cannot restart sandbox {}: no container ID (status: {:?})",
+            id, sandbox.status
+        );
+        let result: Result<serde_json::Value, orkee_sandbox::ManagerError> =
+            Err(orkee_sandbox::ManagerError::ConfigError(
+                "Sandbox has no container. Please delete and recreate the sandbox.".to_string(),
+            ));
+        return ok_or_internal_error(result, "Failed to restart sandbox");
+    }
+
+    // Check if sandbox is in a restartable state
+    use orkee_sandbox::SandboxStatus;
+    match sandbox.status {
+        SandboxStatus::Running | SandboxStatus::Stopped => {
+            // Restartable states - proceed
+        }
+        SandboxStatus::Error | SandboxStatus::Creating => {
+            error!(
+                "Cannot restart sandbox {} in state {:?}",
+                id, sandbox.status
+            );
+            let result: Result<serde_json::Value, orkee_sandbox::ManagerError> =
+                Err(orkee_sandbox::ManagerError::InvalidStateTransition(format!(
+                    "Cannot restart sandbox in state {:?}. Please delete and recreate the sandbox.",
+                    sandbox.status
+                )));
+            return ok_or_internal_error(result, "Failed to restart sandbox");
+        }
+        _ => {
+            error!(
+                "Cannot restart sandbox {} in state {:?}",
+                id, sandbox.status
+            );
+            let result: Result<serde_json::Value, orkee_sandbox::ManagerError> =
+                Err(orkee_sandbox::ManagerError::InvalidStateTransition(format!(
+                    "Cannot restart sandbox in state {:?}",
+                    sandbox.status
+                )));
+            return ok_or_internal_error(result, "Failed to restart sandbox");
+        }
+    }
 
     // Stop and then start
     let timeout = 10;

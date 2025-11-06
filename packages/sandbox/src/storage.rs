@@ -405,6 +405,58 @@ impl SandboxStorage {
         Ok(())
     }
 
+    /// Atomically update sandbox container_id and status
+    /// This ensures both fields are updated together, preventing inconsistent state
+    pub async fn update_sandbox_with_container(
+        &self,
+        id: &str,
+        container_id: &str,
+        status: SandboxStatus,
+        port: Option<u16>,
+    ) -> Result<()> {
+        let now = Utc::now();
+        let mut query = String::from(
+            "UPDATE sandboxes SET container_id = ?1, port = ?2, status = ?3",
+        );
+
+        // Update timestamps based on status
+        match status {
+            SandboxStatus::Running => {
+                query.push_str(", started_at = ?4");
+            }
+            SandboxStatus::Stopped => {
+                query.push_str(", stopped_at = ?4");
+            }
+            SandboxStatus::Terminated => {
+                query.push_str(", terminated_at = ?4");
+            }
+            _ => {}
+        }
+
+        query.push_str(" WHERE id = ?5");
+
+        let mut q = sqlx::query(&query)
+            .bind(container_id)
+            .bind(port.map(|p| p as i32))
+            .bind(status.as_str());
+
+        // Bind timestamp if needed
+        match status {
+            SandboxStatus::Running | SandboxStatus::Stopped | SandboxStatus::Terminated => {
+                q = q.bind(now.to_rfc3339());
+            }
+            _ => {}
+        }
+
+        let result = q.bind(id).execute(&self.pool).await?;
+
+        if result.rows_affected() == 0 {
+            return Err(StorageError::NotFound(id.to_string()));
+        }
+
+        Ok(())
+    }
+
     pub async fn delete_sandbox(&self, id: &str) -> Result<()> {
         let result = sqlx::query("DELETE FROM sandboxes WHERE id = ?1")
             .bind(id)
