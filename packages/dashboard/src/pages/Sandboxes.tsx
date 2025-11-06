@@ -52,6 +52,7 @@ export default function Sandboxes() {
   const [newSandbox, setNewSandbox] = useState<CreateSandboxRequest>({
     name: '',
     provider: undefined,
+    image: undefined,
     cpu_cores: undefined,
     memory_mb: undefined,
     agent_id: null,
@@ -119,7 +120,12 @@ export default function Sandboxes() {
     }
 
     try {
-      await createSandbox(newSandbox)
+      // Use default image from settings if not specified
+      const sandboxToCreate = {
+        ...newSandbox,
+        image: newSandbox.image || settings?.default_image,
+      }
+      await createSandbox(sandboxToCreate)
       toast({
         title: 'Sandbox created',
         description: `${newSandbox.name} has been created successfully`,
@@ -128,6 +134,7 @@ export default function Sandboxes() {
       setNewSandbox({
         name: '',
         provider: undefined,
+        image: undefined,
         cpu_cores: undefined,
         memory_mb: undefined,
         agent_id: null,
