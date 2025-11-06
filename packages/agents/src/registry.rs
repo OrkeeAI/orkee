@@ -60,8 +60,8 @@ impl AgentRegistry {
     /// Create a new AgentRegistry by loading agents from config file
     pub fn new() -> Result<Self> {
         let config_json = include_str!("../config/agents.json");
-        let config: AgentsConfig = serde_json::from_str(config_json)
-            .map_err(|e| AgentError::LoadError(e.to_string()))?;
+        let config: AgentsConfig =
+            serde_json::from_str(config_json).map_err(|e| AgentError::LoadError(e.to_string()))?;
 
         let mut agents = HashMap::new();
         for agent in config.agents {
@@ -113,15 +113,17 @@ impl AgentRegistry {
 
     /// Validate that a model is supported by an agent
     pub fn validate_model_for_agent(&self, agent_id: &str, model: &str) -> Result<()> {
-        let agent = self.get(agent_id)
+        let agent = self
+            .get(agent_id)
             .ok_or_else(|| AgentError::NotFound(agent_id.to_string()))?;
 
         if agent.supported_models.iter().any(|m| m.model_id == model) {
             Ok(())
         } else {
-            Err(AgentError::InvalidConfig(
-                format!("Model '{}' not supported by agent '{}'", model, agent_id)
-            ))
+            Err(AgentError::InvalidConfig(format!(
+                "Model '{}' not supported by agent '{}'",
+                model, agent_id
+            )))
         }
     }
 }
@@ -174,7 +176,11 @@ mod tests {
     #[test]
     fn test_validate_model_for_agent() {
         let registry = AgentRegistry::new().unwrap();
-        assert!(registry.validate_model_for_agent("claude-code", "claude-sonnet-4-5-20250929").is_ok());
-        assert!(registry.validate_model_for_agent("claude-code", "gpt-5").is_err());
+        assert!(registry
+            .validate_model_for_agent("claude-code", "claude-sonnet-4-5-20250929")
+            .is_ok());
+        assert!(registry
+            .validate_model_for_agent("claude-code", "gpt-5")
+            .is_err());
     }
 }
