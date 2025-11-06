@@ -58,10 +58,7 @@ impl CommandExecutor {
     }
 
     /// Execute a command and wait for completion
-    pub async fn execute_command(
-        &self,
-        request: ExecuteCommandRequest,
-    ) -> Result<ExecutionResult> {
+    pub async fn execute_command(&self, request: ExecuteCommandRequest) -> Result<ExecutionResult> {
         // Check sandbox status
         let sandbox = self.manager.get_sandbox(&request.sandbox_id).await?;
         if sandbox.status != SandboxStatus::Running {
@@ -86,13 +83,7 @@ impl CommandExecutor {
 
         // Update status to running
         self.manager
-            .update_execution_status(
-                &execution.id,
-                ExecutionStatus::Running,
-                None,
-                None,
-                None,
-            )
+            .update_execution_status(&execution.id, ExecutionStatus::Running, None, None, None)
             .await?;
 
         // Get container ID
@@ -179,13 +170,7 @@ impl CommandExecutor {
 
         // Update status to running
         self.manager
-            .update_execution_status(
-                &execution.id,
-                ExecutionStatus::Running,
-                None,
-                None,
-                None,
-            )
+            .update_execution_status(&execution.id, ExecutionStatus::Running, None, None, None)
             .await?;
 
         // Get container ID
@@ -329,13 +314,7 @@ impl CommandExecutor {
     pub async fn cancel_execution(&self, execution_id: &str) -> Result<()> {
         // Update execution status to cancelled
         self.manager
-            .update_execution_status(
-                execution_id,
-                ExecutionStatus::Cancelled,
-                None,
-                None,
-                None,
-            )
+            .update_execution_status(execution_id, ExecutionStatus::Cancelled, None, None, None)
             .await?;
 
         Ok(())

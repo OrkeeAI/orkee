@@ -1,8 +1,8 @@
 // ABOUTME: Cost calculation utilities for sandbox resource usage
 // ABOUTME: Calculates costs based on provider pricing and resource consumption
 
-use crate::ProviderRegistry;
 use crate::storage::{Sandbox, SandboxExecution};
+use crate::ProviderRegistry;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
@@ -116,9 +116,10 @@ impl CostCalculator {
         let provider = self.registry.get(&sandbox.provider)?;
 
         // Calculate execution hours
-        let hours_running = if let (Some(started), Some(completed)) =
-            (execution.started_at.as_ref(), execution.completed_at.as_ref())
-        {
+        let hours_running = if let (Some(started), Some(completed)) = (
+            execution.started_at.as_ref(),
+            execution.completed_at.as_ref(),
+        ) {
             self.calculate_runtime_hours(started, Some(completed))
         } else {
             return None;
@@ -145,8 +146,7 @@ impl CostCalculator {
             if let Some(per_hour) = provider.pricing.per_hour {
                 breakdown.compute_cost = per_hour * hours_running;
             } else if let Some(per_cpu_hour) = provider.pricing.per_cpu_hour {
-                breakdown.compute_cost =
-                    per_cpu_hour * sandbox.cpu_cores as f64 * hours_running;
+                breakdown.compute_cost = per_cpu_hour * sandbox.cpu_cores as f64 * hours_running;
             }
         }
 
@@ -200,6 +200,7 @@ impl CostCalculator {
     }
 
     /// Estimate cost for a sandbox based on configuration
+    #[allow(clippy::too_many_arguments)]
     pub fn estimate_cost(
         &self,
         provider_id: &str,

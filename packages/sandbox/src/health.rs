@@ -89,7 +89,10 @@ impl HealthChecker {
                 };
 
                 // Check all running sandboxes
-                match manager.list_sandboxes(None, Some(SandboxStatus::Running)).await {
+                match manager
+                    .list_sandboxes(None, Some(SandboxStatus::Running))
+                    .await
+                {
                     Ok(sandboxes) => {
                         for sandbox in sandboxes {
                             if let Err(e) = Self::check_sandbox(&manager, &checks, &sandbox).await {
@@ -103,7 +106,10 @@ impl HealthChecker {
                 }
 
                 // Check for stuck sandboxes (in transition states)
-                match manager.list_sandboxes(None, Some(SandboxStatus::Starting)).await {
+                match manager
+                    .list_sandboxes(None, Some(SandboxStatus::Starting))
+                    .await
+                {
                     Ok(sandboxes) => {
                         for sandbox in sandboxes {
                             Self::check_stuck_sandbox(&manager, &checks, &sandbox).await;
@@ -114,7 +120,10 @@ impl HealthChecker {
                     }
                 }
 
-                match manager.list_sandboxes(None, Some(SandboxStatus::Stopping)).await {
+                match manager
+                    .list_sandboxes(None, Some(SandboxStatus::Stopping))
+                    .await
+                {
                     Ok(sandboxes) => {
                         for sandbox in sandboxes {
                             Self::check_stuck_sandbox(&manager, &checks, &sandbox).await;
@@ -173,7 +182,10 @@ impl HealthChecker {
             ContainerStatus::Running => {
                 // Check if response time is acceptable (< 5 seconds)
                 if elapsed_ms > 5000 {
-                    (HealthStatus::Degraded, Some("Slow response time".to_string()))
+                    (
+                        HealthStatus::Degraded,
+                        Some("Slow response time".to_string()),
+                    )
                 } else {
                     (HealthStatus::Healthy, None)
                 }
@@ -184,11 +196,17 @@ impl HealthChecker {
             ),
             ContainerStatus::Dead | ContainerStatus::Error(_) => (
                 HealthStatus::Unhealthy,
-                Some(format!("Container in error state: {:?}", container_info.status)),
+                Some(format!(
+                    "Container in error state: {:?}",
+                    container_info.status
+                )),
             ),
             _ => (
                 HealthStatus::Unknown,
-                Some(format!("Unexpected container status: {:?}", container_info.status)),
+                Some(format!(
+                    "Unexpected container status: {:?}",
+                    container_info.status
+                )),
             ),
         };
 

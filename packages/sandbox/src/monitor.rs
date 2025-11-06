@@ -96,10 +96,15 @@ impl ResourceMonitor {
                 };
 
                 // Monitor all running sandboxes
-                match manager.list_sandboxes(None, Some(SandboxStatus::Running)).await {
+                match manager
+                    .list_sandboxes(None, Some(SandboxStatus::Running))
+                    .await
+                {
                     Ok(sandboxes) => {
                         for sandbox in sandboxes {
-                            if let Err(e) = Self::monitor_sandbox(&manager, &snapshots, &sandbox).await {
+                            if let Err(e) =
+                                Self::monitor_sandbox(&manager, &snapshots, &sandbox).await
+                            {
                                 warn!("Failed to monitor sandbox {}: {}", sandbox.id, e);
                             }
                         }
@@ -259,17 +264,12 @@ impl ResourceMonitor {
     }
 
     /// Get current resource usage for all running sandboxes
-    pub async fn get_all_current_metrics(
-        &self,
-    ) -> HashMap<String, Option<ResourceSnapshot>> {
+    pub async fn get_all_current_metrics(&self) -> HashMap<String, Option<ResourceSnapshot>> {
         let snapshots = self.snapshots.read().await;
         let mut result = HashMap::new();
 
         for (sandbox_id, sandbox_snapshots) in snapshots.iter() {
-            result.insert(
-                sandbox_id.clone(),
-                sandbox_snapshots.last().cloned(),
-            );
+            result.insert(sandbox_id.clone(), sandbox_snapshots.last().cloned());
         }
 
         result
@@ -286,12 +286,18 @@ impl ResourceMonitor {
                 if latest.memory_usage_percent >= 95.0 {
                     violations.push((
                         sandbox_id.clone(),
-                        format!("Critical: Memory usage at {:.1}%", latest.memory_usage_percent),
+                        format!(
+                            "Critical: Memory usage at {:.1}%",
+                            latest.memory_usage_percent
+                        ),
                     ));
                 } else if latest.memory_usage_percent >= 90.0 {
                     violations.push((
                         sandbox_id.clone(),
-                        format!("Warning: Memory usage at {:.1}%", latest.memory_usage_percent),
+                        format!(
+                            "Warning: Memory usage at {:.1}%",
+                            latest.memory_usage_percent
+                        ),
                     ));
                 }
 

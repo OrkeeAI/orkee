@@ -2,8 +2,7 @@
 // ABOUTME: Manages complete sandbox lifecycle from creation to termination with database settings
 
 use crate::providers::{
-    ContainerConfig, ContainerInfo, PortMapping, Provider, ProviderError,
-    VolumeMount,
+    ContainerConfig, ContainerInfo, PortMapping, Provider, ProviderError, VolumeMount,
 };
 use crate::settings::SettingsManager;
 use crate::storage::{
@@ -72,10 +71,7 @@ pub struct SandboxManager {
 }
 
 impl SandboxManager {
-    pub fn new(
-        storage: Arc<SandboxStorage>,
-        settings: Arc<RwLock<SettingsManager>>,
-    ) -> Self {
+    pub fn new(storage: Arc<SandboxStorage>, settings: Arc<RwLock<SettingsManager>>) -> Self {
         Self {
             storage,
             settings,
@@ -242,11 +238,7 @@ impl SandboxManager {
                 updated_sandbox.started_at = Some(Utc::now());
 
                 self.storage
-                    .update_sandbox_status(
-                        &sandbox.id,
-                        SandboxStatus::Running,
-                        None,
-                    )
+                    .update_sandbox_status(&sandbox.id, SandboxStatus::Running, None)
                     .await?;
 
                 // Store environment variables
@@ -280,11 +272,7 @@ impl SandboxManager {
             Err(e) => {
                 // Update sandbox status to error
                 self.storage
-                    .update_sandbox_status(
-                        &sandbox.id,
-                        SandboxStatus::Error,
-                        Some(e.to_string()),
-                    )
+                    .update_sandbox_status(&sandbox.id, SandboxStatus::Error, Some(e.to_string()))
                     .await?;
 
                 Err(ManagerError::Provider(e))
@@ -319,21 +307,13 @@ impl SandboxManager {
         match provider.start_container(container_id).await {
             Ok(()) => {
                 self.storage
-                    .update_sandbox_status(
-                        sandbox_id,
-                        SandboxStatus::Running,
-                        None,
-                    )
+                    .update_sandbox_status(sandbox_id, SandboxStatus::Running, None)
                     .await?;
                 Ok(())
             }
             Err(e) => {
                 self.storage
-                    .update_sandbox_status(
-                        sandbox_id,
-                        SandboxStatus::Error,
-                        Some(e.to_string()),
-                    )
+                    .update_sandbox_status(sandbox_id, SandboxStatus::Error, Some(e.to_string()))
                     .await?;
                 Err(ManagerError::Provider(e))
             }
@@ -367,21 +347,13 @@ impl SandboxManager {
         match provider.stop_container(container_id, timeout_secs).await {
             Ok(()) => {
                 self.storage
-                    .update_sandbox_status(
-                        sandbox_id,
-                        SandboxStatus::Stopped,
-                        None,
-                    )
+                    .update_sandbox_status(sandbox_id, SandboxStatus::Stopped, None)
                     .await?;
                 Ok(())
             }
             Err(e) => {
                 self.storage
-                    .update_sandbox_status(
-                        sandbox_id,
-                        SandboxStatus::Error,
-                        Some(e.to_string()),
-                    )
+                    .update_sandbox_status(sandbox_id, SandboxStatus::Error, Some(e.to_string()))
                     .await?;
                 Err(ManagerError::Provider(e))
             }
@@ -406,11 +378,7 @@ impl SandboxManager {
 
         // Update status to terminated
         self.storage
-            .update_sandbox_status(
-                sandbox_id,
-                SandboxStatus::Terminated,
-                None,
-            )
+            .update_sandbox_status(sandbox_id, SandboxStatus::Terminated, None)
             .await?;
 
         // Delete from database if settings allow
@@ -495,13 +463,7 @@ impl SandboxManager {
     ) -> Result<()> {
         Ok(self
             .storage
-            .update_execution_status(
-                execution_id,
-                status,
-                exit_code,
-                stdout,
-                stderr,
-            )
+            .update_execution_status(execution_id, status, exit_code, stdout, stderr)
             .await?)
     }
 
@@ -665,10 +627,7 @@ mod tests {
             Ok(())
         }
 
-        async fn image_exists(
-            &self,
-            _image: &str,
-        ) -> std::result::Result<bool, ProviderError> {
+        async fn image_exists(&self, _image: &str) -> std::result::Result<bool, ProviderError> {
             Ok(true)
         }
     }
