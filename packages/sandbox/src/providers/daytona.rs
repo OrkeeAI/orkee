@@ -12,6 +12,7 @@ use tracing::warn;
 /// Daytona provider for development workspaces
 /// TODO: Implement using Daytona's REST API
 /// Documentation: https://www.daytona.io/docs
+#[allow(dead_code)]
 pub struct DaytonaProvider {
     api_key: String,
     workspace_url: String,

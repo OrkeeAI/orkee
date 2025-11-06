@@ -12,6 +12,7 @@ use tracing::warn;
 /// Cloudflare Workers provider for edge compute
 /// TODO: Implement using Cloudflare Workers API
 /// Documentation: https://developers.cloudflare.com/workers
+#[allow(dead_code)]
 pub struct CloudflareProvider {
     account_id: String,
     api_token: String,
@@ -20,7 +21,11 @@ pub struct CloudflareProvider {
 
 impl CloudflareProvider {
     /// Create a new Cloudflare provider from database settings
-    pub fn new(account_id: String, api_token: String, api_endpoint: Option<String>) -> Result<Self> {
+    pub fn new(
+        account_id: String,
+        api_token: String,
+        api_endpoint: Option<String>,
+    ) -> Result<Self> {
         if account_id.is_empty() || api_token.is_empty() {
             return Err(ProviderError::ConfigError(
                 "Cloudflare account ID and API token are required".to_string(),
@@ -30,7 +35,8 @@ impl CloudflareProvider {
         Ok(Self {
             account_id,
             api_token,
-            api_endpoint: api_endpoint.unwrap_or_else(|| "https://api.cloudflare.com/client/v4".to_string()),
+            api_endpoint: api_endpoint
+                .unwrap_or_else(|| "https://api.cloudflare.com/client/v4".to_string()),
         })
     }
 

@@ -12,6 +12,7 @@ use tracing::warn;
 /// Beam provider for serverless GPU workloads
 /// TODO: Implement using Beam's REST API
 /// Documentation: https://docs.beam.cloud
+#[allow(dead_code)]
 pub struct BeamProvider {
     api_key: String,
     workspace_id: Option<String>,
@@ -20,7 +21,11 @@ pub struct BeamProvider {
 
 impl BeamProvider {
     /// Create a new Beam provider from database settings
-    pub fn new(api_key: String, workspace_id: Option<String>, api_endpoint: Option<String>) -> Result<Self> {
+    pub fn new(
+        api_key: String,
+        workspace_id: Option<String>,
+        api_endpoint: Option<String>,
+    ) -> Result<Self> {
         if api_key.is_empty() {
             return Err(ProviderError::ConfigError(
                 "Beam API key is required".to_string(),

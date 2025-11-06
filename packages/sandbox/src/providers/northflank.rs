@@ -12,6 +12,7 @@ use tracing::warn;
 /// Northflank provider for Kubernetes deployments
 /// TODO: Implement using Northflank's REST API
 /// Documentation: https://northflank.com/docs
+#[allow(dead_code)]
 pub struct NorthflankProvider {
     api_token: String,
     project_id: String,
@@ -20,7 +21,11 @@ pub struct NorthflankProvider {
 
 impl NorthflankProvider {
     /// Create a new Northflank provider from database settings
-    pub fn new(api_token: String, project_id: String, api_endpoint: Option<String>) -> Result<Self> {
+    pub fn new(
+        api_token: String,
+        project_id: String,
+        api_endpoint: Option<String>,
+    ) -> Result<Self> {
         if api_token.is_empty() || project_id.is_empty() {
             return Err(ProviderError::ConfigError(
                 "Northflank API token and project ID are required".to_string(),
@@ -30,7 +35,8 @@ impl NorthflankProvider {
         Ok(Self {
             api_token,
             project_id,
-            api_endpoint: api_endpoint.unwrap_or_else(|| "https://api.northflank.com/v1".to_string()),
+            api_endpoint: api_endpoint
+                .unwrap_or_else(|| "https://api.northflank.com/v1".to_string()),
         })
     }
 

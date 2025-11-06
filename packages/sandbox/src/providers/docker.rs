@@ -3,8 +3,8 @@
 
 use super::{
     ContainerConfig, ContainerInfo, ContainerMetrics, ContainerStatus, ExecResult, OutputChunk,
-    OutputStream, Provider, ProviderCapabilities, ProviderError, ProviderInfo,
-    ProviderStatus, Result, StreamType,
+    OutputStream, Provider, ProviderCapabilities, ProviderError, ProviderInfo, ProviderStatus,
+    Result, StreamType,
 };
 use async_trait::async_trait;
 use bollard::{
@@ -98,9 +98,10 @@ impl DockerProvider {
 
         // Add storage limit if specified
         if config.storage_gb > 0 {
-            host_config.storage_opt = Some(HashMap::from([
-                ("size".to_string(), format!("{}G", config.storage_gb)),
-            ]));
+            host_config.storage_opt = Some(HashMap::from([(
+                "size".to_string(),
+                format!("{}G", config.storage_gb),
+            )]));
         }
 
         Config {
@@ -213,7 +214,10 @@ impl Provider for DockerProvider {
     }
 
     async fn stop_container(&self, container_id: &str, timeout_secs: u64) -> Result<()> {
-        info!("Stopping container: {} (timeout: {}s)", container_id, timeout_secs);
+        info!(
+            "Stopping container: {} (timeout: {}s)",
+            container_id, timeout_secs
+        );
 
         let options = StopContainerOptions {
             t: timeout_secs as i64,
@@ -272,10 +276,9 @@ impl Provider for DockerProvider {
                             if let Some(host_port_str) = &binding.host_port {
                                 // Parse container port (format: "3000/tcp")
                                 if let Some(port_num) = container_port_str.split('/').next() {
-                                    if let (Ok(container_port), Ok(host_port)) = (
-                                        port_num.parse::<u16>(),
-                                        host_port_str.parse::<u16>(),
-                                    ) {
+                                    if let (Ok(container_port), Ok(host_port)) =
+                                        (port_num.parse::<u16>(), host_port_str.parse::<u16>())
+                                    {
                                         ports.insert(container_port, host_port);
                                     }
                                 }
@@ -360,7 +363,10 @@ impl Provider for DockerProvider {
         command: Vec<String>,
         env_vars: Option<HashMap<String, String>>,
     ) -> Result<ExecResult> {
-        info!("Executing command in container {}: {:?}", container_id, command);
+        info!(
+            "Executing command in container {}: {:?}",
+            container_id, command
+        );
 
         let env: Option<Vec<String>> = env_vars.map(|vars| {
             vars.into_iter()
@@ -439,9 +445,7 @@ impl Provider for DockerProvider {
             ..Default::default()
         };
 
-        let logs = self
-            .client
-            .logs(container_id, Some(options));
+        let logs = self.client.logs(container_id, Some(options));
 
         let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
 
@@ -453,7 +457,9 @@ impl Provider for DockerProvider {
                         let (stream_type, data) = match log {
                             LogOutput::StdOut { message } => (StreamType::Stdout, message.to_vec()),
                             LogOutput::StdErr { message } => (StreamType::Stderr, message.to_vec()),
-                            LogOutput::Console { message } => (StreamType::Stdout, message.to_vec()),
+                            LogOutput::Console { message } => {
+                                (StreamType::Stdout, message.to_vec())
+                            }
                             _ => continue,
                         };
 
@@ -485,7 +491,7 @@ impl Provider for DockerProvider {
         dest_path: &str,
     ) -> Result<()> {
         use bollard::container::UploadToContainerOptions;
-        
+
         use std::path::Path;
 
         info!(
@@ -561,13 +567,14 @@ impl Provider for DockerProvider {
         let mut stats_stream = self.client.stats(container_id, Some(options));
 
         if let Some(Ok(stats)) = stats_stream.next().await {
-            let cpu_delta = stats.cpu_stats.cpu_usage.total_usage
-                - stats.precpu_stats.cpu_usage.total_usage;
+            let cpu_delta =
+                stats.cpu_stats.cpu_usage.total_usage - stats.precpu_stats.cpu_usage.total_usage;
             let system_delta = stats.cpu_stats.system_cpu_usage.unwrap_or(0)
                 - stats.precpu_stats.system_cpu_usage.unwrap_or(0);
 
             let cpu_usage_percent = if system_delta > 0 && cpu_delta > 0 {
-                (cpu_delta as f64 / system_delta as f64) * 100.0
+                (cpu_delta as f64 / system_delta as f64)
+                    * 100.0
                     * stats.cpu_stats.online_cpus.unwrap_or(1) as f64
             } else {
                 0.0
@@ -635,9 +642,9 @@ impl Provider for DockerProvider {
     async fn image_exists(&self, image: &str) -> Result<bool> {
         match self.client.inspect_image(image).await {
             Ok(_) => Ok(true),
-            Err(bollard::errors::Error::DockerResponseServerError { status_code, .. }) if status_code == 404 => {
-                Ok(false)
-            }
+            Err(bollard::errors::Error::DockerResponseServerError {
+                status_code: 404, ..
+            }) => Ok(false),
             Err(e) => Err(ProviderError::ImageError(e.to_string())),
         }
     }
@@ -654,16 +661,15 @@ fn create_tar_archive(path: &str) -> std::io::Result<Vec<u8>> {
     let path_obj = std::path::Path::new(path);
     if path_obj.is_file() {
         let mut file = fs::File::open(path)?;
-        let file_name = path_obj
-            .file_name()
-            .ok_or_else(|| std::io::Error::new(std::io::ErrorKind::InvalidInput, "Invalid file name"))?;
+        let file_name = path_obj.file_name().ok_or_else(|| {
+            std::io::Error::new(std::io::ErrorKind::InvalidInput, "Invalid file name")
+        })?;
         archive.append_file(file_name, &mut file)?;
     } else {
         archive.append_dir_all(".", path)?;
     }
 
-    archive.into_inner()
-        .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))
+    archive.into_inner().map_err(std::io::Error::other)
 }
 
 fn extract_tar_archive(data: &[u8], dest_path: &str) -> std::io::Result<()> {
@@ -691,17 +697,13 @@ mod tests {
     #[tokio::test]
     async fn test_container_config_conversion() {
         let provider = DockerProvider::new().unwrap_or_else(|_| {
-            DockerProvider::with_client(
-                Docker::connect_with_local_defaults().unwrap(),
-            )
+            DockerProvider::with_client(Docker::connect_with_local_defaults().unwrap())
         });
 
         let mut config = ContainerConfig {
             image: "alpine:latest".to_string(),
             name: "test-container".to_string(),
-            env_vars: HashMap::from([
-                ("FOO".to_string(), "bar".to_string()),
-            ]),
+            env_vars: HashMap::from([("FOO".to_string(), "bar".to_string())]),
             volumes: vec![VolumeMount {
                 host_path: "/tmp/host".to_string(),
                 container_path: "/tmp/container".to_string(),

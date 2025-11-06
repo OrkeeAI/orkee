@@ -12,6 +12,7 @@ use tracing::warn;
 /// Fly.io provider for edge containers
 /// TODO: Implement using Fly.io's GraphQL API
 /// Documentation: https://fly.io/docs/reference/graphql-api
+#[allow(dead_code)]
 pub struct FlyioProvider {
     api_token: String,
     app_name: Option<String>,
@@ -20,7 +21,11 @@ pub struct FlyioProvider {
 
 impl FlyioProvider {
     /// Create a new Fly.io provider from database settings
-    pub fn new(api_token: String, app_name: Option<String>, api_endpoint: Option<String>) -> Result<Self> {
+    pub fn new(
+        api_token: String,
+        app_name: Option<String>,
+        api_endpoint: Option<String>,
+    ) -> Result<Self> {
         if api_token.is_empty() {
             return Err(ProviderError::ConfigError(
                 "Fly.io API token is required".to_string(),

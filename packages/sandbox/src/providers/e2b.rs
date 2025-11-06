@@ -12,6 +12,7 @@ use tracing::warn;
 /// E2B provider for secure sandboxes
 /// TODO: Implement using E2B's Rust SDK or REST API
 /// Documentation: https://e2b.dev/docs
+#[allow(dead_code)]
 pub struct E2BProvider {
     api_key: String,
     api_endpoint: String,

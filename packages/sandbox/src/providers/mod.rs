@@ -5,19 +5,19 @@ use async_trait::async_trait;
 use std::collections::HashMap;
 use thiserror::Error;
 
-pub mod docker;
 pub mod beam;
 pub mod cloudflare;
 pub mod daytona;
+pub mod docker;
 pub mod e2b;
 pub mod flyio;
 pub mod modal;
 pub mod northflank;
 
-pub use docker::DockerProvider;
 pub use beam::BeamProvider;
 pub use cloudflare::CloudflareProvider;
 pub use daytona::DaytonaProvider;
+pub use docker::DockerProvider;
 pub use e2b::E2BProvider;
 pub use flyio::FlyioProvider;
 pub use modal::ModalProvider;

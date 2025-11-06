@@ -12,6 +12,7 @@ use tracing::warn;
 /// Modal provider for serverless compute
 /// TODO: Implement using Modal's REST API
 /// Documentation: https://modal.com/docs
+#[allow(dead_code)]
 pub struct ModalProvider {
     token_id: String,
     token_secret: String,
@@ -20,7 +21,11 @@ pub struct ModalProvider {
 
 impl ModalProvider {
     /// Create a new Modal provider from database settings
-    pub fn new(token_id: String, token_secret: String, api_endpoint: Option<String>) -> Result<Self> {
+    pub fn new(
+        token_id: String,
+        token_secret: String,
+        api_endpoint: Option<String>,
+    ) -> Result<Self> {
         if token_id.is_empty() || token_secret.is_empty() {
             return Err(ProviderError::ConfigError(
                 "Modal token ID and secret are required".to_string(),
