@@ -548,6 +548,60 @@ impl SandboxManager {
         Ok(provider.get_container_info(container_id).await?)
     }
 
+    /// Execute a command in a sandbox with security validation
+    ///
+    /// This method validates commands against blocked_commands settings before execution.
+    /// Commands are blocked if they match patterns in the settings, preventing:
+    /// - Dangerous system commands (e.g., rm -rf /, mkfs)
+    /// - Network manipulation (e.g., iptables, route)
+    /// - Process manipulation (e.g., kill -9, pkill)
+    /// - Privilege escalation attempts (e.g., sudo, su)
+    pub async fn exec_sandbox_command(
+        &self,
+        sandbox_id: &str,
+        command: Vec<String>,
+        env_vars: Option<HashMap<String, String>>,
+    ) -> Result<crate::providers::ExecResult> {
+        let sandbox = self.storage.get_sandbox(sandbox_id).await?;
+
+        let container_id = sandbox
+            .container_id
+            .as_ref()
+            .ok_or_else(|| ManagerError::ConfigError("No container ID".to_string()))?;
+
+        // Load settings to check blocked_commands
+        let settings_guard = self.settings.read().await;
+        let sandbox_settings = settings_guard
+            .get_sandbox_settings()
+            .await
+            .map_err(|e| ManagerError::SettingsError(e.to_string()))?;
+
+        // Validate command against blocked_commands list
+        if let Some(blocked_commands) = &sandbox_settings.blocked_commands {
+            if let Some(blocked_list) = blocked_commands.as_array() {
+                let command_str = command.join(" ");
+                for blocked in blocked_list {
+                    if let Some(pattern) = blocked.as_str() {
+                        // Check if command starts with blocked pattern
+                        // This prevents both exact matches and commands with arguments
+                        if command_str.starts_with(pattern) ||
+                           (!command.is_empty() && command[0] == pattern) {
+                            return Err(ManagerError::ConfigError(format!(
+                                "Command '{}' is blocked by security policy. Blocked pattern: '{}'",
+                                command_str, pattern
+                            )));
+                        }
+                    }
+                }
+            }
+        }
+
+        drop(settings_guard);
+
+        let provider = self.get_provider(&sandbox.provider).await?;
+        Ok(provider.exec_command(container_id, command, env_vars).await?)
+    }
+
     /// Create an execution record
     pub async fn create_execution(
         &self,

@@ -390,6 +390,11 @@ impl Provider for DockerProvider {
             container_id, command
         );
 
+        // Note: Command validation should be performed at the manager level
+        // before calling this provider method. This ensures blocked_commands
+        // settings are enforced consistently across all providers.
+        // See SandboxManager::exec_sandbox_command for validation implementation.
+
         let env: Option<Vec<String>> = env_vars.map(|vars| {
             vars.into_iter()
                 .map(|(k, v)| format!("{}={}", k, v))
