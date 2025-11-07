@@ -126,7 +126,7 @@ impl ServerRegistry {
     ///
     /// Returns a new `ServerRegistry` instance connected to the database.
     pub async fn new(storage: &SqliteStorage) -> Result<Self, Box<dyn std::error::Error>> {
-        // Initialize preview server storage (will run migrations and JSON import if needed)
+        // Initialize preview server storage
         let storage = PreviewServerStorage::new(storage).await?;
 
         // Parse stale timeout with validation (max 240 minutes = 4 hours)
