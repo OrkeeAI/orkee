@@ -183,7 +183,8 @@ impl SandboxManager {
                 })
                 .unwrap_or_else(|| {
                     // Use saturating cast to prevent overflow
-                    u32::try_from(sandbox_settings.max_disk_gb_per_sandbox.max(0)).unwrap_or(u32::MAX)
+                    u32::try_from(sandbox_settings.max_disk_gb_per_sandbox.max(0))
+                        .unwrap_or(u32::MAX)
                 })
         });
 
@@ -316,13 +317,7 @@ impl SandboxManager {
             "/bin",
         ];
 
-        const BLOCKED_USER_PATHS: &[&str] = &[
-            ".ssh",
-            ".aws",
-            ".gnupg",
-            ".kube",
-            ".docker",
-        ];
+        const BLOCKED_USER_PATHS: &[&str] = &[".ssh", ".aws", ".gnupg", ".kube", ".docker"];
 
         for volume in &request.volumes {
             let host_path = volume.host_path.trim();
@@ -333,7 +328,8 @@ impl SandboxManager {
                     return Err(ManagerError::ConfigError(format!(
                         "Volume mount path '{}' is blocked for security reasons. \
                          Cannot mount sensitive system directories: {}",
-                        host_path, BLOCKED_PATHS.join(", ")
+                        host_path,
+                        BLOCKED_PATHS.join(", ")
                     )));
                 }
             }
@@ -667,8 +663,9 @@ impl SandboxManager {
                     if let Some(pattern) = blocked.as_str() {
                         // Check if command starts with blocked pattern
                         // This prevents both exact matches and commands with arguments
-                        if command_str.starts_with(pattern) ||
-                           (!command.is_empty() && command[0] == pattern) {
+                        if command_str.starts_with(pattern)
+                            || (!command.is_empty() && command[0] == pattern)
+                        {
                             return Err(ManagerError::ConfigError(format!(
                                 "Command '{}' is blocked by security policy. Blocked pattern: '{}'",
                                 command_str, pattern
@@ -682,7 +679,9 @@ impl SandboxManager {
         drop(settings_guard);
 
         let provider = self.get_provider(&sandbox.provider).await?;
-        Ok(provider.exec_command(container_id, command, env_vars).await?)
+        Ok(provider
+            .exec_command(container_id, command, env_vars)
+            .await?)
     }
 
     /// Create an execution record

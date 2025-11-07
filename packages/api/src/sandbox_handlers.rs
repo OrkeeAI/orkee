@@ -209,7 +209,10 @@ pub async fn create_sandbox(
     current_user: CurrentUser,
     Json(body): Json<CreateSandboxRequestBody>,
 ) -> impl IntoResponse {
-    info!("Creating sandbox: {} for user: {}", body.name, current_user.id);
+    info!(
+        "Creating sandbox: {} for user: {}",
+        body.name, current_user.id
+    );
 
     // Get default values from settings
     let settings = match db.sandbox_settings.get_sandbox_settings().await {

@@ -3463,6 +3463,7 @@ dependencies = [
  "bollard",
  "chrono",
  "futures",
+ "orkee-models",
  "orkee-security",
  "orkee-storage",
  "serde",
