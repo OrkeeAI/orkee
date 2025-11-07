@@ -845,9 +845,9 @@ CREATE TABLE sandbox_provider_settings (
     validated_at TEXT,
     validation_error TEXT,
 
-    -- Credentials (encrypted)
-    api_key TEXT CHECK(api_key IS NULL OR length(api_key) >= 38),
-    api_secret TEXT CHECK(api_secret IS NULL OR length(api_secret) >= 38),
+    -- Credentials (encrypted via ChaCha20-Poly1305)
+    api_key TEXT,
+    api_secret TEXT,
     api_endpoint TEXT,
 
     -- Provider-specific IDs
