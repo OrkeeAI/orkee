@@ -20,6 +20,19 @@ const MAX_PARENT_SEARCH_DEPTH: usize = 5;
 /// Number of retries when attempting to find an available port
 const PORT_PICKER_RETRIES: usize = 5;
 
+/// Safe process names that can be killed when stopping development servers
+const SAFE_PROCESS_NAMES: &[&str] = &[
+    "node", "bun", "vite", "orkee", "cargo", "npm", "pnpm", "yarn", "deno", "react", "next",
+    "webpack",
+];
+
+/// Check if a process name is safe to kill (development-related process)
+fn is_safe_to_kill_process(process_name: &str) -> bool {
+    SAFE_PROCESS_NAMES
+        .iter()
+        .any(|&safe_name| process_name.contains(safe_name))
+}
+
 #[derive(Subcommand)]
 enum PreviewCommands {
     /// Stop all running preview servers
@@ -655,20 +668,7 @@ async fn kill_port(port: u16) -> Result<(), Box<dyn std::error::Error>> {
                                 .to_lowercase();
 
                             // Only kill dev-related processes to avoid killing production services
-                            let safe_to_kill = process_name.contains("node")
-                                || process_name.contains("bun")
-                                || process_name.contains("vite")
-                                || process_name.contains("orkee")
-                                || process_name.contains("cargo")
-                                || process_name.contains("npm")
-                                || process_name.contains("pnpm")
-                                || process_name.contains("yarn")
-                                || process_name.contains("deno")
-                                || process_name.contains("react")
-                                || process_name.contains("next")
-                                || process_name.contains("webpack");
-
-                            if safe_to_kill {
+                            if is_safe_to_kill_process(&process_name) {
                                 let _ = std::process::Command::new("kill")
                                     .args(["-9", &pid.to_string()])
                                     .output();
@@ -724,20 +724,7 @@ async fn kill_port(port: u16) -> Result<(), Box<dyn std::error::Error>> {
                                     .to_lowercase();
 
                                 // Only kill dev-related processes to avoid killing production services
-                                let safe_to_kill = process_name.contains("node")
-                                    || process_name.contains("bun")
-                                    || process_name.contains("vite")
-                                    || process_name.contains("orkee")
-                                    || process_name.contains("cargo")
-                                    || process_name.contains("npm")
-                                    || process_name.contains("pnpm")
-                                    || process_name.contains("yarn")
-                                    || process_name.contains("deno")
-                                    || process_name.contains("react")
-                                    || process_name.contains("next")
-                                    || process_name.contains("webpack");
-
-                                if safe_to_kill {
+                                if is_safe_to_kill_process(&process_name) {
                                     let kill_result = std::process::Command::new("taskkill")
                                         .args(["/F", "/PID", &pid.to_string()])
                                         .output();
