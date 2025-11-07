@@ -499,6 +499,7 @@ impl SandboxManager {
         let container_id = sandbox
             .container_id
             .as_ref()
+            .filter(|id| !id.is_empty())
             .ok_or_else(|| ManagerError::ConfigError("No container ID".to_string()))?;
 
         let provider = self.get_provider(&sandbox.provider).await?;
@@ -539,6 +540,7 @@ impl SandboxManager {
         let container_id = sandbox
             .container_id
             .as_ref()
+            .filter(|id| !id.is_empty())
             .ok_or_else(|| ManagerError::ConfigError("No container ID".to_string()))?;
 
         let provider = self.get_provider(&sandbox.provider).await?;
@@ -570,15 +572,17 @@ impl SandboxManager {
         let sandbox = self.storage.get_sandbox(sandbox_id).await?;
 
         if let Some(container_id) = &sandbox.container_id {
-            let provider = self.get_provider(&sandbox.provider).await?;
+            if !container_id.is_empty() {
+                let provider = self.get_provider(&sandbox.provider).await?;
 
-            // Stop if running and not forcing
-            if sandbox.status == SandboxStatus::Running && !force {
-                self.stop_sandbox(sandbox_id, 10).await?;
+                // Stop if running and not forcing
+                if sandbox.status == SandboxStatus::Running && !force {
+                    self.stop_sandbox(sandbox_id, 10).await?;
+                }
+
+                // Remove container
+                provider.remove_container(container_id, force).await?;
             }
-
-            // Remove container
-            provider.remove_container(container_id, force).await?;
         }
 
         // Update status to terminated
@@ -621,6 +625,7 @@ impl SandboxManager {
         let container_id = sandbox
             .container_id
             .as_ref()
+            .filter(|id| !id.is_empty())
             .ok_or_else(|| ManagerError::ConfigError("No container ID".to_string()))?;
 
         let provider = self.get_provider(&sandbox.provider).await?;
@@ -646,6 +651,7 @@ impl SandboxManager {
         let container_id = sandbox
             .container_id
             .as_ref()
+            .filter(|id| !id.is_empty())
             .ok_or_else(|| ManagerError::ConfigError("No container ID".to_string()))?;
 
         // Load settings to check blocked_commands
