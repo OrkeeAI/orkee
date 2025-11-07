@@ -119,7 +119,13 @@ pub async fn create_router_with_options(
         Ok(s) => s,
         Err(e) => {
             error!("Failed to create storage for preview manager: {}", e);
-            // Return minimal router without preview functionality
+            error!("Running in DEGRADED MODE: Preview server functionality is unavailable");
+            error!("Available endpoints: /api/health, /api/status, /api/projects/*");
+            error!("Unavailable endpoints: /api/preview/*, /api/directories/*");
+            // Return minimal router without preview functionality.
+            // This degraded mode ensures the application continues to function even if
+            // preview server storage initialization fails (e.g., due to database corruption,
+            // permission issues, or migration failures).
             let router = Router::new()
                 .route("/api/health", get(health::health_check))
                 .route("/api/status", get(health::status_check))
@@ -133,14 +139,23 @@ pub async fn create_router_with_options(
         Ok(manager) => Arc::new(manager),
         Err(e) => {
             error!("Failed to initialize preview manager: {}", e);
-            error!("Preview functionality will be limited");
-            // Continue without preview manager - UI will handle gracefully
-            // For now, create a minimal preview manager (TODO: handle this better)
+            error!("Preview functionality will be limited (no auto-discovery or crash recovery)");
+            // Continue with a minimal preview manager that can still:
+            // - List and manage manually registered servers
+            // - Start/stop preview servers for projects
+            // But lacks:
+            // - Automatic discovery of external servers
+            // - Crash recovery and cleanup tasks
             let registry = match orkee_preview::registry::ServerRegistry::new(&storage).await {
                 Ok(reg) => reg,
                 Err(e2) => {
                     error!("Failed to create fallback registry: {}", e2);
-                    // Return minimal router without preview functionality
+                    error!("Running in DEGRADED MODE: Preview server functionality is unavailable");
+                    error!("Available endpoints: /api/health, /api/status, /api/projects/*");
+                    error!("Unavailable endpoints: /api/preview/*, /api/directories/*");
+                    // Return minimal router without preview functionality.
+                    // This is the most degraded state - both preview manager initialization
+                    // and fallback registry creation have failed.
                     let router = Router::new()
                         .route("/api/health", get(health::health_check))
                         .route("/api/status", get(health::status_check))
