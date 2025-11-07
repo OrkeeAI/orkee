@@ -1764,28 +1764,4 @@ impl PreviewManager {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use orkee_storage::ProjectStorage;
-    use tempfile::TempDir;
-
-    async fn create_test_registry() -> (ServerRegistry, TempDir) {
-        let temp_dir = TempDir::new().unwrap();
-        let db_path = temp_dir.path().join("test.db");
-
-        let config = orkee_storage::StorageConfig {
-            provider: orkee_storage::StorageProvider::Sqlite { path: db_path },
-            max_connections: 5,
-            busy_timeout_seconds: 30,
-            enable_wal: false,
-            enable_fts: true,
-        };
-        let storage = orkee_storage::sqlite::SqliteStorage::new(config)
-            .await
-            .unwrap();
-        // Run migrations to create tables
-        storage.initialize().await.unwrap();
-        let registry = ServerRegistry::new(&storage).await.unwrap();
-        (registry, temp_dir)
-    }
-}
+mod tests {}
