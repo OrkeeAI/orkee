@@ -73,7 +73,7 @@ impl PreviewServerStorage {
         .bind(entry.started_at)
         .bind(entry.last_seen)
         .bind(entry.api_port as i64)
-        .bind(None::<String>) // error_message is always NULL for now
+        .bind(None::<String>) // TODO: error_message - Reserved for future server crash/error tracking
         .execute(&self.pool)
         .await
         .map_err(|e| {
@@ -124,7 +124,7 @@ impl PreviewServerStorage {
         .bind(entry.started_at)
         .bind(entry.last_seen)
         .bind(entry.api_port as i64)
-        .bind(None::<String>) // error_message is always NULL for now
+        .bind(None::<String>) // TODO: error_message - Reserved for future server crash/error tracking
         .bind(&entry.id)
         .execute(&self.pool)
         .await
