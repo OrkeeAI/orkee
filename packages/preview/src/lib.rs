@@ -1,7 +1,7 @@
 //! Orkee Preview - Development server preview system
 //!
 //! This crate provides functionality for managing development servers
-//! for various project types with crash-resistant operation.
+//! for various project types using SQLite-based persistence.
 
 pub mod discovery;
 pub mod manager;
@@ -23,11 +23,10 @@ pub use types::{
     ServerStatusResponse, ServersResponse, StartServerRequest, StartServerResponse,
 };
 
-/// Initialize the preview service with a crash-resistant manager.
+/// Initialize the preview service with a SQLite-based manager.
 ///
 /// Creates a new preview manager instance that automatically recovers any
-/// previously running development servers from lock files. This ensures
-/// that servers started in previous sessions are properly tracked.
+/// previously running development servers from the database registry.
 ///
 /// This function also starts background tasks:
 /// - External server discovery: Runs every 30 seconds to find manually launched servers
