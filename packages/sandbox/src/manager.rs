@@ -110,6 +110,17 @@ impl SandboxManager {
             ));
         }
 
+        // Enforce security: privileged containers must be explicitly disabled unless in development
+        // This prevents privilege escalation and host access in production environments
+        if sandbox_settings.allow_privileged_containers {
+            tracing::warn!(
+                "SECURITY WARNING: Privileged containers are enabled. \
+                 This allows containers to access host resources and should ONLY \
+                 be used in trusted development environments. Production systems \
+                 should have allow_privileged_containers = false."
+            );
+        }
+
         // Get provider settings
         let provider_settings = settings_guard
             .get_provider_settings(&request.provider)

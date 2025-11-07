@@ -44,6 +44,10 @@ pub struct SandboxSettings {
     pub require_auth_for_web: bool,
 
     // Security Settings
+    /// SECURITY CRITICAL: Allows Docker privileged mode which grants extensive host access.
+    /// Should ALWAYS be false in production. Only enable in trusted development environments.
+    /// When true, containers can: access all devices, modify kernel parameters, mount filesystems.
+    /// Default: false (secure)
     pub allow_privileged_containers: bool,
     pub require_non_root_user: bool,
     pub enable_security_scanning: bool,
