@@ -291,7 +291,7 @@ impl CostCalculator {
 mod tests {
     use super::*;
     use crate::{Provider, ProviderCapabilities, ProviderLimits, ProviderPricing};
-    
+
     use std::collections::HashMap;
 
     #[allow(dead_code)]
