@@ -672,13 +672,18 @@ async fn kill_port(port: u16) -> Result<(), Box<dyn std::error::Error>> {
                                 let _ = std::process::Command::new("kill")
                                     .args(["-9", &pid.to_string()])
                                     .output();
-                                println!("🔪 Killed {} (PID {}) on port {}", process_name, pid, port);
+                                println!(
+                                    "🔪 Killed {} (PID {}) on port {}",
+                                    process_name, pid, port
+                                );
                             } else {
                                 eprintln!(
                                     "⚠️  Refusing to kill '{}' (PID {}) on port {} - not a dev process",
                                     process_name, pid, port
                                 );
-                                eprintln!("   Please manually stop this process or use a different port");
+                                eprintln!(
+                                    "   Please manually stop this process or use a different port"
+                                );
                             }
                         }
                     }
@@ -739,7 +744,10 @@ async fn kill_port(port: u16) -> Result<(), Box<dyn std::error::Error>> {
 
                                     match kill_result {
                                         Ok(kill_output) if kill_output.status.success() => {
-                                            println!("🔪 Killed {} (PID {}) on port {}", process_name, pid, port);
+                                            println!(
+                                                "🔪 Killed {} (PID {}) on port {}",
+                                                process_name, pid, port
+                                            );
                                         }
                                         Ok(kill_output) => {
                                             eprintln!(
@@ -749,7 +757,10 @@ async fn kill_port(port: u16) -> Result<(), Box<dyn std::error::Error>> {
                                             );
                                         }
                                         Err(e) => {
-                                            eprintln!("Failed to execute taskkill for PID {}: {}", pid, e);
+                                            eprintln!(
+                                                "Failed to execute taskkill for PID {}: {}",
+                                                pid, e
+                                            );
                                         }
                                     }
                                 } else {
