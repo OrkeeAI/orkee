@@ -299,41 +299,66 @@ impl PreviewServerStorage {
         let entries: std::collections::HashMap<String, JsonEntry> =
             serde_json::from_str(&json_content).context("Failed to parse JSON registry")?;
 
-        let count = entries.len();
+        let total_count = entries.len();
+        let mut success_count = 0;
+        let mut failed_entries = Vec::new();
+
         for (_, json_entry) in entries {
             let db_entry = PreviewServerEntry {
-                id: json_entry.id,
-                project_id: json_entry.project_id,
-                project_name: json_entry.project_name,
+                id: json_entry.id.clone(),
+                project_id: json_entry.project_id.clone(),
+                project_name: json_entry.project_name.clone(),
                 port: json_entry.port,
-                preview_url: json_entry.preview_url,
+                preview_url: json_entry.preview_url.clone(),
                 pid: json_entry.pid,
                 status: json_entry.status,
                 source: json_entry.source,
-                project_root: json_entry.project_root,
-                matched_project_id: json_entry.matched_project_id,
-                framework_name: json_entry.framework_name,
-                actual_command: json_entry.actual_command,
+                project_root: json_entry.project_root.clone(),
+                matched_project_id: json_entry.matched_project_id.clone(),
+                framework_name: json_entry.framework_name.clone(),
+                actual_command: json_entry.actual_command.clone(),
                 started_at: json_entry.started_at,
                 last_seen: json_entry.last_seen,
                 api_port: json_entry.api_port,
             };
 
             match self.insert(&db_entry).await {
-                Ok(_) => debug!("Migrated server {}", db_entry.id),
-                Err(e) => warn!("Failed to migrate server {}: {}", db_entry.id, e),
+                Ok(_) => {
+                    debug!("Migrated server {}", db_entry.id);
+                    success_count += 1;
+                }
+                Err(e) => {
+                    warn!("Failed to migrate server {}: {}", db_entry.id, e);
+                    failed_entries.push((db_entry.id, e.to_string()));
+                }
             }
         }
 
-        // Rename the JSON file to mark it as migrated
-        let backup_path = json_path.with_extension("json.migrated");
-        fs::rename(json_path, &backup_path).context("Failed to rename migrated JSON file")?;
+        // Only rename the JSON file if all migrations succeeded
+        if failed_entries.is_empty() {
+            let backup_path = json_path.with_extension("json.migrated");
+            fs::rename(json_path, &backup_path).context("Failed to rename migrated JSON file")?;
 
-        info!(
-            "Successfully migrated {} servers to database. Original file backed up to {:?}",
-            count, backup_path
-        );
-        Ok(())
+            info!(
+                "Successfully migrated {} servers to database. Original file backed up to {:?}",
+                total_count, backup_path
+            );
+            Ok(())
+        } else {
+            // Don't rename - leave original file intact so user can retry or investigate
+            let error_msg = format!(
+                "Migration partially failed: {}/{} servers migrated successfully. Failed entries: {}. Original JSON file preserved for recovery.",
+                success_count,
+                total_count,
+                failed_entries
+                    .iter()
+                    .map(|(id, err)| format!("{} ({})", id, err))
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            );
+            warn!("{}", error_msg);
+            anyhow::bail!(error_msg)
+        }
     }
 
     // Helper to convert database row to entry struct
