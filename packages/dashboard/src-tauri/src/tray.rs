@@ -4,6 +4,7 @@
 use orkee_config::constants;
 use orkee_config::env::parse_env_or_default_with_validation;
 use orkee_preview::types::{ApiResponse, ServerSource, ServerStatusInfo, ServersResponse};
+use orkee_preview::validation::validate_project_id;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
@@ -201,51 +202,6 @@ fn sanitize_menu_text(text: &str) -> String {
         })
         .take(100)
         .collect()
-}
-
-/// Validate project_id to prevent path traversal and injection attacks.
-///
-/// Checks that the project_id doesn't contain dangerous patterns that could
-/// be used for path traversal, URL injection, or other security exploits.
-///
-/// # Arguments
-///
-/// * `project_id` - The project ID to validate
-///
-/// # Returns
-///
-/// Returns `Ok(())` if valid, or `Err(String)` with an error message if invalid.
-pub(crate) fn validate_project_id(project_id: &str) -> Result<(), String> {
-    // Check for empty project_id
-    if project_id.is_empty() {
-        return Err("Project ID cannot be empty".to_string());
-    }
-
-    // Check for path traversal sequences
-    if project_id.contains("..") {
-        return Err(format!(
-            "Invalid project ID '{}': contains path traversal sequence",
-            project_id
-        ));
-    }
-
-    // Check for null bytes (can cause security issues in some contexts)
-    if project_id.contains('\0') {
-        return Err(format!(
-            "Invalid project ID '{}': contains null byte",
-            project_id
-        ));
-    }
-
-    // Check for newlines or control characters (can cause log injection)
-    if project_id.chars().any(|c| c.is_control()) {
-        return Err(format!(
-            "Invalid project ID '{}': contains control characters",
-            project_id
-        ));
-    }
-
-    Ok(())
 }
 
 #[derive(Clone)]

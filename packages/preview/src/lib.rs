@@ -8,6 +8,7 @@ pub mod manager;
 pub mod registry;
 pub mod storage;
 pub mod types;
+pub mod validation;
 
 // Re-export key types and functions for easier use
 pub use discovery::{

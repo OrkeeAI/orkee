@@ -1,7 +1,7 @@
 // ABOUTME: Server restart logic for Tauri tray menu
 // ABOUTME: Handles stopping, verifying shutdown, and restarting development servers with retry logic
 
-use crate::tray::validate_project_id;
+use orkee_preview::validation::validate_project_id;
 use std::time::Duration;
 use tauri::Manager;
 use tracing::{debug, error, info};
