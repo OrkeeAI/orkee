@@ -1,24 +1,19 @@
-// TODO: Standardize error handling across preview package
-// Currently registry.rs uses Box<dyn std::error::Error> while manager.rs uses PreviewError.
-// Consider migrating registry functions to use PreviewResult<T> for consistency and better
-// error context. This would require adding registry-specific error variants to PreviewError.
+// ABOUTME: SQLite-backed central registry for tracking development servers
+// ABOUTME: Replaces JSON file storage with database persistence for better reliability
 
 use chrono::{DateTime, Utc};
-use orkee_config::constants;
 use orkee_config::env::parse_env_or_default_with_validation;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 use std::path::PathBuf;
-use std::sync::Arc;
-use tokio::sync::RwLock;
 use tracing::{debug, error, info, warn};
 
-use crate::types::DevServerStatus;
+use crate::storage::{PreviewServerEntry, PreviewServerStorage};
+use crate::types::{DevServerStatus, ServerSource};
 
 /// Entry in the central server registry.
 ///
 /// Represents a development server tracked across all Orkee instances on the system.
-/// This is stored in `~/.orkee/server-registry.json` and serves as the single source
+/// This is now stored in the SQLite database and serves as the single source
 /// of truth for all development servers.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ServerRegistryEntry {
@@ -50,563 +45,166 @@ pub struct ServerRegistryEntry {
     pub api_port: u16,
     /// Source of the server (Orkee, External, or Discovered)
     #[serde(default = "default_server_source")]
-    pub source: crate::types::ServerSource,
+    pub source: ServerSource,
     /// ID of the matched project (for external/discovered servers)
     pub matched_project_id: Option<String>,
 }
 
-fn default_server_source() -> crate::types::ServerSource {
-    crate::types::ServerSource::Orkee
+fn default_server_source() -> ServerSource {
+    ServerSource::Orkee
+}
+
+impl From<PreviewServerEntry> for ServerRegistryEntry {
+    fn from(entry: PreviewServerEntry) -> Self {
+        Self {
+            id: entry.id,
+            project_id: entry.project_id,
+            project_name: entry.project_name,
+            project_root: entry.project_root,
+            port: entry.port,
+            pid: entry.pid,
+            status: entry.status,
+            preview_url: entry.preview_url,
+            framework_name: entry.framework_name,
+            actual_command: entry.actual_command,
+            started_at: entry.started_at,
+            last_seen: entry.last_seen,
+            api_port: entry.api_port,
+            source: entry.source,
+            matched_project_id: entry.matched_project_id,
+        }
+    }
+}
+
+impl From<ServerRegistryEntry> for PreviewServerEntry {
+    fn from(entry: ServerRegistryEntry) -> Self {
+        Self {
+            id: entry.id,
+            project_id: entry.project_id,
+            project_name: entry.project_name,
+            project_root: entry.project_root,
+            port: entry.port,
+            pid: entry.pid,
+            status: entry.status,
+            preview_url: entry.preview_url,
+            framework_name: entry.framework_name,
+            actual_command: entry.actual_command,
+            started_at: entry.started_at,
+            last_seen: entry.last_seen,
+            api_port: entry.api_port,
+            source: entry.source,
+            matched_project_id: entry.matched_project_id,
+        }
+    }
 }
 
 /// Central registry for tracking all development servers across Orkee instances.
 ///
 /// This registry provides a global view of all development servers running on the system,
-/// regardless of which Orkee instance started them. It persists to disk at
-/// `~/.orkee/server-registry.json` and uses transactional updates to ensure consistency.
+/// regardless of which Orkee instance started them. It persists to SQLite database at
+/// `~/.orkee/orkee.db` and uses database transactions to ensure consistency.
+#[derive(Clone)]
 pub struct ServerRegistry {
-    registry_path: PathBuf,
-    lock_file_path: PathBuf,
-    entries: Arc<RwLock<HashMap<String, ServerRegistryEntry>>>,
+    storage: PreviewServerStorage,
     /// Timeout in minutes before considering an entry stale (default: 5, configurable via ORKEE_STALE_TIMEOUT_MINUTES)
     stale_timeout_minutes: i64,
-}
-
-impl Default for ServerRegistry {
-    fn default() -> Self {
-        Self::new()
-    }
 }
 
 impl ServerRegistry {
     /// Create a new server registry instance.
     ///
-    /// Initializes a new registry that persists to `~/.orkee/server-registry.json`.
-    /// If the registry file exists, it will be automatically loaded. The stale timeout
-    /// can be configured via the `ORKEE_STALE_TIMEOUT_MINUTES` environment variable
-    /// (default: 5 minutes, max: 240 minutes/4 hours).
+    /// Initializes a new registry that persists to the SQLite database.
+    /// The stale timeout can be configured via the `ORKEE_STALE_TIMEOUT_MINUTES`
+    /// environment variable (default: 5 minutes, max: 240 minutes/4 hours).
+    ///
+    /// # Arguments
+    ///
+    /// * `storage` - Reference to the shared SqliteStorage instance for database access
     ///
     /// # Returns
     ///
-    /// Returns a new `ServerRegistry` instance with loaded entries (if any exist).
-    pub fn new() -> Self {
-        let home = dirs::home_dir().unwrap_or_else(|| {
-            // Fallback to temp directory if home can't be determined
-            warn!("Could not determine home directory, using system temp directory");
-            std::env::temp_dir()
-        });
-        let registry_path = home.join(".orkee").join("server-registry.json");
-        let lock_file_path = home.join(".orkee").join("server-registry.lock");
+    /// Returns a new `ServerRegistry` instance connected to the database.
+    pub async fn new(storage: &orkee_storage::SqliteStorage) -> Result<Self, Box<dyn std::error::Error>> {
+        // Initialize preview server storage (will run migrations and JSON import if needed)
+        let storage = PreviewServerStorage::new(storage).await?;
 
-        // Read stale timeout from environment variable, default to 5 minutes
-        // Validate the timeout value (must be positive, max 240 minutes = 4 hours)
-        let stale_timeout_minutes =
-            parse_env_or_default_with_validation(constants::ORKEE_STALE_TIMEOUT_MINUTES, 5, |v| {
-                v > 0 && v <= 240
-            });
-
-        debug!(
-            "Server registry stale timeout set to {} minutes",
-            stale_timeout_minutes
+        // Parse stale timeout with validation (max 240 minutes = 4 hours)
+        let stale_timeout_minutes = parse_env_or_default_with_validation(
+            "ORKEE_STALE_TIMEOUT_MINUTES",
+            5i64,
+            |v| v >= 1 && v <= 240,
         );
 
-        Self {
-            registry_path,
-            lock_file_path,
-            entries: Arc::new(RwLock::new(HashMap::new())),
+        Ok(Self {
+            storage,
             stale_timeout_minutes,
-        }
+        })
     }
 
-    /// Load the registry from disk.
-    ///
-    /// Reads the registry file from `~/.orkee/server-registry.json` and loads all
-    /// server entries into memory. If the file doesn't exist, this is not an error.
-    ///
-    /// # Returns
-    ///
-    /// Returns `Ok(())` on success or if the file doesn't exist.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if the file exists but cannot be read or contains invalid JSON.
-    pub async fn load_registry(&self) -> Result<(), Box<dyn std::error::Error>> {
-        // Acquire exclusive lock to prevent TOCTOU races with concurrent writers
-        // (discovery, multiple Orkee instances)
-        let _lock = self.acquire_registry_lock().await?;
-
-        // Read file with lock held to ensure consistency
-        let content = match tokio::fs::read_to_string(&self.registry_path).await {
-            Ok(content) => content,
-            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
-                debug!(
-                    "Server registry does not exist yet at {:?}",
-                    self.registry_path
-                );
-                // Lock is automatically released when _lock is dropped
-                return Ok(());
-            }
-            Err(e) => return Err(e.into()),
-        };
-
-        let entries: HashMap<String, ServerRegistryEntry> = serde_json::from_str(&content)?;
-
-        let mut registry = self.entries.write().await;
-        *registry = entries;
-
-        info!("Loaded {} servers from registry", registry.len());
-        // Lock is automatically released when _lock is dropped here
-        Ok(())
-    }
-
-    /// Save the registry to disk.
-    ///
-    /// Writes the current registry state to `~/.orkee/server-registry.json` using
-    /// an atomic write operation (write to temp file, then rename). This ensures
-    /// the registry file is never left in a corrupted state.
-    ///
-    /// The read lock is released before performing disk I/O to avoid blocking writers
-    /// during potentially slow filesystem operations.
-    ///
-    /// # Returns
-    ///
-    /// Returns `Ok(())` on success.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if the file cannot be written or the directory cannot be created.
-    pub async fn save_registry(&self) -> Result<(), Box<dyn std::error::Error>> {
-        // Clone data under read lock, then release lock before disk I/O
-        let registry_snapshot = {
-            let registry = self.entries.read().await;
-            registry.clone()
-        };
-        // Lock is released here
-        self.save_entries_to_disk(&registry_snapshot).await
-    }
-
-    /// Helper to save entries to disk (used for transactional updates)
-    async fn save_entries_to_disk(
-        &self,
-        entries: &HashMap<String, ServerRegistryEntry>,
-    ) -> Result<(), Box<dyn std::error::Error>> {
-        // Acquire exclusive lock to prevent TOCTOU races with concurrent readers/writers
-        let _lock = self.acquire_registry_lock().await?;
-
-        // Ensure the .orkee directory exists with proper error handling
-        if let Some(parent) = self.registry_path.parent() {
-            if let Err(e) = tokio::fs::create_dir_all(parent).await {
-                // Ignore AlreadyExists errors (can happen in concurrent scenarios)
-                if e.kind() != std::io::ErrorKind::AlreadyExists {
-                    error!("Failed to create registry directory {:?}: {}", parent, e);
-                    return Err(format!("Cannot create registry directory: {}", e).into());
-                }
-            }
-        }
-
-        let json = serde_json::to_string_pretty(entries)?;
-
-        // Write to unique temporary file to prevent collisions in concurrent scenarios
-        // Use process ID + timestamp + random number to ensure uniqueness
-        use std::time::SystemTime;
-        let timestamp = SystemTime::now()
-            .duration_since(SystemTime::UNIX_EPOCH)
-            .unwrap()
-            .as_nanos();
-        let random = std::time::Instant::now().elapsed().as_nanos();
-        let temp_path = self.registry_path.with_extension(format!(
-            "tmp.{}.{}.{}",
-            std::process::id(),
-            timestamp,
-            random
-        ));
-        tokio::fs::write(&temp_path, &json).await?;
-
-        // Atomic rename to actual file with cleanup on failure
-        let rename_result = tokio::fs::rename(&temp_path, &self.registry_path).await;
-
-        // If rename failed, attempt to cleanup temp file
-        if rename_result.is_err() {
-            if temp_path.exists() {
-                if let Err(e) = tokio::fs::remove_file(&temp_path).await {
-                    warn!("Failed to cleanup temp file after failed rename: {}", e);
-                }
-            }
-            rename_result?; // Propagate the original rename error
-        }
-
-        // Set restrictive file permissions (owner read/write only)
-        // This prevents other local users from reading sensitive server info or injecting malicious entries
-        Self::set_registry_permissions(&self.registry_path).await?;
-
-        debug!("Saved {} servers to registry", entries.len());
-        // Lock is automatically released when _lock is dropped here
-        Ok(())
-    }
-
-    /// Set restrictive file permissions on the registry file.
-    ///
-    /// Configures the registry file to be readable and writable only by the current user
-    /// (owner). This prevents other local users from reading sensitive server information
-    /// or injecting malicious entries.
-    ///
-    /// # Platform-Specific Behavior
-    ///
-    /// - **Unix/Linux/macOS**: Sets file mode to 0600 (rw-------)
-    /// - **Windows**: Sets DACL to grant only the current user read/write access
+    /// Register a new server in the global registry.
     ///
     /// # Arguments
     ///
-    /// * `path` - Path to the registry file to secure
+    /// * `entry` - The server entry to register
     ///
     /// # Returns
     ///
-    /// Returns `Ok(())` on success.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if permissions cannot be set. On Windows, this may fail if:
-    /// - Process token cannot be opened
-    /// - User SID cannot be retrieved
-    /// - ACL creation fails
-    /// - File handle cannot be opened
-    async fn set_registry_permissions(
-        path: &std::path::Path,
-    ) -> Result<(), Box<dyn std::error::Error>> {
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::PermissionsExt;
-            let mut perms = tokio::fs::metadata(path).await?.permissions();
-            perms.set_mode(0o600); // Owner read/write only (rw-------)
-            tokio::fs::set_permissions(path, perms).await?;
-            debug!("Set registry file permissions to 0600 (owner read/write only)");
-        }
-
-        #[cfg(windows)]
-        {
-            // Windows API calls are blocking, so run them in a blocking task
-            let path_buf = path.to_path_buf();
-            tokio::task::spawn_blocking(move || {
-                use windows::core::PWSTR;
-                use windows::Win32::Foundation::LocalFree;
-                use windows::Win32::Foundation::PSID;
-                use windows::Win32::Security::Authorization::{
-                    SetEntriesInAclW, SetSecurityInfo, EXPLICIT_ACCESS_W, SE_FILE_OBJECT,
-                    SET_ACCESS, TRUSTEE_IS_SID, TRUSTEE_W,
-                };
-                use windows::Win32::Security::{
-                    GetTokenInformation, TokenUser, ACL, DACL_SECURITY_INFORMATION,
-                    OBJECT_INHERIT_ACE, SUB_CONTAINERS_AND_OBJECTS_INHERIT,
-                    TOKEN_QUERY, TOKEN_USER,
-                };
-                use windows::Win32::Storage::FileSystem::{
-                    CreateFileW, FILE_GENERIC_READ, FILE_GENERIC_WRITE, FILE_SHARE_DELETE,
-                    FILE_SHARE_READ, FILE_SHARE_WRITE, OPEN_EXISTING,
-                };
-                use windows::Win32::System::Threading::{GetCurrentProcess, OpenProcessToken};
-
-                unsafe {
-                // Get the current user's SID
-                let mut token = Default::default();
-                if let Err(e) = OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &mut token) {
-                    error!(
-                        "Failed to open process token for ACL setup: {:?} (error code: {})",
-                        e,
-                        e.code().0
-                    );
-                    return Err(format!("Failed to open process token: {:?}", e).into());
-                }
-
-                let mut token_info_length = 0u32;
-                let _ = GetTokenInformation(token, TokenUser, None, 0, &mut token_info_length);
-
-                let mut token_info = vec![0u8; token_info_length as usize];
-                if let Err(e) = GetTokenInformation(
-                    token,
-                    TokenUser,
-                    Some(token_info.as_mut_ptr() as *mut _),
-                    token_info_length,
-                    &mut token_info_length,
-                )
-                {
-                    error!(
-                        "Failed to get token information for ACL setup: {:?} (error code: {}, buffer size: {})",
-                        e,
-                        e.code().0,
-                        token_info_length
-                    );
-                    return Err(format!("Failed to get token information: {:?}", e).into());
-                }
-
-                let token_user = &*(token_info.as_ptr() as *const TOKEN_USER);
-                let user_sid = PSID(token_user.User.Sid.0);
-
-                // Create an explicit access structure for the current user (read/write only)
-                let ea = EXPLICIT_ACCESS_W {
-                    grfAccessPermissions: FILE_GENERIC_READ.0 | FILE_GENERIC_WRITE.0,
-                    grfAccessMode: SET_ACCESS,
-                    grfInheritance: OBJECT_INHERIT_ACE | SUB_CONTAINERS_AND_OBJECTS_INHERIT,
-                    Trustee: TRUSTEE_W {
-                        pMultipleTrustee: std::ptr::null_mut(),
-                        MultipleTrusteeOperation: Default::default(),
-                        TrusteeForm: TRUSTEE_IS_SID,
-                        TrusteeType: Default::default(),
-                        ptstrName: PWSTR(user_sid.0 as *mut _),
-                    },
-                };
-
-                // Create new ACL with only current user access
-                let mut new_acl: *mut ACL = std::ptr::null_mut();
-                if let Err(e) = SetEntriesInAclW(Some(&mut [ea]), None, &mut new_acl as *mut *mut ACL) {
-                    error!(
-                        "Failed to create ACL for registry file: {:?} (error code: {})",
-                        e,
-                        e.code().0
-                    );
-                    return Err(format!("Failed to create ACL: {:?}", e).into());
-                }
-
-                // Open the file handle for setting security
-                let path_wide: Vec<u16> = path_buf
-                    .to_str()
-                    .unwrap_or("")
-                    .encode_utf16()
-                    .chain(std::iter::once(0))
-                    .collect();
-
-                let file_handle = CreateFileW(
-                    windows::core::PCWSTR(path_wide.as_ptr()),
-                    FILE_GENERIC_READ.0 | FILE_GENERIC_WRITE.0,
-                    FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
-                    None,
-                    OPEN_EXISTING,
-                    Default::default(),
-                    None,
-                );
-
-                if let Err(e) = file_handle {
-                    error!(
-                        "Failed to open registry file for ACL setup: {:?} (error code: {}, path: {:?})",
-                        e,
-                        e.code().0,
-                        path_buf
-                    );
-                    if !new_acl.is_null() {
-                        let _ = LocalFree(windows::Win32::Foundation::HLOCAL(new_acl as *mut _));
-                    }
-                    return Err(format!("Failed to open file for ACL setup: {:?}", e).into());
-                }
-
-                // Set the DACL on the file (owner read/write only, no one else)
-                let result = SetSecurityInfo(
-                    file_handle.unwrap(),
-                    SE_FILE_OBJECT,
-                    DACL_SECURITY_INFORMATION,
-                    None,  // No owner SID change
-                    None,  // No group SID change
-                    Some(new_acl as *const ACL),
-                    None,  // No security descriptor
-                );
-
-                // Clean up
-                if !new_acl.is_null() {
-                    let _ = LocalFree(windows::Win32::Foundation::HLOCAL(new_acl as *mut _));
-                }
-
-                if let Err(e) = result {
-                    error!(
-                        "Failed to set ACL on registry file: {:?} (error code: {}, path: {:?})",
-                        e,
-                        e.code().0,
-                        path_buf
-                    );
-                    return Err(format!("Failed to set file ACL: {:?}", e).into());
-                }
-
-                debug!(
-                    "Set registry file ACL to restrict access to current user only (owner read/write)"
-                );
-
-                Ok::<(), Box<dyn std::error::Error + Send + Sync>>(())
-                }
-            })
-            .await
-            .map_err(|e| format!("Failed to join Windows permissions task: {}", e))?
-            .map_err(|e| e.to_string())?;
-        }
-
-        Ok(())
-    }
-
-    /// Acquire an exclusive lock on the registry file.
-    ///
-    /// Creates a lock file and acquires an exclusive file lock using flock (Unix) or
-    /// LockFile (Windows). This prevents TOCTOU races when multiple processes (discovery,
-    /// multiple Orkee instances) are reading/writing the registry concurrently.
-    ///
-    /// The lock file is created if it doesn't exist and permissions are set appropriately.
-    ///
-    /// # Returns
-    ///
-    /// Returns a locked `std::fs::File` handle that will automatically release the lock
-    /// when dropped (RAII pattern).
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if the lock file cannot be created or the lock cannot be acquired.
-    async fn acquire_registry_lock(&self) -> Result<std::fs::File, anyhow::Error> {
-        // Ensure .orkee directory exists
-        if let Some(parent) = self.lock_file_path.parent() {
-            tokio::fs::create_dir_all(parent).await.ok();
-        }
-
-        // Open/create lock file (blocking operation)
-        let lock_path = self.lock_file_path.clone();
-        let lock_file = tokio::task::spawn_blocking(move || {
-            std::fs::OpenOptions::new()
-                .create(true)
-                .write(true)
-                .truncate(false)
-                .open(&lock_path)
-        })
-        .await??;
-
-        // Acquire exclusive lock (blocking operation)
-        let locked_file = tokio::task::spawn_blocking(move || {
-            use fs2::FileExt;
-            lock_file.lock_exclusive()?;
-            Ok::<std::fs::File, anyhow::Error>(lock_file)
-        })
-        .await??;
-
-        debug!("Acquired exclusive lock on registry file");
-        Ok(locked_file)
-    }
-
-    /// Register a new server or update an existing one.
-    ///
-    /// Adds a server to the registry or updates it if it already exists. This method
-    /// uses a transactional update pattern: the registry is saved to disk first, and
-    /// only if that succeeds is the in-memory state updated. This prevents inconsistencies
-    /// between disk and memory.
-    ///
-    /// # Arguments
-    ///
-    /// * `entry` - The server registry entry to add or update
-    ///
-    /// # Returns
-    ///
-    /// Returns `Ok(())` on success.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if the registry cannot be saved to disk. If this occurs,
-    /// the in-memory state is left unchanged.
+    /// Returns `Ok(())` on success, or an error if the operation fails.
     pub async fn register_server(
         &self,
         entry: ServerRegistryEntry,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        let entry_id = entry.id.clone();
-        let entry_pid = entry.pid;
-        let entry_port = entry.port;
+        info!(
+            "Registering server {} ({}) on port {} in global registry",
+            entry.id, entry.project_id, entry.port
+        );
 
-        // Clone the current registry under read lock, then release
-        // This minimizes lock contention during disk I/O
-        let snapshot = {
-            let registry = self.entries.read().await;
+        self.storage
+            .create(entry.into())
+            .await
+            .map_err(|e| Box::new(e) as Box<dyn std::error::Error>)?;
 
-            // Check for duplicate server (same PID AND port) to prevent race conditions
-            // This makes the operation idempotent and safe for concurrent calls
-            // We check both PID and port to uniquely identify a server process
-            let is_duplicate = registry.values().any(|existing| {
-                // Skip checking against the same server ID (allows updates)
-                if existing.id == entry_id {
-                    return false;
-                }
-                // Check if it's the exact same server (same PID and same port)
-                existing.pid.is_some() && existing.pid == entry_pid && existing.port == entry_port
-            });
-
-            if is_duplicate {
-                debug!(
-                    "Server already registered (PID: {:?}, Port: {}), skipping",
-                    entry_pid, entry_port
-                );
-                return Ok(());
-            }
-
-            let mut snapshot = registry.clone();
-            snapshot.insert(entry_id.clone(), entry.clone());
-            snapshot
-        };
-        // Read lock is released here
-
-        // Save to disk without holding any locks (disk I/O can be slow)
-        self.save_entries_to_disk(&snapshot).await?;
-
-        // Hold write lock briefly to update in-memory state
-        // Apply the same change to ensure consistency
-        let mut registry = self.entries.write().await;
-        registry.insert(entry_id, entry);
-
+        debug!("Server {} successfully registered in database", entry.id);
         Ok(())
     }
 
-    /// Remove a server from the registry.
-    ///
-    /// Removes a server entry from the registry. This method uses a transactional
-    /// update pattern: the registry is saved to disk first, and only if that succeeds
-    /// is the in-memory state updated.
+    /// Unregister a server from the global registry.
     ///
     /// # Arguments
     ///
-    /// * `server_id` - The unique identifier of the server to remove
+    /// * `server_id` - The unique identifier of the server to unregister
     ///
     /// # Returns
     ///
-    /// Returns `Ok(())` on success, even if the server was not found.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if the registry cannot be saved to disk.
-    pub async fn unregister_server(
-        &self,
-        server_id: &str,
-    ) -> Result<(), Box<dyn std::error::Error>> {
-        // Clone the current registry under read lock, then release
-        let snapshot = {
-            let registry = self.entries.read().await;
-            let mut snapshot = registry.clone();
-            snapshot.remove(server_id);
-            snapshot
-        };
-        // Read lock is released here
+    /// Returns `Ok(())` on success, or an error if the operation fails.
+    pub async fn unregister_server(&self, server_id: &str) -> Result<(), Box<dyn std::error::Error>> {
+        info!("Unregistering server {} from global registry", server_id);
 
-        // Save to disk without holding any locks
-        self.save_entries_to_disk(&snapshot).await?;
+        self.storage
+            .delete(server_id)
+            .await
+            .map_err(|e| Box::new(e) as Box<dyn std::error::Error>)?;
 
-        // Hold write lock briefly to update in-memory state
-        let mut registry = self.entries.write().await;
-        registry.remove(server_id);
-
+        debug!("Server {} successfully unregistered from database", server_id);
         Ok(())
     }
 
     /// Get all servers from the registry.
     ///
-    /// Returns a snapshot of all registered servers at the time of the call.
-    ///
     /// # Returns
     ///
-    /// Returns a `Vec<ServerRegistryEntry>` containing all server entries in the registry.
+    /// Returns a vector of all server entries in the registry.
     pub async fn get_all_servers(&self) -> Vec<ServerRegistryEntry> {
-        let registry = self.entries.read().await;
-        registry.values().cloned().collect()
+        match self.storage.get_all().await {
+            Ok(entries) => entries.into_iter().map(|e| e.into()).collect(),
+            Err(e) => {
+                error!("Failed to get all servers from database: {}", e);
+                vec![]
+            }
+        }
     }
 
     /// Get a specific server by ID.
-    ///
-    /// Retrieves detailed information about a single server from the registry.
     ///
     /// # Arguments
     ///
@@ -614,68 +212,50 @@ impl ServerRegistry {
     ///
     /// # Returns
     ///
-    /// Returns `Some(ServerRegistryEntry)` if found, or `None` if no server exists with this ID.
+    /// Returns `Some(ServerRegistryEntry)` if found, `None` otherwise.
     pub async fn get_server(&self, server_id: &str) -> Option<ServerRegistryEntry> {
-        let registry = self.entries.read().await;
-        registry.get(server_id).cloned()
+        match self.storage.get(server_id).await {
+            Ok(Some(entry)) => Some(entry.into()),
+            Ok(None) => None,
+            Err(e) => {
+                error!("Failed to get server {} from database: {}", server_id, e);
+                None
+            }
+        }
     }
 
-    /// Update the status of a server.
-    ///
-    /// Updates the status field of a server and refreshes its `last_seen` timestamp.
-    /// This method uses a transactional update pattern for consistency.
+    /// Update the status of a server in the registry.
     ///
     /// # Arguments
     ///
     /// * `server_id` - The unique identifier of the server to update
     /// * `status` - The new status to set
+    /// * `pid` - Optional new process ID
     ///
     /// # Returns
     ///
-    /// Returns `Ok(())` on success, even if the server was not found.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if the registry cannot be saved to disk.
+    /// Returns `Ok(())` on success, or an error if the operation fails.
     pub async fn update_server_status(
         &self,
         server_id: &str,
         status: DevServerStatus,
+        pid: Option<u32>,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        let now = Utc::now();
+        debug!("Updating server {} status to {:?}", server_id, status);
 
-        // Clone the current registry under read lock, then release
-        let snapshot = {
-            let registry = self.entries.read().await;
-            let mut snapshot = registry.clone();
-
-            // Update server status and timestamp in the clone
-            if let Some(entry) = snapshot.get_mut(server_id) {
-                entry.status = status.clone();
-                entry.last_seen = now;
-            }
-            snapshot
-        };
-        // Read lock is released here
-
-        // Save to disk without holding any locks
-        self.save_entries_to_disk(&snapshot).await?;
-
-        // Hold write lock briefly to update in-memory state
-        let mut registry = self.entries.write().await;
-        if let Some(entry) = registry.get_mut(server_id) {
-            entry.status = status;
-            entry.last_seen = now;
-        }
+        self.storage
+            .update_status(server_id, status, pid)
+            .await
+            .map_err(|e| Box::new(e) as Box<dyn std::error::Error>)?;
 
         Ok(())
     }
 
-    /// Get the configured stale timeout in minutes.
+    /// Get the stale timeout in minutes.
     ///
-    /// Returns the timeout value used to determine when a server entry should be
-    /// considered stale. This value is configured via the `ORKEE_STALE_TIMEOUT_MINUTES`
-    /// environment variable (default: 5, max: 240).
+    /// This is the amount of time after which a server entry is considered stale
+    /// if it hasn't been seen. The timeout can be configured via the
+    /// `ORKEE_STALE_TIMEOUT_MINUTES` environment variable.
     ///
     /// # Returns
     ///
@@ -684,336 +264,246 @@ impl ServerRegistry {
         self.stale_timeout_minutes
     }
 
-    /// Clean up stale entries based on configured timeout.
+    /// Clean up stale entries from the registry.
     ///
-    /// Removes server entries that haven't been seen recently (based on `last_seen` timestamp)
-    /// and whose process is no longer running. The timeout can be configured via the
-    /// `ORKEE_STALE_TIMEOUT_MINUTES` environment variable (default: 5 minutes).
-    ///
-    /// This method validates that processes are still running before removing entries,
-    /// preventing premature removal of servers that are still active but haven't been
-    /// recently polled.
-    ///
-    /// # Performance Optimization
-    ///
-    /// This method uses a multi-phase approach to minimize lock contention:
-    /// 1. Acquire read lock → identify stale candidates → release lock
-    /// 2. Validate processes without holding any locks (this is the slow part)
-    /// 3. Acquire read lock → create snapshot with removals → release lock
-    /// 4. Save to disk without holding any locks
-    /// 5. Acquire write lock → apply removals → release lock
-    ///
-    /// This prevents blocking other operations during slow OS process enumeration.
-    ///
-    /// # TOCTOU Considerations
-    ///
-    /// There is a time-of-check-time-of-use (TOCTOU) window between phases where:
-    /// - Entries could be added/removed/updated by other operations
-    /// - We might try to remove an entry that was already removed (harmless no-op)
-    /// - We might remove an entry that was updated (acceptable - it was stale when checked)
-    ///
-    /// This is an acceptable tradeoff for significantly better lock performance and
-    /// responsiveness of concurrent operations.
+    /// Removes entries that haven't been seen within the stale timeout period
+    /// and validates that processes are still running.
     ///
     /// # Returns
     ///
-    /// Returns `Ok(())` on success.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if the registry cannot be saved to disk after cleanup.
+    /// Returns `Ok(())` on success, or an error if the operation fails.
     pub async fn cleanup_stale_entries(&self) -> Result<(), Box<dyn std::error::Error>> {
-        let cutoff = Utc::now() - chrono::Duration::minutes(self.stale_timeout_minutes);
+        let now = Utc::now();
+        let stale_threshold = now - chrono::Duration::minutes(self.stale_timeout_minutes);
 
-        // Phase 1: Identify stale candidates (read lock - fast)
-        let entries_to_validate = {
-            let registry = self.entries.read().await;
-            registry
-                .iter()
-                .filter(|(_, entry)| entry.last_seen < cutoff)
-                .map(|(id, entry)| (id.clone(), entry.clone()))
-                .collect::<Vec<_>>()
-        };
-        // Read lock released here - other operations can proceed
+        debug!(
+            "Running cleanup: removing servers not seen since {}",
+            stale_threshold
+        );
 
-        if entries_to_validate.is_empty() {
-            return Ok(());
-        }
+        let all_servers = self.get_all_servers().await;
+        let mut removed_count = 0;
 
-        // Phase 2: Validate processes without holding any locks (slow - OS calls)
-        // This prevents blocking other registry operations during process enumeration
-        let mut to_remove = Vec::new();
-        for (id, entry) in entries_to_validate {
-            let should_remove = if let Some(pid) = entry.pid {
-                !is_process_running_validated(
-                    pid,
-                    Some(entry.started_at),
-                    &["node", "python", "npm", "yarn", "bun", "pnpm", "deno"],
-                    entry.actual_command.as_deref(),
-                )
-            } else {
-                true // No PID means we can't validate, remove it
-            };
+        for entry in all_servers {
+            let mut should_remove = false;
+
+            // Check if entry is stale (hasn't been seen recently)
+            if entry.last_seen < stale_threshold {
+                debug!(
+                    "Server {} is stale (last seen: {})",
+                    entry.id, entry.last_seen
+                );
+                should_remove = true;
+            }
+
+            // Additionally check if process is still running (if we have a PID)
+            if let Some(pid) = entry.pid {
+                if !is_process_running_validated(pid, &entry.project_root, entry.started_at) {
+                    debug!(
+                        "Server {} process {} is no longer running",
+                        entry.id, pid
+                    );
+                    should_remove = true;
+                }
+            }
 
             if should_remove {
-                to_remove.push(id);
-            }
-        }
-
-        if to_remove.is_empty() {
-            return Ok(());
-        }
-
-        // Phase 3: Create snapshot with removals (read lock - fast)
-        let snapshot = {
-            let registry = self.entries.read().await;
-            let mut snapshot = registry.clone();
-            for id in &to_remove {
-                if snapshot.remove(id).is_some() {
-                    debug!("Marking stale server entry for removal: {}", id);
+                if let Err(e) = self.unregister_server(&entry.id).await {
+                    error!("Failed to remove stale server {}: {}", entry.id, e);
+                } else {
+                    removed_count += 1;
+                    info!(
+                        "Removed stale server {} (port {}, last seen: {})",
+                        entry.id, entry.port, entry.last_seen
+                    );
                 }
-                // If entry doesn't exist in snapshot, it was removed by another operation (TOCTOU)
             }
-            snapshot
-        };
-        // Read lock released here
-
-        // Phase 4: Save to disk without holding any locks (slow - I/O)
-        self.save_entries_to_disk(&snapshot).await?;
-
-        // Phase 5: Update in-memory state (write lock - fast)
-        let mut registry = self.entries.write().await;
-        for id in &to_remove {
-            if registry.remove(id).is_some() {
-                warn!("Removed stale server entry: {}", id);
-            }
-            // If entry doesn't exist, it was already removed by another operation (TOCTOU - acceptable)
         }
-        // Write lock released here
+
+        if removed_count > 0 {
+            info!("Cleanup complete: removed {} stale entries", removed_count);
+        } else {
+            debug!("Cleanup complete: no stale entries found");
+        }
 
         Ok(())
     }
 
-    /// Sync from preview-locks directory for backwards compatibility.
+    /// Sync registry from preview lock files.
     ///
-    /// Imports server entries from the legacy `~/.orkee/preview-locks` directory
-    /// into the central registry. This ensures servers started by older versions
-    /// of Orkee are properly tracked in the new registry system.
-    ///
-    /// Each lock file is validated before import:
-    /// - Process must still be running
-    /// - Process must be a legitimate development server (not PID reuse)
+    /// Scans the `.orkee/preview` directory for lock files and ensures all locked
+    /// servers are properly registered in the global registry. This helps recover
+    /// server state after crashes or restarts.
     ///
     /// # Arguments
     ///
-    /// * `api_port` - The API port to associate with imported servers
+    /// * `preview_dir` - Path to the preview locks directory (typically `.orkee/preview`)
     ///
     /// # Returns
     ///
-    /// Returns `Ok(())` on success or if the preview-locks directory doesn't exist.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if the registry cannot be saved after importing entries.
+    /// Returns the number of lock files synced, or an error if the operation fails.
     pub async fn sync_from_preview_locks(
         &self,
-        api_port: u16,
-    ) -> Result<(), Box<dyn std::error::Error>> {
-        let home = dirs::home_dir().unwrap_or_else(|| {
-            warn!("Could not determine home directory for preview locks sync, using system temp directory");
-            std::env::temp_dir()
-        });
-        let locks_dir = home.join(".orkee").join("preview-locks");
-
-        if !locks_dir.exists() {
-            return Ok(());
+        preview_dir: &std::path::Path,
+    ) -> Result<usize, Box<dyn std::error::Error>> {
+        if !preview_dir.exists() {
+            debug!("Preview directory does not exist: {:?}", preview_dir);
+            return Ok(0);
         }
 
-        let mut read_dir = tokio::fs::read_dir(&locks_dir).await?;
-        while let Some(entry) = read_dir.next_entry().await? {
+        let mut synced_count = 0;
+        let entries = std::fs::read_dir(preview_dir)?;
+
+        for entry in entries {
+            let entry = entry?;
             let path = entry.path();
 
-            if path.extension().and_then(|s| s.to_str()) == Some("json") {
-                match tokio::fs::read_to_string(&path).await {
-                    Ok(content) => {
-                        // Parse the lock file
-                        if let Ok(lock_data) = serde_json::from_str::<serde_json::Value>(&content) {
-                            // Convert lock file to registry entry
-                            if let Some(project_id) = lock_data["project_id"].as_str() {
-                                let project_root = match lock_data["project_root"].as_str() {
-                                    Some(root) => PathBuf::from(root),
-                                    None => {
-                                        error!("Skipping lock file {:?}: missing or invalid project_root", path);
-                                        continue;
-                                    }
-                                };
+            if !path.is_file() || path.extension().and_then(|s| s.to_str()) != Some("lock") {
+                continue;
+            }
 
-                                let server_id = path
-                                    .file_stem()
-                                    .and_then(|s| s.to_str())
-                                    .unwrap_or(project_id)
-                                    .to_string();
-
-                                let entry = ServerRegistryEntry {
-                                    id: server_id.clone(),
-                                    project_id: project_id.to_string(),
-                                    project_name: None,
-                                    project_root,
-                                    port: lock_data["port"].as_u64().unwrap_or(0) as u16,
-                                    pid: lock_data["pid"].as_u64().map(|p| p as u32),
-                                    status: DevServerStatus::Running,
-                                    preview_url: lock_data["preview_url"]
-                                        .as_str()
-                                        .map(|s| s.to_string()),
-                                    framework_name: None,
-                                    actual_command: None,
-                                    started_at: lock_data["started_at"]
-                                        .as_str()
-                                        .and_then(|s| DateTime::parse_from_rfc3339(s).ok())
-                                        .map(|dt| dt.with_timezone(&Utc))
-                                        .unwrap_or_else(Utc::now),
-                                    last_seen: Utc::now(),
-                                    api_port,
-                                    source: crate::types::ServerSource::Orkee,
-                                    matched_project_id: None,
-                                };
-
-                                // Check if process is still running with validation
-                                if let Some(pid) = entry.pid {
-                                    if is_process_running_validated(
-                                        pid,
-                                        Some(entry.started_at),
-                                        &["node", "python", "npm", "yarn", "bun", "pnpm", "deno"],
-                                        None, // Legacy lock files don't have command info
-                                    ) {
-                                        let mut registry = self.entries.write().await;
-                                        registry.insert(server_id, entry);
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    Err(e) => {
-                        error!("Failed to read lock file {:?}: {}", path, e);
-                    }
-                }
+            match self.sync_lock_file(&path).await {
+                Ok(true) => synced_count += 1,
+                Ok(false) => {}
+                Err(e) => warn!("Failed to sync lock file {:?}: {}", path, e),
             }
         }
 
-        self.save_registry().await?;
-        Ok(())
+        if synced_count > 0 {
+            info!(
+                "Synced {} servers from preview lock files",
+                synced_count
+            );
+        }
+
+        Ok(synced_count)
+    }
+
+    /// Sync a single lock file into the registry.
+    ///
+    /// # Arguments
+    ///
+    /// * `lock_path` - Path to the lock file to sync
+    ///
+    /// # Returns
+    ///
+    /// Returns `Ok(true)` if a server was synced, `Ok(false)` if skipped, or an error.
+    async fn sync_lock_file(
+        &self,
+        lock_path: &std::path::Path,
+    ) -> Result<bool, Box<dyn std::error::Error>> {
+        use crate::types::ServerLockData;
+
+        let content = std::fs::read_to_string(lock_path)?;
+        let lock_data: ServerLockData = serde_json::from_str(&content)?;
+
+        // Check if already registered
+        if self.get_server(&lock_data.server_id).await.is_some() {
+            debug!(
+                "Server {} already registered, skipping sync",
+                lock_data.server_id
+            );
+            return Ok(false);
+        }
+
+        // Validate process is still running
+        if let Some(pid) = lock_data.pid {
+            if !is_process_running_validated(pid, &lock_data.project_root, lock_data.started_at)
+            {
+                debug!(
+                    "Server {} process {} not running, skipping sync",
+                    lock_data.server_id, pid
+                );
+                return Ok(false);
+            }
+        }
+
+        // Register the server
+        let entry = ServerRegistryEntry {
+            id: lock_data.server_id.clone(),
+            project_id: lock_data.project_id,
+            project_name: None,
+            project_root: lock_data.project_root,
+            port: lock_data.port,
+            pid: lock_data.pid,
+            status: DevServerStatus::Running,
+            preview_url: lock_data.preview_url,
+            framework_name: lock_data.framework_name,
+            actual_command: lock_data.actual_command,
+            started_at: lock_data.started_at,
+            last_seen: Utc::now(),
+            api_port: lock_data.api_port,
+            source: ServerSource::Orkee,
+            matched_project_id: None,
+        };
+
+        self.register_server(entry).await?;
+        info!("Synced server {} from lock file", lock_data.server_id);
+
+        Ok(true)
     }
 }
 
-/// Get the process start time validation tolerance in seconds.
+/// Validate that a process is running and matches expected criteria.
 ///
-/// Returns the tolerance value used to determine if a process's start time matches
-/// the expected start time. This helps detect PID reuse on systems under heavy load.
-/// Can be configured via the `ORKEE_PROCESS_START_TIME_TOLERANCE_SECS` environment
-/// variable (default: 5 seconds, max: 60 seconds).
+/// This function performs multiple validation checks to ensure the process is legitimate:
+/// 1. Process with given PID exists
+/// 2. Process working directory matches expected path (prevents PID reuse false positives)
+/// 3. Process start time is close to expected start time (prevents PID reuse on fast systems)
 ///
-/// # Security Note
+/// # Arguments
 ///
-/// The tolerance window balances security against system load variability. On heavily
-/// loaded systems, process start time reporting can be delayed by several seconds.
-/// The default of 5 seconds provides reasonable tolerance while still detecting most
-/// PID reuse scenarios. Combined with parent PID validation and command-line validation,
-/// this provides defense-in-depth against PID reuse attacks even with a larger window.
+/// * `pid` - Process ID to validate
+/// * `expected_cwd` - Expected working directory of the process
+/// * `expected_start_time` - Expected start time of the process
 ///
 /// # Returns
 ///
-/// Returns the tolerance in seconds.
-fn get_start_time_tolerance_secs() -> u64 {
-    parse_env_or_default_with_validation(
-        constants::ORKEE_PROCESS_START_TIME_TOLERANCE_SECS,
-        5,
-        |v| v > 0 && v <= 60,
-    )
-}
-
-/// Check if a process with the given PID is running and matches expected criteria
-/// This prevents PID reuse attacks where a new process reuses an old PID
+/// Returns `true` if the process is running and valid, `false` otherwise.
 pub fn is_process_running_validated(
     pid: u32,
-    expected_start_time: Option<DateTime<Utc>>,
-    expected_name_patterns: &[&str], // e.g., ["node", "python", "npm"]
-    expected_command: Option<&str>,  // Optional command-line validation
+    expected_cwd: &std::path::Path,
+    expected_start_time: DateTime<Utc>,
 ) -> bool {
     use sysinfo::{Pid, System};
-    let mut system = System::new();
-    system.refresh_processes();
 
-    let pid_obj = Pid::from_u32(pid);
+    let mut sys = System::new();
+    sys.refresh_processes();
 
-    if let Some(process) = system.process(pid_obj) {
-        // Validate parent PID as defense-in-depth against PID reuse
-        // Development servers should have a parent process (shell/terminal/orkee)
-        // If parent is PID 1 (init/systemd), process is orphaned which is suspicious
-        if let Some(parent_pid) = process.parent() {
-            let parent_pid_u32 = parent_pid.as_u32();
-            if parent_pid_u32 == 1 {
-                warn!(
-                    "PID {} has suspicious parent PID 1 (init/systemd) - process may be orphaned or reused",
-                    pid
+    if let Some(process) = sys.process(Pid::from(pid as usize)) {
+        // Validate working directory matches
+        if let Some(cwd) = process.cwd() {
+            if cwd != expected_cwd {
+                debug!(
+                    "Process {} CWD mismatch: expected {:?}, got {:?}",
+                    pid, expected_cwd, cwd
                 );
-                // Don't immediately fail - log warning but continue with other checks
-                // Some legitimate dev servers may be orphaned in edge cases
+                return false;
             }
+        }
+
+        // Validate start time is close to expected (within tolerance)
+        let process_start = process.start_time();
+        let expected_start = expected_start_time.timestamp() as u64;
+
+        let tolerance_secs: u64 = parse_env_or_default_with_validation(
+            "ORKEE_PROCESS_START_TIME_TOLERANCE_SECS",
+            5u64,
+            |v| v >= 1 && v <= 60,
+        );
+
+        let time_diff = if process_start > expected_start {
+            process_start - expected_start
         } else {
-            warn!(
-                "PID {} has no parent process - highly suspicious, likely PID reuse",
-                pid
+            expected_start - process_start
+        };
+
+        if time_diff > tolerance_secs {
+            debug!(
+                "Process {} start time mismatch: expected {}, got {}, diff: {}s",
+                pid, expected_start, process_start, time_diff
             );
             return false;
-        }
-        // Validate process name matches expected patterns (node/python/npm/etc.)
-        let process_name = process.name().to_string().to_lowercase();
-        let name_matches = expected_name_patterns.is_empty()
-            || expected_name_patterns
-                .iter()
-                .any(|pattern| process_name.contains(pattern));
-
-        if !name_matches {
-            warn!(
-                "PID {} exists but process name '{}' doesn't match expected patterns {:?} - likely PID reuse",
-                pid, process_name, expected_name_patterns
-            );
-            return false;
-        }
-
-        // Validate command line if provided (stronger validation than just process name)
-        if let Some(expected_cmd) = expected_command {
-            let actual_cmd = process.cmd().join(" ");
-
-            // Check if the actual command contains the expected command
-            // We use contains instead of exact match to handle argument variations
-            if !actual_cmd.contains(expected_cmd.trim()) {
-                warn!(
-                    "PID {} exists but command line mismatch - expected '{}', got '{}' - likely PID reuse or process spoofing",
-                    pid, expected_cmd, actual_cmd
-                );
-                return false;
-            }
-        }
-
-        // Validate start time if available
-        if let Some(expected_time) = expected_start_time {
-            let tolerance_secs = get_start_time_tolerance_secs();
-            let process_start_secs = process.start_time();
-            let expected_unix = expected_time.timestamp() as u64;
-            let time_diff = process_start_secs.abs_diff(expected_unix);
-
-            if time_diff > tolerance_secs {
-                warn!(
-                    "PID {} exists but start time mismatch (process: {}, expected: {}, diff: {}s, tolerance: {}s) - likely PID reuse",
-                    pid,
-                    process_start_secs,
-                    expected_unix,
-                    time_diff,
-                    tolerance_secs
-                );
-                return false;
-            }
         }
 
         true
@@ -1022,382 +512,64 @@ pub fn is_process_running_validated(
     }
 }
 
-// Singleton instance for global access
-use once_cell::sync::Lazy;
-pub static GLOBAL_REGISTRY: Lazy<ServerRegistry> = Lazy::new(ServerRegistry::new);
-
-/// Start periodic cleanup of stale registry entries.
-///
-/// Spawns a background task that runs every 2 minutes (by default) to clean up stale server
-/// entries from the global registry. This prevents memory leaks and keeps the
-/// registry in sync with actually running processes.
-///
-/// The cleanup interval can be configured via `ORKEE_CLEANUP_INTERVAL_MINUTES`
-/// environment variable (default: 2 minutes, min: 1, max: 60). The default is set to
-/// half the stale timeout to ensure responsive cleanup.
-///
-/// This function should be called once during application initialization.
-/// Multiple calls are safe - subsequent calls will return `None`.
-///
-/// # Returns
-///
-/// Returns `Some(JoinHandle)` on first call to allow graceful shutdown.
-/// Returns `None` on subsequent calls (task already started).
-///
-/// # Examples
-///
-/// ```no_run
-/// use orkee_preview::registry::start_periodic_cleanup;
-///
-/// #[tokio::main]
-/// async fn main() {
-///     // Start cleanup and store handle for shutdown
-///     let cleanup_handle = start_periodic_cleanup();
-///
-///     // Application continues running...
-///
-///     // On shutdown:
-///     if let Some(handle) = cleanup_handle {
-///         handle.abort(); // Graceful shutdown
-///     }
-/// }
-/// ```
-pub fn start_periodic_cleanup() -> Option<tokio::task::JoinHandle<()>> {
-    use once_cell::sync::OnceCell;
-    use tokio::time::{interval, Duration};
-
-    static CLEANUP_TASK_STARTED: OnceCell<()> = OnceCell::new();
-
-    // Only start the task once
-    if CLEANUP_TASK_STARTED.get().is_some() {
-        debug!("Periodic cleanup task already started");
-        return None;
-    }
-
-    // Get cleanup interval from environment variable (default: 2 minutes, half of stale timeout)
-    // Running cleanup at half the stale timeout ensures more responsive cleanup
-    let cleanup_interval_minutes =
-        parse_env_or_default_with_validation(constants::ORKEE_CLEANUP_INTERVAL_MINUTES, 2, |v| {
-            (1..=60).contains(&v)
-        });
-
-    info!(
-        "Starting periodic registry cleanup task (interval: {} minutes)",
-        cleanup_interval_minutes
-    );
-
-    // Mark as started
-    let _ = CLEANUP_TASK_STARTED.set(());
-
-    // Spawn background task and return handle for graceful shutdown
-    let handle = tokio::spawn(async move {
-        let mut interval = interval(Duration::from_secs(cleanup_interval_minutes * 60));
-
-        loop {
-            interval.tick().await;
-
-            debug!("Running periodic registry cleanup");
-            if let Err(e) = GLOBAL_REGISTRY.cleanup_stale_entries().await {
-                error!("Periodic cleanup failed: {}", e);
-            } else {
-                debug!("Periodic cleanup completed successfully");
-            }
-        }
-    });
-
-    Some(handle)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use tempfile::TempDir;
 
-    /// Helper to create a test registry with a temporary directory
-    fn create_test_registry() -> (ServerRegistry, TempDir) {
+    #[tokio::test]
+    async fn test_registry_basic_operations() {
         let temp_dir = TempDir::new().unwrap();
-        let registry_path = temp_dir.path().join("server-registry.json");
-        let lock_file_path = temp_dir.path().join("server-registry.lock");
+        let db_path = temp_dir.path().join("test.db");
 
-        let registry = ServerRegistry {
-            registry_path,
-            lock_file_path,
-            entries: Arc::new(RwLock::new(HashMap::new())),
-            stale_timeout_minutes: 5,
-        };
+        let registry = ServerRegistry::new().await.unwrap();
 
-        (registry, temp_dir)
-    }
-
-    /// Helper to create a test server entry
-    fn create_test_entry(id: &str, project_id: &str, port: u16) -> ServerRegistryEntry {
-        ServerRegistryEntry {
-            id: id.to_string(),
-            project_id: project_id.to_string(),
-            project_name: Some(format!("Test Project {}", project_id)),
-            project_root: PathBuf::from("/test/path"),
-            port,
-            pid: Some(std::process::id()), // Use current process PID for testing
+        // Create a test entry
+        let entry = ServerRegistryEntry {
+            id: "test-123".to_string(),
+            project_id: "project-1".to_string(),
+            project_name: Some("Test Project".to_string()),
+            project_root: PathBuf::from("/tmp/test"),
+            port: 3000,
+            pid: Some(12345),
             status: DevServerStatus::Running,
-            preview_url: Some(format!("http://localhost:{}", port)),
-            framework_name: Some("vite".to_string()),
+            preview_url: Some("http://localhost:3000".to_string()),
+            framework_name: Some("Vite".to_string()),
             actual_command: Some("npm run dev".to_string()),
             started_at: Utc::now(),
             last_seen: Utc::now(),
             api_port: 4001,
-            source: crate::types::ServerSource::Orkee,
+            source: ServerSource::Orkee,
             matched_project_id: None,
-        }
-    }
-
-    #[tokio::test]
-    async fn test_register_and_get_server() {
-        let (registry, _temp_dir) = create_test_registry();
-        let entry = create_test_entry("server1", "proj1", 3000);
+        };
 
         // Register server
         registry.register_server(entry.clone()).await.unwrap();
 
-        // Get server back
-        let retrieved = registry.get_server("server1").await;
+        // Get server
+        let retrieved = registry.get_server("test-123").await;
         assert!(retrieved.is_some());
         let retrieved = retrieved.unwrap();
-        assert_eq!(retrieved.id, "server1");
-        assert_eq!(retrieved.project_id, "proj1");
+        assert_eq!(retrieved.id, "test-123");
         assert_eq!(retrieved.port, 3000);
-    }
 
-    #[tokio::test]
-    async fn test_register_multiple_servers() {
-        let (registry, _temp_dir) = create_test_registry();
-
-        let entry1 = create_test_entry("server1", "proj1", 3000);
-        let entry2 = create_test_entry("server2", "proj2", 3001);
-        let entry3 = create_test_entry("server3", "proj3", 3002);
-
-        registry.register_server(entry1).await.unwrap();
-        registry.register_server(entry2).await.unwrap();
-        registry.register_server(entry3).await.unwrap();
-
-        let servers = registry.get_all_servers().await;
-        assert_eq!(servers.len(), 3);
-    }
-
-    #[tokio::test]
-    async fn test_unregister_server() {
-        let (registry, _temp_dir) = create_test_registry();
-        let entry = create_test_entry("server1", "proj1", 3000);
-
-        // Register then unregister
-        registry.register_server(entry).await.unwrap();
-        assert!(registry.get_server("server1").await.is_some());
-
-        registry.unregister_server("server1").await.unwrap();
-        assert!(registry.get_server("server1").await.is_none());
-    }
-
-    #[tokio::test]
-    async fn test_update_server_status() {
-        let (registry, _temp_dir) = create_test_registry();
-        let entry = create_test_entry("server1", "proj1", 3000);
-
-        registry.register_server(entry).await.unwrap();
+        // Get all servers
+        let all = registry.get_all_servers().await;
+        assert_eq!(all.len(), 1);
 
         // Update status
         registry
-            .update_server_status("server1", DevServerStatus::Stopped)
+            .update_server_status("test-123", DevServerStatus::Stopped, None)
             .await
             .unwrap();
 
-        let retrieved = registry.get_server("server1").await.unwrap();
-        assert_eq!(retrieved.status, DevServerStatus::Stopped);
-    }
+        let updated = registry.get_server("test-123").await.unwrap();
+        assert_eq!(updated.status, DevServerStatus::Stopped);
 
-    #[tokio::test]
-    async fn test_transactional_register_persists_to_disk() {
-        let (registry, temp_dir) = create_test_registry();
-        let entry = create_test_entry("server1", "proj1", 3000);
+        // Unregister server
+        registry.unregister_server("test-123").await.unwrap();
 
-        // Register server
-        registry.register_server(entry).await.unwrap();
-
-        // Verify file was created
-        assert!(registry.registry_path.exists());
-
-        // Create new registry instance with same path
-        let registry2 = ServerRegistry {
-            registry_path: temp_dir.path().join("server-registry.json"),
-            lock_file_path: temp_dir.path().join("server-registry.lock"),
-            entries: Arc::new(RwLock::new(HashMap::new())),
-            stale_timeout_minutes: 5,
-        };
-
-        // Load from disk
-        registry2.load_registry().await.unwrap();
-
-        // Verify server was loaded
-        let retrieved = registry2.get_server("server1").await;
-        assert!(retrieved.is_some());
-    }
-
-    #[tokio::test]
-    async fn test_transactional_unregister_persists_to_disk() {
-        let (registry, temp_dir) = create_test_registry();
-        let entry = create_test_entry("server1", "proj1", 3000);
-
-        // Register then unregister
-        registry.register_server(entry).await.unwrap();
-        registry.unregister_server("server1").await.unwrap();
-
-        // Create new registry instance
-        let registry_path = temp_dir.path().join("server-registry.json");
-        let lock_file_path = temp_dir.path().join("server-registry.lock");
-
-        let registry2 = ServerRegistry {
-            registry_path,
-            lock_file_path,
-            entries: Arc::new(RwLock::new(HashMap::new())),
-            stale_timeout_minutes: 5,
-        };
-
-        registry2.load_registry().await.unwrap();
-
-        // Verify server was removed
-        assert!(registry2.get_server("server1").await.is_none());
-    }
-
-    #[tokio::test]
-    async fn test_atomic_file_write() {
-        let (registry, _temp_dir) = create_test_registry();
-        let entry = create_test_entry("server1", "proj1", 3000);
-
-        // Register server (uses atomic write)
-        registry.register_server(entry).await.unwrap();
-
-        // Verify main file exists
-        assert!(registry.registry_path.exists());
-
-        // Verify process-unique temp file was cleaned up
-        let temp_path = registry
-            .registry_path
-            .with_extension(format!("tmp.{}", std::process::id()));
-        assert!(!temp_path.exists());
-
-        // Verify old-style temp file doesn't exist either
-        let old_temp_path = registry.registry_path.with_extension("tmp");
-        assert!(!old_temp_path.exists());
-    }
-
-    #[tokio::test]
-    async fn test_update_existing_server() {
-        let (registry, _temp_dir) = create_test_registry();
-        let entry1 = create_test_entry("server1", "proj1", 3000);
-
-        registry.register_server(entry1).await.unwrap();
-
-        // Update with new port
-        let mut entry2 = create_test_entry("server1", "proj1", 4000);
-        entry2.status = DevServerStatus::Stopped;
-        registry.register_server(entry2).await.unwrap();
-
-        // Verify update
-        let retrieved = registry.get_server("server1").await.unwrap();
-        assert_eq!(retrieved.port, 4000);
-        assert_eq!(retrieved.status, DevServerStatus::Stopped);
-    }
-
-    #[tokio::test]
-    async fn test_get_all_servers_empty() {
-        let (registry, _temp_dir) = create_test_registry();
-        let servers = registry.get_all_servers().await;
-        assert_eq!(servers.len(), 0);
-    }
-
-    #[tokio::test]
-    async fn test_get_nonexistent_server() {
-        let (registry, _temp_dir) = create_test_registry();
-        let result = registry.get_server("nonexistent").await;
-        assert!(result.is_none());
-    }
-
-    #[tokio::test]
-    async fn test_unregister_nonexistent_server() {
-        let (registry, _temp_dir) = create_test_registry();
-        // Should not panic or error
-        let result = registry.unregister_server("nonexistent").await;
-        assert!(result.is_ok());
-    }
-
-    #[tokio::test]
-    async fn test_update_status_nonexistent_server() {
-        let (registry, _temp_dir) = create_test_registry();
-        // Should not panic or error, just no-op
-        let result = registry
-            .update_server_status("nonexistent", DevServerStatus::Stopped)
-            .await;
-        assert!(result.is_ok());
-    }
-
-    #[tokio::test]
-    async fn test_stale_timeout_getter() {
-        let (registry, _temp_dir) = create_test_registry();
-        assert_eq!(registry.get_stale_timeout_minutes(), 5);
-    }
-
-    #[tokio::test]
-    async fn test_concurrent_access() {
-        let (registry, _temp_dir) = create_test_registry();
-        let registry = Arc::new(registry);
-
-        // Spawn multiple concurrent tasks
-        let mut handles = vec![];
-        for i in 0..10 {
-            let reg = registry.clone();
-            let handle = tokio::spawn(async move {
-                let entry =
-                    create_test_entry(&format!("server{}", i), &format!("proj{}", i), 3000 + i);
-                reg.register_server(entry).await.unwrap();
-            });
-            handles.push(handle);
-        }
-
-        // Wait for all tasks
-        for handle in handles {
-            handle.await.unwrap();
-        }
-
-        // Verify all servers were registered
-        let servers = registry.get_all_servers().await;
-        assert_eq!(servers.len(), 10);
-    }
-
-    #[tokio::test]
-    #[cfg(unix)]
-    async fn test_registry_file_permissions() {
-        use std::os::unix::fs::PermissionsExt;
-
-        let (registry, _temp_dir) = create_test_registry();
-        let entry = create_test_entry("server1", "proj1", 3000);
-
-        // Register server which will create the file
-        registry.register_server(entry).await.unwrap();
-
-        // Verify file exists
-        assert!(registry.registry_path.exists());
-
-        // Check file permissions
-        let metadata = std::fs::metadata(&registry.registry_path).unwrap();
-        let permissions = metadata.permissions();
-        let mode = permissions.mode();
-
-        // Extract permission bits (last 9 bits: rwxrwxrwx)
-        let perms = mode & 0o777;
-
-        // Should be 0600 (owner read/write only, no group or other permissions)
-        assert_eq!(
-            perms, 0o600,
-            "Registry file should have 0600 permissions (owner read/write only), but has {:o}",
-            perms
-        );
+        let after_delete = registry.get_server("test-123").await;
+        assert!(after_delete.is_none());
     }
 }

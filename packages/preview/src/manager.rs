@@ -1,4 +1,4 @@
-use crate::registry::{ServerRegistryEntry, GLOBAL_REGISTRY};
+use crate::registry::{ServerRegistry, ServerRegistryEntry};
 use crate::types::*;
 use chrono::Utc;
 use orkee_config::constants;
@@ -50,6 +50,7 @@ pub struct SpawnResult {
 /// is designed to be crash-resistant and can recover servers from previous sessions.
 #[derive(Clone)]
 pub struct PreviewManager {
+    registry: ServerRegistry,
     active_servers: Arc<RwLock<HashMap<String, ServerInfo>>>,
     server_logs: Arc<RwLock<HashMap<String, VecDeque<DevServerLog>>>>,
     event_tx: broadcast::Sender<ServerEvent>,
@@ -160,7 +161,7 @@ impl PreviewManager {
     /// # Returns
     ///
     /// Returns a new `PreviewManager` instance with empty server and log collections.
-    pub fn new() -> Self {
+    pub fn new(registry: ServerRegistry) -> Self {
         // Make channel capacity configurable via environment variable
         let capacity = parse_env_or_default_with_validation(
             "ORKEE_EVENT_CHANNEL_SIZE",
@@ -170,6 +171,7 @@ impl PreviewManager {
 
         let (event_tx, _rx) = broadcast::channel(capacity);
         Self {
+            registry,
             active_servers: Arc::new(RwLock::new(HashMap::new())),
             server_logs: Arc::new(RwLock::new(HashMap::new())),
             event_tx,
@@ -204,8 +206,8 @@ impl PreviewManager {
     ///     println!("Recovered {} servers", servers.len());
     /// }
     /// ```
-    pub async fn new_with_recovery() -> Self {
-        let manager = Self::new();
+    pub async fn new_with_recovery(registry: ServerRegistry) -> Self {
+        let manager = Self::new(registry.clone());
 
         // Get the API port from environment variable or use default
         let api_port = std::env::var(constants::ORKEE_API_PORT)
@@ -214,17 +216,17 @@ impl PreviewManager {
             .unwrap_or(4001);
 
         // Load existing registry from disk first
-        if let Err(e) = GLOBAL_REGISTRY.load_registry().await {
+        if let Err(e) = registry.load_registry().await {
             warn!("Failed to load registry from disk: {}", e);
         }
 
         // Sync from preview-locks to central registry
-        if let Err(e) = GLOBAL_REGISTRY.sync_from_preview_locks(api_port).await {
+        if let Err(e) = registry.sync_from_preview_locks(api_port).await {
             warn!("Failed to sync from preview locks: {}", e);
         }
 
         // Clean up stale entries from previous sessions
-        if let Err(e) = GLOBAL_REGISTRY.cleanup_stale_entries().await {
+        if let Err(e) = registry.cleanup_stale_entries().await {
             warn!("Failed to cleanup stale registry entries: {}", e);
         }
 
@@ -234,7 +236,7 @@ impl PreviewManager {
         }
 
         // Also load servers from the central registry
-        let registry_servers = GLOBAL_REGISTRY.get_all_servers().await;
+        let registry_servers = registry.get_all_servers().await;
         for entry in registry_servers {
             // Only add if not already in our local list
             let mut servers = manager.active_servers.write().await;
@@ -931,7 +933,7 @@ impl PreviewManager {
         }
 
         // If not found locally, check the global registry
-        let registry_servers = GLOBAL_REGISTRY.get_all_servers().await;
+        let registry_servers = self.registry.get_all_servers().await;
         for entry in registry_servers {
             if entry.project_id == project_id {
                 // Parse UUID with fallback to new UUID if invalid
@@ -1003,7 +1005,7 @@ impl PreviewManager {
             .collect();
 
         // Also get servers from the global registry
-        let registry_servers = GLOBAL_REGISTRY.get_all_servers().await;
+        let registry_servers = self.registry.get_all_servers().await;
         for entry in registry_servers {
             // Add servers from registry if not already in local list
             if let std::collections::hash_map::Entry::Vacant(e) =
@@ -1092,7 +1094,7 @@ impl PreviewManager {
 
         // Also check the global registry for external/discovered servers
         // This prevents race conditions where an external server is registered but not yet in active_servers
-        let all_servers = GLOBAL_REGISTRY.get_all_servers().await;
+        let all_servers = self.registry.get_all_servers().await;
         for server in all_servers {
             if server.port == port {
                 debug!(
@@ -1627,7 +1629,7 @@ impl PreviewManager {
             matched_project_id: server_info.matched_project_id.clone(),
         };
 
-        if let Err(e) = GLOBAL_REGISTRY.register_server(registry_entry).await {
+        if let Err(e) = self.registry.register_server(registry_entry).await {
             warn!("Failed to register server in central registry: {}", e);
         }
 
@@ -1645,10 +1647,10 @@ impl PreviewManager {
         }
 
         // Also remove from the central registry (need to find the server ID first)
-        let registry_servers = GLOBAL_REGISTRY.get_all_servers().await;
+        let registry_servers = self.registry.get_all_servers().await;
         for entry in registry_servers {
             if entry.project_id == project_id {
-                if let Err(e) = GLOBAL_REGISTRY.unregister_server(&entry.id).await {
+                if let Err(e) = self.registry.unregister_server(&entry.id).await {
                     warn!("Failed to unregister server from central registry: {}", e);
                 }
                 break;
@@ -1865,7 +1867,7 @@ impl PreviewManager {
             matched_project_id: project_id,
         };
 
-        GLOBAL_REGISTRY
+        self.registry
             .register_server(registry_entry)
             .await
             .map_err(|e| PreviewError::ProcessStartFailed {
@@ -1993,7 +1995,7 @@ impl PreviewManager {
             matched_project_id: server_info.matched_project_id.clone(),
         };
 
-        GLOBAL_REGISTRY
+        self.registry
             .register_server(registry_entry)
             .await
             .map_err(|e| PreviewError::ProcessStartFailed {
@@ -2043,7 +2045,7 @@ impl PreviewManager {
         }
 
         // Unregister from global registry
-        GLOBAL_REGISTRY
+        self.registry
             .unregister_server(server_id)
             .await
             .map_err(|e| PreviewError::ProcessStopFailed {

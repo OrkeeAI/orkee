@@ -30,6 +30,7 @@ pub struct PreviewServerEntry {
 }
 
 /// Storage interface for preview servers
+#[derive(Clone)]
 pub struct PreviewServerStorage {
     pool: Pool<Sqlite>,
 }

@@ -17,7 +17,7 @@ use sysinfo::{Pid, ProcessRefreshKind, System};
 use tokio::process::Command;
 use tracing::{debug, warn};
 
-use crate::registry::{ServerRegistryEntry, GLOBAL_REGISTRY};
+use crate::registry::{ServerRegistry, ServerRegistryEntry};
 use crate::types::{DevServerStatus, ServerSource};
 
 /// Common development server ports to scan
@@ -509,8 +509,9 @@ fn detect_framework_from_command(command: &[String]) -> Option<String> {
     None
 }
 
-/// Register a discovered server in the global registry
+/// Register a discovered server in the registry
 pub async fn register_discovered_server(
+    registry: &ServerRegistry,
     server: DiscoveredServer,
     project_id: Option<String>,
     project_name: Option<String>,
@@ -544,7 +545,7 @@ pub async fn register_discovered_server(
         matched_project_id: project_id,
     };
 
-    GLOBAL_REGISTRY.register_server(entry).await?;
+    registry.register_server(entry).await?;
 
     Ok(server_id)
 }
