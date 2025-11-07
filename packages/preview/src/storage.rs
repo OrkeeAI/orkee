@@ -77,11 +77,18 @@ impl PreviewServerStorage {
         .execute(&self.pool)
         .await
         .map_err(|e| {
-            if e.to_string().contains("FOREIGN KEY constraint failed") {
+            let err_str = e.to_string();
+            if err_str.contains("FOREIGN KEY constraint failed") {
                 anyhow::anyhow!(
                     "Failed to insert preview server '{}': project '{}' does not exist",
                     entry.id,
                     entry.project_id
+                )
+            } else if err_str.contains("UNIQUE constraint failed") {
+                anyhow::anyhow!(
+                    "Failed to insert preview server '{}': port {} is already in use",
+                    entry.id,
+                    entry.port
                 )
             } else {
                 anyhow::anyhow!("Failed to insert preview server '{}': {}", entry.id, e)

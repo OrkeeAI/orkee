@@ -777,7 +777,10 @@ pub fn start_periodic_discovery(registry: ServerRegistry) -> Option<tokio::task:
                                 }
                                 Err(e) => {
                                     // Check if error is due to duplicate port (race condition)
-                                    if e.to_string().contains("UNIQUE constraint") {
+                                    let err_str = e.to_string();
+                                    if err_str.contains("port")
+                                        && err_str.contains("already in use")
+                                    {
                                         debug!(
                                             "Server on port {} already registered by another task",
                                             server.port
