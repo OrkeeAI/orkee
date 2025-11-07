@@ -15,7 +15,7 @@ use std::process::Stdio;
 use sysinfo::{Pid, ProcessRefreshKind, System};
 #[cfg(unix)]
 use tokio::process::Command;
-use tracing::{debug, warn};
+use tracing::{debug, info, warn};
 
 use crate::registry::{ServerRegistry, ServerRegistryEntry};
 use crate::types::{DevServerStatus, ServerSource};
@@ -639,6 +639,66 @@ pub fn load_env_from_directory(dir: &Path) -> HashMap<String, String> {
     env_vars
 }
 
+/// Try to register a discovered server, handling all error cases consistently
+async fn try_register_discovered_server(
+    registry: &ServerRegistry,
+    server: DiscoveredServer,
+) -> Result<(), String> {
+    // Check if server is already registered (by port)
+    match registry.get_by_port(server.port).await {
+        Ok(Some(_existing)) => {
+            debug!(
+                "Server on port {} already registered, skipping",
+                server.port
+            );
+            return Err(format!("Port {} already registered", server.port));
+        }
+        Ok(None) => {
+            // Not registered, attempt to register
+            match register_discovered_server(
+                registry,
+                server.clone(),
+                None, // No project_id for unmatched servers
+                None, // No project_name
+            )
+            .await
+            {
+                Ok(server_id) => {
+                    info!(
+                        "Registered discovered server {} on port {} (PID: {})",
+                        server_id, server.port, server.pid
+                    );
+                    Ok(())
+                }
+                Err(e) => {
+                    // Check if error is due to duplicate port (race condition)
+                    let err_str = e.to_string();
+                    if err_str.contains("port") && err_str.contains("already in use") {
+                        debug!(
+                            "Server on port {} already registered by another task",
+                            server.port
+                        );
+                        Err(format!("Port {} already in use (race condition)", server.port))
+                    } else {
+                        warn!(
+                            "Failed to register discovered server on port {}: {}",
+                            server.port, e
+                        );
+                        Err(format!("Registration failed: {}", e))
+                    }
+                }
+            }
+        }
+        Err(e) => {
+            warn!(
+                "Error checking if server on port {} is registered: {}",
+                server.port, e
+            );
+            Err(format!("Registry check failed: {}", e))
+        }
+    }
+}
+
 /// Start periodic discovery and registration of external servers
 ///
 /// Spawns a background task that runs every 30 seconds (by default) to discover
@@ -750,56 +810,8 @@ pub fn start_periodic_discovery(registry: ServerRegistry) -> Option<tokio::task:
                 );
 
                 for server in discovered {
-                    // Check if server is already registered (by port)
-                    match registry.get_by_port(server.port).await {
-                        Ok(Some(_existing)) => {
-                            debug!(
-                                "Server on port {} already registered, skipping",
-                                server.port
-                            );
-                            continue;
-                        }
-                        Ok(None) => {
-                            // Not registered, attempt to register
-                            match register_discovered_server(
-                                &registry,
-                                server.clone(),
-                                None, // No project_id for unmatched servers
-                                None, // No project_name
-                            )
-                            .await
-                            {
-                                Ok(server_id) => {
-                                    info!(
-                                        "Registered discovered server {} on port {} (PID: {})",
-                                        server_id, server.port, server.pid
-                                    );
-                                }
-                                Err(e) => {
-                                    // Check if error is due to duplicate port (race condition)
-                                    let err_str = e.to_string();
-                                    if err_str.contains("port")
-                                        && err_str.contains("already in use")
-                                    {
-                                        debug!(
-                                            "Server on port {} already registered by another task",
-                                            server.port
-                                        );
-                                    } else {
-                                        warn!(
-                                            "Failed to register discovered server on port {}: {}",
-                                            server.port, e
-                                        );
-                                    }
-                                }
-                            }
-                        }
-                        Err(e) => {
-                            warn!(
-                                "Error checking if server on port {} is registered: {}",
-                                server.port, e
-                            );
-                        }
+                    if let Err(e) = try_register_discovered_server(&registry, server).await {
+                        debug!("Skipping server registration: {}", e);
                     }
                 }
             }
