@@ -803,7 +803,7 @@ impl SandboxManager {
         let provider_containers = provider
             .list_containers(true)
             .await
-            .map_err(|e| ManagerError::Provider(e))?;
+            .map_err(ManagerError::Provider)?;
 
         info!(
             "Found {} containers from provider '{}'",
@@ -822,7 +822,7 @@ impl SandboxManager {
                 .storage
                 .list_sandboxes(None, None, None)
                 .await
-                .map_err(|e| ManagerError::Storage(e))?;
+                .map_err(ManagerError::Storage)?;
 
             let found_in_db = sandboxes
                 .iter()
