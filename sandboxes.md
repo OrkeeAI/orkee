@@ -1543,6 +1543,10 @@ With Phase 1 complete, the following components are ready for Phase 2 integratio
 - [x] Fix remaining compilation errors (API signature mismatches)
 - [x] Settings API endpoints
 - [x] Provider settings API endpoints
+- [x] **BUG FIX**: Container ID persistence to database after creation
+- [x] **BUG FIX**: Stop/Restart handlers with proper state validation
+- [x] **IMPROVEMENT**: Atomic update method for container_id + status
+- [x] **TESTING**: End-to-end Playwright tests for full lifecycle (create/stop/start/restart)
 
 ### Phase 3: Settings UI (Week 3)
 - [x] Create Settings > Advanced > Configuration > Sandboxes page
