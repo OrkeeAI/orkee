@@ -101,6 +101,17 @@ impl ResourceMonitor {
                     .await
                 {
                     Ok(sandboxes) => {
+                        let running_ids: std::collections::HashSet<String> =
+                            sandboxes.iter().map(|s| s.id.clone()).collect();
+
+                        // Remove snapshots for sandboxes that are no longer running
+                        // This prevents memory leaks from deleted or terminated sandboxes
+                        {
+                            let mut snapshots_map = snapshots.write().await;
+                            snapshots_map.retain(|id, _| running_ids.contains(id));
+                        }
+
+                        // Monitor each running sandbox
                         for sandbox in sandboxes {
                             if let Err(e) =
                                 Self::monitor_sandbox(&manager, &snapshots, &sandbox).await

@@ -18,17 +18,12 @@ use bollard::{
 };
 use futures::StreamExt;
 use std::collections::HashMap;
-use std::sync::Arc;
 use std::time::Duration;
-use tokio::sync::RwLock;
 use tracing::{debug, error, info, warn};
 
 pub struct DockerProvider {
     client: Docker,
     label_prefix: String,
-    /// Cache of successfully pulled images to avoid redundant pulls
-    /// Key: image name (e.g., "ubuntu:22.04"), Value: timestamp when pulled
-    image_cache: Arc<RwLock<HashMap<String, chrono::DateTime<chrono::Utc>>>>,
     /// Timeout for image pull operations (default: 10 minutes)
     pull_timeout: Duration,
 }
@@ -51,7 +46,6 @@ impl DockerProvider {
         Ok(Self {
             client,
             label_prefix: "orkee.sandbox".to_string(),
-            image_cache: Arc::new(RwLock::new(HashMap::new())),
             pull_timeout: timeout,
         })
     }
@@ -66,7 +60,6 @@ impl DockerProvider {
         Self {
             client,
             label_prefix: "orkee.sandbox".to_string(),
-            image_cache: Arc::new(RwLock::new(HashMap::new())),
             pull_timeout: timeout,
         }
     }
@@ -664,22 +657,10 @@ impl Provider for DockerProvider {
     }
 
     async fn pull_image(&self, image: &str, force: bool) -> Result<()> {
-        // Check cache first (unless force is true)
-        if !force {
-            let cache = self.image_cache.read().await;
-            if cache.contains_key(image) {
-                debug!("Image {} found in cache, skipping pull", image);
-                // Still verify it actually exists in Docker
-                if self.image_exists(image).await? {
-                    return Ok(());
-                } else {
-                    // Image was deleted outside of Orkee, remove from cache
-                    drop(cache);
-                    let mut cache_write = self.image_cache.write().await;
-                    cache_write.remove(image);
-                    info!("Image {} was deleted, removing from cache", image);
-                }
-            }
+        // Check if image already exists in Docker (unless force is true)
+        if !force && self.image_exists(image).await? {
+            debug!("Image {} already exists in Docker, skipping pull", image);
+            return Ok(());
         }
 
         info!(
@@ -738,9 +719,6 @@ impl Provider for DockerProvider {
         match result {
             Ok(Ok(())) => {
                 info!("Successfully pulled image: {}", image);
-                // Add to cache on successful pull
-                let mut cache = self.image_cache.write().await;
-                cache.insert(image.to_string(), chrono::Utc::now());
                 Ok(())
             }
             Ok(Err(e)) => Err(e),

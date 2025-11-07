@@ -120,14 +120,19 @@ impl SandboxManager {
             ));
         }
 
-        // Enforce security: privileged containers must be explicitly disabled unless in development
-        // This prevents privilege escalation and host access in production environments
+        // Enforce security: privileged containers require explicit environment variable
+        // This prevents accidental privilege escalation and host access in production
         if sandbox_settings.allow_privileged_containers {
+            if std::env::var("ORKEE_ALLOW_PRIVILEGED").ok() != Some("true".to_string()) {
+                return Err(ManagerError::ConfigError(
+                    "Privileged containers require ORKEE_ALLOW_PRIVILEGED=true environment variable. \
+                     This is a security safeguard. Only enable in trusted development environments."
+                        .to_string(),
+                ));
+            }
             tracing::warn!(
-                "SECURITY WARNING: Privileged containers are enabled. \
-                 This allows containers to access host resources and should ONLY \
-                 be used in trusted development environments. Production systems \
-                 should have allow_privileged_containers = false."
+                "Using privileged containers (explicitly allowed via ORKEE_ALLOW_PRIVILEGED env var). \
+                 Containers can access host resources. Use only in trusted development environments."
             );
         }
 

@@ -24,6 +24,7 @@ pub use storage::{
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::sync::LazyLock;
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -122,6 +123,7 @@ struct ProvidersConfig {
     providers: Vec<Provider>,
 }
 
+#[derive(Clone)]
 pub struct ProviderRegistry {
     providers: HashMap<String, Provider>,
 }
@@ -198,9 +200,25 @@ impl ProviderRegistry {
     }
 }
 
+/// Global provider registry singleton
+///
+/// Loads provider configuration on first access and panics if loading fails.
+/// This ensures early failure on startup if providers.json is malformed.
+pub static PROVIDER_REGISTRY: LazyLock<ProviderRegistry> = LazyLock::new(|| {
+    ProviderRegistry::new().unwrap_or_else(|e| {
+        panic!(
+            "FATAL: Failed to load provider registry: {}. \
+             Check that config/providers.json exists and is valid JSON.",
+            e
+        )
+    })
+});
+
 impl Default for ProviderRegistry {
     fn default() -> Self {
-        Self::new().expect("Failed to load provider registry")
+        // Clone from the global singleton
+        // This ensures consistent behavior and early failure on startup
+        PROVIDER_REGISTRY.clone()
     }
 }
 

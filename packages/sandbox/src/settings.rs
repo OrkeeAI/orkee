@@ -148,15 +148,19 @@ impl SettingsManager {
         self.row_to_sandbox_settings(&row)
     }
 
-    /// Update sandbox settings
+    /// Update sandbox settings with optimistic locking
+    ///
+    /// Uses the updated_at timestamp for optimistic locking to prevent
+    /// concurrent modification conflicts. If the record has been modified
+    /// since the settings object was loaded, the update will fail.
     pub async fn update_sandbox_settings(
         &self,
         settings: &SandboxSettings,
         updated_by: Option<&str>,
     ) -> Result<(), StorageError> {
-        debug!("Updating sandbox settings");
+        debug!("Updating sandbox settings with optimistic locking");
 
-        sqlx::query(
+        let result = sqlx::query(
             r#"
             UPDATE sandbox_settings SET
                 enabled = ?,
@@ -197,7 +201,7 @@ impl SettingsManager {
                 share_templates_globally = ?,
                 updated_by = ?,
                 updated_at = datetime('now', 'utc')
-            WHERE id = 1
+            WHERE id = 1 AND updated_at = ?
             "#,
         )
         .bind(settings.enabled as i64)
@@ -247,9 +251,15 @@ impl SettingsManager {
         .bind(settings.require_template_approval as i64)
         .bind(settings.share_templates_globally as i64)
         .bind(updated_by)
+        .bind(&settings.updated_at)
         .execute(&self.pool)
         .await
         .map_err(StorageError::Sqlx)?;
+
+        // Check if the update affected any rows (optimistic locking check)
+        if result.rows_affected() == 0 {
+            return Err(StorageError::Sqlx(sqlx::Error::RowNotFound));
+        }
 
         Ok(())
     }
