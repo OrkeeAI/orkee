@@ -89,7 +89,7 @@ export function CostTracking({ sandboxes, maxTotalCost, costAlertThreshold }: Co
         <CardContent>
           <div className="space-y-3">
             {Object.entries(costByProvider).map(([provider, cost]) => {
-              const percentage = (cost / totalCost) * 100
+              const percentage = totalCost > 0 ? (cost / totalCost) * 100 : 0
               return (
                 <div key={provider}>
                   <div className="flex items-center justify-between mb-1">
