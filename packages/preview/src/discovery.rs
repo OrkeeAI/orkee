@@ -693,9 +693,7 @@ pub fn load_env_from_directory(dir: &Path) -> HashMap<String, String> {
 ///     }
 /// }
 /// ```
-pub fn start_periodic_discovery(
-    registry: ServerRegistry,
-) -> Option<tokio::task::JoinHandle<()>> {
+pub fn start_periodic_discovery(registry: ServerRegistry) -> Option<tokio::task::JoinHandle<()>> {
     use once_cell::sync::OnceCell;
     use tokio::time::{interval, Duration};
     use tracing::info;
@@ -755,7 +753,10 @@ pub fn start_periodic_discovery(
                     // Check if server is already registered (by port)
                     match registry.get_by_port(server.port).await {
                         Ok(Some(_existing)) => {
-                            debug!("Server on port {} already registered, skipping", server.port);
+                            debug!(
+                                "Server on port {} already registered, skipping",
+                                server.port
+                            );
                             continue;
                         }
                         Ok(None) => {

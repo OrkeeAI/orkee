@@ -215,7 +215,11 @@ async fn test_migration_from_json_success() {
             "api_port": 4001
         }
     });
-    fs::write(&json_path, serde_json::to_string_pretty(&json_content).unwrap()).unwrap();
+    fs::write(
+        &json_path,
+        serde_json::to_string_pretty(&json_content).unwrap(),
+    )
+    .unwrap();
 
     // Run migration
     let result = preview_storage.migrate_from_json(&json_path).await;
@@ -285,7 +289,11 @@ async fn test_migration_from_json_partial_failure() {
             "api_port": 4001
         }
     });
-    fs::write(&json_path, serde_json::to_string_pretty(&json_content).unwrap()).unwrap();
+    fs::write(
+        &json_path,
+        serde_json::to_string_pretty(&json_content).unwrap(),
+    )
+    .unwrap();
 
     // Run migration - should fail
     let result = preview_storage.migrate_from_json(&json_path).await;
