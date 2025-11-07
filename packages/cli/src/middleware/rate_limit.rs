@@ -372,6 +372,7 @@ mod tests {
             users_rpm: 10,
             security_rpm: 10,
             oauth_rpm: 10,
+            sandbox_rpm: 10,
             global_rpm: 30,
             burst_size: 5,
         };
