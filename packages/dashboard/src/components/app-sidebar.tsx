@@ -7,6 +7,7 @@ import {
   Bot,
   FileText,
   Activity,
+  Box,
 } from "lucide-react"
 
 import { NavMain } from "@/components/nav-main"
@@ -41,6 +42,11 @@ const data = {
       title: "Projects",
       url: "/projects",
       icon: FolderOpen,
+    },
+    {
+      title: "Sandboxes",
+      url: "/sandboxes",
+      icon: Box,
     },
     {
       title: "Usage",

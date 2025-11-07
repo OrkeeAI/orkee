@@ -42,6 +42,7 @@ pub struct RateLimitConfig {
     pub users_rpm: u32,     // User management (credentials, settings)
     pub security_rpm: u32,  // Security endpoints (password management, encryption)
     pub oauth_rpm: u32,     // OAuth authentication endpoints
+    pub sandbox_rpm: u32,   // Sandbox operations (create, start, stop)
     pub global_rpm: u32,    // Global fallback
     pub burst_size: u32,    // Burst size multiplier
 }
@@ -59,6 +60,7 @@ impl Default for RateLimitConfig {
             users_rpm: 10,     // Strict limit for expensive encryption operations
             security_rpm: 10,  // Strict limit to prevent brute-force and DoS on password operations
             oauth_rpm: 10,     // Strict limit to prevent OAuth abuse
+            sandbox_rpm: 10,   // Strict limit to prevent resource abuse
             global_rpm: 30,
             burst_size: 5,
         }
@@ -93,6 +95,7 @@ impl RateLimitLayer {
             EndpointCategory::Users => self.config.users_rpm,
             EndpointCategory::Security => self.config.security_rpm,
             EndpointCategory::OAuth => self.config.oauth_rpm,
+            EndpointCategory::Sandbox => self.config.sandbox_rpm,
             EndpointCategory::Other => self.config.global_rpm,
         }
     }
@@ -110,6 +113,7 @@ impl RateLimitLayer {
             EndpointCategory::Users => self.config.users_rpm,
             EndpointCategory::Security => self.config.security_rpm,
             EndpointCategory::OAuth => self.config.oauth_rpm,
+            EndpointCategory::Sandbox => self.config.sandbox_rpm,
             EndpointCategory::Other => self.config.global_rpm,
         };
 
@@ -153,6 +157,7 @@ enum EndpointCategory {
     Users,
     Security,
     OAuth,
+    Sandbox,
     Other,
 }
 
@@ -163,6 +168,7 @@ impl EndpointCategory {
             EndpointCategory::Browse => "browse",
             EndpointCategory::Projects => "projects",
             EndpointCategory::Preview => "preview",
+            EndpointCategory::Sandbox => "sandbox",
             EndpointCategory::Telemetry => "telemetry",
             EndpointCategory::AI => "ai",
             EndpointCategory::Users => "users",
@@ -192,6 +198,10 @@ fn categorize_endpoint(path: &str) -> EndpointCategory {
         EndpointCategory::Telemetry
     } else if path.contains("/users") {
         EndpointCategory::Users
+    } else if path.contains("/sandbox") {
+        // Sandbox operations: create, start, stop, delete containers
+        // These are resource-intensive operations that should be rate-limited to prevent abuse
+        EndpointCategory::Sandbox
     } else if path.contains("/ai") || path.contains("/ideate") {
         // AI-powered endpoints include both /ai/ and /ideate/ routes
         // These are expensive operations that use LLM APIs
@@ -362,6 +372,7 @@ mod tests {
             users_rpm: 10,
             security_rpm: 10,
             oauth_rpm: 10,
+            sandbox_rpm: 10,
             global_rpm: 30,
             burst_size: 5,
         };

@@ -62,7 +62,13 @@ impl AuthCommands {
 }
 
 async fn login_command(provider_str: Option<&str>, file: Option<&str>, _force: bool) {
-    // Parse or prompt for provider
+    // Handle Docker separately (not an OAuth provider)
+    if let Some("docker") = provider_str {
+        import_docker_credentials().await;
+        return;
+    }
+
+    // Parse or prompt for OAuth provider
     let provider = match provider_str {
         Some(p) => match parse_provider(p) {
             Ok(provider) => provider,
@@ -80,7 +86,7 @@ async fn login_command(provider_str: Option<&str>, file: Option<&str>, _force: b
         },
     };
 
-    // Handle Claude token import
+    // Handle OAuth provider-specific authentication
     match provider {
         OAuthProvider::Claude => {
             if let Some(file_path) = file {
@@ -486,6 +492,50 @@ async fn show_encryption_warning() {
     }
 }
 
+async fn import_docker_credentials() {
+    println!("{}", "🐋 Docker Hub Authentication".bold().cyan());
+    println!("This will run 'docker login' to authenticate with Docker Hub.");
+    println!("Docker will store credentials securely in your system keychain.");
+    println!();
+
+    // Run docker login
+    let status = Command::new("docker")
+        .arg("login")
+        .stdin(Stdio::inherit()) // Allow interactive input
+        .stdout(Stdio::inherit()) // Show docker's output
+        .stderr(Stdio::inherit()) // Show docker's errors
+        .status();
+
+    match status {
+        Ok(exit_status) if exit_status.success() => {
+            println!();
+            println!("{} Docker authentication successful!", "✓".green().bold());
+            println!("   Credentials stored by Docker in your system keychain");
+            println!("   You can now build and push images to Docker Hub");
+        }
+        Ok(exit_status) => {
+            eprintln!();
+            eprintln!(
+                "{} Docker login failed with exit code: {}",
+                "✗".red().bold(),
+                exit_status.code().unwrap_or(-1)
+            );
+            process::exit(1);
+        }
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+            eprintln!("{} Docker not found", "✗".red().bold());
+            eprintln!();
+            eprintln!("Please install Docker first:");
+            eprintln!("  https://docs.docker.com/get-docker/");
+            process::exit(1);
+        }
+        Err(e) => {
+            eprintln!("{} Failed to run 'docker login': {}", "✗".red().bold(), e);
+            process::exit(1);
+        }
+    }
+}
+
 fn parse_provider(provider_str: &str) -> Result<OAuthProvider, String> {
     provider_str
         .parse()
@@ -493,7 +543,7 @@ fn parse_provider(provider_str: &str) -> Result<OAuthProvider, String> {
 }
 
 fn prompt_provider_selection() -> Result<OAuthProvider, String> {
-    let providers = vec!["Claude", "OpenAI", "Google", "xAI"];
+    let providers = vec!["Claude", "OpenAI", "Google", "xAI", "Docker"];
 
     let selection = Select::new("Select AI provider:", providers)
         .prompt()

@@ -244,13 +244,14 @@ orkee projects delete 1 -y
 
 ### OAuth/Auth Commands
 
-Manage OAuth authentication for AI providers (Claude, OpenAI, Google, xAI).
+Manage authentication for AI providers (Claude, OpenAI, Google, xAI) and Docker Hub.
 
 ```bash
 orkee login <provider>        # Authenticate with AI provider
 orkee logout <provider>       # Logout from AI provider
 orkee auth status             # Show authentication status
 orkee auth refresh <provider> # Refresh authentication token
+orkee auth login docker       # Authenticate with Docker Hub
 ```
 
 #### Login Command
@@ -440,6 +441,384 @@ OAUTH_CLAUDE_SCOPES="model:claude account:read"
 - **Security**: Tokens encrypted with unique nonces
 
 For detailed OAuth documentation, see the [OAuth Authentication Guide](./oauth-authentication.md).
+
+### Docker Authentication
+
+Authenticate with Docker Hub for building and pushing container images.
+
+#### Docker Login Command
+
+**Syntax:**
+```bash
+orkee auth login docker
+```
+
+**What It Does:**
+1. Executes `docker login` as a subprocess
+2. Docker CLI opens browser for authentication (or prompts for credentials)
+3. Docker stores credentials in system keychain (`~/.docker/config.json`)
+4. Future `docker build` and `docker push` commands use stored credentials automatically
+
+**Output Example:**
+```
+🐳 Authenticating with Docker Hub...
+Opening browser for Docker authentication...
+
+Login Succeeded
+✅ Successfully authenticated with Docker Hub
+   Username: your-username
+```
+
+**Benefits:**
+- ✅ **Simple**: No custom credential management
+- ✅ **Secure**: Leverages Docker's system keychain integration
+- ✅ **Standard**: Uses Docker's native authentication flow
+- ✅ **Rate limits**: Authenticated users get 200 pulls/6 hours (vs 100 unauthenticated)
+
+**Prerequisites:**
+- Docker CLI must be installed and in PATH
+- Docker daemon must be running
+
+**Verification:**
+```bash
+# Verify authentication succeeded
+docker info
+
+# Should display your Docker Hub username in the output
+```
+
+**Troubleshooting:**
+- **Error: "docker: command not found"**: Install Docker CLI
+- **Error: "Cannot connect to Docker daemon"**: Start Docker Desktop or Docker daemon
+- **Authentication fails**: Try running `docker login` directly to see detailed error messages
+- **Rate limiting**: Authenticated users get higher rate limits; run `orkee auth login docker` to increase limits
+
+**Storage:**
+- **Location**: Credentials stored by Docker CLI (not in Orkee database)
+- **macOS**: System Keychain
+- **Linux**: `~/.docker/config.json` (or configured credential helper)
+- **Windows**: Windows Credential Manager
+
+For complete Docker authentication details and sandbox image management workflow, see the project's [docker.md](../../docker.md) documentation.
+
+### Sandbox Command
+
+Manage AI-powered isolated execution environments for safe code execution.
+
+```bash
+orkee sandbox <subcommand> [options]
+```
+
+#### List Sandboxes
+
+Display all sandboxes with their status and resource information.
+
+```bash
+orkee sandbox list
+```
+
+**Output:**
+```
+ID   Provider  Status   CPU  Memory   Created
+1    local     running  2    4096 MB  2025-01-15 10:30:00
+2    local     stopped  4    8192 MB  2025-01-16 14:20:00
+```
+
+#### Create Sandbox
+
+Create a new sandbox with specified configuration.
+
+```bash
+orkee sandbox create [options]
+```
+
+**Options:**
+
+| Flag | Description |
+|------|-------------|
+| `--provider <provider>` | Provider (local, beam, e2b, modal, flyio, cloudflare, daytona, northflank) |
+| `--image <image>` | Docker image (default from settings) |
+| `--cpu <cores>` | CPU cores (default: 2) |
+| `--memory <mb>` | Memory in MB (default: 4096) |
+| `--agent <agent_id>` | Agent ID (claude, codex, gemini, grok, opencode) |
+
+**Examples:**
+
+```bash
+# Create with defaults
+orkee sandbox create
+
+# Create with custom resources
+orkee sandbox create --provider local --cpu 4 --memory 8192
+
+# Create with specific agent
+orkee sandbox create --agent claude --cpu 2 --memory 4096
+```
+
+#### Start Sandbox
+
+Start a stopped sandbox.
+
+```bash
+orkee sandbox start <sandbox_id>
+```
+
+**Example:**
+```bash
+orkee sandbox start 1
+```
+
+#### Stop Sandbox
+
+Stop a running sandbox.
+
+```bash
+orkee sandbox stop <sandbox_id>
+```
+
+**Example:**
+```bash
+orkee sandbox stop 1
+```
+
+#### Restart Sandbox
+
+Restart a sandbox (stop and start).
+
+```bash
+orkee sandbox restart <sandbox_id>
+```
+
+**Example:**
+```bash
+orkee sandbox restart 1
+```
+
+#### Delete Sandbox
+
+Delete a sandbox permanently.
+
+```bash
+orkee sandbox delete <sandbox_id> [options]
+```
+
+**Options:**
+
+| Flag | Description |
+|------|-------------|
+| `--yes` or `-y` | Skip confirmation prompt |
+
+**Examples:**
+
+```bash
+# With confirmation
+orkee sandbox delete 1
+
+# Skip confirmation
+orkee sandbox delete 1 --yes
+```
+
+#### Execute Command
+
+Execute a command in a running sandbox.
+
+```bash
+orkee sandbox exec <sandbox_id> <command>
+```
+
+**Examples:**
+
+```bash
+# Run a simple command
+orkee sandbox exec 1 "python --version"
+
+# Run multiple commands
+orkee sandbox exec 1 "cd /workspace && npm install && npm test"
+```
+
+#### View Logs
+
+View or stream sandbox logs.
+
+```bash
+orkee sandbox logs <sandbox_id> [options]
+```
+
+**Options:**
+
+| Flag | Description |
+|------|-------------|
+| `--follow` or `-f` | Follow log output (stream) |
+| `--tail <n>` | Show last N lines (default: 100) |
+
+**Examples:**
+
+```bash
+# View last 100 lines
+orkee sandbox logs 1
+
+# Stream logs (follow)
+orkee sandbox logs 1 --follow
+
+# View last 50 lines
+orkee sandbox logs 1 --tail 50
+```
+
+#### View Metrics
+
+Display resource usage metrics for a sandbox.
+
+```bash
+orkee sandbox metrics <sandbox_id>
+```
+
+**Output:**
+```
+Resource Metrics for Sandbox 1
+-------------------------------
+CPU Usage:     45.2%
+Memory Used:   2048 MB / 4096 MB (50%)
+Disk Used:     1.2 GB / 10 GB
+Network In:    45 MB
+Network Out:   23 MB
+Uptime:        2h 15m
+```
+
+#### Build Custom Image
+
+Build a custom Docker image for sandboxes.
+
+```bash
+orkee sandbox build <name> [options]
+```
+
+**Options:**
+
+| Flag | Description |
+|------|-------------|
+| `--tag <tag>` | Image tag (default: latest) |
+| `--dockerfile <path>` | Path to Dockerfile (default: ./Dockerfile) |
+
+**Examples:**
+
+```bash
+# Build with defaults
+orkee sandbox build my-sandbox
+
+# Build with custom tag
+orkee sandbox build my-sandbox --tag v1.0.0
+
+# Build with custom Dockerfile
+orkee sandbox build my-sandbox --dockerfile ./docker/Sandbox.dockerfile --tag custom
+```
+
+#### Push Image
+
+Push a Docker image to Docker Hub.
+
+```bash
+orkee sandbox push <image>
+```
+
+**Prerequisites:**
+- Authenticate first: `orkee auth login docker`
+- Image must be tagged with your Docker Hub username
+
+**Examples:**
+
+```bash
+# Push image
+orkee sandbox push username/my-sandbox:latest
+
+# Push with version tag
+orkee sandbox push username/my-sandbox:v1.0.0
+```
+
+#### List Images
+
+List built sandbox images.
+
+```bash
+orkee sandbox images
+```
+
+**Output:**
+```
+Repository                Tag      Image ID       Size
+orkee/sandbox            latest   abc123def456   850 MB
+username/my-sandbox      latest   def456ghi789   920 MB
+username/my-sandbox      v1.0.0   ghi789jkl012   920 MB
+```
+
+#### Show Configuration
+
+Display current sandbox configuration.
+
+```bash
+orkee sandbox config show
+```
+
+**Output:**
+```
+Sandbox Configuration
+---------------------
+Enabled:         true
+Provider:        local
+Image:           orkee/sandbox:latest
+Docker Username: username
+Max Concurrent:  10 local, 50 cloud
+Max Resources:   16 CPU, 64 GB RAM, 100 GB Disk
+Auto-stop idle:  120 minutes
+Max runtime:     24 hours
+```
+
+#### Set Default Image
+
+Set the default Docker image for new sandboxes.
+
+```bash
+orkee sandbox config set-image <image>
+```
+
+**Example:**
+```bash
+orkee sandbox config set-image username/my-sandbox:latest
+```
+
+**What It Does:**
+- Updates `sandbox_settings.default_image` in database
+- All new sandboxes will use this image by default
+- Can be overridden per-sandbox with `--image` flag
+
+#### Set Docker Hub Username
+
+Set your Docker Hub username for image operations.
+
+```bash
+orkee sandbox config set-username <username>
+```
+
+**Example:**
+```bash
+orkee sandbox config set-username myusername
+```
+
+**What It Does:**
+- Stores username in `sandbox_settings.docker_username`
+- Used for building and tagging custom images
+- Used for verifying Docker Hub authentication
+
+#### Clear Docker Hub Username
+
+Remove the stored Docker Hub username.
+
+```bash
+orkee sandbox config clear-username
+```
+
+**What It Does:**
+- Clears `sandbox_settings.docker_username` from database
+- Build operations will prompt for username if needed
 
 ### Cloud Command
 

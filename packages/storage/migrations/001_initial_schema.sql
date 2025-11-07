@@ -770,6 +770,264 @@ BEGIN
 END;
 
 -- ============================================================================
+-- SANDBOX SETTINGS (Database-driven configuration)
+-- ============================================================================
+-- All settings manageable via Dashboard > Settings > Advanced > Configuration > Sandboxes
+
+CREATE TABLE sandbox_settings (
+    id INTEGER PRIMARY KEY CHECK (id = 1), -- Singleton record
+
+    -- General Settings
+    enabled BOOLEAN DEFAULT TRUE,
+    default_provider TEXT DEFAULT 'local' CHECK(default_provider IN ('local', 'beam', 'cloudflare', 'daytona', 'e2b', 'flyio', 'modal', 'northflank')),
+    default_image TEXT DEFAULT 'orkee/sandbox:latest',
+
+    -- Resource Limits (apply to all sandboxes)
+    max_concurrent_local INTEGER DEFAULT 10,
+    max_concurrent_cloud INTEGER DEFAULT 50,
+    max_cpu_cores_per_sandbox INTEGER DEFAULT 16,
+    max_memory_gb_per_sandbox INTEGER DEFAULT 64,
+    max_disk_gb_per_sandbox INTEGER DEFAULT 100,
+    max_gpu_per_sandbox INTEGER DEFAULT 1,
+
+    -- Lifecycle Settings
+    auto_stop_idle_minutes INTEGER DEFAULT 120,
+    max_runtime_hours INTEGER DEFAULT 24,
+    cleanup_interval_minutes INTEGER DEFAULT 10,
+    preserve_stopped_sandboxes BOOLEAN DEFAULT FALSE,
+    auto_restart_failed BOOLEAN DEFAULT FALSE,
+    max_restart_attempts INTEGER DEFAULT 3,
+
+    -- Cost Management
+    cost_tracking_enabled BOOLEAN DEFAULT TRUE,
+    cost_alert_threshold REAL DEFAULT 10.00,
+    max_cost_per_sandbox REAL DEFAULT 50.00,
+    max_total_cost REAL DEFAULT 500.00,
+    auto_stop_at_cost_limit BOOLEAN DEFAULT TRUE,
+
+    -- Network Settings
+    default_network_mode TEXT DEFAULT 'isolated' CHECK(default_network_mode IN ('none', 'isolated', 'host', 'custom')),
+    allow_public_endpoints BOOLEAN DEFAULT FALSE,
+    require_auth_for_web BOOLEAN DEFAULT TRUE,
+
+    -- Security Settings
+    allow_privileged_containers BOOLEAN DEFAULT FALSE,
+    require_non_root_user BOOLEAN DEFAULT TRUE,
+    enable_security_scanning BOOLEAN DEFAULT TRUE,
+    allowed_base_images TEXT, -- JSON array of allowed images
+    blocked_commands TEXT, -- JSON array of blocked commands
+
+    -- Monitoring
+    resource_monitoring_interval_seconds INTEGER DEFAULT 30,
+    health_check_interval_seconds INTEGER DEFAULT 60,
+    log_retention_days INTEGER DEFAULT 7,
+    metrics_retention_days INTEGER DEFAULT 30,
+
+    -- Templates
+    allow_custom_templates BOOLEAN DEFAULT TRUE,
+    require_template_approval BOOLEAN DEFAULT FALSE,
+    share_templates_globally BOOLEAN DEFAULT FALSE,
+
+    updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+    updated_by TEXT,
+
+    CHECK (json_valid(allowed_base_images) OR allowed_base_images IS NULL),
+    CHECK (json_valid(blocked_commands) OR blocked_commands IS NULL)
+);
+
+-- Provider-specific settings (one record per provider)
+CREATE TABLE sandbox_provider_settings (
+    provider TEXT PRIMARY KEY CHECK(provider IN ('local', 'beam', 'cloudflare', 'daytona', 'e2b', 'flyio', 'modal', 'northflank')),
+
+    -- Status
+    enabled BOOLEAN DEFAULT FALSE,
+    configured BOOLEAN DEFAULT FALSE,
+    validated_at TEXT,
+    validation_error TEXT,
+
+    -- Credentials (encrypted via ChaCha20-Poly1305)
+    api_key TEXT,
+    api_secret TEXT,
+    api_endpoint TEXT,
+
+    -- Provider-specific IDs
+    workspace_id TEXT,
+    project_id TEXT,
+    account_id TEXT,
+    organization_id TEXT,
+    app_name TEXT,
+    namespace_id TEXT,
+
+    -- Defaults
+    default_region TEXT,
+    default_instance_type TEXT,
+    default_image TEXT,
+
+    -- Resource defaults for this provider
+    default_cpu_cores REAL,
+    default_memory_mb INTEGER,
+    default_disk_gb INTEGER,
+    default_gpu_type TEXT,
+
+    -- Cost overrides (if different from providers.json)
+    cost_per_hour REAL,
+    cost_per_gb_memory REAL,
+    cost_per_vcpu REAL,
+    cost_per_gpu_hour REAL,
+
+    -- Limits for this provider
+    max_sandboxes INTEGER,
+    max_runtime_hours INTEGER,
+    max_total_cost REAL,
+
+    -- Additional configuration (JSON)
+    custom_config TEXT,
+
+    updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+    updated_by TEXT,
+
+    CHECK (json_valid(custom_config) OR custom_config IS NULL)
+);
+
+-- Create triggers for settings updates
+CREATE TRIGGER sandbox_settings_updated_at AFTER UPDATE ON sandbox_settings
+FOR EACH ROW WHEN NEW.updated_at = OLD.updated_at
+BEGIN
+    UPDATE sandbox_settings SET updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE id = 1;
+END;
+
+CREATE TRIGGER sandbox_provider_settings_updated_at AFTER UPDATE ON sandbox_provider_settings
+FOR EACH ROW WHEN NEW.updated_at = OLD.updated_at
+BEGIN
+    UPDATE sandbox_provider_settings SET updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE provider = NEW.provider;
+END;
+
+-- Insert default settings
+INSERT OR IGNORE INTO sandbox_settings (id) VALUES (1);
+
+-- Insert provider records (disabled by default)
+INSERT OR IGNORE INTO sandbox_provider_settings (provider, enabled) VALUES
+    ('local', TRUE),  -- Local is enabled by default
+    ('beam', FALSE),
+    ('cloudflare', FALSE),
+    ('daytona', FALSE),
+    ('e2b', FALSE),
+    ('flyio', FALSE),
+    ('modal', FALSE),
+    ('northflank', FALSE);
+
+-- ============================================================================
+-- SANDBOX EXECUTION TABLES
+-- ============================================================================
+-- Tables for tracking sandbox instances and executions
+-- ============================================================================
+
+-- Sandboxes table - tracks sandbox instances
+CREATE TABLE sandboxes (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    provider TEXT NOT NULL REFERENCES sandbox_provider_settings(provider),
+    agent_id TEXT NOT NULL,  -- References agents.json config
+    status TEXT NOT NULL CHECK (status IN ('creating', 'starting', 'running', 'stopping', 'stopped', 'error', 'terminated')),
+    container_id TEXT,  -- Provider-specific container/instance ID
+    port INTEGER,  -- Port for accessing the sandbox
+
+    -- Resource configuration
+    cpu_cores REAL DEFAULT 1,
+    memory_mb INTEGER DEFAULT 2048,
+    storage_gb INTEGER DEFAULT 10,
+    gpu_enabled BOOLEAN DEFAULT FALSE,
+    gpu_model TEXT,
+
+    -- Networking
+    public_url TEXT,
+    ssh_enabled BOOLEAN DEFAULT FALSE,
+    ssh_key TEXT,
+
+    -- Metadata
+    created_at TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+    started_at TEXT,
+    stopped_at TEXT,
+    terminated_at TEXT,
+    error_message TEXT,
+    cost_estimate REAL,
+
+    -- Project association
+    project_id TEXT REFERENCES projects(id) ON DELETE SET NULL,
+    user_id TEXT REFERENCES users(id) ON DELETE CASCADE,
+
+    -- Additional configuration stored as JSON
+    config TEXT,  -- JSON object with provider-specific config
+    metadata TEXT  -- JSON object with additional metadata
+);
+
+-- Sandbox executions table - tracks commands run in sandboxes
+CREATE TABLE sandbox_executions (
+    id TEXT PRIMARY KEY,
+    sandbox_id TEXT NOT NULL REFERENCES sandboxes(id) ON DELETE CASCADE,
+    command TEXT NOT NULL,
+    working_directory TEXT DEFAULT '/',
+    status TEXT NOT NULL CHECK (status IN ('queued', 'running', 'completed', 'failed', 'cancelled')),
+
+    -- Execution details
+    started_at TEXT,
+    completed_at TEXT,
+    exit_code INTEGER,
+    stdout TEXT,
+    stderr TEXT,
+
+    -- Resource tracking
+    cpu_time_seconds REAL,
+    memory_peak_mb INTEGER,
+
+    -- Metadata
+    created_at TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+    created_by TEXT REFERENCES users(id) ON DELETE SET NULL,
+    agent_execution_id TEXT  -- Links to agent_executions if run by an agent
+);
+
+-- Environment variables for sandboxes
+CREATE TABLE sandbox_env_vars (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    sandbox_id TEXT NOT NULL REFERENCES sandboxes(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    value TEXT NOT NULL,
+    is_secret BOOLEAN DEFAULT FALSE,
+    created_at TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+    UNIQUE(sandbox_id, name)
+);
+
+-- Volume mounts for sandboxes
+CREATE TABLE sandbox_volumes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    sandbox_id TEXT NOT NULL REFERENCES sandboxes(id) ON DELETE CASCADE,
+    host_path TEXT NOT NULL,
+    container_path TEXT NOT NULL,
+    read_only BOOLEAN DEFAULT FALSE,
+    created_at TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+    UNIQUE(sandbox_id, container_path)
+);
+
+-- Create indexes for sandbox tables
+CREATE INDEX idx_sandboxes_provider ON sandboxes(provider);
+CREATE INDEX idx_sandboxes_status ON sandboxes(status);
+CREATE INDEX idx_sandboxes_project_id ON sandboxes(project_id);
+CREATE INDEX idx_sandboxes_user_id ON sandboxes(user_id);
+CREATE INDEX idx_sandboxes_agent_id ON sandboxes(agent_id);
+CREATE INDEX idx_sandboxes_created_at ON sandboxes(created_at);
+
+-- Composite indexes for common query patterns (user+status, project+status)
+CREATE INDEX idx_sandboxes_user_status ON sandboxes(user_id, status);
+CREATE INDEX idx_sandboxes_project_status ON sandboxes(project_id, status);
+
+CREATE INDEX idx_sandbox_executions_sandbox_id ON sandbox_executions(sandbox_id);
+CREATE INDEX idx_sandbox_executions_status ON sandbox_executions(status);
+CREATE INDEX idx_sandbox_executions_created_at ON sandbox_executions(created_at);
+
+CREATE INDEX idx_sandbox_env_vars_sandbox_id ON sandbox_env_vars(sandbox_id);
+CREATE INDEX idx_sandbox_volumes_sandbox_id ON sandbox_volumes(sandbox_id);
+
+-- ============================================================================
 -- TELEMETRY
 -- ============================================================================
 

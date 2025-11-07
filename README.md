@@ -6,6 +6,7 @@ A CLI, TUI, dashboard, and native desktop app for AI agent orchestration
 
 - 🤖 **AI Agent Orchestration** - Deploy and manage AI agents across different environments
 - 🎯 **Customizable AI Models** - Configure different AI providers and models for each task type (chat, PRD generation, insight extraction, etc.)
+- 📦 **AI-Powered Sandboxes** - Isolated execution environments with multi-provider support (Docker, Beam, E2B, Modal, Fly.io, and more)
 - 📊 **Real-time Dashboard** - Web-based interface for monitoring and management
 - 🖥️ **Terminal Interface** - Rich TUI for interactive command-line workflows
 - 🖼️ **Native Desktop App** - Tauri-based desktop application with system tray integration
@@ -28,6 +29,8 @@ orkee/
 │   ├── tui/          # Ratatui-based standalone terminal interface
 │   ├── projects/     # Shared Rust library for core functionality (used by CLI and TUI)
 │   ├── preview/      # Development server management with registry
+│   ├── agents/       # AI agent registry and definitions
+│   ├── sandbox/      # Sandbox infrastructure with multi-provider support
 │   └── mcp-server/   # MCP (Model Context Protocol) server for Claude integration
 ├── deployment/       # Production deployment configurations
 └── scripts/          # Build and release automation scripts
@@ -199,6 +202,7 @@ orkee auth logout all
 | OpenAI | ⏳ Planned | OAuth flow |
 | Google (Vertex AI) | ⏳ Planned | OAuth flow |
 | xAI (Grok) | ⏳ Planned | OAuth flow |
+| Docker Hub | ✅ Available | Docker CLI wrapper |
 
 ### How Claude Authentication Works
 
@@ -269,6 +273,100 @@ Authentication status can be viewed in the dashboard:
 2. View authentication status for all providers
 3. See token expiry times
 4. Manage authentication via CLI commands
+
+## Docker Authentication
+
+Orkee provides simple Docker Hub authentication for building and pushing sandbox container images.
+
+### Quick Setup
+
+```bash
+# Authenticate with Docker Hub
+orkee auth login docker
+
+# Verify authentication
+docker info  # Should show your username
+```
+
+### How It Works
+
+- **Simple wrapper**: Runs `docker login` as a subprocess
+- **Native credential storage**: Docker CLI handles credentials in system keychain
+- **No database storage**: Credentials managed by Docker, not Orkee
+- **Standard workflow**: Use normal `docker build` and `docker push` commands
+
+### Benefits
+
+- ✅ **Simple**: No custom credential management needed
+- ✅ **Secure**: Leverages Docker's system keychain integration
+- ✅ **Standard**: Uses Docker's native authentication flow
+- ✅ **Rate limits**: Authenticated users get 200 pulls/6 hours vs 100 unauthenticated
+
+### Troubleshooting
+
+If you encounter authentication errors:
+1. Run `orkee auth login docker`
+2. Follow Docker's authentication prompts
+3. Verify credentials: `docker info` should display your username
+
+For more details, see [docker.md](docker.md).
+
+## AI-Powered Sandboxes
+
+Orkee provides isolated execution environments where AI agents can safely execute code and perform tasks.
+
+### Features
+
+- 📦 **Multi-Provider Support** - Local Docker + 7 cloud providers (Beam, E2B, Modal, Fly.io, Cloudflare, Daytona, Northflank)
+- 🤖 **Agent Integration** - Works with Claude, Codex, Gemini, Grok, and OpenCode agents
+- 📊 **Resource Monitoring** - Real-time CPU, memory, disk, and network tracking
+- 💰 **Cost Tracking** - Full token usage and cost calculation per execution
+- 🔒 **Security** - Encrypted credentials, resource limits, non-root user enforcement
+- 🎨 **Terminal UI** - Interactive terminal with xterm.js for command execution
+- 📁 **File Operations** - Upload/download files to/from sandboxes
+- ⚙️ **Configurable** - All settings managed via Dashboard UI
+
+### Quick Start
+
+```bash
+# Authenticate with Docker Hub (for local provider)
+orkee auth login docker
+
+# Set default sandbox image
+orkee sandbox config set-image orkee/sandbox:latest
+
+# Create a sandbox via CLI
+orkee sandbox create --provider local --cpu 2 --memory 4096
+
+# Or use the Dashboard UI
+# Navigate to: Dashboard > Sandboxes > Create Sandbox
+```
+
+### Sandbox Commands
+
+```bash
+# Sandbox Management
+orkee sandbox list                              # List all sandboxes
+orkee sandbox create [--provider] [--cpu] [--memory]  # Create sandbox
+orkee sandbox start <id>                        # Start sandbox
+orkee sandbox stop <id>                         # Stop sandbox
+orkee sandbox restart <id>                      # Restart sandbox
+orkee sandbox delete <id>                       # Delete sandbox
+orkee sandbox exec <id> <command>               # Execute command
+orkee sandbox logs <id> [--follow]              # View logs
+
+# Image Management
+orkee sandbox build <name> [--tag] [--dockerfile]  # Build custom image
+orkee sandbox push <image>                         # Push to Docker Hub
+orkee sandbox images                               # List built images
+
+# Configuration
+orkee sandbox config show                       # Show current settings
+orkee sandbox config set-image <image>          # Set default image
+orkee sandbox config set-username <name>        # Set Docker Hub username
+```
+
+For complete documentation, see [sandboxes.md](sandboxes.md).
 
 ## Desktop App (Tauri)
 

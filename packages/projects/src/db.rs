@@ -8,6 +8,7 @@ use tracing::{debug, info};
 use orkee_agents::UserAgentStorage;
 use orkee_ai::AiUsageLogStorage;
 use orkee_executions::ExecutionStorage;
+use orkee_sandbox::SettingsManager as SandboxSettingsManager;
 use orkee_security::api_tokens::TokenStorage;
 use orkee_security::UserStorage;
 use orkee_settings::SettingsStorage;
@@ -29,6 +30,8 @@ pub struct DbState {
     pub settings_storage: Arc<SettingsStorage>,
     pub token_storage: Arc<TokenStorage>,
     pub model_preferences_storage: Arc<ModelPreferencesStorage>,
+    pub sandbox_settings: Arc<SandboxSettingsManager>,
+    pub sandbox_manager: Arc<orkee_sandbox::SandboxManager>,
 }
 
 impl DbState {
@@ -43,6 +46,45 @@ impl DbState {
         let settings_storage = Arc::new(SettingsStorage::new(pool.clone()));
         let token_storage = Arc::new(TokenStorage::new(pool.clone()));
         let model_preferences_storage = Arc::new(ModelPreferencesStorage::new(pool.clone()));
+        let sandbox_settings = Arc::new(SandboxSettingsManager::new(pool.clone())?);
+
+        // Initialize sandbox manager
+        let sandbox_storage = Arc::new(orkee_sandbox::SandboxStorage::new(pool.clone()));
+        let sandbox_manager = Arc::new(orkee_sandbox::SandboxManager::new(
+            sandbox_storage,
+            Arc::new(tokio::sync::RwLock::new(
+                orkee_sandbox::SettingsManager::new(pool.clone())
+                    .map_err(|e| StorageError::Encryption(e.to_string()))?,
+            )),
+        ));
+
+        // Register Docker provider if available
+        match orkee_sandbox::DockerProvider::new() {
+            Ok(provider) => {
+                let docker_provider = Arc::new(provider) as Arc<dyn orkee_sandbox::SandboxProvider>;
+
+                // Create a runtime handle for the async registration
+                // Since we're in a sync context, we need to spawn this
+                let manager_clone = sandbox_manager.clone();
+                let provider_clone = docker_provider.clone();
+                std::thread::spawn(move || {
+                    let rt = tokio::runtime::Runtime::new().unwrap();
+                    rt.block_on(async {
+                        manager_clone
+                            .register_provider("local".to_string(), provider_clone)
+                            .await;
+                    });
+                });
+
+                debug!("Docker provider registered successfully");
+            }
+            Err(e) => {
+                info!(
+                    "Docker provider not available: {}. Local sandboxes will be disabled.",
+                    e
+                );
+            }
+        }
 
         Ok(Self {
             pool,
@@ -55,6 +97,8 @@ impl DbState {
             settings_storage,
             token_storage,
             model_preferences_storage,
+            sandbox_settings,
+            sandbox_manager,
         })
     }
 

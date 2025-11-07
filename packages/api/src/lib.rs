@@ -31,6 +31,7 @@ pub mod models_handlers;
 pub mod oauth_handlers;
 pub mod prd_handlers;
 pub mod response;
+pub mod sandbox_handlers;
 pub mod security_handlers;
 pub mod tags_handlers;
 pub mod task_decomposition_handlers;
@@ -826,4 +827,47 @@ pub fn create_oauth_router() -> Router<DbState> {
         .route("/{provider}/token", post(oauth_handlers::get_token))
         .route("/{provider}/refresh", post(oauth_handlers::refresh_token))
         .route("/{provider}", delete(oauth_handlers::logout))
+}
+
+/// Creates the Sandbox API router for sandbox settings management
+pub fn create_sandbox_router() -> Router<DbState> {
+    use axum::routing::{delete, get, put};
+    Router::new()
+        // Sandbox settings endpoints
+        .route("/settings", get(sandbox_handlers::get_sandbox_settings))
+        .route("/settings", put(sandbox_handlers::update_sandbox_settings))
+        // Provider settings endpoints
+        .route("/providers", get(sandbox_handlers::list_provider_settings))
+        .route(
+            "/providers/{provider}",
+            get(sandbox_handlers::get_provider_settings),
+        )
+        .route(
+            "/providers/{provider}",
+            put(sandbox_handlers::update_provider_settings),
+        )
+        .route(
+            "/providers/{provider}",
+            delete(sandbox_handlers::delete_provider_settings),
+        )
+}
+
+/// Creates the Sandbox Instances API router (mounted at /api/sandboxes)
+pub fn create_sandboxes_router() -> Router<DbState> {
+    use axum::routing::{delete, get, post};
+    Router::new()
+        // Sandbox instance endpoints
+        .route("/", get(sandbox_handlers::list_sandboxes))
+        .route("/", post(sandbox_handlers::create_sandbox))
+        .route("/{id}", get(sandbox_handlers::get_sandbox))
+        .route("/{id}", delete(sandbox_handlers::delete_sandbox))
+        .route("/{id}/start", post(sandbox_handlers::start_sandbox))
+        .route("/{id}/stop", post(sandbox_handlers::stop_sandbox))
+        .route("/{id}/restart", post(sandbox_handlers::restart_sandbox))
+        .route("/{id}/execute", post(sandbox_handlers::execute_command))
+        .route(
+            "/{id}/executions",
+            get(sandbox_handlers::get_sandbox_executions),
+        )
+        .route("/{id}/metrics", get(sandbox_handlers::get_sandbox_metrics))
 }

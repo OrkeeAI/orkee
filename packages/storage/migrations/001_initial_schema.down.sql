@@ -34,6 +34,8 @@ DROP TRIGGER IF EXISTS system_settings_updated_at;
 DROP TRIGGER IF EXISTS update_telemetry_settings_timestamp;
 DROP TRIGGER IF EXISTS ideate_prd_generations_updated_at;
 DROP TRIGGER IF EXISTS model_preferences_updated_at;
+DROP TRIGGER IF EXISTS sandbox_settings_updated_at;
+DROP TRIGGER IF EXISTS sandbox_provider_settings_updated_at;
 
 -- ============================================================================
 -- DROP VIEWS (after triggers)
@@ -54,6 +56,19 @@ DROP TABLE IF EXISTS telemetry_settings;
 -- ============================================================================
 DROP TABLE IF EXISTS sync_state;
 DROP TABLE IF EXISTS sync_snapshots;
+
+-- ============================================================================
+-- DROP SANDBOX TABLES
+-- ============================================================================
+-- Drop execution-related tables (in reverse order due to foreign keys)
+DROP TABLE IF EXISTS sandbox_volumes;
+DROP TABLE IF EXISTS sandbox_env_vars;
+DROP TABLE IF EXISTS sandbox_executions;
+DROP TABLE IF EXISTS sandboxes;
+
+-- Drop configuration tables
+DROP TABLE IF EXISTS sandbox_provider_settings;
+DROP TABLE IF EXISTS sandbox_settings;
 
 -- ============================================================================
 -- DROP SYSTEM & SECURITY TABLES

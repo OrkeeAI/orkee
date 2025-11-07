@@ -94,6 +94,21 @@ impl ModelPreferencesStorage {
         match result {
             Some(prefs) => Ok(prefs),
             None => {
+                // Ensure user exists before creating preferences
+                // (required for FK constraint on model_preferences.user_id)
+                sqlx::query(
+                    r#"
+                    INSERT OR IGNORE INTO users (id, email, name, created_at, updated_at)
+                    VALUES (?, ?, ?, datetime('now', 'utc'), datetime('now', 'utc'))
+                    "#,
+                )
+                .bind(user_id)
+                .bind(format!("{}@localhost", user_id))
+                .bind(user_id.replace('-', " ").to_uppercase())
+                .execute(&self.pool)
+                .await
+                .map_err(StorageError::Sqlx)?;
+
                 // Atomically create default preferences if they don't exist
                 // INSERT OR IGNORE handles race conditions where another thread creates simultaneously
                 sqlx::query(

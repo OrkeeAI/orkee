@@ -29,6 +29,7 @@ orkee-auth = { path = "../auth" }
 orkee-storage = { path = "../storage" }
 orkee-cloud = { path = "../cloud", optional = true }
 orkee-preview = { path = "../preview" }
+orkee-sandbox = { path = "../sandbox" }
 orkee-tui = { path = "../tui" }
 ratatui = "0.28"
 crossterm = "0.27"
