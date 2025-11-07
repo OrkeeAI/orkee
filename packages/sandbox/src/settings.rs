@@ -1,10 +1,11 @@
 // ABOUTME: Sandbox settings storage layer using SQLite
 // ABOUTME: Handles CRUD operations for sandbox and provider-specific configurations
 
+use orkee_security::ApiKeyEncryption;
 use orkee_storage::StorageError;
 use serde::{Deserialize, Serialize};
 use sqlx::{Row, SqlitePool};
-use tracing::debug;
+use tracing::{debug, error};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SandboxSettings {
@@ -120,11 +121,15 @@ pub struct ProviderSettings {
 
 pub struct SettingsManager {
     pool: SqlitePool,
+    encryption: ApiKeyEncryption,
 }
 
 impl SettingsManager {
-    pub fn new(pool: SqlitePool) -> Self {
-        Self { pool }
+    pub fn new(pool: SqlitePool) -> Result<Self, StorageError> {
+        let encryption = ApiKeyEncryption::new().map_err(|e| {
+            StorageError::Encryption(format!("Failed to initialize encryption: {}", e))
+        })?;
+        Ok(Self { pool, encryption })
     }
 
     /// Get sandbox settings (singleton record)
@@ -286,6 +291,30 @@ impl SettingsManager {
     ) -> Result<(), StorageError> {
         debug!("Updating provider settings for: {}", settings.provider);
 
+        // Encrypt api_key if present
+        let encrypted_api_key = match &settings.api_key {
+            Some(key) => Some(self.encryption.encrypt(key).map_err(|e| {
+                error!(
+                    "Failed to encrypt api_key for provider {}: {}",
+                    settings.provider, e
+                );
+                StorageError::Encryption(format!("API key encryption failed: {}", e))
+            })?),
+            None => None,
+        };
+
+        // Encrypt api_secret if present
+        let encrypted_api_secret = match &settings.api_secret {
+            Some(secret) => Some(self.encryption.encrypt(secret).map_err(|e| {
+                error!(
+                    "Failed to encrypt api_secret for provider {}: {}",
+                    settings.provider, e
+                );
+                StorageError::Encryption(format!("API secret encryption failed: {}", e))
+            })?),
+            None => None,
+        };
+
         sqlx::query(
             r#"
             INSERT INTO sandbox_provider_settings (
@@ -336,8 +365,8 @@ impl SettingsManager {
         .bind(settings.configured as i64)
         .bind(&settings.validated_at)
         .bind(&settings.validation_error)
-        .bind(&settings.api_key)
-        .bind(&settings.api_secret)
+        .bind(&encrypted_api_key)
+        .bind(&encrypted_api_secret)
         .bind(&settings.api_endpoint)
         .bind(&settings.workspace_id)
         .bind(&settings.project_id)
@@ -436,14 +465,34 @@ impl SettingsManager {
         &self,
         row: &sqlx::sqlite::SqliteRow,
     ) -> Result<ProviderSettings, StorageError> {
+        // Decrypt api_key if present
+        let encrypted_api_key: Option<String> = row.try_get("api_key")?;
+        let api_key = match encrypted_api_key {
+            Some(encrypted) => Some(self.encryption.decrypt(&encrypted).map_err(|e| {
+                error!("Failed to decrypt api_key: {}", e);
+                StorageError::Encryption(format!("API key decryption failed: {}", e))
+            })?),
+            None => None,
+        };
+
+        // Decrypt api_secret if present
+        let encrypted_api_secret: Option<String> = row.try_get("api_secret")?;
+        let api_secret = match encrypted_api_secret {
+            Some(encrypted) => Some(self.encryption.decrypt(&encrypted).map_err(|e| {
+                error!("Failed to decrypt api_secret: {}", e);
+                StorageError::Encryption(format!("API secret decryption failed: {}", e))
+            })?),
+            None => None,
+        };
+
         Ok(ProviderSettings {
             provider: row.try_get("provider")?,
             enabled: row.try_get::<i64, _>("enabled")? != 0,
             configured: row.try_get::<i64, _>("configured")? != 0,
             validated_at: row.try_get("validated_at")?,
             validation_error: row.try_get("validation_error")?,
-            api_key: row.try_get("api_key")?,
-            api_secret: row.try_get("api_secret")?,
+            api_key,
+            api_secret,
             api_endpoint: row.try_get("api_endpoint")?,
             workspace_id: row.try_get("workspace_id")?,
             project_id: row.try_get("project_id")?,
@@ -493,7 +542,7 @@ mod tests {
     #[tokio::test]
     async fn test_get_sandbox_settings() {
         let pool = create_test_db().await;
-        let manager = SettingsManager::new(pool);
+        let manager = SettingsManager::new(pool).unwrap();
 
         let settings = manager.get_sandbox_settings().await.unwrap();
         assert_eq!(settings.default_provider, "local");
@@ -503,7 +552,7 @@ mod tests {
     #[tokio::test]
     async fn test_update_sandbox_settings() {
         let pool = create_test_db().await;
-        let manager = SettingsManager::new(pool);
+        let manager = SettingsManager::new(pool).unwrap();
 
         let mut settings = manager.get_sandbox_settings().await.unwrap();
         settings.max_concurrent_local = 20;
@@ -522,7 +571,7 @@ mod tests {
     #[tokio::test]
     async fn test_get_provider_settings() {
         let pool = create_test_db().await;
-        let manager = SettingsManager::new(pool);
+        let manager = SettingsManager::new(pool).unwrap();
 
         let settings = manager.get_provider_settings("local").await.unwrap();
         assert_eq!(settings.provider, "local");
@@ -532,7 +581,7 @@ mod tests {
     #[tokio::test]
     async fn test_list_provider_settings() {
         let pool = create_test_db().await;
-        let manager = SettingsManager::new(pool);
+        let manager = SettingsManager::new(pool).unwrap();
 
         let settings = manager.list_provider_settings().await.unwrap();
         assert_eq!(settings.len(), 8); // 8 providers in seed data
@@ -541,7 +590,7 @@ mod tests {
     #[tokio::test]
     async fn test_update_provider_settings() {
         let pool = create_test_db().await;
-        let manager = SettingsManager::new(pool);
+        let manager = SettingsManager::new(pool).unwrap();
 
         let mut settings = manager.get_provider_settings("beam").await.unwrap();
         settings.enabled = true;
@@ -561,5 +610,118 @@ mod tests {
             updated.api_key,
             Some("test-api-key-1234567890123456789012345678901234567890".to_string())
         );
+    }
+
+    #[tokio::test]
+    async fn test_provider_credentials_encryption_roundtrip() {
+        let pool = create_test_db().await;
+        let manager = SettingsManager::new(pool.clone()).unwrap();
+
+        // Create test credentials
+        let test_api_key = "my-secret-api-key-12345";
+        let test_api_secret = "my-secret-api-secret-67890";
+
+        // Update provider with credentials
+        let mut settings = manager.get_provider_settings("beam").await.unwrap();
+        settings.api_key = Some(test_api_key.to_string());
+        settings.api_secret = Some(test_api_secret.to_string());
+        settings.enabled = true;
+        settings.configured = true;
+
+        manager
+            .update_provider_settings(&settings, Some("test-user"))
+            .await
+            .unwrap();
+
+        // Read back and verify values match original
+        let retrieved = manager.get_provider_settings("beam").await.unwrap();
+        assert_eq!(retrieved.api_key, Some(test_api_key.to_string()));
+        assert_eq!(retrieved.api_secret, Some(test_api_secret.to_string()));
+
+        // Verify database contains encrypted values (not plaintext)
+        let row = sqlx::query("SELECT api_key, api_secret FROM sandbox_provider_settings WHERE provider = 'beam'")
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+
+        let encrypted_api_key: String = row.try_get("api_key").unwrap();
+        let encrypted_api_secret: String = row.try_get("api_secret").unwrap();
+
+        // Encrypted values should not equal plaintext
+        assert_ne!(encrypted_api_key, test_api_key);
+        assert_ne!(encrypted_api_secret, test_api_secret);
+
+        // Encrypted values should be base64-encoded (longer than original)
+        assert!(encrypted_api_key.len() > test_api_key.len());
+        assert!(encrypted_api_secret.len() > test_api_secret.len());
+    }
+
+    #[tokio::test]
+    async fn test_provider_credentials_none_handling() {
+        let pool = create_test_db().await;
+        let manager = SettingsManager::new(pool).unwrap();
+
+        // Update provider with None credentials
+        let mut settings = manager.get_provider_settings("e2b").await.unwrap();
+        settings.api_key = None;
+        settings.api_secret = None;
+
+        manager
+            .update_provider_settings(&settings, Some("test-user"))
+            .await
+            .unwrap();
+
+        // Verify None values stay None
+        let retrieved = manager.get_provider_settings("e2b").await.unwrap();
+        assert_eq!(retrieved.api_key, None);
+        assert_eq!(retrieved.api_secret, None);
+    }
+
+    #[tokio::test]
+    async fn test_provider_credentials_update() {
+        let pool = create_test_db().await;
+        let manager = SettingsManager::new(pool.clone()).unwrap();
+
+        // Insert initial encrypted credentials
+        let mut settings = manager.get_provider_settings("modal").await.unwrap();
+        settings.api_key = Some("initial-key-123".to_string());
+        settings.api_secret = Some("initial-secret-456".to_string());
+
+        manager
+            .update_provider_settings(&settings, Some("test-user"))
+            .await
+            .unwrap();
+
+        // Update with new credentials
+        let mut updated_settings = manager.get_provider_settings("modal").await.unwrap();
+        updated_settings.api_key = Some("updated-key-789".to_string());
+        updated_settings.api_secret = Some("updated-secret-abc".to_string());
+
+        manager
+            .update_provider_settings(&updated_settings, Some("test-user"))
+            .await
+            .unwrap();
+
+        // Verify old values are overwritten with new encrypted values
+        let final_settings = manager.get_provider_settings("modal").await.unwrap();
+        assert_eq!(final_settings.api_key, Some("updated-key-789".to_string()));
+        assert_eq!(
+            final_settings.api_secret,
+            Some("updated-secret-abc".to_string())
+        );
+
+        // Verify database contains new encrypted values (not plaintext)
+        let row = sqlx::query(
+            "SELECT api_key, api_secret FROM sandbox_provider_settings WHERE provider = 'modal'",
+        )
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+
+        let encrypted_api_key: String = row.try_get("api_key").unwrap();
+        let encrypted_api_secret: String = row.try_get("api_secret").unwrap();
+
+        assert_ne!(encrypted_api_key, "updated-key-789");
+        assert_ne!(encrypted_api_secret, "updated-secret-abc");
     }
 }
