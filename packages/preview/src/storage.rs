@@ -80,7 +80,8 @@ impl PreviewServerStorage {
             if e.to_string().contains("FOREIGN KEY constraint failed") {
                 anyhow::anyhow!(
                     "Failed to insert preview server '{}': project '{}' does not exist",
-                    entry.id, entry.project_id
+                    entry.id,
+                    entry.project_id
                 )
             } else {
                 anyhow::anyhow!("Failed to insert preview server '{}': {}", entry.id, e)
