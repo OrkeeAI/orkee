@@ -96,6 +96,16 @@ impl SandboxManager {
 
     /// Create a new sandbox
     pub async fn create_sandbox(&self, request: CreateSandboxRequest) -> Result<Sandbox> {
+        // Validate agent_id exists in agent registry
+        // This prevents orphaned sandbox records if agent is removed
+        if !orkee_models::REGISTRY.agent_exists(&request.agent_id) {
+            return Err(ManagerError::ConfigError(format!(
+                "Agent '{}' not found in agent registry. \
+                 Check packages/agents/config/agents.json for available agents.",
+                request.agent_id
+            )));
+        }
+
         // Load settings
         let settings_guard = self.settings.read().await;
         let sandbox_settings = settings_guard
