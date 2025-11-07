@@ -276,6 +276,63 @@ impl SandboxManager {
             }
         }
 
+        // Validate volume mounts for security - prevent mounting sensitive directories
+        const BLOCKED_PATHS: &[&str] = &[
+            "/etc",
+            "/sys",
+            "/proc",
+            "/root",
+            "/boot",
+            "/dev",
+            "/usr/bin",
+            "/usr/sbin",
+            "/sbin",
+            "/bin",
+        ];
+
+        const BLOCKED_USER_PATHS: &[&str] = &[
+            ".ssh",
+            ".aws",
+            ".gnupg",
+            ".kube",
+            ".docker",
+        ];
+
+        for volume in &request.volumes {
+            let host_path = volume.host_path.trim();
+
+            // Check against absolute blocked paths
+            for blocked in BLOCKED_PATHS {
+                if host_path == *blocked || host_path.starts_with(&format!("{}/", blocked)) {
+                    return Err(ManagerError::ConfigError(format!(
+                        "Volume mount path '{}' is blocked for security reasons. \
+                         Cannot mount sensitive system directories: {}",
+                        host_path, BLOCKED_PATHS.join(", ")
+                    )));
+                }
+            }
+
+            // Check against user-relative blocked paths (e.g., ~/.ssh)
+            for blocked in BLOCKED_USER_PATHS {
+                if host_path.contains(blocked) {
+                    return Err(ManagerError::ConfigError(format!(
+                        "Volume mount path '{}' contains blocked pattern '{}'. \
+                         Cannot mount sensitive user directories like .ssh, .aws, .gnupg, etc.",
+                        host_path, blocked
+                    )));
+                }
+            }
+
+            // Ensure path is absolute for security (prevents relative path attacks)
+            if !host_path.starts_with('/') && !host_path.starts_with('~') {
+                return Err(ManagerError::ConfigError(format!(
+                    "Volume mount path '{}' must be absolute (start with / or ~). \
+                     Relative paths are not allowed for security reasons.",
+                    host_path
+                )));
+            }
+        }
+
         drop(settings_guard);
 
         // Create sandbox record
