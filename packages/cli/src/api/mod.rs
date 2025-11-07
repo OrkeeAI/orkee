@@ -34,35 +34,6 @@ pub async fn create_router_with_options(
     let config = Config::from_env().expect("Failed to load config for PathValidator");
     let path_validator = Arc::new(PathValidator::new(&config));
 
-    // Create the preview manager with recovery
-    let preview_manager = match orkee_preview::init().await {
-        Ok(manager) => Arc::new(manager),
-        Err(e) => {
-            error!("Failed to initialize preview manager: {}", e);
-            // Create minimal in-memory DbState for error case
-            let pool = sqlx::SqlitePool::connect(":memory:")
-                .await
-                .expect("Failed to create in-memory database for error fallback");
-            sqlx::migrate!("../storage/migrations")
-                .run(&pool)
-                .await
-                .expect("Failed to run migrations for error fallback");
-            let minimal_db = orkee_projects::DbState::new(pool)
-                .expect("Failed to create minimal DbState for error fallback");
-
-            // Return a router without preview functionality rather than panicking
-            let router = Router::new()
-                .route("/api/health", get(health::health_check))
-                .route("/api/status", get(health::status_check))
-                .route(
-                    "/api/browse-directories",
-                    post(directories::browse_directories),
-                )
-                .nest("/api/projects", orkee_api::create_projects_router());
-            return (router, minimal_db);
-        }
-    };
-
     // Create the project manager
     let project_manager = match orkee_projects::manager::ProjectsManager::new().await {
         Ok(manager) => Arc::new(manager),
@@ -127,6 +98,28 @@ pub async fn create_router_with_options(
                 )
                 .nest("/api/projects", orkee_api::create_projects_router());
             return (router, minimal_db);
+        }
+    };
+
+    // Create the preview manager with crash recovery
+    // Reuse the existing db_state.pool instead of creating a new SqliteStorage instance
+    let preview_manager = match orkee_preview::init_from_pool(db_state.pool.clone()).await {
+        Ok(manager) => Arc::new(manager),
+        Err(e) => {
+            error!("Failed to initialize preview manager: {}", e);
+            error!("Preview functionality will be limited (no auto-discovery or crash recovery)");
+            // Continue with a minimal preview manager that can still:
+            // - List and manage manually registered servers
+            // - Start/stop preview servers for projects
+            // But lacks:
+            // - Automatic discovery of external servers
+            // - Crash recovery and cleanup tasks
+
+            // Create storage and registry directly from the existing pool
+            let storage =
+                orkee_preview::storage::PreviewServerStorage::from_pool(db_state.pool.clone());
+            let registry = orkee_preview::registry::ServerRegistry::from_storage(storage);
+            Arc::new(orkee_preview::manager::PreviewManager::new(registry))
         }
     };
 

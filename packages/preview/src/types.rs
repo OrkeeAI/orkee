@@ -156,17 +156,6 @@ pub struct ProjectDetectionResult {
     pub scripts: Option<HashMap<String, String>>,
 }
 
-/// Server lock file data for persistence across sessions
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ServerLockData {
-    pub project_id: String,
-    pub pid: u32,
-    pub port: u16,
-    pub started_at: DateTime<Utc>,
-    pub preview_url: String,
-    pub project_root: String,
-}
-
 /// Preview options for customizing the preview display
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PreviewOptions {

@@ -2741,6 +2741,67 @@ CREATE INDEX idx_validation_entries_timestamp ON validation_entries(timestamp);
 CREATE INDEX idx_validation_entries_type ON validation_entries(entry_type);
 
 -- ============================================================================
+-- PREVIEW SERVERS (Development Server Management)
+-- ============================================================================
+-- Tables for tracking preview/development servers launched by Orkee or discovered externally
+-- Replaces the JSON file-based registry (~/.orkee/server-registry.json)
+
+-- Preview servers registry - tracks all dev servers (Orkee-launched, external, discovered)
+CREATE TABLE preview_servers (
+    -- Identification
+    id TEXT PRIMARY KEY CHECK(length(id) >= 8),  -- UUID for the server instance
+    project_id TEXT NOT NULL,                     -- Associated project
+    project_name TEXT,                             -- Cached project name for display
+
+    -- Connection details
+    port INTEGER NOT NULL,                        -- Port the server is running on
+    preview_url TEXT,                              -- Full URL to access the server
+
+    -- Process tracking
+    pid INTEGER,                                   -- Process ID (NULL if stopped)
+    status TEXT NOT NULL CHECK (status IN ('stopped', 'starting', 'running', 'stopping', 'error')),
+    source TEXT NOT NULL CHECK (source IN ('orkee', 'external', 'discovered')),
+
+    -- Project context
+    project_root TEXT NOT NULL,                   -- Working directory of the server
+    matched_project_id TEXT,                      -- For discovered servers, the matched project
+
+    -- Server details
+    framework_name TEXT,                           -- Detected framework (Next.js, Vite, etc.)
+    actual_command TEXT,                           -- Command line used to start the server
+
+    -- Lifecycle tracking
+    started_at TEXT NOT NULL,                     -- When the server was started
+    last_seen TEXT NOT NULL,                      -- Last time the server was confirmed running
+    api_port INTEGER NOT NULL,                    -- Orkee API port this server is associated with
+
+    -- Error tracking
+    error_message TEXT,                            -- Last error message if status is 'error'
+
+    -- Metadata
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+    updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+
+    FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
+);
+
+-- Indexes and constraints for common query patterns
+CREATE INDEX idx_preview_servers_project_id ON preview_servers(project_id);
+CREATE UNIQUE INDEX idx_preview_servers_port_unique ON preview_servers(port);
+CREATE INDEX idx_preview_servers_status ON preview_servers(status);
+CREATE INDEX idx_preview_servers_source ON preview_servers(source);
+CREATE INDEX idx_preview_servers_last_seen ON preview_servers(last_seen);
+CREATE INDEX idx_preview_servers_pid ON preview_servers(pid) WHERE pid IS NOT NULL;
+CREATE INDEX idx_preview_servers_matched_project ON preview_servers(matched_project_id) WHERE matched_project_id IS NOT NULL;
+
+-- Trigger to update the updated_at timestamp
+CREATE TRIGGER preview_servers_updated_at AFTER UPDATE ON preview_servers
+FOR EACH ROW WHEN NEW.updated_at = OLD.updated_at
+BEGIN
+    UPDATE preview_servers SET updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE id = NEW.id;
+END;
+
+-- ============================================================================
 -- SEED DATA: Default Discovery Questions for Chat Mode
 -- ============================================================================
 

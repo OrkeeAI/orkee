@@ -1,12 +1,14 @@
 //! Orkee Preview - Development server preview system
 //!
 //! This crate provides functionality for managing development servers
-//! for various project types with crash-resistant operation.
+//! for various project types using SQLite-based persistence.
 
 pub mod discovery;
 pub mod manager;
 pub mod registry;
+pub mod storage;
 pub mod types;
+pub mod validation;
 
 // Re-export key types and functions for easier use
 pub use discovery::{
@@ -14,24 +16,25 @@ pub use discovery::{
     start_periodic_discovery, DiscoveredServer,
 };
 pub use manager::{PreviewManager, ServerInfo};
-pub use registry::{is_process_running_validated, start_periodic_cleanup};
+pub use registry::{is_process_running_validated, ServerRegistry};
 pub use types::{
     ApiResponse, DevServerConfig, DevServerInstance, DevServerLog, DevServerStatus, Framework,
     LogType, PackageManager, PreviewError, PreviewResult, ProjectDetectionResult, ProjectType,
-    ServerEvent, ServerLockData, ServerLogsRequest, ServerLogsResponse, ServerSource,
-    ServerStatusInfo, ServerStatusResponse, ServersResponse, StartServerRequest,
-    StartServerResponse,
+    ServerEvent, ServerLogsRequest, ServerLogsResponse, ServerSource, ServerStatusInfo,
+    ServerStatusResponse, ServersResponse, StartServerRequest, StartServerResponse,
 };
 
-/// Initialize the preview service with a crash-resistant manager.
+/// Initialize the preview service with a SQLite-based manager.
 ///
 /// Creates a new preview manager instance that automatically recovers any
-/// previously running development servers from lock files. This ensures
-/// that servers started in previous sessions are properly tracked.
+/// previously running development servers from the database registry.
 ///
 /// This function also starts background tasks:
-/// - Registry cleanup: Runs every 2 minutes to remove stale entries
 /// - External server discovery: Runs every 30 seconds to find manually launched servers
+///
+/// # Arguments
+///
+/// * `storage` - Reference to the shared SqliteStorage instance for database access
 ///
 /// # Returns
 ///
@@ -42,22 +45,63 @@ pub use types::{
 ///
 /// ```no_run
 /// use orkee_preview::init;
+/// use orkee_storage::{sqlite::SqliteStorage, StorageConfig, StorageProvider};
 ///
 /// #[tokio::main]
 /// async fn main() {
-///     let manager = init().await.expect("Failed to initialize preview manager");
+///     let config = StorageConfig {
+///         provider: StorageProvider::Sqlite {
+///             path: std::path::PathBuf::from(":memory:"),
+///         },
+///         max_connections: 5,
+///         busy_timeout_seconds: 30,
+///         enable_wal: false,
+///         enable_fts: true,
+///     };
+///     let storage = SqliteStorage::new(config).await.expect("Failed to initialize storage");
+///     let manager = init(&storage).await.expect("Failed to initialize preview manager");
 ///     // Manager is now ready to start/stop development servers
 ///     // Background tasks run automatically
 /// }
 /// ```
-pub async fn init() -> PreviewResult<PreviewManager> {
-    // Start periodic cleanup task for stale registry entries
-    start_periodic_cleanup();
+pub async fn init(storage: &orkee_storage::sqlite::SqliteStorage) -> PreviewResult<PreviewManager> {
+    // Create server registry from shared storage
+    let registry =
+        ServerRegistry::new(storage)
+            .await
+            .map_err(|e| PreviewError::DetectionFailed {
+                reason: format!("Failed to initialize server registry: {}", e),
+            })?;
 
-    // Start periodic discovery of external servers
-    start_periodic_discovery();
+    // Start periodic discovery and registration of external servers
+    // Clone registry for the background task
+    start_periodic_discovery(registry.clone());
 
-    Ok(PreviewManager::new_with_recovery().await)
+    Ok(PreviewManager::new_with_recovery(registry).await)
+}
+
+/// Initialize the preview manager directly from a database pool.
+///
+/// This avoids creating redundant SqliteStorage instances when a pool is already available.
+///
+/// # Arguments
+///
+/// * `pool` - SQLite connection pool to use for preview server storage
+///
+/// # Returns
+///
+/// Returns a `PreviewManager` instance with background tasks running, or an error if initialization fails.
+pub async fn init_from_pool(pool: sqlx::SqlitePool) -> PreviewResult<PreviewManager> {
+    // Create storage directly from pool
+    let storage = crate::storage::PreviewServerStorage::from_pool(pool);
+
+    // Create registry from storage
+    let registry = ServerRegistry::from_storage(storage);
+
+    // Start periodic discovery and registration of external servers
+    start_periodic_discovery(registry.clone());
+
+    Ok(PreviewManager::new_with_recovery(registry).await)
 }
 
 /// Version information for the preview crate.
@@ -71,7 +115,19 @@ mod tests {
 
     #[tokio::test]
     async fn test_init() {
-        let manager = init().await.unwrap();
+        let config = orkee_storage::StorageConfig {
+            provider: orkee_storage::StorageProvider::Sqlite {
+                path: std::path::PathBuf::from(":memory:"),
+            },
+            max_connections: 5,
+            busy_timeout_seconds: 30,
+            enable_wal: false, // WAL doesn't work with :memory:
+            enable_fts: true,
+        };
+        let storage = orkee_storage::sqlite::SqliteStorage::new(config)
+            .await
+            .expect("Failed to initialize test storage");
+        let manager = init(&storage).await.unwrap();
         // Basic smoke test - just ensure we can create a manager
         // We don't assert on server count as it might recover existing servers
         let _servers = manager.list_servers().await;

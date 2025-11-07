@@ -15,9 +15,9 @@ use std::process::Stdio;
 use sysinfo::{Pid, ProcessRefreshKind, System};
 #[cfg(unix)]
 use tokio::process::Command;
-use tracing::{debug, warn};
+use tracing::{debug, info, warn};
 
-use crate::registry::{ServerRegistryEntry, GLOBAL_REGISTRY};
+use crate::registry::{ServerRegistry, ServerRegistryEntry};
 use crate::types::{DevServerStatus, ServerSource};
 
 /// Common development server ports to scan
@@ -509,8 +509,9 @@ fn detect_framework_from_command(command: &[String]) -> Option<String> {
     None
 }
 
-/// Register a discovered server in the global registry
+/// Register a discovered server in the registry
 pub async fn register_discovered_server(
+    registry: &ServerRegistry,
     server: DiscoveredServer,
     project_id: Option<String>,
     project_name: Option<String>,
@@ -544,7 +545,7 @@ pub async fn register_discovered_server(
         matched_project_id: project_id,
     };
 
-    GLOBAL_REGISTRY.register_server(entry).await?;
+    registry.register_server(entry).await?;
 
     Ok(server_id)
 }
@@ -638,11 +639,74 @@ pub fn load_env_from_directory(dir: &Path) -> HashMap<String, String> {
     env_vars
 }
 
-/// Start periodic discovery of external servers
+/// Try to register a discovered server, handling all error cases consistently
+async fn try_register_discovered_server(
+    registry: &ServerRegistry,
+    server: DiscoveredServer,
+) -> Result<(), String> {
+    // Check if server is already registered (by port)
+    match registry.get_by_port(server.port).await {
+        Ok(Some(_existing)) => {
+            debug!(
+                "Server on port {} already registered, skipping",
+                server.port
+            );
+            Err(format!("Port {} already registered", server.port))
+        }
+        Ok(None) => {
+            // Not registered, attempt to register
+            match register_discovered_server(
+                registry,
+                server.clone(),
+                None, // No project_id for unmatched servers
+                None, // No project_name
+            )
+            .await
+            {
+                Ok(server_id) => {
+                    info!(
+                        "Registered discovered server {} on port {} (PID: {})",
+                        server_id, server.port, server.pid
+                    );
+                    Ok(())
+                }
+                Err(e) => {
+                    // Check if error is due to duplicate port (race condition)
+                    let err_str = e.to_string();
+                    if err_str.contains("port") && err_str.contains("already in use") {
+                        debug!(
+                            "Server on port {} already registered by another task",
+                            server.port
+                        );
+                        Err(format!(
+                            "Port {} already in use (race condition)",
+                            server.port
+                        ))
+                    } else {
+                        warn!(
+                            "Failed to register discovered server on port {}: {}",
+                            server.port, e
+                        );
+                        Err(format!("Registration failed: {}", e))
+                    }
+                }
+            }
+        }
+        Err(e) => {
+            warn!(
+                "Error checking if server on port {} is registered: {}",
+                server.port, e
+            );
+            Err(format!("Registry check failed: {}", e))
+        }
+    }
+}
+
+/// Start periodic discovery and registration of external servers
 ///
 /// Spawns a background task that runs every 30 seconds (by default) to discover
-/// external servers running on common development ports. Newly discovered servers
-/// are automatically registered in the global registry.
+/// external servers running on common development ports and automatically registers
+/// them in the provided registry.
 ///
 /// The discovery interval can be configured via `ORKEE_DISCOVERY_INTERVAL_SECS`
 /// environment variable (default: 30 seconds, min: 10, max: 300).
@@ -652,6 +716,10 @@ pub fn load_env_from_directory(dir: &Path) -> HashMap<String, String> {
 /// This function should be called once during application initialization.
 /// Multiple calls are safe - subsequent calls will return `None`.
 ///
+/// # Arguments
+///
+/// * `registry` - The server registry to use for registering discovered servers
+///
 /// # Returns
 ///
 /// Returns `Some(JoinHandle)` on first call to allow graceful shutdown.
@@ -660,12 +728,25 @@ pub fn load_env_from_directory(dir: &Path) -> HashMap<String, String> {
 /// # Examples
 ///
 /// ```no_run
-/// use orkee_preview::discovery::start_periodic_discovery;
+/// use orkee_preview::{ServerRegistry, start_periodic_discovery};
+/// use orkee_storage::{sqlite::SqliteStorage, StorageConfig, StorageProvider};
+/// use std::path::PathBuf;
 ///
 /// #[tokio::main]
 /// async fn main() {
-///     // Start discovery and store handle for shutdown
-///     let discovery_handle = start_periodic_discovery();
+///     // Setup storage and registry
+///     let config = StorageConfig {
+///         provider: StorageProvider::Sqlite { path: PathBuf::from("test.db") },
+///         max_connections: 5,
+///         busy_timeout_seconds: 30,
+///         enable_wal: true,
+///         enable_fts: true,
+///     };
+///     let storage = SqliteStorage::new(config).await.unwrap();
+///     let registry = ServerRegistry::new(&storage).await.unwrap();
+///
+///     // Start discovery with registry access
+///     let discovery_handle = start_periodic_discovery(registry);
 ///
 ///     // Application continues running...
 ///
@@ -675,7 +756,7 @@ pub fn load_env_from_directory(dir: &Path) -> HashMap<String, String> {
 ///     }
 /// }
 /// ```
-pub fn start_periodic_discovery() -> Option<tokio::task::JoinHandle<()>> {
+pub fn start_periodic_discovery(registry: ServerRegistry) -> Option<tokio::task::JoinHandle<()>> {
     use once_cell::sync::OnceCell;
     use tokio::time::{interval, Duration};
     use tracing::info;
@@ -706,7 +787,7 @@ pub fn start_periodic_discovery() -> Option<tokio::task::JoinHandle<()>> {
         .unwrap_or(30);
 
     info!(
-        "Starting periodic external server discovery task (interval: {} seconds)",
+        "Starting periodic external server discovery and registration (interval: {} seconds)",
         discovery_interval_secs
     );
 
@@ -726,22 +807,14 @@ pub fn start_periodic_discovery() -> Option<tokio::task::JoinHandle<()>> {
             let discovered = discover_external_servers().await;
 
             if !discovered.is_empty() {
-                debug!("Discovered {} external servers", discovered.len());
+                debug!(
+                    "Discovered {} external servers, attempting registration",
+                    discovered.len()
+                );
 
-                // Auto-register discovered servers
                 for server in discovered {
-                    // Register without project association (will be External source)
-                    // Users can manually associate them with projects later via the UI
-                    match register_discovered_server(server.clone(), None, None).await {
-                        Ok(server_id) => {
-                            debug!("Auto-registered external server: {}", server_id);
-                        }
-                        Err(e) => {
-                            debug!(
-                                "Failed to auto-register external server on port {}: {}",
-                                server.port, e
-                            );
-                        }
+                    if let Err(e) = try_register_discovered_server(&registry, server).await {
+                        debug!("Skipping server registration: {}", e);
                     }
                 }
             }

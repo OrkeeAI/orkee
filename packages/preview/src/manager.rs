@@ -1,4 +1,4 @@
-use crate::registry::{ServerRegistryEntry, GLOBAL_REGISTRY};
+use crate::registry::{ServerRegistry, ServerRegistryEntry};
 use crate::types::*;
 use chrono::Utc;
 use orkee_config::constants;
@@ -50,6 +50,7 @@ pub struct SpawnResult {
 /// is designed to be crash-resistant and can recover servers from previous sessions.
 #[derive(Clone)]
 pub struct PreviewManager {
+    registry: ServerRegistry,
     active_servers: Arc<RwLock<HashMap<String, ServerInfo>>>,
     server_logs: Arc<RwLock<HashMap<String, VecDeque<DevServerLog>>>>,
     event_tx: broadcast::Sender<ServerEvent>,
@@ -108,48 +109,6 @@ impl Clone for ServerInfo {
     }
 }
 
-impl Default for PreviewManager {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-/// Validate project_id to prevent path traversal attacks
-///
-/// Project IDs must contain only alphanumeric characters, hyphens, and underscores.
-/// This prevents attackers from using path traversal sequences like "../../../etc/passwd"
-/// to access arbitrary files on the filesystem.
-fn validate_project_id(project_id: &str) -> Result<(), PreviewError> {
-    if project_id.is_empty() {
-        return Err(PreviewError::InvalidProjectId {
-            project_id: project_id.to_string(),
-            reason: "Project ID cannot be empty".to_string(),
-        });
-    }
-
-    // Check for path traversal sequences
-    if project_id.contains("..") || project_id.contains('/') || project_id.contains('\\') {
-        return Err(PreviewError::InvalidProjectId {
-            project_id: project_id.to_string(),
-            reason: "Project ID cannot contain path traversal sequences (.. / \\)".to_string(),
-        });
-    }
-
-    // Only allow alphanumeric, dash, and underscore
-    if !project_id
-        .chars()
-        .all(|c| c.is_alphanumeric() || c == '-' || c == '_')
-    {
-        return Err(PreviewError::InvalidProjectId {
-            project_id: project_id.to_string(),
-            reason: "Project ID can only contain alphanumeric characters, hyphens, and underscores"
-                .to_string(),
-        });
-    }
-
-    Ok(())
-}
-
 impl PreviewManager {
     /// Create a new preview manager without recovery.
     ///
@@ -160,7 +119,7 @@ impl PreviewManager {
     /// # Returns
     ///
     /// Returns a new `PreviewManager` instance with empty server and log collections.
-    pub fn new() -> Self {
+    pub fn new(registry: ServerRegistry) -> Self {
         // Make channel capacity configurable via environment variable
         let capacity = parse_env_or_default_with_validation(
             "ORKEE_EVENT_CHANNEL_SIZE",
@@ -170,6 +129,7 @@ impl PreviewManager {
 
         let (event_tx, _rx) = broadcast::channel(capacity);
         Self {
+            registry,
             active_servers: Arc::new(RwLock::new(HashMap::new())),
             server_logs: Arc::new(RwLock::new(HashMap::new())),
             event_tx,
@@ -181,12 +141,11 @@ impl PreviewManager {
         self.event_tx.subscribe()
     }
 
-    /// Create a new manager and recover existing servers from lock files.
+    /// Create a new manager and recover existing servers from the registry.
     ///
     /// This is the recommended way to create a `PreviewManager`. It performs the following:
-    /// 1. Syncs from preview-locks directory (backwards compatibility)
-    /// 2. Recovers servers from the central registry
-    /// 3. Validates that processes are still running before restoring them
+    /// 1. Recovers servers from the central registry
+    /// 2. Validates that processes are still running before restoring them
     ///
     /// # Returns
     ///
@@ -195,46 +154,37 @@ impl PreviewManager {
     /// # Examples
     ///
     /// ```no_run
-    /// use orkee_preview::manager::PreviewManager;
+    /// use orkee_preview::{PreviewManager, ServerRegistry};
+    /// use orkee_storage::{sqlite::SqliteStorage, StorageConfig, StorageProvider};
     ///
     /// #[tokio::main]
     /// async fn main() {
-    ///     let manager = PreviewManager::new_with_recovery().await;
+    ///     let config = StorageConfig {
+    ///         provider: StorageProvider::Sqlite {
+    ///             path: std::path::PathBuf::from(":memory:"),
+    ///         },
+    ///         max_connections: 5,
+    ///         busy_timeout_seconds: 30,
+    ///         enable_wal: false,
+    ///         enable_fts: true,
+    ///     };
+    ///     let storage = SqliteStorage::new(config).await.expect("Failed to initialize storage");
+    ///     let registry = ServerRegistry::new(&storage).await.expect("Failed to create registry");
+    ///     let manager = PreviewManager::new_with_recovery(registry).await;
     ///     let servers = manager.list_servers().await;
     ///     println!("Recovered {} servers", servers.len());
     /// }
     /// ```
-    pub async fn new_with_recovery() -> Self {
-        let manager = Self::new();
-
-        // Get the API port from environment variable or use default
-        let api_port = std::env::var(constants::ORKEE_API_PORT)
-            .ok()
-            .and_then(|p| p.parse().ok())
-            .unwrap_or(4001);
-
-        // Load existing registry from disk first
-        if let Err(e) = GLOBAL_REGISTRY.load_registry().await {
-            warn!("Failed to load registry from disk: {}", e);
-        }
-
-        // Sync from preview-locks to central registry
-        if let Err(e) = GLOBAL_REGISTRY.sync_from_preview_locks(api_port).await {
-            warn!("Failed to sync from preview locks: {}", e);
-        }
+    pub async fn new_with_recovery(registry: ServerRegistry) -> Self {
+        let manager = Self::new(registry.clone());
 
         // Clean up stale entries from previous sessions
-        if let Err(e) = GLOBAL_REGISTRY.cleanup_stale_entries().await {
+        if let Err(e) = registry.cleanup_stale_entries().await {
             warn!("Failed to cleanup stale registry entries: {}", e);
         }
 
-        // Recover existing servers from lock files (backwards compatibility)
-        if let Err(e) = manager.recover_servers().await {
-            warn!("Failed to recover servers: {}", e);
-        }
-
         // Also load servers from the central registry
-        let registry_servers = GLOBAL_REGISTRY.get_all_servers().await;
+        let registry_servers = registry.get_all_servers().await;
         for entry in registry_servers {
             // Only add if not already in our local list
             let mut servers = manager.active_servers.write().await;
@@ -303,12 +253,24 @@ impl PreviewManager {
     /// # Examples
     ///
     /// ```no_run
-    /// use orkee_preview::manager::PreviewManager;
+    /// use orkee_preview::{PreviewManager, ServerRegistry};
+    /// use orkee_storage::{sqlite::SqliteStorage, StorageConfig, StorageProvider};
     /// use chrono::Utc;
     ///
     /// #[tokio::main]
     /// async fn main() {
-    ///     let manager = PreviewManager::new_with_recovery().await;
+    ///     let config = StorageConfig {
+    ///         provider: StorageProvider::Sqlite {
+    ///             path: std::path::PathBuf::from(":memory:"),
+    ///         },
+    ///         max_connections: 5,
+    ///         busy_timeout_seconds: 30,
+    ///         enable_wal: false,
+    ///         enable_fts: true,
+    ///     };
+    ///     let storage = SqliteStorage::new(config).await.expect("Failed to initialize storage");
+    ///     let registry = ServerRegistry::new(&storage).await.expect("Failed to create registry");
+    ///     let manager = PreviewManager::new_with_recovery(registry).await;
     ///
     ///     // Get last 50 logs from the last 5 minutes
     ///     let five_mins_ago = Utc::now() - chrono::Duration::minutes(5);
@@ -539,12 +501,24 @@ impl PreviewManager {
     /// # Examples
     ///
     /// ```no_run
-    /// use orkee_preview::manager::PreviewManager;
+    /// use orkee_preview::{PreviewManager, ServerRegistry};
+    /// use orkee_storage::{sqlite::SqliteStorage, StorageConfig, StorageProvider};
     /// use std::path::PathBuf;
     ///
     /// #[tokio::main]
     /// async fn main() {
-    ///     let manager = PreviewManager::new_with_recovery().await;
+    ///     let config = StorageConfig {
+    ///         provider: StorageProvider::Sqlite {
+    ///             path: std::path::PathBuf::from(":memory:"),
+    ///         },
+    ///         max_connections: 5,
+    ///         busy_timeout_seconds: 30,
+    ///         enable_wal: false,
+    ///         enable_fts: true,
+    ///     };
+    ///     let storage = SqliteStorage::new(config).await.expect("Failed to initialize storage");
+    ///     let registry = ServerRegistry::new(&storage).await.expect("Failed to create registry");
+    ///     let manager = PreviewManager::new_with_recovery(registry).await;
     ///     let project_root = PathBuf::from("/path/to/my-app");
     ///
     ///     match manager.start_server("my-app".to_string(), project_root).await {
@@ -666,10 +640,13 @@ impl PreviewManager {
                     servers.insert(project_id.clone(), updated_info.clone());
                 }
 
-                // Create lock file for persistence
-                if let Err(e) = self.create_lock_file(&updated_info, &project_root).await {
+                // Register with central registry for persistence
+                if let Err(e) = self
+                    .register_with_registry(&updated_info, &project_root)
+                    .await
+                {
                     warn!(
-                        "Failed to create lock file for project {}: {}",
+                        "Failed to register server for project {}: {}",
                         project_id, e
                     );
                 }
@@ -733,11 +710,23 @@ impl PreviewManager {
     /// # Examples
     ///
     /// ```no_run
-    /// use orkee_preview::manager::PreviewManager;
+    /// use orkee_preview::{PreviewManager, ServerRegistry};
+    /// use orkee_storage::{sqlite::SqliteStorage, StorageConfig, StorageProvider};
     ///
     /// #[tokio::main]
     /// async fn main() {
-    ///     let manager = PreviewManager::new_with_recovery().await;
+    ///     let config = StorageConfig {
+    ///         provider: StorageProvider::Sqlite {
+    ///             path: std::path::PathBuf::from(":memory:"),
+    ///         },
+    ///         max_connections: 5,
+    ///         busy_timeout_seconds: 30,
+    ///         enable_wal: false,
+    ///         enable_fts: true,
+    ///     };
+    ///     let storage = SqliteStorage::new(config).await.expect("Failed to initialize storage");
+    ///     let registry = ServerRegistry::new(&storage).await.expect("Failed to create registry");
+    ///     let manager = PreviewManager::new_with_recovery(registry).await;
     ///
     ///     if let Err(e) = manager.stop_server("my-app").await {
     ///         eprintln!("Error stopping server: {}", e);
@@ -885,10 +874,10 @@ impl PreviewManager {
                     }
                 }
 
-                // Remove lock file
-                if let Err(e) = manager.remove_lock_file(&project_id_owned).await {
+                // Unregister from central registry
+                if let Err(e) = manager.unregister_from_registry(&project_id_owned).await {
                     warn!(
-                        "Failed to remove lock file for project {}: {}",
+                        "Failed to unregister server for project {}: {}",
                         project_id_owned, e
                     );
                 }
@@ -931,7 +920,7 @@ impl PreviewManager {
         }
 
         // If not found locally, check the global registry
-        let registry_servers = GLOBAL_REGISTRY.get_all_servers().await;
+        let registry_servers = self.registry.get_all_servers().await;
         for entry in registry_servers {
             if entry.project_id == project_id {
                 // Parse UUID with fallback to new UUID if invalid
@@ -981,11 +970,23 @@ impl PreviewManager {
     /// # Examples
     ///
     /// ```no_run
-    /// use orkee_preview::manager::PreviewManager;
+    /// use orkee_preview::{PreviewManager, ServerRegistry};
+    /// use orkee_storage::{sqlite::SqliteStorage, StorageConfig, StorageProvider};
     ///
     /// #[tokio::main]
     /// async fn main() {
-    ///     let manager = PreviewManager::new_with_recovery().await;
+    ///     let config = StorageConfig {
+    ///         provider: StorageProvider::Sqlite {
+    ///             path: std::path::PathBuf::from(":memory:"),
+    ///         },
+    ///         max_connections: 5,
+    ///         busy_timeout_seconds: 30,
+    ///         enable_wal: false,
+    ///         enable_fts: true,
+    ///     };
+    ///     let storage = SqliteStorage::new(config).await.expect("Failed to initialize storage");
+    ///     let registry = ServerRegistry::new(&storage).await.expect("Failed to create registry");
+    ///     let manager = PreviewManager::new_with_recovery(registry).await;
     ///     let servers = manager.list_servers().await;
     ///
     ///     for server in servers {
@@ -1003,7 +1004,7 @@ impl PreviewManager {
             .collect();
 
         // Also get servers from the global registry
-        let registry_servers = GLOBAL_REGISTRY.get_all_servers().await;
+        let registry_servers = self.registry.get_all_servers().await;
         for entry in registry_servers {
             // Add servers from registry if not already in local list
             if let std::collections::hash_map::Entry::Vacant(e) =
@@ -1092,7 +1093,7 @@ impl PreviewManager {
 
         // Also check the global registry for external/discovered servers
         // This prevents race conditions where an external server is registered but not yet in active_servers
-        let all_servers = GLOBAL_REGISTRY.get_all_servers().await;
+        let all_servers = self.registry.get_all_servers().await;
         for server in all_servers {
             if server.port == port {
                 debug!(
@@ -1440,23 +1441,6 @@ impl PreviewManager {
 
     // === PERSISTENCE METHODS ===
 
-    /// Get lock file path for a project
-    fn get_lock_file_path(&self, project_id: &str) -> Result<PathBuf, PreviewError> {
-        // Validate project_id to prevent path traversal attacks
-        validate_project_id(project_id)?;
-
-        // Use dirs crate for more reliable home directory detection across platforms
-        let home_dir = dirs::home_dir().unwrap_or_else(|| {
-            warn!("Could not determine home directory, using current directory");
-            std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."))
-        });
-
-        Ok(home_dir
-            .join(".orkee")
-            .join("preview-locks")
-            .join(format!("{}.json", project_id)))
-    }
-
     /// Check if a process is running by PID (simple check, no validation)
     /// Used for confirming process termination after kill signal
     fn is_process_running(&self, pid: u32) -> bool {
@@ -1467,149 +1451,16 @@ impl PreviewManager {
         system.process(Pid::from_u32(pid)).is_some()
     }
 
-    /// Check if a process is running and matches our spawned process
-    /// This prevents PID reuse attacks where a new process reuses an old PID
-    fn is_process_running_validated(
-        &self,
-        pid: u32,
-        _expected_start_time: Option<chrono::DateTime<Utc>>,
-        _expected_cwd: Option<&Path>,
-    ) -> bool {
-        #[cfg(unix)]
-        {
-            let expected_start_time = _expected_start_time; // Use on Unix
-            let expected_cwd = _expected_cwd; // Use on Unix
-            use sysinfo::{Pid, System};
-
-            let mut system = System::new();
-            system.refresh_processes();
-            let pid_obj = Pid::from_u32(pid);
-
-            if let Some(process) = system.process(pid_obj) {
-                // Validate process name (should be dev server related)
-                let name = process.name().to_string().to_lowercase();
-                let is_dev_process = ["node", "python", "npm", "yarn", "bun", "pnpm", "deno"]
-                    .iter()
-                    .any(|pattern| name.contains(pattern));
-
-                if !is_dev_process {
-                    warn!(
-                        "PID {} exists but process '{}' is not a dev server (likely PID reuse)",
-                        pid, name
-                    );
-                    return false;
-                }
-
-                // Validate start time if we have it
-                if let Some(expected) = expected_start_time {
-                    let process_start_secs = process.start_time();
-                    let expected_unix = expected.timestamp() as u64;
-
-                    // Use minimal tolerance (1 second) to prevent PID reuse attacks
-                    // Configurable via ORKEE_PROCESS_START_TIME_TOLERANCE_SECS (max 1 second)
-                    let tolerance_secs = parse_env_or_default_with_validation(
-                        constants::ORKEE_PROCESS_START_TIME_TOLERANCE_SECS,
-                        1,
-                        |v| v > 0 && v <= 1,
-                    );
-
-                    if process_start_secs.abs_diff(expected_unix) > tolerance_secs {
-                        warn!(
-                            "PID {} exists but start time mismatch (process: {}, expected: {}, diff: {}s, tolerance: {}s) - likely PID reuse",
-                            pid,
-                            process_start_secs,
-                            expected_unix,
-                            process_start_secs.abs_diff(expected_unix),
-                            tolerance_secs
-                        );
-                        return false;
-                    }
-                }
-
-                // Validate current working directory if we have it
-                // This is the most reliable way to detect PID reuse
-                if let Some(expected_path) = expected_cwd {
-                    if let Some(process_cwd) = process.cwd() {
-                        // Canonicalize both paths for comparison
-                        let expected_canonical = expected_path.canonicalize().ok();
-                        let process_canonical = process_cwd.canonicalize().ok();
-
-                        if expected_canonical.is_none()
-                            || process_canonical.is_none()
-                            || expected_canonical != process_canonical
-                        {
-                            warn!(
-                                "PID {} exists but cwd mismatch (process: {:?}, expected: {:?}) - likely PID reuse",
-                                pid, process_cwd, expected_path
-                            );
-                            return false;
-                        }
-                    } else {
-                        warn!(
-                            "PID {} exists but cannot read cwd (process may have changed directories) - rejecting for security",
-                            pid
-                        );
-                        return false;
-                    }
-                }
-
-                true
-            } else {
-                false
-            }
-        }
-
-        #[cfg(not(unix))]
-        {
-            // On Windows, use sysinfo instead of assuming
-            use sysinfo::{Pid, System};
-
-            let mut system = System::new();
-            system.refresh_processes();
-            system.process(Pid::from_u32(pid)).is_some()
-        }
-    }
-
-    /// Create lock file when starting server
-    async fn create_lock_file(
+    /// Register server with the central registry
+    async fn register_with_registry(
         &self,
         server_info: &ServerInfo,
         project_root: &Path,
     ) -> PreviewResult<()> {
-        let lock_data = ServerLockData {
-            project_id: server_info.project_id.clone(),
-            pid: server_info.pid.unwrap_or(0),
-            port: server_info.port,
-            started_at: Utc::now(),
-            preview_url: server_info.preview_url.clone().unwrap_or_default(),
-            project_root: project_root.to_string_lossy().to_string(),
-        };
-
-        let lock_path = self.get_lock_file_path(&server_info.project_id)?;
-        let lock_json = serde_json::to_string_pretty(&lock_data)
-            .map_err(|e| PreviewError::IoError(std::io::Error::other(e)))?;
-
-        // Ensure directory exists
-        if let Some(parent) = lock_path.parent() {
-            fs::create_dir_all(parent)
-                .await
-                .map_err(PreviewError::IoError)?;
-        }
-
-        fs::write(&lock_path, lock_json)
-            .await
-            .map_err(PreviewError::IoError)?;
-
-        info!(
-            "Created lock file for project: {} at {:?}",
-            server_info.project_id, lock_path
-        );
-
-        // Also register with the central registry
         let registry_entry = ServerRegistryEntry {
             id: server_info.id.to_string(),
             project_id: server_info.project_id.clone(),
-            project_name: None, // Could be fetched from project manager if available
+            project_name: None,
             project_root: project_root.to_path_buf(),
             port: server_info.port,
             pid: server_info.pid,
@@ -1627,166 +1478,22 @@ impl PreviewManager {
             matched_project_id: server_info.matched_project_id.clone(),
         };
 
-        if let Err(e) = GLOBAL_REGISTRY.register_server(registry_entry).await {
+        if let Err(e) = self.registry.register_server(registry_entry).await {
             warn!("Failed to register server in central registry: {}", e);
         }
 
         Ok(())
     }
 
-    /// Remove lock file when stopping server
-    async fn remove_lock_file(&self, project_id: &str) -> PreviewResult<()> {
-        let lock_path = self.get_lock_file_path(project_id)?;
-        if lock_path.exists() {
-            fs::remove_file(&lock_path)
-                .await
-                .map_err(PreviewError::IoError)?;
-            info!("Removed lock file for project: {}", project_id);
-        }
-
-        // Also remove from the central registry (need to find the server ID first)
-        let registry_servers = GLOBAL_REGISTRY.get_all_servers().await;
+    /// Unregister server from the central registry
+    async fn unregister_from_registry(&self, project_id: &str) -> PreviewResult<()> {
+        let registry_servers = self.registry.get_all_servers().await;
         for entry in registry_servers {
             if entry.project_id == project_id {
-                if let Err(e) = GLOBAL_REGISTRY.unregister_server(&entry.id).await {
+                if let Err(e) = self.registry.unregister_server(&entry.id).await {
                     warn!("Failed to unregister server from central registry: {}", e);
                 }
                 break;
-            }
-        }
-
-        Ok(())
-    }
-
-    /// Recover development servers from lock files on startup.
-    ///
-    /// Scans the `~/.orkee/preview-locks` directory for lock files and attempts to
-    /// recover previously running development servers. This method:
-    /// - Validates that the process is still running using PID and start time
-    /// - Verifies the process is a legitimate development server (not PID reuse)
-    /// - Removes stale lock files for dead processes
-    ///
-    /// This is automatically called by [`new_with_recovery`](Self::new_with_recovery).
-    ///
-    /// # Returns
-    ///
-    /// Returns `Ok(())` on success. Errors during recovery are logged but do not
-    /// prevent the method from completing.
-    ///
-    /// # Examples
-    ///
-    /// ```no_run
-    /// use orkee_preview::manager::PreviewManager;
-    ///
-    /// #[tokio::main]
-    /// async fn main() {
-    ///     let manager = PreviewManager::new();
-    ///     manager.recover_servers().await.expect("Failed to recover servers");
-    /// }
-    /// ```
-    pub async fn recover_servers(&self) -> PreviewResult<()> {
-        // Use dirs crate for more reliable home directory detection across platforms
-        let home_dir = dirs::home_dir().unwrap_or_else(|| {
-            warn!("Could not determine home directory for recovery, using current directory");
-            std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."))
-        });
-
-        let lock_dir = home_dir.join(".orkee").join("preview-locks");
-
-        // Create directory if it doesn't exist
-        if let Err(e) = fs::create_dir_all(&lock_dir).await {
-            warn!("Failed to create lock directory: {}", e);
-            return Ok(());
-        }
-
-        // Read all lock files
-        let mut entries = match fs::read_dir(&lock_dir).await {
-            Ok(entries) => entries,
-            Err(e) => {
-                warn!("Failed to read lock directory: {}", e);
-                return Ok(());
-            }
-        };
-
-        let mut recovered_count = 0;
-        while let Ok(Some(entry)) = entries.next_entry().await {
-            let path = entry.path();
-            if path.extension() == Some(std::ffi::OsStr::new("json"))
-                && self.recover_single_server(path).await.is_ok()
-            {
-                recovered_count += 1;
-            }
-        }
-
-        if recovered_count > 0 {
-            info!(
-                "Recovered {} preview servers from lock files",
-                recovered_count
-            );
-        }
-
-        Ok(())
-    }
-
-    /// Recover a single server from lock file
-    async fn recover_single_server(&self, lock_path: PathBuf) -> PreviewResult<()> {
-        let content = match fs::read_to_string(&lock_path).await {
-            Ok(content) => content,
-            Err(e) => {
-                warn!("Failed to read lock file {:?}: {}", lock_path, e);
-                return Err(PreviewError::IoError(e));
-            }
-        };
-
-        let lock_data: ServerLockData = match serde_json::from_str(&content) {
-            Ok(data) => data,
-            Err(e) => {
-                warn!("Invalid lock file {:?}, removing: {}", lock_path, e);
-                let _ = fs::remove_file(&lock_path).await;
-                return Err(PreviewError::IoError(std::io::Error::new(
-                    std::io::ErrorKind::InvalidData,
-                    e,
-                )));
-            }
-        };
-
-        // Check if process is still running with validation
-        // Pass project_root for cwd validation to prevent PID reuse
-        let project_root_path = Path::new(&lock_data.project_root);
-        if self.is_process_running_validated(
-            lock_data.pid,
-            Some(lock_data.started_at),
-            Some(project_root_path),
-        ) {
-            // Restore to active_servers
-            let server_info = ServerInfo {
-                id: Uuid::new_v4(),
-                project_id: lock_data.project_id.clone(),
-                port: lock_data.port,
-                pid: Some(lock_data.pid),
-                status: DevServerStatus::Running,
-                preview_url: Some(lock_data.preview_url),
-                child: None,
-                actual_command: None,
-                framework_name: None,
-                log_tasks: None,
-                source: crate::types::ServerSource::Orkee,
-                matched_project_id: None,
-            };
-
-            let mut servers = self.active_servers.write().await;
-            servers.insert(lock_data.project_id.clone(), server_info);
-
-            info!(
-                "Recovered running server for project: {} on port {}",
-                lock_data.project_id, lock_data.port
-            );
-        } else {
-            // Stale lock, remove it
-            if let Err(e) = fs::remove_file(&lock_path).await {
-                warn!("Failed to remove stale lock file {:?}: {}", lock_path, e);
-            } else {
-                info!("Removed stale lock for project: {}", lock_data.project_id);
             }
         }
 
@@ -1865,7 +1572,7 @@ impl PreviewManager {
             matched_project_id: project_id,
         };
 
-        GLOBAL_REGISTRY
+        self.registry
             .register_server(registry_entry)
             .await
             .map_err(|e| PreviewError::ProcessStartFailed {
@@ -1993,7 +1700,7 @@ impl PreviewManager {
             matched_project_id: server_info.matched_project_id.clone(),
         };
 
-        GLOBAL_REGISTRY
+        self.registry
             .register_server(registry_entry)
             .await
             .map_err(|e| PreviewError::ProcessStartFailed {
@@ -2043,7 +1750,7 @@ impl PreviewManager {
         }
 
         // Unregister from global registry
-        GLOBAL_REGISTRY
+        self.registry
             .unregister_server(server_id)
             .await
             .map_err(|e| PreviewError::ProcessStopFailed {
@@ -2057,62 +1764,4 @@ impl PreviewManager {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_validate_project_id_valid() {
-        // Valid project IDs
-        assert!(validate_project_id("my-project").is_ok());
-        assert!(validate_project_id("my_project").is_ok());
-        assert!(validate_project_id("project123").is_ok());
-        assert!(validate_project_id("Project-Name_123").is_ok());
-    }
-
-    #[test]
-    fn test_validate_project_id_path_traversal() {
-        // Path traversal attacks
-        assert!(validate_project_id("../../../etc/passwd").is_err());
-        assert!(validate_project_id("..\\..\\..\\windows\\system32").is_err());
-        assert!(validate_project_id("project/../etc/passwd").is_err());
-        assert!(validate_project_id("../project").is_err());
-        assert!(validate_project_id("project/subdir").is_err());
-        assert!(validate_project_id("project\\subdir").is_err());
-    }
-
-    #[test]
-    fn test_validate_project_id_empty() {
-        assert!(validate_project_id("").is_err());
-    }
-
-    #[test]
-    fn test_validate_project_id_special_characters() {
-        // Invalid special characters
-        assert!(validate_project_id("project@name").is_err());
-        assert!(validate_project_id("project name").is_err());
-        assert!(validate_project_id("project!name").is_err());
-        assert!(validate_project_id("project#name").is_err());
-        assert!(validate_project_id("project$name").is_err());
-        assert!(validate_project_id("project%name").is_err());
-    }
-
-    #[test]
-    fn test_get_lock_file_path_valid() {
-        let manager = PreviewManager::new();
-        let result = manager.get_lock_file_path("valid-project");
-        assert!(result.is_ok());
-        let path = result.unwrap();
-        assert!(path.to_string_lossy().contains("valid-project.json"));
-        assert!(path.to_string_lossy().contains(".orkee/preview-locks"));
-    }
-
-    #[test]
-    fn test_get_lock_file_path_prevents_traversal() {
-        let manager = PreviewManager::new();
-
-        // These should all fail validation
-        assert!(manager.get_lock_file_path("../../../etc/passwd").is_err());
-        assert!(manager.get_lock_file_path("..\\..\\windows").is_err());
-        assert!(manager.get_lock_file_path("project/etc").is_err());
-    }
-}
+mod tests {}

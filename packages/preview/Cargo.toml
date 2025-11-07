@@ -16,6 +16,10 @@ path = "src/lib.rs"
 # Configuration
 orkee-config = { path = "../config" }
 
+# Storage layer
+orkee-storage = { path = "../storage" }
+sqlx = { version = "0.8.1", default-features = false, features = ["runtime-tokio-rustls", "sqlite", "chrono"] }
+
 # Async runtime
 tokio = { version = "1.0", features = ["full"] }
 

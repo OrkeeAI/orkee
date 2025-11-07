@@ -92,6 +92,11 @@ impl SqliteStorage {
         Ok(storage)
     }
 
+    /// Get a reference to the database pool
+    pub fn pool(&self) -> &SqlitePool {
+        &self.pool
+    }
+
     /// Convert a database row to a Project
     fn row_to_project(&self, row: &SqliteRow) -> StorageResult<Project> {
         let tags_json: Option<String> = row.try_get("tags")?;
