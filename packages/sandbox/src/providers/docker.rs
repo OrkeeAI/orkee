@@ -1,5 +1,29 @@
 // ABOUTME: Docker provider implementation for local container-based sandboxes
 // ABOUTME: Uses bollard library to manage Docker containers for agent execution
+//
+// SECURITY WARNING: Docker Socket Access
+// =====================================
+// This provider connects to the Docker daemon socket (typically /var/run/docker.sock).
+// Access to the Docker socket is equivalent to root access on the host system because:
+//
+// 1. Container Escape: Containers can be started with --privileged or host volume mounts
+// 2. Host Access: Volume mounts can expose the entire host filesystem
+// 3. Kernel Access: Privileged containers can modify kernel parameters
+// 4. Process Control: Can inspect, stop, or manipulate any container on the system
+//
+// Security Best Practices:
+// - Never expose Docker socket to untrusted users or networks
+// - Use sandbox settings to disable privileged containers in production
+// - Implement volume mount validation (enforced in SandboxManager)
+// - Consider using rootless Docker or alternative container runtimes
+// - Monitor Docker audit logs for suspicious activity
+// - Use Docker Content Trust for image verification
+//
+// For production deployments, consider:
+// - Running Docker in rootless mode
+// - Using Podman or other non-root container runtimes
+// - Implementing mandatory access control (AppArmor, SELinux)
+// - Isolating the Docker daemon on a separate network/host
 
 use super::{
     ContainerConfig, ContainerInfo, ContainerMetrics, ContainerStatus, ExecResult, OutputChunk,

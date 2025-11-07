@@ -14,6 +14,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use thiserror::Error;
 use tokio::sync::RwLock;
+use tracing::{debug, error, info, warn};
 
 #[derive(Error, Debug)]
 pub enum ManagerError {
@@ -79,6 +80,48 @@ impl SandboxManager {
         }
     }
 
+    /// Initialize the sandbox manager and clean up orphaned references
+    ///
+    /// This should be called after creating the manager to perform startup validation.
+    /// It cleans up sandboxes that reference non-existent agents.
+    pub async fn initialize(&self) -> Result<()> {
+        use orkee_models::REGISTRY;
+
+        debug!("Initializing sandbox manager and validating agent references");
+
+        // Get all sandboxes
+        let sandboxes = self.storage.list_sandboxes(None, None, None).await?;
+        let mut deleted_count = 0;
+
+        for sandbox in sandboxes {
+            // Check if the agent still exists in the registry
+            if !REGISTRY.agent_exists(&sandbox.agent_id) {
+                warn!(
+                    "Sandbox {} references non-existent agent '{}', deleting orphaned sandbox",
+                    sandbox.id, sandbox.agent_id
+                );
+
+                // Delete the orphaned sandbox
+                if let Err(e) = self.storage.delete_sandbox(&sandbox.id).await {
+                    error!("Failed to delete orphaned sandbox {}: {}", sandbox.id, e);
+                } else {
+                    deleted_count += 1;
+                }
+            }
+        }
+
+        if deleted_count > 0 {
+            warn!(
+                "Cleaned up {} orphaned sandbox(es) with invalid agent references",
+                deleted_count
+            );
+        } else {
+            debug!("All sandbox agent references are valid");
+        }
+
+        Ok(())
+    }
+
     /// Register a provider implementation
     pub async fn register_provider(&self, name: String, provider: Arc<dyn Provider>) {
         let mut providers = self.providers.write().await;
@@ -120,19 +163,12 @@ impl SandboxManager {
             ));
         }
 
-        // Enforce security: privileged containers require explicit environment variable
-        // This prevents accidental privilege escalation and host access in production
+        // Warn about privileged containers - controlled via database settings
         if sandbox_settings.allow_privileged_containers {
-            if std::env::var("ORKEE_ALLOW_PRIVILEGED").ok() != Some("true".to_string()) {
-                return Err(ManagerError::ConfigError(
-                    "Privileged containers require ORKEE_ALLOW_PRIVILEGED=true environment variable. \
-                     This is a security safeguard. Only enable in trusted development environments."
-                        .to_string(),
-                ));
-            }
             tracing::warn!(
-                "Using privileged containers (explicitly allowed via ORKEE_ALLOW_PRIVILEGED env var). \
-                 Containers can access host resources. Use only in trusted development environments."
+                "SECURITY WARNING: Privileged containers are enabled. \
+                 Containers can access host resources and modify kernel parameters. \
+                 Use only in trusted development environments."
             );
         }
 
@@ -327,29 +363,6 @@ impl SandboxManager {
         for volume in &request.volumes {
             let host_path = volume.host_path.trim();
 
-            // Check against absolute blocked paths
-            for blocked in BLOCKED_PATHS {
-                if host_path == *blocked || host_path.starts_with(&format!("{}/", blocked)) {
-                    return Err(ManagerError::ConfigError(format!(
-                        "Volume mount path '{}' is blocked for security reasons. \
-                         Cannot mount sensitive system directories: {}",
-                        host_path,
-                        BLOCKED_PATHS.join(", ")
-                    )));
-                }
-            }
-
-            // Check against user-relative blocked paths (e.g., ~/.ssh)
-            for blocked in BLOCKED_USER_PATHS {
-                if host_path.contains(blocked) {
-                    return Err(ManagerError::ConfigError(format!(
-                        "Volume mount path '{}' contains blocked pattern '{}'. \
-                         Cannot mount sensitive user directories like .ssh, .aws, .gnupg, etc.",
-                        host_path, blocked
-                    )));
-                }
-            }
-
             // Ensure path is absolute for security (prevents relative path attacks)
             if !host_path.starts_with('/') && !host_path.starts_with('~') {
                 return Err(ManagerError::ConfigError(format!(
@@ -357,6 +370,56 @@ impl SandboxManager {
                      Relative paths are not allowed for security reasons.",
                     host_path
                 )));
+            }
+
+            // Expand tilde to home directory
+            let expanded_path = if host_path.starts_with('~') {
+                if let Some(home) = std::env::var_os("HOME") {
+                    host_path.replacen("~", &home.to_string_lossy(), 1)
+                } else {
+                    return Err(ManagerError::ConfigError(
+                        "Cannot resolve ~ in path: HOME environment variable not set".to_string(),
+                    ));
+                }
+            } else {
+                host_path.to_string()
+            };
+
+            // Canonicalize path to resolve symlinks and prevent path traversal attacks
+            // This is critical security protection - symlinks can bypass blocked path validation
+            let canonical_path = std::fs::canonicalize(&expanded_path).map_err(|e| {
+                ManagerError::ConfigError(format!(
+                    "Volume mount path '{}' is invalid or does not exist: {}. \
+                     Path must exist and be accessible.",
+                    host_path, e
+                ))
+            })?;
+
+            let canonical_str = canonical_path.to_string_lossy();
+
+            // Check against absolute blocked paths using canonicalized path
+            for blocked in BLOCKED_PATHS {
+                if canonical_str == *blocked || canonical_str.starts_with(&format!("{}/", blocked))
+                {
+                    return Err(ManagerError::ConfigError(format!(
+                        "Volume mount path '{}' (resolves to '{}') is blocked for security reasons. \
+                         Cannot mount sensitive system directories: {}",
+                        host_path,
+                        canonical_str,
+                        BLOCKED_PATHS.join(", ")
+                    )));
+                }
+            }
+
+            // Check against user-relative blocked paths (e.g., ~/.ssh) using canonicalized path
+            for blocked in BLOCKED_USER_PATHS {
+                if canonical_str.contains(blocked) {
+                    return Err(ManagerError::ConfigError(format!(
+                        "Volume mount path '{}' (resolves to '{}') contains blocked pattern '{}'. \
+                         Cannot mount sensitive user directories like .ssh, .aws, .gnupg, etc.",
+                        host_path, canonical_str, blocked
+                    )));
+                }
             }
         }
 
