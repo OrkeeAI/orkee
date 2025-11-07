@@ -36,6 +36,7 @@ DROP TRIGGER IF EXISTS ideate_prd_generations_updated_at;
 DROP TRIGGER IF EXISTS model_preferences_updated_at;
 DROP TRIGGER IF EXISTS sandbox_settings_updated_at;
 DROP TRIGGER IF EXISTS sandbox_provider_settings_updated_at;
+DROP TRIGGER IF EXISTS preview_servers_updated_at;
 
 -- ============================================================================
 -- DROP VIEWS (after triggers)
@@ -56,6 +57,11 @@ DROP TABLE IF EXISTS telemetry_settings;
 -- ============================================================================
 DROP TABLE IF EXISTS sync_state;
 DROP TABLE IF EXISTS sync_snapshots;
+
+-- ============================================================================
+-- DROP PREVIEW SERVER TABLES
+-- ============================================================================
+DROP TABLE IF EXISTS preview_servers;
 
 -- ============================================================================
 -- DROP SANDBOX TABLES

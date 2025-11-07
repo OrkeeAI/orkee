@@ -6,6 +6,7 @@
 pub mod discovery;
 pub mod manager;
 pub mod registry;
+pub mod storage;
 pub mod types;
 
 // Re-export key types and functions for easier use
