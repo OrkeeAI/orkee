@@ -34,9 +34,13 @@ pub struct DockerProvider {
 }
 
 impl DockerProvider {
-    /// Create a new Docker provider with default timeout (10 minutes)
+    /// Create a new Docker provider with default timeout (10 minutes or from env)
     pub fn new() -> Result<Self> {
-        Self::with_pull_timeout(Duration::from_secs(600))
+        let timeout_secs = std::env::var("ORKEE_DOCKER_PULL_TIMEOUT_SECS")
+            .ok()
+            .and_then(|s| s.parse::<u64>().ok())
+            .unwrap_or(600);
+        Self::with_pull_timeout(Duration::from_secs(timeout_secs))
     }
 
     /// Create a new Docker provider with custom pull timeout
@@ -159,7 +163,7 @@ impl Provider for DockerProvider {
         match self.client.ping().await {
             Ok(_) => Ok(true),
             Err(e) => {
-                warn!("Docker not available: {}", e);
+                error!("Docker not available: {}", e);
                 Ok(false)
             }
         }
@@ -220,6 +224,33 @@ impl Provider for DockerProvider {
 
         // Start the container
         self.start_container(&container.id).await?;
+
+        // Wait for container to be fully running with health check loop
+        let mut retries = 10;
+        loop {
+            let info = self
+                .client
+                .inspect_container(&container.id, None)
+                .await
+                .map_err(|e| ProviderError::ContainerError(e.to_string()))?;
+
+            if let Some(state) = &info.state {
+                if state.running.unwrap_or(false) {
+                    debug!("Container {} is running", container.id);
+                    break;
+                }
+            }
+
+            if retries == 0 {
+                return Err(ProviderError::ContainerError(format!(
+                    "Container {} failed to start within timeout",
+                    container.id
+                )));
+            }
+
+            tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+            retries -= 1;
+        }
 
         Ok(container.id)
     }

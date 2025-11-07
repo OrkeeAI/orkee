@@ -104,6 +104,23 @@ impl CostCalculator {
             + breakdown.network_cost
             + breakdown.gpu_cost;
 
+        // Validate cost is not negative or unreasonably high
+        const MAX_REASONABLE_COST: f64 = 1000000.0; // $1M per hour seems unreasonable
+        if breakdown.total_cost < 0.0 || breakdown.total_cost > MAX_REASONABLE_COST {
+            tracing::warn!(
+                "Suspicious cost calculation: ${:.2} (base: ${:.2}, compute: ${:.2}, memory: ${:.2}, storage: ${:.2}, network: ${:.2}, GPU: ${:.2})",
+                breakdown.total_cost,
+                breakdown.base_cost,
+                breakdown.compute_cost,
+                breakdown.memory_cost,
+                breakdown.storage_cost,
+                breakdown.network_cost,
+                breakdown.gpu_cost
+            );
+            // Cap at reasonable bounds
+            breakdown.total_cost = breakdown.total_cost.max(0.0).min(MAX_REASONABLE_COST);
+        }
+
         Some(breakdown)
     }
 
@@ -175,6 +192,17 @@ impl CostCalculator {
             + breakdown.storage_cost
             + breakdown.network_cost
             + breakdown.gpu_cost;
+
+        // Validate cost is not negative or unreasonably high
+        const MAX_REASONABLE_COST: f64 = 1000000.0; // $1M per hour seems unreasonable
+        if breakdown.total_cost < 0.0 || breakdown.total_cost > MAX_REASONABLE_COST {
+            tracing::warn!(
+                "Suspicious execution cost calculation: ${:.2}",
+                breakdown.total_cost
+            );
+            // Cap at reasonable bounds
+            breakdown.total_cost = breakdown.total_cost.max(0.0).min(MAX_REASONABLE_COST);
+        }
 
         Some(breakdown)
     }
@@ -257,6 +285,17 @@ impl CostCalculator {
             + breakdown.storage_cost
             + breakdown.network_cost
             + breakdown.gpu_cost;
+
+        // Validate cost is not negative or unreasonably high
+        const MAX_REASONABLE_COST: f64 = 1000000.0; // $1M per hour seems unreasonable
+        if breakdown.total_cost < 0.0 || breakdown.total_cost > MAX_REASONABLE_COST {
+            tracing::warn!(
+                "Suspicious estimated cost calculation: ${:.2}",
+                breakdown.total_cost
+            );
+            // Cap at reasonable bounds
+            breakdown.total_cost = breakdown.total_cost.max(0.0).min(MAX_REASONABLE_COST);
+        }
 
         Some(breakdown)
     }
