@@ -34,35 +34,6 @@ pub async fn create_router_with_options(
     let config = Config::from_env().expect("Failed to load config for PathValidator");
     let path_validator = Arc::new(PathValidator::new(&config));
 
-    // Create the preview manager with recovery
-    let preview_manager = match orkee_preview::init().await {
-        Ok(manager) => Arc::new(manager),
-        Err(e) => {
-            error!("Failed to initialize preview manager: {}", e);
-            // Create minimal in-memory DbState for error case
-            let pool = sqlx::SqlitePool::connect(":memory:")
-                .await
-                .expect("Failed to create in-memory database for error fallback");
-            sqlx::migrate!("../storage/migrations")
-                .run(&pool)
-                .await
-                .expect("Failed to run migrations for error fallback");
-            let minimal_db = orkee_projects::DbState::new(pool)
-                .expect("Failed to create minimal DbState for error fallback");
-
-            // Return a router without preview functionality rather than panicking
-            let router = Router::new()
-                .route("/api/health", get(health::health_check))
-                .route("/api/status", get(health::status_check))
-                .route(
-                    "/api/browse-directories",
-                    post(directories::browse_directories),
-                )
-                .nest("/api/projects", orkee_api::create_projects_router());
-            return (router, minimal_db);
-        }
-    };
-
     // Create the project manager
     let project_manager = match orkee_projects::manager::ProjectsManager::new().await {
         Ok(manager) => Arc::new(manager),
@@ -127,6 +98,57 @@ pub async fn create_router_with_options(
                 )
                 .nest("/api/projects", orkee_api::create_projects_router());
             return (router, minimal_db);
+        }
+    };
+
+    // Create a SqliteStorage from the existing db_state pool
+    let storage_config = orkee_storage::StorageConfig {
+        provider: orkee_storage::StorageProvider::Sqlite {
+            path: db_path_for_error.unwrap_or_else(|| {
+                dirs::home_dir()
+                    .map(|h| h.join(".orkee").join("orkee.db"))
+                    .expect("Failed to get home directory for default database path")
+            }),
+        },
+        max_connections: 10,
+        busy_timeout_seconds: 30,
+        enable_wal: true,
+        enable_fts: true, // Enable full-text search
+    };
+    let storage = match orkee_storage::sqlite::SqliteStorage::new(storage_config).await {
+        Ok(s) => s,
+        Err(e) => {
+            error!("Failed to create storage for preview manager: {}", e);
+            // Return minimal router without preview functionality
+            let router = Router::new()
+                .route("/api/health", get(health::health_check))
+                .route("/api/status", get(health::status_check))
+                .nest("/api/projects", orkee_api::create_projects_router());
+            return (router, db_state);
+        }
+    };
+
+    // Create the preview manager with crash recovery
+    let preview_manager = match orkee_preview::init(&storage).await {
+        Ok(manager) => Arc::new(manager),
+        Err(e) => {
+            error!("Failed to initialize preview manager: {}", e);
+            error!("Preview functionality will be limited");
+            // Continue without preview manager - UI will handle gracefully
+            // For now, create a minimal preview manager (TODO: handle this better)
+            let registry = match orkee_preview::registry::ServerRegistry::new(&storage).await {
+                Ok(reg) => reg,
+                Err(e2) => {
+                    error!("Failed to create fallback registry: {}", e2);
+                    // Return minimal router without preview functionality
+                    let router = Router::new()
+                        .route("/api/health", get(health::health_check))
+                        .route("/api/status", get(health::status_check))
+                        .nest("/api/projects", orkee_api::create_projects_router());
+                    return (router, db_state);
+                }
+            };
+            Arc::new(orkee_preview::manager::PreviewManager::new(registry))
         }
     };
 

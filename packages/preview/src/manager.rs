@@ -109,12 +109,6 @@ impl Clone for ServerInfo {
     }
 }
 
-impl Default for PreviewManager {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 /// Validate project_id to prevent path traversal attacks
 ///
 /// Project IDs must contain only alphanumeric characters, hyphens, and underscores.
@@ -209,20 +203,12 @@ impl PreviewManager {
     pub async fn new_with_recovery(registry: ServerRegistry) -> Self {
         let manager = Self::new(registry.clone());
 
-        // Get the API port from environment variable or use default
-        let api_port = std::env::var(constants::ORKEE_API_PORT)
-            .ok()
-            .and_then(|p| p.parse().ok())
-            .unwrap_or(4001);
-
-        // Load existing registry from disk first
-        if let Err(e) = registry.load_registry().await {
-            warn!("Failed to load registry from disk: {}", e);
-        }
-
-        // Sync from preview-locks to central registry
-        if let Err(e) = registry.sync_from_preview_locks(api_port).await {
-            warn!("Failed to sync from preview locks: {}", e);
+        // Sync from preview-locks to central registry (backwards compatibility)
+        if let Some(home_dir) = dirs::home_dir() {
+            let lock_dir = home_dir.join(".orkee").join("preview-locks");
+            if let Err(e) = registry.sync_from_preview_locks(&lock_dir).await {
+                warn!("Failed to sync from preview locks: {}", e);
+            }
         }
 
         // Clean up stale entries from previous sessions
@@ -2061,6 +2047,28 @@ impl PreviewManager {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use orkee_storage::ProjectStorage;
+    use tempfile::TempDir;
+
+    async fn create_test_registry() -> (ServerRegistry, TempDir) {
+        let temp_dir = TempDir::new().unwrap();
+        let db_path = temp_dir.path().join("test.db");
+
+        let config = orkee_storage::StorageConfig {
+            provider: orkee_storage::StorageProvider::Sqlite {
+                path: db_path,
+            },
+            max_connections: 5,
+            busy_timeout_seconds: 30,
+            enable_wal: false,
+            enable_fts: true,
+        };
+        let storage = orkee_storage::sqlite::SqliteStorage::new(config).await.unwrap();
+        // Run migrations to create tables
+        storage.initialize().await.unwrap();
+        let registry = ServerRegistry::new(&storage).await.unwrap();
+        (registry, temp_dir)
+    }
 
     #[test]
     fn test_validate_project_id_valid() {
@@ -2098,9 +2106,10 @@ mod tests {
         assert!(validate_project_id("project%name").is_err());
     }
 
-    #[test]
-    fn test_get_lock_file_path_valid() {
-        let manager = PreviewManager::new();
+    #[tokio::test]
+    async fn test_get_lock_file_path_valid() {
+        let (registry, _temp_dir) = create_test_registry().await;
+        let manager = PreviewManager::new(registry);
         let result = manager.get_lock_file_path("valid-project");
         assert!(result.is_ok());
         let path = result.unwrap();
@@ -2108,9 +2117,10 @@ mod tests {
         assert!(path.to_string_lossy().contains(".orkee/preview-locks"));
     }
 
-    #[test]
-    fn test_get_lock_file_path_prevents_traversal() {
-        let manager = PreviewManager::new();
+    #[tokio::test]
+    async fn test_get_lock_file_path_prevents_traversal() {
+        let (registry, _temp_dir) = create_test_registry().await;
+        let manager = PreviewManager::new(registry);
 
         // These should all fail validation
         assert!(manager.get_lock_file_path("../../../etc/passwd").is_err());

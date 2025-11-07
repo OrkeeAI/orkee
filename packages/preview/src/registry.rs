@@ -3,6 +3,7 @@
 
 use chrono::{DateTime, Utc};
 use orkee_config::env::parse_env_or_default_with_validation;
+use orkee_storage::sqlite::SqliteStorage;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use tracing::{debug, error, info, warn};
@@ -124,16 +125,15 @@ impl ServerRegistry {
     /// # Returns
     ///
     /// Returns a new `ServerRegistry` instance connected to the database.
-    pub async fn new(storage: &orkee_storage::SqliteStorage) -> Result<Self, Box<dyn std::error::Error>> {
+    pub async fn new(storage: &SqliteStorage) -> Result<Self, Box<dyn std::error::Error>> {
         // Initialize preview server storage (will run migrations and JSON import if needed)
         let storage = PreviewServerStorage::new(storage).await?;
 
         // Parse stale timeout with validation (max 240 minutes = 4 hours)
-        let stale_timeout_minutes = parse_env_or_default_with_validation(
-            "ORKEE_STALE_TIMEOUT_MINUTES",
-            5i64,
-            |v| v >= 1 && v <= 240,
-        );
+        let stale_timeout_minutes =
+            parse_env_or_default_with_validation("ORKEE_STALE_TIMEOUT_MINUTES", 5i64, |v| {
+                v >= 1 && v <= 240
+            });
 
         Ok(Self {
             storage,
@@ -159,12 +159,13 @@ impl ServerRegistry {
             entry.id, entry.project_id, entry.port
         );
 
+        let server_id = entry.id.clone();
         self.storage
-            .create(entry.into())
+            .insert(&entry.into())
             .await
-            .map_err(|e| Box::new(e) as Box<dyn std::error::Error>)?;
+            .map_err(|e| format!("{}", e))?;
 
-        debug!("Server {} successfully registered in database", entry.id);
+        debug!("Server {} successfully registered in database", server_id);
         Ok(())
     }
 
@@ -177,15 +178,21 @@ impl ServerRegistry {
     /// # Returns
     ///
     /// Returns `Ok(())` on success, or an error if the operation fails.
-    pub async fn unregister_server(&self, server_id: &str) -> Result<(), Box<dyn std::error::Error>> {
+    pub async fn unregister_server(
+        &self,
+        server_id: &str,
+    ) -> Result<(), Box<dyn std::error::Error>> {
         info!("Unregistering server {} from global registry", server_id);
 
         self.storage
             .delete(server_id)
             .await
-            .map_err(|e| Box::new(e) as Box<dyn std::error::Error>)?;
+            .map_err(|e| format!("{}", e))?;
 
-        debug!("Server {} successfully unregistered from database", server_id);
+        debug!(
+            "Server {} successfully unregistered from database",
+            server_id
+        );
         Ok(())
     }
 
@@ -246,7 +253,7 @@ impl ServerRegistry {
         self.storage
             .update_status(server_id, status, pid)
             .await
-            .map_err(|e| Box::new(e) as Box<dyn std::error::Error>)?;
+            .map_err(|e| format!("{}", e))?;
 
         Ok(())
     }
@@ -299,10 +306,7 @@ impl ServerRegistry {
             // Additionally check if process is still running (if we have a PID)
             if let Some(pid) = entry.pid {
                 if !is_process_running_validated(pid, &entry.project_root, entry.started_at) {
-                    debug!(
-                        "Server {} process {} is no longer running",
-                        entry.id, pid
-                    );
+                    debug!("Server {} process {} is no longer running", entry.id, pid);
                     should_remove = true;
                 }
             }
@@ -370,10 +374,7 @@ impl ServerRegistry {
         }
 
         if synced_count > 0 {
-            info!(
-                "Synced {} servers from preview lock files",
-                synced_count
-            );
+            info!("Synced {} servers from preview lock files", synced_count);
         }
 
         Ok(synced_count)
@@ -397,48 +398,46 @@ impl ServerRegistry {
         let content = std::fs::read_to_string(lock_path)?;
         let lock_data: ServerLockData = serde_json::from_str(&content)?;
 
+        // Generate server ID from project_id and port (legacy lock files don't have server_id)
+        let server_id = format!("{}-{}", lock_data.project_id, lock_data.port);
+
         // Check if already registered
-        if self.get_server(&lock_data.server_id).await.is_some() {
+        if self.get_server(&server_id).await.is_some() {
+            debug!("Server {} already registered, skipping sync", server_id);
+            return Ok(false);
+        }
+
+        // Validate process is still running (pid is not Option in ServerLockData)
+        let project_root_path = PathBuf::from(&lock_data.project_root);
+        if !is_process_running_validated(lock_data.pid, &project_root_path, lock_data.started_at) {
             debug!(
-                "Server {} already registered, skipping sync",
-                lock_data.server_id
+                "Server {} process {} not running, skipping sync",
+                server_id, lock_data.pid
             );
             return Ok(false);
         }
 
-        // Validate process is still running
-        if let Some(pid) = lock_data.pid {
-            if !is_process_running_validated(pid, &lock_data.project_root, lock_data.started_at)
-            {
-                debug!(
-                    "Server {} process {} not running, skipping sync",
-                    lock_data.server_id, pid
-                );
-                return Ok(false);
-            }
-        }
-
-        // Register the server
+        // Register the server (convert from legacy lock file format)
         let entry = ServerRegistryEntry {
-            id: lock_data.server_id.clone(),
+            id: server_id.clone(),
             project_id: lock_data.project_id,
             project_name: None,
-            project_root: lock_data.project_root,
+            project_root: project_root_path,
             port: lock_data.port,
-            pid: lock_data.pid,
+            pid: Some(lock_data.pid),
             status: DevServerStatus::Running,
-            preview_url: lock_data.preview_url,
-            framework_name: lock_data.framework_name,
-            actual_command: lock_data.actual_command,
+            preview_url: Some(lock_data.preview_url),
+            framework_name: None, // Legacy lock files don't have this
+            actual_command: None, // Legacy lock files don't have this
             started_at: lock_data.started_at,
             last_seen: Utc::now(),
-            api_port: lock_data.api_port,
+            api_port: 4001, // Default API port for legacy lock files
             source: ServerSource::Orkee,
             matched_project_id: None,
         };
 
         self.register_server(entry).await?;
-        info!("Synced server {} from lock file", lock_data.server_id);
+        info!("Synced server {} from lock file", server_id);
 
         Ok(true)
     }
@@ -515,6 +514,7 @@ pub fn is_process_running_validated(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use orkee_storage::ProjectStorage;
     use tempfile::TempDir;
 
     #[tokio::test]
@@ -522,7 +522,34 @@ mod tests {
         let temp_dir = TempDir::new().unwrap();
         let db_path = temp_dir.path().join("test.db");
 
-        let registry = ServerRegistry::new().await.unwrap();
+        // Create storage and registry
+        let config = orkee_storage::StorageConfig {
+            provider: orkee_storage::StorageProvider::Sqlite {
+                path: db_path,
+            },
+            max_connections: 5,
+            busy_timeout_seconds: 30,
+            enable_wal: false,
+            enable_fts: true,
+        };
+        let storage = SqliteStorage::new(config).await.unwrap();
+        // Run migrations to create tables
+        storage.initialize().await.unwrap();
+
+        // Insert test project to satisfy foreign key constraint
+        sqlx::query(
+            "INSERT INTO projects (id, name, project_root, created_at, updated_at) VALUES (?, ?, ?, ?, ?)"
+        )
+        .bind("project-1")
+        .bind("Test Project")
+        .bind("/tmp/test")
+        .bind(chrono::Utc::now().to_rfc3339())
+        .bind(chrono::Utc::now().to_rfc3339())
+        .execute(storage.pool())
+        .await
+        .unwrap();
+
+        let registry = ServerRegistry::new(&storage).await.unwrap();
 
         // Create a test entry
         let entry = ServerRegistryEntry {

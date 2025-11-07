@@ -728,23 +728,8 @@ pub fn start_periodic_discovery() -> Option<tokio::task::JoinHandle<()>> {
 
             if !discovered.is_empty() {
                 debug!("Discovered {} external servers", discovered.len());
-
-                // Auto-register discovered servers
-                for server in discovered {
-                    // Register without project association (will be External source)
-                    // Users can manually associate them with projects later via the UI
-                    match register_discovered_server(server.clone(), None, None).await {
-                        Ok(server_id) => {
-                            debug!("Auto-registered external server: {}", server_id);
-                        }
-                        Err(e) => {
-                            debug!(
-                                "Failed to auto-register external server on port {}: {}",
-                                server.port, e
-                            );
-                        }
-                    }
-                }
+                // TODO: Auto-registration needs registry access. Should be moved to PreviewManager
+                // where the registry is available. For now, discovery just logs discovered servers.
             }
         }
     });

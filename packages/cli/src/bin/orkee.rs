@@ -13,7 +13,6 @@ use cli::sandbox::SandboxCommands;
 use cli::security::SecurityCommands;
 use orkee_cli::dashboard::downloader::ensure_dashboard;
 use orkee_cli::dashboard::DashboardMode;
-use orkee_preview::is_process_running_validated;
 
 /// Maximum number of parent directories to search when looking for monorepo root
 const MAX_PARENT_SEARCH_DEPTH: usize = 5;
@@ -646,27 +645,12 @@ async fn kill_port(port: u16) -> Result<(), Box<dyn std::error::Error>> {
                     let pid_str = pid_line.trim();
                     // Validate PID is numeric before passing to shell command
                     if let Ok(pid) = pid_str.parse::<u32>() {
-                        // Verify this is actually a development server process before killing
-                        // This prevents accidentally killing unrelated processes due to PID reuse
-                        if is_process_running_validated(
-                            pid,
-                            None, // We don't have start time info from lsof
-                            &[
-                                "node", "python", "npm", "yarn", "bun", "pnpm", "deno", "orkee",
-                                "vite",
-                            ],
-                            None, // We don't have command line info from lsof
-                        ) {
-                            let _ = std::process::Command::new("kill")
-                                .args(["-9", &pid.to_string()])
-                                .output();
-                            println!("🔪 Killed process {} on port {}", pid, port);
-                        } else {
-                            eprintln!(
-                                "⚠️ Skipping PID {} on port {} - process validation failed (not a recognized development server)",
-                                pid, port
-                            );
-                        }
+                        // Kill the process using the port
+                        // lsof already filtered to only processes on this specific port
+                        let _ = std::process::Command::new("kill")
+                            .args(["-9", &pid.to_string()])
+                            .output();
+                        println!("🔪 Killed process {} on port {}", pid, port);
                     }
                 }
             }
@@ -690,45 +674,26 @@ async fn kill_port(port: u16) -> Result<(), Box<dyn std::error::Error>> {
                     // Extract PID (last column)
                     if let Some(pid_str) = line.split_whitespace().last() {
                         if let Ok(pid) = pid_str.parse::<u32>() {
-                            // Verify this is actually a development server process before killing
-                            // This prevents accidentally killing unrelated processes due to PID reuse
-                            if is_process_running_validated(
-                                pid,
-                                None, // We don't have start time info from netstat
-                                &[
-                                    "node", "python", "npm", "yarn", "bun", "pnpm", "deno",
-                                    "orkee", "vite",
-                                ],
-                                None, // We don't have command line info from netstat
-                            ) {
-                                // Use taskkill to terminate the process
-                                let kill_result = std::process::Command::new("taskkill")
-                                    .args(["/F", "/PID", &pid.to_string()])
-                                    .output();
+                            // Kill the process using the port
+                            // netstat already filtered to only processes listening on this specific port
+                            let kill_result = std::process::Command::new("taskkill")
+                                .args(["/F", "/PID", &pid.to_string()])
+                                .output();
 
-                                match kill_result {
-                                    Ok(kill_output) if kill_output.status.success() => {
-                                        println!("🔪 Killed process {} on port {}", pid, port);
-                                    }
-                                    Ok(kill_output) => {
-                                        eprintln!(
-                                            "Failed to kill process {}: {}",
-                                            pid,
-                                            String::from_utf8_lossy(&kill_output.stderr)
-                                        );
-                                    }
-                                    Err(e) => {
-                                        eprintln!(
-                                            "Failed to execute taskkill for PID {}: {}",
-                                            pid, e
-                                        );
-                                    }
+                            match kill_result {
+                                Ok(kill_output) if kill_output.status.success() => {
+                                    println!("🔪 Killed process {} on port {}", pid, port);
                                 }
-                            } else {
-                                eprintln!(
-                                    "⚠️ Skipping PID {} on port {} - process validation failed (not a recognized development server)",
-                                    pid, port
-                                );
+                                Ok(kill_output) => {
+                                    eprintln!(
+                                        "Failed to kill process {}: {}",
+                                        pid,
+                                        String::from_utf8_lossy(&kill_output.stderr)
+                                    );
+                                }
+                                Err(e) => {
+                                    eprintln!("Failed to execute taskkill for PID {}: {}", pid, e);
+                                }
                             }
                         }
                     }

@@ -73,12 +73,15 @@ impl PreviewServerStorage {
         .bind(entry.started_at)
         .bind(entry.last_seen)
         .bind(entry.api_port as i64)
-        .bind(None::<String>)  // error_message is always NULL for now
+        .bind(None::<String>) // error_message is always NULL for now
         .execute(&self.pool)
         .await
         .context("Failed to insert preview server")?;
 
-        debug!("Inserted preview server {} for project {}", entry.id, entry.project_id);
+        debug!(
+            "Inserted preview server {} for project {}",
+            entry.id, entry.project_id
+        );
         Ok(())
     }
 
@@ -112,13 +115,16 @@ impl PreviewServerStorage {
         .bind(entry.started_at)
         .bind(entry.last_seen)
         .bind(entry.api_port as i64)
-        .bind(None::<String>)  // error_message is always NULL for now
+        .bind(None::<String>) // error_message is always NULL for now
         .bind(&entry.id)
         .execute(&self.pool)
         .await
         .context("Failed to update preview server")?;
 
-        debug!("Updated preview server {} for project {}", entry.id, entry.project_id);
+        debug!(
+            "Updated preview server {} for project {}",
+            entry.id, entry.project_id
+        );
         Ok(())
     }
 
@@ -143,7 +149,7 @@ impl PreviewServerStorage {
                    started_at, last_seen, api_port, error_message
             FROM preview_servers
             WHERE id = ?
-            "#
+            "#,
         )
         .bind(id)
         .fetch_optional(&self.pool)
@@ -162,7 +168,7 @@ impl PreviewServerStorage {
                    started_at, last_seen, api_port, error_message
             FROM preview_servers
             ORDER BY last_seen DESC
-            "#
+            "#,
         )
         .fetch_all(&self.pool)
         .await
@@ -181,7 +187,7 @@ impl PreviewServerStorage {
             FROM preview_servers
             WHERE project_id = ? OR matched_project_id = ?
             ORDER BY last_seen DESC
-            "#
+            "#,
         )
         .bind(project_id)
         .bind(project_id)
@@ -202,7 +208,7 @@ impl PreviewServerStorage {
             FROM preview_servers
             WHERE port = ?
             LIMIT 1
-            "#
+            "#,
         )
         .bind(port as i64)
         .fetch_optional(&self.pool)
@@ -216,13 +222,41 @@ impl PreviewServerStorage {
     pub async fn update_last_seen(&self, id: &str) -> Result<()> {
         let now = Utc::now();
         sqlx::query(
-            "UPDATE preview_servers SET last_seen = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?"
+            "UPDATE preview_servers SET last_seen = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
         )
         .bind(now)
         .bind(id)
         .execute(&self.pool)
         .await
         .context("Failed to update last_seen")?;
+
+        Ok(())
+    }
+
+    /// Update server status and PID
+    pub async fn update_status(
+        &self,
+        id: &str,
+        status: crate::types::DevServerStatus,
+        pid: Option<u32>,
+    ) -> Result<()> {
+        let status_str = match status {
+            crate::types::DevServerStatus::Running => "running",
+            crate::types::DevServerStatus::Stopped => "stopped",
+            crate::types::DevServerStatus::Error => "error",
+            crate::types::DevServerStatus::Starting => "starting",
+            crate::types::DevServerStatus::Stopping => "stopping",
+        };
+
+        sqlx::query(
+            "UPDATE preview_servers SET status = ?, pid = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?"
+        )
+        .bind(status_str)
+        .bind(pid)
+        .bind(id)
+        .execute(&self.pool)
+        .await
+        .context("Failed to update server status")?;
 
         Ok(())
     }
@@ -255,11 +289,10 @@ impl PreviewServerStorage {
         info!("Migrating preview server registry from {:?}", json_path);
 
         // Read and parse JSON file
-        let json_content = fs::read_to_string(json_path)
-            .context("Failed to read JSON registry")?;
+        let json_content = fs::read_to_string(json_path).context("Failed to read JSON registry")?;
 
-        let entries: std::collections::HashMap<String, JsonEntry> = serde_json::from_str(&json_content)
-            .context("Failed to parse JSON registry")?;
+        let entries: std::collections::HashMap<String, JsonEntry> =
+            serde_json::from_str(&json_content).context("Failed to parse JSON registry")?;
 
         let count = entries.len();
         for (_, json_entry) in entries {
@@ -289,10 +322,12 @@ impl PreviewServerStorage {
 
         // Rename the JSON file to mark it as migrated
         let backup_path = json_path.with_extension("json.migrated");
-        fs::rename(json_path, &backup_path)
-            .context("Failed to rename migrated JSON file")?;
+        fs::rename(json_path, &backup_path).context("Failed to rename migrated JSON file")?;
 
-        info!("Successfully migrated {} servers to database. Original file backed up to {:?}", count, backup_path);
+        info!(
+            "Successfully migrated {} servers to database. Original file backed up to {:?}",
+            count, backup_path
+        );
         Ok(())
     }
 
@@ -368,14 +403,41 @@ impl PreviewServerStorage {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use orkee_storage::ProjectStorage;
     use tempfile::TempDir;
+    use uuid::Uuid;
 
     async fn setup_test_db() -> (PreviewServerStorage, TempDir) {
         let temp_dir = TempDir::new().unwrap();
         let db_path = temp_dir.path().join("test.db");
 
-        // Create storage with test database
-        let storage = SqliteStorage::initialize(db_path.to_str().unwrap()).await.unwrap();
+        // Create storage with test database using StorageConfig
+        let config = orkee_storage::StorageConfig {
+            provider: orkee_storage::StorageProvider::Sqlite {
+                path: db_path.clone(),
+            },
+            max_connections: 5,
+            busy_timeout_seconds: 30,
+            enable_wal: false, // WAL doesn't work well with temporary files
+            enable_fts: true,
+        };
+        let storage = SqliteStorage::new(config).await.unwrap();
+        // Run migrations to create tables
+        storage.initialize().await.unwrap();
+
+        // Insert a test project to satisfy foreign key constraint
+        sqlx::query(
+            "INSERT INTO projects (id, name, project_root, created_at, updated_at) VALUES (?, ?, ?, ?, ?)"
+        )
+        .bind("test-project")
+        .bind("Test Project")
+        .bind("/home/test/project")
+        .bind(chrono::Utc::now().to_rfc3339())
+        .bind(chrono::Utc::now().to_rfc3339())
+        .execute(storage.pool())
+        .await
+        .unwrap();
+
         let preview_storage = PreviewServerStorage::new(&storage).await.unwrap();
 
         (preview_storage, temp_dir)
