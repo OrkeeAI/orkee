@@ -332,7 +332,6 @@ impl ServerRegistry {
 
         Ok(())
     }
-
 }
 
 /// Validate that a process is running and matches expected criteria.

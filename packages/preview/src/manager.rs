@@ -109,7 +109,6 @@ impl Clone for ServerInfo {
     }
 }
 
-
 impl PreviewManager {
     /// Create a new preview manager without recovery.
     ///
@@ -606,7 +605,10 @@ impl PreviewManager {
                 }
 
                 // Register with central registry for persistence
-                if let Err(e) = self.register_with_registry(&updated_info, &project_root).await {
+                if let Err(e) = self
+                    .register_with_registry(&updated_info, &project_root)
+                    .await
+                {
                     warn!(
                         "Failed to register server for project {}: {}",
                         project_id, e
@@ -1391,7 +1393,6 @@ impl PreviewManager {
         system.process(Pid::from_u32(pid)).is_some()
     }
 
-
     /// Register server with the central registry
     async fn register_with_registry(
         &self,
@@ -1440,7 +1441,6 @@ impl PreviewManager {
 
         Ok(())
     }
-
 
     /// Register an external server discovered via port scanning
     ///
@@ -1730,6 +1730,4 @@ mod tests {
         let registry = ServerRegistry::new(&storage).await.unwrap();
         (registry, temp_dir)
     }
-
-
 }
