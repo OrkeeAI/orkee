@@ -2785,9 +2785,9 @@ CREATE TABLE preview_servers (
     FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
 );
 
--- Indexes for common query patterns
+-- Indexes and constraints for common query patterns
 CREATE INDEX idx_preview_servers_project_id ON preview_servers(project_id);
-CREATE INDEX idx_preview_servers_port ON preview_servers(port);
+CREATE UNIQUE INDEX idx_preview_servers_port_unique ON preview_servers(port);
 CREATE INDEX idx_preview_servers_status ON preview_servers(status);
 CREATE INDEX idx_preview_servers_source ON preview_servers(source);
 CREATE INDEX idx_preview_servers_last_seen ON preview_servers(last_seen);
