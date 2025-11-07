@@ -382,10 +382,37 @@ impl ServerRegistry {
 
 /// Validate that a process is running and matches expected criteria.
 ///
-/// This function performs multiple validation checks to ensure the process is legitimate:
-/// 1. Process with given PID exists
-/// 2. Process working directory matches expected path (prevents PID reuse false positives)
-/// 3. Process start time is close to expected start time (prevents PID reuse on fast systems)
+/// # PID Reuse Security Model
+///
+/// PIDs can be reused by the OS after a process terminates, creating a security risk where
+/// we might incorrectly track a new process as if it were our original dev server.
+///
+/// This function implements defense-in-depth validation:
+///
+/// **Primary Defense - Working Directory Check:**
+/// - Validates process CWD matches expected project directory
+/// - Highly unlikely a PID-reused process would have identical CWD
+/// - Provides strong guarantee the process is our original server
+///
+/// **Secondary Defense - Start Time Validation:**
+/// - Compares process start time against when we originally launched it
+/// - Uses configurable tolerance (default: 5 seconds, max: 60 seconds)
+/// - Protects against PID reuse on systems under heavy load where:
+///   - A process terminates
+///   - OS immediately reuses the PID for a new process
+///   - New process happens to have the same CWD (extremely rare but theoretically possible)
+///
+/// **Configuration:**
+/// - `ORKEE_PROCESS_START_TIME_TOLERANCE_SECS`: Tolerance window in seconds (default: 5, range: 1-60)
+/// - Lower values: Stricter validation, may reject legitimate processes on slow systems
+/// - Higher values: More lenient, may accept PID reuse if both processes started close in time
+/// - Default of 5 seconds balances security vs system load variations
+///
+/// **Security Trade-offs:**
+/// - CWD check alone would be sufficient in most cases
+/// - Start time adds defense against the extremely rare case of same-CWD PID reuse
+/// - Time tolerance handles clock skew and process startup delays
+/// - No known attacks exploit this, but defense-in-depth is prudent
 ///
 /// # Arguments
 ///
