@@ -79,7 +79,9 @@ impl PreviewServerStorage {
         .bind(entry.started_at)
         .bind(entry.last_seen)
         .bind(entry.api_port as i64)
-        .bind(None::<String>) // TODO: error_message - Reserved for future server crash/error tracking
+        .bind(None::<String>) // Reserved for future crash tracking: When DevServerStatus::Error,
+                               // this will store the error message (process crash, startup failure, etc.)
+                               // for debugging. Currently always NULL as error tracking is not implemented.
         .execute(&self.pool)
         .await
         .map_err(|e| {
@@ -138,7 +140,9 @@ impl PreviewServerStorage {
         .bind(entry.started_at)
         .bind(entry.last_seen)
         .bind(entry.api_port as i64)
-        .bind(None::<String>) // TODO: error_message - Reserved for future server crash/error tracking
+        .bind(None::<String>) // Reserved for future crash tracking: When DevServerStatus::Error,
+                               // this will store the error message (process crash, startup failure, etc.)
+                               // for debugging. Currently always NULL as error tracking is not implemented.
         .bind(&entry.id)
         .execute(&self.pool)
         .await
