@@ -199,6 +199,7 @@ orkee auth logout all
 | OpenAI | ⏳ Planned | OAuth flow |
 | Google (Vertex AI) | ⏳ Planned | OAuth flow |
 | xAI (Grok) | ⏳ Planned | OAuth flow |
+| Docker Hub | ✅ Available | Docker CLI wrapper |
 
 ### How Claude Authentication Works
 
@@ -269,6 +270,43 @@ Authentication status can be viewed in the dashboard:
 2. View authentication status for all providers
 3. See token expiry times
 4. Manage authentication via CLI commands
+
+## Docker Authentication
+
+Orkee provides simple Docker Hub authentication for building and pushing sandbox container images.
+
+### Quick Setup
+
+```bash
+# Authenticate with Docker Hub
+orkee auth login docker
+
+# Verify authentication
+docker info  # Should show your username
+```
+
+### How It Works
+
+- **Simple wrapper**: Runs `docker login` as a subprocess
+- **Native credential storage**: Docker CLI handles credentials in system keychain
+- **No database storage**: Credentials managed by Docker, not Orkee
+- **Standard workflow**: Use normal `docker build` and `docker push` commands
+
+### Benefits
+
+- ✅ **Simple**: No custom credential management needed
+- ✅ **Secure**: Leverages Docker's system keychain integration
+- ✅ **Standard**: Uses Docker's native authentication flow
+- ✅ **Rate limits**: Authenticated users get 200 pulls/6 hours vs 100 unauthenticated
+
+### Troubleshooting
+
+If you encounter authentication errors:
+1. Run `orkee auth login docker`
+2. Follow Docker's authentication prompts
+3. Verify credentials: `docker info` should display your username
+
+For more details, see [docker.md](docker.md).
 
 ## Desktop App (Tauri)
 

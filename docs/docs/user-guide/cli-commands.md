@@ -244,13 +244,14 @@ orkee projects delete 1 -y
 
 ### OAuth/Auth Commands
 
-Manage OAuth authentication for AI providers (Claude, OpenAI, Google, xAI).
+Manage authentication for AI providers (Claude, OpenAI, Google, xAI) and Docker Hub.
 
 ```bash
 orkee login <provider>        # Authenticate with AI provider
 orkee logout <provider>       # Logout from AI provider
 orkee auth status             # Show authentication status
 orkee auth refresh <provider> # Refresh authentication token
+orkee auth login docker       # Authenticate with Docker Hub
 ```
 
 #### Login Command
@@ -440,6 +441,65 @@ OAUTH_CLAUDE_SCOPES="model:claude account:read"
 - **Security**: Tokens encrypted with unique nonces
 
 For detailed OAuth documentation, see the [OAuth Authentication Guide](./oauth-authentication.md).
+
+### Docker Authentication
+
+Authenticate with Docker Hub for building and pushing container images.
+
+#### Docker Login Command
+
+**Syntax:**
+```bash
+orkee auth login docker
+```
+
+**What It Does:**
+1. Executes `docker login` as a subprocess
+2. Docker CLI opens browser for authentication (or prompts for credentials)
+3. Docker stores credentials in system keychain (`~/.docker/config.json`)
+4. Future `docker build` and `docker push` commands use stored credentials automatically
+
+**Output Example:**
+```
+🐳 Authenticating with Docker Hub...
+Opening browser for Docker authentication...
+
+Login Succeeded
+✅ Successfully authenticated with Docker Hub
+   Username: your-username
+```
+
+**Benefits:**
+- ✅ **Simple**: No custom credential management
+- ✅ **Secure**: Leverages Docker's system keychain integration
+- ✅ **Standard**: Uses Docker's native authentication flow
+- ✅ **Rate limits**: Authenticated users get 200 pulls/6 hours (vs 100 unauthenticated)
+
+**Prerequisites:**
+- Docker CLI must be installed and in PATH
+- Docker daemon must be running
+
+**Verification:**
+```bash
+# Verify authentication succeeded
+docker info
+
+# Should display your Docker Hub username in the output
+```
+
+**Troubleshooting:**
+- **Error: "docker: command not found"**: Install Docker CLI
+- **Error: "Cannot connect to Docker daemon"**: Start Docker Desktop or Docker daemon
+- **Authentication fails**: Try running `docker login` directly to see detailed error messages
+- **Rate limiting**: Authenticated users get higher rate limits; run `orkee auth login docker` to increase limits
+
+**Storage:**
+- **Location**: Credentials stored by Docker CLI (not in Orkee database)
+- **macOS**: System Keychain
+- **Linux**: `~/.docker/config.json` (or configured credential helper)
+- **Windows**: Windows Credential Manager
+
+For complete Docker authentication details and sandbox image management workflow, see the project's [docker.md](../../docker.md) documentation.
 
 ### Cloud Command
 

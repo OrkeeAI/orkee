@@ -1318,6 +1318,38 @@ Options:
 orkee preview stop-all
 ```
 
+### Authentication
+
+#### Docker Authentication
+Authenticate with Docker Hub for building and pushing container images:
+
+```bash
+# Login to Docker Hub
+orkee auth login docker
+
+# Verify authentication
+docker info  # Should display your username
+```
+
+**What It Does:**
+- Executes `docker login` as a subprocess
+- Docker CLI handles credentials in system keychain (`~/.docker/config.json`)
+- Credentials not stored in Orkee database
+- Use standard `docker build` and `docker push` commands afterward
+
+**Benefits:**
+- Simple wrapper around Docker's native authentication
+- Leverages Docker's system keychain integration
+- No custom credential management needed
+- Increases Docker Hub rate limits (200 vs 100 pulls/6 hours)
+
+**Troubleshooting:**
+- If authentication fails, run `orkee auth login docker` again
+- Verify credentials with `docker info` (should show username)
+- Docker CLI must be installed and in PATH
+
+For complete Docker authentication details and sandbox image management, see [docker.md](docker.md).
+
 ## API Reference
 
 The CLI server provides a REST API on port 4001 (configurable).
