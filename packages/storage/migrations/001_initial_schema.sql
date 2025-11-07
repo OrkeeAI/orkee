@@ -2792,6 +2792,7 @@ CREATE INDEX idx_preview_servers_status ON preview_servers(status);
 CREATE INDEX idx_preview_servers_source ON preview_servers(source);
 CREATE INDEX idx_preview_servers_last_seen ON preview_servers(last_seen);
 CREATE INDEX idx_preview_servers_pid ON preview_servers(pid) WHERE pid IS NOT NULL;
+CREATE INDEX idx_preview_servers_matched_project ON preview_servers(matched_project_id) WHERE matched_project_id IS NOT NULL;
 
 -- Trigger to update the updated_at timestamp
 CREATE TRIGGER preview_servers_updated_at AFTER UPDATE ON preview_servers
