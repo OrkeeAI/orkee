@@ -134,13 +134,22 @@ impl SandboxManager {
             )));
         }
 
-        // Validate resource limits
+        // Validate resource limits with overflow protection
         let cpu_cores: f32 = request.cpu_cores.unwrap_or_else(|| {
             provider_settings
                 .default_cpu_cores
                 .map(|v| v as f32)
                 .unwrap_or(sandbox_settings.max_cpu_cores_per_sandbox as f32)
         });
+
+        // Validate CPU is not NaN or Infinity (prevent floating point issues)
+        if cpu_cores.is_nan() || cpu_cores.is_infinite() {
+            return Err(ManagerError::ConfigError(format!(
+                "Invalid CPU cores value: {}. Must be a finite positive number.",
+                cpu_cores
+            )));
+        }
+
         let memory_mb: u32 = request.memory_mb.unwrap_or_else(|| {
             provider_settings
                 .default_memory_mb
@@ -154,11 +163,18 @@ impl SandboxManager {
                         .unwrap_or(u32::MAX)
                 })
         });
+
         let storage_gb: u32 = request.storage_gb.unwrap_or_else(|| {
             provider_settings
                 .default_disk_gb
-                .map(|v| v as u32)
-                .unwrap_or(sandbox_settings.max_disk_gb_per_sandbox as u32)
+                .map(|v| {
+                    // Use saturating cast to prevent negative values from becoming large positive
+                    u32::try_from(v.max(0)).unwrap_or(0)
+                })
+                .unwrap_or_else(|| {
+                    // Use saturating cast to prevent overflow
+                    u32::try_from(sandbox_settings.max_disk_gb_per_sandbox.max(0)).unwrap_or(u32::MAX)
+                })
         });
 
         // Check resource limits
