@@ -134,7 +134,14 @@ impl SandboxManager {
             provider_settings
                 .default_memory_mb
                 .map(|v| v as u32)
-                .unwrap_or((sandbox_settings.max_memory_gb_per_sandbox * 1024) as u32)
+                .unwrap_or_else(|| {
+                    // Use checked multiplication to prevent overflow
+                    // If overflow occurs, use u32::MAX
+                    (sandbox_settings.max_memory_gb_per_sandbox as u64)
+                        .checked_mul(1024)
+                        .and_then(|v| u32::try_from(v).ok())
+                        .unwrap_or(u32::MAX)
+                })
         });
         let storage_gb: u32 = request.storage_gb.unwrap_or_else(|| {
             provider_settings
