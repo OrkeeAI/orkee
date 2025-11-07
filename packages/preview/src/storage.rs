@@ -43,6 +43,12 @@ impl PreviewServerStorage {
         })
     }
 
+    /// Create a new storage instance directly from a pool
+    /// This avoids creating redundant SqliteStorage instances when a pool is already available
+    pub fn from_pool(pool: Pool<Sqlite>) -> Self {
+        Self { pool }
+    }
+
     /// Insert a new preview server entry
     pub async fn insert(&self, entry: &PreviewServerEntry) -> Result<()> {
         let status_str = self.status_to_string(&entry.status);
@@ -237,11 +243,9 @@ impl PreviewServerStorage {
 
     /// Update last_seen timestamp for a server
     pub async fn update_last_seen(&self, id: &str) -> Result<()> {
-        let now = Utc::now();
         sqlx::query(
-            "UPDATE preview_servers SET last_seen = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
+            "UPDATE preview_servers SET last_seen = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
         )
-        .bind(now)
         .bind(id)
         .execute(&self.pool)
         .await

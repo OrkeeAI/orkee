@@ -141,6 +141,31 @@ impl ServerRegistry {
         })
     }
 
+    /// Create a new server registry instance directly from a PreviewServerStorage.
+    ///
+    /// This method avoids creating redundant SqliteStorage instances when
+    /// storage is already initialized.
+    ///
+    /// # Arguments
+    ///
+    /// * `storage` - The PreviewServerStorage instance to use
+    ///
+    /// # Returns
+    ///
+    /// Returns a new `ServerRegistry` instance using the provided storage.
+    pub fn from_storage(storage: PreviewServerStorage) -> Self {
+        // Parse stale timeout with validation (max 240 minutes = 4 hours)
+        let stale_timeout_minutes =
+            parse_env_or_default_with_validation("ORKEE_STALE_TIMEOUT_MINUTES", 5i64, |v| {
+                (1..=240).contains(&v)
+            });
+
+        Self {
+            storage,
+            stale_timeout_minutes,
+        }
+    }
+
     /// Register a new server in the global registry.
     ///
     /// # Arguments

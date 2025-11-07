@@ -101,41 +101,9 @@ pub async fn create_router_with_options(
         }
     };
 
-    // Create a SqliteStorage from the existing db_state pool
-    let storage_config = orkee_storage::StorageConfig {
-        provider: orkee_storage::StorageProvider::Sqlite {
-            path: db_path_for_error.unwrap_or_else(|| {
-                dirs::home_dir()
-                    .map(|h| h.join(".orkee").join("orkee.db"))
-                    .expect("Failed to get home directory for default database path")
-            }),
-        },
-        max_connections: 10,
-        busy_timeout_seconds: 30,
-        enable_wal: true,
-        enable_fts: true, // Enable full-text search
-    };
-    let storage = match orkee_storage::sqlite::SqliteStorage::new(storage_config).await {
-        Ok(s) => s,
-        Err(e) => {
-            error!("Failed to create storage for preview manager: {}", e);
-            error!("Running in DEGRADED MODE: Preview server functionality is unavailable");
-            error!("Available endpoints: /api/health, /api/status, /api/projects/*");
-            error!("Unavailable endpoints: /api/preview/*, /api/directories/*");
-            // Return minimal router without preview functionality.
-            // This degraded mode ensures the application continues to function even if
-            // preview server storage initialization fails (e.g., due to database corruption,
-            // permission issues, or migration failures).
-            let router = Router::new()
-                .route("/api/health", get(health::health_check))
-                .route("/api/status", get(health::status_check))
-                .nest("/api/projects", orkee_api::create_projects_router());
-            return (router, db_state);
-        }
-    };
-
     // Create the preview manager with crash recovery
-    let preview_manager = match orkee_preview::init(&storage).await {
+    // Reuse the existing db_state.pool instead of creating a new SqliteStorage instance
+    let preview_manager = match orkee_preview::init_from_pool(db_state.pool.clone()).await {
         Ok(manager) => Arc::new(manager),
         Err(e) => {
             error!("Failed to initialize preview manager: {}", e);
@@ -146,23 +114,10 @@ pub async fn create_router_with_options(
             // But lacks:
             // - Automatic discovery of external servers
             // - Crash recovery and cleanup tasks
-            let registry = match orkee_preview::registry::ServerRegistry::new(&storage).await {
-                Ok(reg) => reg,
-                Err(e2) => {
-                    error!("Failed to create fallback registry: {}", e2);
-                    error!("Running in DEGRADED MODE: Preview server functionality is unavailable");
-                    error!("Available endpoints: /api/health, /api/status, /api/projects/*");
-                    error!("Unavailable endpoints: /api/preview/*, /api/directories/*");
-                    // Return minimal router without preview functionality.
-                    // This is the most degraded state - both preview manager initialization
-                    // and fallback registry creation have failed.
-                    let router = Router::new()
-                        .route("/api/health", get(health::health_check))
-                        .route("/api/status", get(health::status_check))
-                        .nest("/api/projects", orkee_api::create_projects_router());
-                    return (router, db_state);
-                }
-            };
+
+            // Create storage and registry directly from the existing pool
+            let storage = orkee_preview::storage::PreviewServerStorage::from_pool(db_state.pool.clone());
+            let registry = orkee_preview::registry::ServerRegistry::from_storage(storage);
             Arc::new(orkee_preview::manager::PreviewManager::new(registry))
         }
     };

@@ -80,6 +80,30 @@ pub async fn init(storage: &orkee_storage::sqlite::SqliteStorage) -> PreviewResu
     Ok(PreviewManager::new_with_recovery(registry).await)
 }
 
+/// Initialize the preview manager directly from a database pool.
+///
+/// This avoids creating redundant SqliteStorage instances when a pool is already available.
+///
+/// # Arguments
+///
+/// * `pool` - SQLite connection pool to use for preview server storage
+///
+/// # Returns
+///
+/// Returns a `PreviewManager` instance with background tasks running, or an error if initialization fails.
+pub async fn init_from_pool(pool: sqlx::SqlitePool) -> PreviewResult<PreviewManager> {
+    // Create storage directly from pool
+    let storage = crate::storage::PreviewServerStorage::from_pool(pool);
+
+    // Create registry from storage
+    let registry = ServerRegistry::from_storage(storage);
+
+    // Start periodic discovery and registration of external servers
+    start_periodic_discovery(registry.clone());
+
+    Ok(PreviewManager::new_with_recovery(registry).await)
+}
+
 /// Version information for the preview crate.
 ///
 /// This constant contains the version string from Cargo.toml at compile time.
