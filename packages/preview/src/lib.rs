@@ -19,7 +19,7 @@ pub use registry::{is_process_running_validated, ServerRegistry};
 pub use types::{
     ApiResponse, DevServerConfig, DevServerInstance, DevServerLog, DevServerStatus, Framework,
     LogType, PackageManager, PreviewError, PreviewResult, ProjectDetectionResult, ProjectType,
-    ServerEvent, ServerLockData, ServerLogsRequest, ServerLogsResponse, ServerSource,
+    ServerEvent, ServerLogsRequest, ServerLogsResponse, ServerSource,
     ServerStatusInfo, ServerStatusResponse, ServersResponse, StartServerRequest,
     StartServerResponse,
 };

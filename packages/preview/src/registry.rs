@@ -6,7 +6,7 @@ use orkee_config::env::parse_env_or_default_with_validation;
 use orkee_storage::sqlite::SqliteStorage;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
-use tracing::{debug, error, info, warn};
+use tracing::{debug, error, info};
 
 use crate::storage::{PreviewServerEntry, PreviewServerStorage};
 use crate::types::{DevServerStatus, ServerSource};
@@ -333,114 +333,6 @@ impl ServerRegistry {
         Ok(())
     }
 
-    /// Sync registry from preview lock files.
-    ///
-    /// Scans the `.orkee/preview` directory for lock files and ensures all locked
-    /// servers are properly registered in the global registry. This helps recover
-    /// server state after crashes or restarts.
-    ///
-    /// # Arguments
-    ///
-    /// * `preview_dir` - Path to the preview locks directory (typically `.orkee/preview`)
-    ///
-    /// # Returns
-    ///
-    /// Returns the number of lock files synced, or an error if the operation fails.
-    pub async fn sync_from_preview_locks(
-        &self,
-        preview_dir: &std::path::Path,
-    ) -> Result<usize, Box<dyn std::error::Error>> {
-        if !preview_dir.exists() {
-            debug!("Preview directory does not exist: {:?}", preview_dir);
-            return Ok(0);
-        }
-
-        let mut synced_count = 0;
-        let entries = std::fs::read_dir(preview_dir)?;
-
-        for entry in entries {
-            let entry = entry?;
-            let path = entry.path();
-
-            if !path.is_file() || path.extension().and_then(|s| s.to_str()) != Some("lock") {
-                continue;
-            }
-
-            match self.sync_lock_file(&path).await {
-                Ok(true) => synced_count += 1,
-                Ok(false) => {}
-                Err(e) => warn!("Failed to sync lock file {:?}: {}", path, e),
-            }
-        }
-
-        if synced_count > 0 {
-            info!("Synced {} servers from preview lock files", synced_count);
-        }
-
-        Ok(synced_count)
-    }
-
-    /// Sync a single lock file into the registry.
-    ///
-    /// # Arguments
-    ///
-    /// * `lock_path` - Path to the lock file to sync
-    ///
-    /// # Returns
-    ///
-    /// Returns `Ok(true)` if a server was synced, `Ok(false)` if skipped, or an error.
-    async fn sync_lock_file(
-        &self,
-        lock_path: &std::path::Path,
-    ) -> Result<bool, Box<dyn std::error::Error>> {
-        use crate::types::ServerLockData;
-
-        let content = std::fs::read_to_string(lock_path)?;
-        let lock_data: ServerLockData = serde_json::from_str(&content)?;
-
-        // Generate server ID from project_id and port (legacy lock files don't have server_id)
-        let server_id = format!("{}-{}", lock_data.project_id, lock_data.port);
-
-        // Check if already registered
-        if self.get_server(&server_id).await.is_some() {
-            debug!("Server {} already registered, skipping sync", server_id);
-            return Ok(false);
-        }
-
-        // Validate process is still running (pid is not Option in ServerLockData)
-        let project_root_path = PathBuf::from(&lock_data.project_root);
-        if !is_process_running_validated(lock_data.pid, &project_root_path, lock_data.started_at) {
-            debug!(
-                "Server {} process {} not running, skipping sync",
-                server_id, lock_data.pid
-            );
-            return Ok(false);
-        }
-
-        // Register the server (convert from legacy lock file format)
-        let entry = ServerRegistryEntry {
-            id: server_id.clone(),
-            project_id: lock_data.project_id,
-            project_name: None,
-            project_root: project_root_path,
-            port: lock_data.port,
-            pid: Some(lock_data.pid),
-            status: DevServerStatus::Running,
-            preview_url: Some(lock_data.preview_url),
-            framework_name: None, // Legacy lock files don't have this
-            actual_command: None, // Legacy lock files don't have this
-            started_at: lock_data.started_at,
-            last_seen: Utc::now(),
-            api_port: 4001, // Default API port for legacy lock files
-            source: ServerSource::Orkee,
-            matched_project_id: None,
-        };
-
-        self.register_server(entry).await?;
-        info!("Synced server {} from lock file", server_id);
-
-        Ok(true)
-    }
 }
 
 /// Validate that a process is running and matches expected criteria.
@@ -524,9 +416,7 @@ mod tests {
 
         // Create storage and registry
         let config = orkee_storage::StorageConfig {
-            provider: orkee_storage::StorageProvider::Sqlite {
-                path: db_path,
-            },
+            provider: orkee_storage::StorageProvider::Sqlite { path: db_path },
             max_connections: 5,
             busy_timeout_seconds: 30,
             enable_wal: false,

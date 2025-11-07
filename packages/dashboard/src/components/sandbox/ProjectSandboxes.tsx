@@ -1,7 +1,7 @@
 // ABOUTME: Project-specific sandbox monitoring component
 // ABOUTME: Shows sandboxes filtered by project ID with real-time status
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -21,11 +21,7 @@ export function ProjectSandboxes({ projectId, projectName }: ProjectSandboxesPro
   const [sandboxes, setSandboxes] = useState<Sandbox[]>([])
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    loadSandboxes()
-  }, [projectId])
-
-  const loadSandboxes = async () => {
+  const loadSandboxes = useCallback(async () => {
     try {
       setLoading(true)
       const allSandboxes = await listSandboxes()
@@ -46,7 +42,11 @@ export function ProjectSandboxes({ projectId, projectName }: ProjectSandboxesPro
     } finally {
       setLoading(false)
     }
-  }
+  }, [projectId, toast])
+
+  useEffect(() => {
+    loadSandboxes()
+  }, [loadSandboxes])
 
   const getStatusColor = (status: string) => {
     switch (status) {
