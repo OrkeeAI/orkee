@@ -291,9 +291,10 @@ impl CostCalculator {
 mod tests {
     use super::*;
     use crate::{Provider, ProviderCapabilities, ProviderLimits, ProviderPricing};
-    use chrono::Duration;
+    
     use std::collections::HashMap;
 
+    #[allow(dead_code)]
     fn create_test_provider() -> Provider {
         Provider {
             id: "test".to_string(),
@@ -348,8 +349,8 @@ mod tests {
 
     #[test]
     fn test_estimate_cost() {
-        let mut registry = ProviderRegistry::new().unwrap();
-        let calculator = CostCalculator::new(registry);
+        let registry = ProviderRegistry::new().unwrap();
+        let _calculator = CostCalculator::new(registry);
 
         // Test estimation (simplified - would need to add test provider to registry)
         // This is a placeholder test

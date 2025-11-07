@@ -333,7 +333,7 @@ impl CommandExecutor {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    
 
     // Note: Full integration tests would require setting up test database
     // and mock provider. These are unit tests for the executor logic.

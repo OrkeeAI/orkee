@@ -781,7 +781,7 @@ mod tests {
             DockerProvider::with_client(Docker::connect_with_local_defaults().unwrap())
         });
 
-        let mut config = ContainerConfig {
+        let config = ContainerConfig {
             image: "alpine:latest".to_string(),
             name: "test-container".to_string(),
             env_vars: HashMap::from([("FOO".to_string(), "bar".to_string())]),

@@ -299,7 +299,7 @@ async fn test_list_sandboxes_with_filters() {
         .await
         .expect("Failed to list user1 sandboxes");
     assert!(user1_sandboxes.iter().all(|s| s.user_id == "user1"));
-    assert!(user1_sandboxes.len() >= 1);
+    assert!(!user1_sandboxes.is_empty());
 
     // List running sandboxes
     let running_sandboxes = manager

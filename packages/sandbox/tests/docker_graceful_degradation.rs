@@ -130,11 +130,8 @@ async fn test_system_initialization_without_docker() {
 
     // System should be operational regardless of Docker availability
     // The key assertion: we reach this point without panicking
-    assert!(
-        true,
-        "System should initialize successfully without Docker (docker_available: {})",
-        docker_available
-    );
+    // (Successfully initialized if docker_available: {})
+    let _ = docker_available; // Consume variable for logging context
 
     // Verify we can still interact with the manager
     let result = sandbox_manager.get_provider("local").await;

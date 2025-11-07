@@ -882,7 +882,7 @@ impl SandboxManager {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::providers::{ContainerStatus, PortMapping, ProviderInfo, VolumeMount};
+    use crate::providers::{ContainerStatus, ProviderInfo};
     use async_trait::async_trait;
     use std::collections::HashMap;
 
@@ -1173,7 +1173,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_concurrent_local_sandbox_limit() {
-        let (manager, pool) = setup_test_manager().await;
+        let (manager, _pool) = setup_test_manager().await;
 
         // Update settings to allow only 2 concurrent local sandboxes
         let settings_guard = manager.settings.read().await;
