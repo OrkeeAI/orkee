@@ -118,7 +118,7 @@ impl CostCalculator {
                 breakdown.gpu_cost
             );
             // Cap at reasonable bounds
-            breakdown.total_cost = breakdown.total_cost.max(0.0).min(MAX_REASONABLE_COST);
+            breakdown.total_cost = breakdown.total_cost.clamp(0.0, MAX_REASONABLE_COST);
         }
 
         Some(breakdown)
@@ -201,7 +201,7 @@ impl CostCalculator {
                 breakdown.total_cost
             );
             // Cap at reasonable bounds
-            breakdown.total_cost = breakdown.total_cost.max(0.0).min(MAX_REASONABLE_COST);
+            breakdown.total_cost = breakdown.total_cost.clamp(0.0, MAX_REASONABLE_COST);
         }
 
         Some(breakdown)
@@ -294,7 +294,7 @@ impl CostCalculator {
                 breakdown.total_cost
             );
             // Cap at reasonable bounds
-            breakdown.total_cost = breakdown.total_cost.max(0.0).min(MAX_REASONABLE_COST);
+            breakdown.total_cost = breakdown.total_cost.clamp(0.0, MAX_REASONABLE_COST);
         }
 
         Some(breakdown)
