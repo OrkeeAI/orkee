@@ -62,8 +62,7 @@ impl SandboxCommands {
                 tag,
                 dockerfile,
             } => {
-                if let Err(e) = build_command(name.clone(), tag.clone(), dockerfile.clone()).await
-                {
+                if let Err(e) = build_command(name.clone(), tag.clone(), dockerfile.clone()).await {
                     eprintln!("Error: {}", e);
                     std::process::exit(1);
                 }
@@ -217,7 +216,10 @@ pub async fn push_command(image: String) -> Result<()> {
 
     println!("✅ Successfully pushed image: {}", image);
     println!("\nYour image is now available on Docker Hub!");
-    println!("Set it as default: orkee sandbox config set-image {}", image);
+    println!(
+        "Set it as default: orkee sandbox config set-image {}",
+        image
+    );
 
     Ok(())
 }
@@ -264,15 +266,24 @@ pub async fn config_show_command() -> Result<()> {
     println!("Enabled:         {}", settings.enabled);
     println!("Provider:        {}", settings.default_provider);
     println!("Image:           {}", settings.default_image);
-    println!("Docker Username: {}", settings.docker_username.as_deref().unwrap_or("(not set)"));
-    println!("Max Concurrent:  {} local, {} cloud",
-        settings.max_concurrent_local,
-        settings.max_concurrent_cloud);
-    println!("Max Resources:   {} CPU, {} GB RAM, {} GB Disk",
+    println!(
+        "Docker Username: {}",
+        settings.docker_username.as_deref().unwrap_or("(not set)")
+    );
+    println!(
+        "Max Concurrent:  {} local, {} cloud",
+        settings.max_concurrent_local, settings.max_concurrent_cloud
+    );
+    println!(
+        "Max Resources:   {} CPU, {} GB RAM, {} GB Disk",
         settings.max_cpu_cores_per_sandbox,
         settings.max_memory_gb_per_sandbox,
-        settings.max_disk_gb_per_sandbox);
-    println!("Auto-stop idle:  {} minutes", settings.auto_stop_idle_minutes);
+        settings.max_disk_gb_per_sandbox
+    );
+    println!(
+        "Auto-stop idle:  {} minutes",
+        settings.auto_stop_idle_minutes
+    );
     println!("Max runtime:     {} hours", settings.max_runtime_hours);
 
     Ok(())
@@ -331,10 +342,8 @@ fn is_docker_logged_in() -> Result<bool> {
         if let Ok(content) = std::fs::read_to_string(config_path) {
             // Check if Docker Hub auth exists in config
             // Docker Hub can be under several keys
-            return Ok(
-                content.contains("https://index.docker.io/v1/")
-                    || content.contains("index.docker.io")
-            );
+            return Ok(content.contains("https://index.docker.io/v1/")
+                || content.contains("index.docker.io"));
         }
     }
 
@@ -368,9 +377,7 @@ fn get_docker_username() -> Result<String> {
     }
 
     // Try docker info command (may not work on all Docker versions)
-    let output = Command::new("docker")
-        .arg("info")
-        .output();
+    let output = Command::new("docker").arg("info").output();
 
     if let Ok(output) = output {
         let info_str = String::from_utf8_lossy(&output.stdout);

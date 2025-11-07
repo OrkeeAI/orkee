@@ -639,10 +639,12 @@ mod tests {
         assert_eq!(retrieved.api_secret, Some(test_api_secret.to_string()));
 
         // Verify database contains encrypted values (not plaintext)
-        let row = sqlx::query("SELECT api_key, api_secret FROM sandbox_provider_settings WHERE provider = 'beam'")
-            .fetch_one(&pool)
-            .await
-            .unwrap();
+        let row = sqlx::query(
+            "SELECT api_key, api_secret FROM sandbox_provider_settings WHERE provider = 'beam'",
+        )
+        .fetch_one(&pool)
+        .await
+        .unwrap();
 
         let encrypted_api_key: String = row.try_get("api_key").unwrap();
         let encrypted_api_secret: String = row.try_get("api_secret").unwrap();

@@ -501,7 +501,7 @@ async fn import_docker_credentials() {
     // Run docker login
     let status = Command::new("docker")
         .arg("login")
-        .stdin(Stdio::inherit())  // Allow interactive input
+        .stdin(Stdio::inherit()) // Allow interactive input
         .stdout(Stdio::inherit()) // Show docker's output
         .stderr(Stdio::inherit()) // Show docker's errors
         .status();
@@ -509,10 +509,7 @@ async fn import_docker_credentials() {
     match status {
         Ok(exit_status) if exit_status.success() => {
             println!();
-            println!(
-                "{} Docker authentication successful!",
-                "✓".green().bold()
-            );
+            println!("{} Docker authentication successful!", "✓".green().bold());
             println!("   Credentials stored by Docker in your system keychain");
             println!("   You can now build and push images to Docker Hub");
         }
@@ -533,11 +530,7 @@ async fn import_docker_credentials() {
             process::exit(1);
         }
         Err(e) => {
-            eprintln!(
-                "{} Failed to run 'docker login': {}",
-                "✗".red().bold(),
-                e
-            );
+            eprintln!("{} Failed to run 'docker login': {}", "✗".red().bold(), e);
             process::exit(1);
         }
     }

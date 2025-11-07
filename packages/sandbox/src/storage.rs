@@ -415,9 +415,8 @@ impl SandboxStorage {
         port: Option<u16>,
     ) -> Result<()> {
         let now = Utc::now();
-        let mut query = String::from(
-            "UPDATE sandboxes SET container_id = ?1, port = ?2, status = ?3",
-        );
+        let mut query =
+            String::from("UPDATE sandboxes SET container_id = ?1, port = ?2, status = ?3");
 
         // Update timestamps based on status
         match status {

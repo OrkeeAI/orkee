@@ -61,8 +61,7 @@ impl DbState {
         // Register Docker provider if available
         match orkee_sandbox::DockerProvider::new() {
             Ok(provider) => {
-                let docker_provider =
-                    Arc::new(provider) as Arc<dyn orkee_sandbox::SandboxProvider>;
+                let docker_provider = Arc::new(provider) as Arc<dyn orkee_sandbox::SandboxProvider>;
 
                 // Create a runtime handle for the async registration
                 // Since we're in a sync context, we need to spawn this
