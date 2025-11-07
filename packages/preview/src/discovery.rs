@@ -776,10 +776,18 @@ pub fn start_periodic_discovery(registry: ServerRegistry) -> Option<tokio::task:
                                     );
                                 }
                                 Err(e) => {
-                                    warn!(
-                                        "Failed to register discovered server on port {}: {}",
-                                        server.port, e
-                                    );
+                                    // Check if error is due to duplicate port (race condition)
+                                    if e.to_string().contains("UNIQUE constraint") {
+                                        debug!(
+                                            "Server on port {} already registered by another task",
+                                            server.port
+                                        );
+                                    } else {
+                                        warn!(
+                                            "Failed to register discovered server on port {}: {}",
+                                            server.port, e
+                                        );
+                                    }
                                 }
                             }
                         }
