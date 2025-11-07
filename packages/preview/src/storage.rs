@@ -76,7 +76,12 @@ impl PreviewServerStorage {
         .bind(None::<String>) // error_message is always NULL for now
         .execute(&self.pool)
         .await
-        .context("Failed to insert preview server")?;
+        .with_context(|| {
+            format!(
+                "Failed to insert preview server '{}': project_id '{}' may not exist in projects table",
+                entry.id, entry.project_id
+            )
+        })?;
 
         debug!(
             "Inserted preview server {} for project {}",
