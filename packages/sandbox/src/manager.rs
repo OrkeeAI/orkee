@@ -165,6 +165,107 @@ impl SandboxManager {
             )));
         }
 
+        // Check concurrent sandbox limits
+        let active_sandboxes = self
+            .storage
+            .list_sandboxes(None, None, Some(SandboxStatus::Running))
+            .await?;
+
+        // Determine if this is a local or cloud provider
+        let is_local_provider = request.provider == "local"
+            || provider_settings
+                .custom_config
+                .as_ref()
+                .and_then(|c| c.get("provider_type"))
+                .and_then(|t| t.as_str())
+                == Some("docker");
+
+        if is_local_provider {
+            let local_count = active_sandboxes
+                .iter()
+                .filter(|s| {
+                    s.provider == "local"
+                        || s.provider
+                            .to_lowercase()
+                            .contains("docker")
+                })
+                .count() as i64;
+
+            if local_count >= sandbox_settings.max_concurrent_local {
+                return Err(ManagerError::ResourceLimitExceeded(format!(
+                    "Maximum concurrent local sandboxes ({}) reached. {} currently running.",
+                    sandbox_settings.max_concurrent_local, local_count
+                )));
+            }
+        } else {
+            let cloud_count = active_sandboxes
+                .iter()
+                .filter(|s| {
+                    s.provider != "local"
+                        && !s.provider.to_lowercase().contains("docker")
+                })
+                .count() as i64;
+
+            if cloud_count >= sandbox_settings.max_concurrent_cloud {
+                return Err(ManagerError::ResourceLimitExceeded(format!(
+                    "Maximum concurrent cloud sandboxes ({}) reached. {} currently running.",
+                    sandbox_settings.max_concurrent_cloud, cloud_count
+                )));
+            }
+        }
+
+        // Check provider-specific sandbox limit
+        if let Some(max_sandboxes) = provider_settings.max_sandboxes {
+            let provider_count = active_sandboxes
+                .iter()
+                .filter(|s| s.provider == request.provider)
+                .count() as i64;
+
+            if provider_count >= max_sandboxes {
+                return Err(ManagerError::ResourceLimitExceeded(format!(
+                    "Maximum sandboxes for provider {} ({}) reached. {} currently running.",
+                    request.provider, max_sandboxes, provider_count
+                )));
+            }
+        }
+
+        // Check cost limits if cost tracking is enabled
+        if sandbox_settings.cost_tracking_enabled {
+            // Calculate estimated cost for this sandbox (placeholder - actual implementation needed)
+            let estimated_cost = self.estimate_sandbox_cost(
+                &request.provider,
+                cpu_cores,
+                memory_mb,
+                storage_gb,
+                request.gpu_enabled,
+                &provider_settings,
+            );
+
+            // Check per-sandbox cost limit
+            if estimated_cost > sandbox_settings.max_cost_per_sandbox {
+                return Err(ManagerError::ResourceLimitExceeded(format!(
+                    "Estimated cost ${:.2} exceeds per-sandbox limit of ${:.2}",
+                    estimated_cost, sandbox_settings.max_cost_per_sandbox
+                )));
+            }
+
+            // Check total cost limit
+            let total_current_cost: f64 = active_sandboxes
+                .iter()
+                .filter_map(|s| s.cost_estimate)
+                .sum();
+
+            if total_current_cost + estimated_cost > sandbox_settings.max_total_cost {
+                return Err(ManagerError::ResourceLimitExceeded(format!(
+                    "Total cost ${:.2} would exceed limit of ${:.2} (current: ${:.2}, estimated: ${:.2})",
+                    total_current_cost + estimated_cost,
+                    sandbox_settings.max_total_cost,
+                    total_current_cost,
+                    estimated_cost
+                )));
+            }
+        }
+
         drop(settings_guard);
 
         // Create sandbox record
@@ -486,6 +587,44 @@ impl SandboxManager {
     pub async fn list_executions(&self, sandbox_id: &str) -> Result<Vec<SandboxExecution>> {
         Ok(self.storage.list_executions(sandbox_id).await?)
     }
+
+    /// Estimate the cost of running a sandbox
+    /// Returns the estimated cost in USD per hour
+    fn estimate_sandbox_cost(
+        &self,
+        _provider: &str,
+        cpu_cores: f32,
+        memory_mb: u32,
+        _storage_gb: u32,
+        gpu_enabled: bool,
+        provider_settings: &crate::settings::ProviderSettings,
+    ) -> f64 {
+        // Use provider-specific pricing if available, otherwise use defaults
+        let per_hour = provider_settings.cost_per_hour.unwrap_or(0.0);
+        let per_gb_memory = provider_settings.cost_per_gb_memory.unwrap_or(0.0);
+        let per_vcpu = provider_settings.cost_per_vcpu.unwrap_or(0.0);
+        let per_gpu_hour = provider_settings.cost_per_gpu_hour.unwrap_or(0.0);
+
+        // Calculate base cost
+        let mut total_cost = per_hour;
+
+        // Add CPU cost
+        total_cost += cpu_cores as f64 * per_vcpu;
+
+        // Add memory cost (convert MB to GB)
+        total_cost += (memory_mb as f64 / 1024.0) * per_gb_memory;
+
+        // Add GPU cost if enabled
+        if gpu_enabled {
+            total_cost += per_gpu_hour;
+        }
+
+        // Storage cost is typically per month, not per hour
+        // For hourly estimate, we only include compute costs
+        // Storage costs would be tracked separately
+
+        total_cost
+    }
 }
 
 #[cfg(test)]
@@ -640,6 +779,381 @@ mod tests {
         async fn image_exists(&self, _image: &str) -> std::result::Result<bool, ProviderError> {
             Ok(true)
         }
+    }
+
+    async fn create_test_db() -> sqlx::SqlitePool {
+        let pool = sqlx::SqlitePool::connect("sqlite::memory:")
+            .await
+            .unwrap();
+
+        // Run storage migrations
+        sqlx::migrate!("../storage/migrations")
+            .run(&pool)
+            .await
+            .unwrap();
+
+        pool
+    }
+
+    async fn setup_test_manager() -> (SandboxManager, sqlx::SqlitePool) {
+        let pool = create_test_db().await;
+        let storage = Arc::new(SandboxStorage::new(pool.clone()));
+        let settings_manager = SettingsManager::new(pool.clone()).unwrap();
+
+        // Enable beam provider in settings
+        let mut beam_settings = settings_manager.get_provider_settings("beam").await.unwrap();
+        beam_settings.enabled = true;
+        beam_settings.configured = true;
+        settings_manager.update_provider_settings(&beam_settings, Some("test")).await.unwrap();
+
+        let settings = Arc::new(RwLock::new(settings_manager));
+
+        let manager = SandboxManager::new(storage, settings);
+        manager
+            .register_provider("local".to_string(), Arc::new(MockProvider))
+            .await;
+        manager
+            .register_provider("beam".to_string(), Arc::new(MockProvider))
+            .await;
+
+        (manager, pool)
+    }
+
+    #[tokio::test]
+    async fn test_resource_limit_cpu_exceeds_max() {
+        let (manager, _pool) = setup_test_manager().await;
+
+        let request = CreateSandboxRequest {
+            name: "test-sandbox".to_string(),
+            provider: "local".to_string(),
+            agent_id: "agent-1".to_string(),
+            user_id: "user-1".to_string(),
+            project_id: None,
+            image: None,
+            cpu_cores: Some(999.0), // Way over limit
+            memory_mb: Some(1024),
+            storage_gb: Some(10),
+            gpu_enabled: false,
+            gpu_model: None,
+            env_vars: HashMap::new(),
+            volumes: vec![],
+            ports: vec![],
+            ssh_enabled: false,
+            config: None,
+            metadata: None,
+        };
+
+        let result = manager.create_sandbox(request).await;
+        assert!(result.is_err());
+        assert!(matches!(
+            result.unwrap_err(),
+            ManagerError::ResourceLimitExceeded(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_resource_limit_memory_exceeds_max() {
+        let (manager, _pool) = setup_test_manager().await;
+
+        let request = CreateSandboxRequest {
+            name: "test-sandbox".to_string(),
+            provider: "local".to_string(),
+            agent_id: "agent-1".to_string(),
+            user_id: "user-1".to_string(),
+            project_id: None,
+            image: None,
+            cpu_cores: Some(2.0),
+            memory_mb: Some(999_000), // Way over limit (999 GB)
+            storage_gb: Some(10),
+            gpu_enabled: false,
+            gpu_model: None,
+            env_vars: HashMap::new(),
+            volumes: vec![],
+            ports: vec![],
+            ssh_enabled: false,
+            config: None,
+            metadata: None,
+        };
+
+        let result = manager.create_sandbox(request).await;
+        assert!(result.is_err());
+        assert!(matches!(
+            result.unwrap_err(),
+            ManagerError::ResourceLimitExceeded(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_resource_limit_storage_exceeds_max() {
+        let (manager, _pool) = setup_test_manager().await;
+
+        let request = CreateSandboxRequest {
+            name: "test-sandbox".to_string(),
+            provider: "local".to_string(),
+            agent_id: "agent-1".to_string(),
+            user_id: "user-1".to_string(),
+            project_id: None,
+            image: None,
+            cpu_cores: Some(2.0),
+            memory_mb: Some(1024),
+            storage_gb: Some(9999), // Way over limit
+            gpu_enabled: false,
+            gpu_model: None,
+            env_vars: HashMap::new(),
+            volumes: vec![],
+            ports: vec![],
+            ssh_enabled: false,
+            config: None,
+            metadata: None,
+        };
+
+        let result = manager.create_sandbox(request).await;
+        assert!(result.is_err());
+        assert!(matches!(
+            result.unwrap_err(),
+            ManagerError::ResourceLimitExceeded(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_concurrent_local_sandbox_limit() {
+        let (manager, pool) = setup_test_manager().await;
+
+        // Update settings to allow only 2 concurrent local sandboxes
+        let settings_guard = manager.settings.read().await;
+        let mut sandbox_settings = settings_guard.get_sandbox_settings().await.unwrap();
+        sandbox_settings.max_concurrent_local = 2;
+        settings_guard
+            .update_sandbox_settings(&sandbox_settings, Some("test"))
+            .await
+            .unwrap();
+        drop(settings_guard);
+
+        // Create first sandbox
+        let request1 = CreateSandboxRequest {
+            name: "sandbox-1".to_string(),
+            provider: "local".to_string(),
+            agent_id: "agent-1".to_string(),
+            user_id: "user-1".to_string(),
+            project_id: None,
+            image: None,
+            cpu_cores: Some(1.0),
+            memory_mb: Some(512),
+            storage_gb: Some(10),
+            gpu_enabled: false,
+            gpu_model: None,
+            env_vars: HashMap::new(),
+            volumes: vec![],
+            ports: vec![],
+            ssh_enabled: false,
+            config: None,
+            metadata: None,
+        };
+
+        let sandbox1 = manager.create_sandbox(request1).await.unwrap();
+        assert_eq!(sandbox1.status, SandboxStatus::Running);
+
+        // Create second sandbox
+        let request2 = CreateSandboxRequest {
+            name: "sandbox-2".to_string(),
+            provider: "local".to_string(),
+            agent_id: "agent-2".to_string(),
+            user_id: "user-1".to_string(),
+            project_id: None,
+            image: None,
+            cpu_cores: Some(1.0),
+            memory_mb: Some(512),
+            storage_gb: Some(10),
+            gpu_enabled: false,
+            gpu_model: None,
+            env_vars: HashMap::new(),
+            volumes: vec![],
+            ports: vec![],
+            ssh_enabled: false,
+            config: None,
+            metadata: None,
+        };
+
+        let sandbox2 = manager.create_sandbox(request2).await.unwrap();
+        assert_eq!(sandbox2.status, SandboxStatus::Running);
+
+        // Try to create third sandbox - should fail due to concurrent limit
+        let request3 = CreateSandboxRequest {
+            name: "sandbox-3".to_string(),
+            provider: "local".to_string(),
+            agent_id: "agent-3".to_string(),
+            user_id: "user-1".to_string(),
+            project_id: None,
+            image: None,
+            cpu_cores: Some(1.0),
+            memory_mb: Some(512),
+            storage_gb: Some(10),
+            gpu_enabled: false,
+            gpu_model: None,
+            env_vars: HashMap::new(),
+            volumes: vec![],
+            ports: vec![],
+            ssh_enabled: false,
+            config: None,
+            metadata: None,
+        };
+
+        let result = manager.create_sandbox(request3).await;
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert!(matches!(err, ManagerError::ResourceLimitExceeded(_)));
+        assert!(err.to_string().contains("Maximum concurrent local sandboxes"));
+    }
+
+    #[tokio::test]
+    async fn test_concurrent_cloud_sandbox_limit() {
+        let (manager, _pool) = setup_test_manager().await;
+
+        // Update settings to allow only 1 concurrent cloud sandbox
+        let settings_guard = manager.settings.read().await;
+        let mut sandbox_settings = settings_guard.get_sandbox_settings().await.unwrap();
+        sandbox_settings.max_concurrent_cloud = 1;
+        settings_guard
+            .update_sandbox_settings(&sandbox_settings, Some("test"))
+            .await
+            .unwrap();
+        drop(settings_guard);
+
+        // Create first cloud sandbox
+        let request1 = CreateSandboxRequest {
+            name: "cloud-sandbox-1".to_string(),
+            provider: "beam".to_string(),
+            agent_id: "agent-1".to_string(),
+            user_id: "user-1".to_string(),
+            project_id: None,
+            image: None,
+            cpu_cores: Some(2.0),
+            memory_mb: Some(1024),
+            storage_gb: Some(20),
+            gpu_enabled: true,
+            gpu_model: Some("T4".to_string()),
+            env_vars: HashMap::new(),
+            volumes: vec![],
+            ports: vec![],
+            ssh_enabled: false,
+            config: None,
+            metadata: None,
+        };
+
+        let sandbox1 = manager.create_sandbox(request1).await.unwrap();
+        assert_eq!(sandbox1.status, SandboxStatus::Running);
+
+        // Try to create second cloud sandbox - should fail
+        let request2 = CreateSandboxRequest {
+            name: "cloud-sandbox-2".to_string(),
+            provider: "beam".to_string(),
+            agent_id: "agent-2".to_string(),
+            user_id: "user-1".to_string(),
+            project_id: None,
+            image: None,
+            cpu_cores: Some(2.0),
+            memory_mb: Some(1024),
+            storage_gb: Some(20),
+            gpu_enabled: true,
+            gpu_model: Some("T4".to_string()),
+            env_vars: HashMap::new(),
+            volumes: vec![],
+            ports: vec![],
+            ssh_enabled: false,
+            config: None,
+            metadata: None,
+        };
+
+        let result = manager.create_sandbox(request2).await;
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert!(matches!(err, ManagerError::ResourceLimitExceeded(_)));
+        assert!(err.to_string().contains("Maximum concurrent cloud sandboxes"));
+    }
+
+    #[tokio::test]
+    async fn test_cost_tracking_per_sandbox_limit() {
+        let (manager, _pool) = setup_test_manager().await;
+
+        // Enable cost tracking and set low per-sandbox limit
+        let settings_guard = manager.settings.read().await;
+        let mut sandbox_settings = settings_guard.get_sandbox_settings().await.unwrap();
+        sandbox_settings.cost_tracking_enabled = true;
+        sandbox_settings.max_cost_per_sandbox = 0.01; // Very low limit
+        settings_guard
+            .update_sandbox_settings(&sandbox_settings, Some("test"))
+            .await
+            .unwrap();
+
+        // Set provider pricing to trigger cost limit
+        let mut provider_settings = settings_guard.get_provider_settings("beam").await.unwrap();
+        provider_settings.cost_per_hour = Some(1.0); // $1/hour
+        settings_guard
+            .update_provider_settings(&provider_settings, Some("test"))
+            .await
+            .unwrap();
+        drop(settings_guard);
+
+        // Try to create expensive sandbox
+        let request = CreateSandboxRequest {
+            name: "expensive-sandbox".to_string(),
+            provider: "beam".to_string(),
+            agent_id: "agent-1".to_string(),
+            user_id: "user-1".to_string(),
+            project_id: None,
+            image: None,
+            cpu_cores: Some(8.0),
+            memory_mb: Some(16384),
+            storage_gb: Some(100),
+            gpu_enabled: true,
+            gpu_model: Some("A100".to_string()),
+            env_vars: HashMap::new(),
+            volumes: vec![],
+            ports: vec![],
+            ssh_enabled: false,
+            config: None,
+            metadata: None,
+        };
+
+        let result = manager.create_sandbox(request).await;
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert!(matches!(err, ManagerError::ResourceLimitExceeded(_)));
+        assert!(err.to_string().contains("Estimated cost"));
+        assert!(err.to_string().contains("exceeds per-sandbox limit"));
+    }
+
+    #[tokio::test]
+    async fn test_resource_limits_within_bounds_succeeds() {
+        let (manager, _pool) = setup_test_manager().await;
+
+        let request = CreateSandboxRequest {
+            name: "valid-sandbox".to_string(),
+            provider: "local".to_string(),
+            agent_id: "agent-1".to_string(),
+            user_id: "user-1".to_string(),
+            project_id: None,
+            image: None,
+            cpu_cores: Some(2.0),
+            memory_mb: Some(2048),
+            storage_gb: Some(20),
+            gpu_enabled: false,
+            gpu_model: None,
+            env_vars: HashMap::new(),
+            volumes: vec![],
+            ports: vec![],
+            ssh_enabled: false,
+            config: None,
+            metadata: None,
+        };
+
+        let result = manager.create_sandbox(request).await;
+        assert!(result.is_ok());
+        let sandbox = result.unwrap();
+        assert_eq!(sandbox.status, SandboxStatus::Running);
+        assert_eq!(sandbox.cpu_cores, 2.0);
+        assert_eq!(sandbox.memory_mb, 2048);
+        assert_eq!(sandbox.storage_gb, 20);
     }
 
     // Note: Full integration tests would require setting up test database
