@@ -154,11 +154,23 @@ impl PreviewManager {
     /// # Examples
     ///
     /// ```no_run
-    /// use orkee_preview::manager::PreviewManager;
+    /// use orkee_preview::{PreviewManager, ServerRegistry};
+    /// use orkee_storage::{sqlite::SqliteStorage, StorageConfig, StorageProvider};
     ///
     /// #[tokio::main]
     /// async fn main() {
-    ///     let manager = PreviewManager::new_with_recovery().await;
+    ///     let config = StorageConfig {
+    ///         provider: StorageProvider::Sqlite {
+    ///             path: std::path::PathBuf::from(":memory:"),
+    ///         },
+    ///         max_connections: 5,
+    ///         busy_timeout_seconds: 30,
+    ///         enable_wal: false,
+    ///         enable_fts: true,
+    ///     };
+    ///     let storage = SqliteStorage::new(config).await.expect("Failed to initialize storage");
+    ///     let registry = ServerRegistry::new(&storage).await.expect("Failed to create registry");
+    ///     let manager = PreviewManager::new_with_recovery(registry).await;
     ///     let servers = manager.list_servers().await;
     ///     println!("Recovered {} servers", servers.len());
     /// }
@@ -241,12 +253,24 @@ impl PreviewManager {
     /// # Examples
     ///
     /// ```no_run
-    /// use orkee_preview::manager::PreviewManager;
+    /// use orkee_preview::{PreviewManager, ServerRegistry};
+    /// use orkee_storage::{sqlite::SqliteStorage, StorageConfig, StorageProvider};
     /// use chrono::Utc;
     ///
     /// #[tokio::main]
     /// async fn main() {
-    ///     let manager = PreviewManager::new_with_recovery().await;
+    ///     let config = StorageConfig {
+    ///         provider: StorageProvider::Sqlite {
+    ///             path: std::path::PathBuf::from(":memory:"),
+    ///         },
+    ///         max_connections: 5,
+    ///         busy_timeout_seconds: 30,
+    ///         enable_wal: false,
+    ///         enable_fts: true,
+    ///     };
+    ///     let storage = SqliteStorage::new(config).await.expect("Failed to initialize storage");
+    ///     let registry = ServerRegistry::new(&storage).await.expect("Failed to create registry");
+    ///     let manager = PreviewManager::new_with_recovery(registry).await;
     ///
     ///     // Get last 50 logs from the last 5 minutes
     ///     let five_mins_ago = Utc::now() - chrono::Duration::minutes(5);
@@ -477,12 +501,24 @@ impl PreviewManager {
     /// # Examples
     ///
     /// ```no_run
-    /// use orkee_preview::manager::PreviewManager;
+    /// use orkee_preview::{PreviewManager, ServerRegistry};
+    /// use orkee_storage::{sqlite::SqliteStorage, StorageConfig, StorageProvider};
     /// use std::path::PathBuf;
     ///
     /// #[tokio::main]
     /// async fn main() {
-    ///     let manager = PreviewManager::new_with_recovery().await;
+    ///     let config = StorageConfig {
+    ///         provider: StorageProvider::Sqlite {
+    ///             path: std::path::PathBuf::from(":memory:"),
+    ///         },
+    ///         max_connections: 5,
+    ///         busy_timeout_seconds: 30,
+    ///         enable_wal: false,
+    ///         enable_fts: true,
+    ///     };
+    ///     let storage = SqliteStorage::new(config).await.expect("Failed to initialize storage");
+    ///     let registry = ServerRegistry::new(&storage).await.expect("Failed to create registry");
+    ///     let manager = PreviewManager::new_with_recovery(registry).await;
     ///     let project_root = PathBuf::from("/path/to/my-app");
     ///
     ///     match manager.start_server("my-app".to_string(), project_root).await {
@@ -674,11 +710,23 @@ impl PreviewManager {
     /// # Examples
     ///
     /// ```no_run
-    /// use orkee_preview::manager::PreviewManager;
+    /// use orkee_preview::{PreviewManager, ServerRegistry};
+    /// use orkee_storage::{sqlite::SqliteStorage, StorageConfig, StorageProvider};
     ///
     /// #[tokio::main]
     /// async fn main() {
-    ///     let manager = PreviewManager::new_with_recovery().await;
+    ///     let config = StorageConfig {
+    ///         provider: StorageProvider::Sqlite {
+    ///             path: std::path::PathBuf::from(":memory:"),
+    ///         },
+    ///         max_connections: 5,
+    ///         busy_timeout_seconds: 30,
+    ///         enable_wal: false,
+    ///         enable_fts: true,
+    ///     };
+    ///     let storage = SqliteStorage::new(config).await.expect("Failed to initialize storage");
+    ///     let registry = ServerRegistry::new(&storage).await.expect("Failed to create registry");
+    ///     let manager = PreviewManager::new_with_recovery(registry).await;
     ///
     ///     if let Err(e) = manager.stop_server("my-app").await {
     ///         eprintln!("Error stopping server: {}", e);
@@ -922,11 +970,23 @@ impl PreviewManager {
     /// # Examples
     ///
     /// ```no_run
-    /// use orkee_preview::manager::PreviewManager;
+    /// use orkee_preview::{PreviewManager, ServerRegistry};
+    /// use orkee_storage::{sqlite::SqliteStorage, StorageConfig, StorageProvider};
     ///
     /// #[tokio::main]
     /// async fn main() {
-    ///     let manager = PreviewManager::new_with_recovery().await;
+    ///     let config = StorageConfig {
+    ///         provider: StorageProvider::Sqlite {
+    ///             path: std::path::PathBuf::from(":memory:"),
+    ///         },
+    ///         max_connections: 5,
+    ///         busy_timeout_seconds: 30,
+    ///         enable_wal: false,
+    ///         enable_fts: true,
+    ///     };
+    ///     let storage = SqliteStorage::new(config).await.expect("Failed to initialize storage");
+    ///     let registry = ServerRegistry::new(&storage).await.expect("Failed to create registry");
+    ///     let manager = PreviewManager::new_with_recovery(registry).await;
     ///     let servers = manager.list_servers().await;
     ///
     ///     for server in servers {

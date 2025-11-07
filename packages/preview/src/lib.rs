@@ -44,11 +44,20 @@ pub use types::{
 ///
 /// ```no_run
 /// use orkee_preview::init;
-/// use orkee_storage::sqlite::SqliteStorage;
+/// use orkee_storage::{sqlite::SqliteStorage, StorageConfig, StorageProvider};
 ///
 /// #[tokio::main]
 /// async fn main() {
-///     let storage = SqliteStorage::init(None).await.expect("Failed to initialize storage");
+///     let config = StorageConfig {
+///         provider: StorageProvider::Sqlite {
+///             path: std::path::PathBuf::from(":memory:"),
+///         },
+///         max_connections: 5,
+///         busy_timeout_seconds: 30,
+///         enable_wal: false,
+///         enable_fts: true,
+///     };
+///     let storage = SqliteStorage::new(config).await.expect("Failed to initialize storage");
 ///     let manager = init(&storage).await.expect("Failed to initialize preview manager");
 ///     // Manager is now ready to start/stop development servers
 ///     // Background tasks run automatically
