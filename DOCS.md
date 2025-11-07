@@ -26,23 +26,250 @@ Orkee uses a strict separation of concerns for AI operations following the **Cha
 
 See `CLAUDE.md` and `rework-ai.md` for technical details and migration history.
 
+## AI-Powered Sandboxes
+
+Orkee provides isolated execution environments (sandboxes) where AI agents can safely execute code, run commands, and perform tasks. The sandbox system supports multiple infrastructure providers and includes comprehensive monitoring, cost tracking, and security features.
+
+### Overview
+
+**Sandboxes enable:**
+- Safe code execution in isolated environments
+- Multi-provider infrastructure (local Docker + 7 cloud providers)
+- Real-time resource monitoring (CPU, memory, disk, network)
+- Cost tracking and budget management
+- Agent/model execution tracking with audit trail
+- File operations (upload/download)
+- Interactive terminal access via xterm.js
+
+### Supported Providers
+
+| Provider | Type | Status | Features |
+|----------|------|--------|----------|
+| **Local Docker** | Local | ✅ Fully Functional | Container management, resource limits, file operations |
+| **Beam** | Cloud | 🚧 Stub | Serverless GPU infrastructure (future) |
+| **E2B** | Cloud | 🚧 Stub | Secure code sandboxes (future) |
+| **Modal** | Cloud | 🚧 Stub | Serverless platform for data/ML (future) |
+| **Fly.io** | Cloud | 🚧 Stub | Global application platform (future) |
+| **Cloudflare Workers** | Edge | 🚧 Stub | Edge compute platform (future) |
+| **Daytona** | Cloud | 🚧 Stub | Development environment platform (future) |
+| **Northflank** | Cloud | 🚧 Stub | Microservices platform (future) |
+
+**Note:** Cloud providers are currently stub implementations. Only Local Docker provider is fully functional. See `packages/sandbox/src/providers/` for implementation details.
+
+### Database Schema
+
+Sandboxes use comprehensive database tables for state management:
+
+**Core Tables:**
+- `sandboxes` - Sandbox instances (id, provider, status, resources, timestamps)
+- `sandbox_executions` - Execution history (agent_id, model, costs, duration)
+- `sandbox_env_vars` - Environment variables per sandbox
+- `sandbox_volumes` - Volume mounts for persistent storage
+
+**Configuration Tables:**
+- `sandbox_settings` - Global settings (enabled, default provider/image, resource limits, cost thresholds)
+- `sandbox_provider_settings` - Per-provider configuration (credentials, endpoints, defaults)
+
+All settings are database-driven and manageable via Dashboard > Settings > Advanced > Configuration > Sandboxes.
+
+### Configuration
+
+#### Global Settings (via Dashboard UI)
+
+Navigate to **Settings > Advanced > Configuration > Sandboxes**:
+
+- **General:** Enable/disable sandboxes, default provider, default image
+- **Providers:** Configure 8 providers with authentication and settings
+- **Resources:** Max concurrent sandboxes, CPU/memory/disk limits
+- **Lifecycle:** Auto-stop idle time, max runtime, cleanup intervals
+- **Costs:** Cost tracking, alert thresholds, per-sandbox and total limits
+- **Security:** Network mode, public endpoints, non-root user, allowed images
+
+#### Environment Variables (Bootstrap Only)
+
+Only system-specific paths require environment variables:
+
+```bash
+# Docker socket path (only for local provider)
+ORKEE_DOCKER_SOCKET=/var/run/docker.sock  # Default on macOS/Linux
+
+# Initial bootstrap (can be overridden in database)
+ORKEE_SANDBOX_ENABLED=true  # Enable/disable on startup
+```
+
+All other configuration is managed via the Settings UI and stored in the database.
+
+### CLI Commands
+
+#### Sandbox Management
+
+```bash
+orkee sandbox list                              # List all sandboxes
+orkee sandbox create [--provider] [--cpu] [--memory]  # Create sandbox
+orkee sandbox start <id>                        # Start sandbox
+orkee sandbox stop <id>                         # Stop sandbox
+orkee sandbox restart <id>                      # Restart sandbox
+orkee sandbox delete <id>                       # Delete sandbox
+orkee sandbox exec <id> <command>               # Execute command
+orkee sandbox logs <id> [--follow]              # View logs
+orkee sandbox metrics <id>                      # Resource metrics
+```
+
+#### Image Management
+
+```bash
+orkee sandbox build <name> [--tag TAG] [--dockerfile PATH]  # Build custom image
+orkee sandbox push <image>                                   # Push to Docker Hub
+orkee sandbox images                                         # List built images
+```
+
+#### Configuration
+
+```bash
+orkee sandbox config show                       # Show current settings
+orkee sandbox config set-image <image>          # Set default image
+orkee sandbox config set-username <name>        # Set Docker Hub username
+orkee sandbox config clear-username             # Clear Docker Hub username
+```
+
+### API Endpoints
+
+**Sandbox Management:**
+```
+GET    /api/sandboxes                    - List all sandboxes
+POST   /api/sandboxes                    - Create new sandbox
+GET    /api/sandboxes/:id                - Get sandbox details
+DELETE /api/sandboxes/:id                - Delete sandbox
+POST   /api/sandboxes/:id/start          - Start sandbox
+POST   /api/sandboxes/:id/stop           - Stop sandbox
+POST   /api/sandboxes/:id/restart        - Restart sandbox
+POST   /api/sandboxes/:id/exec           - Execute command (SSE stream)
+GET    /api/sandboxes/:id/logs           - Stream logs (SSE)
+GET    /api/sandboxes/:id/metrics        - Get resource metrics
+POST   /api/sandboxes/:id/files          - Upload files
+GET    /api/sandboxes/:id/files          - Download files
+```
+
+**Settings Management:**
+```
+GET    /api/sandbox-settings              - Get global settings
+PUT    /api/sandbox-settings              - Update global settings
+GET    /api/sandbox-providers/settings    - Get all provider settings
+GET    /api/sandbox-providers/:provider/settings  - Get provider settings
+PUT    /api/sandbox-providers/:provider/settings  - Update provider settings
+POST   /api/sandbox-providers/:provider/validate  - Validate provider credentials
+```
+
+### Security Features
+
+**Credential Encryption:**
+- All provider credentials encrypted using ChaCha20-Poly1305 AEAD
+- Encryption transparent to API consumers (storage layer only)
+- Follows OAuth token encryption pattern
+
+**Resource Isolation:**
+- Containers run with resource limits (CPU, memory, disk)
+- Non-root user enforcement (configurable)
+- Network isolation modes: none, isolated, host, custom
+- Security scanning for base images (configurable)
+
+**Audit Trail:**
+- Complete execution history with agent/model attribution
+- Cost tracking per execution
+- Resource usage monitoring
+- Settings changes tracked with updated_at and updated_by
+
+### Docker Image
+
+Orkee provides a unified Docker image with multiple AI agents pre-installed:
+
+**Location:** `packages/sandbox/docker/Dockerfile`
+
+**Features:**
+- Base: Bun 1.x for lightweight package management
+- Pre-installed: Claude Code, Codex, Gemini, OpenCode, Grok CLI tools
+- Dev Tools: Git, Python 3, build-essential
+- Persistent container using `tail -f /dev/null`
+- Exposed ports: 3001, 8080
+
+**Build:**
+```bash
+cd packages/sandbox/docker
+./build.sh
+
+# Or manually
+docker build -t orkee/sandbox:latest .
+```
+
+**Default Image:** `orkee/sandbox:latest` (configured in providers.json and database defaults)
+
+### Dashboard UI
+
+**Location:** Dashboard > Sandboxes
+
+**Features:**
+- Create sandbox form with provider selection, resource configuration
+- Sandbox cards showing status, provider, resource usage, uptime, cost
+- Terminal component (xterm.js) for interactive command execution
+- File browser for upload/download operations
+- Resource monitor with real-time graphs (CPU, memory, network)
+- Cost tracking dashboard with per-sandbox and total costs
+- Agent/model selector for executions
+- Bulk operations (start all, stop all, delete all)
+
+### Cost Tracking
+
+Sandboxes track costs at multiple levels:
+
+- **Per-execution:** Token usage, model costs, provider costs
+- **Per-sandbox:** Total cost across all executions
+- **Global limits:** Max cost per sandbox, max total cost
+- **Alerts:** Cost alert threshold with notifications
+- **Auto-stop:** Automatically stop sandboxes at cost limit (configurable)
+
+Cost rates are defined in `packages/sandbox/config/providers.json` and can be overridden per-provider in database settings.
+
+### Resource Monitoring
+
+Real-time monitoring includes:
+
+- **CPU:** Usage percentage, cores allocated
+- **Memory:** Used/total, percentage
+- **Disk:** Used/total/available space
+- **Network:** Bytes sent/received
+- **Uptime:** Sandbox running time
+- **Health:** Health check status
+
+Monitoring intervals configurable via database settings (default: 30 seconds for resources, 60 seconds for health checks).
+
+### Complete Documentation
+
+For comprehensive implementation details, see [sandboxes.md](./sandboxes.md):
+- Architecture diagrams
+- Database schema details
+- Provider implementations
+- Dashboard component structure
+- Testing strategy
+- Deployment instructions
+
 ## Table of Contents
 
 1. [AI Architecture](#ai-architecture)
-2. [Launch Modes](#launch-modes)
-3. [Dashboard Distribution](#dashboard-distribution)
-4. [Bundle Optimization](#bundle-optimization)
-5. [Environment Variables](#environment-variables)
-6. [API Authentication](#api-authentication)
-7. [Cloud Sync Configuration](#cloud-sync-configuration)
-8. [Security Configuration](#security-configuration)
-9. [TLS/HTTPS Configuration](#tlshttps-configuration)
-10. [File Locations & Data Storage](#file-locations--data-storage)
-11. [CLI Commands Reference](#cli-commands-reference)
-12. [API Reference](#api-reference)
-13. [Default Ports & URLs](#default-ports--urls)
-14. [Development vs Production](#development-vs-production)
-15. [Troubleshooting](#troubleshooting)
+2. [AI-Powered Sandboxes](#ai-powered-sandboxes)
+3. [Launch Modes](#launch-modes)
+4. [Dashboard Distribution](#dashboard-distribution)
+5. [Bundle Optimization](#bundle-optimization)
+6. [Environment Variables](#environment-variables)
+7. [API Authentication](#api-authentication)
+8. [Cloud Sync Configuration](#cloud-sync-configuration)
+9. [Security Configuration](#security-configuration)
+10. [TLS/HTTPS Configuration](#tlshttps-configuration)
+11. [File Locations & Data Storage](#file-locations--data-storage)
+12. [CLI Commands Reference](#cli-commands-reference)
+13. [API Reference](#api-reference)
+14. [Default Ports & URLs](#default-ports--urls)
+15. [Development vs Production](#development-vs-production)
+16. [Troubleshooting](#troubleshooting)
 
 ## Launch Modes
 
