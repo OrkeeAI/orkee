@@ -132,7 +132,7 @@ impl ServerRegistry {
         // Parse stale timeout with validation (max 240 minutes = 4 hours)
         let stale_timeout_minutes =
             parse_env_or_default_with_validation("ORKEE_STALE_TIMEOUT_MINUTES", 5i64, |v| {
-                v >= 1 && v <= 240
+                (1..=240).contains(&v)
             });
 
         Ok(Self {
@@ -400,14 +400,10 @@ pub fn is_process_running_validated(
         let tolerance_secs: u64 = parse_env_or_default_with_validation(
             "ORKEE_PROCESS_START_TIME_TOLERANCE_SECS",
             5u64,
-            |v| v >= 1 && v <= 60,
+            |v| (1..=60).contains(&v),
         );
 
-        let time_diff = if process_start > expected_start {
-            process_start - expected_start
-        } else {
-            expected_start - process_start
-        };
+        let time_diff = process_start.abs_diff(expected_start);
 
         if time_diff > tolerance_secs {
             debug!(

@@ -1441,8 +1441,6 @@ impl PreviewManager {
 
     // === PERSISTENCE METHODS ===
 
-    /// Get lock file path for a project
-
     /// Check if a process is running by PID (simple check, no validation)
     /// Used for confirming process termination after kill signal
     fn is_process_running(&self, pid: u32) -> bool {
