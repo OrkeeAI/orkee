@@ -76,11 +76,15 @@ impl PreviewServerStorage {
         .bind(None::<String>) // error_message is always NULL for now
         .execute(&self.pool)
         .await
-        .with_context(|| {
-            format!(
-                "Failed to insert preview server '{}': project_id '{}' may not exist in projects table",
-                entry.id, entry.project_id
-            )
+        .map_err(|e| {
+            if e.to_string().contains("FOREIGN KEY constraint failed") {
+                anyhow::anyhow!(
+                    "Failed to insert preview server '{}': project '{}' does not exist",
+                    entry.id, entry.project_id
+                )
+            } else {
+                anyhow::anyhow!("Failed to insert preview server '{}': {}", entry.id, e)
+            }
         })?;
 
         debug!(
