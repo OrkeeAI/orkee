@@ -296,8 +296,39 @@ impl SandboxManager {
             metadata: request.metadata.clone(),
         };
 
-        // Save sandbox to database
-        let sandbox = self.storage.create_sandbox(sandbox).await?;
+        // Prepare environment variables and volumes for atomic creation
+        let env_vars: Vec<EnvVar> = request
+            .env_vars
+            .iter()
+            .map(|(name, value)| EnvVar {
+                id: None,
+                sandbox_id: String::new(), // Will be set by storage layer
+                name: name.clone(),
+                value: value.clone(),
+                is_secret: false,
+                created_at: Utc::now(),
+            })
+            .collect();
+
+        let volumes: Vec<Volume> = request
+            .volumes
+            .iter()
+            .map(|v| Volume {
+                id: None,
+                sandbox_id: String::new(), // Will be set by storage layer
+                host_path: v.host_path.clone(),
+                container_path: v.container_path.clone(),
+                read_only: v.readonly,
+                created_at: Utc::now(),
+            })
+            .collect();
+
+        // Save sandbox with env vars and volumes to database in a single transaction
+        // This ensures all related data is created atomically
+        let sandbox = self
+            .storage
+            .create_sandbox_with_resources(sandbox, env_vars, volumes)
+            .await?;
 
         // Get provider
         let provider = self.get_provider(&request.provider).await?;
@@ -350,32 +381,6 @@ impl SandboxManager {
                         None,
                     )
                     .await?;
-
-                // Store environment variables
-                for (name, value) in request.env_vars.iter() {
-                    let env_var = EnvVar {
-                        id: None,
-                        sandbox_id: sandbox.id.clone(),
-                        name: name.clone(),
-                        value: value.clone(),
-                        is_secret: false,
-                        created_at: Utc::now(),
-                    };
-                    self.storage.add_env_var(env_var).await?;
-                }
-
-                // Store volumes
-                for volume in request.volumes.iter() {
-                    let vol = Volume {
-                        id: None,
-                        sandbox_id: sandbox.id.clone(),
-                        host_path: volume.host_path.clone(),
-                        container_path: volume.container_path.clone(),
-                        read_only: volume.readonly,
-                        created_at: Utc::now(),
-                    };
-                    self.storage.add_volume(vol).await?;
-                }
 
                 Ok(updated_sandbox)
             }

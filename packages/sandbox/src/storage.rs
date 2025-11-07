@@ -469,6 +469,115 @@ impl SandboxStorage {
         Ok(())
     }
 
+    /// Create a sandbox with its environment variables and volumes in a single transaction
+    /// This ensures all related data is created atomically
+    pub async fn create_sandbox_with_resources(
+        &self,
+        sandbox: Sandbox,
+        env_vars: Vec<EnvVar>,
+        volumes: Vec<Volume>,
+    ) -> Result<Sandbox> {
+        let mut tx = self.pool.begin().await?;
+
+        // Create sandbox
+        let sandbox_id = if sandbox.id.is_empty() {
+            uuid::Uuid::new_v4().to_string()
+        } else {
+            sandbox.id.clone()
+        };
+
+        let config_json = sandbox
+            .config
+            .as_ref()
+            .map(serde_json::to_string)
+            .transpose()?;
+
+        let metadata_json = sandbox
+            .metadata
+            .as_ref()
+            .map(serde_json::to_string)
+            .transpose()?;
+
+        sqlx::query(
+            "INSERT INTO sandboxes (
+                id, name, provider, agent_id, status, container_id, port,
+                cpu_cores, memory_mb, storage_gb, gpu_enabled, gpu_model,
+                public_url, ssh_enabled, ssh_key,
+                created_at, started_at, stopped_at, terminated_at,
+                error_message, cost_estimate, project_id, user_id,
+                config, metadata
+            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25)",
+        )
+        .bind(&sandbox_id)
+        .bind(&sandbox.name)
+        .bind(&sandbox.provider)
+        .bind(&sandbox.agent_id)
+        .bind(sandbox.status.as_str())
+        .bind(&sandbox.container_id)
+        .bind(sandbox.port.map(|p| p as i32))
+        .bind(sandbox.cpu_cores)
+        .bind(sandbox.memory_mb as i64)
+        .bind(sandbox.storage_gb as i64)
+        .bind(sandbox.gpu_enabled)
+        .bind(&sandbox.gpu_model)
+        .bind(&sandbox.public_url)
+        .bind(sandbox.ssh_enabled)
+        .bind(&sandbox.ssh_key)
+        .bind(sandbox.created_at.to_rfc3339())
+        .bind(sandbox.started_at.map(|d| d.to_rfc3339()))
+        .bind(sandbox.stopped_at.map(|d| d.to_rfc3339()))
+        .bind(sandbox.terminated_at.map(|d| d.to_rfc3339()))
+        .bind(&sandbox.error_message)
+        .bind(sandbox.cost_estimate)
+        .bind(&sandbox.project_id)
+        .bind(&sandbox.user_id)
+        .bind(config_json.as_deref())
+        .bind(metadata_json.as_deref())
+        .execute(&mut *tx)
+        .await?;
+
+        // Create environment variables
+        for env_var in env_vars.iter() {
+            let env_id = uuid::Uuid::new_v4().to_string();
+            sqlx::query(
+                "INSERT INTO sandbox_env_vars (id, sandbox_id, name, value, is_secret, created_at)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+            )
+            .bind(&env_id)
+            .bind(&sandbox_id)
+            .bind(&env_var.name)
+            .bind(&env_var.value)
+            .bind(env_var.is_secret)
+            .bind(env_var.created_at.to_rfc3339())
+            .execute(&mut *tx)
+            .await?;
+        }
+
+        // Create volumes
+        for volume in volumes.iter() {
+            let vol_id = uuid::Uuid::new_v4().to_string();
+            sqlx::query(
+                "INSERT INTO sandbox_volumes (id, sandbox_id, host_path, container_path, read_only, created_at)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+            )
+            .bind(&vol_id)
+            .bind(&sandbox_id)
+            .bind(&volume.host_path)
+            .bind(&volume.container_path)
+            .bind(volume.read_only)
+            .bind(volume.created_at.to_rfc3339())
+            .execute(&mut *tx)
+            .await?;
+        }
+
+        tx.commit().await?;
+
+        Ok(Sandbox {
+            id: sandbox_id,
+            ..sandbox
+        })
+    }
+
     // ========================================================================
     // EXECUTION OPERATIONS
     // ========================================================================
