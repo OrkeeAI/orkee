@@ -286,6 +286,22 @@ impl PreviewServerStorage {
     }
 
     /// Migrate from JSON file if it exists
+    ///
+    /// # Migration Strategy
+    ///
+    /// This uses a **partial migration** approach rather than all-or-nothing transactions:
+    /// - Valid entries are migrated successfully
+    /// - Failed entries are logged but don't block valid migrations
+    /// - Original JSON file is preserved on any failure for recovery
+    ///
+    /// This design prioritizes data preservation over transaction atomicity because:
+    /// 1. User data loss is worse than partial migration state
+    /// 2. Failed entries often indicate data corruption or missing dependencies (FK violations)
+    /// 3. Users can investigate failures and retry with corrected data
+    /// 4. Valid server state is preserved immediately
+    ///
+    /// Alternative (all-or-nothing) would reject all migrations if one entry fails,
+    /// losing valid server state unnecessarily.
     pub async fn migrate_from_json(&self, json_path: &PathBuf) -> Result<()> {
         use crate::registry::ServerRegistryEntry as JsonEntry;
         use std::fs;
