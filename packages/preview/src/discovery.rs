@@ -678,7 +678,10 @@ async fn try_register_discovered_server(
                             "Server on port {} already registered by another task",
                             server.port
                         );
-                        Err(format!("Port {} already in use (race condition)", server.port))
+                        Err(format!(
+                            "Port {} already in use (race condition)",
+                            server.port
+                        ))
                     } else {
                         warn!(
                             "Failed to register discovered server on port {}: {}",

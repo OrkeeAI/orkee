@@ -116,7 +116,8 @@ pub async fn create_router_with_options(
             // - Crash recovery and cleanup tasks
 
             // Create storage and registry directly from the existing pool
-            let storage = orkee_preview::storage::PreviewServerStorage::from_pool(db_state.pool.clone());
+            let storage =
+                orkee_preview::storage::PreviewServerStorage::from_pool(db_state.pool.clone());
             let registry = orkee_preview::registry::ServerRegistry::from_storage(storage);
             Arc::new(orkee_preview::manager::PreviewManager::new(registry))
         }
