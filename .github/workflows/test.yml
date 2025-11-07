@@ -105,7 +105,8 @@ jobs:
       # Note: SQLx compile-time query verification happens automatically during tests
       # since tests create a real database with migrations
       # Using cargo-nextest for 60-70% faster parallel test execution
-      run: cargo nextest run --workspace --all-targets
+      # Excluding integration tests that require Docker (sandbox_lifecycle)
+      run: cargo nextest run --workspace --lib
 
   # Tauri tests - Desktop app with system dependencies
   # Longer running due to Tauri framework overhead
