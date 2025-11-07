@@ -18,30 +18,52 @@ use bollard::{
 };
 use futures::StreamExt;
 use std::collections::HashMap;
+use std::sync::Arc;
+use std::time::Duration;
+use tokio::sync::RwLock;
 use tracing::{debug, error, info, warn};
 
 pub struct DockerProvider {
     client: Docker,
     label_prefix: String,
+    /// Cache of successfully pulled images to avoid redundant pulls
+    /// Key: image name (e.g., "ubuntu:22.04"), Value: timestamp when pulled
+    image_cache: Arc<RwLock<HashMap<String, chrono::DateTime<chrono::Utc>>>>,
+    /// Timeout for image pull operations (default: 10 minutes)
+    pull_timeout: Duration,
 }
 
 impl DockerProvider {
-    /// Create a new Docker provider
+    /// Create a new Docker provider with default timeout (10 minutes)
     pub fn new() -> Result<Self> {
+        Self::with_pull_timeout(Duration::from_secs(600))
+    }
+
+    /// Create a new Docker provider with custom pull timeout
+    pub fn with_pull_timeout(timeout: Duration) -> Result<Self> {
         let client = Docker::connect_with_defaults()
             .map_err(|e| ProviderError::ConnectionError(e.to_string()))?;
 
         Ok(Self {
             client,
             label_prefix: "orkee.sandbox".to_string(),
+            image_cache: Arc::new(RwLock::new(HashMap::new())),
+            pull_timeout: timeout,
         })
     }
 
-    /// Create with a specific Docker connection
+    /// Create with a specific Docker connection and default timeout
     pub fn with_client(client: Docker) -> Self {
+        Self::with_client_and_timeout(client, Duration::from_secs(600))
+    }
+
+    /// Create with a specific Docker connection and custom timeout
+    pub fn with_client_and_timeout(client: Docker, timeout: Duration) -> Self {
         Self {
             client,
             label_prefix: "orkee.sandbox".to_string(),
+            image_cache: Arc::new(RwLock::new(HashMap::new())),
+            pull_timeout: timeout,
         }
     }
 
@@ -606,37 +628,91 @@ impl Provider for DockerProvider {
     }
 
     async fn pull_image(&self, image: &str, force: bool) -> Result<()> {
-        if !force && self.image_exists(image).await? {
-            debug!("Image {} already exists locally", image);
-            return Ok(());
+        // Check cache first (unless force is true)
+        if !force {
+            let cache = self.image_cache.read().await;
+            if cache.contains_key(image) {
+                debug!("Image {} found in cache, skipping pull", image);
+                // Still verify it actually exists in Docker
+                if self.image_exists(image).await? {
+                    return Ok(());
+                } else {
+                    // Image was deleted outside of Orkee, remove from cache
+                    drop(cache);
+                    let mut cache_write = self.image_cache.write().await;
+                    cache_write.remove(image);
+                    info!("Image {} was deleted, removing from cache", image);
+                }
+            }
         }
 
-        info!("Pulling image: {}", image);
+        info!(
+            "Pulling image: {} (timeout: {:?})",
+            image, self.pull_timeout
+        );
 
         let options = CreateImageOptions {
             from_image: image.to_string(),
             ..Default::default()
         };
 
-        let mut stream = self.client.create_image(Some(options), None, None);
+        // Create the pull stream
+        let stream = self.client.create_image(Some(options), None, None);
 
-        while let Some(result) = stream.next().await {
-            match result {
-                Ok(info) => {
-                    if let Some(status) = info.status {
-                        debug!("Pull status: {}", status);
+        // Apply timeout to the entire pull operation
+        let result = tokio::time::timeout(self.pull_timeout, async {
+            let mut stream = stream;
+            let mut last_status = String::new();
+            let mut progress_update_count = 0;
+
+            while let Some(result) = stream.next().await {
+                match result {
+                    Ok(info) => {
+                        if let Some(status) = &info.status {
+                            // Log progress periodically to avoid spam
+                            if status != &last_status {
+                                debug!("Pull status: {}", status);
+                                last_status = status.clone();
+                            }
+                            progress_update_count += 1;
+                            if progress_update_count % 10 == 0 {
+                                info!("Image pull progress: {}", status);
+                            }
+                        }
+                        if let Some(error) = info.error {
+                            return Err(ProviderError::ImageError(format!(
+                                "Failed to pull image {}: {}",
+                                image, error
+                            )));
+                        }
+                    }
+                    Err(e) => {
+                        return Err(ProviderError::ImageError(format!(
+                            "Failed to pull image {}: {}",
+                            image, e
+                        )));
                     }
                 }
-                Err(e) => {
-                    return Err(ProviderError::ImageError(format!(
-                        "Failed to pull image {}: {}",
-                        image, e
-                    )))
-                }
             }
-        }
 
-        Ok(())
+            Ok(())
+        })
+        .await;
+
+        match result {
+            Ok(Ok(())) => {
+                info!("Successfully pulled image: {}", image);
+                // Add to cache on successful pull
+                let mut cache = self.image_cache.write().await;
+                cache.insert(image.to_string(), chrono::Utc::now());
+                Ok(())
+            }
+            Ok(Err(e)) => Err(e),
+            Err(_) => Err(ProviderError::ImageError(format!(
+                "Timeout pulling image {} after {:?}. Image may be too large or network is slow. Consider using a local image or increasing the timeout.",
+                image, self.pull_timeout
+            ))),
+        }
     }
 
     async fn image_exists(&self, image: &str) -> Result<bool> {

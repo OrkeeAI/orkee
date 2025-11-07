@@ -23,7 +23,9 @@ async fn test_docker_provider_unavailable_error() {
             // Verify error message is informative
             let error_msg = e.to_string();
             assert!(
-                error_msg.contains("connection") || error_msg.contains("Docker") || error_msg.contains("socket"),
+                error_msg.contains("connection")
+                    || error_msg.contains("Docker")
+                    || error_msg.contains("socket"),
                 "Error message should be informative about Docker unavailability: {}",
                 error_msg
             );
@@ -56,7 +58,7 @@ async fn test_get_provider_when_unavailable() {
 
     let storage = Arc::new(SandboxStorage::new(pool.clone()));
     let settings = Arc::new(RwLock::new(
-        SettingsManager::new(pool.clone()).expect("Failed to create settings manager")
+        SettingsManager::new(pool.clone()).expect("Failed to create settings manager"),
     ));
 
     // Create SandboxManager without registering Docker provider
@@ -106,7 +108,7 @@ async fn test_system_initialization_without_docker() {
     // Create sandbox components (should always succeed)
     let sandbox_storage = Arc::new(SandboxStorage::new(pool.clone()));
     let sandbox_settings = Arc::new(RwLock::new(
-        SettingsManager::new(pool.clone()).expect("Failed to create settings manager")
+        SettingsManager::new(pool.clone()).expect("Failed to create settings manager"),
     ));
     let sandbox_manager = Arc::new(SandboxManager::new(sandbox_storage, sandbox_settings));
 
@@ -137,8 +139,14 @@ async fn test_system_initialization_without_docker() {
     // Verify we can still interact with the manager
     let result = sandbox_manager.get_provider("local").await;
     if docker_available {
-        assert!(result.is_ok(), "Provider should be available when Docker is running");
+        assert!(
+            result.is_ok(),
+            "Provider should be available when Docker is running"
+        );
     } else {
-        assert!(result.is_err(), "Provider should not be available when Docker is not running");
+        assert!(
+            result.is_err(),
+            "Provider should not be available when Docker is not running"
+        );
     }
 }

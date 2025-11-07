@@ -34,6 +34,17 @@ pub enum SandboxCommands {
     /// Manage sandbox configuration
     #[command(subcommand)]
     Config(SandboxConfigCommands),
+
+    /// Clean up orphaned containers
+    Cleanup {
+        /// Provider to clean up (default: local/docker)
+        #[arg(long, default_value = "local")]
+        provider: String,
+
+        /// Dry run - show what would be cleaned but don't delete
+        #[arg(long)]
+        dry_run: bool,
+    },
 }
 
 #[derive(Subcommand)]
@@ -99,6 +110,12 @@ impl SandboxCommands {
                     }
                 }
             },
+            SandboxCommands::Cleanup { provider, dry_run } => {
+                if let Err(e) = cleanup_command(provider.clone(), *dry_run).await {
+                    eprintln!("Error: {}", e);
+                    std::process::exit(1);
+                }
+            }
         }
     }
 }
@@ -396,4 +413,81 @@ fn get_docker_username() -> Result<String> {
 
     // Could not detect username
     anyhow::bail!("Could not detect Docker Hub username")
+}
+
+/// Clean up orphaned containers
+pub async fn cleanup_command(provider: String, dry_run: bool) -> Result<()> {
+    use orkee_projects::DbState;
+    use orkee_sandbox::manager::SandboxManager;
+    use orkee_sandbox::providers::DockerProvider;
+    use orkee_sandbox::settings::SettingsManager;
+    use orkee_sandbox::storage::SandboxStorage;
+    use std::sync::Arc;
+    use tokio::sync::RwLock;
+
+    println!("🧹 Cleaning up orphaned containers");
+    if dry_run {
+        println!("   (Dry run mode - no containers will be deleted)");
+    }
+    println!();
+
+    // Initialize database
+    let db = DbState::init().await?;
+
+    // Create storage
+    let storage = Arc::new(SandboxStorage::new(db.pool.clone()));
+
+    // Create settings manager
+    let settings_manager = Arc::new(RwLock::new(
+        SettingsManager::new(db.pool.clone()).context("Failed to create settings manager")?,
+    ));
+
+    // Create manager
+    let manager = SandboxManager::new(storage, settings_manager);
+
+    // Register provider (currently only Docker/local is supported)
+    let docker_provider =
+        DockerProvider::new().context("Failed to connect to Docker. Is Docker running?")?;
+    manager
+        .register_provider("local".to_string(), Arc::new(docker_provider))
+        .await;
+
+    // Run cleanup
+    let (found, removed, errors) = manager
+        .cleanup_orphaned_containers(&provider, dry_run)
+        .await
+        .context("Failed to clean up orphaned containers")?;
+
+    println!();
+    println!("📊 Cleanup Results:");
+    println!("   Orphaned containers found: {}", found);
+
+    if !dry_run {
+        println!("   Containers removed:        {}", removed);
+        if !errors.is_empty() {
+            println!("   Errors:                    {}", errors.len());
+            println!();
+            println!("⚠️  Errors encountered:");
+            for error in errors {
+                println!("   • {}", error);
+            }
+        }
+    }
+
+    if found == 0 {
+        println!();
+        println!("✅ No orphaned containers found!");
+    } else if dry_run {
+        println!();
+        println!("💡 Run without --dry-run to remove these containers:");
+        println!("   orkee sandbox cleanup --provider {}", provider);
+    } else if removed == found {
+        println!();
+        println!("✅ All orphaned containers cleaned up successfully!");
+    } else {
+        println!();
+        println!("⚠️  Some containers could not be removed. Check errors above.");
+    }
+
+    Ok(())
 }

@@ -183,12 +183,7 @@ impl SandboxManager {
         if is_local_provider {
             let local_count = active_sandboxes
                 .iter()
-                .filter(|s| {
-                    s.provider == "local"
-                        || s.provider
-                            .to_lowercase()
-                            .contains("docker")
-                })
+                .filter(|s| s.provider == "local" || s.provider.to_lowercase().contains("docker"))
                 .count() as i64;
 
             if local_count >= sandbox_settings.max_concurrent_local {
@@ -200,10 +195,7 @@ impl SandboxManager {
         } else {
             let cloud_count = active_sandboxes
                 .iter()
-                .filter(|s| {
-                    s.provider != "local"
-                        && !s.provider.to_lowercase().contains("docker")
-                })
+                .filter(|s| s.provider != "local" && !s.provider.to_lowercase().contains("docker"))
                 .count() as i64;
 
             if cloud_count >= sandbox_settings.max_concurrent_cloud {
@@ -625,6 +617,101 @@ impl SandboxManager {
 
         total_cost
     }
+
+    /// Clean up orphaned containers
+    /// Returns (containers_found, containers_removed, errors)
+    ///
+    /// Orphaned containers are those that exist in the provider (e.g., Docker)
+    /// but are not tracked in the Orkee database. This can happen if:
+    /// - The database entry was deleted but the container was not
+    /// - Orkee crashed during container creation/deletion
+    /// - Manual container manipulation outside of Orkee
+    ///
+    /// This method will:
+    /// 1. List all containers from the provider with Orkee labels
+    /// 2. Check which ones exist in the database
+    /// 3. Remove containers that are not in the database
+    pub async fn cleanup_orphaned_containers(
+        &self,
+        provider_name: &str,
+        dry_run: bool,
+    ) -> Result<(usize, usize, Vec<String>)> {
+        use tracing::{info, warn};
+
+        let provider = self.get_provider(provider_name).await?;
+
+        // List all containers from the provider (including stopped ones)
+        let provider_containers = provider
+            .list_containers(true)
+            .await
+            .map_err(|e| ManagerError::Provider(e))?;
+
+        info!(
+            "Found {} containers from provider '{}'",
+            provider_containers.len(),
+            provider_name
+        );
+
+        let mut orphaned_count = 0;
+        let mut removed_count = 0;
+        let mut errors = Vec::new();
+
+        // Check each container against the database
+        for container in provider_containers {
+            // Try to find a sandbox with this container_id in the database
+            let sandboxes = self
+                .storage
+                .list_sandboxes(None, None, None)
+                .await
+                .map_err(|e| ManagerError::Storage(e))?;
+
+            let found_in_db = sandboxes
+                .iter()
+                .any(|s| s.container_id.as_ref() == Some(&container.id));
+
+            if !found_in_db {
+                orphaned_count += 1;
+                warn!(
+                    "Found orphaned container: {} (name: {})",
+                    container.id, container.name
+                );
+
+                if !dry_run {
+                    // Attempt to remove the orphaned container
+                    match provider.remove_container(&container.id, true).await {
+                        Ok(_) => {
+                            info!("Removed orphaned container: {}", container.id);
+                            removed_count += 1;
+                        }
+                        Err(e) => {
+                            let error_msg = format!(
+                                "Failed to remove orphaned container {}: {}",
+                                container.id, e
+                            );
+                            warn!("{}", error_msg);
+                            errors.push(error_msg);
+                        }
+                    }
+                }
+            }
+        }
+
+        if dry_run {
+            info!(
+                "Dry run complete: found {} orphaned containers (none removed)",
+                orphaned_count
+            );
+        } else {
+            info!(
+                "Cleanup complete: found {} orphaned containers, removed {} (failed: {})",
+                orphaned_count,
+                removed_count,
+                errors.len()
+            );
+        }
+
+        Ok((orphaned_count, removed_count, errors))
+    }
 }
 
 #[cfg(test)]
@@ -782,9 +869,7 @@ mod tests {
     }
 
     async fn create_test_db() -> sqlx::SqlitePool {
-        let pool = sqlx::SqlitePool::connect("sqlite::memory:")
-            .await
-            .unwrap();
+        let pool = sqlx::SqlitePool::connect("sqlite::memory:").await.unwrap();
 
         // Run storage migrations
         sqlx::migrate!("../storage/migrations")
@@ -801,10 +886,16 @@ mod tests {
         let settings_manager = SettingsManager::new(pool.clone()).unwrap();
 
         // Enable beam provider in settings
-        let mut beam_settings = settings_manager.get_provider_settings("beam").await.unwrap();
+        let mut beam_settings = settings_manager
+            .get_provider_settings("beam")
+            .await
+            .unwrap();
         beam_settings.enabled = true;
         beam_settings.configured = true;
-        settings_manager.update_provider_settings(&beam_settings, Some("test")).await.unwrap();
+        settings_manager
+            .update_provider_settings(&beam_settings, Some("test"))
+            .await
+            .unwrap();
 
         let settings = Arc::new(RwLock::new(settings_manager));
 
@@ -1002,7 +1093,9 @@ mod tests {
         assert!(result.is_err());
         let err = result.unwrap_err();
         assert!(matches!(err, ManagerError::ResourceLimitExceeded(_)));
-        assert!(err.to_string().contains("Maximum concurrent local sandboxes"));
+        assert!(err
+            .to_string()
+            .contains("Maximum concurrent local sandboxes"));
     }
 
     #[tokio::test]
@@ -1068,7 +1161,9 @@ mod tests {
         assert!(result.is_err());
         let err = result.unwrap_err();
         assert!(matches!(err, ManagerError::ResourceLimitExceeded(_)));
-        assert!(err.to_string().contains("Maximum concurrent cloud sandboxes"));
+        assert!(err
+            .to_string()
+            .contains("Maximum concurrent cloud sandboxes"));
     }
 
     #[tokio::test]
