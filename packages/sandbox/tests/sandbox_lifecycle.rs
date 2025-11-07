@@ -20,6 +20,17 @@ async fn setup_test_manager() -> (Arc<SandboxManager>, sqlx::SqlitePool) {
         .await
         .expect("Failed to run migrations");
 
+    // Create additional test users for filtering tests
+    sqlx::query("INSERT INTO users (id, email, name, created_at, updated_at) VALUES ('user1', 'user1@test.com', 'Test User 1', datetime('now'), datetime('now'))")
+        .execute(&pool)
+        .await
+        .expect("Failed to create test user1");
+
+    sqlx::query("INSERT INTO users (id, email, name, created_at, updated_at) VALUES ('user2', 'user2@test.com', 'Test User 2', datetime('now'), datetime('now'))")
+        .execute(&pool)
+        .await
+        .expect("Failed to create test user2");
+
     let storage = Arc::new(SandboxStorage::new(pool.clone()));
     let settings = Arc::new(RwLock::new(
         SettingsManager::new(pool.clone()).expect("Failed to create settings manager"),
