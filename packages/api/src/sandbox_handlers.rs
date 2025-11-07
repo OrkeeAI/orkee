@@ -10,6 +10,7 @@ use serde::Deserialize;
 use std::collections::HashMap;
 use tracing::{error, info};
 
+use super::auth::CurrentUser;
 use super::response::ok_or_internal_error;
 use orkee_projects::DbState;
 use orkee_sandbox::{CreateSandboxRequest, ProviderSettings, Sandbox, SandboxSettings};
@@ -32,13 +33,12 @@ pub struct UpdateSandboxSettingsRequest {
 /// Update sandbox settings
 pub async fn update_sandbox_settings(
     State(db): State<DbState>,
+    current_user: CurrentUser,
     Json(request): Json<UpdateSandboxSettingsRequest>,
 ) -> impl IntoResponse {
-    info!("Updating sandbox settings");
+    info!("Updating sandbox settings for user: {}", current_user.id);
 
-    // For now, we don't track which user made the change
-    // In production, this should be extracted from authentication context
-    let updated_by = Some("system");
+    let updated_by = Some(current_user.id.as_str());
 
     let result = db
         .sandbox_settings
@@ -78,10 +78,14 @@ pub struct UpdateProviderSettingsRequest {
 /// Update provider settings
 pub async fn update_provider_settings(
     State(db): State<DbState>,
+    current_user: CurrentUser,
     Path(provider): Path<String>,
     Json(request): Json<UpdateProviderSettingsRequest>,
 ) -> impl IntoResponse {
-    info!("Updating provider settings for: {}", provider);
+    info!(
+        "Updating provider settings for: {} (user: {})",
+        provider, current_user.id
+    );
 
     // Validate that the provider in the path matches the request body
     if request.settings.provider != provider {
@@ -92,9 +96,7 @@ pub async fn update_provider_settings(
         return ok_or_internal_error(error, "Provider mismatch");
     }
 
-    // For now, we don't track which user made the change
-    // In production, this should be extracted from authentication context
-    let updated_by = Some("system");
+    let updated_by = Some(current_user.id.as_str());
 
     let result = db
         .sandbox_settings
@@ -204,9 +206,10 @@ pub async fn get_sandbox(State(db): State<DbState>, Path(id): Path<String>) -> i
 /// Create a new sandbox
 pub async fn create_sandbox(
     State(db): State<DbState>,
+    current_user: CurrentUser,
     Json(body): Json<CreateSandboxRequestBody>,
 ) -> impl IntoResponse {
-    info!("Creating sandbox: {}", body.name);
+    info!("Creating sandbox: {} for user: {}", body.name, current_user.id);
 
     // Get default values from settings
     let settings = match db.sandbox_settings.get_sandbox_settings().await {
@@ -227,8 +230,8 @@ pub async fn create_sandbox(
         name: body.name,
         provider: body.provider.unwrap_or(settings.default_provider),
         agent_id: body.agent_id.unwrap_or_else(|| "claude".to_string()),
-        user_id: "default-user".to_string(), // TODO: Get from auth context
-        project_id: None,                    // TODO: Get from request if available
+        user_id: current_user.id.clone(),
+        project_id: None, // TODO: Get from request if available
         image: body.image,
         cpu_cores: body.cpu_cores,
         memory_mb: body.memory_mb,
@@ -438,10 +441,14 @@ pub struct ExecuteCommandRequestBody {
 /// Execute a command in a sandbox
 pub async fn execute_command(
     State(db): State<DbState>,
+    current_user: CurrentUser,
     Path(id): Path<String>,
     Json(body): Json<ExecuteCommandRequestBody>,
 ) -> impl IntoResponse {
-    info!("Executing command in sandbox {}: {}", id, body.command);
+    info!(
+        "Executing command in sandbox {} for user {}: {}",
+        id, current_user.id, body.command
+    );
 
     // Create execution record
     let result = db
@@ -450,7 +457,7 @@ pub async fn execute_command(
             &id,
             body.command,
             Some("/workspace".to_string()),
-            Some("default-user".to_string()),
+            Some(current_user.id),
             None,
         )
         .await;
