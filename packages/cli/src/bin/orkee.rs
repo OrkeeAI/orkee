@@ -645,12 +645,42 @@ async fn kill_port(port: u16) -> Result<(), Box<dyn std::error::Error>> {
                     let pid_str = pid_line.trim();
                     // Validate PID is numeric before passing to shell command
                     if let Ok(pid) = pid_str.parse::<u32>() {
-                        // Kill the process using the port
-                        // lsof already filtered to only processes on this specific port
-                        let _ = std::process::Command::new("kill")
-                            .args(["-9", &pid.to_string()])
-                            .output();
-                        println!("🔪 Killed process {} on port {}", pid, port);
+                        // Get process name to verify it's safe to kill
+                        if let Ok(ps_output) = std::process::Command::new("ps")
+                            .args(["-p", &pid.to_string(), "-o", "comm="])
+                            .output()
+                        {
+                            let process_name = String::from_utf8_lossy(&ps_output.stdout)
+                                .trim()
+                                .to_lowercase();
+
+                            // Only kill dev-related processes to avoid killing production services
+                            let safe_to_kill = process_name.contains("node")
+                                || process_name.contains("bun")
+                                || process_name.contains("vite")
+                                || process_name.contains("orkee")
+                                || process_name.contains("cargo")
+                                || process_name.contains("npm")
+                                || process_name.contains("pnpm")
+                                || process_name.contains("yarn")
+                                || process_name.contains("deno")
+                                || process_name.contains("react")
+                                || process_name.contains("next")
+                                || process_name.contains("webpack");
+
+                            if safe_to_kill {
+                                let _ = std::process::Command::new("kill")
+                                    .args(["-9", &pid.to_string()])
+                                    .output();
+                                println!("🔪 Killed {} (PID {}) on port {}", process_name, pid, port);
+                            } else {
+                                eprintln!(
+                                    "⚠️  Refusing to kill '{}' (PID {}) on port {} - not a dev process",
+                                    process_name, pid, port
+                                );
+                                eprintln!("   Please manually stop this process or use a different port");
+                            }
+                        }
                     }
                 }
             }
@@ -674,25 +704,60 @@ async fn kill_port(port: u16) -> Result<(), Box<dyn std::error::Error>> {
                     // Extract PID (last column)
                     if let Some(pid_str) = line.split_whitespace().last() {
                         if let Ok(pid) = pid_str.parse::<u32>() {
-                            // Kill the process using the port
-                            // netstat already filtered to only processes listening on this specific port
-                            let kill_result = std::process::Command::new("taskkill")
-                                .args(["/F", "/PID", &pid.to_string()])
-                                .output();
+                            // Get process name to verify it's safe to kill
+                            if let Ok(tasklist_output) = std::process::Command::new("tasklist")
+                                .args(["/FI", &format!("PID eq {}", pid), "/FO", "CSV", "/NH"])
+                                .output()
+                            {
+                                let output_str = String::from_utf8_lossy(&tasklist_output.stdout);
+                                // CSV format: "process.exe","PID","Session Name","Session#","Mem Usage"
+                                let process_name = output_str
+                                    .split(',')
+                                    .next()
+                                    .unwrap_or("")
+                                    .trim_matches('"')
+                                    .to_lowercase();
 
-                            match kill_result {
-                                Ok(kill_output) if kill_output.status.success() => {
-                                    println!("🔪 Killed process {} on port {}", pid, port);
-                                }
-                                Ok(kill_output) => {
+                                // Only kill dev-related processes to avoid killing production services
+                                let safe_to_kill = process_name.contains("node")
+                                    || process_name.contains("bun")
+                                    || process_name.contains("vite")
+                                    || process_name.contains("orkee")
+                                    || process_name.contains("cargo")
+                                    || process_name.contains("npm")
+                                    || process_name.contains("pnpm")
+                                    || process_name.contains("yarn")
+                                    || process_name.contains("deno")
+                                    || process_name.contains("react")
+                                    || process_name.contains("next")
+                                    || process_name.contains("webpack");
+
+                                if safe_to_kill {
+                                    let kill_result = std::process::Command::new("taskkill")
+                                        .args(["/F", "/PID", &pid.to_string()])
+                                        .output();
+
+                                    match kill_result {
+                                        Ok(kill_output) if kill_output.status.success() => {
+                                            println!("🔪 Killed {} (PID {}) on port {}", process_name, pid, port);
+                                        }
+                                        Ok(kill_output) => {
+                                            eprintln!(
+                                                "Failed to kill process {}: {}",
+                                                pid,
+                                                String::from_utf8_lossy(&kill_output.stderr)
+                                            );
+                                        }
+                                        Err(e) => {
+                                            eprintln!("Failed to execute taskkill for PID {}: {}", pid, e);
+                                        }
+                                    }
+                                } else {
                                     eprintln!(
-                                        "Failed to kill process {}: {}",
-                                        pid,
-                                        String::from_utf8_lossy(&kill_output.stderr)
+                                        "⚠️  Refusing to kill '{}' (PID {}) on port {} - not a dev process",
+                                        process_name, pid, port
                                     );
-                                }
-                                Err(e) => {
-                                    eprintln!("Failed to execute taskkill for PID {}: {}", pid, e);
+                                    eprintln!("   Please manually stop this process or use a different port");
                                 }
                             }
                         }
