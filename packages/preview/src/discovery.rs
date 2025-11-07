@@ -651,7 +651,7 @@ async fn try_register_discovered_server(
                 "Server on port {} already registered, skipping",
                 server.port
             );
-            return Err(format!("Port {} already registered", server.port));
+            Err(format!("Port {} already registered", server.port))
         }
         Ok(None) => {
             // Not registered, attempt to register
