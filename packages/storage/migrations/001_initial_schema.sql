@@ -1013,6 +1013,7 @@ CREATE INDEX idx_sandboxes_provider ON sandboxes(provider);
 CREATE INDEX idx_sandboxes_status ON sandboxes(status);
 CREATE INDEX idx_sandboxes_project_id ON sandboxes(project_id);
 CREATE INDEX idx_sandboxes_user_id ON sandboxes(user_id);
+CREATE INDEX idx_sandboxes_agent_id ON sandboxes(agent_id);
 CREATE INDEX idx_sandboxes_created_at ON sandboxes(created_at);
 
 -- Composite indexes for common query patterns (user+status, project+status)
