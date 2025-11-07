@@ -20,13 +20,13 @@ async fn setup_test_manager() -> (Arc<SandboxManager>, sqlx::SqlitePool) {
         .await
         .expect("Failed to run migrations");
 
-    // Create additional test users for filtering tests
-    sqlx::query("INSERT INTO users (id, email, name, created_at, updated_at) VALUES ('user1', 'user1@test.com', 'Test User 1', datetime('now'), datetime('now'))")
+    // Create additional test users for filtering tests (IDs must be >= 8 chars)
+    sqlx::query("INSERT INTO users (id, email, name, created_at, updated_at) VALUES ('test-user-1', 'user1@test.com', 'Test User 1', datetime('now'), datetime('now'))")
         .execute(&pool)
         .await
         .expect("Failed to create test user1");
 
-    sqlx::query("INSERT INTO users (id, email, name, created_at, updated_at) VALUES ('user2', 'user2@test.com', 'Test User 2', datetime('now'), datetime('now'))")
+    sqlx::query("INSERT INTO users (id, email, name, created_at, updated_at) VALUES ('test-user-2', 'user2@test.com', 'Test User 2', datetime('now'), datetime('now'))")
         .execute(&pool)
         .await
         .expect("Failed to create test user2");
@@ -265,7 +265,7 @@ async fn test_list_sandboxes_with_filters() {
         name: "user1-sandbox".to_string(),
         provider: "local".to_string(),
         agent_id: "claude-code".to_string(),
-        user_id: "user1".to_string(),
+        user_id: "test-user-1".to_string(),
         project_id: None,
         image: Some("alpine:latest".to_string()),
         cpu_cores: Some(1.0),
@@ -283,7 +283,7 @@ async fn test_list_sandboxes_with_filters() {
 
     let user2_request = CreateSandboxRequest {
         name: "user2-sandbox".to_string(),
-        user_id: "user2".to_string(),
+        user_id: "test-user-2".to_string(),
         ..user1_request.clone()
     };
 
@@ -306,10 +306,10 @@ async fn test_list_sandboxes_with_filters() {
 
     // List sandboxes for user1
     let user1_sandboxes = manager
-        .list_sandboxes(Some("user1"), None)
+        .list_sandboxes(Some("test-user-1"), None)
         .await
         .expect("Failed to list user1 sandboxes");
-    assert!(user1_sandboxes.iter().all(|s| s.user_id == "user1"));
+    assert!(user1_sandboxes.iter().all(|s| s.user_id == "test-user-1"));
     assert!(!user1_sandboxes.is_empty());
 
     // List running sandboxes
