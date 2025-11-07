@@ -231,6 +231,27 @@ impl ServerRegistry {
         }
     }
 
+    /// Get a server by port number.
+    ///
+    /// # Arguments
+    ///
+    /// * `port` - The port number to search for
+    ///
+    /// # Returns
+    ///
+    /// Returns `Ok(Some(ServerRegistryEntry))` if a server is found on that port,
+    /// `Ok(None)` if no server is running on that port, or `Err` on database error.
+    pub async fn get_by_port(&self, port: u16) -> anyhow::Result<Option<ServerRegistryEntry>> {
+        match self.storage.get_by_port(port).await {
+            Ok(Some(entry)) => Ok(Some(entry.into())),
+            Ok(None) => Ok(None),
+            Err(e) => {
+                error!("Failed to get server by port {} from database: {}", port, e);
+                Err(e)
+            }
+        }
+    }
+
     /// Update the status of a server in the registry.
     ///
     /// # Arguments

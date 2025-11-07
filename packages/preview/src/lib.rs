@@ -73,8 +73,9 @@ pub async fn init(storage: &orkee_storage::sqlite::SqliteStorage) -> PreviewResu
                 reason: format!("Failed to initialize server registry: {}", e),
             })?;
 
-    // Start periodic discovery of external servers
-    start_periodic_discovery();
+    // Start periodic discovery and registration of external servers
+    // Clone registry for the background task
+    start_periodic_discovery(registry.clone());
 
     Ok(PreviewManager::new_with_recovery(registry).await)
 }
