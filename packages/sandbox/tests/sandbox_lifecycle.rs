@@ -63,8 +63,8 @@ async fn test_complete_sandbox_lifecycle() {
     let request = CreateSandboxRequest {
         name: "lifecycle-test".to_string(),
         provider: "local".to_string(),
-        agent_id: "test-agent".to_string(),
-        user_id: "test-user".to_string(),
+        agent_id: "claude-code".to_string(),
+        user_id: "default-user".to_string(),
         project_id: None,
         image: Some("alpine:latest".to_string()),
         cpu_cores: Some(1.0),
@@ -141,8 +141,8 @@ async fn test_sandbox_resource_limits() {
     let request = CreateSandboxRequest {
         name: "resource-test".to_string(),
         provider: "local".to_string(),
-        agent_id: "test-agent".to_string(),
-        user_id: "test-user".to_string(),
+        agent_id: "claude-code".to_string(),
+        user_id: "default-user".to_string(),
         project_id: None,
         image: Some("alpine:latest".to_string()),
         cpu_cores: Some(2.0),
@@ -192,8 +192,8 @@ async fn test_sandbox_execution_with_env_vars() {
     let request = CreateSandboxRequest {
         name: "env-test".to_string(),
         provider: "local".to_string(),
-        agent_id: "test-agent".to_string(),
-        user_id: "test-user".to_string(),
+        agent_id: "claude-code".to_string(),
+        user_id: "default-user".to_string(),
         project_id: None,
         image: Some("alpine:latest".to_string()),
         cpu_cores: Some(1.0),
@@ -253,7 +253,7 @@ async fn test_list_sandboxes_with_filters() {
     let user1_request = CreateSandboxRequest {
         name: "user1-sandbox".to_string(),
         provider: "local".to_string(),
-        agent_id: "test-agent".to_string(),
+        agent_id: "claude-code".to_string(),
         user_id: "user1".to_string(),
         project_id: None,
         image: Some("alpine:latest".to_string()),
@@ -415,8 +415,8 @@ async fn test_concurrent_sandbox_operations() {
             let request = CreateSandboxRequest {
                 name: format!("concurrent-test-{}", i),
                 provider: "local".to_string(),
-                agent_id: "test-agent".to_string(),
-                user_id: "test-user".to_string(),
+                agent_id: "claude-code".to_string(),
+                user_id: "default-user".to_string(),
                 project_id: None,
                 image: Some("alpine:latest".to_string()),
                 cpu_cores: Some(1.0),
