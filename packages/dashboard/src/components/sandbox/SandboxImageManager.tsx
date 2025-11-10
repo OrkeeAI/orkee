@@ -1,27 +1,68 @@
 // ABOUTME: Main Docker image management container component
 // ABOUTME: Provides tabbed interface for images, build, and authentication
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Package, Hammer, Key } from 'lucide-react';
 import { DockerStatusCard } from './DockerStatusCard';
+import { LocalImagesList } from './LocalImagesList';
+import { RemoteImagesList } from './RemoteImagesList';
+import { DockerBuildForm } from './DockerBuildForm';
+import { BuildProgressDisplay } from './BuildProgressDisplay';
+import { DockerAuthDialog } from './DockerAuthDialog';
+import { getDockerStatus, type DockerStatus, type BuildImageResponse } from '@/services/docker';
+import { useToast } from '@/hooks/use-toast';
 
 export function SandboxImageManager() {
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [dockerStatus, setDockerStatus] = useState<DockerStatus | null>(null);
+  const [showAuthDialog, setShowAuthDialog] = useState(false);
+  const [buildOutput, setBuildOutput] = useState<BuildImageResponse | null>(null);
+  const { toast } = useToast();
+
+  const loadDockerStatus = useCallback(async () => {
+    try {
+      const status = await getDockerStatus();
+      setDockerStatus(status);
+    } catch (error) {
+      toast({
+        title: 'Failed to load Docker status',
+        description: error instanceof Error ? error.message : 'Unknown error',
+        variant: 'destructive',
+      });
+    }
+  }, [toast]);
+
+  useEffect(() => {
+    loadDockerStatus();
+  }, [loadDockerStatus]);
 
   const handleRefresh = useCallback(() => {
     setRefreshTrigger((prev) => prev + 1);
-  }, []);
+    loadDockerStatus();
+  }, [loadDockerStatus]);
 
   const handleLoginClick = useCallback(() => {
-    // TODO: Open DockerAuthDialog when implemented
-    console.log('Login clicked');
+    setShowAuthDialog(true);
   }, []);
 
   const handleLogoutClick = useCallback(() => {
-    // TODO: Call logout endpoint when implemented
-    console.log('Logout clicked');
-  }, []);
+    // TODO: Call logout endpoint when implemented (Phase 5.2)
+    toast({
+      title: 'Logout functionality coming soon',
+      description: 'See sandbox-ui.md Phase 5.2 for implementation details',
+    });
+  }, [toast]);
+
+  const handleLoginSuccess = useCallback(() => {
+    loadDockerStatus();
+    handleRefresh();
+  }, [loadDockerStatus, handleRefresh]);
+
+  const handleBuildComplete = useCallback((response: BuildImageResponse) => {
+    setBuildOutput(response);
+    handleRefresh();
+  }, [handleRefresh]);
 
   return (
     <div className="h-full w-full">
@@ -45,31 +86,25 @@ export function SandboxImageManager() {
           <div className="grid grid-cols-2 gap-4 p-4">
             <div className="space-y-4">
               <h3 className="text-lg font-semibold">Local Images</h3>
-              {/* TODO: LocalImagesList component */}
-              <div className="text-sm text-muted-foreground">
-                LocalImagesList component will go here
-              </div>
+              <LocalImagesList refreshTrigger={refreshTrigger} />
             </div>
             <div className="space-y-4">
               <h3 className="text-lg font-semibold">Docker Hub Images</h3>
-              {/* TODO: RemoteImagesList component */}
-              <div className="text-sm text-muted-foreground">
-                RemoteImagesList component will go here
-              </div>
+              <RemoteImagesList
+                username={dockerStatus?.username}
+                isLoggedIn={dockerStatus?.logged_in}
+              />
             </div>
           </div>
         </TabsContent>
 
         <TabsContent value="build" className="flex-1 overflow-auto">
           <div className="p-4 space-y-4">
-            {/* TODO: DockerBuildForm component */}
-            <div className="text-sm text-muted-foreground">
-              DockerBuildForm component will go here
-            </div>
-            {/* TODO: BuildProgressDisplay component */}
-            <div className="text-sm text-muted-foreground">
-              BuildProgressDisplay component will go here
-            </div>
+            <DockerBuildForm
+              username={dockerStatus?.username}
+              onBuildComplete={handleBuildComplete}
+            />
+            <BuildProgressDisplay buildOutput={buildOutput} />
           </div>
         </TabsContent>
 
@@ -80,10 +115,15 @@ export function SandboxImageManager() {
               onLoginClick={handleLoginClick}
               onLogoutClick={handleLogoutClick}
             />
-            {/* TODO: DockerAuthDialog will be added here */}
           </div>
         </TabsContent>
       </Tabs>
+
+      <DockerAuthDialog
+        open={showAuthDialog}
+        onOpenChange={setShowAuthDialog}
+        onLoginSuccess={handleLoginSuccess}
+      />
     </div>
   );
 }
