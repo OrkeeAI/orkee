@@ -781,6 +781,7 @@ CREATE TABLE sandbox_settings (
     enabled BOOLEAN DEFAULT TRUE,
     default_provider TEXT DEFAULT 'local' CHECK(default_provider IN ('local', 'beam', 'cloudflare', 'daytona', 'e2b', 'flyio', 'modal', 'northflank')),
     default_image TEXT DEFAULT 'orkee/sandbox:latest',
+    docker_username TEXT, -- Docker Hub username for building and pushing images
 
     -- Resource Limits (apply to all sandboxes)
     max_concurrent_local INTEGER DEFAULT 10,
