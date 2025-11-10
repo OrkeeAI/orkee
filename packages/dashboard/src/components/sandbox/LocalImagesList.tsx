@@ -29,6 +29,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { RefreshCw, MoreVertical, Trash2, Upload, Star, Copy } from 'lucide-react';
 import { listLocalImages, deleteDockerImage, type DockerImage } from '@/services/docker';
+import { setDefaultImage } from '@/services/sandbox';
 import { useToast } from '@/hooks/use-toast';
 
 interface LocalImagesListProps {
@@ -109,12 +110,21 @@ export function LocalImagesList({ refreshTrigger }: LocalImagesListProps) {
     });
   };
 
-  const handleSetDefault = (image: DockerImage) => {
-    // TODO: Implement set as default sandbox image
-    toast({
-      title: 'Set default functionality coming soon',
-      description: `Will set ${image.repository}:${image.tag} as default`,
-    });
+  const handleSetDefault = async (image: DockerImage) => {
+    const imageTag = `${image.repository}:${image.tag}`;
+    try {
+      await setDefaultImage(imageTag);
+      toast({
+        title: 'Default image updated',
+        description: `${imageTag} is now the default for new sandboxes`,
+      });
+    } catch (error) {
+      toast({
+        title: 'Failed to set default image',
+        description: error instanceof Error ? error.message : 'Unknown error',
+        variant: 'destructive',
+      });
+    }
   };
 
   if (isLoading) {

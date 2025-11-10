@@ -152,6 +152,13 @@ export async function updateSandboxSettings(settings: Partial<SandboxSettings>):
   throw new Error(response.error || 'Failed to update sandbox settings')
 }
 
+// Set the default Docker image for new sandboxes
+export async function setDefaultImage(imageTag: string): Promise<SandboxSettings> {
+  // Fetch current settings first, then update only the default_image field
+  const currentSettings = await getSandboxSettings()
+  return updateSandboxSettings({ ...currentSettings, default_image: imageTag })
+}
+
 // Get all provider settings
 export async function getAllProviderSettings(): Promise<ProviderSettings[]> {
   const response = await apiRequest<ProviderSettings[]>('/api/sandbox/providers')

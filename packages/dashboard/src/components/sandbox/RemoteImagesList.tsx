@@ -13,6 +13,7 @@ import {
   listUserDockerHubImages,
   type DockerHubImage,
 } from '@/services/docker';
+import { setDefaultImage } from '@/services/sandbox';
 import { useToast } from '@/hooks/use-toast';
 
 interface RemoteImagesListProps {
@@ -105,12 +106,21 @@ export function RemoteImagesList({ username, isLoggedIn }: RemoteImagesListProps
     }
   }, [activeTab, loadUserImages]);
 
-  const handleUseImage = (image: DockerHubImage) => {
-    // TODO: Implement set as default sandbox image
-    toast({
-      title: 'Set default functionality coming soon',
-      description: `Will set ${image.name} as default`,
-    });
+  const handleUseImage = async (image: DockerHubImage) => {
+    const imageTag = `${image.name}:latest`;
+    try {
+      await setDefaultImage(imageTag);
+      toast({
+        title: 'Default image updated',
+        description: `${imageTag} is now the default for new sandboxes`,
+      });
+    } catch (error) {
+      toast({
+        title: 'Failed to set default image',
+        description: error instanceof Error ? error.message : 'Unknown error',
+        variant: 'destructive',
+      });
+    }
   };
 
   const formatNumber = (num: number): string => {
