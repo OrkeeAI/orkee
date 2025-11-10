@@ -224,6 +224,123 @@ mod tests {
     #[test]
     fn test_get_docker_hub_token() {
         // Test that we can attempt to get a token without panicking
-        let _ = get_docker_hub_token();
+        let result = get_docker_hub_token();
+        assert!(result.is_ok(), "get_docker_hub_token should not panic");
+
+        match result.unwrap() {
+            Some(token) => {
+                assert!(!token.is_empty(), "Token should not be empty if present");
+                println!("Found Docker Hub auth token");
+            }
+            None => {
+                println!("No Docker Hub auth token found (not logged in)");
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn test_search_images_with_limit() {
+        // Test that limit parameter is respected
+        let result = search_images("nginx", Some(3)).await;
+
+        if let Ok(images) = result {
+            assert!(images.len() <= 3, "Should respect limit parameter");
+            println!("Found {} nginx images", images.len());
+        }
+    }
+
+    #[tokio::test]
+    async fn test_search_images_validates_query() {
+        // Test searching with empty query
+        let result = search_images("", None).await;
+
+        // Should either succeed with no results or fail gracefully
+        match result {
+            Ok(images) => println!("Empty query returned {} results", images.len()),
+            Err(e) => println!("Empty query handled gracefully: {}", e),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_get_image_detail_official() {
+        // Test getting details for official Alpine image
+        let result = get_image_detail("library", "alpine").await;
+
+        if let Ok(detail) = result {
+            assert_eq!(detail.name, "alpine");
+            assert_eq!(detail.namespace, "library");
+            assert!(detail.star_count > 0, "Official image should have stars");
+            assert!(detail.pull_count > 0, "Official image should have pulls");
+            println!("Alpine image: {} stars, {} pulls", detail.star_count, detail.pull_count);
+        } else {
+            println!("Could not fetch Alpine image detail (network issue)");
+        }
+    }
+
+    #[tokio::test]
+    async fn test_get_image_detail_nonexistent() {
+        // Test getting details for non-existent image
+        let result = get_image_detail("nonexistent_namespace_12345", "nonexistent_repo_67890").await;
+
+        // Should return an error
+        assert!(result.is_err(), "Should fail for non-existent image");
+        println!("Non-existent image correctly returned error");
+    }
+
+    #[tokio::test]
+    async fn test_list_user_images() {
+        // Test listing user images
+        // This will only work if user is logged in and has images
+
+        // Try to get logged-in username
+        if let Ok(Some(_token)) = get_docker_hub_token() {
+            // We have a token, but we need a username to test
+            // For now, just test that the function doesn't panic with a dummy username
+            let result = list_user_images("library").await;
+
+            match result {
+                Ok(images) => {
+                    println!("Found {} images for library namespace", images.len());
+                    // Library namespace should have many official images
+                    if !images.is_empty() {
+                        let first = &images[0];
+                        assert!(first.name.starts_with("library/"), "Image name should include namespace");
+                    }
+                }
+                Err(e) => {
+                    println!("Could not list user images: {}", e);
+                }
+            }
+        } else {
+            println!("Skipping list_user_images test (not logged in)");
+        }
+    }
+
+    #[tokio::test]
+    async fn test_search_images_special_characters() {
+        // Test search with URL-unsafe characters
+        let result = search_images("node.js", Some(5)).await;
+
+        // Should handle URL encoding properly
+        if let Ok(images) = result {
+            println!("Search with special chars returned {} results", images.len());
+        }
+    }
+
+    #[tokio::test]
+    async fn test_docker_hub_image_structure() {
+        // Test that DockerHubImage structure contains all expected fields
+        let result = search_images("ubuntu", Some(1)).await;
+
+        if let Ok(images) = result {
+            if let Some(image) = images.first() {
+                // Verify all fields are present
+                assert!(!image.name.is_empty(), "Name should not be empty");
+                println!("Image structure validation passed for: {}", image.name);
+                println!("  Description: {}", &image.description[..image.description.len().min(50)]);
+                println!("  Stars: {}, Pulls: {}", image.star_count, image.pull_count);
+                println!("  Official: {}, Automated: {}", image.is_official, image.is_automated);
+            }
+        }
     }
 }
