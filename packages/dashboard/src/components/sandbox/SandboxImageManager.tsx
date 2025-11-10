@@ -5,6 +5,7 @@ import { useState, useCallback, useEffect } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Package, Hammer } from 'lucide-react';
 import { DockerStatusCard } from './DockerStatusCard';
+import { DefaultImageBanner } from './DefaultImageBanner';
 import { LocalImagesList } from './LocalImagesList';
 import { RemoteImagesList } from './RemoteImagesList';
 import { DockerBuildForm } from './DockerBuildForm';
@@ -90,6 +91,7 @@ export function SandboxImageManager() {
 
         <TabsContent value="images" className="flex-1 overflow-auto">
           <div className="p-4 space-y-4">
+            <DefaultImageBanner refreshTrigger={refreshTrigger} />
             <DockerStatusCard
               onRefresh={handleRefresh}
               onLoginClick={handleLoginClick}
