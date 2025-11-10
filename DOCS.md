@@ -123,6 +123,196 @@ orkee sandbox push <image>                                   # Push to Docker Hu
 orkee sandbox images                                         # List built images
 ```
 
+### Docker Image Manager UI
+
+**Location:** Dashboard > Sandboxes > Images Tab
+
+The Docker Image Manager provides a comprehensive web interface for managing Docker images used by sandboxes, mirroring all CLI functionality with enhanced visual feedback.
+
+#### Features Overview
+
+**Three Main Tabs:**
+1. **Images Tab** - View and manage local and remote Docker images
+2. **Build Tab** - Build custom Docker images from Dockerfiles
+3. **Docker Login Tab** - Authenticate with Docker Hub
+
+#### Images Tab
+
+**Local Images (Left Panel):**
+- **Display:** Table view of all local Docker images with `orkee.sandbox` label
+- **Columns:** Repository, Tag, Size, Created date
+- **Actions per image:**
+  - **Push to Docker Hub** - Upload image to your Docker Hub account (requires login)
+  - **Delete Image** - Remove image from local Docker (with confirmation)
+  - **Set as Default** - Configure as default sandbox image (updates global settings)
+  - **Copy Image Tag** - Copy full image tag to clipboard
+- **Refresh:** Manual refresh button to reload image list
+- **Empty State:** Helpful message when no images are found
+
+**Remote Images (Right Panel):**
+- **Search:** Real-time search of Docker Hub (debounced, 500ms)
+- **Filter Tabs:**
+  - **Search Results** - Public Docker Hub images matching query
+  - **My Images** - Your personal Docker Hub images (requires login)
+- **Image Cards Display:**
+  - Image name and description (truncated)
+  - Star count and pull count indicators
+  - "Official" badge for official Docker images
+  - "Use" button to set as default sandbox image
+- **Login Prompt:** Shown when not authenticated with Docker Hub
+
+#### Build Tab
+
+**Docker Build Form:**
+- **Dockerfile Path:** Text input for Dockerfile location (with file browser button)
+- **Build Context:** Directory path for build context (default: Dockerfile directory)
+- **Image Name:** Format validation (username/name)
+- **Image Tag:** Default "latest", supports alphanumeric + dots/dashes
+- **Additional Labels:** Optional key-value pairs for image metadata
+- **Validation:**
+  - Dockerfile path must exist
+  - Build context must be a valid directory
+  - Image name follows Docker naming conventions
+  - Auto-populates username from Docker login status
+
+**Build Progress Display:**
+- **Terminal-style viewer** with monospace font
+- **Real-time output** from Docker build process
+- **Status indicators:** Building, Success, Failed
+- **Features:**
+  - Auto-scroll to bottom as logs arrive
+  - Copy logs button for sharing/debugging
+  - Clear logs button to reset view
+  - Timestamp per log line
+- **Result Display:** Shows final image tag and build summary
+
+#### Docker Login Tab
+
+**Docker Status Card:**
+- **Status Indicator:** Green (logged in) / Red (not logged in)
+- **Display Information:**
+  - Username (if logged in)
+  - Email address (if available)
+  - Server address (default: Docker Hub)
+- **Action Buttons:**
+  - **Login** - Opens authentication dialog
+  - **Logout** - Signs out from Docker Hub
+  - **Refresh** - Reload Docker status
+
+**Docker Authentication Dialog:**
+- **Username Input:** Docker Hub username
+- **Password Input:** Secure password field (type="password")
+- **Login Button:** Submits credentials (shows loading state)
+- **Error Display:** User-friendly error messages for failed login
+- **Success Handling:** Auto-closes dialog and refreshes status
+- **Security:** Credentials passed via backend API (never exposed to frontend logs)
+
+#### Docker Authentication Requirements
+
+**Prerequisites for Push/Build Operations:**
+1. **Docker Hub Account:** Free account at https://hub.docker.com
+2. **Authentication:** Login via Docker Login tab before pushing images
+3. **Image Naming:** Images must follow `username/repository:tag` format for push
+
+**Login Methods:**
+- **UI:** Dashboard > Sandboxes > Images > Docker Login tab
+- **CLI:** `docker login` (credentials auto-detected by Orkee)
+- **Token:** Store Docker Hub token in `~/.docker/config.json`
+
+**Authentication Storage:**
+- Credentials stored in `~/.docker/config.json` (Docker's native storage)
+- Orkee reads authentication status from Docker config
+- No separate Orkee credential storage (relies on Docker CLI)
+
+**Authentication Verification:**
+- Status checked on page load and after login/logout
+- Push operations automatically verify login before execution
+- User-friendly error messages if not authenticated
+
+#### Custom Image Building Workflow
+
+**Step-by-Step Guide:**
+
+1. **Prepare Dockerfile:**
+   ```bash
+   # Create a Dockerfile in your project
+   cd ~/my-sandbox-image
+   cat > Dockerfile <<EOF
+   FROM orkee/sandbox:latest
+   RUN apt-get update && apt-get install -y <your-tools>
+   ENV MY_CUSTOM_VAR=value
+   EOF
+   ```
+
+2. **Navigate to Build Tab:**
+   - Open Dashboard > Sandboxes > Images > Build tab
+
+3. **Fill Build Form:**
+   - **Dockerfile Path:** `/Users/you/my-sandbox-image/Dockerfile`
+   - **Build Context:** `/Users/you/my-sandbox-image` (auto-populated)
+   - **Image Name:** `yourusername/my-sandbox` (replace with your Docker Hub username)
+   - **Image Tag:** `latest` (or version like `v1.0.0`)
+   - **Labels:** (Optional) Add `version=1.0.0` or `description=My custom sandbox`
+
+4. **Start Build:**
+   - Click "Build" button
+   - Watch real-time progress in Build Progress Display
+   - Build output shows Docker layers being created
+   - Success message displays final image tag
+
+5. **Verify Build:**
+   - Switch to Images tab
+   - Your new image appears in Local Images list
+   - Check size, creation date, and tag
+
+6. **Set as Default (Optional):**
+   - In Local Images list, click action menu (⋮)
+   - Select "Set as Default"
+   - All new sandboxes will use this image
+
+7. **Push to Docker Hub (Optional):**
+   - Ensure you're logged in (Docker Login tab)
+   - In Local Images list, click action menu (⋮)
+   - Select "Push to Docker Hub"
+   - Image uploads to your Docker Hub account
+   - Share image with team or use across machines
+
+**Best Practices:**
+- **Base Images:** Extend `orkee/sandbox:latest` for compatibility
+- **Layer Caching:** Order Dockerfile commands from least to most frequently changing
+- **Image Size:** Use `.dockerignore` to exclude unnecessary files
+- **Tagging:** Use semantic versioning (v1.0.0, v1.1.0) for production images
+- **Testing:** Test image locally before pushing to Docker Hub
+- **Labels:** Add metadata labels for better organization (`version`, `maintainer`, `description`)
+
+**Common Build Patterns:**
+
+```dockerfile
+# Python Data Science Environment
+FROM orkee/sandbox:latest
+RUN apt-get update && apt-get install -y python3-pip
+RUN pip3 install pandas numpy jupyter matplotlib
+WORKDIR /workspace
+```
+
+```dockerfile
+# Node.js Development Environment
+FROM orkee/sandbox:latest
+RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
+RUN apt-get install -y nodejs
+RUN npm install -g typescript tsx nodemon
+WORKDIR /app
+```
+
+```dockerfile
+# Rust Development Environment
+FROM orkee/sandbox:latest
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+ENV PATH="/root/.cargo/bin:${PATH}"
+RUN rustup component add clippy rustfmt
+WORKDIR /rust-project
+```
+
 #### Configuration
 
 ```bash
