@@ -58,6 +58,10 @@ chrono = { version = "0.4", features = ["serde"] }
 # HTTP client
 reqwest = { version = "0.12", features = ["json", "stream", "gzip", "brotli", "deflate"] }
 url = "2.5"
+urlencoding = "2.1"
+
+# Error handling
+anyhow = "1.0"
 
 # ID generation
 nanoid = "0.4"

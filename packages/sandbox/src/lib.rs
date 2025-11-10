@@ -2,6 +2,7 @@
 // ABOUTME: Loads provider definitions from config/providers.json at runtime
 
 pub mod cost;
+pub mod docker_cli;
 pub mod executor;
 pub mod health;
 pub mod manager;
@@ -11,6 +12,12 @@ pub mod settings;
 pub mod storage;
 
 pub use cost::{CostBreakdown, CostCalculator};
+pub use docker_cli::{
+    delete_docker_image, docker_login, docker_logout, get_docker_config, get_docker_status,
+    get_docker_username, is_docker_logged_in, is_docker_running, list_docker_images,
+    push_docker_image, push_docker_image_stream, BuildProgress, DockerConfig, DockerImage,
+    DockerStatus,
+};
 pub use executor::{CommandExecutor, ExecuteCommandRequest, ExecutionResult, ExecutorError};
 pub use health::{HealthCheck, HealthChecker, HealthStatus};
 pub use manager::{CreateSandboxRequest, ManagerError, SandboxManager};

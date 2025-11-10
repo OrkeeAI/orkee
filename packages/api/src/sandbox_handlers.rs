@@ -513,3 +513,187 @@ pub async fn get_sandbox_metrics(
 
     ok_or_internal_error(result, "Failed to get metrics")
 }
+
+// ============================================================================
+// Docker Image Management Handlers
+// ============================================================================
+
+/// Get Docker login status
+pub async fn docker_status() -> impl IntoResponse {
+    info!("Getting Docker status");
+
+    let result = orkee_sandbox::get_docker_status()
+        .map_err(|e| format!("Failed to get Docker status: {}", e));
+
+    ok_or_internal_error(result, "Failed to get Docker status")
+}
+
+/// Get Docker configuration
+pub async fn docker_config() -> impl IntoResponse {
+    info!("Getting Docker config");
+
+    let result = orkee_sandbox::get_docker_config()
+        .map_err(|e| format!("Failed to get Docker config: {}", e));
+
+    ok_or_internal_error(result, "Failed to get Docker config")
+}
+
+/// List local Docker images (with orkee.sandbox label)
+pub async fn list_local_images() -> impl IntoResponse {
+    info!("Listing local Docker images");
+
+    let result = orkee_sandbox::list_docker_images(Some("orkee.sandbox=true"))
+        .map_err(|e| format!("Failed to list images: {}", e));
+
+    ok_or_internal_error(result, "Failed to list local images")
+}
+
+/// Search Docker Hub for images
+#[derive(Deserialize)]
+pub struct SearchImagesQuery {
+    pub query: String,
+    #[serde(default)]
+    pub limit: Option<u32>,
+}
+
+pub async fn search_docker_hub_images(
+    Query(params): Query<SearchImagesQuery>,
+) -> impl IntoResponse {
+    info!("Searching Docker Hub for: {}", params.query);
+
+    let result = crate::docker_hub::search_images(&params.query, params.limit)
+        .await
+        .map_err(|e| format!("Failed to search Docker Hub: {}", e));
+
+    ok_or_internal_error(result, "Failed to search Docker Hub")
+}
+
+/// List user's Docker Hub images
+#[derive(Deserialize)]
+pub struct ListUserImagesQuery {
+    pub username: String,
+}
+
+pub async fn list_user_docker_hub_images(
+    Query(params): Query<ListUserImagesQuery>,
+) -> impl IntoResponse {
+    info!("Listing Docker Hub images for user: {}", params.username);
+
+    let result = crate::docker_hub::list_user_images(&params.username)
+        .await
+        .map_err(|e| format!("Failed to list user images: {}", e));
+
+    ok_or_internal_error(result, "Failed to list user images")
+}
+
+/// Delete a Docker image
+#[derive(Deserialize)]
+pub struct DeleteImageRequest {
+    pub image: String,
+    #[serde(default)]
+    pub force: bool,
+}
+
+pub async fn delete_docker_image(
+    Json(request): Json<DeleteImageRequest>,
+) -> impl IntoResponse {
+    info!("Deleting Docker image: {}", request.image);
+
+    let result = orkee_sandbox::delete_docker_image(&request.image, request.force)
+        .map(|_| serde_json::json!({"message": "Image deleted successfully"}))
+        .map_err(|e| format!("Failed to delete image: {}", e));
+
+    ok_or_internal_error(result, "Failed to delete image")
+}
+
+/// Request body for building Docker image
+#[derive(Deserialize)]
+pub struct BuildImageRequest {
+    pub dockerfile_path: String,
+    pub build_context: String,
+    pub image_tag: String,
+    #[serde(default)]
+    pub labels: HashMap<String, String>,
+}
+
+/// Build a Docker image
+pub async fn build_docker_image(
+    Json(request): Json<BuildImageRequest>,
+) -> impl IntoResponse {
+    info!("Building Docker image: {}", request.image_tag);
+
+    use std::path::Path;
+
+    let dockerfile_path = Path::new(&request.dockerfile_path);
+    let build_context = Path::new(&request.build_context);
+
+    // Always add orkee.sandbox=true label
+    let mut labels = vec![("orkee.sandbox", "true")];
+    for (k, v) in &request.labels {
+        labels.push((k.as_str(), v.as_str()));
+    }
+
+    let result = orkee_sandbox::docker_cli::build_docker_image(
+        dockerfile_path,
+        build_context,
+        &request.image_tag,
+        &labels,
+    )
+    .map(|output| {
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        serde_json::json!({
+            "message": "Image built successfully",
+            "image_tag": request.image_tag,
+            "output": stdout.to_string(),
+        })
+    })
+    .map_err(|e| format!("Failed to build image: {}", e));
+
+    ok_or_internal_error(result, "Failed to build image")
+}
+
+/// Request body for pushing Docker image
+#[derive(Deserialize)]
+pub struct PushImageRequest {
+    pub image_tag: String,
+}
+
+/// Push a Docker image to Docker Hub
+pub async fn push_docker_image(Json(request): Json<PushImageRequest>) -> impl IntoResponse {
+    info!("Pushing Docker image: {}", request.image_tag);
+
+    // Check if logged in first
+    let logged_in = orkee_sandbox::is_docker_logged_in()
+        .map_err(|e| format!("Failed to check Docker login status: {}", e));
+
+    match logged_in {
+        Err(e) => {
+            return ok_or_internal_error(
+                Err::<serde_json::Value, String>(e),
+                "Failed to check login status",
+            )
+        }
+        Ok(false) => {
+            return ok_or_internal_error(
+                Err::<serde_json::Value, String>(
+                    "Not logged in to Docker Hub. Please authenticate first.".to_string(),
+                ),
+                "Authentication required",
+            )
+        }
+        Ok(true) => {}
+    }
+
+    let result = orkee_sandbox::push_docker_image(&request.image_tag)
+        .map(|output| {
+            let stdout = String::from_utf8_lossy(&output.stdout);
+            serde_json::json!({
+                "message": "Image pushed successfully",
+                "image_tag": request.image_tag,
+                "output": stdout.to_string(),
+            })
+        })
+        .map_err(|e| format!("Failed to push image: {}", e));
+
+    ok_or_internal_error(result, "Failed to push image")
+}

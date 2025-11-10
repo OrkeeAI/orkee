@@ -12,6 +12,7 @@ pub mod agents_handlers;
 pub mod ai_proxy_handlers;
 pub mod ai_usage_log_handlers;
 pub mod auth;
+pub mod docker_hub;
 pub mod epic_approaches_handlers;
 pub mod epic_handlers;
 pub mod executions_handlers;
@@ -831,7 +832,7 @@ pub fn create_oauth_router() -> Router<DbState> {
 
 /// Creates the Sandbox API router for sandbox settings management
 pub fn create_sandbox_router() -> Router<DbState> {
-    use axum::routing::{delete, get, put};
+    use axum::routing::{delete, get, post, put};
     Router::new()
         // Sandbox settings endpoints
         .route("/settings", get(sandbox_handlers::get_sandbox_settings))
@@ -849,6 +850,33 @@ pub fn create_sandbox_router() -> Router<DbState> {
         .route(
             "/providers/{provider}",
             delete(sandbox_handlers::delete_provider_settings),
+        )
+        // Docker image management endpoints
+        .route("/docker/status", get(sandbox_handlers::docker_status))
+        .route("/docker/config", get(sandbox_handlers::docker_config))
+        .route(
+            "/docker/images/local",
+            get(sandbox_handlers::list_local_images),
+        )
+        .route(
+            "/docker/images/search",
+            get(sandbox_handlers::search_docker_hub_images),
+        )
+        .route(
+            "/docker/images/user",
+            get(sandbox_handlers::list_user_docker_hub_images),
+        )
+        .route(
+            "/docker/images/delete",
+            post(sandbox_handlers::delete_docker_image),
+        )
+        .route(
+            "/docker/images/build",
+            post(sandbox_handlers::build_docker_image),
+        )
+        .route(
+            "/docker/images/push",
+            post(sandbox_handlers::push_docker_image),
         )
 }
 

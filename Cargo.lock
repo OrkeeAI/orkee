@@ -3037,6 +3037,7 @@ dependencies = [
 name = "orkee-api"
 version = "0.0.9"
 dependencies = [
+ "anyhow",
  "async-stream",
  "axum 0.8.6",
  "chrono",
@@ -3070,6 +3071,7 @@ dependencies = [
  "tower-http 0.6.6",
  "tracing",
  "url",
+ "urlencoding",
  "uuid",
  "zeroize",
 ]
@@ -3461,6 +3463,7 @@ dependencies = [
 name = "orkee-sandbox"
 version = "0.0.9"
 dependencies = [
+ "anyhow",
  "async-trait",
  "bollard",
  "chrono",

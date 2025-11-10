@@ -1,0 +1,876 @@
+# Sandbox Image Management UI - Implementation Plan
+
+This document tracks the complete implementation of the Docker image management UI for the Orkee sandboxes feature.
+
+## Overview
+
+Add comprehensive Docker image management UI to the `/sandboxes` route, mirroring all CLI functionality:
+- Docker authentication (login/logout/status)
+- Local image management (list, delete, set as default)
+- Docker Hub integration (search, browse user images)
+- Image building with real-time logs
+- Image pushing to Docker Hub
+
+## Architecture
+
+### Backend (Rust)
+- **Docker CLI Wrapper**: `packages/sandbox/src/docker_cli.rs` - Shared functions for Docker operations
+- **Docker Hub API**: `packages/api/src/docker_hub.rs` - REST API client for Docker Hub
+- **HTTP Handlers**: `packages/api/src/sandbox_handlers.rs` - Axum request handlers
+- **Routes**: `packages/api/src/lib.rs` - Endpoint registration
+
+### Frontend (TypeScript/React)
+- **Service Layer**: `packages/dashboard/src/services/docker.ts` - API client wrapper
+- **Components**: `packages/dashboard/src/components/sandbox/*` - React UI components
+- **Integration**: `packages/dashboard/src/pages/Sandboxes.tsx` - Main page integration
+
+---
+
+## Phase 1: Backend Infrastructure ✅ COMPLETED
+
+### 1.1 Docker CLI Wrapper Module ✅
+**File**: `packages/sandbox/src/docker_cli.rs`
+
+**Functions Implemented**:
+- [x] `is_docker_running()` - Check if Docker daemon is running
+- [x] `is_docker_logged_in()` - Check authentication status
+- [x] `get_docker_status()` - Get login status and user info
+- [x] `get_docker_username()` - Extract username from Docker config
+- [x] `get_docker_config()` - Get Docker configuration
+- [x] `list_docker_images(filter_label)` - List images with optional label filter
+- [x] `delete_docker_image(name, force)` - Delete an image
+- [x] `build_docker_image(dockerfile, context, tag, labels)` - Build image
+- [x] `build_docker_image_stream()` - Build with streaming output
+- [x] `push_docker_image(tag)` - Push image to Docker Hub
+- [x] `push_docker_image_stream()` - Push with streaming output
+- [x] `docker_login()` - Interactive login
+- [x] `docker_logout()` - Logout from Docker Hub
+
+**Type Definitions**:
+- [x] `DockerImage` - Image metadata (repository, tag, id, size, created)
+- [x] `DockerStatus` - Login status (logged_in, username, email, server_address)
+- [x] `DockerConfig` - Configuration (username, auth_servers)
+- [x] `BuildProgress` - Build progress event
+
+**Tests**:
+- [x] `test_is_docker_running()`
+- [x] `test_docker_status()`
+- [x] `test_docker_config()`
+- [x] `test_list_docker_images()`
+
+**Dependencies Added**:
+- [x] `anyhow = "1.0"` in `packages/sandbox/Cargo.toml`
+
+**Module Export**:
+- [x] Added to `packages/sandbox/src/lib.rs` with public exports
+
+### 1.2 Docker Hub API Integration ✅
+**File**: `packages/api/src/docker_hub.rs`
+
+**Functions Implemented**:
+- [x] `get_docker_hub_token()` - Extract auth token from `~/.docker/config.json`
+- [x] `search_images(query, limit)` - Search Docker Hub
+- [x] `get_image_detail(namespace, repository)` - Get detailed image info
+- [x] `list_user_images(username)` - List user's images
+
+**Type Definitions**:
+- [x] `DockerHubImage` - Search result (name, description, stars, pulls, is_official)
+- [x] `ImageDetail` - Detailed image info
+- [x] `SearchResponse` - Internal search response
+- [x] `ListResponse` - Internal list response
+
+**Tests**:
+- [x] `test_search_images()` - Search for Alpine images
+- [x] `test_get_docker_hub_token()` - Token extraction
+
+**Dependencies Added**:
+- [x] `urlencoding = "2.1"` in `packages/api/Cargo.toml`
+- [x] `anyhow = "1.0"` in `packages/api/Cargo.toml`
+
+**Module Export**:
+- [x] Added to `packages/api/src/lib.rs`
+
+### 1.3 HTTP API Handlers ✅
+**File**: `packages/api/src/sandbox_handlers.rs`
+
+**Handlers Implemented**:
+- [x] `docker_status()` - GET status
+- [x] `docker_config()` - GET config
+- [x] `list_local_images()` - GET local images with orkee.sandbox label
+- [x] `search_docker_hub_images(Query)` - GET search results
+- [x] `list_user_docker_hub_images(Query)` - GET user's images
+- [x] `delete_docker_image(Json)` - POST delete request
+- [x] `build_docker_image(Json)` - POST build request
+- [x] `push_docker_image(Json)` - POST push request (with auth check)
+
+**Request/Response Types**:
+- [x] `SearchImagesQuery` - query, limit
+- [x] `ListUserImagesQuery` - username
+- [x] `DeleteImageRequest` - image, force
+- [x] `BuildImageRequest` - dockerfile_path, build_context, image_tag, labels
+- [x] `PushImageRequest` - image_tag
+
+**Error Handling**:
+- [x] All handlers use `ok_or_internal_error()` helper
+- [x] Push operation checks `is_docker_logged_in()` first
+- [x] Proper logging with `tracing::info!`
+
+### 1.4 API Routes ✅
+**File**: `packages/api/src/lib.rs` - `create_sandbox_router()`
+
+**Endpoints Registered**:
+- [x] `GET /api/sandbox/docker/status` → `docker_status`
+- [x] `GET /api/sandbox/docker/config` → `docker_config`
+- [x] `GET /api/sandbox/docker/images/local` → `list_local_images`
+- [x] `GET /api/sandbox/docker/images/search?query=...&limit=...` → `search_docker_hub_images`
+- [x] `GET /api/sandbox/docker/images/user?username=...` → `list_user_docker_hub_images`
+- [x] `POST /api/sandbox/docker/images/delete` → `delete_docker_image`
+- [x] `POST /api/sandbox/docker/images/build` → `build_docker_image`
+- [x] `POST /api/sandbox/docker/images/push` → `push_docker_image`
+
+**Verification**:
+- [x] API compiles successfully (`cargo build --package orkee-api`)
+
+---
+
+## Phase 2: Frontend Service Layer ✅ COMPLETED
+
+### 2.1 Docker Service ✅
+**File**: `packages/dashboard/src/services/docker.ts`
+
+**Type Definitions**:
+- [x] `DockerStatus` - logged_in, username, email, server_address
+- [x] `DockerConfig` - username, auth_servers
+- [x] `DockerImage` - repository, tag, image_id, size, created
+- [x] `DockerHubImage` - name, description, star_count, pull_count, is_official, is_automated
+- [x] `BuildImageRequest` - dockerfile_path, build_context, image_tag, labels
+- [x] `BuildImageResponse` - message, image_tag, output
+- [x] `PushImageRequest` - image_tag
+- [x] `PushImageResponse` - message, image_tag, output
+- [x] `DeleteImageRequest` - image, force
+
+**Functions Implemented**:
+- [x] `getDockerStatus()` - Get login status
+- [x] `getDockerConfig()` - Get Docker configuration
+- [x] `listLocalImages()` - List local images
+- [x] `deleteDockerImage(request)` - Delete an image
+- [x] `searchDockerHubImages(query, limit)` - Search Docker Hub
+- [x] `listUserDockerHubImages(username)` - List user's images
+- [x] `buildDockerImage(request)` - Build an image
+- [x] `pushDockerImage(request)` - Push to Docker Hub
+
+**API Integration**:
+- [x] Uses existing `apiCall()` helper from `services/api.ts`
+- [x] Proper error handling (errors propagate from apiCall)
+- [x] Query parameter construction with `URLSearchParams`
+
+---
+
+## Phase 3: React UI Components ⏳ IN PROGRESS
+
+### 3.1 Main Container Component
+**File**: `packages/dashboard/src/components/sandbox/SandboxImageManager.tsx`
+
+**Component Structure**:
+```tsx
+<SandboxImageManager>
+  <Tabs defaultValue="images">
+    <TabsList>
+      <TabsTrigger value="images">Images</TabsTrigger>
+      <TabsTrigger value="build">Build</TabsTrigger>
+      <TabsTrigger value="auth">Docker Login</TabsTrigger>
+    </TabsList>
+
+    <TabsContent value="images">
+      <div className="grid grid-cols-2 gap-4">
+        <LocalImagesList />
+        <RemoteImagesList />
+      </div>
+    </TabsContent>
+
+    <TabsContent value="build">
+      <DockerBuildForm />
+      <BuildProgressDisplay />
+    </TabsContent>
+
+    <TabsContent value="auth">
+      <DockerStatusCard />
+      <DockerAuthDialog />
+    </TabsContent>
+  </Tabs>
+</SandboxImageManager>
+```
+
+**State Management**:
+- [ ] `dockerStatus` - Current login status
+- [ ] `refreshTrigger` - Force refresh after operations
+- [ ] Load Docker status on mount
+- [ ] Refresh status after login/logout
+
+**Hooks to Use**:
+- [ ] `useState` for local state
+- [ ] `useEffect` for loading status
+- [ ] `useQuery` (React Query) for data fetching (if available)
+
+**Props**: None (top-level component)
+
+### 3.2 Docker Authentication Dialog
+**File**: `packages/dashboard/src/components/sandbox/DockerAuthDialog.tsx`
+
+**Component Type**: Modal Dialog
+
+**UI Elements**:
+- [ ] Dialog trigger button ("Login to Docker Hub")
+- [ ] Dialog content with form
+- [ ] Username input field
+- [ ] Password input field (type="password")
+- [ ] Login button with loading state
+- [ ] Error message display
+- [ ] Success message display
+- [ ] Close button
+
+**State**:
+- [ ] `isOpen` - Dialog open/closed
+- [ ] `username` - Form input
+- [ ] `password` - Form input
+- [ ] `isLoading` - Login in progress
+- [ ] `error` - Error message
+
+**Behavior**:
+- [ ] On login: Call backend `docker login` endpoint
+- [ ] Show loading spinner during authentication
+- [ ] Display error if login fails
+- [ ] Close dialog on success
+- [ ] Trigger parent refresh on success
+
+**Note**: Docker login is CLI-based (`docker login` command), so the backend needs an endpoint that invokes `orkee_sandbox::docker_login()` interactively. This requires additional backend work.
+
+**Additional Backend Needed**:
+- [ ] `POST /api/sandbox/docker/login` handler
+- [ ] Handler must invoke `docker login` and capture credentials
+- [ ] Return success/failure status
+
+### 3.3 Local Images List
+**File**: `packages/dashboard/src/components/sandbox/LocalImagesList.tsx`
+
+**Component Type**: Table/Grid with actions
+
+**UI Elements**:
+- [ ] Section header ("Local Images")
+- [ ] Refresh button
+- [ ] Table with columns:
+  - [ ] Repository
+  - [ ] Tag
+  - [ ] Size
+  - [ ] Created
+  - [ ] Actions (dropdown menu)
+- [ ] Loading skeleton
+- [ ] Empty state message
+
+**Actions Menu** (per image):
+- [ ] Push to Docker Hub
+- [ ] Delete image
+- [ ] Set as default sandbox image
+- [ ] Copy image tag
+
+**State**:
+- [ ] `images` - List of DockerImage
+- [ ] `isLoading` - Loading state
+- [ ] `error` - Error message
+- [ ] `selectedImage` - For confirmation dialogs
+
+**Behavior**:
+- [ ] Load images on mount using `listLocalImages()`
+- [ ] Refresh when `refreshTrigger` changes
+- [ ] Confirm before delete
+- [ ] Show success toast after operations
+- [ ] Update sandbox settings when setting default
+
+**Confirmation Dialogs**:
+- [ ] Delete confirmation with image name
+- [ ] Warning if image is currently in use
+
+**Integration with Sandbox Settings**:
+- [ ] "Set as default" calls `PUT /api/sandbox/settings` with `default_image` field
+
+### 3.4 Remote Images List (Docker Hub)
+**File**: `packages/dashboard/src/components/sandbox/RemoteImagesList.tsx`
+
+**Component Type**: Searchable list
+
+**UI Elements**:
+- [ ] Section header ("Docker Hub Images")
+- [ ] Search input with debouncing
+- [ ] Filter tabs: "Search Results" | "My Images"
+- [ ] Results list/grid with cards:
+  - [ ] Image name
+  - [ ] Description (truncated)
+  - [ ] Stars count
+  - [ ] Pulls count
+  - [ ] Official badge (if is_official)
+  - [ ] Use button
+- [ ] Loading skeleton
+- [ ] Empty state (no results)
+- [ ] Pagination controls (if needed)
+
+**State**:
+- [ ] `searchQuery` - Current search term
+- [ ] `searchResults` - DockerHubImage[]
+- [ ] `userImages` - User's images (if logged in)
+- [ ] `activeTab` - "search" | "user"
+- [ ] `isLoading` - Loading state
+- [ ] `error` - Error message
+
+**Behavior**:
+- [ ] Debounce search input (500ms)
+- [ ] Call `searchDockerHubImages()` on search
+- [ ] Load user images if logged in
+- [ ] "Use" button sets as default sandbox image
+- [ ] Show login prompt if not authenticated
+
+**Debouncing**:
+- [ ] Use `useDebounce` hook or `lodash.debounce`
+- [ ] Only search when query length > 2
+
+### 3.5 Docker Build Form
+**File**: `packages/dashboard/src/components/sandbox/DockerBuildForm.tsx`
+
+**Component Type**: Form with file picker
+
+**UI Elements**:
+- [ ] Section header ("Build Docker Image")
+- [ ] Form fields:
+  - [ ] Dockerfile path (text input + browse button)
+  - [ ] Build context (text input + browse button)
+  - [ ] Image name (text input, format: username/name)
+  - [ ] Image tag (text input, default: "latest")
+  - [ ] Additional labels (key-value pairs, optional)
+- [ ] Build button (primary)
+- [ ] Cancel button
+- [ ] Validation errors display
+
+**State**:
+- [ ] `dockerfilePath` - Path to Dockerfile
+- [ ] `buildContext` - Build context directory
+- [ ] `imageName` - Image name
+- [ ] `imageTag` - Image tag
+- [ ] `labels` - Additional labels Map<string, string>
+- [ ] `isBuilding` - Build in progress
+- [ ] `validationErrors` - Form validation errors
+
+**Behavior**:
+- [ ] Validate required fields
+- [ ] Auto-populate username if logged in
+- [ ] Call `buildDockerImage()` on submit
+- [ ] Show BuildProgressDisplay on submit
+- [ ] Clear form on success
+
+**Validation**:
+- [ ] Dockerfile path must exist (or be valid path)
+- [ ] Build context must be directory
+- [ ] Image name must match Docker naming conventions
+- [ ] Tag must be valid (alphanumeric + dots/dashes)
+
+**File Picker Integration**:
+- [ ] Use `<input type="file" webkitdirectory>` for directory picker
+- [ ] Or text input with path validation
+- [ ] Show current path in UI
+
+### 3.6 Build Progress Display
+**File**: `packages/dashboard/src/components/sandbox/BuildProgressDisplay.tsx`
+
+**Component Type**: Terminal-style log viewer
+
+**UI Elements**:
+- [ ] Section header ("Build Output")
+- [ ] Terminal container (black background, monospace font)
+- [ ] Log lines with timestamps
+- [ ] Status indicator (building/success/failed)
+- [ ] Auto-scroll to bottom
+- [ ] Clear logs button
+- [ ] Copy logs button
+
+**State**:
+- [ ] `logs` - Array of log lines
+- [ ] `status` - "idle" | "building" | "success" | "failed"
+- [ ] `buildOutput` - Build result from API
+
+**Behavior**:
+- [ ] Display logs from `BuildImageResponse.output`
+- [ ] Parse ANSI color codes (if present)
+- [ ] Auto-scroll to bottom as logs arrive
+- [ ] Show success/failure status
+- [ ] Persist logs until cleared
+
+**Styling**:
+- [ ] Use `xterm.js` for terminal emulation (like existing Terminal component)
+- [ ] Or simple `<pre>` with custom styling
+- [ ] Monospace font (JetBrains Mono or similar)
+- [ ] Syntax highlighting for Docker commands
+
+**Real-time Updates** (Future Enhancement):
+- [ ] Stream logs via SSE endpoint
+- [ ] Backend: `GET /api/sandbox/docker/images/build/:id/logs`
+- [ ] Frontend: EventSource subscription
+
+### 3.7 Docker Status Card
+**File**: `packages/dashboard/src/components/sandbox/DockerStatusCard.tsx`
+
+**Component Type**: Status card/badge
+
+**UI Elements**:
+- [ ] Card container
+- [ ] Status indicator (green = logged in, red = not logged in)
+- [ ] Username display (if logged in)
+- [ ] Email display (if available)
+- [ ] Login/Logout button
+- [ ] Refresh button
+
+**State**:
+- [ ] `status` - DockerStatus from API
+- [ ] `isLoading` - Loading state
+
+**Behavior**:
+- [ ] Load status on mount
+- [ ] Refresh when triggered by parent
+- [ ] Login button opens DockerAuthDialog
+- [ ] Logout button calls logout endpoint (needs backend)
+
+**Display Logic**:
+- [ ] If logged in: Show "Logged in as: {username}"
+- [ ] If not logged in: Show "Not logged in" with login button
+- [ ] Show spinner while loading
+
+**Additional Backend Needed**:
+- [ ] `POST /api/sandbox/docker/logout` handler
+- [ ] Handler calls `orkee_sandbox::docker_logout()`
+
+---
+
+## Phase 4: Integration with Sandboxes Page ⏳ PENDING
+
+### 4.1 Add Images Tab to Sandboxes Page
+**File**: `packages/dashboard/src/pages/Sandboxes.tsx`
+
+**Changes Required**:
+- [ ] Import `SandboxImageManager` component
+- [ ] Add new tab to existing Tabs component:
+  ```tsx
+  <TabsTrigger value="images" className="flex items-center gap-2">
+    <Package className="h-4 w-4" />
+    Images
+  </TabsTrigger>
+  ```
+- [ ] Add tab content:
+  ```tsx
+  <TabsContent value="images" className="h-full mt-0">
+    <SandboxImageManager />
+  </TabsContent>
+  ```
+
+**Icon Import**:
+- [ ] Import `Package` icon from `lucide-react`
+
+**Alternative Approach** (if existing tabs are complex):
+- [ ] Add "Manage Images" button in sandbox header
+- [ ] Open `SandboxImageManager` in modal/dialog
+- [ ] Or create separate route `/sandboxes/images`
+
+### 4.2 Add Docker Status to Settings
+**File**: `packages/dashboard/src/components/settings/SandboxSettings.tsx`
+
+**Changes Required**:
+- [ ] Import `DockerStatusCard` component
+- [ ] Add to "General" settings tab:
+  ```tsx
+  <div className="space-y-4">
+    <h3>Docker Configuration</h3>
+    <DockerStatusCard />
+    <Button onClick={() => openImageManager()}>
+      Manage Images
+    </Button>
+  </div>
+  ```
+
+**Behavior**:
+- [ ] "Manage Images" button opens full `SandboxImageManager`
+- [ ] Could be in dialog or navigate to /sandboxes?tab=images
+
+---
+
+## Phase 5: Additional Backend Endpoints (Required for Full Functionality) ⏳ PENDING
+
+These endpoints are needed for complete UI functionality but weren't in the initial backend implementation.
+
+### 5.1 Docker Login Endpoint
+**Handler**: `packages/api/src/sandbox_handlers.rs`
+
+**Endpoint**: `POST /api/sandbox/docker/login`
+
+**Request Body**:
+```rust
+#[derive(Deserialize)]
+pub struct DockerLoginRequest {
+    pub username: String,
+    pub password: String,
+}
+```
+
+**Implementation**:
+- [ ] Create handler `docker_login(Json<DockerLoginRequest>)`
+- [ ] Call Docker CLI with credentials
+- [ ] Return success/failure
+- [ ] Update router with endpoint
+
+**Challenges**:
+- [ ] `docker login` is interactive (stdin)
+- [ ] Need to pass credentials programmatically
+- [ ] Docker CLI accepts `--username` and `--password-stdin` flags
+
+**Solution**:
+```rust
+pub async fn docker_login(
+    Json(request): Json<DockerLoginRequest>,
+) -> impl IntoResponse {
+    use std::process::{Command, Stdio};
+    use std::io::Write;
+
+    let mut child = Command::new("docker")
+        .arg("login")
+        .arg("--username")
+        .arg(&request.username)
+        .arg("--password-stdin")
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .context("Failed to spawn docker login")?;
+
+    // Write password to stdin
+    if let Some(mut stdin) = child.stdin.take() {
+        stdin.write_all(request.password.as_bytes())?;
+    }
+
+    let output = child.wait_with_output()?;
+
+    if output.status.success() {
+        ok_or_internal_error(
+            Ok(json!({"message": "Login successful"})),
+            "Login failed"
+        )
+    } else {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        ok_or_internal_error(
+            Err::<serde_json::Value, String>(stderr.to_string()),
+            "Login failed"
+        )
+    }
+}
+```
+
+### 5.2 Docker Logout Endpoint
+**Handler**: `packages/api/src/sandbox_handlers.rs`
+
+**Endpoint**: `POST /api/sandbox/docker/logout`
+
+**Implementation**:
+- [ ] Create handler `docker_logout()`
+- [ ] Call `orkee_sandbox::docker_logout()`
+- [ ] Return success message
+- [ ] Update router with endpoint
+
+```rust
+pub async fn docker_logout() -> impl IntoResponse {
+    let result = orkee_sandbox::docker_logout()
+        .map(|_| json!({"message": "Logged out successfully"}))
+        .map_err(|e| format!("Logout failed: {}", e));
+
+    ok_or_internal_error(result, "Logout failed")
+}
+```
+
+### 5.3 Streaming Build Endpoint (Optional - Future Enhancement)
+**Handler**: `packages/api/src/sandbox_handlers.rs`
+
+**Endpoint**: `GET /api/sandbox/docker/images/build/:id/stream` (SSE)
+
+**Purpose**: Stream build logs in real-time
+
+**Implementation** (using Server-Sent Events):
+- [ ] Create build job tracking (in-memory or database)
+- [ ] Return build job ID from build endpoint
+- [ ] SSE endpoint streams logs as they arrive
+- [ ] Frontend subscribes with EventSource
+
+**This is a significant enhancement and can be deferred to a later phase.**
+
+---
+
+## Phase 6: Testing ⏳ PENDING
+
+### 6.1 Backend Tests
+**Files**: `packages/api/tests/`, `packages/sandbox/tests/`
+
+- [ ] Test all Docker CLI wrapper functions
+- [ ] Test Docker Hub API integration
+- [ ] Test HTTP handlers with mock Docker
+- [ ] Test error cases (Docker not running, not logged in)
+- [ ] Integration test: Full build workflow
+- [ ] Integration test: Search and push workflow
+
+### 6.2 Frontend Tests
+**Files**: `packages/dashboard/src/components/sandbox/*.test.tsx`
+
+- [ ] Test SandboxImageManager component renders
+- [ ] Test LocalImagesList displays images
+- [ ] Test RemoteImagesList search functionality
+- [ ] Test DockerBuildForm validation
+- [ ] Test DockerAuthDialog login flow
+- [ ] Test error states and empty states
+- [ ] Test loading states
+
+### 6.3 End-to-End Tests
+**Files**: `packages/dashboard/e2e/` (if E2E framework exists)
+
+- [ ] Complete workflow: Login → Build → Push
+- [ ] Search Docker Hub and use image
+- [ ] Delete local image workflow
+- [ ] Set default sandbox image workflow
+
+---
+
+## Phase 7: Documentation & Polish ⏳ PENDING
+
+### 7.1 User Documentation
+- [ ] Update `DOCS.md` with UI usage instructions
+- [ ] Add screenshots of Image Manager UI
+- [ ] Document Docker authentication requirements
+- [ ] Document custom image building workflow
+
+### 7.2 Code Documentation
+- [ ] JSDoc comments for all React components
+- [ ] Prop type documentation
+- [ ] Service function documentation
+- [ ] Backend function documentation (Rustdoc)
+
+### 7.3 Error Handling Improvements
+- [ ] User-friendly error messages
+- [ ] Toast notifications for operations
+- [ ] Graceful handling of Docker not installed
+- [ ] Offline mode handling
+
+### 7.4 UI Polish
+- [ ] Loading skeletons for all lists
+- [ ] Smooth transitions and animations
+- [ ] Responsive design (mobile-friendly)
+- [ ] Accessibility (ARIA labels, keyboard navigation)
+- [ ] Dark mode support (if not already present)
+
+---
+
+## Implementation Notes
+
+### Directory Structure
+```
+packages/
+  sandbox/
+    src/
+      docker_cli.rs          ✅ DONE
+  api/
+    src/
+      docker_hub.rs          ✅ DONE
+      sandbox_handlers.rs    ✅ DONE (partial - needs login/logout)
+      lib.rs                 ✅ DONE
+  dashboard/
+    src/
+      services/
+        docker.ts            ✅ DONE
+      components/
+        sandbox/
+          SandboxImageManager.tsx           ⏳ TODO
+          DockerAuthDialog.tsx              ⏳ TODO
+          LocalImagesList.tsx               ⏳ TODO
+          RemoteImagesList.tsx              ⏳ TODO
+          DockerBuildForm.tsx               ⏳ TODO
+          BuildProgressDisplay.tsx          ⏳ TODO
+          DockerStatusCard.tsx              ⏳ TODO
+      pages/
+        Sandboxes.tsx                       ⏳ TODO (integration)
+      components/
+        settings/
+          SandboxSettings.tsx               ⏳ TODO (integration)
+```
+
+### Dependencies
+**Backend** (already added):
+- `anyhow = "1.0"` in `packages/sandbox/Cargo.toml`
+- `anyhow = "1.0"` in `packages/api/Cargo.toml`
+- `urlencoding = "2.1"` in `packages/api/Cargo.toml`
+
+**Frontend** (verify availability):
+- `lucide-react` - Icons (likely already present)
+- `@shadcn/ui` components: Dialog, Tabs, Table, Card, Button, Input
+- `react-query` or similar for data fetching (optional)
+
+### API Endpoint Summary
+**Implemented** (8 endpoints):
+- ✅ `GET /api/sandbox/docker/status`
+- ✅ `GET /api/sandbox/docker/config`
+- ✅ `GET /api/sandbox/docker/images/local`
+- ✅ `GET /api/sandbox/docker/images/search`
+- ✅ `GET /api/sandbox/docker/images/user`
+- ✅ `POST /api/sandbox/docker/images/delete`
+- ✅ `POST /api/sandbox/docker/images/build`
+- ✅ `POST /api/sandbox/docker/images/push`
+
+**TODO** (2 endpoints):
+- ⏳ `POST /api/sandbox/docker/login` - Docker authentication
+- ⏳ `POST /api/sandbox/docker/logout` - Docker logout
+
+**Optional** (future enhancement):
+- ⏳ `GET /api/sandbox/docker/images/build/:id/stream` - SSE build logs
+
+### UI Component Hierarchy
+```
+SandboxImageManager (main container)
+├── Tabs
+│   ├── Images Tab
+│   │   ├── LocalImagesList (left column)
+│   │   │   ├── Table with image data
+│   │   │   └── Action dropdowns (push, delete, set default)
+│   │   └── RemoteImagesList (right column)
+│   │       ├── Search input
+│   │       ├── Filter tabs (search/user)
+│   │       └── Results grid
+│   ├── Build Tab
+│   │   ├── DockerBuildForm
+│   │   │   ├── File path inputs
+│   │   │   ├── Image name/tag inputs
+│   │   │   └── Build button
+│   │   └── BuildProgressDisplay
+│   │       ├── Terminal-style log viewer
+│   │       └── Status indicator
+│   └── Auth Tab
+│       ├── DockerStatusCard
+│       │   ├── Login status
+│       │   └── Login/logout buttons
+│       └── DockerAuthDialog (modal)
+│           ├── Username input
+│           ├── Password input
+│           └── Login button
+```
+
+---
+
+## Current Status Summary
+
+### ✅ Completed (55% of backend, 10% of frontend)
+- Backend Docker CLI wrapper with full functionality
+- Docker Hub API integration
+- 8 out of 10 API endpoints
+- Frontend service layer with all API functions
+
+### ⏳ In Progress (0%)
+- React UI components (0 out of 7 components)
+
+### 📋 Remaining Work
+- 2 backend endpoints (login, logout)
+- 7 React components
+- Integration with Sandboxes page and Settings
+- Testing (backend, frontend, E2E)
+- Documentation and polish
+
+### Estimated Effort Remaining
+- **Backend**: ~2 hours (2 endpoints + tests)
+- **Frontend**: ~8-10 hours (7 components + integration + styling)
+- **Testing**: ~4 hours (comprehensive tests)
+- **Documentation**: ~2 hours (docs + polish)
+- **Total**: ~16-18 hours of development time
+
+---
+
+## Next Steps
+
+**Immediate Next Task**: Implement React components starting with `SandboxImageManager.tsx`
+
+**Recommended Order**:
+1. `DockerStatusCard` - Simplest component, good starting point
+2. `SandboxImageManager` - Main container to establish structure
+3. `LocalImagesList` - Core functionality, uses existing patterns
+4. `RemoteImagesList` - Similar to LocalImagesList
+5. `DockerBuildForm` - Form handling
+6. `BuildProgressDisplay` - Terminal component
+7. `DockerAuthDialog` - Auth flow
+8. Integration with Sandboxes page
+9. Backend login/logout endpoints
+10. Testing and polish
+
+---
+
+## Questions & Decisions
+
+### 1. SSE for Real-time Build Logs?
+**Decision Needed**: Should we implement real-time streaming build logs via Server-Sent Events, or is the synchronous build endpoint sufficient for MVP?
+
+**Options**:
+- **Option A**: Synchronous build (current implementation) - User sees logs after build completes
+- **Option B**: SSE streaming - User sees logs in real-time as build progresses
+
+**Recommendation**: Start with Option A (synchronous), add SSE in Phase 7 as enhancement.
+
+### 2. File Picker Implementation?
+**Decision Needed**: How should users select Dockerfile and build context?
+
+**Options**:
+- **Option A**: Text input with path validation
+- **Option B**: Native file picker (`<input type="file" webkitdirectory>`)
+- **Option C**: Dropdown of common locations + manual input
+
+**Recommendation**: Option A for MVP (text input), consider Option C for better UX.
+
+### 3. Docker Authentication Persistence?
+**Question**: Docker login stores credentials in `~/.docker/config.json`. Do we need to persist anything in Orkee's database?
+
+**Answer**: No, we rely entirely on Docker's native authentication. The `docker_status()` endpoint reads from Docker's config file.
+
+### 4. Component Library?
+**Confirmed**: Using Shadcn/ui components (Dialog, Tabs, Table, Card, Button, Input, etc.)
+
+**Verify**: Check that all required components are available in the project's Shadcn setup.
+
+---
+
+## Rollback Plan
+
+If this feature needs to be rolled back:
+
+1. **Remove API Endpoints**: Comment out Docker routes in `packages/api/src/lib.rs`
+2. **Remove Handlers**: Comment out handler functions in `sandbox_handlers.rs`
+3. **Remove Frontend Service**: Delete or comment `packages/dashboard/src/services/docker.ts`
+4. **Remove UI Components**: Delete `packages/dashboard/src/components/sandbox/*` files
+5. **Revert Sandboxes Page**: Remove Images tab from `Sandboxes.tsx`
+6. **Keep Backend Libraries**: Leave `docker_cli.rs` and `docker_hub.rs` in place (no harm, might be useful later)
+
+**No database migrations** are required, so rollback is clean.
+
+---
+
+## Success Criteria
+
+This feature is complete when:
+- [x] Backend can list, build, push, and delete Docker images
+- [ ] Users can authenticate with Docker Hub via UI
+- [ ] Users can see all local Orkee sandbox images
+- [ ] Users can search Docker Hub for images
+- [ ] Users can build custom images with real-time feedback
+- [ ] Users can push images to Docker Hub
+- [ ] Users can set default sandbox image from UI
+- [ ] All operations have proper error handling and user feedback
+- [ ] Integration tests pass
+- [ ] Documentation is updated
+
+---
+
+**Last Updated**: 2025-01-09
+**Status**: Phase 1 & 2 Complete, Phase 3 In Progress
+**Next Milestone**: Complete Phase 3 (UI Components)
