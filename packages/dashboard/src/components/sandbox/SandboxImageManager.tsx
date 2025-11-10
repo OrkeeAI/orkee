@@ -3,7 +3,7 @@
 
 import { useState, useCallback, useEffect } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Package, Hammer, Key } from 'lucide-react';
+import { Package, Hammer } from 'lucide-react';
 import { DockerStatusCard } from './DockerStatusCard';
 import { LocalImagesList } from './LocalImagesList';
 import { RemoteImagesList } from './RemoteImagesList';
@@ -77,7 +77,7 @@ export function SandboxImageManager() {
   return (
     <div className="h-full w-full">
       <Tabs defaultValue="images" className="h-full flex flex-col">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="images" className="flex items-center gap-2">
             <Package className="h-4 w-4" />
             Images
@@ -86,24 +86,27 @@ export function SandboxImageManager() {
             <Hammer className="h-4 w-4" />
             Build
           </TabsTrigger>
-          <TabsTrigger value="auth" className="flex items-center gap-2">
-            <Key className="h-4 w-4" />
-            Docker Login
-          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="images" className="flex-1 overflow-auto">
-          <div className="grid grid-cols-2 gap-4 p-4">
-            <div className="space-y-4">
-              <h3 className="text-lg font-semibold">Local Images</h3>
-              <LocalImagesList refreshTrigger={refreshTrigger} />
-            </div>
-            <div className="space-y-4">
-              <h3 className="text-lg font-semibold">Docker Hub Images</h3>
-              <RemoteImagesList
-                username={dockerStatus?.username}
-                isLoggedIn={dockerStatus?.logged_in}
-              />
+          <div className="p-4 space-y-4">
+            <DockerStatusCard
+              onRefresh={handleRefresh}
+              onLoginClick={handleLoginClick}
+              onLogoutClick={handleLogoutClick}
+            />
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold">Local Images</h3>
+                <LocalImagesList refreshTrigger={refreshTrigger} />
+              </div>
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold">Docker Hub Images</h3>
+                <RemoteImagesList
+                  username={dockerStatus?.username}
+                  isLoggedIn={dockerStatus?.logged_in}
+                />
+              </div>
             </div>
           </div>
         </TabsContent>
@@ -115,16 +118,6 @@ export function SandboxImageManager() {
               onBuildComplete={handleBuildComplete}
             />
             <BuildProgressDisplay buildOutput={buildOutput} />
-          </div>
-        </TabsContent>
-
-        <TabsContent value="auth" className="flex-1 overflow-auto">
-          <div className="p-4 max-w-2xl">
-            <DockerStatusCard
-              onRefresh={handleRefresh}
-              onLoginClick={handleLoginClick}
-              onLogoutClick={handleLogoutClick}
-            />
           </div>
         </TabsContent>
       </Tabs>
