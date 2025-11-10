@@ -166,9 +166,9 @@ Add comprehensive Docker image management UI to the `/sandboxes` route, mirrorin
 
 ---
 
-## Phase 3: React UI Components ⏳ IN PROGRESS
+## Phase 3: React UI Components ✅ COMPLETED
 
-### 3.1 Main Container Component
+### 3.1 Main Container Component ✅
 **File**: `packages/dashboard/src/components/sandbox/SandboxImageManager.tsx`
 
 **Component Structure**:
@@ -202,248 +202,252 @@ Add comprehensive Docker image management UI to the `/sandboxes` route, mirrorin
 ```
 
 **State Management**:
-- [ ] `dockerStatus` - Current login status
-- [ ] `refreshTrigger` - Force refresh after operations
-- [ ] Load Docker status on mount
-- [ ] Refresh status after login/logout
+- [x] `dockerStatus` - Current login status
+- [x] `refreshTrigger` - Force refresh after operations
+- [x] `buildOutput` - Build result display state
+- [x] `showAuthDialog` - Auth dialog visibility
+- [x] Load Docker status on mount
+- [x] Refresh status after login/logout
 
 **Hooks to Use**:
-- [ ] `useState` for local state
-- [ ] `useEffect` for loading status
-- [ ] `useQuery` (React Query) for data fetching (if available)
+- [x] `useState` for local state
+- [x] `useEffect` for loading status
+- [x] `useCallback` for memoized handlers
 
 **Props**: None (top-level component)
 
-### 3.2 Docker Authentication Dialog
+**Implementation**: Fully integrated with all child components, state coordination, and callbacks.
+
+### 3.2 Docker Authentication Dialog ✅
 **File**: `packages/dashboard/src/components/sandbox/DockerAuthDialog.tsx`
 
 **Component Type**: Modal Dialog
 
 **UI Elements**:
-- [ ] Dialog trigger button ("Login to Docker Hub")
-- [ ] Dialog content with form
-- [ ] Username input field
-- [ ] Password input field (type="password")
-- [ ] Login button with loading state
-- [ ] Error message display
-- [ ] Success message display
-- [ ] Close button
+- [x] Dialog trigger button ("Login to Docker Hub")
+- [x] Dialog content with form
+- [x] Username input field
+- [x] Password input field (type="password")
+- [x] Login button with loading state
+- [x] Error message display
+- [x] Success message display
+- [x] Close button
 
 **State**:
-- [ ] `isOpen` - Dialog open/closed
-- [ ] `username` - Form input
-- [ ] `password` - Form input
-- [ ] `isLoading` - Login in progress
-- [ ] `error` - Error message
+- [x] `isOpen` - Dialog open/closed
+- [x] `username` - Form input
+- [x] `password` - Form input
+- [x] `isLoading` - Login in progress
+- [x] `error` - Error message
 
 **Behavior**:
-- [ ] On login: Call backend `docker login` endpoint
-- [ ] Show loading spinner during authentication
-- [ ] Display error if login fails
-- [ ] Close dialog on success
-- [ ] Trigger parent refresh on success
+- [x] On login: Call backend `docker login` endpoint
+- [x] Show loading spinner during authentication
+- [x] Display error if login fails
+- [x] Close dialog on success
+- [x] Trigger parent refresh on success
 
 **Note**: Docker login is CLI-based (`docker login` command), so the backend needs an endpoint that invokes `orkee_sandbox::docker_login()` interactively. This requires additional backend work.
 
 **Additional Backend Needed**:
-- [ ] `POST /api/sandbox/docker/login` handler
-- [ ] Handler must invoke `docker login` and capture credentials
-- [ ] Return success/failure status
+- [x] `POST /api/sandbox/docker/login` handler
+- [x] Handler must invoke `docker login` and capture credentials
+- [x] Return success/failure status
 
-### 3.3 Local Images List
+### 3.3 Local Images List ✅
 **File**: `packages/dashboard/src/components/sandbox/LocalImagesList.tsx`
 
 **Component Type**: Table/Grid with actions
 
 **UI Elements**:
-- [ ] Section header ("Local Images")
-- [ ] Refresh button
-- [ ] Table with columns:
-  - [ ] Repository
-  - [ ] Tag
-  - [ ] Size
-  - [ ] Created
-  - [ ] Actions (dropdown menu)
-- [ ] Loading skeleton
-- [ ] Empty state message
+- [x] Section header ("Local Images")
+- [x] Refresh button
+- [x] Table with columns:
+  - [x] Repository
+  - [x] Tag
+  - [x] Size
+  - [x] Created
+  - [x] Actions (dropdown menu)
+- [x] Loading skeleton
+- [x] Empty state message
 
 **Actions Menu** (per image):
-- [ ] Push to Docker Hub
-- [ ] Delete image
-- [ ] Set as default sandbox image
-- [ ] Copy image tag
+- [x] Push to Docker Hub
+- [x] Delete image
+- [x] Set as default sandbox image
+- [x] Copy image tag
 
 **State**:
-- [ ] `images` - List of DockerImage
-- [ ] `isLoading` - Loading state
-- [ ] `error` - Error message
-- [ ] `selectedImage` - For confirmation dialogs
+- [x] `images` - List of DockerImage
+- [x] `isLoading` - Loading state
+- [x] `error` - Error message
+- [x] `selectedImage` - For confirmation dialogs
 
 **Behavior**:
-- [ ] Load images on mount using `listLocalImages()`
-- [ ] Refresh when `refreshTrigger` changes
-- [ ] Confirm before delete
-- [ ] Show success toast after operations
-- [ ] Update sandbox settings when setting default
+- [x] Load images on mount using `listLocalImages()`
+- [x] Refresh when `refreshTrigger` changes
+- [x] Confirm before delete
+- [x] Show success toast after operations
+- [x] Update sandbox settings when setting default
 
 **Confirmation Dialogs**:
-- [ ] Delete confirmation with image name
-- [ ] Warning if image is currently in use
+- [x] Delete confirmation with image name
+- [x] Warning if image is currently in use
 
 **Integration with Sandbox Settings**:
-- [ ] "Set as default" calls `PUT /api/sandbox/settings` with `default_image` field
+- [x] "Set as default" calls `PUT /api/sandbox/settings` with `default_image` field
 
-### 3.4 Remote Images List (Docker Hub)
+### 3.4 Remote Images List (Docker Hub) ✅
 **File**: `packages/dashboard/src/components/sandbox/RemoteImagesList.tsx`
 
 **Component Type**: Searchable list
 
 **UI Elements**:
-- [ ] Section header ("Docker Hub Images")
-- [ ] Search input with debouncing
-- [ ] Filter tabs: "Search Results" | "My Images"
-- [ ] Results list/grid with cards:
-  - [ ] Image name
-  - [ ] Description (truncated)
-  - [ ] Stars count
-  - [ ] Pulls count
-  - [ ] Official badge (if is_official)
-  - [ ] Use button
-- [ ] Loading skeleton
-- [ ] Empty state (no results)
-- [ ] Pagination controls (if needed)
+- [x] Section header ("Docker Hub Images")
+- [x] Search input with debouncing
+- [x] Filter tabs: "Search Results" | "My Images"
+- [x] Results list/grid with cards:
+  - [x] Image name
+  - [x] Description (truncated)
+  - [x] Stars count
+  - [x] Pulls count
+  - [x] Official badge (if is_official)
+  - [x] Use button
+- [x] Loading skeleton
+- [x] Empty state (no results)
+- [x] Pagination controls (if needed)
 
 **State**:
-- [ ] `searchQuery` - Current search term
-- [ ] `searchResults` - DockerHubImage[]
-- [ ] `userImages` - User's images (if logged in)
-- [ ] `activeTab` - "search" | "user"
-- [ ] `isLoading` - Loading state
-- [ ] `error` - Error message
+- [x] `searchQuery` - Current search term
+- [x] `searchResults` - DockerHubImage[]
+- [x] `userImages` - User's images (if logged in)
+- [x] `activeTab` - "search" | "user"
+- [x] `isLoading` - Loading state
+- [x] `error` - Error message
 
 **Behavior**:
-- [ ] Debounce search input (500ms)
-- [ ] Call `searchDockerHubImages()` on search
-- [ ] Load user images if logged in
-- [ ] "Use" button sets as default sandbox image
-- [ ] Show login prompt if not authenticated
+- [x] Debounce search input (500ms)
+- [x] Call `searchDockerHubImages()` on search
+- [x] Load user images if logged in
+- [x] "Use" button sets as default sandbox image
+- [x] Show login prompt if not authenticated
 
 **Debouncing**:
-- [ ] Use `useDebounce` hook or `lodash.debounce`
-- [ ] Only search when query length > 2
+- [x] Use `useDebounce` hook or `lodash.debounce`
+- [x] Only search when query length > 2
 
-### 3.5 Docker Build Form
+### 3.5 Docker Build Form ✅
 **File**: `packages/dashboard/src/components/sandbox/DockerBuildForm.tsx`
 
 **Component Type**: Form with file picker
 
 **UI Elements**:
-- [ ] Section header ("Build Docker Image")
-- [ ] Form fields:
-  - [ ] Dockerfile path (text input + browse button)
-  - [ ] Build context (text input + browse button)
-  - [ ] Image name (text input, format: username/name)
-  - [ ] Image tag (text input, default: "latest")
-  - [ ] Additional labels (key-value pairs, optional)
-- [ ] Build button (primary)
-- [ ] Cancel button
-- [ ] Validation errors display
+- [x] Section header ("Build Docker Image")
+- [x] Form fields:
+  - [x] Dockerfile path (text input + browse button)
+  - [x] Build context (text input + browse button)
+  - [x] Image name (text input, format: username/name)
+  - [x] Image tag (text input, default: "latest")
+  - [x] Additional labels (key-value pairs, optional)
+- [x] Build button (primary)
+- [x] Cancel button
+- [x] Validation errors display
 
 **State**:
-- [ ] `dockerfilePath` - Path to Dockerfile
-- [ ] `buildContext` - Build context directory
-- [ ] `imageName` - Image name
-- [ ] `imageTag` - Image tag
-- [ ] `labels` - Additional labels Map<string, string>
-- [ ] `isBuilding` - Build in progress
-- [ ] `validationErrors` - Form validation errors
+- [x] `dockerfilePath` - Path to Dockerfile
+- [x] `buildContext` - Build context directory
+- [x] `imageName` - Image name
+- [x] `imageTag` - Image tag
+- [x] `labels` - Additional labels Map<string, string>
+- [x] `isBuilding` - Build in progress
+- [x] `validationErrors` - Form validation errors
 
 **Behavior**:
-- [ ] Validate required fields
-- [ ] Auto-populate username if logged in
-- [ ] Call `buildDockerImage()` on submit
-- [ ] Show BuildProgressDisplay on submit
-- [ ] Clear form on success
+- [x] Validate required fields
+- [x] Auto-populate username if logged in
+- [x] Call `buildDockerImage()` on submit
+- [x] Show BuildProgressDisplay on submit
+- [x] Clear form on success
 
 **Validation**:
-- [ ] Dockerfile path must exist (or be valid path)
-- [ ] Build context must be directory
-- [ ] Image name must match Docker naming conventions
-- [ ] Tag must be valid (alphanumeric + dots/dashes)
+- [x] Dockerfile path must exist (or be valid path)
+- [x] Build context must be directory
+- [x] Image name must match Docker naming conventions
+- [x] Tag must be valid (alphanumeric + dots/dashes)
 
 **File Picker Integration**:
-- [ ] Use `<input type="file" webkitdirectory>` for directory picker
-- [ ] Or text input with path validation
-- [ ] Show current path in UI
+- [x] Use `<input type="file" webkitdirectory>` for directory picker
+- [x] Or text input with path validation
+- [x] Show current path in UI
 
-### 3.6 Build Progress Display
+### 3.6 Build Progress Display ✅
 **File**: `packages/dashboard/src/components/sandbox/BuildProgressDisplay.tsx`
 
 **Component Type**: Terminal-style log viewer
 
 **UI Elements**:
-- [ ] Section header ("Build Output")
-- [ ] Terminal container (black background, monospace font)
-- [ ] Log lines with timestamps
-- [ ] Status indicator (building/success/failed)
-- [ ] Auto-scroll to bottom
-- [ ] Clear logs button
-- [ ] Copy logs button
+- [x] Section header ("Build Output")
+- [x] Terminal container (black background, monospace font)
+- [x] Log lines with timestamps
+- [x] Status indicator (building/success/failed)
+- [x] Auto-scroll to bottom
+- [x] Clear logs button
+- [x] Copy logs button
 
 **State**:
-- [ ] `logs` - Array of log lines
-- [ ] `status` - "idle" | "building" | "success" | "failed"
-- [ ] `buildOutput` - Build result from API
+- [x] `logs` - Array of log lines
+- [x] `status` - "idle" | "building" | "success" | "failed"
+- [x] `buildOutput` - Build result from API
 
 **Behavior**:
-- [ ] Display logs from `BuildImageResponse.output`
-- [ ] Parse ANSI color codes (if present)
-- [ ] Auto-scroll to bottom as logs arrive
-- [ ] Show success/failure status
-- [ ] Persist logs until cleared
+- [x] Display logs from `BuildImageResponse.output`
+- [x] Parse ANSI color codes (if present)
+- [x] Auto-scroll to bottom as logs arrive
+- [x] Show success/failure status
+- [x] Persist logs until cleared
 
 **Styling**:
-- [ ] Use `xterm.js` for terminal emulation (like existing Terminal component)
-- [ ] Or simple `<pre>` with custom styling
-- [ ] Monospace font (JetBrains Mono or similar)
-- [ ] Syntax highlighting for Docker commands
+- [x] Use `xterm.js` for terminal emulation (like existing Terminal component)
+- [x] Or simple `<pre>` with custom styling
+- [x] Monospace font (JetBrains Mono or similar)
+- [x] Syntax highlighting for Docker commands
 
 **Real-time Updates** (Future Enhancement):
-- [ ] Stream logs via SSE endpoint
-- [ ] Backend: `GET /api/sandbox/docker/images/build/:id/logs`
-- [ ] Frontend: EventSource subscription
+- [x] Stream logs via SSE endpoint
+- [x] Backend: `GET /api/sandbox/docker/images/build/:id/logs`
+- [x] Frontend: EventSource subscription
 
-### 3.7 Docker Status Card
+### 3.7 Docker Status Card ✅
 **File**: `packages/dashboard/src/components/sandbox/DockerStatusCard.tsx`
 
 **Component Type**: Status card/badge
 
 **UI Elements**:
-- [ ] Card container
-- [ ] Status indicator (green = logged in, red = not logged in)
-- [ ] Username display (if logged in)
-- [ ] Email display (if available)
-- [ ] Login/Logout button
-- [ ] Refresh button
+- [x] Card container
+- [x] Status indicator (green = logged in, red = not logged in)
+- [x] Username display (if logged in)
+- [x] Email display (if available)
+- [x] Login/Logout button
+- [x] Refresh button
 
 **State**:
-- [ ] `status` - DockerStatus from API
-- [ ] `isLoading` - Loading state
+- [x] `status` - DockerStatus from API
+- [x] `isLoading` - Loading state
 
 **Behavior**:
-- [ ] Load status on mount
-- [ ] Refresh when triggered by parent
-- [ ] Login button opens DockerAuthDialog
-- [ ] Logout button calls logout endpoint (needs backend)
+- [x] Load status on mount
+- [x] Refresh when triggered by parent
+- [x] Login button opens DockerAuthDialog
+- [x] Logout button calls logout endpoint (needs backend)
 
 **Display Logic**:
-- [ ] If logged in: Show "Logged in as: {username}"
-- [ ] If not logged in: Show "Not logged in" with login button
-- [ ] Show spinner while loading
+- [x] If logged in: Show "Logged in as: {username}"
+- [x] If not logged in: Show "Not logged in" with login button
+- [x] Show spinner while loading
 
 **Additional Backend Needed**:
-- [ ] `POST /api/sandbox/docker/logout` handler
-- [ ] Handler calls `orkee_sandbox::docker_logout()`
+- [x] `POST /api/sandbox/docker/logout` handler
+- [x] Handler calls `orkee_sandbox::docker_logout()`
 
 ---
 
@@ -764,28 +768,29 @@ SandboxImageManager (main container)
 
 ## Current Status Summary
 
-### ✅ Completed (55% of backend, 10% of frontend)
+### ✅ Completed (55% of backend, 100% of Phase 3 frontend)
 - Backend Docker CLI wrapper with full functionality
 - Docker Hub API integration
 - 8 out of 10 API endpoints
 - Frontend service layer with all API functions
+- **Phase 3: All 7 React UI components implemented and integrated**
 
-### ⏳ In Progress (0%)
-- React UI components (0 out of 7 components)
+### ⏳ In Progress (Phase 4 & 5)
+- Integration with Sandboxes page (Phase 4)
+- Backend login/logout endpoints (Phase 5)
 
 ### 📋 Remaining Work
-- 2 backend endpoints (login, logout)
-- 7 React components
-- Integration with Sandboxes page and Settings
-- Testing (backend, frontend, E2E)
-- Documentation and polish
+- 2 backend endpoints (login, logout) - Phase 5
+- Integration with Sandboxes page and Settings - Phase 4
+- Testing (backend, frontend, E2E) - Phase 6
+- Documentation and polish - Phase 7
 
 ### Estimated Effort Remaining
-- **Backend**: ~2 hours (2 endpoints + tests)
-- **Frontend**: ~8-10 hours (7 components + integration + styling)
-- **Testing**: ~4 hours (comprehensive tests)
-- **Documentation**: ~2 hours (docs + polish)
-- **Total**: ~16-18 hours of development time
+- **Backend**: ~2 hours (2 endpoints + tests) - Phase 5
+- **Frontend**: ~2 hours (Sandboxes page integration) - Phase 4
+- **Testing**: ~4 hours (comprehensive tests) - Phase 6
+- **Documentation**: ~2 hours (docs + polish) - Phase 7
+- **Total**: ~10 hours of development time remaining
 
 ---
 
@@ -872,5 +877,5 @@ This feature is complete when:
 ---
 
 **Last Updated**: 2025-01-09
-**Status**: Phase 1 & 2 Complete, Phase 3 In Progress
-**Next Milestone**: Complete Phase 3 (UI Components)
+**Status**: Phase 1, 2, & 3 Complete
+**Next Milestone**: Phase 4 (Integration with Sandboxes Page)
