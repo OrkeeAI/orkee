@@ -17,9 +17,10 @@ interface DockerBuildFormProps {
 }
 
 export function DockerBuildForm({ username, onBuildStart, onBuildComplete }: DockerBuildFormProps) {
-  const [dockerfilePath, setDockerfilePath] = useState('');
-  const [buildContext, setBuildContext] = useState('');
-  const [imageName, setImageName] = useState('');
+  // Default to the sandbox package Dockerfile
+  const [dockerfilePath, setDockerfilePath] = useState('packages/sandbox/docker/Dockerfile');
+  const [buildContext, setBuildContext] = useState('packages/sandbox/docker');
+  const [imageName, setImageName] = useState('orkee-sandbox');
   const [imageTag, setImageTag] = useState('latest');
   const [labels, setLabels] = useState<Record<string, string>>({});
   const [newLabelKey, setNewLabelKey] = useState('');
@@ -107,10 +108,10 @@ export function DockerBuildForm({ username, onBuildStart, onBuildComplete }: Doc
 
       onBuildComplete?.(response);
 
-      // Clear form
-      setDockerfilePath('');
-      setBuildContext('');
-      setImageName('');
+      // Reset to defaults
+      setDockerfilePath('packages/sandbox/docker/Dockerfile');
+      setBuildContext('packages/sandbox/docker');
+      setImageName('orkee-sandbox');
       setImageTag('latest');
       setLabels({});
     } catch (error) {
@@ -277,16 +278,16 @@ export function DockerBuildForm({ username, onBuildStart, onBuildComplete }: Doc
               type="button"
               variant="outline"
               onClick={() => {
-                setDockerfilePath('');
-                setBuildContext('');
-                setImageName('');
+                setDockerfilePath('packages/sandbox/docker/Dockerfile');
+                setBuildContext('packages/sandbox/docker');
+                setImageName('orkee-sandbox');
                 setImageTag('latest');
                 setLabels({});
                 setErrors({});
               }}
               disabled={isBuilding}
             >
-              Clear
+              Reset
             </Button>
           </div>
         </form>
