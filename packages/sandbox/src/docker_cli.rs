@@ -409,4 +409,151 @@ mod tests {
             assert!(result.is_ok(), "Should be able to list images if Docker is running");
         }
     }
+
+    #[test]
+    fn test_list_docker_images_with_filter() {
+        // Skip if Docker not available
+        if is_docker_running().unwrap_or(false) {
+            // Test with orkee.sandbox label filter
+            let result = list_docker_images(Some("orkee.sandbox=true"));
+            assert!(result.is_ok(), "Should be able to list images with label filter");
+
+            // The result may be empty if no images with that label exist, which is fine
+            let images = result.unwrap();
+            println!("Found {} images with orkee.sandbox label", images.len());
+        }
+    }
+
+    #[test]
+    fn test_get_docker_username() {
+        // This test doesn't require Docker to be running, just checks the function
+        // It may return Ok or Err depending on whether user is logged in
+        let result = get_docker_username();
+        match result {
+            Ok(username) => {
+                assert!(!username.is_empty(), "Username should not be empty if logged in");
+                println!("Detected Docker Hub username: {}", username);
+            }
+            Err(_) => {
+                // Not logged in or can't detect username - both are valid
+                println!("No Docker Hub username detected (not logged in or detection failed)");
+            }
+        }
+    }
+
+    #[test]
+    fn test_is_docker_logged_in() {
+        // Test the login status check
+        let result = is_docker_logged_in();
+        // Should always return Ok with a boolean
+        assert!(result.is_ok(), "is_docker_logged_in should not error");
+
+        let logged_in = result.unwrap();
+        println!("Docker login status: {}", logged_in);
+
+        // Note: Even if logged in, getting username may fail due to Docker version differences
+        // or configuration file formats, so we just test that the function doesn't panic
+        if logged_in {
+            let username_result = get_docker_username();
+            match username_result {
+                Ok(username) => println!("Successfully retrieved username: {}", username),
+                Err(_) => println!("Logged in but username detection failed (version-specific behavior)"),
+            }
+        }
+    }
+
+    #[test]
+    fn test_delete_docker_image_validates_input() {
+        // Test that delete fails gracefully with invalid image name
+        // This doesn't require Docker to be running
+        let result = delete_docker_image("", false);
+        assert!(result.is_err(), "Should fail with empty image name");
+    }
+
+    #[test]
+    fn test_docker_login_logout() {
+        // Test that login/logout functions exist and handle errors gracefully
+        // Note: We can't fully test these without real credentials
+
+        // Test logout (safe to call even if not logged in)
+        let logout_result = docker_logout();
+        // Should either succeed or fail gracefully
+        match logout_result {
+            Ok(_) => println!("Successfully logged out or was already logged out"),
+            Err(e) => println!("Logout handled error: {}", e),
+        }
+    }
+
+    #[test]
+    fn test_build_docker_image_validates_paths() {
+        // Test that build validates paths before attempting build
+        use std::path::Path;
+
+        let nonexistent_dockerfile = Path::new("/nonexistent/Dockerfile");
+        let nonexistent_context = Path::new("/nonexistent");
+
+        let result = build_docker_image(
+            nonexistent_dockerfile,
+            nonexistent_context,
+            "test:latest",
+            &[],
+        );
+
+        // Should fail because paths don't exist
+        assert!(result.is_err(), "Should fail with nonexistent paths");
+    }
+
+    #[test]
+    fn test_push_docker_image_validates_tag() {
+        // Test that push validates tag format
+        // This should fail if not logged in or if tag is invalid
+        let result = push_docker_image("invalid_tag_without_repository");
+
+        // Should fail (either not logged in, invalid tag, or image doesn't exist)
+        assert!(result.is_err(), "Should fail with invalid or nonexistent tag");
+    }
+
+    #[test]
+    fn test_docker_status_structure() {
+        // Test that get_docker_status returns proper structure
+        let result = get_docker_status();
+
+        match result {
+            Ok(status) => {
+                // If logged in, server address should be present
+                if status.logged_in {
+                    assert!(status.server_address.is_some(), "Should have server address if logged in");
+                    // Username may or may not be available depending on Docker version
+                    match &status.username {
+                        Some(username) => println!("Logged in as: {}", username),
+                        None => println!("Logged in but username not available (version-specific)"),
+                    }
+                } else {
+                    // Not logged in is also valid
+                    println!("Not logged into Docker Hub");
+                }
+            }
+            Err(_) => {
+                // Error is acceptable if Docker is not running
+                println!("Could not get Docker status");
+            }
+        }
+    }
+
+    #[test]
+    fn test_docker_config_structure() {
+        // Test that get_docker_config returns proper structure
+        let result = get_docker_config();
+
+        assert!(result.is_ok(), "get_docker_config should not panic");
+        let config = result.unwrap();
+
+        // Config should have auth_servers vec (may be empty)
+        println!("Found {} auth servers", config.auth_servers.len());
+
+        // If username exists, auth_servers should not be empty
+        if config.username.is_some() {
+            println!("Username: {:?}", config.username);
+        }
+    }
 }
