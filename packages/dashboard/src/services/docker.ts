@@ -1,7 +1,7 @@
 // Docker image management service
 // Provides API functions for Docker authentication, image listing, building, and pushing
 
-import { apiCall } from './api';
+import { apiRequest } from './api';
 
 export interface DockerStatus {
   logged_in: boolean;
@@ -73,7 +73,10 @@ export interface DockerLoginRequest {
  * Get Docker login status
  */
 export async function getDockerStatus(): Promise<DockerStatus> {
-  const response = await apiCall<DockerStatus>('/sandbox/docker/status');
+  const response = await apiRequest<DockerStatus>('/sandbox/docker/status');
+  if (!response.success || !response.data) {
+    throw new Error(response.error || 'Failed to get Docker status');
+  }
   return response.data;
 }
 
@@ -81,7 +84,10 @@ export async function getDockerStatus(): Promise<DockerStatus> {
  * Get Docker configuration
  */
 export async function getDockerConfig(): Promise<DockerConfig> {
-  const response = await apiCall<DockerConfig>('/sandbox/docker/config');
+  const response = await apiRequest<DockerConfig>('/sandbox/docker/config');
+  if (!response.success || !response.data) {
+    throw new Error(response.error || 'Failed to get Docker config');
+  }
   return response.data;
 }
 
@@ -91,13 +97,16 @@ export async function getDockerConfig(): Promise<DockerConfig> {
 export async function dockerLogin(
   request: DockerLoginRequest
 ): Promise<{ message: string }> {
-  const response = await apiCall<{ message: string }>(
+  const response = await apiRequest<{ message: string }>(
     '/sandbox/docker/login',
     {
       method: 'POST',
       body: JSON.stringify(request),
     }
   );
+  if (!response.success || !response.data) {
+    throw new Error(response.error || 'Failed to login to Docker');
+  }
   return response.data;
 }
 
@@ -105,12 +114,15 @@ export async function dockerLogin(
  * Logout from Docker Hub
  */
 export async function dockerLogout(): Promise<{ message: string }> {
-  const response = await apiCall<{ message: string }>(
+  const response = await apiRequest<{ message: string }>(
     '/sandbox/docker/logout',
     {
       method: 'POST',
     }
   );
+  if (!response.success || !response.data) {
+    throw new Error(response.error || 'Failed to logout from Docker');
+  }
   return response.data;
 }
 
@@ -122,7 +134,10 @@ export async function dockerLogout(): Promise<{ message: string }> {
  * List local Docker images with orkee.sandbox label
  */
 export async function listLocalImages(): Promise<DockerImage[]> {
-  const response = await apiCall<DockerImage[]>('/sandbox/docker/images/local');
+  const response = await apiRequest<DockerImage[]>('/sandbox/docker/images/local');
+  if (!response.success || !response.data) {
+    throw new Error(response.error || 'Failed to list local images');
+  }
   return response.data;
 }
 
@@ -132,13 +147,16 @@ export async function listLocalImages(): Promise<DockerImage[]> {
 export async function deleteDockerImage(
   request: DeleteImageRequest
 ): Promise<{ message: string }> {
-  const response = await apiCall<{ message: string }>(
+  const response = await apiRequest<{ message: string }>(
     '/sandbox/docker/images/delete',
     {
       method: 'POST',
       body: JSON.stringify(request),
     }
   );
+  if (!response.success || !response.data) {
+    throw new Error(response.error || 'Failed to delete Docker image');
+  }
   return response.data;
 }
 
@@ -158,9 +176,12 @@ export async function searchDockerHubImages(
     params.append('limit', limit.toString());
   }
 
-  const response = await apiCall<DockerHubImage[]>(
+  const response = await apiRequest<DockerHubImage[]>(
     `/sandbox/docker/images/search?${params.toString()}`
   );
+  if (!response.success || !response.data) {
+    throw new Error(response.error || 'Failed to search Docker Hub images');
+  }
   return response.data;
 }
 
@@ -171,9 +192,12 @@ export async function listUserDockerHubImages(
   username: string
 ): Promise<DockerHubImage[]> {
   const params = new URLSearchParams({ username });
-  const response = await apiCall<DockerHubImage[]>(
+  const response = await apiRequest<DockerHubImage[]>(
     `/sandbox/docker/images/user?${params.toString()}`
   );
+  if (!response.success || !response.data) {
+    throw new Error(response.error || 'Failed to list user Docker Hub images');
+  }
   return response.data;
 }
 
@@ -187,13 +211,16 @@ export async function listUserDockerHubImages(
 export async function buildDockerImage(
   request: BuildImageRequest
 ): Promise<BuildImageResponse> {
-  const response = await apiCall<BuildImageResponse>(
+  const response = await apiRequest<BuildImageResponse>(
     '/sandbox/docker/images/build',
     {
       method: 'POST',
       body: JSON.stringify(request),
     }
   );
+  if (!response.success || !response.data) {
+    throw new Error(response.error || 'Failed to build Docker image');
+  }
   return response.data;
 }
 
@@ -203,12 +230,15 @@ export async function buildDockerImage(
 export async function pushDockerImage(
   request: PushImageRequest
 ): Promise<PushImageResponse> {
-  const response = await apiCall<PushImageResponse>(
+  const response = await apiRequest<PushImageResponse>(
     '/sandbox/docker/images/push',
     {
       method: 'POST',
       body: JSON.stringify(request),
     }
   );
+  if (!response.success || !response.data) {
+    throw new Error(response.error || 'Failed to push Docker image');
+  }
   return response.data;
 }
