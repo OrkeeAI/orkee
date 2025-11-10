@@ -5,9 +5,10 @@ import { useEffect, useState, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { RefreshCw, Star, Download, Shield } from 'lucide-react';
+import { RefreshCw, Star, Download, Shield, ArrowDown } from 'lucide-react';
 import {
   listUserDockerHubImages,
+  pullDockerImage,
   type DockerHubImage,
 } from '@/services/docker';
 import { setDefaultImage } from '@/services/sandbox';
@@ -50,7 +51,24 @@ export function RemoteImagesList({ username, isLoggedIn }: RemoteImagesListProps
     loadUserImages();
   }, [loadUserImages]);
 
-  const handleUseImage = async (image: DockerHubImage) => {
+  const handlePullImage = async (image: DockerHubImage) => {
+    const imageTag = `${image.name}:latest`;
+    try {
+      await pullDockerImage({ image_tag: imageTag });
+      toast({
+        title: 'Image pulled successfully',
+        description: `${imageTag} has been downloaded to local Docker`,
+      });
+    } catch (error) {
+      toast({
+        title: 'Failed to pull image',
+        description: error instanceof Error ? error.message : 'Unknown error',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleSetDefault = async (image: DockerHubImage) => {
     const imageTag = `${image.name}:latest`;
     try {
       await setDefaultImage(imageTag);
@@ -109,9 +127,16 @@ export function RemoteImagesList({ username, isLoggedIn }: RemoteImagesListProps
               {formatNumber(image.pull_count)}
             </div>
           </div>
-          <Button size="sm" onClick={() => handleUseImage(image)}>
-            Use Image
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button size="sm" variant="outline" onClick={() => handlePullImage(image)}>
+              <ArrowDown className="h-4 w-4 mr-1" />
+              Pull
+            </Button>
+            <Button size="sm" onClick={() => handleSetDefault(image)}>
+              <Star className="h-4 w-4 mr-1" />
+              Set as Default
+            </Button>
+          </div>
         </div>
       </CardContent>
     </Card>
