@@ -28,7 +28,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { RefreshCw, MoreVertical, Trash2, Upload, Star, Copy } from 'lucide-react';
-import { listLocalImages, deleteDockerImage, type DockerImage } from '@/services/docker';
+import { listLocalImages, deleteDockerImage, pushDockerImage, type DockerImage } from '@/services/docker';
 import { setDefaultImage } from '@/services/sandbox';
 import { useToast } from '@/hooks/use-toast';
 
@@ -102,12 +102,21 @@ export function LocalImagesList({ refreshTrigger }: LocalImagesListProps) {
     });
   };
 
-  const handlePush = (image: DockerImage) => {
-    // TODO: Implement push functionality
-    toast({
-      title: 'Push functionality coming soon',
-      description: `Will push ${image.repository}:${image.tag}`,
-    });
+  const handlePush = async (image: DockerImage) => {
+    const imageTag = `${image.repository}:${image.tag}`;
+    try {
+      await pushDockerImage({ image_tag: imageTag });
+      toast({
+        title: 'Image pushed successfully',
+        description: `${imageTag} has been pushed to Docker Hub`,
+      });
+    } catch (error) {
+      toast({
+        title: 'Failed to push image',
+        description: error instanceof Error ? error.message : 'Unknown error',
+        variant: 'destructive',
+      });
+    }
   };
 
   const handleSetDefault = async (image: DockerImage) => {

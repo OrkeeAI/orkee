@@ -225,6 +225,25 @@ export async function buildDockerImage(
 }
 
 /**
+ * Pull a Docker image from Docker Hub
+ */
+export async function pullDockerImage(
+  request: PushImageRequest
+): Promise<PushImageResponse> {
+  const response = await apiRequest<PushImageResponse>(
+    '/api/sandbox/docker/images/pull',
+    {
+      method: 'POST',
+      body: JSON.stringify(request),
+    }
+  );
+  if (!response.success || !response.data) {
+    throw new Error(response.error || 'Failed to pull Docker image');
+  }
+  return response.data;
+}
+
+/**
  * Push a Docker image to Docker Hub
  */
 export async function pushDockerImage(
@@ -241,4 +260,19 @@ export async function pushDockerImage(
     throw new Error(response.error || 'Failed to push Docker image');
   }
   return response.data;
+}
+
+/**
+ * Logout from Docker Hub
+ */
+export async function dockerLogout(): Promise<void> {
+  const response = await apiRequest<void>(
+    '/api/sandbox/docker/logout',
+    {
+      method: 'POST',
+    }
+  );
+  if (!response.success) {
+    throw new Error(response.error || 'Failed to logout from Docker');
+  }
 }

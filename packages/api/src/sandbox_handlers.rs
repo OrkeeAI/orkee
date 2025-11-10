@@ -668,12 +668,30 @@ pub async fn build_docker_image(
 
 /// Request body for pushing Docker image
 #[derive(Deserialize)]
-pub struct PushImageRequest {
+pub struct ImageRequest {
     pub image_tag: String,
 }
 
+/// Pull a Docker image from Docker Hub
+pub async fn pull_docker_image(Json(request): Json<ImageRequest>) -> impl IntoResponse {
+    info!("Pulling Docker image: {}", request.image_tag);
+
+    let result = orkee_sandbox::pull_docker_image(&request.image_tag)
+        .map(|output| {
+            let stdout = String::from_utf8_lossy(&output.stdout);
+            serde_json::json!({
+                "message": "Image pulled successfully",
+                "image_tag": request.image_tag,
+                "output": stdout.to_string(),
+            })
+        })
+        .map_err(|e| format!("Failed to pull image: {}", e));
+
+    ok_or_internal_error(result, "Failed to pull image")
+}
+
 /// Push a Docker image to Docker Hub
-pub async fn push_docker_image(Json(request): Json<PushImageRequest>) -> impl IntoResponse {
+pub async fn push_docker_image(Json(request): Json<ImageRequest>) -> impl IntoResponse {
     info!("Pushing Docker image: {}", request.image_tag);
 
     // Check if logged in first

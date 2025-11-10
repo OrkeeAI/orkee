@@ -315,6 +315,22 @@ pub fn build_docker_image_stream(
     Ok(reader.lines().filter_map(|line| line.ok()))
 }
 
+/// Pull a Docker image from Docker Hub
+pub fn pull_docker_image(image_tag: &str) -> Result<Output> {
+    let output = Command::new("docker")
+        .arg("pull")
+        .arg(image_tag)
+        .output()
+        .context("Failed to execute docker pull command")?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        anyhow::bail!("Docker pull failed: {}", stderr);
+    }
+
+    Ok(output)
+}
+
 /// Push a Docker image to Docker Hub
 pub fn push_docker_image(image_tag: &str) -> Result<Output> {
     let output = Command::new("docker")

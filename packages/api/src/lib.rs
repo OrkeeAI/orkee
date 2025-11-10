@@ -877,6 +877,10 @@ pub fn create_sandbox_router() -> Router<DbState> {
             post(sandbox_handlers::build_docker_image),
         )
         .route(
+            "/docker/images/pull",
+            post(sandbox_handlers::pull_docker_image),
+        )
+        .route(
             "/docker/images/push",
             post(sandbox_handlers::push_docker_image),
         )

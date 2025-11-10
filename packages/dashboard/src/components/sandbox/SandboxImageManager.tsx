@@ -10,7 +10,7 @@ import { RemoteImagesList } from './RemoteImagesList';
 import { DockerBuildForm } from './DockerBuildForm';
 import { BuildProgressDisplay } from './BuildProgressDisplay';
 import { DockerAuthDialog } from './DockerAuthDialog';
-import { getDockerStatus, type DockerStatus, type BuildImageResponse } from '@/services/docker';
+import { getDockerStatus, dockerLogout, type DockerStatus, type BuildImageResponse } from '@/services/docker';
 import { useToast } from '@/hooks/use-toast';
 
 export function SandboxImageManager() {
@@ -46,13 +46,23 @@ export function SandboxImageManager() {
     setShowAuthDialog(true);
   }, []);
 
-  const handleLogoutClick = useCallback(() => {
-    // TODO: Call logout endpoint when implemented (Phase 5.2)
-    toast({
-      title: 'Logout functionality coming soon',
-      description: 'See sandbox-ui.md Phase 5.2 for implementation details',
-    });
-  }, [toast]);
+  const handleLogoutClick = useCallback(async () => {
+    try {
+      await dockerLogout();
+      toast({
+        title: 'Logged out successfully',
+        description: 'You have been logged out of Docker Hub',
+      });
+      loadDockerStatus();
+      handleRefresh();
+    } catch (error) {
+      toast({
+        title: 'Failed to logout',
+        description: error instanceof Error ? error.message : 'Unknown error',
+        variant: 'destructive',
+      });
+    }
+  }, [toast, loadDockerStatus, handleRefresh]);
 
   const handleLoginSuccess = useCallback(() => {
     loadDockerStatus();
