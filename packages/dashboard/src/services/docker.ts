@@ -60,6 +60,11 @@ export interface DeleteImageRequest {
   force?: boolean;
 }
 
+export interface DockerLoginRequest {
+  username: string;
+  password: string;
+}
+
 // ============================================================================
 // Docker Authentication
 // ============================================================================
@@ -77,6 +82,35 @@ export async function getDockerStatus(): Promise<DockerStatus> {
  */
 export async function getDockerConfig(): Promise<DockerConfig> {
   const response = await apiCall<DockerConfig>('/sandbox/docker/config');
+  return response.data;
+}
+
+/**
+ * Login to Docker Hub
+ */
+export async function dockerLogin(
+  request: DockerLoginRequest
+): Promise<{ message: string }> {
+  const response = await apiCall<{ message: string }>(
+    '/sandbox/docker/login',
+    {
+      method: 'POST',
+      body: JSON.stringify(request),
+    }
+  );
+  return response.data;
+}
+
+/**
+ * Logout from Docker Hub
+ */
+export async function dockerLogout(): Promise<{ message: string }> {
+  const response = await apiCall<{ message: string }>(
+    '/sandbox/docker/logout',
+    {
+      method: 'POST',
+    }
+  );
   return response.data;
 }
 

@@ -697,3 +697,62 @@ pub async fn push_docker_image(Json(request): Json<PushImageRequest>) -> impl In
 
     ok_or_internal_error(result, "Failed to push image")
 }
+
+/// Request body for Docker login
+#[derive(Deserialize)]
+pub struct DockerLoginRequest {
+    pub username: String,
+    pub password: String,
+}
+
+/// Login to Docker Hub
+pub async fn docker_login(Json(request): Json<DockerLoginRequest>) -> impl IntoResponse {
+    info!("Logging in to Docker Hub as: {}", request.username);
+
+    use std::io::Write;
+    use std::process::{Command, Stdio};
+
+    let result: Result<serde_json::Value, String> = (|| {
+        let mut child = Command::new("docker")
+            .arg("login")
+            .arg("--username")
+            .arg(&request.username)
+            .arg("--password-stdin")
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .map_err(|e| format!("Failed to spawn docker login: {}", e))?;
+
+        // Write password to stdin
+        if let Some(mut stdin) = child.stdin.take() {
+            stdin
+                .write_all(request.password.as_bytes())
+                .map_err(|e| format!("Failed to write password: {}", e))?;
+        }
+
+        let output = child
+            .wait_with_output()
+            .map_err(|e| format!("Failed to wait for docker login: {}", e))?;
+
+        if output.status.success() {
+            Ok(serde_json::json!({"message": "Login successful"}))
+        } else {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            Err(format!("Login failed: {}", stderr))
+        }
+    })();
+
+    ok_or_internal_error(result, "Login failed")
+}
+
+/// Logout from Docker Hub
+pub async fn docker_logout() -> impl IntoResponse {
+    info!("Logging out from Docker Hub");
+
+    let result = orkee_sandbox::docker_logout()
+        .map(|_| serde_json::json!({"message": "Logged out successfully"}))
+        .map_err(|e| format!("Failed to logout: {}", e));
+
+    ok_or_internal_error(result, "Logout failed")
+}

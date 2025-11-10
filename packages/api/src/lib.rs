@@ -854,6 +854,8 @@ pub fn create_sandbox_router() -> Router<DbState> {
         // Docker image management endpoints
         .route("/docker/status", get(sandbox_handlers::docker_status))
         .route("/docker/config", get(sandbox_handlers::docker_config))
+        .route("/docker/login", post(sandbox_handlers::docker_login))
+        .route("/docker/logout", post(sandbox_handlers::docker_logout))
         .route(
             "/docker/images/local",
             get(sandbox_handlers::list_local_images),
