@@ -3465,6 +3465,7 @@ version = "0.0.9"
 dependencies = [
  "anyhow",
  "async-trait",
+ "base64 0.22.1",
  "bollard",
  "chrono",
  "futures",

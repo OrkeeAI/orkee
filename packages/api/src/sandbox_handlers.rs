@@ -519,12 +519,26 @@ pub async fn get_sandbox_metrics(
 // ============================================================================
 
 /// Get Docker login status
-pub async fn docker_status() -> impl IntoResponse {
+pub async fn docker_status(State(db): State<DbState>) -> impl IntoResponse {
     info!("Getting Docker status");
 
-    let result = orkee_sandbox::get_docker_status()
-        .map_err(|e| format!("Failed to get Docker status: {}", e));
+    // Get Docker login status from CLI
+    let mut status = match orkee_sandbox::get_docker_status() {
+        Ok(s) => s,
+        Err(e) => {
+            let error: Result<(), String> = Err(format!("Failed to get Docker status: {}", e));
+            return ok_or_internal_error(error, "Failed to get Docker status");
+        }
+    };
 
+    // If logged in but username is not detected from config, try to get it from database
+    if status.logged_in && status.username.is_none() {
+        if let Ok(settings) = db.sandbox_settings.get_sandbox_settings().await {
+            status.username = settings.docker_username;
+        }
+    }
+
+    let result: Result<_, String> = Ok(status);
     ok_or_internal_error(result, "Failed to get Docker status")
 }
 

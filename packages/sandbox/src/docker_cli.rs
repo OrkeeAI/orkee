@@ -118,8 +118,20 @@ pub fn get_docker_username() -> Result<String> {
                 if let Some(auths) = config.get("auths").and_then(|a| a.as_object()) {
                     for (server, auth) in auths {
                         if server.contains("index.docker.io") {
+                            // Try direct username field first (old format)
                             if let Some(username) = auth.get("username").and_then(|u| u.as_str()) {
                                 return Ok(username.to_string());
+                            }
+                            // Try to decode auth token (base64 encoded "username:password")
+                            if let Some(auth_str) = auth.get("auth").and_then(|a| a.as_str()) {
+                                use base64::{engine::general_purpose, Engine as _};
+                                if let Ok(decoded) = general_purpose::STANDARD.decode(auth_str) {
+                                    if let Ok(credentials) = String::from_utf8(decoded) {
+                                        if let Some(username) = credentials.split(':').next() {
+                                            return Ok(username.to_string());
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
