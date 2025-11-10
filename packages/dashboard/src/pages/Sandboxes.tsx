@@ -27,6 +27,7 @@ import { ResourceMonitor } from '@/components/sandbox/ResourceMonitor'
 import { CostTracking } from '@/components/sandbox/CostTracking'
 import { AgentModelSelector } from '@/components/sandbox/AgentModelSelector'
 import { TemplateManagement } from '@/components/sandbox/TemplateManagement'
+import { SandboxImageManager } from '@/components/sandbox/SandboxImageManager'
 import {
   Plus,
   RefreshCw,
@@ -35,6 +36,7 @@ import {
   Terminal as TerminalIcon,
   FolderOpen,
   BarChart3,
+  Package,
 } from 'lucide-react'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
@@ -238,96 +240,118 @@ export default function Sandboxes() {
   }
 
   return (
-    <div className="h-full flex flex-col md:flex-row gap-4 p-4">
-      {/* Main Content */}
-      <div className="flex-1 flex flex-col min-w-0">
-        {/* Header */}
-        <div className="mb-4">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h1 className="text-3xl font-bold tracking-tight">Sandboxes</h1>
-              <p className="text-muted-foreground">
-                Manage isolated execution environments for AI agents
-              </p>
-            </div>
-            <div className="flex gap-2">
-              <Button variant="outline" onClick={loadData} disabled={loading}>
-                <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-                Refresh
-              </Button>
-              <Button onClick={() => setCreateDialogOpen(true)}>
-                <Plus className="h-4 w-4 mr-2" />
-                Create Sandbox
-              </Button>
-            </div>
+    <div className="h-full flex flex-col p-4">
+      {/* Header */}
+      <div className="mb-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">Sandboxes</h1>
+            <p className="text-muted-foreground">
+              Manage isolated execution environments for AI agents
+            </p>
           </div>
-
-          {/* Stats */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div className="p-4 border rounded-lg">
-              <div className="text-2xl font-bold">{sandboxes.length}</div>
-              <div className="text-sm text-muted-foreground">Total Sandboxes</div>
-            </div>
-            <div className="p-4 border rounded-lg">
-              <div className="text-2xl font-bold text-green-500">{runningSandboxes.length}</div>
-              <div className="text-sm text-muted-foreground">Running</div>
-            </div>
-            <div className="p-4 border rounded-lg">
-              <div className="text-2xl font-bold text-gray-500">{stoppedSandboxes.length}</div>
-              <div className="text-sm text-muted-foreground">Stopped</div>
-            </div>
-            <div className="p-4 border rounded-lg">
-              <div className="text-2xl font-bold text-red-500">{errorSandboxes.length}</div>
-              <div className="text-sm text-muted-foreground">Errors</div>
-            </div>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={loadData} disabled={loading}>
+              <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+              Refresh
+            </Button>
+            <Button onClick={() => setCreateDialogOpen(true)}>
+              <Plus className="h-4 w-4 mr-2" />
+              Create Sandbox
+            </Button>
           </div>
         </div>
+      </div>
 
-        {/* Sandbox List */}
-        <ScrollArea className="flex-1">
-          {loading ? (
-            <div className="flex items-center justify-center py-12 text-muted-foreground">
-              <RefreshCw className="h-5 w-5 animate-spin mr-2" />
-              Loading sandboxes...
+      {/* Tabs */}
+      <Tabs defaultValue="sandboxes" className="flex-1 flex flex-col min-h-0">
+        <TabsList>
+          <TabsTrigger value="sandboxes" className="flex items-center gap-2">
+            <Server className="h-4 w-4" />
+            Sandboxes
+          </TabsTrigger>
+          <TabsTrigger value="images" className="flex items-center gap-2">
+            <Package className="h-4 w-4" />
+            Images
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="sandboxes" className="flex-1 mt-4 min-h-0">
+          <div className="h-full flex flex-col md:flex-row gap-4">
+            {/* Main Content */}
+            <div className="flex-1 flex flex-col min-w-0">
+              {/* Stats */}
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+                <div className="p-4 border rounded-lg">
+                  <div className="text-2xl font-bold">{sandboxes.length}</div>
+                  <div className="text-sm text-muted-foreground">Total Sandboxes</div>
+                </div>
+                <div className="p-4 border rounded-lg">
+                  <div className="text-2xl font-bold text-green-500">{runningSandboxes.length}</div>
+                  <div className="text-sm text-muted-foreground">Running</div>
+                </div>
+                <div className="p-4 border rounded-lg">
+                  <div className="text-2xl font-bold text-gray-500">{stoppedSandboxes.length}</div>
+                  <div className="text-sm text-muted-foreground">Stopped</div>
+                </div>
+                <div className="p-4 border rounded-lg">
+                  <div className="text-2xl font-bold text-red-500">{errorSandboxes.length}</div>
+                  <div className="text-sm text-muted-foreground">Errors</div>
+                </div>
+              </div>
+
+              {/* Sandbox List */}
+              <ScrollArea className="flex-1">
+                {loading ? (
+                  <div className="flex items-center justify-center py-12 text-muted-foreground">
+                    <RefreshCw className="h-5 w-5 animate-spin mr-2" />
+                    Loading sandboxes...
+                  </div>
+                ) : sandboxes.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-12 text-center">
+                    <Server className="h-12 w-12 text-muted-foreground mb-4" />
+                    <h3 className="text-lg font-semibold mb-2">No sandboxes yet</h3>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      Create your first sandbox to get started
+                    </p>
+                    <Button onClick={() => setCreateDialogOpen(true)}>
+                      <Plus className="h-4 w-4 mr-2" />
+                      Create Sandbox
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 pb-4">
+                    {sandboxes.map((sandbox) => (
+                      <SandboxCard
+                        key={sandbox.id}
+                        sandbox={sandbox}
+                        onUpdate={loadData}
+                        onClick={() => handleSandboxClick(sandbox)}
+                      />
+                    ))}
+                  </div>
+                )}
+              </ScrollArea>
             </div>
-          ) : sandboxes.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-12 text-center">
-              <Server className="h-12 w-12 text-muted-foreground mb-4" />
-              <h3 className="text-lg font-semibold mb-2">No sandboxes yet</h3>
-              <p className="text-sm text-muted-foreground mb-4">
-                Create your first sandbox to get started
-              </p>
-              <Button onClick={() => setCreateDialogOpen(true)}>
-                <Plus className="h-4 w-4 mr-2" />
-                Create Sandbox
-              </Button>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 pb-4">
-              {sandboxes.map((sandbox) => (
-                <SandboxCard
-                  key={sandbox.id}
-                  sandbox={sandbox}
-                  onUpdate={loadData}
-                  onClick={() => handleSandboxClick(sandbox)}
+
+            {/* Sidebar */}
+            <div className="w-full md:w-80 flex-shrink-0 space-y-4">
+              {settings && (
+                <CostTracking
+                  sandboxes={sandboxes}
+                  maxTotalCost={settings.max_total_cost}
+                  costAlertThreshold={settings.cost_alert_threshold}
                 />
-              ))}
+              )}
+              <TemplateManagement />
             </div>
-          )}
-        </ScrollArea>
-      </div>
+          </div>
+        </TabsContent>
 
-      {/* Sidebar */}
-      <div className="w-full md:w-80 flex-shrink-0 space-y-4">
-        {settings && (
-          <CostTracking
-            sandboxes={sandboxes}
-            maxTotalCost={settings.max_total_cost}
-            costAlertThreshold={settings.cost_alert_threshold}
-          />
-        )}
-        <TemplateManagement />
-      </div>
+        <TabsContent value="images" className="flex-1 mt-4 min-h-0">
+          <SandboxImageManager />
+        </TabsContent>
+      </Tabs>
 
       {/* Create Sandbox Dialog */}
       <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
