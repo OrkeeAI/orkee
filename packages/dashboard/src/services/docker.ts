@@ -165,27 +165,6 @@ export async function deleteDockerImage(
 // ============================================================================
 
 /**
- * Search Docker Hub for images
- */
-export async function searchDockerHubImages(
-  query: string,
-  limit?: number
-): Promise<DockerHubImage[]> {
-  const params = new URLSearchParams({ query });
-  if (limit) {
-    params.append('limit', limit.toString());
-  }
-
-  const response = await apiRequest<DockerHubImage[]>(
-    `/api/sandbox/docker/images/search?${params.toString()}`
-  );
-  if (!response.success || !response.data) {
-    throw new Error(response.error || 'Failed to search Docker Hub images');
-  }
-  return response.data;
-}
-
-/**
  * List Docker Hub images for a specific user
  */
 export async function listUserDockerHubImages(
