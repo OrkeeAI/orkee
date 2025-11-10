@@ -451,54 +451,24 @@ Add comprehensive Docker image management UI to the `/sandboxes` route, mirrorin
 
 ---
 
-## Phase 4: Integration with Sandboxes Page ⏳ PENDING
+## Phase 4: Integration with Sandboxes Page ✅ COMPLETED
 
-### 4.1 Add Images Tab to Sandboxes Page
+### 4.1 Add Images Tab to Sandboxes Page ✅
 **File**: `packages/dashboard/src/pages/Sandboxes.tsx`
 
-**Changes Required**:
-- [ ] Import `SandboxImageManager` component
-- [ ] Add new tab to existing Tabs component:
-  ```tsx
-  <TabsTrigger value="images" className="flex items-center gap-2">
-    <Package className="h-4 w-4" />
-    Images
-  </TabsTrigger>
-  ```
-- [ ] Add tab content:
-  ```tsx
-  <TabsContent value="images" className="h-full mt-0">
-    <SandboxImageManager />
-  </TabsContent>
-  ```
+**Changes Implemented**:
+- [x] Import `SandboxImageManager` component
+- [x] Wrap existing content in Tabs component
+- [x] Add "Sandboxes" and "Images" tabs at top level
+- [x] Import `Package` icon from `lucide-react`
+- [x] Images tab renders `SandboxImageManager` component with full height
+- [x] Sandboxes tab contains existing list view with stats and sidebar
 
-**Icon Import**:
-- [ ] Import `Package` icon from `lucide-react`
-
-**Alternative Approach** (if existing tabs are complex):
-- [ ] Add "Manage Images" button in sandbox header
-- [ ] Open `SandboxImageManager` in modal/dialog
-- [ ] Or create separate route `/sandboxes/images`
-
-### 4.2 Add Docker Status to Settings
-**File**: `packages/dashboard/src/components/settings/SandboxSettings.tsx`
-
-**Changes Required**:
-- [ ] Import `DockerStatusCard` component
-- [ ] Add to "General" settings tab:
-  ```tsx
-  <div className="space-y-4">
-    <h3>Docker Configuration</h3>
-    <DockerStatusCard />
-    <Button onClick={() => openImageManager()}>
-      Manage Images
-    </Button>
-  </div>
-  ```
-
-**Behavior**:
-- [ ] "Manage Images" button opens full `SandboxImageManager`
-- [ ] Could be in dialog or navigate to /sandboxes?tab=images
+**Implementation Details**:
+- Main page now has two top-level tabs: "Sandboxes" and "Images"
+- Existing sandbox list, stats, and sidebar moved into "Sandboxes" tab content
+- Images tab provides full-height container for SandboxImageManager
+- Maintains all existing functionality in sandboxes tab
 
 ---
 
@@ -768,47 +738,39 @@ SandboxImageManager (main container)
 
 ## Current Status Summary
 
-### ✅ Completed (55% of backend, 100% of Phase 3 frontend)
-- Backend Docker CLI wrapper with full functionality
+### ✅ Completed
+- **Phase 1**: Backend Docker CLI wrapper with full functionality
+- **Phase 2**: Frontend service layer with all API functions
+- **Phase 3**: All 7 React UI components implemented and integrated
+- **Phase 4**: Integration with Sandboxes page (Images tab added)
 - Docker Hub API integration
 - 8 out of 10 API endpoints
-- Frontend service layer with all API functions
-- **Phase 3: All 7 React UI components implemented and integrated**
 
-### ⏳ In Progress (Phase 4 & 5)
-- Integration with Sandboxes page (Phase 4)
+### ⏳ In Progress (Phase 5)
 - Backend login/logout endpoints (Phase 5)
 
 ### 📋 Remaining Work
 - 2 backend endpoints (login, logout) - Phase 5
-- Integration with Sandboxes page and Settings - Phase 4
 - Testing (backend, frontend, E2E) - Phase 6
 - Documentation and polish - Phase 7
 
 ### Estimated Effort Remaining
 - **Backend**: ~2 hours (2 endpoints + tests) - Phase 5
-- **Frontend**: ~2 hours (Sandboxes page integration) - Phase 4
 - **Testing**: ~4 hours (comprehensive tests) - Phase 6
 - **Documentation**: ~2 hours (docs + polish) - Phase 7
-- **Total**: ~10 hours of development time remaining
+- **Total**: ~8 hours of development time remaining
 
 ---
 
 ## Next Steps
 
-**Immediate Next Task**: Implement React components starting with `SandboxImageManager.tsx`
+**Immediate Next Task**: Backend login/logout endpoints (Phase 5)
 
 **Recommended Order**:
-1. `DockerStatusCard` - Simplest component, good starting point
-2. `SandboxImageManager` - Main container to establish structure
-3. `LocalImagesList` - Core functionality, uses existing patterns
-4. `RemoteImagesList` - Similar to LocalImagesList
-5. `DockerBuildForm` - Form handling
-6. `BuildProgressDisplay` - Terminal component
-7. `DockerAuthDialog` - Auth flow
-8. Integration with Sandboxes page
-9. Backend login/logout endpoints
-10. Testing and polish
+1. ✅ ~~All React components~~ - COMPLETED
+2. ✅ ~~Integration with Sandboxes page~~ - COMPLETED
+3. Backend login/logout endpoints (Phase 5)
+4. Testing and polish (Phase 6-7)
 
 ---
 
@@ -877,5 +839,5 @@ This feature is complete when:
 ---
 
 **Last Updated**: 2025-01-09
-**Status**: Phase 1, 2, & 3 Complete
-**Next Milestone**: Phase 4 (Integration with Sandboxes Page)
+**Status**: Phase 1, 2, 3, & 4 Complete
+**Next Milestone**: Phase 5 (Backend Login/Logout Endpoints)
