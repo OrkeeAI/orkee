@@ -472,11 +472,11 @@ Add comprehensive Docker image management UI to the `/sandboxes` route, mirrorin
 
 ---
 
-## Phase 5: Additional Backend Endpoints (Required for Full Functionality) ⏳ PENDING
+## Phase 5: Additional Backend Endpoints (Required for Full Functionality) ✅ COMPLETED
 
 These endpoints are needed for complete UI functionality but weren't in the initial backend implementation.
 
-### 5.1 Docker Login Endpoint
+### 5.1 Docker Login Endpoint ✅
 **Handler**: `packages/api/src/sandbox_handlers.rs`
 
 **Endpoint**: `POST /api/sandbox/docker/login`
@@ -491,77 +491,28 @@ pub struct DockerLoginRequest {
 ```
 
 **Implementation**:
-- [ ] Create handler `docker_login(Json<DockerLoginRequest>)`
-- [ ] Call Docker CLI with credentials
-- [ ] Return success/failure
-- [ ] Update router with endpoint
+- [x] Create handler `docker_login(Json<DockerLoginRequest>)`
+- [x] Call Docker CLI with credentials
+- [x] Return success/failure
+- [x] Update router with endpoint
 
 **Challenges**:
-- [ ] `docker login` is interactive (stdin)
-- [ ] Need to pass credentials programmatically
-- [ ] Docker CLI accepts `--username` and `--password-stdin` flags
+- [x] `docker login` is interactive (stdin)
+- [x] Need to pass credentials programmatically
+- [x] Docker CLI accepts `--username` and `--password-stdin` flags
 
-**Solution**:
-```rust
-pub async fn docker_login(
-    Json(request): Json<DockerLoginRequest>,
-) -> impl IntoResponse {
-    use std::process::{Command, Stdio};
-    use std::io::Write;
+**Solution**: ✅ Implemented using password-stdin approach
 
-    let mut child = Command::new("docker")
-        .arg("login")
-        .arg("--username")
-        .arg(&request.username)
-        .arg("--password-stdin")
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()
-        .context("Failed to spawn docker login")?;
-
-    // Write password to stdin
-    if let Some(mut stdin) = child.stdin.take() {
-        stdin.write_all(request.password.as_bytes())?;
-    }
-
-    let output = child.wait_with_output()?;
-
-    if output.status.success() {
-        ok_or_internal_error(
-            Ok(json!({"message": "Login successful"})),
-            "Login failed"
-        )
-    } else {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        ok_or_internal_error(
-            Err::<serde_json::Value, String>(stderr.to_string()),
-            "Login failed"
-        )
-    }
-}
-```
-
-### 5.2 Docker Logout Endpoint
+### 5.2 Docker Logout Endpoint ✅
 **Handler**: `packages/api/src/sandbox_handlers.rs`
 
 **Endpoint**: `POST /api/sandbox/docker/logout`
 
 **Implementation**:
-- [ ] Create handler `docker_logout()`
-- [ ] Call `orkee_sandbox::docker_logout()`
-- [ ] Return success message
-- [ ] Update router with endpoint
-
-```rust
-pub async fn docker_logout() -> impl IntoResponse {
-    let result = orkee_sandbox::docker_logout()
-        .map(|_| json!({"message": "Logged out successfully"}))
-        .map_err(|e| format!("Logout failed: {}", e));
-
-    ok_or_internal_error(result, "Logout failed")
-}
-```
+- [x] Create handler `docker_logout()`
+- [x] Call `orkee_sandbox::docker_logout()`
+- [x] Return success message
+- [x] Update router with endpoint
 
 ### 5.3 Streaming Build Endpoint (Optional - Future Enhancement)
 **Handler**: `packages/api/src/sandbox_handlers.rs`
@@ -687,19 +638,17 @@ packages/
 - `react-query` or similar for data fetching (optional)
 
 ### API Endpoint Summary
-**Implemented** (8 endpoints):
+**Implemented** (10 endpoints):
 - ✅ `GET /api/sandbox/docker/status`
 - ✅ `GET /api/sandbox/docker/config`
+- ✅ `POST /api/sandbox/docker/login` - Docker authentication
+- ✅ `POST /api/sandbox/docker/logout` - Docker logout
 - ✅ `GET /api/sandbox/docker/images/local`
 - ✅ `GET /api/sandbox/docker/images/search`
 - ✅ `GET /api/sandbox/docker/images/user`
 - ✅ `POST /api/sandbox/docker/images/delete`
 - ✅ `POST /api/sandbox/docker/images/build`
 - ✅ `POST /api/sandbox/docker/images/push`
-
-**TODO** (2 endpoints):
-- ⏳ `POST /api/sandbox/docker/login` - Docker authentication
-- ⏳ `POST /api/sandbox/docker/logout` - Docker logout
 
 **Optional** (future enhancement):
 - ⏳ `GET /api/sandbox/docker/images/build/:id/stream` - SSE build logs
@@ -743,33 +692,29 @@ SandboxImageManager (main container)
 - **Phase 2**: Frontend service layer with all API functions
 - **Phase 3**: All 7 React UI components implemented and integrated
 - **Phase 4**: Integration with Sandboxes page (Images tab added)
+- **Phase 5**: Backend login/logout endpoints
 - Docker Hub API integration
-- 8 out of 10 API endpoints
-
-### ⏳ In Progress (Phase 5)
-- Backend login/logout endpoints (Phase 5)
+- All 10 required API endpoints
 
 ### 📋 Remaining Work
-- 2 backend endpoints (login, logout) - Phase 5
 - Testing (backend, frontend, E2E) - Phase 6
 - Documentation and polish - Phase 7
 
 ### Estimated Effort Remaining
-- **Backend**: ~2 hours (2 endpoints + tests) - Phase 5
 - **Testing**: ~4 hours (comprehensive tests) - Phase 6
 - **Documentation**: ~2 hours (docs + polish) - Phase 7
-- **Total**: ~8 hours of development time remaining
+- **Total**: ~6 hours of development time remaining
 
 ---
 
 ## Next Steps
 
-**Immediate Next Task**: Backend login/logout endpoints (Phase 5)
+**Immediate Next Task**: Testing (Phase 6)
 
 **Recommended Order**:
 1. ✅ ~~All React components~~ - COMPLETED
 2. ✅ ~~Integration with Sandboxes page~~ - COMPLETED
-3. Backend login/logout endpoints (Phase 5)
+3. ✅ ~~Backend login/logout endpoints~~ - COMPLETED
 4. Testing and polish (Phase 6-7)
 
 ---
@@ -826,12 +771,12 @@ If this feature needs to be rolled back:
 
 This feature is complete when:
 - [x] Backend can list, build, push, and delete Docker images
-- [ ] Users can authenticate with Docker Hub via UI
-- [ ] Users can see all local Orkee sandbox images
-- [ ] Users can search Docker Hub for images
-- [ ] Users can build custom images with real-time feedback
-- [ ] Users can push images to Docker Hub
-- [ ] Users can set default sandbox image from UI
+- [x] Users can authenticate with Docker Hub via UI
+- [x] Users can see all local Orkee sandbox images
+- [x] Users can search Docker Hub for images
+- [x] Users can build custom images with real-time feedback
+- [x] Users can push images to Docker Hub
+- [x] Users can set default sandbox image from UI
 - [ ] All operations have proper error handling and user feedback
 - [ ] Integration tests pass
 - [ ] Documentation is updated
@@ -839,5 +784,5 @@ This feature is complete when:
 ---
 
 **Last Updated**: 2025-01-09
-**Status**: Phase 1, 2, 3, & 4 Complete
-**Next Milestone**: Phase 5 (Backend Login/Logout Endpoints)
+**Status**: Phase 1, 2, 3, 4, & 5 Complete
+**Next Milestone**: Phase 6 (Testing)
