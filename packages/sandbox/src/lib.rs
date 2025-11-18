@@ -13,10 +13,11 @@ pub mod storage;
 
 pub use cost::{CostBreakdown, CostCalculator};
 pub use docker_cli::{
-    delete_docker_image, docker_login, docker_logout, get_docker_config, get_docker_status,
-    get_docker_username, is_docker_logged_in, is_docker_running, list_docker_images,
-    pull_docker_image, push_docker_image, push_docker_image_stream, BuildProgress, DockerConfig,
-    DockerImage, DockerStatus,
+    delete_docker_image, docker_login, docker_login_in_terminal, docker_logout, get_docker_config,
+    get_docker_daemon_status, get_docker_status, get_docker_username, is_docker_logged_in,
+    is_docker_running, list_docker_images, pull_docker_image, push_docker_image,
+    push_docker_image_stream, BuildProgress, DockerConfig, DockerDaemonStatus, DockerImage,
+    DockerStatus,
 };
 pub use executor::{CommandExecutor, ExecuteCommandRequest, ExecutionResult, ExecutorError};
 pub use health::{HealthCheck, HealthChecker, HealthStatus};

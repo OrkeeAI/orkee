@@ -11,20 +11,24 @@ import type { BuildImageResponse } from '@/services/docker';
 
 interface BuildProgressDisplayProps {
   buildOutput?: BuildImageResponse | null;
+  isBuilding?: boolean;
 }
 
-export function BuildProgressDisplay({ buildOutput }: BuildProgressDisplayProps) {
+export function BuildProgressDisplay({ buildOutput, isBuilding }: BuildProgressDisplayProps) {
   const [status, setStatus] = useState<'idle' | 'building' | 'success' | 'failed'>('idle');
   const [logs, setLogs] = useState<string[]>([]);
   const logsEndRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
 
   useEffect(() => {
-    if (buildOutput) {
+    if (isBuilding) {
+      setStatus('building');
+      setLogs(['Docker build started...', 'Please wait, this may take several minutes...']);
+    } else if (buildOutput) {
       setStatus('success');
       setLogs(buildOutput.output.split('\n'));
     }
-  }, [buildOutput]);
+  }, [buildOutput, isBuilding]);
 
   useEffect(() => {
     // Auto-scroll to bottom when logs change

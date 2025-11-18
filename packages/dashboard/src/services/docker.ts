@@ -10,6 +10,12 @@ export interface DockerStatus {
   server_address: string | null;
 }
 
+export interface DockerDaemonStatus {
+  running: boolean;
+  version?: string;
+  error?: string;
+}
+
 export interface DockerConfig {
   username: string | null;
   auth_servers: string[];
@@ -37,6 +43,7 @@ export interface BuildImageRequest {
   build_context: string;
   image_tag: string;
   labels?: Record<string, string>;
+  push_to_registry?: boolean;
 }
 
 export interface BuildImageResponse {
@@ -81,6 +88,17 @@ export async function getDockerStatus(): Promise<DockerStatus> {
 }
 
 /**
+ * Check if Docker daemon is running
+ */
+export async function getDockerDaemonStatus(): Promise<DockerDaemonStatus> {
+  const response = await apiRequest<DockerDaemonStatus>('/api/sandbox/docker/daemon-status');
+  if (!response.success || !response.data) {
+    throw new Error(response.error || 'Failed to get Docker daemon status');
+  }
+  return response.data;
+}
+
+/**
  * Get Docker configuration
  */
 export async function getDockerConfig(): Promise<DockerConfig> {
@@ -92,7 +110,7 @@ export async function getDockerConfig(): Promise<DockerConfig> {
 }
 
 /**
- * Login to Docker Hub
+ * Login to Docker Hub (username/password - legacy)
  */
 export async function dockerLogin(
   request: DockerLoginRequest
@@ -106,6 +124,22 @@ export async function dockerLogin(
   );
   if (!response.success || !response.data) {
     throw new Error(response.error || 'Failed to login to Docker');
+  }
+  return response.data;
+}
+
+/**
+ * Login to Docker Hub using OAuth (opens terminal)
+ */
+export async function dockerLoginOAuth(): Promise<{ message: string }> {
+  const response = await apiRequest<{ message: string }>(
+    '/api/sandbox/docker/login-oauth',
+    {
+      method: 'POST',
+    }
+  );
+  if (!response.success || !response.data) {
+    throw new Error(response.error || 'Failed to launch Docker OAuth login');
   }
   return response.data;
 }
@@ -239,19 +273,4 @@ export async function pushDockerImage(
     throw new Error(response.error || 'Failed to push Docker image');
   }
   return response.data;
-}
-
-/**
- * Logout from Docker Hub
- */
-export async function dockerLogout(): Promise<void> {
-  const response = await apiRequest<void>(
-    '/api/sandbox/docker/logout',
-    {
-      method: 'POST',
-    }
-  );
-  if (!response.success) {
-    throw new Error(response.error || 'Failed to logout from Docker');
-  }
 }

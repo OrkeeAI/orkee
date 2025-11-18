@@ -1,22 +1,25 @@
 // ABOUTME: Docker image build form component
 // ABOUTME: Form for building Docker images with file picker and validation
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Hammer, Plus, X } from 'lucide-react';
-import { buildDockerImage, type BuildImageRequest, type BuildImageResponse } from '@/services/docker';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Hammer, Plus, X, AlertTriangle } from 'lucide-react';
+import { buildDockerImage, getDockerStatus, type BuildImageRequest, type BuildImageResponse } from '@/services/docker';
 import { useToast } from '@/hooks/use-toast';
 
 interface DockerBuildFormProps {
   username?: string | null;
   onBuildStart?: () => void;
   onBuildComplete?: (response: BuildImageResponse) => void;
+  onLoginClick?: () => void;
 }
 
-export function DockerBuildForm({ username, onBuildStart, onBuildComplete }: DockerBuildFormProps) {
+export function DockerBuildForm({ username, onBuildStart, onBuildComplete, onLoginClick }: DockerBuildFormProps) {
   // Default to the sandbox package Dockerfile
   const [dockerfilePath, setDockerfilePath] = useState('packages/sandbox/docker/Dockerfile');
   const [buildContext, setBuildContext] = useState('packages/sandbox/docker');
@@ -27,7 +30,21 @@ export function DockerBuildForm({ username, onBuildStart, onBuildComplete }: Doc
   const [newLabelValue, setNewLabelValue] = useState('');
   const [isBuilding, setIsBuilding] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [pushToRegistry, setPushToRegistry] = useState(false);
   const { toast } = useToast();
+
+  useEffect(() => {
+    const checkLoginStatus = async () => {
+      try {
+        const status = await getDockerStatus();
+        setIsLoggedIn(status.logged_in);
+      } catch (error) {
+        console.error('Failed to check Docker login status:', error);
+      }
+    };
+    checkLoginStatus();
+  }, []);
 
   const validate = (): boolean => {
     const newErrors: Record<string, string> = {};
@@ -94,6 +111,7 @@ export function DockerBuildForm({ username, onBuildStart, onBuildComplete }: Doc
         ...labels,
         'orkee.sandbox': 'true',
       },
+      push_to_registry: pushToRegistry,
     };
 
     try {
@@ -138,6 +156,28 @@ export function DockerBuildForm({ username, onBuildStart, onBuildComplete }: Doc
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-4">
+          {pushToRegistry && !isLoggedIn && (
+            <Alert variant="destructive">
+              <AlertTriangle className="h-4 w-4" />
+              <AlertTitle>Docker Hub Login Required</AlertTitle>
+              <AlertDescription className="flex items-center justify-between">
+                <span>
+                  You must login to Docker Hub to push images.
+                  {onLoginClick && (
+                    <Button
+                      type="button"
+                      variant="link"
+                      className="h-auto p-0 ml-1 text-destructive underline"
+                      onClick={onLoginClick}
+                    >
+                      Login now
+                    </Button>
+                  )}
+                </span>
+              </AlertDescription>
+            </Alert>
+          )}
+
           <div className="space-y-2">
             <Label htmlFor="dockerfilePath">
               Dockerfile Path <span className="text-destructive">*</span>
@@ -207,6 +247,21 @@ export function DockerBuildForm({ username, onBuildStart, onBuildComplete }: Doc
                 <p className="text-sm text-destructive">{errors.imageTag}</p>
               )}
             </div>
+          </div>
+
+          <div className="flex items-center space-x-2">
+            <Checkbox
+              id="pushToRegistry"
+              checked={pushToRegistry}
+              onCheckedChange={(checked) => setPushToRegistry(checked === true)}
+              disabled={isBuilding}
+            />
+            <Label
+              htmlFor="pushToRegistry"
+              className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+            >
+              Push to Docker Hub after building
+            </Label>
           </div>
 
           <div className="space-y-2">

@@ -3,9 +3,9 @@
 
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
+use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output, Stdio};
-use std::io::{BufRead, BufReader};
 
 /// Docker image information
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -33,6 +33,14 @@ pub struct DockerConfig {
     pub auth_servers: Vec<String>,
 }
 
+/// Docker daemon status
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DockerDaemonStatus {
+    pub running: bool,
+    pub version: Option<String>,
+    pub error: Option<String>,
+}
+
 /// Docker build progress event
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BuildProgress {
@@ -53,16 +61,83 @@ pub fn is_docker_running() -> Result<bool> {
     Ok(output.map(|s| s.success()).unwrap_or(false))
 }
 
+/// Get Docker daemon status with version information
+pub fn get_docker_daemon_status() -> Result<DockerDaemonStatus> {
+    let running = is_docker_running()?;
+
+    if !running {
+        return Ok(DockerDaemonStatus {
+            running: false,
+            version: None,
+            error: Some("Docker daemon is not running".to_string()),
+        });
+    }
+
+    // Get Docker version
+    let version_output = Command::new("docker")
+        .arg("version")
+        .arg("--format")
+        .arg("{{.Server.Version}}")
+        .output();
+
+    let version = match version_output {
+        Ok(output) if output.status.success() => String::from_utf8_lossy(&output.stdout)
+            .trim()
+            .to_string()
+            .into(),
+        _ => None,
+    };
+
+    Ok(DockerDaemonStatus {
+        running: true,
+        version,
+        error: None,
+    })
+}
+
 /// Check if user is logged in to Docker Hub
 pub fn is_docker_logged_in() -> Result<bool> {
     // Check Docker config file for authentication
     if let Ok(home) = std::env::var("HOME") {
         let config_path = format!("{}/.docker/config.json", home);
         if let Ok(content) = std::fs::read_to_string(config_path) {
-            // Check if Docker Hub auth exists in config
-            // Docker Hub can be under several keys
-            return Ok(content.contains("https://index.docker.io/v1/")
-                || content.contains("index.docker.io"));
+            // Parse JSON to check if there's actual auth data
+            if let Ok(config) = serde_json::from_str::<serde_json::Value>(&content) {
+                // Check if using a credential store (Docker Desktop)
+                if let Some(creds_store) = config.get("credsStore").and_then(|s| s.as_str()) {
+                    // Try to query the credential store
+                    let helper_cmd = format!("docker-credential-{}", creds_store);
+                    if let Ok(output) = Command::new(&helper_cmd).arg("list").output() {
+                        if output.status.success() {
+                            let list_str = String::from_utf8_lossy(&output.stdout);
+                            // Check if Docker Hub is in the credential store
+                            return Ok(list_str.contains("index.docker.io"));
+                        }
+                    }
+                }
+
+                // Check auths object for inline credentials
+                if let Some(auths) = config.get("auths").and_then(|a| a.as_object()) {
+                    // Check if any Docker Hub auth entries have actual credentials
+                    for (server, auth) in auths {
+                        if server.contains("index.docker.io") {
+                            // Check if there's an auth field (non-empty credentials)
+                            if let Some(auth_obj) = auth.as_object() {
+                                // Empty object means logged out
+                                if auth_obj.is_empty() {
+                                    continue;
+                                }
+                                // Check for actual auth data
+                                if auth_obj.contains_key("auth")
+                                    || auth_obj.contains_key("username")
+                                {
+                                    return Ok(true);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 
@@ -195,7 +270,8 @@ pub fn list_docker_images(filter_label: Option<&str>) -> Result<Vec<DockerImage>
         cmd.arg("--filter").arg(format!("label={}", label));
     }
 
-    let output = cmd.output()
+    let output = cmd
+        .output()
         .context("Failed to execute docker images command")?;
 
     if !output.status.success() {
@@ -235,7 +311,8 @@ pub fn delete_docker_image(image_name_or_id: &str, force: bool) -> Result<()> {
 
     cmd.arg(image_name_or_id);
 
-    let output = cmd.output()
+    let output = cmd
+        .output()
         .context("Failed to execute docker rmi command")?;
 
     if !output.status.success() {
@@ -247,27 +324,74 @@ pub fn delete_docker_image(image_name_or_id: &str, force: bool) -> Result<()> {
 }
 
 /// Build a Docker image
+/// Find the workspace root by looking for Cargo.toml with [workspace] in parent directories
+fn find_project_root() -> Result<PathBuf> {
+    let mut current = std::env::current_dir().context("Failed to get current directory")?;
+
+    loop {
+        // Check if this directory contains Cargo.toml
+        let cargo_toml = current.join("Cargo.toml");
+        if cargo_toml.exists() {
+            // Read the Cargo.toml to check if it's a workspace root
+            if let Ok(content) = std::fs::read_to_string(&cargo_toml) {
+                // If it contains [workspace], it's the workspace root
+                if content.contains("[workspace]") {
+                    return Ok(current);
+                }
+            }
+        }
+
+        // Try parent directory
+        match current.parent() {
+            Some(parent) => current = parent.to_path_buf(),
+            None => anyhow::bail!(
+                "Could not find workspace root (Cargo.toml with [workspace] not found in any parent directory)"
+            ),
+        }
+    }
+}
+
 pub fn build_docker_image(
     dockerfile_path: &Path,
     build_context: &Path,
     image_tag: &str,
     additional_labels: &[(&str, &str)],
 ) -> Result<Output> {
+    // Resolve relative paths against the project root
+    // This ensures paths work regardless of where the server was started from
+    let resolved_dockerfile = if dockerfile_path.is_relative() {
+        let project_root = find_project_root()
+            .context("Failed to find project root for resolving Dockerfile path")?;
+        project_root.join(dockerfile_path)
+    } else {
+        dockerfile_path.to_path_buf()
+    };
+
+    let resolved_context = if build_context.is_relative() {
+        let project_root = find_project_root()
+            .context("Failed to find project root for resolving build context")?;
+        project_root.join(build_context)
+    } else {
+        build_context.to_path_buf()
+    };
+
     let mut cmd = Command::new("docker");
     cmd.arg("build")
+        .arg("--progress=plain") // Plain text output for better readability
         .arg("-t")
         .arg(image_tag)
         .arg("-f")
-        .arg(dockerfile_path);
+        .arg(&resolved_dockerfile);
 
     // Add labels
     for (key, value) in additional_labels {
         cmd.arg("--label").arg(format!("{}={}", key, value));
     }
 
-    cmd.arg(build_context);
+    cmd.arg(&resolved_context);
 
-    let output = cmd.output()
+    let output = cmd
+        .output()
         .context("Failed to execute docker build command")?;
 
     if !output.status.success() {
@@ -286,6 +410,8 @@ pub fn build_docker_image_stream(
     image_tag: String,
     additional_labels: Vec<(String, String)>,
 ) -> Result<impl Iterator<Item = String>> {
+    use std::thread;
+
     let mut cmd = Command::new("docker");
     cmd.arg("build")
         .arg("-t")
@@ -302,17 +428,36 @@ pub fn build_docker_image_stream(
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
 
-    let mut child = cmd.spawn()
+    let mut child = cmd
+        .spawn()
         .context("Failed to spawn docker build process")?;
 
-    // Capture stdout
-    let stdout = child.stdout.take()
-        .context("Failed to capture stdout")?;
+    // Capture both stdout and stderr
+    let stdout = child.stdout.take().context("Failed to capture stdout")?;
+    let stderr = child.stderr.take().context("Failed to capture stderr")?;
 
-    let reader = BufReader::new(stdout);
+    // Use a channel to merge stdout and stderr streams
+    let (tx, rx) = std::sync::mpsc::channel();
+    let tx_stderr = tx.clone();
 
-    // Return an iterator over lines
-    Ok(reader.lines().filter_map(|line| line.ok()))
+    // Thread for stdout
+    thread::spawn(move || {
+        let reader = BufReader::new(stdout);
+        for line in reader.lines().filter_map(|l| l.ok()) {
+            let _ = tx.send(line);
+        }
+    });
+
+    // Thread for stderr (where Docker sends build progress)
+    thread::spawn(move || {
+        let reader = BufReader::new(stderr);
+        for line in reader.lines().filter_map(|l| l.ok()) {
+            let _ = tx_stderr.send(line);
+        }
+    });
+
+    // Return an iterator that reads from the channel
+    Ok(rx.into_iter())
 }
 
 /// Pull a Docker image from Docker Hub
@@ -358,8 +503,7 @@ pub fn push_docker_image_stream(image_tag: String) -> Result<impl Iterator<Item 
         .context("Failed to spawn docker push process")?;
 
     // Capture stdout
-    let stdout = child.stdout.take()
-        .context("Failed to capture stdout")?;
+    let stdout = child.stdout.take().context("Failed to capture stdout")?;
 
     let reader = BufReader::new(stdout);
 
@@ -379,6 +523,94 @@ pub fn docker_login() -> Result<()> {
 
     if !status.success() {
         anyhow::bail!("Docker login failed with exit code: {:?}", status.code());
+    }
+
+    Ok(())
+}
+
+/// Launch docker login in the user's terminal
+pub fn docker_login_in_terminal() -> Result<()> {
+    // Detect the operating system and open appropriate terminal
+    #[cfg(target_os = "macos")]
+    {
+        // On macOS, use osascript to open Terminal.app with docker login
+        let script = r#"
+            tell application "Terminal"
+                activate
+                do script "docker login && echo 'Press Enter to close this window...' && read"
+            end tell
+        "#;
+
+        let status = Command::new("osascript")
+            .arg("-e")
+            .arg(script)
+            .status()
+            .context("Failed to open Terminal.app")?;
+
+        if !status.success() {
+            anyhow::bail!("Failed to launch Terminal.app");
+        }
+    }
+
+    #[cfg(target_os = "linux")]
+    {
+        // Try common Linux terminals in order of preference
+        let terminals = [
+            (
+                "gnome-terminal",
+                vec![
+                    "--",
+                    "bash",
+                    "-c",
+                    "docker login; echo 'Press Enter to close...'; read",
+                ],
+            ),
+            (
+                "konsole",
+                vec![
+                    "-e",
+                    "bash",
+                    "-c",
+                    "docker login; echo 'Press Enter to close...'; read",
+                ],
+            ),
+            (
+                "xterm",
+                vec![
+                    "-e",
+                    "bash",
+                    "-c",
+                    "docker login; echo 'Press Enter to close...'; read",
+                ],
+            ),
+        ];
+
+        let mut success = false;
+        for (terminal, args) in &terminals {
+            if let Ok(status) = Command::new(terminal).args(args).status() {
+                if status.success() {
+                    success = true;
+                    break;
+                }
+            }
+        }
+
+        if !success {
+            anyhow::bail!("No supported terminal emulator found. Please run 'docker login' manually in your terminal.");
+        }
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        // On Windows, use cmd.exe
+        let status = Command::new("cmd")
+            .args(&["/c", "start", "cmd", "/k", "docker login && pause"])
+            .status()
+            .context("Failed to open Command Prompt")?;
+
+        if !status.success() {
+            anyhow::bail!("Failed to launch Command Prompt");
+        }
     }
 
     Ok(())
@@ -434,7 +666,10 @@ mod tests {
         // Skip if Docker not available
         if is_docker_running().unwrap_or(false) {
             let result = list_docker_images(None);
-            assert!(result.is_ok(), "Should be able to list images if Docker is running");
+            assert!(
+                result.is_ok(),
+                "Should be able to list images if Docker is running"
+            );
         }
     }
 
@@ -444,7 +679,10 @@ mod tests {
         if is_docker_running().unwrap_or(false) {
             // Test with orkee.sandbox label filter
             let result = list_docker_images(Some("orkee.sandbox=true"));
-            assert!(result.is_ok(), "Should be able to list images with label filter");
+            assert!(
+                result.is_ok(),
+                "Should be able to list images with label filter"
+            );
 
             // The result may be empty if no images with that label exist, which is fine
             let images = result.unwrap();
@@ -459,7 +697,10 @@ mod tests {
         let result = get_docker_username();
         match result {
             Ok(username) => {
-                assert!(!username.is_empty(), "Username should not be empty if logged in");
+                assert!(
+                    !username.is_empty(),
+                    "Username should not be empty if logged in"
+                );
                 println!("Detected Docker Hub username: {}", username);
             }
             Err(_) => {
@@ -485,7 +726,9 @@ mod tests {
             let username_result = get_docker_username();
             match username_result {
                 Ok(username) => println!("Successfully retrieved username: {}", username),
-                Err(_) => println!("Logged in but username detection failed (version-specific behavior)"),
+                Err(_) => {
+                    println!("Logged in but username detection failed (version-specific behavior)")
+                }
             }
         }
     }
@@ -538,7 +781,10 @@ mod tests {
         let result = push_docker_image("invalid_tag_without_repository");
 
         // Should fail (either not logged in, invalid tag, or image doesn't exist)
-        assert!(result.is_err(), "Should fail with invalid or nonexistent tag");
+        assert!(
+            result.is_err(),
+            "Should fail with invalid or nonexistent tag"
+        );
     }
 
     #[test]
@@ -550,7 +796,10 @@ mod tests {
             Ok(status) => {
                 // If logged in, server address should be present
                 if status.logged_in {
-                    assert!(status.server_address.is_some(), "Should have server address if logged in");
+                    assert!(
+                        status.server_address.is_some(),
+                        "Should have server address if logged in"
+                    );
                     // Username may or may not be available depending on Docker version
                     match &status.username {
                         Some(username) => println!("Logged in as: {}", username),
