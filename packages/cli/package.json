@@ -28,7 +28,7 @@
     "postinstall": "node scripts/install.js",
     "prebuild": "npm run sync-version",
     "build": "cargo build --release --features cloud",
-    "dev": "cargo run --features cloud --bin orkee -- dashboard",
+    "dev": "cargo run --features cloud --bin orkee -- dashboard --dev",
     "test": "echo 'Skipping orkee CLI tests (requires DATABASE_URL)' && exit 0"
   },
   "engines": {

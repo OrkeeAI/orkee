@@ -1,7 +1,7 @@
 // ABOUTME: Docker Hub user images list component
 // ABOUTME: Displays authenticated user's images from Docker Hub registry
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, forwardRef, useImperativeHandle } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -17,9 +17,14 @@ import { useToast } from '@/hooks/use-toast';
 interface RemoteImagesListProps {
   username?: string | null;
   isLoggedIn?: boolean;
+  onImagePulled?: () => void;
 }
 
-export function RemoteImagesList({ username, isLoggedIn }: RemoteImagesListProps) {
+export interface RemoteImagesListRef {
+  reload: () => void;
+}
+
+export const RemoteImagesList = forwardRef<RemoteImagesListRef, RemoteImagesListProps>(({ username, isLoggedIn, onImagePulled }, ref) => {
   const [userImages, setUserImages] = useState<DockerHubImage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
@@ -51,6 +56,11 @@ export function RemoteImagesList({ username, isLoggedIn }: RemoteImagesListProps
     loadUserImages();
   }, [loadUserImages]);
 
+  // Expose reload function to parent
+  useImperativeHandle(ref, () => ({
+    reload: loadUserImages,
+  }));
+
   const handlePullImage = async (image: DockerHubImage) => {
     const imageTag = `${image.name}:latest`;
     try {
@@ -59,6 +69,8 @@ export function RemoteImagesList({ username, isLoggedIn }: RemoteImagesListProps
         title: 'Image pulled successfully',
         description: `${imageTag} has been downloaded to local Docker`,
       });
+      // Trigger refresh to update local images list
+      onImagePulled?.();
     } catch (error) {
       toast({
         title: 'Failed to pull image',
@@ -179,4 +191,6 @@ export function RemoteImagesList({ username, isLoggedIn }: RemoteImagesListProps
       )}
     </div>
   );
-}
+});
+
+RemoteImagesList.displayName = 'RemoteImagesList';

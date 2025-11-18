@@ -8,6 +8,7 @@ export interface SandboxSettings {
   enabled: boolean
   default_provider: string
   default_image: string
+  docker_username?: string | null
 
   // Resource Limits
   max_concurrent_local: number

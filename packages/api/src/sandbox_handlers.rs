@@ -8,7 +8,7 @@ use axum::{
 };
 use serde::Deserialize;
 use std::collections::HashMap;
-use tracing::{error, info};
+use tracing::{error, info, warn};
 
 use super::auth::CurrentUser;
 use super::response::ok_or_internal_error;
@@ -531,10 +531,28 @@ pub async fn docker_status(State(db): State<DbState>) -> impl IntoResponse {
         }
     };
 
-    // If logged in but username is not detected from config, try to get it from database
-    if status.logged_in && status.username.is_none() {
-        if let Ok(settings) = db.sandbox_settings.get_sandbox_settings().await {
-            status.username = settings.docker_username;
+    // If logged in, sync username between Docker config and database
+    if status.logged_in {
+        if let Ok(mut settings) = db.sandbox_settings.get_sandbox_settings().await {
+            // If we detected a username from Docker config but it's not in database, save it
+            if let Some(ref detected_username) = status.username {
+                if settings.docker_username.as_ref() != Some(detected_username) {
+                    settings.docker_username = Some(detected_username.clone());
+                    if let Err(e) = db
+                        .sandbox_settings
+                        .update_sandbox_settings(&settings, Some("api"))
+                        .await
+                    {
+                        warn!("Failed to save Docker username to database: {}", e);
+                    } else {
+                        info!("Saved Docker username to database: {}", detected_username);
+                    }
+                }
+            }
+            // If username not detected from config but exists in database, use database value
+            else if let Some(ref db_username) = settings.docker_username {
+                status.username = Some(db_username.clone());
+            }
         }
     }
 
@@ -550,6 +568,16 @@ pub async fn docker_config() -> impl IntoResponse {
         .map_err(|e| format!("Failed to get Docker config: {}", e));
 
     ok_or_internal_error(result, "Failed to get Docker config")
+}
+
+/// Get Docker daemon status
+pub async fn docker_daemon_status() -> impl IntoResponse {
+    info!("Getting Docker daemon status");
+
+    let result = orkee_sandbox::get_docker_daemon_status()
+        .map_err(|e| format!("Failed to get Docker daemon status: {}", e));
+
+    ok_or_internal_error(result, "Failed to get Docker daemon status")
 }
 
 /// List local Docker images (with orkee.sandbox label)
@@ -608,9 +636,7 @@ pub struct DeleteImageRequest {
     pub force: bool,
 }
 
-pub async fn delete_docker_image(
-    Json(request): Json<DeleteImageRequest>,
-) -> impl IntoResponse {
+pub async fn delete_docker_image(Json(request): Json<DeleteImageRequest>) -> impl IntoResponse {
     info!("Deleting Docker image: {}", request.image);
 
     let result = orkee_sandbox::delete_docker_image(&request.image, request.force)
@@ -628,12 +654,12 @@ pub struct BuildImageRequest {
     pub image_tag: String,
     #[serde(default)]
     pub labels: HashMap<String, String>,
+    #[serde(default)]
+    pub push_to_registry: bool,
 }
 
-/// Build a Docker image
-pub async fn build_docker_image(
-    Json(request): Json<BuildImageRequest>,
-) -> impl IntoResponse {
+/// Build a Docker image and push to Docker Hub
+pub async fn build_docker_image(Json(request): Json<BuildImageRequest>) -> impl IntoResponse {
     info!("Building Docker image: {}", request.image_tag);
 
     use std::path::Path;
@@ -647,21 +673,84 @@ pub async fn build_docker_image(
         labels.push((k.as_str(), v.as_str()));
     }
 
-    let result = orkee_sandbox::docker_cli::build_docker_image(
+    // Build the image
+    let build_result = orkee_sandbox::docker_cli::build_docker_image(
         dockerfile_path,
         build_context,
         &request.image_tag,
         &labels,
-    )
-    .map(|output| {
-        let stdout = String::from_utf8_lossy(&output.stdout);
-        serde_json::json!({
-            "message": "Image built successfully",
-            "image_tag": request.image_tag,
-            "output": stdout.to_string(),
-        })
-    })
-    .map_err(|e| format!("Failed to build image: {}", e));
+    );
+
+    let build_output = match build_result {
+        Ok(output) => output,
+        Err(e) => {
+            let result: Result<serde_json::Value, String> =
+                Err(format!("Failed to build image: {}", e));
+            return ok_or_internal_error(result, "Failed to build image");
+        }
+    };
+
+    // Docker sends build progress to stderr with --progress=plain
+    let build_stdout = String::from_utf8_lossy(&build_output.stdout);
+    let build_stderr = String::from_utf8_lossy(&build_output.stderr);
+    let build_combined = format!("{}{}", build_stderr, build_stdout);
+
+    // Conditionally push to Docker Hub
+    let (message, combined_output) = if request.push_to_registry {
+        info!("Pushing image to Docker Hub: {}", request.image_tag);
+
+        // Check login status before pushing
+        match orkee_sandbox::is_docker_logged_in() {
+            Ok(true) => info!("Docker Hub login verified before push"),
+            Ok(false) => {
+                let result: Result<serde_json::Value, String> =
+                    Err("Not logged in to Docker Hub. Please login first.".to_string());
+                return ok_or_internal_error(result, "Docker login required");
+            }
+            Err(e) => {
+                let result: Result<serde_json::Value, String> =
+                    Err(format!("Failed to verify Docker login status: {}", e));
+                return ok_or_internal_error(result, "Failed to verify Docker login");
+            }
+        }
+
+        let push_result = orkee_sandbox::push_docker_image(&request.image_tag);
+
+        let push_output = match push_result {
+            Ok(output) => output,
+            Err(e) => {
+                let error_msg = format!(
+                    "Image built successfully but failed to push: {}\n\nTroubleshooting:\n\
+                    1. Verify the image tag '{}' includes your Docker Hub username (e.g., username/image:tag)\n\
+                    2. Ensure you're logged in with credentials that have push access\n\
+                    3. If using a Personal Access Token, verify it has 'Read, Write, Delete' permissions\n\
+                    4. Try running 'docker push {}' from your terminal to test manually",
+                    e, request.image_tag, request.image_tag
+                );
+                let result: Result<serde_json::Value, String> = Err(error_msg);
+                return ok_or_internal_error(result, "Failed to push image");
+            }
+        };
+
+        let push_stdout = String::from_utf8_lossy(&push_output.stdout);
+        let push_stderr = String::from_utf8_lossy(&push_output.stderr);
+        let push_combined = format!("{}{}", push_stderr, push_stdout);
+
+        // Combine outputs
+        let output = format!(
+            "{}\n\n=== Pushing to Docker Hub ===\n\n{}",
+            build_combined, push_combined
+        );
+        ("Image built and pushed successfully", output)
+    } else {
+        ("Image built successfully", build_combined)
+    };
+
+    let result: Result<serde_json::Value, String> = Ok(serde_json::json!({
+        "message": message,
+        "image_tag": request.image_tag,
+        "output": combined_output,
+    }));
 
     ok_or_internal_error(result, "Failed to build image")
 }
@@ -776,6 +865,19 @@ pub async fn docker_login(Json(request): Json<DockerLoginRequest>) -> impl IntoR
     })();
 
     ok_or_internal_error(result, "Login failed")
+}
+
+/// Launch docker login OAuth flow in user's terminal
+pub async fn docker_login_oauth() -> impl IntoResponse {
+    info!("Launching Docker OAuth login in terminal");
+
+    let result = orkee_sandbox::docker_login_in_terminal()
+        .map(|_| serde_json::json!({
+            "message": "Docker login launched in terminal. Please complete the OAuth flow in the opened terminal window."
+        }))
+        .map_err(|e| format!("Failed to launch terminal: {}", e));
+
+    ok_or_internal_error(result, "Failed to launch Docker OAuth login")
 }
 
 /// Logout from Docker Hub

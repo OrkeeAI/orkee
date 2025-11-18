@@ -24,10 +24,9 @@ import { SandboxCard } from '@/components/sandbox/SandboxCard'
 import { Terminal } from '@/components/sandbox/Terminal'
 import { FileBrowser } from '@/components/sandbox/FileBrowser'
 import { ResourceMonitor } from '@/components/sandbox/ResourceMonitor'
-import { CostTracking } from '@/components/sandbox/CostTracking'
 import { AgentModelSelector } from '@/components/sandbox/AgentModelSelector'
-import { TemplateManagement } from '@/components/sandbox/TemplateManagement'
-import { SandboxImageManager } from '@/components/sandbox/SandboxImageManager'
+import { DockerHubSection } from '@/components/sandbox/DockerHubSection'
+import { dockerLoginOAuth, dockerLogout, listLocalImages, type DockerImage } from '@/services/docker'
 import {
   Plus,
   RefreshCw,
@@ -36,7 +35,6 @@ import {
   Terminal as TerminalIcon,
   FolderOpen,
   BarChart3,
-  Package,
 } from 'lucide-react'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
@@ -49,6 +47,7 @@ export default function Sandboxes() {
   const [createDialogOpen, setCreateDialogOpen] = useState(false)
   const [settings, setSettings] = useState<SandboxSettingsType | null>(null)
   const [providers, setProviders] = useState<ProviderSettings[]>([])
+  const [localImages, setLocalImages] = useState<DockerImage[]>([])
 
   // Create sandbox form state
   const [newSandbox, setNewSandbox] = useState<CreateSandboxRequest>({
@@ -111,6 +110,29 @@ export default function Sandboxes() {
     loadData()
   }, [loadData])
 
+  // Load local Docker images when create dialog opens
+  useEffect(() => {
+    if (createDialogOpen) {
+      listLocalImages()
+        .then((images) => {
+          // Deduplicate images by repository:tag
+          const uniqueImages = Array.from(
+            new Map(
+              images.map((img) => [`${img.repository}:${img.tag}`, img])
+            ).values()
+          )
+          setLocalImages(uniqueImages)
+        })
+        .catch((error) => {
+          toast({
+            title: 'Failed to load images',
+            description: error instanceof Error ? error.message : 'Unknown error',
+            variant: 'destructive',
+          })
+        })
+    }
+  }, [createDialogOpen, toast])
+
   const handleCreateSandbox = async () => {
     if (!newSandbox.name.trim()) {
       toast({
@@ -170,6 +192,44 @@ export default function Sandboxes() {
   const handleCloseSandboxDetail = () => {
     setSelectedSandbox(null)
     loadData() // Refresh list
+  }
+
+  const handleDockerLogin = async () => {
+    try {
+      const response = await dockerLoginOAuth()
+      toast({
+        title: 'Terminal opened',
+        description: response.message,
+      })
+      // Refresh status after a short delay to allow login to complete
+      setTimeout(() => {
+        loadData()
+      }, 3000)
+    } catch (error) {
+      toast({
+        title: 'Failed to launch login',
+        description: error instanceof Error ? error.message : 'Unknown error',
+        variant: 'destructive',
+      })
+    }
+  }
+
+  const handleDockerLogout = async () => {
+    try {
+      await dockerLogout()
+      toast({
+        title: 'Logged out successfully',
+        description: 'You have been logged out of Docker Hub',
+      })
+      // Trigger a data refresh to update Docker status
+      loadData()
+    } catch (error) {
+      toast({
+        title: 'Logout failed',
+        description: error instanceof Error ? error.message : 'Unknown error',
+        variant: 'destructive',
+      })
+    }
   }
 
   const runningSandboxes = sandboxes.filter((s) => s.status === 'running')
@@ -263,95 +323,74 @@ export default function Sandboxes() {
         </div>
       </div>
 
-      {/* Tabs */}
-      <Tabs defaultValue="sandboxes" className="flex-1 flex flex-col min-h-0">
-        <TabsList>
-          <TabsTrigger value="sandboxes" className="flex items-center gap-2">
-            <Server className="h-4 w-4" />
-            Sandboxes
-          </TabsTrigger>
-          <TabsTrigger value="images" className="flex items-center gap-2">
-            <Package className="h-4 w-4" />
-            Images
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="sandboxes" className="flex-1 mt-4 min-h-0">
-          <div className="h-full flex flex-col md:flex-row gap-4">
-            {/* Main Content */}
-            <div className="flex-1 flex flex-col min-w-0">
-              {/* Stats */}
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
-                <div className="p-4 border rounded-lg">
-                  <div className="text-2xl font-bold">{sandboxes.length}</div>
-                  <div className="text-sm text-muted-foreground">Total Sandboxes</div>
-                </div>
-                <div className="p-4 border rounded-lg">
-                  <div className="text-2xl font-bold text-green-500">{runningSandboxes.length}</div>
-                  <div className="text-sm text-muted-foreground">Running</div>
-                </div>
-                <div className="p-4 border rounded-lg">
-                  <div className="text-2xl font-bold text-gray-500">{stoppedSandboxes.length}</div>
-                  <div className="text-sm text-muted-foreground">Stopped</div>
-                </div>
-                <div className="p-4 border rounded-lg">
-                  <div className="text-2xl font-bold text-red-500">{errorSandboxes.length}</div>
-                  <div className="text-sm text-muted-foreground">Errors</div>
-                </div>
-              </div>
-
-              {/* Sandbox List */}
-              <ScrollArea className="flex-1">
-                {loading ? (
-                  <div className="flex items-center justify-center py-12 text-muted-foreground">
-                    <RefreshCw className="h-5 w-5 animate-spin mr-2" />
-                    Loading sandboxes...
-                  </div>
-                ) : sandboxes.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center py-12 text-center">
-                    <Server className="h-12 w-12 text-muted-foreground mb-4" />
-                    <h3 className="text-lg font-semibold mb-2">No sandboxes yet</h3>
-                    <p className="text-sm text-muted-foreground mb-4">
-                      Create your first sandbox to get started
-                    </p>
-                    <Button onClick={() => setCreateDialogOpen(true)}>
-                      <Plus className="h-4 w-4 mr-2" />
-                      Create Sandbox
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 pb-4">
-                    {sandboxes.map((sandbox) => (
-                      <SandboxCard
-                        key={sandbox.id}
-                        sandbox={sandbox}
-                        onUpdate={loadData}
-                        onClick={() => handleSandboxClick(sandbox)}
-                      />
-                    ))}
-                  </div>
-                )}
-              </ScrollArea>
+      {/* Main Content */}
+      <div className="flex-1 flex flex-col md:flex-row gap-4 min-h-0">
+        {/* Sandboxes Grid */}
+        <div className="flex-1 flex flex-col min-w-0">
+          {/* Stats */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+            <div className="p-4 border rounded-lg">
+              <div className="text-2xl font-bold">{sandboxes.length}</div>
+              <div className="text-sm text-muted-foreground">Total Sandboxes</div>
             </div>
-
-            {/* Sidebar */}
-            <div className="w-full md:w-80 flex-shrink-0 space-y-4">
-              {settings && (
-                <CostTracking
-                  sandboxes={sandboxes}
-                  maxTotalCost={settings.max_total_cost}
-                  costAlertThreshold={settings.cost_alert_threshold}
-                />
-              )}
-              <TemplateManagement />
+            <div className="p-4 border rounded-lg">
+              <div className="text-2xl font-bold text-green-500">{runningSandboxes.length}</div>
+              <div className="text-sm text-muted-foreground">Running</div>
+            </div>
+            <div className="p-4 border rounded-lg">
+              <div className="text-2xl font-bold text-gray-500">{stoppedSandboxes.length}</div>
+              <div className="text-sm text-muted-foreground">Stopped</div>
+            </div>
+            <div className="p-4 border rounded-lg">
+              <div className="text-2xl font-bold text-red-500">{errorSandboxes.length}</div>
+              <div className="text-sm text-muted-foreground">Errors</div>
             </div>
           </div>
-        </TabsContent>
 
-        <TabsContent value="images" className="flex-1 mt-4 min-h-0">
-          <SandboxImageManager />
-        </TabsContent>
-      </Tabs>
+          {/* Sandbox List */}
+          <ScrollArea className="flex-1">
+            {loading ? (
+              <div className="flex items-center justify-center py-12 text-muted-foreground">
+                <RefreshCw className="h-5 w-5 animate-spin mr-2" />
+                Loading sandboxes...
+              </div>
+            ) : sandboxes.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-12 text-center">
+                <Server className="h-12 w-12 text-muted-foreground mb-4" />
+                <h3 className="text-lg font-semibold mb-2">No sandboxes yet</h3>
+                <p className="text-sm text-muted-foreground mb-4">
+                  Create your first sandbox to get started
+                </p>
+                <Button onClick={() => setCreateDialogOpen(true)}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Create Sandbox
+                </Button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 pb-4">
+                {sandboxes.map((sandbox) => (
+                  <SandboxCard
+                    key={sandbox.id}
+                    sandbox={sandbox}
+                    onUpdate={loadData}
+                    onClick={() => handleSandboxClick(sandbox)}
+                  />
+                ))}
+              </div>
+            )}
+          </ScrollArea>
+        </div>
+
+        {/* Docker Hub Sidebar */}
+        <div className="w-full md:w-96 flex-shrink-0">
+          <DockerHubSection
+            onLoginClick={handleDockerLogin}
+            onLogoutClick={handleDockerLogout}
+            onImagePulled={loadData}
+            onBuildComplete={loadData}
+          />
+        </div>
+      </div>
 
       {/* Create Sandbox Dialog */}
       <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
@@ -421,12 +460,28 @@ export default function Sandboxes() {
               </div>
             </div>
 
-            <AgentModelSelector
-              agentId={newSandbox.agent_id}
-              model={newSandbox.model}
-              onAgentChange={(agentId) => setNewSandbox({ ...newSandbox, agent_id: agentId })}
-              onModelChange={(model) => setNewSandbox({ ...newSandbox, model })}
-            />
+            <div className="space-y-2">
+              <Label htmlFor="image">Docker Image *</Label>
+              <Select
+                value={newSandbox.image || settings?.default_image || ''}
+                onValueChange={(value) => setNewSandbox({ ...newSandbox, image: value })}
+              >
+                <SelectTrigger id="image">
+                  <SelectValue placeholder="Select an image" />
+                </SelectTrigger>
+                <SelectContent>
+                  {localImages.length === 0 ? (
+                    <div className="p-2 text-sm text-muted-foreground">No images available</div>
+                  ) : (
+                    localImages.map((image) => (
+                      <SelectItem key={`${image.repository}:${image.tag}`} value={`${image.repository}:${image.tag}`}>
+                        {image.repository}:{image.tag}
+                      </SelectItem>
+                    ))
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
           <DialogFooter>
@@ -440,6 +495,7 @@ export default function Sandboxes() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
     </div>
   )
 }

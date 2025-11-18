@@ -55,8 +55,8 @@ fn get_docker_hub_token() -> Result<Option<String>> {
         Err(_) => return Ok(None),
     };
 
-    let config: serde_json::Value = serde_json::from_str(&content)
-        .context("Failed to parse Docker config.json")?;
+    let config: serde_json::Value =
+        serde_json::from_str(&content).context("Failed to parse Docker config.json")?;
 
     // Try to get auth token for Docker Hub
     if let Some(auths) = config.get("auths").and_then(|a| a.as_object()) {
@@ -151,31 +151,10 @@ pub async fn get_image_detail(namespace: &str, repository: &str) -> Result<Image
 
 /// List images for authenticated user
 pub async fn list_user_images(username: &str) -> Result<Vec<DockerHubImage>> {
-    let url = format!(
-        "https://hub.docker.com/v2/repositories/{}/?page_size=100",
-        username
-    );
-
-    let client = reqwest::Client::new();
-    let mut request = client.get(&url);
-
-    // Add auth if available
-    if let Some(token) = get_docker_hub_token()? {
-        request = request.header("Authorization", format!("Bearer {}", token));
-    }
-
-    let response = request
-        .send()
-        .await
-        .context("Failed to send request to Docker Hub")?;
-
-    if !response.status().is_success() {
-        anyhow::bail!("Docker Hub API returned error: {}", response.status());
-    }
-
     #[derive(Deserialize)]
     struct ListResponse {
         results: Vec<ListResult>,
+        next: Option<String>,
     }
 
     #[derive(Deserialize)]
@@ -186,23 +165,51 @@ pub async fn list_user_images(username: &str) -> Result<Vec<DockerHubImage>> {
         pull_count: u64,
     }
 
-    let list_response: ListResponse = response
-        .json()
-        .await
-        .context("Failed to parse Docker Hub response")?;
+    let client = reqwest::Client::new();
+    let mut all_images = Vec::new();
+    let mut next_url = Some(format!(
+        "https://hub.docker.com/v2/repositories/{}/?page_size=100",
+        username
+    ));
 
-    Ok(list_response
-        .results
-        .into_iter()
-        .map(|r| DockerHubImage {
+    // Fetch all pages
+    while let Some(url) = next_url {
+        let mut request = client.get(&url);
+
+        // Add auth if available
+        if let Some(token) = get_docker_hub_token()? {
+            request = request.header("Authorization", format!("Bearer {}", token));
+        }
+
+        let response = request
+            .send()
+            .await
+            .context("Failed to send request to Docker Hub")?;
+
+        if !response.status().is_success() {
+            anyhow::bail!("Docker Hub API returned error: {}", response.status());
+        }
+
+        let list_response: ListResponse = response
+            .json()
+            .await
+            .context("Failed to parse Docker Hub response")?;
+
+        // Add images from this page
+        all_images.extend(list_response.results.into_iter().map(|r| DockerHubImage {
             name: format!("{}/{}", username, r.name),
             description: r.description.unwrap_or_default(),
             star_count: r.star_count,
             pull_count: r.pull_count,
             is_official: false,
             is_automated: false,
-        })
-        .collect())
+        }));
+
+        // Move to next page
+        next_url = list_response.next;
+    }
+
+    Ok(all_images)
 }
 
 #[cfg(test)]
@@ -271,7 +278,10 @@ mod tests {
             assert_eq!(detail.namespace, "library");
             assert!(detail.star_count > 0, "Official image should have stars");
             assert!(detail.pull_count > 0, "Official image should have pulls");
-            println!("Alpine image: {} stars, {} pulls", detail.star_count, detail.pull_count);
+            println!(
+                "Alpine image: {} stars, {} pulls",
+                detail.star_count, detail.pull_count
+            );
         } else {
             println!("Could not fetch Alpine image detail (network issue)");
         }
@@ -280,7 +290,8 @@ mod tests {
     #[tokio::test]
     async fn test_get_image_detail_nonexistent() {
         // Test getting details for non-existent image
-        let result = get_image_detail("nonexistent_namespace_12345", "nonexistent_repo_67890").await;
+        let result =
+            get_image_detail("nonexistent_namespace_12345", "nonexistent_repo_67890").await;
 
         // Should return an error
         assert!(result.is_err(), "Should fail for non-existent image");
@@ -304,7 +315,10 @@ mod tests {
                     // Library namespace should have many official images
                     if !images.is_empty() {
                         let first = &images[0];
-                        assert!(first.name.starts_with("library/"), "Image name should include namespace");
+                        assert!(
+                            first.name.starts_with("library/"),
+                            "Image name should include namespace"
+                        );
                     }
                 }
                 Err(e) => {
@@ -323,7 +337,10 @@ mod tests {
 
         // Should handle URL encoding properly
         if let Ok(images) = result {
-            println!("Search with special chars returned {} results", images.len());
+            println!(
+                "Search with special chars returned {} results",
+                images.len()
+            );
         }
     }
 
@@ -337,9 +354,15 @@ mod tests {
                 // Verify all fields are present
                 assert!(!image.name.is_empty(), "Name should not be empty");
                 println!("Image structure validation passed for: {}", image.name);
-                println!("  Description: {}", &image.description[..image.description.len().min(50)]);
+                println!(
+                    "  Description: {}",
+                    &image.description[..image.description.len().min(50)]
+                );
                 println!("  Stars: {}, Pulls: {}", image.star_count, image.pull_count);
-                println!("  Official: {}, Automated: {}", image.is_official, image.is_automated);
+                println!(
+                    "  Official: {}, Automated: {}",
+                    image.is_official, image.is_automated
+                );
             }
         }
     }

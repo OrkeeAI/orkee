@@ -69,7 +69,13 @@ pub async fn discover_external_servers() -> Vec<DiscoveredServer> {
 
 /// Get list of ports to scan from environment or use defaults
 fn get_discovery_ports() -> Vec<u16> {
-    if let Ok(ports_str) = std::env::var("ORKEE_DISCOVERY_PORTS") {
+    // Get Orkee UI port to exclude from discovery (don't discover our own UI!)
+    let orkee_ui_port = std::env::var("ORKEE_UI_PORT")
+        .ok()
+        .and_then(|p| p.parse::<u16>().ok())
+        .unwrap_or(5173);
+
+    let ports = if let Ok(ports_str) = std::env::var("ORKEE_DISCOVERY_PORTS") {
         ports_str
             .split(',')
             .filter_map(|s| {
@@ -88,7 +94,13 @@ fn get_discovery_ports() -> Vec<u16> {
             .collect()
     } else {
         DEFAULT_DISCOVERY_PORTS.to_vec()
-    }
+    };
+
+    // Exclude Orkee's own UI port from discovery
+    ports
+        .into_iter()
+        .filter(|&port| port != orkee_ui_port)
+        .collect()
 }
 
 /// Discover server process on a specific port
