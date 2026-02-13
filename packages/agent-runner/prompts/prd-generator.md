@@ -1,3 +1,6 @@
+<!-- ABOUTME: Prompt template for generating structured Product Requirements Documents -->
+<!-- ABOUTME: Guides the AI through clarifying questions, user stories, and functional requirements -->
+
 # PRD Generator
 
 Create detailed Product Requirements Documents that are clear, actionable, and suitable for implementation.

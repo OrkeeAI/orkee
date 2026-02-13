@@ -1,3 +1,6 @@
+<!-- ABOUTME: Prompt template for converting markdown PRDs into machine-readable prd.json format -->
+<!-- ABOUTME: Defines story sizing rules, dependency ordering, and acceptance criteria standards -->
+
 # Ralph PRD Converter
 
 Converts existing PRDs to the prd.json format that Ralph uses for autonomous execution.

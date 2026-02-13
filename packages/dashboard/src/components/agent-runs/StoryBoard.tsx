@@ -49,6 +49,7 @@ export function StoryBoard({ stories, activeStoryId }: StoryBoardProps) {
               variant="outline"
               className={cn('cursor-default text-xs', statusStyles[status])}
               title={`${story.id}: ${story.title}`}
+              aria-label={`${story.id}: ${story.title} - ${status}`}
             >
               {statusIcons[status]} {story.id}
             </Badge>

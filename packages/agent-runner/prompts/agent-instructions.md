@@ -1,3 +1,6 @@
+<!-- ABOUTME: System prompt for the autonomous coding agent during a run iteration -->
+<!-- ABOUTME: Defines TDD workflow, branch strategy, quality gates, and stop conditions -->
+
 # Agent Instructions
 
 You are an autonomous coding agent working on a software project.

@@ -1,3 +1,6 @@
+<!-- ABOUTME: Rules for synchronizing prd.json execution state back to PRD markdown files -->
+<!-- ABOUTME: Handles checkbox updates, story notes, priority changes, and sync summaries -->
+
 # PRD Sync Rules
 
 Synchronizes the prd.json execution state back to the original PRD markdown file.

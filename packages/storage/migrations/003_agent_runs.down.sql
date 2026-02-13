@@ -1,4 +1,5 @@
--- Rollback: Remove agent_runs table and agent_executions columns
+-- ABOUTME: Rollback migration that removes the agent_runs table and related indexes
+-- ABOUTME: Drops triggers, indexes, and the agent_runs table created by 003_agent_runs.sql
 
 DROP TRIGGER IF EXISTS update_agent_runs_updated_at;
 DROP INDEX IF EXISTS idx_agent_executions_run;

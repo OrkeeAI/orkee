@@ -1,5 +1,5 @@
--- Agent Runs: tracks autonomous agent loop executions against a PRD
--- Each run drives one or more iterations, each targeting a user story
+-- ABOUTME: Migration to add agent_runs table for tracking autonomous agent executions
+-- ABOUTME: Links iterations in agent_executions to their parent run via run_id column
 
 CREATE TABLE IF NOT EXISTS agent_runs (
     id TEXT PRIMARY KEY,

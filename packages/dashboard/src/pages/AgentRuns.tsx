@@ -5,9 +5,8 @@ import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
-import { Progress } from '@/components/ui/progress'
-import { RunStatusBadge } from '@/components/agent-runs/RunStatusBadge'
+import { Card, CardContent } from '@/components/ui/card'
+import { RunCard } from '@/components/agent-runs/RunCard'
 import { listRuns, type AgentRun } from '@/services/agent-runs'
 import { RefreshCw, Plus, Bot } from 'lucide-react'
 
@@ -78,44 +77,14 @@ export default function AgentRuns() {
       )}
 
       <div className="grid gap-4">
-        {runs.map(run => {
-          const progress = run.storiesTotal > 0
-            ? (run.storiesCompleted / run.storiesTotal) * 100
-            : 0
-
-          return (
-            <Card
-              key={run.id}
-              className="cursor-pointer hover:border-primary/50 transition-colors"
-              onClick={() => navigate(`/agent-runs/${run.id}`)}
-            >
-              <CardHeader className="pb-2">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-base">
-                    {run.prdJson?.description || run.id}
-                  </CardTitle>
-                  <RunStatusBadge status={run.status} />
-                </div>
-                <CardDescription>
-                  {run.prdJson?.project || 'Unknown project'} &middot; Started {run.startedAt ? new Date(run.startedAt).toLocaleString() : 'pending'}
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between text-sm">
-                    <span>
-                      {run.storiesCompleted}/{run.storiesTotal} stories
-                    </span>
-                    <span className="text-muted-foreground">
-                      ${run.totalCost.toFixed(2)} &middot; Iteration {run.currentIteration}/{run.maxIterations}
-                    </span>
-                  </div>
-                  <Progress value={progress} className="h-2" />
-                </div>
-              </CardContent>
-            </Card>
-          )
-        })}
+        {runs.map(run => (
+          <RunCard
+            key={run.id}
+            run={run}
+            onClick={() => navigate(`/agent-runs/${run.id}`)}
+            showProject
+          />
+        ))}
       </div>
     </div>
   )
