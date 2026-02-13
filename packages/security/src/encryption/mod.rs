@@ -27,6 +27,7 @@ use ring::{
     rand::{SecureRandom, SystemRandom},
 };
 use std::sync::Arc;
+use subtle::ConstantTimeEq;
 
 /// Application salt for key derivation (constant, not secret)
 const APP_SALT: &[u8] = b"orkee-api-key-encryption-v1-20250120";
@@ -225,7 +226,7 @@ impl ApiKeyEncryption {
         stored_hash: &[u8],
     ) -> Result<bool, EncryptionError> {
         let computed_hash = Self::hash_password_for_verification(password, salt)?;
-        Ok(computed_hash == stored_hash)
+        Ok(computed_hash.ct_eq(stored_hash).unwrap_u8() == 1)
     }
 
     /// Encrypt an API key
