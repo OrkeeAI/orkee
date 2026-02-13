@@ -210,14 +210,15 @@ Create a structured PRD with:
    - Resource risks
    - Mitigation strategies for each
 
-7. **Research**:
-   - Competitor analysis
-   - Similar projects for reference
-   - Research findings
-   - Technical specifications
-   - Reference links
+7. **Research** (IMPORTANT - be thorough here):
+   - Competitor analysis: identify 3-5 real competitors/alternatives, their strengths and gaps
+   - Similar projects for reference: open-source or notable projects in the same space
+   - Research findings: market context, user behavior patterns, industry trends
+   - Technical specifications: relevant standards, protocols, or best practices
+   - Reference links: real URLs to documentation, competitors, and resources
 
-Be specific and actionable. Think through the technical implementation details.`;
+Be specific and actionable. Think through the technical implementation details.
+For the research section, draw on your knowledge of the market to provide genuine competitive analysis rather than generic placeholders.`;
 
   const result = await trackAIOperationWithCost(
     'generate_complete_prd',
