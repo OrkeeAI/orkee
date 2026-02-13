@@ -120,16 +120,29 @@ fn add_security_headers(headers: &mut axum::http::HeaderMap, enable_hsts: bool) 
         HeaderValue::from_static("strict-origin-when-cross-origin"),
     );
 
-    // Content Security Policy - restrictive but allows development
-    let csp = "default-src 'self'; \
-               script-src 'self' 'unsafe-inline' 'unsafe-eval'; \
-               style-src 'self' 'unsafe-inline'; \
-               img-src 'self' data: https:; \
-               connect-src 'self' ws: wss:; \
-               font-src 'self'; \
-               object-src 'none'; \
-               base-uri 'self'; \
-               form-action 'self'";
+    // Content Security Policy — strict in production, relaxed in dev (Vite HMR needs eval/inline)
+    let is_dev = std::env::var("ORKEE_DEV_MODE").is_ok();
+    let csp = if is_dev {
+        "default-src 'self'; \
+         script-src 'self' 'unsafe-inline' 'unsafe-eval'; \
+         style-src 'self' 'unsafe-inline'; \
+         img-src 'self' data: https:; \
+         connect-src 'self' ws: wss:; \
+         font-src 'self'; \
+         object-src 'none'; \
+         base-uri 'self'; \
+         form-action 'self'"
+    } else {
+        "default-src 'self'; \
+         script-src 'self'; \
+         style-src 'self' 'unsafe-inline'; \
+         img-src 'self' data: https:; \
+         connect-src 'self' ws: wss:; \
+         font-src 'self'; \
+         object-src 'none'; \
+         base-uri 'self'; \
+         form-action 'self'"
+    };
 
     headers.insert(
         "content-security-policy",
@@ -206,7 +219,7 @@ mod tests {
             "strict-origin-when-cross-origin"
         );
 
-        // CSP should be present
+        // CSP should be present and strict in production (no ORKEE_DEV_MODE)
         assert!(headers.get("content-security-policy").is_some());
         let csp = headers
             .get("content-security-policy")
@@ -214,6 +227,11 @@ mod tests {
             .to_str()
             .unwrap();
         assert!(csp.contains("default-src 'self'"));
+        assert!(!csp.contains("unsafe-eval"), "Production CSP must not allow unsafe-eval");
+        assert!(
+            !csp.contains("script-src 'self' 'unsafe-inline'"),
+            "Production CSP must not allow unsafe-inline in script-src"
+        );
 
         // Permissions policy should be present
         assert!(headers.get("permissions-policy").is_some());
