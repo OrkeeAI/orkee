@@ -1,9 +1,8 @@
-// ABOUTME: Container component for Specs tab with ideation, PRDs, Epics, Tasks, coverage, and runs
-// ABOUTME: Integrates IdeateTab, PRDView, EpicsTab, TasksTab, CoverageView, and RunsTab
+// ABOUTME: Container component for Specs tab with PRDs, Epics, Tasks, coverage, and runs
+// ABOUTME: Integrates PRDView, EpicsTab, TasksTab, CoverageView, and RunsTab
 import { useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { FileText, BarChart, Lightbulb, Layers, ListTodo, Bot } from 'lucide-react';
-import { IdeateTab } from '@/components/specs/IdeateTab';
+import { FileText, BarChart, Layers, ListTodo, Bot } from 'lucide-react';
 import { PRDView } from '@/components/specs/PRDView';
 import { EpicsTab } from '@/components/epics/EpicsTab';
 import { TasksTab } from '@/components/TasksTab';
@@ -18,15 +17,11 @@ interface SpecsTabProps {
 }
 
 export function SpecsTab({ projectId, projectName, projectPath, taskSource }: SpecsTabProps) {
-  const [activeTab, setActiveTab] = useState('ideate');
+  const [activeTab, setActiveTab] = useState('prds');
 
   return (
     <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
       <TabsList>
-        <TabsTrigger value="ideate" className="flex items-center gap-2">
-          <Lightbulb className="h-4 w-4" />
-          Ideate
-        </TabsTrigger>
         <TabsTrigger value="prds" className="flex items-center gap-2">
           <FileText className="h-4 w-4" />
           PRDs
@@ -48,10 +43,6 @@ export function SpecsTab({ projectId, projectName, projectPath, taskSource }: Sp
           Runs
         </TabsTrigger>
       </TabsList>
-
-      <TabsContent value="ideate" className="space-y-4">
-        <IdeateTab projectId={projectId} />
-      </TabsContent>
 
       <TabsContent value="prds" className="space-y-4">
         <PRDView projectId={projectId} projectName={projectName} />

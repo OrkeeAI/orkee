@@ -1,8 +1,8 @@
-// ABOUTME: PRD management view displaying list of PRDs with metadata and content
-// ABOUTME: Integrates with PRDUploadDialog and RunAgentDialog for creating, analyzing, and executing PRDs
+// ABOUTME: PRD management view displaying list of PRDs with draft sessions and content
+// ABOUTME: Integrates PRDChatFlow for creation, PRDUploadDialog for uploads, and RunAgentDialog for execution
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FileText, Upload, Sparkles, Trash2, Calendar, User, ExternalLink, AlertTriangle, Bot } from 'lucide-react';
+import { FileText, Upload, Sparkles, Trash2, Calendar, User, ExternalLink, AlertTriangle, Bot, Plus, MessageSquare } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -15,9 +15,12 @@ import { RunAgentDialog } from '@/components/agent-runs/RunAgentDialog';
 import { usePRDs, useDeletePRD, useTriggerPRDAnalysis } from '@/hooks/usePRDs';
 import { useCurrentUser } from '@/hooks/useUsers';
 import { useModelPreferences } from '@/services/model-preferences';
+import { useIdeateSessions, useCreateIdeateSession } from '@/hooks/useIdeate';
 import { PRDUploadDialog } from '@/components/PRDUploadDialog';
+import { PRDChatFlow } from '@/components/prd/PRDChatFlow';
 import { listRuns, type AgentRun } from '@/services/agent-runs';
 import type { PRD, PRDAnalysisResult } from '@/services/prds';
+import type { IdeateSession } from '@/services/ideate';
 
 interface PRDViewProps {
   projectId: string;
@@ -31,12 +34,20 @@ export function PRDView({ projectId, projectName }: PRDViewProps) {
   const [showRunDialog, setShowRunDialog] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<PRDAnalysisResult | null>(null);
   const [prdRuns, setPrdRuns] = useState<AgentRun[]>([]);
+  const [activeChatSessionId, setActiveChatSessionId] = useState<string | null>(null);
 
   const { data: prds, isLoading, error } = usePRDs(projectId);
+  const { data: sessions } = useIdeateSessions(projectId);
   const { data: currentUser } = useCurrentUser();
   const { data: preferences } = useModelPreferences(currentUser?.id);
   const deletePRDMutation = useDeletePRD(projectId);
   const analyzePRDMutation = useTriggerPRDAnalysis(projectId);
+  const createSession = useCreateIdeateSession(projectId);
+
+  // Filter to only chat-mode draft sessions (not completed)
+  const draftSessions = (sessions ?? []).filter(
+    (s: IdeateSession) => s.mode === 'chat' && s.status !== 'completed'
+  );
 
   // Load runs linked to the selected PRD
   const loadPrdRuns = useCallback(async (prdId: string) => {
@@ -56,6 +67,31 @@ export function PRDView({ projectId, projectName }: PRDViewProps) {
     }
   }, [selectedPRD, loadPrdRuns]);
 
+  const handleNewPRD = async () => {
+    try {
+      const session = await createSession.mutateAsync({
+        projectId,
+        initialDescription: '',
+        mode: 'chat',
+      });
+      setActiveChatSessionId(session.id);
+    } catch (err) {
+      console.error('Failed to create session:', err);
+    }
+  };
+
+  const handleResumeDraft = (session: IdeateSession) => {
+    setActiveChatSessionId(session.id);
+  };
+
+  const handleChatFlowClose = () => {
+    setActiveChatSessionId(null);
+  };
+
+  const handlePRDSaved = (_prdId: string) => {
+    setActiveChatSessionId(null);
+  };
+
   const handleDelete = (prdId: string) => {
     if (confirm('Are you sure you want to delete this PRD? This action cannot be undone.')) {
       deletePRDMutation.mutate(prdId);
@@ -71,7 +107,6 @@ export function PRDView({ projectId, projectName }: PRDViewProps) {
       return;
     }
 
-    console.log(`Analyzing PRD ${prdId} with user's preferred model for PRD analysis`);
     analyzePRDMutation.mutate(
       { prdId },
       {
@@ -114,6 +149,18 @@ export function PRDView({ projectId, projectName }: PRDViewProps) {
     }
   };
 
+  // Show chat flow as full-screen overlay
+  if (activeChatSessionId) {
+    return (
+      <PRDChatFlow
+        projectId={projectId}
+        sessionId={activeChatSessionId}
+        onClose={handleChatFlowClose}
+        onPRDSaved={handlePRDSaved}
+      />
+    );
+  }
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -135,9 +182,13 @@ export function PRDView({ projectId, projectName }: PRDViewProps) {
     );
   }
 
+  const hasPRDs = prds && prds.length > 0;
+  const hasDrafts = draftSessions.length > 0;
+  const hasContent = hasPRDs || hasDrafts;
+
   return (
     <div className="space-y-4">
-      {/* Header with Upload Button */}
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h3 className="text-lg font-semibold">Product Requirements Documents</h3>
@@ -146,6 +197,10 @@ export function PRDView({ projectId, projectName }: PRDViewProps) {
           </p>
         </div>
         <div className="flex gap-2">
+          <Button onClick={handleNewPRD} size="sm" disabled={createSession.isPending}>
+            <Plus className="mr-2 h-4 w-4" />
+            {createSession.isPending ? 'Creating...' : 'New PRD'}
+          </Button>
           <Button variant="outline" onClick={() => setShowUploadDialog(true)} size="sm">
             <Upload className="mr-2 h-4 w-4" />
             Upload PRD
@@ -153,25 +208,62 @@ export function PRDView({ projectId, projectName }: PRDViewProps) {
         </div>
       </div>
 
-      {(!prds || prds.length === 0) ? (
+      {!hasContent ? (
         <div className="flex flex-col items-center justify-center h-64 space-y-4">
           <FileText className="h-16 w-16 text-muted-foreground" />
           <div className="text-center space-y-2">
             <h3 className="text-lg font-semibold">No PRDs Yet</h3>
             <p className="text-sm text-muted-foreground max-w-md">
-              Upload a PRD or create one through the Ideate tab.
+              Create a PRD by chatting with AI, or upload an existing one.
             </p>
           </div>
-          <Button variant="outline" onClick={() => setShowUploadDialog(true)}>
-            <Upload className="mr-2 h-4 w-4" />
-            Upload PRD
-          </Button>
+          <div className="flex gap-2">
+            <Button onClick={handleNewPRD} disabled={createSession.isPending}>
+              <Plus className="mr-2 h-4 w-4" />
+              {createSession.isPending ? 'Creating...' : 'New PRD'}
+            </Button>
+            <Button variant="outline" onClick={() => setShowUploadDialog(true)}>
+              <Upload className="mr-2 h-4 w-4" />
+              Upload PRD
+            </Button>
+          </div>
         </div>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           {/* PRD List */}
           <div className="space-y-2">
-            {prds.map((prd) => (
+            {/* Draft sessions */}
+            {draftSessions.map((session: IdeateSession) => (
+              <Card
+                key={session.id}
+                className="cursor-pointer transition-colors border-dashed hover:border-primary"
+                onClick={() => handleResumeDraft(session)}
+              >
+                <CardHeader className="pb-3">
+                  <div className="flex items-start justify-between">
+                    <CardTitle className="text-sm font-medium line-clamp-1 flex items-center gap-2">
+                      <MessageSquare className="h-3.5 w-3.5 flex-shrink-0" />
+                      {session.initial_description || 'Untitled Draft'}
+                    </CardTitle>
+                    <Badge variant="outline" className="text-xs">Draft</Badge>
+                  </div>
+                </CardHeader>
+                <CardContent className="pb-3">
+                  <div className="text-xs text-muted-foreground flex items-center gap-1">
+                    <Calendar className="h-3 w-3" />
+                    <span>{formatDate(session.updated_at)}</span>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+
+            {/* Separator between drafts and PRDs */}
+            {hasDrafts && hasPRDs && (
+              <Separator className="my-2" />
+            )}
+
+            {/* Completed PRDs */}
+            {prds?.map((prd) => (
               <Card
                 key={prd.id}
                 className={`cursor-pointer transition-colors ${
@@ -367,7 +459,6 @@ export function PRDView({ projectId, projectName }: PRDViewProps) {
         open={showUploadDialog}
         onOpenChange={setShowUploadDialog}
         onComplete={(prdId) => {
-          // Select the newly created PRD after save
           const newPRD = prds?.find(p => p.id === prdId);
           if (newPRD) {
             setSelectedPRD(newPRD);

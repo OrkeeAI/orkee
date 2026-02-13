@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { Bot, Loader2, Play, ChevronLeft, ChevronRight, Pencil } from 'lucide-react';
+import { Bot, Loader2, Play, ChevronLeft, ChevronRight, Pencil, AlertTriangle, Check, Terminal } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -17,8 +17,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { convertPrdToStories } from '@/services/story-converter';
 import { startRun } from '@/services/agent-runs';
+import { api } from '@/services/api';
+import { useAuth } from '@/contexts/AuthContext';
 import { useCurrentUser } from '@/hooks/useUsers';
 import { useModelPreferences, getModelForTask } from '@/services/model-preferences';
 import type { PrdJson, UserStory } from '@/services/agent-runs';
@@ -38,6 +41,7 @@ export function RunAgentDialog({ projectId, projectName, prd, open, onOpenChange
   const navigate = useNavigate();
   const { data: currentUser } = useCurrentUser();
   const { data: preferences } = useModelPreferences(currentUser?.id);
+  const { authStatus, refreshAuth } = useAuth();
 
   const [stage, setStage] = useState<Stage>('generating');
   const [prdJson, setPrdJson] = useState<PrdJson | null>(null);
@@ -46,6 +50,12 @@ export function RunAgentDialog({ projectId, projectName, prd, open, onOpenChange
   const [isStarting, setIsStarting] = useState(false);
   const [editingStoryId, setEditingStoryId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState('');
+  const [tokenInput, setTokenInput] = useState('');
+  const [isImporting, setIsImporting] = useState(false);
+  const [importError, setImportError] = useState<string | null>(null);
+  const [importSuccess, setImportSuccess] = useState(false);
+
+  const isClaudeAuthenticated = authStatus.claude?.authenticated ?? false;
 
   const generateStories = useCallback(async () => {
     setStage('generating');
@@ -81,6 +91,10 @@ export function RunAgentDialog({ projectId, projectName, prd, open, onOpenChange
       setMaxIterations(10);
       setIsStarting(false);
       setEditingStoryId(null);
+      setTokenInput('');
+      setIsImporting(false);
+      setImportError(null);
+      setImportSuccess(false);
     }
   }, [open, generateStories]);
 
@@ -93,6 +107,34 @@ export function RunAgentDialog({ projectId, projectName, prd, open, onOpenChange
       ),
     });
     setEditingStoryId(null);
+  };
+
+  const handleImportToken = async () => {
+    const trimmed = tokenInput.trim();
+    if (!trimmed) return;
+
+    setIsImporting(true);
+    setImportError(null);
+
+    try {
+      const response = await api('/api/auth/claude/import', {
+        method: 'POST',
+        body: JSON.stringify({ token: trimmed }),
+      });
+
+      if (response.success) {
+        setImportSuccess(true);
+        setTokenInput('');
+        await refreshAuth();
+        toast.success('Claude token imported successfully');
+      } else {
+        setImportError(response.error || 'Failed to import token');
+      }
+    } catch (err) {
+      setImportError(err instanceof Error ? err.message : 'Failed to import token');
+    } finally {
+      setIsImporting(false);
+    }
   };
 
   const handleStartRun = async () => {
@@ -227,6 +269,62 @@ export function RunAgentDialog({ projectId, projectName, prd, open, onOpenChange
         {/* Stage: Configure & Start */}
         {stage === 'configure' && prdJson && (
           <div className="space-y-6 py-4">
+            {!isClaudeAuthenticated && (
+              <Alert variant="destructive" className="border-amber-500/50 bg-amber-500/10 text-amber-700 dark:text-amber-400 [&>svg]:text-amber-600">
+                <AlertTriangle className="h-4 w-4" />
+                <AlertDescription className="space-y-3">
+                  <p className="font-medium">Claude Authentication Required</p>
+                  <p className="text-sm">
+                    The agent runner needs a Claude OAuth token to execute. Get one by running:
+                  </p>
+                  <div className="flex items-center gap-2 rounded bg-muted/50 px-3 py-2 font-mono text-xs">
+                    <Terminal className="h-3.5 w-3.5 shrink-0" />
+                    claude setup-token
+                  </div>
+                  <p className="text-sm">Then paste the token below:</p>
+                  <div className="flex gap-2">
+                    <Input
+                      type="password"
+                      placeholder="sk-ant-oat01-..."
+                      value={tokenInput}
+                      onChange={(e) => {
+                        setTokenInput(e.target.value);
+                        setImportError(null);
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') handleImportToken();
+                      }}
+                      className="font-mono text-xs"
+                    />
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={handleImportToken}
+                      disabled={isImporting || !tokenInput.trim()}
+                    >
+                      {isImporting ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        'Import'
+                      )}
+                    </Button>
+                  </div>
+                  {importError && (
+                    <p className="text-xs text-destructive">{importError}</p>
+                  )}
+                </AlertDescription>
+              </Alert>
+            )}
+
+            {isClaudeAuthenticated && importSuccess && (
+              <Alert className="border-green-500/50 bg-green-500/10 text-green-700 dark:text-green-400 [&>svg]:text-green-600">
+                <Check className="h-4 w-4" />
+                <AlertDescription>
+                  Claude token imported successfully.
+                </AlertDescription>
+              </Alert>
+            )}
+
             <div className="space-y-2">
               <h4 className="text-sm font-medium">Run Summary</h4>
               <div className="grid grid-cols-2 gap-4 text-sm">
@@ -287,7 +385,7 @@ export function RunAgentDialog({ projectId, projectName, prd, open, onOpenChange
                 <ChevronLeft className="mr-1 h-4 w-4" />
                 Back
               </Button>
-              <Button onClick={handleStartRun} disabled={isStarting}>
+              <Button onClick={handleStartRun} disabled={isStarting || !isClaudeAuthenticated}>
                 {isStarting ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
