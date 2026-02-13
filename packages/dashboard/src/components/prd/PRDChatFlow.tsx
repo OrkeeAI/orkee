@@ -126,7 +126,7 @@ export function PRDChatFlow({
         contentMarkdown: generatedContent,
       });
       setShowSavePreview(false);
-      onPRDSaved(result.id);
+      onPRDSaved(result.prd_id);
     } catch (err) {
       console.error('Failed to save PRD:', err);
     }

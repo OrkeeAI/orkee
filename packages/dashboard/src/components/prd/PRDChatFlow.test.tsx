@@ -1,9 +1,8 @@
 // ABOUTME: Tests for PRDChatFlow component
 // ABOUTME: Validates chat-first PRD creation flow including readiness sidebar, generation, and save
 
-import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import { PRDChatFlow } from './PRDChatFlow';
 
 // Mock react-router-dom
@@ -83,7 +82,7 @@ vi.mock('@/services/model-preferences', () => ({
 
 vi.mock('@/hooks/useIdeate', () => ({
   useSaveAsPRD: () => ({
-    mutateAsync: vi.fn().mockResolvedValue({ id: 'prd-123' }),
+    mutateAsync: vi.fn().mockResolvedValue({ prd_id: 'prd-123', success: true }),
     isPending: false,
   }),
 }));
