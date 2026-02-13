@@ -2,7 +2,7 @@
 // ABOUTME: Integrates with PRDUploadDialog and RunAgentDialog for creating, analyzing, and executing PRDs
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FileText, Upload, Sparkles, Trash2, Calendar, User, Layers, ExternalLink, AlertTriangle, Bot } from 'lucide-react';
+import { FileText, Upload, Sparkles, Trash2, Calendar, User, ExternalLink, AlertTriangle, Bot } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -13,7 +13,6 @@ import { MarkdownRenderer } from '@/components/MarkdownRenderer';
 import { RunStatusBadge } from '@/components/agent-runs/RunStatusBadge';
 import { RunAgentDialog } from '@/components/agent-runs/RunAgentDialog';
 import { usePRDs, useDeletePRD, useTriggerPRDAnalysis } from '@/hooks/usePRDs';
-import { useSpecs } from '@/hooks/useSpecs';
 import { useCurrentUser } from '@/hooks/useUsers';
 import { useModelPreferences } from '@/services/model-preferences';
 import { PRDUploadDialog } from '@/components/PRDUploadDialog';
@@ -23,10 +22,9 @@ import type { PRD, PRDAnalysisResult } from '@/services/prds';
 interface PRDViewProps {
   projectId: string;
   projectName: string;
-  onViewSpecs?: (prdId: string) => void;
 }
 
-export function PRDView({ projectId, projectName, onViewSpecs }: PRDViewProps) {
+export function PRDView({ projectId, projectName }: PRDViewProps) {
   const navigate = useNavigate();
   const [selectedPRD, setSelectedPRD] = useState<PRD | null>(null);
   const [showUploadDialog, setShowUploadDialog] = useState(false);
@@ -35,9 +33,8 @@ export function PRDView({ projectId, projectName, onViewSpecs }: PRDViewProps) {
   const [prdRuns, setPrdRuns] = useState<AgentRun[]>([]);
 
   const { data: prds, isLoading, error } = usePRDs(projectId);
-  const { data: allSpecs } = useSpecs(projectId);
   const { data: currentUser } = useCurrentUser();
-  const { data: preferences } = useModelPreferences(currentUser?.id || '');
+  const { data: preferences } = useModelPreferences(currentUser?.id);
   const deletePRDMutation = useDeletePRD(projectId);
   const analyzePRDMutation = useTriggerPRDAnalysis(projectId);
 
@@ -58,12 +55,6 @@ export function PRDView({ projectId, projectName, onViewSpecs }: PRDViewProps) {
       setPrdRuns([]);
     }
   }, [selectedPRD, loadPrdRuns]);
-
-  // Count specs for each PRD
-  const getSpecCountForPRD = (prdId: string) => {
-    if (!allSpecs) return 0;
-    return allSpecs.filter(spec => spec.prdId === prdId).length;
-  };
 
   const handleDelete = (prdId: string) => {
     if (confirm('Are you sure you want to delete this PRD? This action cannot be undone.')) {
@@ -193,12 +184,12 @@ export function PRDView({ projectId, projectName, onViewSpecs }: PRDViewProps) {
                     <CardTitle className="text-sm font-medium line-clamp-1">{prd.title}</CardTitle>
                     {getStatusBadge(prd.status)}
                   </div>
-                  <CardDescription className="text-xs">
+                  <div className="text-xs text-muted-foreground">
                     <div className="flex items-center gap-2 mt-1">
                       {getSourceBadge(prd.source)}
                       <span>v{prd.version}</span>
                     </div>
-                  </CardDescription>
+                  </div>
                 </CardHeader>
                 <CardContent className="pb-3">
                   <div className="space-y-1 text-xs text-muted-foreground">
@@ -212,10 +203,6 @@ export function PRDView({ projectId, projectName, onViewSpecs }: PRDViewProps) {
                         <span>{prd.createdBy}</span>
                       </div>
                     )}
-                    <div className="flex items-center gap-1 pt-1">
-                      <Layers className="h-3 w-3" />
-                      <span>{getSpecCountForPRD(prd.id)} {getSpecCountForPRD(prd.id) === 1 ? 'spec' : 'specs'}</span>
-                    </div>
                   </div>
                 </CardContent>
               </Card>
@@ -235,16 +222,6 @@ export function PRDView({ projectId, projectName, onViewSpecs }: PRDViewProps) {
                       </CardDescription>
                     </div>
                     <div className="flex gap-2">
-                      {getSpecCountForPRD(selectedPRD.id) > 0 && onViewSpecs && (
-                        <Button
-                          variant="default"
-                          size="sm"
-                          onClick={() => onViewSpecs(selectedPRD.id)}
-                        >
-                          <Layers className="mr-2 h-4 w-4" />
-                          View Specs ({getSpecCountForPRD(selectedPRD.id)})
-                        </Button>
-                      )}
                       <Button
                         variant="outline"
                         size="sm"

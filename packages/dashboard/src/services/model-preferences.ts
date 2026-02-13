@@ -87,7 +87,7 @@ function convertToModelPreferences(response: ModelPreferencesResponse): ModelPre
 /**
  * React Query hook to fetch user model preferences
  */
-export function useModelPreferences(userId: string) {
+export function useModelPreferences(userId: string | undefined) {
   return useQuery({
     queryKey: ['model-preferences', userId],
     queryFn: async () => {
@@ -102,6 +102,7 @@ export function useModelPreferences(userId: string) {
       // API returns { success, data: {...}, error }, need to unwrap
       return convertToModelPreferences(response.data.data);
     },
+    enabled: !!userId,
     staleTime: 5 * 60 * 1000, // 5 minutes
     retry: 1,
   });

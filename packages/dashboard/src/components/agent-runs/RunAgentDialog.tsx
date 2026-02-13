@@ -37,7 +37,7 @@ interface RunAgentDialogProps {
 export function RunAgentDialog({ projectId, projectName, prd, open, onOpenChange }: RunAgentDialogProps) {
   const navigate = useNavigate();
   const { data: currentUser } = useCurrentUser();
-  const { data: preferences } = useModelPreferences(currentUser?.id || '');
+  const { data: preferences } = useModelPreferences(currentUser?.id);
 
   const [stage, setStage] = useState<Stage>('generating');
   const [prdJson, setPrdJson] = useState<PrdJson | null>(null);
