@@ -373,6 +373,11 @@ async fn start_server_with_options(
     // Set dev mode to bypass API token authentication in development
     if dev_mode {
         std::env::set_var("ORKEE_DEV_MODE", "true");
+        eprintln!("\n{}", "╔══════════════════════════════════════════════════════════════╗".yellow().bold());
+        eprintln!("{}", "║  ⚠️  DEVELOPMENT MODE — API authentication is DISABLED      ║".yellow().bold());
+        eprintln!("{}", "║  Do not use --dev in production or on shared networks        ║".yellow().bold());
+        eprintln!("{}", "╚══════════════════════════════════════════════════════════════╝".yellow().bold());
+        eprintln!();
     }
 
     // Call the server with optional dashboard path
