@@ -22,29 +22,48 @@ mod tests;
 
 use config::Config;
 
-fn create_cors_origin(_allow_any_localhost: bool) -> AllowOrigin {
-    // Always allow any localhost origin for development flexibility
-    // This supports dynamic ports without configuration
-    AllowOrigin::predicate(|origin: &HeaderValue, _: &_| {
-        if let Ok(origin_str) = origin.to_str() {
-            let allowed = origin_str.starts_with("http://localhost:")
-                || origin_str.starts_with("http://127.0.0.1:")
-                || origin_str.starts_with("http://[::1]:")
-                || origin_str.starts_with("https://localhost:")
-                || origin_str.starts_with("https://127.0.0.1:")
-                || origin_str.starts_with("https://[::1]:")
-                || origin_str == "tauri://localhost"
-                || origin_str == "http://tauri.localhost"
-                || origin_str == "https://tauri.localhost";
+fn create_cors_origin(allow_any_localhost: bool, configured_origin: &str) -> AllowOrigin {
+    if allow_any_localhost {
+        // Allow any localhost origin for development flexibility
+        AllowOrigin::predicate(|origin: &HeaderValue, _: &_| {
+            if let Ok(origin_str) = origin.to_str() {
+                let allowed = origin_str.starts_with("http://localhost:")
+                    || origin_str.starts_with("http://127.0.0.1:")
+                    || origin_str.starts_with("http://[::1]:")
+                    || origin_str.starts_with("https://localhost:")
+                    || origin_str.starts_with("https://127.0.0.1:")
+                    || origin_str.starts_with("https://[::1]:")
+                    || origin_str == "tauri://localhost"
+                    || origin_str == "http://tauri.localhost"
+                    || origin_str == "https://tauri.localhost";
 
-            if !allowed {
-                error!("CORS blocked origin: {}", origin_str);
+                if !allowed {
+                    error!("CORS blocked origin: {}", origin_str);
+                }
+                allowed
+            } else {
+                false
             }
-            allowed
-        } else {
-            false
-        }
-    })
+        })
+    } else {
+        // Strict mode: only allow the configured origin and Tauri origins
+        let allowed = configured_origin.to_string();
+        AllowOrigin::predicate(move |origin: &HeaderValue, _: &_| {
+            if let Ok(origin_str) = origin.to_str() {
+                let is_allowed = origin_str == allowed
+                    || origin_str == "tauri://localhost"
+                    || origin_str == "http://tauri.localhost"
+                    || origin_str == "https://tauri.localhost";
+
+                if !is_allowed {
+                    error!("CORS blocked origin: {}", origin_str);
+                }
+                is_allowed
+            } else {
+                false
+            }
+        })
+    }
 }
 
 pub async fn run_server() -> Result<(), Box<dyn std::error::Error>> {
@@ -352,7 +371,7 @@ async fn create_application_router(
     ]);
 
     // Create CORS origin configuration
-    let cors_origin = create_cors_origin(config.cors_allow_any_localhost);
+    let cors_origin = create_cors_origin(config.cors_allow_any_localhost, &config.cors_origin);
 
     let cors = CorsLayer::new()
         .allow_origin(cors_origin)
