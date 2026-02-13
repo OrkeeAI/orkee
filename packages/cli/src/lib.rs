@@ -408,9 +408,27 @@ async fn create_application_router(
     // Add rate limiting if enabled
     if config.rate_limit.enabled {
         info!(
-            "Rate limiting enabled with {} global requests/minute",
+            "Rate limiting enabled with {} global requests/minute (per-IP)",
             config.rate_limit.global_rpm
         );
+
+        let rate_limit_layer = middleware::RateLimitLayer::new(config.rate_limit.clone());
+
+        // Spawn background task to evict stale IP entries every 5 minutes
+        let limiters_for_cleanup = rate_limit_layer.limiters();
+        tokio::spawn(async move {
+            let mut interval = tokio::time::interval(Duration::from_secs(300));
+            loop {
+                interval.tick().await;
+                if let Ok(limiters) = limiters_for_cleanup.lock() {
+                    for limiter in limiters.values() {
+                        limiter.retain_recent();
+                    }
+                }
+            }
+        });
+
+        app_builder = app_builder.layer(axum::Extension(rate_limit_layer));
         app_builder = app_builder.layer(axum::middleware::from_fn(
             middleware::rate_limit::rate_limit_middleware,
         ));

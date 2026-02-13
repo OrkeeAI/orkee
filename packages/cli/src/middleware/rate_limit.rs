@@ -7,12 +7,12 @@ use axum::{
 use governor::{
     clock::DefaultClock,
     middleware::NoOpMiddleware,
-    state::{InMemoryState, NotKeyed},
+    state::keyed::DashMapStateStore,
     Quota, RateLimiter,
 };
 use std::{
     collections::HashMap,
-    net::SocketAddr,
+    net::{IpAddr, SocketAddr},
     num::NonZeroU32,
     sync::{Arc, Mutex},
 };
@@ -20,8 +20,8 @@ use tracing::{debug, warn};
 
 use crate::error::AppError;
 
-/// Type alias for a rate limiter
-type RateLimiterType = RateLimiter<NotKeyed, InMemoryState, DefaultClock, NoOpMiddleware>;
+/// Type alias for a per-IP keyed rate limiter
+type RateLimiterType = RateLimiter<IpAddr, DashMapStateStore<IpAddr>, DefaultClock, NoOpMiddleware>;
 
 /// Type alias for a rate limiter instance
 type RateLimiterInstance = Arc<RateLimiterType>;
@@ -100,6 +100,11 @@ impl RateLimitLayer {
         }
     }
 
+    /// Get all active limiters for cleanup
+    pub fn limiters(&self) -> RateLimiterStorage {
+        self.limiters.clone()
+    }
+
     /// Get or create rate limiter for specific endpoint category
     fn get_limiter_for_path(&self, path: &str) -> RateLimiterInstance {
         let category = categorize_endpoint(path);
@@ -130,7 +135,7 @@ impl RateLimitLayer {
                             .unwrap_or(NonZeroU32::new(5).unwrap()),
                     );
 
-            let limiter = Arc::new(RateLimiter::direct(quota));
+            let limiter = Arc::new(RateLimiter::dashmap(quota));
             limiters.insert(key, limiter.clone());
 
             debug!(
@@ -234,8 +239,8 @@ pub async fn rate_limit_middleware(
     let rate_limit = layer.get_rate_limit_for_path(path);
     let ip = addr.ip();
 
-    // Check rate limit
-    match limiter.check() {
+    // Check rate limit per IP
+    match limiter.check_key(&ip) {
         Ok(_) => {
             debug!(
                 ip = %ip,
@@ -263,7 +268,7 @@ pub async fn rate_limit_middleware(
             );
 
             // Calculate retry-after based on limiter state
-            let retry_after = calculate_retry_after(&limiter);
+            let retry_after = calculate_retry_after(&limiter, &ip);
 
             Err(AppError::RateLimitExceeded {
                 retry_after,
@@ -274,13 +279,12 @@ pub async fn rate_limit_middleware(
 }
 
 /// Calculate how long the client should wait before retrying
-fn calculate_retry_after(limiter: &RateLimiterType) -> u64 {
+fn calculate_retry_after(limiter: &RateLimiterType, ip: &IpAddr) -> u64 {
     // Try to get the earliest time when a slot will be available
-    match limiter.check() {
+    match limiter.check_key(ip) {
         Ok(_) => 1, // Should be available now, but return 1 second as minimum
         Err(_) => {
             // Default to 60 seconds if we can't determine the exact time
-            // In a real implementation, you might use limiter.check_at() with future timestamps
             60
         }
     }
@@ -393,14 +397,33 @@ mod tests {
     #[tokio::test]
     async fn test_rate_limit_enforcement() {
         let quota = Quota::per_minute(NonZeroU32::new(2).unwrap());
-        let limiter = RateLimiter::direct(quota);
+        let limiter: RateLimiterType = RateLimiter::dashmap(quota);
+        let ip: IpAddr = "127.0.0.1".parse().unwrap();
 
         // First two requests should succeed
-        assert!(limiter.check().is_ok());
-        assert!(limiter.check().is_ok());
+        assert!(limiter.check_key(&ip).is_ok());
+        assert!(limiter.check_key(&ip).is_ok());
 
         // Third request should fail (rate limited)
-        assert!(limiter.check().is_err());
+        assert!(limiter.check_key(&ip).is_err());
+    }
+
+    #[tokio::test]
+    async fn test_rate_limit_per_ip_isolation() {
+        let quota = Quota::per_minute(NonZeroU32::new(2).unwrap());
+        let limiter: RateLimiterType = RateLimiter::dashmap(quota);
+        let ip1: IpAddr = "10.0.0.1".parse().unwrap();
+        let ip2: IpAddr = "10.0.0.2".parse().unwrap();
+
+        // Exhaust limit for ip1
+        assert!(limiter.check_key(&ip1).is_ok());
+        assert!(limiter.check_key(&ip1).is_ok());
+        assert!(limiter.check_key(&ip1).is_err());
+
+        // ip2 should still have its own quota
+        assert!(limiter.check_key(&ip2).is_ok());
+        assert!(limiter.check_key(&ip2).is_ok());
+        assert!(limiter.check_key(&ip2).is_err());
     }
 
     #[test]
