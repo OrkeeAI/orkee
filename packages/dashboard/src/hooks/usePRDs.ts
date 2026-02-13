@@ -212,7 +212,7 @@ export function useAnalyzePRD(projectId: string, prdId: string) {
 export function useTriggerPRDAnalysis(projectId: string) {
   const queryClient = useQueryClient();
   const { data: currentUser } = useCurrentUser();
-  const { data: preferences } = useModelPreferences(currentUser?.id || '');
+  const { data: preferences } = useModelPreferences(currentUser?.id);
 
   return useMutation({
     mutationFn: async ({ prdId }: { prdId: string }) => {

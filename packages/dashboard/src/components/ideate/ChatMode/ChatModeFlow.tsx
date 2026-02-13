@@ -51,7 +51,7 @@ export function ChatModeFlow({
 
   // Phase 6: Get user and model preferences for insight extraction
   const { data: currentUser } = useCurrentUser();
-  const { data: modelPreferences } = useModelPreferences(currentUser?.id || 'default');
+  const { data: modelPreferences } = useModelPreferences(currentUser?.id);
 
   const {
     messages,

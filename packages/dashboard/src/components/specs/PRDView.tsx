@@ -34,7 +34,7 @@ export function PRDView({ projectId, projectName }: PRDViewProps) {
 
   const { data: prds, isLoading, error } = usePRDs(projectId);
   const { data: currentUser } = useCurrentUser();
-  const { data: preferences } = useModelPreferences(currentUser?.id || '');
+  const { data: preferences } = useModelPreferences(currentUser?.id);
   const deletePRDMutation = useDeletePRD(projectId);
   const analyzePRDMutation = useTriggerPRDAnalysis(projectId);
 
