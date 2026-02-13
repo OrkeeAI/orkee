@@ -16,12 +16,21 @@ use std::sync::Arc;
 use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::Command;
 use tokio::sync::{broadcast, RwLock};
+use tokio_stream::wrappers::errors::BroadcastStreamRecvError;
 use tokio_stream::wrappers::BroadcastStream;
 use tokio_stream::StreamExt;
 use tracing::{error, info, warn};
 
 use super::response::{created_or_internal_error, ok_or_internal_error};
 use orkee_projects::DbState;
+
+/// Removes a temporary file when dropped unless ownership is explicitly released.
+struct TempFile(std::path::PathBuf);
+impl Drop for TempFile {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_file(&self.0);
+    }
+}
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -112,8 +121,8 @@ pub struct AgentRunsState {
     pub db: DbState,
     /// Per-run event broadcast channels.
     pub channels: Arc<RwLock<HashMap<String, broadcast::Sender<RunnerEvent>>>>,
-    /// Track runner PIDs for stop requests.
-    pub pids: Arc<RwLock<HashMap<String, u32>>>,
+    /// Track runner child processes for stop requests.
+    pub children: Arc<RwLock<HashMap<String, Arc<tokio::sync::Mutex<tokio::process::Child>>>>>,
 }
 
 impl AgentRunsState {
@@ -121,7 +130,7 @@ impl AgentRunsState {
         Self {
             db,
             channels: Arc::new(RwLock::new(HashMap::new())),
-            pids: Arc::new(RwLock::new(HashMap::new())),
+            children: Arc::new(RwLock::new(HashMap::new())),
         }
     }
 
@@ -254,6 +263,7 @@ pub async fn start_run(
             "Failed to start agent run",
         );
     }
+    let _prd_guard = TempFile(std::path::PathBuf::from(&prd_tmp_path));
 
     // Spawn the agent runner subprocess
     let tx = state.get_or_create_channel(&run_id).await;
@@ -266,12 +276,20 @@ pub async fn start_run(
         max_iterations,
         oauth_token.as_deref(),
         tx.clone(),
+        state.db.pool.clone(),
     )
     .await;
 
     match spawn_result {
-        Ok(pid) => {
-            state.pids.write().await.insert(run_id.clone(), pid);
+        Ok(child_handle) => {
+            state
+                .children
+                .write()
+                .await
+                .insert(run_id.clone(), child_handle);
+
+            // Monitor task takes ownership of temp file cleanup
+            std::mem::forget(_prd_guard);
 
             // Spawn background task to monitor the runner and update DB
             let state_clone = state.clone();
@@ -281,7 +299,7 @@ pub async fn start_run(
                 monitor_runner(&state_clone, &run_id_clone, tx).await;
                 // Cleanup temp file
                 let _ = tokio::fs::remove_file(&prd_tmp_clone).await;
-                state_clone.pids.write().await.remove(&run_id_clone);
+                state_clone.children.write().await.remove(&run_id_clone);
                 state_clone.channels.write().await.remove(&run_id_clone);
             });
 
@@ -355,13 +373,13 @@ pub async fn stop_run(
 ) -> impl IntoResponse {
     info!("Stopping agent run: {}", run_id);
 
-    let pids = state.pids.read().await;
-    if let Some(&pid) = pids.get(&run_id) {
-        info!("Sending SIGTERM to runner pid={}", pid);
-        let _ = std::process::Command::new("kill")
-            .arg("-TERM")
-            .arg(pid.to_string())
-            .output();
+    if let Some(child_handle) = state.children.write().await.remove(&run_id) {
+        let mut child = child_handle.lock().await;
+        if let Err(e) = child.kill().await {
+            warn!("Failed to kill runner process for run {}: {}", run_id, e);
+        } else {
+            info!("Killed runner process for run {}", run_id);
+        }
     }
 
     let result = sqlx::query(
@@ -384,12 +402,16 @@ pub async fn run_events(
     let tx = state.get_or_create_channel(&run_id).await;
     let rx = tx.subscribe();
 
-    let stream = BroadcastStream::new(rx).filter_map(|result| match result {
+    let run_id_for_stream = run_id.clone();
+    let stream = BroadcastStream::new(rx).filter_map(move |result| match result {
         Ok(event) => {
             let json = serde_json::to_string(&event).unwrap_or_default();
             Some(Ok(Event::default().data(json)))
         }
-        Err(_) => None,
+        Err(BroadcastStreamRecvError::Lagged(n)) => {
+            warn!("SSE client lagged {} events for run {}", n, run_id_for_stream);
+            None
+        }
     });
 
     Sse::new(stream).keep_alive(KeepAlive::default())
@@ -421,8 +443,9 @@ async fn spawn_runner(
     prd_path: &str,
     max_iterations: i64,
     oauth_token: Option<&str>,
-    _tx: broadcast::Sender<RunnerEvent>,
-) -> Result<u32, String> {
+    tx: broadcast::Sender<RunnerEvent>,
+    db: sqlx::SqlitePool,
+) -> Result<Arc<tokio::sync::Mutex<tokio::process::Child>>, String> {
     let runner_script = std::env::current_dir()
         .map(|d| {
             d.join("packages/agent-runner/src/index.ts")
@@ -449,42 +472,95 @@ async fn spawn_runner(
         cmd.env("CLAUDE_CODE_OAUTH_TOKEN", token);
     }
 
-    let child = cmd.spawn().map_err(|e| format!("Failed to spawn runner: {}", e))?;
-    let pid = child.id().ok_or("Failed to get runner PID")?;
+    let mut child = cmd.spawn().map_err(|e| format!("Failed to spawn runner: {}", e))?;
 
-    // Store the child handle for the monitor task
-    // The monitor task will read from stdout
-    tokio::spawn(read_runner_output(child, _tx));
+    // Take stdout before wrapping child in Arc<Mutex<>> since the reader needs it separately.
+    let stdout = child
+        .stdout
+        .take()
+        .ok_or("Failed to capture runner stdout")?;
+    let lines = BufReader::new(stdout).lines();
 
-    Ok(pid)
+    let child_handle = Arc::new(tokio::sync::Mutex::new(child));
+
+    // Spawn the stdout reader with a reference to the child for exit-status collection.
+    let run_id_owned = run_id.to_string();
+    let child_for_reader = Arc::clone(&child_handle);
+    tokio::spawn(read_runner_output(
+        lines,
+        child_for_reader,
+        tx,
+        db,
+        run_id_owned,
+    ));
+
+    Ok(child_handle)
 }
 
 /// Read NDJSON from the runner's stdout and broadcast events.
+/// After stdout closes, waits for the child to exit and emits a synthetic
+/// `RunFailed` if the process crashed without sending a terminal event.
 async fn read_runner_output(
-    mut child: tokio::process::Child,
+    mut lines: tokio::io::Lines<BufReader<tokio::process::ChildStdout>>,
+    child: Arc<tokio::sync::Mutex<tokio::process::Child>>,
     tx: broadcast::Sender<RunnerEvent>,
+    db: sqlx::SqlitePool,
+    run_id: String,
 ) {
-    if let Some(stdout) = child.stdout.take() {
-        let reader = BufReader::new(stdout);
-        let mut lines = reader.lines();
+    let mut saw_terminal_event = false;
 
-        while let Ok(Some(line)) = lines.next_line().await {
-            if line.trim().is_empty() {
-                continue;
+    while let Ok(Some(line)) = lines.next_line().await {
+        if line.trim().is_empty() {
+            continue;
+        }
+        match serde_json::from_str::<RunnerEvent>(&line) {
+            Ok(event) => {
+                if matches!(event, RunnerEvent::RunCompleted { .. } | RunnerEvent::RunFailed { .. }) {
+                    saw_terminal_event = true;
+                }
+                let _ = tx.send(event);
             }
-            match serde_json::from_str::<RunnerEvent>(&line) {
-                Ok(event) => {
-                    let _ = tx.send(event);
-                }
-                Err(e) => {
-                    warn!("Failed to parse runner event: {} (line: {})", e, &line[..line.len().min(100)]);
-                }
+            Err(e) => {
+                warn!(
+                    "Failed to parse runner event: {} (line: {})",
+                    e,
+                    &line[..line.len().min(100)]
+                );
             }
         }
     }
 
-    // Wait for the process to exit
-    let _ = child.wait().await;
+    // Wait for the process to exit and check status.
+    let status = child.lock().await.wait().await;
+    match &status {
+        Ok(s) if s.success() => info!("Runner for run {} exited successfully", run_id),
+        Ok(s) => error!("Runner for run {} exited with status {}", run_id, s),
+        Err(e) => error!("Failed to wait on runner for run {}: {}", run_id, e),
+    }
+
+    // If the runner crashed without sending a terminal event, synthesize RunFailed.
+    let exited_ok = status.as_ref().map(|s| s.success()).unwrap_or(false);
+    if !saw_terminal_event && !exited_ok {
+        let error_msg = match &status {
+            Ok(s) => format!("Runner process exited with status {}", s),
+            Err(e) => format!("Runner process error: {}", e),
+        };
+
+        let _ = tx.send(RunnerEvent::RunFailed {
+            run_id: run_id.clone(),
+            error: error_msg.clone(),
+        });
+
+        // Update DB only if still running (avoid overwriting an explicit cancel).
+        let _ = sqlx::query(
+            "UPDATE agent_runs SET status = 'failed', error = ?, completed_at = datetime('now') \
+             WHERE id = ? AND status = 'running'",
+        )
+        .bind(&error_msg)
+        .bind(&run_id)
+        .execute(&db)
+        .await;
+    }
 }
 
 /// Background task that monitors a runner and updates DB on events.
