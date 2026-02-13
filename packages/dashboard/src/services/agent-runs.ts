@@ -59,17 +59,19 @@ export interface StartRunInput {
 
 // ── NDJSON Event Types (from agent runner) ─────────────────────────────────
 
-export type RunEventType =
-  | 'run_started' | 'run_completed' | 'run_failed'
-  | 'iteration_started' | 'iteration_completed' | 'iteration_failed'
-  | 'agent_text' | 'agent_tool'
-  | 'branch_created' | 'pr_created' | 'pr_merged'
-  | 'story_completed';
-
-export interface RunEvent {
-  type: RunEventType;
-  [key: string]: unknown;
-}
+export type RunEvent =
+  | { type: 'run_started'; run_id: string; total_stories: number; completed_stories: number }
+  | { type: 'run_completed'; run_id: string; total_cost: number; stories_completed: number; duration_secs: number }
+  | { type: 'run_failed'; run_id: string; error: string }
+  | { type: 'iteration_started'; iteration: number; story_id: string; story_title: string }
+  | { type: 'iteration_completed'; iteration: number; story_id: string; cost: number; duration_secs: number; tools: Record<string, number> }
+  | { type: 'iteration_failed'; iteration: number; story_id: string; error: string }
+  | { type: 'agent_text'; text: string }
+  | { type: 'agent_tool'; tool: string; detail: string }
+  | { type: 'branch_created'; branch: string }
+  | { type: 'pr_created'; pr_number: number; pr_url: string }
+  | { type: 'pr_merged'; pr_number: number }
+  | { type: 'story_completed'; story_id: string; passed: number; total: number };
 
 // ── API Response ───────────────────────────────────────────────────────────
 
