@@ -538,12 +538,17 @@ async fn read_runner_output(
         Err(e) => error!("Failed to wait on runner for run {}: {}", run_id, e),
     }
 
-    // If the runner crashed without sending a terminal event, synthesize RunFailed.
-    let exited_ok = status.as_ref().map(|s| s.success()).unwrap_or(false);
-    if !saw_terminal_event && !exited_ok {
-        let error_msg = match &status {
-            Ok(s) => format!("Runner process exited with status {}", s),
-            Err(e) => format!("Runner process error: {}", e),
+    // If the runner exited without sending a terminal event, synthesize RunFailed.
+    // This covers both crash exits AND silent exits (e.g., auth failure with code 0).
+    if !saw_terminal_event {
+        let exited_ok = status.as_ref().map(|s| s.success()).unwrap_or(false);
+        let error_msg = if exited_ok {
+            "Runner process exited without completing (possible auth or setup failure)".to_string()
+        } else {
+            match &status {
+                Ok(s) => format!("Runner process exited with status {}", s),
+                Err(e) => format!("Runner process error: {}", e),
+            }
         };
 
         let _ = tx.send(RunnerEvent::RunFailed {

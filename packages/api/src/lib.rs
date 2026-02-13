@@ -827,6 +827,7 @@ pub fn create_oauth_router() -> Router<DbState> {
         .route("/status", get(oauth_handlers::get_auth_status))
         .route("/{provider}/token", post(oauth_handlers::get_token))
         .route("/{provider}/refresh", post(oauth_handlers::refresh_token))
+        .route("/{provider}/import", post(oauth_handlers::import_token))
         .route("/{provider}", delete(oauth_handlers::logout))
 }
 
