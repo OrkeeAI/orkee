@@ -16,7 +16,7 @@ import { toast } from 'sonner'
 export default function AgentRunDetail() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
-  const { events, run, connectionMode } = useAgentRunEvents(id || null)
+  const { events, run, connectionMode, refetchRun } = useAgentRunEvents(id || null)
   const [stopping, setStopping] = useState(false)
 
   // Derive active story from the latest iteration_started event
@@ -38,7 +38,8 @@ export default function AgentRunDetail() {
     setStopping(true)
     try {
       await stopRun(id)
-      toast.success('Run stop requested')
+      await refetchRun()
+      toast.success('Run stopped')
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to stop run')
     } finally {

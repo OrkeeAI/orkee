@@ -84,6 +84,7 @@ pub enum RunnerEvent {
 
 /// Persistent run record stored in SQLite.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct AgentRun {
     pub id: String,
     pub project_id: String,

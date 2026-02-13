@@ -2,7 +2,7 @@
 // ABOUTME: Handles CRUD, start/stop control, and SSE event subscriptions for autonomous agent runs
 
 import { apiRequest } from './api';
-import type { PaginationParams, PaginatedResponse } from '@/types/pagination';
+import type { PaginationParams } from '@/types/pagination';
 import { buildPaginationQuery } from '@/types/pagination';
 
 // ── Types ──────────────────────────────────────────────────────────────────
@@ -73,35 +73,29 @@ export type RunEvent =
   | { type: 'pr_merged'; pr_number: number }
   | { type: 'story_completed'; story_id: string; passed: number; total: number };
 
-// ── API Response ───────────────────────────────────────────────────────────
-
-interface ApiResponse<T> {
-  success: boolean;
-  data: T;
-  error?: string;
-}
-
 // ── Service ────────────────────────────────────────────────────────────────
+// apiRequest already unwraps the {success, data, error} envelope from the API,
+// so we access response.data directly as the payload.
 
 export async function startRun(input: StartRunInput): Promise<AgentRun> {
-  const response = await apiRequest<ApiResponse<AgentRun>>('/api/agent-runs', {
+  const response = await apiRequest<AgentRun>('/api/agent-runs', {
     method: 'POST',
     body: JSON.stringify(input),
   });
 
-  if (!response.success || !response.data?.success) {
-    throw new Error(response.data?.error || response.error || 'Failed to start agent run');
+  if (!response.success || !response.data) {
+    throw new Error(response.error || 'Failed to start agent run');
   }
 
-  return response.data.data;
+  return response.data;
 }
 
 export async function listRuns(
   projectId?: string,
   status?: AgentRunStatus,
   pagination?: PaginationParams,
-): Promise<PaginatedResponse<AgentRun>> {
-  let query = pagination ? buildPaginationQuery(pagination) : '';
+): Promise<AgentRun[]> {
+  const query = pagination ? buildPaginationQuery(pagination) : '';
 
   const params = new URLSearchParams(query ? query.replace('?', '') : '');
   if (projectId) params.set('project_id', projectId);
@@ -110,41 +104,41 @@ export async function listRuns(
   const qs = params.toString();
   const url = `/api/agent-runs${qs ? `?${qs}` : ''}`;
 
-  const response = await apiRequest<ApiResponse<PaginatedResponse<AgentRun>>>(url);
+  const response = await apiRequest<AgentRun[]>(url);
 
-  if (!response.success || !response.data?.success) {
-    throw new Error(response.data?.error || response.error || 'Failed to list agent runs');
+  if (!response.success || !response.data) {
+    throw new Error(response.error || 'Failed to list agent runs');
   }
 
-  return response.data.data;
+  return response.data;
 }
 
 export async function getRun(runId: string): Promise<AgentRun> {
-  const response = await apiRequest<ApiResponse<AgentRun>>(`/api/agent-runs/${runId}`);
+  const response = await apiRequest<AgentRun>(`/api/agent-runs/${runId}`);
 
-  if (!response.success || !response.data?.success) {
-    throw new Error(response.data?.error || response.error || 'Failed to get agent run');
+  if (!response.success || !response.data) {
+    throw new Error(response.error || 'Failed to get agent run');
   }
 
-  return response.data.data;
+  return response.data;
 }
 
 export async function stopRun(runId: string): Promise<void> {
-  const response = await apiRequest<ApiResponse<null>>(`/api/agent-runs/${runId}/stop`, {
+  const response = await apiRequest<{ stopped: boolean }>(`/api/agent-runs/${runId}/stop`, {
     method: 'POST',
   });
 
-  if (!response.success || !response.data?.success) {
-    throw new Error(response.data?.error || response.error || 'Failed to stop agent run');
+  if (!response.success) {
+    throw new Error(response.error || 'Failed to stop agent run');
   }
 }
 
 export async function deleteRun(runId: string): Promise<void> {
-  const response = await apiRequest<ApiResponse<null>>(`/api/agent-runs/${runId}`, {
+  const response = await apiRequest<{ deleted: boolean }>(`/api/agent-runs/${runId}`, {
     method: 'DELETE',
   });
 
-  if (!response.success || !response.data?.success) {
-    throw new Error(response.data?.error || response.error || 'Failed to delete agent run');
+  if (!response.success) {
+    throw new Error(response.error || 'Failed to delete agent run');
   }
 }

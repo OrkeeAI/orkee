@@ -20,9 +20,7 @@ export default function AgentRuns() {
     setLoading(true)
     setError(null)
     try {
-      const result = await listRuns()
-      // listRuns returns PaginatedResponse; extract items
-      const items = Array.isArray(result) ? result : (result as { items?: AgentRun[] }).items || []
+      const items = await listRuns()
       setRuns(items)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load runs')

@@ -176,10 +176,21 @@ export function useAgentRunEvents(runId: string | null) {
     };
   }, [runId, appendEvent]);
 
+  const refetchRun = useCallback(async () => {
+    if (!runId) return;
+    try {
+      const currentRun = await getRun(runId);
+      setRun(currentRun);
+    } catch (error) {
+      if (DEBUG) console.error('[AgentRunSSE] Failed to refetch run:', error);
+    }
+  }, [runId]);
+
   return {
     events,
     connectionMode,
     isConnected: connectionMode === 'sse' || connectionMode === 'polling',
     run,
+    refetchRun,
   };
 }
