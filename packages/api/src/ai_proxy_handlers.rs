@@ -8,7 +8,7 @@ use axum::{
     response::IntoResponse,
 };
 use reqwest::Client;
-use tracing::{error, info, warn};
+use tracing::{debug, error, trace, warn};
 use url::Url;
 
 use super::auth::CurrentUser;
@@ -155,14 +155,14 @@ async fn try_get_oauth_token(db: &DbState, user_id: &str, provider: &str) -> Opt
     // Try to get valid OAuth token
     match manager.get_token(user_id, oauth_provider).await {
         Ok(Some(token)) => {
-            info!(
+            debug!(
                 "Found valid OAuth token for {} (expires: {})",
                 provider, token.expires_at
             );
             Some(token.access_token)
         }
         Ok(None) => {
-            info!("No valid OAuth token found for {}", provider);
+            debug!("No valid OAuth token found for {}", provider);
             None
         }
         Err(e) => {
@@ -237,16 +237,16 @@ async fn proxy_ai_request(
     base_url: &str,
     req: Request<Body>,
 ) -> Response<Body> {
-    info!("Proxying {} API request", provider);
+    debug!("Proxying {} API request", provider);
 
     // Try OAuth token first, then fall back to API key
     let api_key = match try_get_oauth_token(db, user_id, provider).await {
         Some(token) => {
-            info!("Using OAuth token for {} provider", provider);
+            debug!("Using OAuth token for {} provider", provider);
             token
         }
         None => {
-            info!(
+            debug!(
                 "No OAuth token found, trying API key for {} provider",
                 provider
             );
@@ -311,7 +311,7 @@ async fn proxy_ai_request(
         );
     }
 
-    info!("Forwarding to: {}", target_url);
+    debug!("Forwarding to: {}", target_url);
 
     // Create HTTP client
     // With the gzip, brotli, and deflate Cargo features enabled,
@@ -370,11 +370,6 @@ async fn proxy_ai_request(
         }
     };
 
-    // Debug: Log the request body to see what model is being sent
-    if let Ok(body_str) = std::str::from_utf8(&body_bytes) {
-        info!("Request body: {}", body_str);
-    }
-
     // Validate request body size
     if body_bytes.len() > MAX_REQUEST_SIZE {
         error!(
@@ -389,7 +384,7 @@ async fn proxy_ai_request(
     }
 
     // Build the request to the AI provider
-    info!(
+    debug!(
         "Building proxy request - body size: {} bytes",
         body_bytes.len()
     );
@@ -398,7 +393,6 @@ async fn proxy_ai_request(
         .body(body_bytes.to_vec());
 
     // Copy relevant headers (exclude host, connection, browser-specific headers, etc.)
-    info!("Copying request headers (excluding auth and browser-specific headers)");
     for (key, value) in headers.iter() {
         let key_str = key.as_str().to_lowercase();
         if !matches!(
@@ -418,12 +412,7 @@ async fn proxy_ai_request(
                 | "sec-ch-ua-mobile"
                 | "sec-ch-ua-platform"
         ) {
-            if let Ok(val_str) = value.to_str() {
-                info!("  Copying header: {} = {}", key_str, val_str);
-            }
             proxy_req = proxy_req.header(key, value);
-        } else {
-            info!("  Excluding header: {}", key_str);
         }
     }
 
@@ -431,14 +420,9 @@ async fn proxy_ai_request(
     proxy_req = proxy_req.header("User-Agent", "Orkee/1.0");
 
     // Add the API key header and provider-specific headers
-    info!("Adding provider-specific headers for: {}", provider);
+    debug!("Adding provider-specific headers for: {}", provider);
     proxy_req = match provider {
         "anthropic" => {
-            info!(
-                "  Adding x-api-key: {}...",
-                &api_key[..8.min(api_key.len())]
-            );
-            info!("  Adding anthropic-version: 2023-06-01");
             proxy_req
                 .header("x-api-key", api_key)
                 .header("anthropic-version", "2023-06-01")
@@ -450,10 +434,10 @@ async fn proxy_ai_request(
     };
 
     // Send the request
-    info!("Sending request to {}", target_url);
+    debug!("Sending request to {}", target_url);
     let response = match proxy_req.send().await {
         Ok(resp) => {
-            info!("Request sent successfully");
+            debug!("Request sent successfully");
             resp
         }
         Err(e) => {
@@ -472,19 +456,19 @@ async fn proxy_ai_request(
     // Build response
     let status = response.status();
     let headers = response.headers().clone();
-    info!("Received response with status: {}", status);
-    info!("Response headers:");
+    debug!("Received response with status: {}", status);
+    trace!("Response headers:");
     for (key, value) in headers.iter() {
         if let Ok(val_str) = value.to_str() {
-            info!("  {} = {}", key, val_str);
+            trace!("  {} = {}", key, val_str);
         }
     }
 
     // Read response with size limit
-    info!("Reading response body...");
+    debug!("Reading response body...");
     let body_bytes = match response.bytes().await {
         Ok(bytes) => {
-            info!("Successfully read {} bytes from response", bytes.len());
+            debug!("Successfully read {} bytes from response", bytes.len());
             bytes
         }
         Err(e) => {
@@ -511,7 +495,7 @@ async fn proxy_ai_request(
     }
 
     // Build the final response
-    info!("Building final response with status: {}", status);
+    debug!("Building final response with status: {}", status);
     let mut builder = Response::builder().status(status);
 
     // Copy response headers (excluding hop-by-hop headers)
@@ -533,11 +517,11 @@ async fn proxy_ai_request(
         ) {
             builder = builder.header(key, value);
         } else {
-            info!("  Excluding hop-by-hop header: {}", key_str);
+            trace!("  Excluding hop-by-hop header: {}", key_str);
         }
     }
 
-    info!(
+    debug!(
         "Proxy request completed successfully - returning {} bytes",
         body_bytes.len()
     );

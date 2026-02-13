@@ -1642,9 +1642,16 @@ impl PreviewManager {
         }
 
         // Start new process using project configuration
-        let mut cmd = Command::new("sh");
-        cmd.arg("-c")
-            .arg(dev_command)
+        let parts: Vec<&str> = dev_command.split_whitespace().collect();
+        let (cmd_name, cmd_args) = parts.split_first().ok_or_else(|| {
+            PreviewError::ProcessSpawnError {
+                command: dev_command.to_string(),
+                error: "Empty dev command".to_string(),
+            }
+        })?;
+
+        let mut cmd = Command::new(cmd_name);
+        cmd.args(cmd_args)
             .current_dir(project_root)
             .env("PORT", server_info.port.to_string())
             .envs(environment)

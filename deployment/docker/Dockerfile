@@ -2,7 +2,7 @@
 # Builds both the Rust CLI and React dashboard in an optimized container
 
 # Stage 1: Build Rust dependencies (cache layer)
-FROM rust:1.70-slim as rust-deps
+FROM rust:1.85-slim AS rust-deps
 WORKDIR /build
 
 # Install system dependencies
@@ -12,59 +12,86 @@ RUN apt-get update && apt-get install -y \
     ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy dependency manifests
-COPY packages/cli/Cargo.toml packages/cli/Cargo.lock ./packages/cli/
+# Copy workspace and dependency manifests
+COPY Cargo.toml Cargo.lock ./
+COPY packages/cli/Cargo.toml ./packages/cli/
 COPY packages/projects/Cargo.toml ./packages/projects/
 COPY packages/tui/Cargo.toml ./packages/tui/
 COPY packages/preview/Cargo.toml ./packages/preview/
-COPY Cargo.toml Cargo.lock ./
+COPY packages/api/Cargo.toml ./packages/api/
+COPY packages/auth/Cargo.toml ./packages/auth/
+COPY packages/core/Cargo.toml ./packages/core/
+COPY packages/storage/Cargo.toml ./packages/storage/
+COPY packages/security/Cargo.toml ./packages/security/
+COPY packages/config/Cargo.toml ./packages/config/
+COPY packages/cloud/Cargo.toml ./packages/cloud/
+COPY packages/ai/Cargo.toml ./packages/ai/
+COPY packages/context/Cargo.toml ./packages/context/
+COPY packages/formatter/Cargo.toml ./packages/formatter/
+COPY packages/git_utils/Cargo.toml ./packages/git_utils/
+COPY packages/tags/Cargo.toml ./packages/tags/
+COPY packages/settings/Cargo.toml ./packages/settings/
+COPY packages/tasks/Cargo.toml ./packages/tasks/
+COPY packages/models/Cargo.toml ./packages/models/
+COPY packages/agents/Cargo.toml ./packages/agents/
+COPY packages/sandbox/Cargo.toml ./packages/sandbox/
+COPY packages/executions/Cargo.toml ./packages/executions/
+COPY packages/ideate/Cargo.toml ./packages/ideate/
+COPY packages/mcp-server/Cargo.toml ./packages/mcp-server/
 
 # Create dummy source files to cache dependencies
-RUN mkdir -p packages/cli/src packages/projects/src packages/tui/src packages/preview/src && \
-    echo "fn main() {}" > packages/cli/src/main.rs && \
-    echo "fn main() {}" > packages/projects/src/lib.rs && \
-    echo "fn main() {}" > packages/tui/src/lib.rs && \
-    echo "fn main() {}" > packages/preview/src/lib.rs
+RUN mkdir -p packages/cli/src/bin \
+    packages/projects/src packages/tui/src packages/preview/src \
+    packages/api/src packages/auth/src packages/core/src \
+    packages/storage/src packages/security/src packages/config/src \
+    packages/cloud/src packages/ai/src packages/context/src \
+    packages/formatter/src packages/git_utils/src packages/tags/src \
+    packages/settings/src packages/tasks/src packages/models/src \
+    packages/agents/src packages/sandbox/src packages/executions/src \
+    packages/ideate/src packages/mcp-server/src && \
+    echo "fn main() {}" > packages/cli/src/bin/orkee.rs && \
+    echo "fn main() {}" > packages/mcp-server/src/main.rs && \
+    for pkg in projects tui preview api auth core storage security config \
+               cloud ai context formatter git_utils tags settings tasks \
+               models agents sandbox executions ideate; do \
+        echo "" > packages/$pkg/src/lib.rs; \
+    done
 
 # Build dependencies (this layer will be cached)
-RUN cd packages/cli && cargo build --release && rm -rf src target/release/deps/orkee*
+RUN cargo build --release --bin orkee && rm -rf packages/*/src
 
 # Stage 2: Build Rust application
-FROM rust-deps as rust-builder
+FROM rust-deps AS rust-builder
 
 # Copy source code
 COPY packages/ ./packages/
 
 # Build the application
-WORKDIR /build/packages/cli
 RUN cargo build --release --bin orkee
 
-# Stage 3: Build Node.js dependencies (cache layer)
-FROM node:18-slim as node-deps
+# Stage 3: Build dashboard dependencies (cache layer)
+FROM oven/bun:1-slim AS node-deps
 WORKDIR /build
 
-# Install pnpm
-RUN npm install -g pnpm@^10.15.1
-
 # Copy package files
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY package.json bun.lock ./
 COPY packages/dashboard/package.json ./packages/dashboard/
 COPY turbo.json ./
 
 # Install dependencies (this layer will be cached)
-RUN pnpm install --frozen-lockfile
+RUN bun install --frozen-lockfile
 
 # Stage 4: Build dashboard
-FROM node-deps as dashboard-builder
+FROM node-deps AS dashboard-builder
 
 # Copy dashboard source
 COPY packages/dashboard ./packages/dashboard
 
 # Build dashboard
-RUN pnpm build --filter=@orkee/dashboard
+RUN bun run build --filter=@orkee/dashboard
 
 # Stage 5: Create final runtime image
-FROM debian:bookworm-slim as runtime
+FROM debian:bookworm-slim AS runtime
 
 # Install runtime dependencies
 RUN apt-get update && apt-get install -y \
