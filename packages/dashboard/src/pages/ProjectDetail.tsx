@@ -224,6 +224,7 @@ export function ProjectDetail() {
         <TabsContent value="specs" className="space-y-4">
           <SpecsTab
             projectId={project.id}
+            projectName={project.name}
             projectPath={project.projectRoot}
             taskSource={project.taskSource || 'manual'}
           />

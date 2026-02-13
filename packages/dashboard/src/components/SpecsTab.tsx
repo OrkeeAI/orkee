@@ -1,21 +1,23 @@
-// ABOUTME: Container component for Specs tab with ideation, PRDs, Epics, Tasks, and coverage
-// ABOUTME: Integrates IdeateTab, PRDView, EpicsTab, TasksTab, and CoverageView
+// ABOUTME: Container component for Specs tab with ideation, PRDs, Epics, Tasks, coverage, and runs
+// ABOUTME: Integrates IdeateTab, PRDView, EpicsTab, TasksTab, CoverageView, and RunsTab
 import { useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { FileText, BarChart, Lightbulb, Layers, ListTodo } from 'lucide-react';
+import { FileText, BarChart, Lightbulb, Layers, ListTodo, Bot } from 'lucide-react';
 import { IdeateTab } from '@/components/specs/IdeateTab';
 import { PRDView } from '@/components/specs/PRDView';
 import { EpicsTab } from '@/components/epics/EpicsTab';
 import { TasksTab } from '@/components/TasksTab';
 import { CoverageView } from '@/components/specs/CoverageView';
+import { RunsTab } from '@/components/specs/RunsTab';
 
 interface SpecsTabProps {
   projectId: string;
+  projectName: string;
   projectPath: string;
   taskSource: string;
 }
 
-export function SpecsTab({ projectId, projectPath, taskSource }: SpecsTabProps) {
+export function SpecsTab({ projectId, projectName, projectPath, taskSource }: SpecsTabProps) {
   const [activeTab, setActiveTab] = useState('ideate');
 
   return (
@@ -41,6 +43,10 @@ export function SpecsTab({ projectId, projectPath, taskSource }: SpecsTabProps) 
           <BarChart className="h-4 w-4" />
           Coverage
         </TabsTrigger>
+        <TabsTrigger value="runs" className="flex items-center gap-2">
+          <Bot className="h-4 w-4" />
+          Runs
+        </TabsTrigger>
       </TabsList>
 
       <TabsContent value="ideate" className="space-y-4">
@@ -48,7 +54,7 @@ export function SpecsTab({ projectId, projectPath, taskSource }: SpecsTabProps) 
       </TabsContent>
 
       <TabsContent value="prds" className="space-y-4">
-        <PRDView projectId={projectId} />
+        <PRDView projectId={projectId} projectName={projectName} />
       </TabsContent>
 
       <TabsContent value="epics" className="space-y-4">
@@ -61,6 +67,10 @@ export function SpecsTab({ projectId, projectPath, taskSource }: SpecsTabProps) 
 
       <TabsContent value="coverage" className="space-y-4">
         <CoverageView projectId={projectId} />
+      </TabsContent>
+
+      <TabsContent value="runs" className="space-y-4">
+        <RunsTab projectId={projectId} />
       </TabsContent>
     </Tabs>
   );

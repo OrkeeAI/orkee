@@ -94,11 +94,13 @@ export async function listRuns(
   projectId?: string,
   status?: AgentRunStatus,
   pagination?: PaginationParams,
+  prdId?: string,
 ): Promise<AgentRun[]> {
   const query = pagination ? buildPaginationQuery(pagination) : '';
 
   const params = new URLSearchParams(query ? query.replace('?', '') : '');
   if (projectId) params.set('project_id', projectId);
+  if (prdId) params.set('prd_id', prdId);
   if (status) params.set('status', status);
 
   const qs = params.toString();

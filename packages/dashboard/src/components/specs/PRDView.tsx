@@ -1,29 +1,38 @@
 // ABOUTME: PRD management view displaying list of PRDs with metadata and content
-// ABOUTME: Integrates with PRDUploadDialog for creating/analyzing PRDs
-import { useState } from 'react';
-import { FileText, Upload, Sparkles, Trash2, Calendar, User, Layers, ExternalLink, AlertTriangle } from 'lucide-react';
+// ABOUTME: Integrates with PRDUploadDialog and RunAgentDialog for creating, analyzing, and executing PRDs
+import { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { FileText, Upload, Sparkles, Trash2, Calendar, User, Layers, ExternalLink, AlertTriangle, Bot } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Progress } from '@/components/ui/progress';
 import { Separator } from '@/components/ui/separator';
 import { MarkdownRenderer } from '@/components/MarkdownRenderer';
+import { RunStatusBadge } from '@/components/agent-runs/RunStatusBadge';
+import { RunAgentDialog } from '@/components/agent-runs/RunAgentDialog';
 import { usePRDs, useDeletePRD, useTriggerPRDAnalysis } from '@/hooks/usePRDs';
 import { useSpecs } from '@/hooks/useSpecs';
 import { useCurrentUser } from '@/hooks/useUsers';
 import { useModelPreferences } from '@/services/model-preferences';
 import { PRDUploadDialog } from '@/components/PRDUploadDialog';
+import { listRuns, type AgentRun } from '@/services/agent-runs';
 import type { PRD, PRDAnalysisResult } from '@/services/prds';
 
 interface PRDViewProps {
   projectId: string;
+  projectName: string;
   onViewSpecs?: (prdId: string) => void;
 }
 
-export function PRDView({ projectId, onViewSpecs }: PRDViewProps) {
+export function PRDView({ projectId, projectName, onViewSpecs }: PRDViewProps) {
+  const navigate = useNavigate();
   const [selectedPRD, setSelectedPRD] = useState<PRD | null>(null);
   const [showUploadDialog, setShowUploadDialog] = useState(false);
+  const [showRunDialog, setShowRunDialog] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<PRDAnalysisResult | null>(null);
+  const [prdRuns, setPrdRuns] = useState<AgentRun[]>([]);
 
   const { data: prds, isLoading, error } = usePRDs(projectId);
   const { data: allSpecs } = useSpecs(projectId);
@@ -31,6 +40,24 @@ export function PRDView({ projectId, onViewSpecs }: PRDViewProps) {
   const { data: preferences } = useModelPreferences(currentUser?.id || '');
   const deletePRDMutation = useDeletePRD(projectId);
   const analyzePRDMutation = useTriggerPRDAnalysis(projectId);
+
+  // Load runs linked to the selected PRD
+  const loadPrdRuns = useCallback(async (prdId: string) => {
+    try {
+      const runs = await listRuns(projectId, undefined, undefined, prdId);
+      setPrdRuns(runs);
+    } catch {
+      setPrdRuns([]);
+    }
+  }, [projectId]);
+
+  useEffect(() => {
+    if (selectedPRD) {
+      loadPrdRuns(selectedPRD.id);
+    } else {
+      setPrdRuns([]);
+    }
+  }, [selectedPRD, loadPrdRuns]);
 
   // Count specs for each PRD
   const getSpecCountForPRD = (prdId: string) => {
@@ -221,6 +248,15 @@ export function PRDView({ projectId, onViewSpecs }: PRDViewProps) {
                       <Button
                         variant="outline"
                         size="sm"
+                        onClick={() => setShowRunDialog(true)}
+                        disabled={selectedPRD.status === 'superseded'}
+                      >
+                        <Bot className="mr-2 h-4 w-4" />
+                        Run Agent
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
                         onClick={() => handleAnalyzeClick(selectedPRD.id)}
                         disabled={analyzePRDMutation.isPending || !preferences}
                       >
@@ -299,6 +335,41 @@ export function PRDView({ projectId, onViewSpecs }: PRDViewProps) {
                 <CardContent className="pt-6">
                   <MarkdownRenderer content={selectedPRD.contentMarkdown} />
                 </CardContent>
+
+                {/* Run history for this PRD */}
+                {prdRuns.length > 0 && (
+                  <>
+                    <Separator />
+                    <CardContent className="pt-4">
+                      <h4 className="text-sm font-medium mb-3">Agent Runs ({prdRuns.length})</h4>
+                      <div className="space-y-2">
+                        {prdRuns.map(run => {
+                          const progress = run.storiesTotal > 0
+                            ? (run.storiesCompleted / run.storiesTotal) * 100
+                            : 0;
+                          return (
+                            <div
+                              key={run.id}
+                              className="flex items-center gap-3 rounded-md border p-3 cursor-pointer hover:bg-accent/50 transition-colors"
+                              onClick={() => navigate(`/agent-runs/${run.id}`)}
+                            >
+                              <RunStatusBadge status={run.status} />
+                              <div className="flex-1 min-w-0">
+                                <div className="text-sm">
+                                  {run.storiesCompleted}/{run.storiesTotal} stories
+                                </div>
+                                <Progress value={progress} className="h-1.5 mt-1" />
+                              </div>
+                              <span className="text-xs text-muted-foreground shrink-0">
+                                ${run.totalCost.toFixed(2)}
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </CardContent>
+                  </>
+                )}
               </Card>
             ) : (
               <Card className="h-full flex items-center justify-center">
@@ -326,6 +397,16 @@ export function PRDView({ projectId, onViewSpecs }: PRDViewProps) {
           }
         }}
       />
+
+      {selectedPRD && (
+        <RunAgentDialog
+          projectId={projectId}
+          projectName={projectName}
+          prd={selectedPRD}
+          open={showRunDialog}
+          onOpenChange={setShowRunDialog}
+        />
+      )}
     </div>
   );
 }

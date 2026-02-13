@@ -149,6 +149,7 @@ pub struct StartRunRequest {
 #[derive(Deserialize)]
 pub struct ListRunsQuery {
     pub project_id: Option<String>,
+    pub prd_id: Option<String>,
     pub status: Option<String>,
 }
 
@@ -313,6 +314,10 @@ pub async fn list_runs(
     if let Some(ref project_id) = query.project_id {
         sql.push_str(" AND project_id = ?");
         binds.push(project_id.clone());
+    }
+    if let Some(ref prd_id) = query.prd_id {
+        sql.push_str(" AND prd_id = ?");
+        binds.push(prd_id.clone());
     }
     if let Some(ref status) = query.status {
         sql.push_str(" AND status = ?");

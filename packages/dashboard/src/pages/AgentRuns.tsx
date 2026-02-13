@@ -3,12 +3,13 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
 import { RunStatusBadge } from '@/components/agent-runs/RunStatusBadge'
 import { listRuns, type AgentRun } from '@/services/agent-runs'
-import { RefreshCw, Plus } from 'lucide-react'
+import { RefreshCw, Plus, Bot } from 'lucide-react'
 
 export default function AgentRuns() {
   const navigate = useNavigate()
@@ -45,7 +46,10 @@ export default function AgentRuns() {
             <RefreshCw className={`h-4 w-4 mr-1 ${loading ? 'animate-spin' : ''}`} />
             Refresh
           </Button>
-          <Button size="sm" onClick={() => navigate('/agent-runs/new')}>
+          <Button size="sm" onClick={() => {
+            toast.info('Select a PRD from a project\'s Plan tab to start a run')
+            navigate('/projects')
+          }}>
             <Plus className="h-4 w-4 mr-1" />
             New Run
           </Button>
@@ -61,10 +65,13 @@ export default function AgentRuns() {
       {!loading && runs.length === 0 && !error && (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12">
-            <p className="text-muted-foreground mb-4">No agent runs yet</p>
-            <Button onClick={() => navigate('/agent-runs/new')}>
-              <Plus className="h-4 w-4 mr-1" />
-              Start your first run
+            <Bot className="h-12 w-12 text-muted-foreground mb-4" />
+            <p className="text-muted-foreground mb-2">No agent runs yet</p>
+            <p className="text-sm text-muted-foreground mb-4">
+              Open a project, go to Plan &rarr; PRDs, and click &ldquo;Run Agent&rdquo; to start.
+            </p>
+            <Button variant="outline" onClick={() => navigate('/projects')}>
+              Go to Projects
             </Button>
           </CardContent>
         </Card>
