@@ -73,6 +73,16 @@ export type RunEvent =
   | { type: 'pr_merged'; pr_number: number }
   | { type: 'story_completed'; story_id: string; passed: number; total: number };
 
+// ── Transforms ───────────────────────────────────────────────────────────
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function parseRun(raw: any): AgentRun {
+  return {
+    ...raw,
+    prdJson: typeof raw.prdJson === 'string' ? JSON.parse(raw.prdJson) : raw.prdJson,
+  };
+}
+
 // ── Service ────────────────────────────────────────────────────────────────
 // apiRequest already unwraps the {success, data, error} envelope from the API,
 // so we access response.data directly as the payload.
@@ -87,7 +97,7 @@ export async function startRun(input: StartRunInput): Promise<AgentRun> {
     throw new Error(response.error || 'Failed to start agent run');
   }
 
-  return response.data;
+  return parseRun(response.data);
 }
 
 export async function listRuns(
@@ -112,7 +122,7 @@ export async function listRuns(
     throw new Error(response.error || 'Failed to list agent runs');
   }
 
-  return response.data;
+  return response.data.map(parseRun);
 }
 
 export async function getRun(runId: string): Promise<AgentRun> {
@@ -122,7 +132,7 @@ export async function getRun(runId: string): Promise<AgentRun> {
     throw new Error(response.error || 'Failed to get agent run');
   }
 
-  return response.data;
+  return parseRun(response.data);
 }
 
 export async function stopRun(runId: string): Promise<void> {
