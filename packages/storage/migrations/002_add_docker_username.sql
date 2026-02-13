@@ -1,4 +1,4 @@
 -- Add docker_username field to sandbox_settings
--- This stores the Docker Hub username for building and pushing images
-
-ALTER TABLE sandbox_settings ADD COLUMN docker_username TEXT;
+-- NOTE: This column is already included in 001_initial_schema.sql.
+-- This migration is kept as a no-op for migration version ordering.
+SELECT 1;

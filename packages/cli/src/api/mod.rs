@@ -363,6 +363,10 @@ pub async fn create_router_with_options(
             orkee_api::create_sandbox_router().with_state(db_state.clone()),
         )
         .nest(
+            "/api/agent-runs",
+            orkee_api::create_agent_runs_router(db_state.clone()),
+        )
+        .nest(
             "/api/sandboxes",
             orkee_api::create_sandboxes_router().with_state(db_state.clone()),
         )

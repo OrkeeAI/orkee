@@ -8,6 +8,7 @@ import {
   FileText,
   Activity,
   Box,
+  Play,
 } from "lucide-react"
 
 import { NavMain } from "@/components/nav-main"
@@ -47,6 +48,11 @@ const data = {
       title: "Sandboxes",
       url: "/sandboxes",
       icon: Box,
+    },
+    {
+      title: "Agent Runs",
+      url: "/agent-runs",
+      icon: Play,
     },
     {
       title: "Usage",

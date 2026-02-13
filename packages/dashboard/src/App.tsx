@@ -25,6 +25,8 @@ const SettingsBase = lazy(() => import('@/pages/Settings'))
 const TemplatesBase = lazy(() => import('@/pages/Templates'))
 const UsageBase = lazy(() => import('@/pages/Usage'))
 const SandboxesBase = lazy(() => import('@/pages/Sandboxes'))
+const AgentRunsBase = lazy(() => import('@/pages/AgentRuns'))
+const AgentRunDetailBase = lazy(() => import('@/pages/AgentRunDetail'))
 const OAuthCallback = lazy(() => import('@/pages/OAuthCallback'))
 
 // Wrap page components with telemetry tracking
@@ -34,6 +36,8 @@ const Settings = withPageTracking(SettingsBase, 'settings')
 const Templates = withPageTracking(TemplatesBase, 'templates')
 const Usage = withPageTracking(UsageBase, 'usage')
 const Sandboxes = withPageTracking(SandboxesBase, 'sandboxes')
+const AgentRuns = withPageTracking(AgentRunsBase, 'agent_runs')
+const AgentRunDetail = withPageTracking(AgentRunDetailBase, 'agent_run_detail')
 
 // Loading fallback component
 function PageLoader() {
@@ -122,6 +126,8 @@ function AppWithTelemetry() {
                   <Route path="/projects/:id" element={<ProjectDetail />} />
                   <Route path="/templates" element={<Templates />} />
                   <Route path="/sandboxes" element={<Sandboxes />} />
+                  <Route path="/agent-runs" element={<AgentRuns />} />
+                  <Route path="/agent-runs/:id" element={<AgentRunDetail />} />
                   <Route path="/usage" element={<Usage />} />
                   <Route path="/settings" element={<Settings />} />
                 </Routes>
