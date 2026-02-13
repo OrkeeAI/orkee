@@ -77,10 +77,13 @@ export type RunEvent =
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function parseRun(raw: any): AgentRun {
-  return {
-    ...raw,
-    prdJson: typeof raw.prdJson === 'string' ? JSON.parse(raw.prdJson) : raw.prdJson,
-  };
+  let prdJson = raw.prdJson;
+  // Backend may double-stringify: String field in Rust gets JSON-escaped on serialize,
+  // and the DB value itself may already be a JSON string. Loop until we get an object.
+  while (typeof prdJson === 'string') {
+    try { prdJson = JSON.parse(prdJson); } catch { break; }
+  }
+  return { ...raw, prdJson };
 }
 
 // ── Service ────────────────────────────────────────────────────────────────
