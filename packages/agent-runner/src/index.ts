@@ -6,7 +6,17 @@ import { resolve } from "node:path";
 import { parseArgs } from "node:util";
 import { runLoop } from "./loop.js";
 import { emit, log } from "./events.js";
+import { readPrd } from "./prd.js";
 import type { RunConfig } from "./types.js";
+
+let currentRunId: string | undefined;
+
+function validatePath(path: string, label: string): void {
+  if (!existsSync(path)) {
+    log(`Error: ${label} does not exist: ${path}`);
+    process.exit(1);
+  }
+}
 
 function printUsage(): void {
   log(
@@ -44,24 +54,16 @@ async function main(): Promise<void> {
   const projectDir = resolve(values["project-dir"]);
   const prdPath = resolve(values.prd);
   const runId = values["run-id"];
+  currentRunId = runId;
   const maxIterations = parseInt(values["max-iterations"] ?? "10", 10);
   const systemPromptPath = values["system-prompt"]
     ? resolve(values["system-prompt"])
     : undefined;
 
   // Validate paths exist
-  if (!existsSync(projectDir)) {
-    log(`Error: project directory does not exist: ${projectDir}`);
-    process.exit(1);
-  }
-  if (!existsSync(prdPath)) {
-    log(`Error: PRD file does not exist: ${prdPath}`);
-    process.exit(1);
-  }
-  if (systemPromptPath && !existsSync(systemPromptPath)) {
-    log(`Error: system prompt file does not exist: ${systemPromptPath}`);
-    process.exit(1);
-  }
+  validatePath(projectDir, "project directory");
+  validatePath(prdPath, "PRD file");
+  if (systemPromptPath) validatePath(systemPromptPath, "system prompt file");
   if (isNaN(maxIterations) || maxIterations < 1) {
     log("Error: --max-iterations must be a positive integer");
     process.exit(1);
@@ -84,6 +86,13 @@ async function main(): Promise<void> {
     systemPromptPath,
   };
 
+  // Validate PRD contents before starting
+  const prd = readPrd(prdPath);
+  if (!prd.userStories?.length) {
+    emit({ type: "run_failed", run_id: runId, error: "PRD contains no user stories" });
+    process.exit(1);
+  }
+
   log(`Starting agent runner: ${JSON.stringify({ runId, projectDir, prdPath, maxIterations })}`);
 
   try {
@@ -99,5 +108,22 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 }
+
+function handleTermination(signal: string): void {
+  if (currentRunId) {
+    emit({ type: "run_failed", run_id: currentRunId, error: `Process terminated by ${signal}` });
+  }
+  process.exit(1);
+}
+
+process.on("SIGTERM", () => handleTermination("SIGTERM"));
+process.on("SIGINT", () => handleTermination("SIGINT"));
+process.on("uncaughtException", (err) => {
+  log(`Uncaught exception: ${err.message}`);
+  if (currentRunId) {
+    emit({ type: "run_failed", run_id: currentRunId, error: `Uncaught exception: ${err.message}` });
+  }
+  process.exit(1);
+});
 
 main();

@@ -24,7 +24,10 @@ export async function runLoop(config: RunConfig): Promise<void> {
   let storiesCompletedThisRun = 0;
   const runStart = Date.now();
 
+  let actualIterations = 0;
+
   for (let i = 0; i < config.maxIterations; i++) {
+    actualIterations++;
     // Re-read PRD each iteration (agent may have updated it)
     prd = readPrd(config.prdPath);
     const nextStory = pickNextStory(prd);
@@ -88,12 +91,13 @@ export async function runLoop(config: RunConfig): Promise<void> {
             break;
           }
           case "result": {
-            if ("total_cost_usd" in message) {
-              iterationCost = message.total_cost_usd ?? 0;
+            if ("total_cost_usd" in message && typeof message.total_cost_usd === "number") {
+              iterationCost = message.total_cost_usd;
             }
             if (message.subtype !== "success") {
-              const errors =
-                "errors" in message ? (message.errors as string[]).join("; ") : "Unknown error";
+              const errors = "errors" in message && Array.isArray(message.errors)
+                ? message.errors.map(String).join("; ")
+                : "Unknown error";
               log(`Iteration failed: ${errors}`);
               emit({
                 type: "iteration_failed",
@@ -152,7 +156,7 @@ export async function runLoop(config: RunConfig): Promise<void> {
     log(`Run complete! All ${finalProgress.total} stories done.`);
   } else {
     log(
-      `Run finished after ${config.maxIterations} iterations. ` +
+      `Run finished after ${actualIterations} iterations. ` +
         `${finalProgress.completed}/${finalProgress.total} stories complete.`,
     );
   }

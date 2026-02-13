@@ -10,7 +10,12 @@ import { log } from "./events.js";
  */
 export function readPrd(path: string): PrdJson {
   const raw = readFileSync(path, "utf-8");
-  return JSON.parse(raw) as PrdJson;
+  try {
+    return JSON.parse(raw) as PrdJson;
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    throw new Error(`Failed to parse PRD at ${path}: ${message}`);
+  }
 }
 
 /**

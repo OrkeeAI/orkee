@@ -66,8 +66,10 @@ function extractDetail(toolName: string, toolInput: Record<string, unknown>): st
 export const postToolUseHook: HookCallback = async (input) => {
   if (input.hook_event_name !== "PostToolUse") return {};
 
-  const toolName = (input as { tool_name: string }).tool_name;
-  const toolInput = (input as { tool_input: Record<string, unknown> }).tool_input ?? {};
+  const toolName = "tool_name" in input && typeof input.tool_name === "string" ? input.tool_name : "unknown";
+  const toolInput = "tool_input" in input && typeof input.tool_input === "object" && input.tool_input !== null
+    ? (input.tool_input as Record<string, unknown>)
+    : {};
 
   // Track count
   toolCounts[toolName] = (toolCounts[toolName] ?? 0) + 1;
