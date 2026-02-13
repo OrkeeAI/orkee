@@ -8,6 +8,7 @@ use axum::{
 
 use orkee_projects::DbState;
 
+pub mod agent_runs_handlers;
 pub mod agents_handlers;
 pub mod ai_proxy_handlers;
 pub mod ai_usage_log_handlers;
@@ -850,6 +851,20 @@ pub fn create_sandbox_router() -> Router<DbState> {
             "/providers/{provider}",
             delete(sandbox_handlers::delete_provider_settings),
         )
+}
+
+/// Creates the Agent Runs API router for autonomous agent management
+pub fn create_agent_runs_router(db: DbState) -> Router {
+    use agent_runs_handlers::AgentRunsState;
+    let state = AgentRunsState::new(db);
+    Router::new()
+        .route("/", post(agent_runs_handlers::start_run))
+        .route("/", get(agent_runs_handlers::list_runs))
+        .route("/{id}", get(agent_runs_handlers::get_run))
+        .route("/{id}/stop", post(agent_runs_handlers::stop_run))
+        .route("/{id}/events", get(agent_runs_handlers::run_events))
+        .route("/{id}", delete(agent_runs_handlers::delete_run))
+        .with_state(state)
 }
 
 /// Creates the Sandbox Instances API router (mounted at /api/sandboxes)
