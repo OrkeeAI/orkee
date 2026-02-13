@@ -184,12 +184,12 @@ export function PRDView({ projectId, projectName }: PRDViewProps) {
                     <CardTitle className="text-sm font-medium line-clamp-1">{prd.title}</CardTitle>
                     {getStatusBadge(prd.status)}
                   </div>
-                  <CardDescription className="text-xs">
+                  <div className="text-xs text-muted-foreground">
                     <div className="flex items-center gap-2 mt-1">
                       {getSourceBadge(prd.source)}
                       <span>v{prd.version}</span>
                     </div>
-                  </CardDescription>
+                  </div>
                 </CardHeader>
                 <CardContent className="pb-3">
                   <div className="space-y-1 text-xs text-muted-foreground">
