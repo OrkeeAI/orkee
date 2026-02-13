@@ -37,12 +37,11 @@ jobs:
           # Install at root level to populate root node_modules (required for workspace)
           bun install
 
-      # NOTE: bun audit temporarily disabled - esbuild dev vulnerability doesn't affect production
-      # TODO: Update esbuild and re-enable audit
-      # - name: Run Bun security audit
-      #   run: |
-      #     cd packages/dashboard
-      #     bun audit
+      - name: Audit frontend dependencies
+        run: |
+          cd packages/dashboard
+          bun audit --level high
+        continue-on-error: true
 
   build:
     name: Build - ${{ matrix.platform.name }}
