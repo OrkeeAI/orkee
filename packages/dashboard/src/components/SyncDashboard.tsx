@@ -3,7 +3,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   RefreshCw,
@@ -11,14 +10,11 @@ import {
   CheckCircle2,
   Clock,
   Link as LinkIcon,
-  FileText,
   Loader2,
   GitBranch,
-  TrendingUp,
 } from 'lucide-react';
 import { useOrphanTasks } from '@/hooks/useTaskSpecLinks';
 import { usePRDs, useSyncSpecsToPRD } from '@/hooks/usePRDs';
-import { useSpecs } from '@/hooks/useSpecs';
 
 interface SyncDashboardProps {
   projectId: string;
@@ -29,7 +25,6 @@ export function SyncDashboard({ projectId }: SyncDashboardProps) {
 
   const { data: orphanData, isLoading: orphansLoading, refetch: refetchOrphans } = useOrphanTasks(projectId);
   const { data: prds = [], isLoading: prdsLoading } = usePRDs(projectId);
-  const { data: specs = [], isLoading: specsLoading } = useSpecs(projectId);
   const syncSpecsMutation = useSyncSpecsToPRD(projectId);
 
   const orphanTasks = orphanData?.orphanTasks || [];
@@ -66,7 +61,7 @@ export function SyncDashboard({ projectId }: SyncDashboardProps) {
       </div>
 
       {/* Summary Stats */}
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-2">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Orphan Tasks</CardTitle>
@@ -80,17 +75,6 @@ export function SyncDashboard({ projectId }: SyncDashboardProps) {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Active Specs</CardTitle>
-            <FileText className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{specs.filter(s => s.status === 'active').length}</div>
-            <p className="text-xs text-muted-foreground">Total capabilities</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">PRDs</CardTitle>
             <GitBranch className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
@@ -99,24 +83,11 @@ export function SyncDashboard({ projectId }: SyncDashboardProps) {
             <p className="text-xs text-muted-foreground">Requirements documents</p>
           </CardContent>
         </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Coverage</CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {specs.length > 0 ? Math.round((specs.reduce((sum, s) => sum + s.requirementCount, 0) / specs.length)) : 0}
-            </div>
-            <p className="text-xs text-muted-foreground">Avg requirements/spec</p>
-          </CardContent>
-        </Card>
       </div>
 
       {/* Main Content Tabs */}
       <Tabs value={selectedTab} onValueChange={setSelectedTab}>
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="orphans">
             Orphan Tasks
             {orphanCount > 0 && (
@@ -126,7 +97,6 @@ export function SyncDashboard({ projectId }: SyncDashboardProps) {
             )}
           </TabsTrigger>
           <TabsTrigger value="sync">PRD Sync Status</TabsTrigger>
-          <TabsTrigger value="specs">Spec Overview</TabsTrigger>
         </TabsList>
 
         {/* Orphan Tasks Tab */}
@@ -205,11 +175,7 @@ export function SyncDashboard({ projectId }: SyncDashboardProps) {
                 </Alert>
               ) : (
                 <div className="space-y-3">
-                  {prds.map((prd) => {
-                    const linkedSpecs = specs.filter(s => s.prdId === prd.id);
-                    const totalRequirements = linkedSpecs.reduce((sum, s) => sum + s.requirementCount, 0);
-
-                    return (
+                  {prds.map((prd) => (
                       <div
                         key={prd.id}
                         className="flex items-start justify-between gap-4 rounded-lg border p-4"
@@ -224,14 +190,6 @@ export function SyncDashboard({ projectId }: SyncDashboardProps) {
                           </div>
                           <div className="flex items-center gap-4 text-sm text-muted-foreground">
                             <span className="flex items-center gap-1">
-                              <FileText className="h-3 w-3" />
-                              {linkedSpecs.length} spec{linkedSpecs.length !== 1 ? 's' : ''}
-                            </span>
-                            <span className="flex items-center gap-1">
-                              <CheckCircle2 className="h-3 w-3" />
-                              {totalRequirements} requirement{totalRequirements !== 1 ? 's' : ''}
-                            </span>
-                            <span className="flex items-center gap-1">
                               <Clock className="h-3 w-3" />
                               Updated {new Date(prd.updatedAt).toLocaleDateString()}
                             </span>
@@ -240,7 +198,7 @@ export function SyncDashboard({ projectId }: SyncDashboardProps) {
                         <Button
                           size="sm"
                           onClick={() => handleSyncToPRD(prd.id)}
-                          disabled={syncSpecsMutation.isPending || linkedSpecs.length === 0}
+                          disabled={syncSpecsMutation.isPending}
                         >
                           {syncSpecsMutation.isPending ? (
                             <>
@@ -250,13 +208,12 @@ export function SyncDashboard({ projectId }: SyncDashboardProps) {
                           ) : (
                             <>
                               <RefreshCw className="mr-2 h-4 w-4" />
-                              Sync Specs to PRD
+                              Sync to PRD
                             </>
                           )}
                         </Button>
                       </div>
-                    );
-                  })}
+                    ))}
                 </div>
               )}
             </CardContent>
@@ -285,75 +242,6 @@ export function SyncDashboard({ projectId }: SyncDashboardProps) {
           )}
         </TabsContent>
 
-        {/* Spec Overview Tab */}
-        <TabsContent value="specs" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Spec Capabilities Overview</CardTitle>
-              <CardDescription>
-                View all spec capabilities and their current status.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {specsLoading ? (
-                <div className="flex items-center justify-center py-8">
-                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-                </div>
-              ) : specs.length === 0 ? (
-                <Alert>
-                  <AlertTitle>No specs found</AlertTitle>
-                  <AlertDescription>
-                    Create your first spec capability to start defining requirements and generating tasks.
-                  </AlertDescription>
-                </Alert>
-              ) : (
-                <div className="space-y-3">
-                  {specs.map((spec) => (
-                    <div
-                      key={spec.id}
-                      className="rounded-lg border p-4 space-y-2"
-                    >
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <h4 className="font-medium">{spec.name}</h4>
-                          <Badge variant="outline">v{spec.version}</Badge>
-                          <Badge
-                            variant={
-                              spec.status === 'active'
-                                ? 'default'
-                                : spec.status === 'deprecated'
-                                ? 'secondary'
-                                : 'outline'
-                            }
-                          >
-                            {spec.status}
-                          </Badge>
-                        </div>
-                      </div>
-
-                      <p className="text-sm text-muted-foreground line-clamp-2">{spec.purpose}</p>
-
-                      <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                        <span>{spec.requirementCount} requirement{spec.requirementCount !== 1 ? 's' : ''}</span>
-                        <Separator orientation="vertical" className="h-4" />
-                        <span>Updated {new Date(spec.updatedAt).toLocaleDateString()}</span>
-                        {spec.prdId && (
-                          <>
-                            <Separator orientation="vertical" className="h-4" />
-                            <span className="flex items-center gap-1">
-                              <LinkIcon className="h-3 w-3" />
-                              Linked to PRD
-                            </span>
-                          </>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
       </Tabs>
     </div>
   );

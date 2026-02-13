@@ -4,7 +4,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { useSpecs } from '@/hooks/useSpecs';
 import { usePRDs } from '@/hooks/usePRDs';
 import { Loader2, FileText, CheckSquare, Code, Shield } from 'lucide-react';
 
@@ -64,16 +63,13 @@ const DEFAULT_TEMPLATES: Template[] = [
 
 export function ContextTemplates({ projectId, onTemplateApplied }: ContextTemplatesProps) {
   const [selectedTemplate, setSelectedTemplate] = useState<Template>();
-  const [linkedSpec, setLinkedSpec] = useState<string>();
   const [linkedPRD, setLinkedPRD] = useState<string>();
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string>();
 
-  const { data: specsData, isLoading: specsLoading } = useSpecs(projectId);
   const { data: prdsData, isLoading: prdsLoading } = usePRDs(projectId);
 
-  const specs = Array.isArray(specsData) ? specsData : specsData?.items || [];
-  const prds = Array.isArray(prdsData) ? prdsData : prdsData?.items || [];
+  const prds = prdsData || [];
 
   const applyTemplate = async () => {
     if (!selectedTemplate) return;
@@ -91,7 +87,6 @@ export function ContextTemplates({ projectId, onTemplateApplied }: ContextTempla
         body: JSON.stringify({
           template_id: selectedTemplate.id,
           template_type: selectedTemplate.type,
-          spec_id: linkedSpec,
           prd_id: linkedPRD,
           include_patterns: selectedTemplate.includePatterns,
           exclude_patterns: selectedTemplate.excludePatterns,
@@ -118,7 +113,7 @@ export function ContextTemplates({ projectId, onTemplateApplied }: ContextTempla
 
   const canApply = selectedTemplate && (
     selectedTemplate.type === 'task' ||
-    (selectedTemplate.type === 'capability' && linkedSpec) ||
+    selectedTemplate.type === 'capability' ||
     (selectedTemplate.type === 'prd' && linkedPRD) ||
     selectedTemplate.type === 'validation'
   );
@@ -142,8 +137,6 @@ export function ContextTemplates({ projectId, onTemplateApplied }: ContextTempla
               onValueChange={(id) => {
                 const template = DEFAULT_TEMPLATES.find(t => t.id === id);
                 setSelectedTemplate(template);
-                // Reset linked items when template changes
-                setLinkedSpec(undefined);
                 setLinkedPRD(undefined);
               }}
             >
@@ -167,25 +160,6 @@ export function ContextTemplates({ projectId, onTemplateApplied }: ContextTempla
               </SelectContent>
             </Select>
           </div>
-
-          {/* Link to spec capability */}
-          {selectedTemplate?.type === 'capability' && (
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Link to Spec Capability</label>
-              <Select value={linkedSpec} onValueChange={setLinkedSpec}>
-                <SelectTrigger>
-                  <SelectValue placeholder={specsLoading ? "Loading specs..." : "Select a spec capability"} />
-                </SelectTrigger>
-                <SelectContent>
-                  {specs.map((spec: { id: string; name: string }) => (
-                    <SelectItem key={spec.id} value={spec.id}>
-                      {spec.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
 
           {/* Link to PRD */}
           {selectedTemplate?.type === 'prd' && (
